@@ -39,17 +39,18 @@
         try {
             let saved = JSON.parse(localStorage.getItem('apxAppSettings') || 'null');
             if (saved) window.appSettings = Object.assign(window.appSettings, saved);
-            // If the landing page already set a theme, prefer it over the
-            // default 'modern', so navigating from the landing page
-            // respects the selection made there.
-            var landingTheme = localStorage.getItem('apxTheme');
-            if (landingTheme && !saved) window.appSettings.theme = landingTheme;
-            else if (landingTheme && saved && saved.theme === 'modern' && landingTheme !== 'modern')
-                window.appSettings.theme = landingTheme;
+            // apxTheme is the single source of truth for the active theme --
+            // both the landing page and the in-app selector write here, so
+            // there's no merging logic needed; just read it directly.
+            var storedTheme = localStorage.getItem('apxTheme');
+            if (storedTheme) window.appSettings.theme = storedTheme;
         } catch (e) { /* corrupt or inaccessible storage -- fall back to defaults */ }
 
         function apxSaveAppSettings() {
-            try { localStorage.setItem('apxAppSettings', JSON.stringify(window.appSettings)); } catch (e) { /* storage unavailable (private browsing, etc.) -- setting still applies for this session */ }
+            try {
+                localStorage.setItem('apxAppSettings', JSON.stringify(window.appSettings));
+                localStorage.setItem('apxTheme', window.appSettings.theme);
+            } catch (e) { /* storage unavailable (private browsing, etc.) -- setting still applies for this session */ }
         }
         window.setUndoHistorySize = function(val) {
             window.appSettings.undoHistorySize = Math.max(10, parseInt(val) || 60);

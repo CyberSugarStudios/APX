@@ -1,4 +1,4 @@
-const firebaseConfig = {
+const FIREBASE_CONFIG = {
   apiKey: "AIzaSyAb5s_X0ouYEZAJXWZ-3HizAcFW8d1tssc",
   authDomain: "apx-ttrpg.firebaseapp.com",
   projectId: "apx-ttrpg",
