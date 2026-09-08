@@ -129,14 +129,14 @@
         if (user) {
             bar.innerHTML = `
                 <div class="flex items-center gap-3 text-xs">
-                    <span class="text-slate-400">☁️ ${user.email}</span>
+                    <span class="text-slate-400">${user.email}</span>
                     <button onclick="window.apxAuth.signOut().then(() => location.reload())"
                         class="text-slate-500 hover:text-slate-300 transition">Sign Out</button>
                 </div>`;
         } else {
             bar.innerHTML = `
                 <div class="flex items-center gap-2 text-xs">
-                    <a href="index.html" class="text-slate-500 hover:text-slate-300 transition">☁️ Sign in to sync characters</a>
+                    <a href="index.html" class="text-slate-500 hover:text-slate-300 transition">Sign in to sync characters</a>
                 </div>`;
         }
     }

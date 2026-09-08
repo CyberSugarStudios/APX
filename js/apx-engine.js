@@ -695,7 +695,7 @@
                         let flyBlocked = armorClassLocal === 'Heavily' || totWt > calc.carryCap;
                         lines.push(flyBlocked ? 'Fly Speed: 0 (Encumbered/Heavy Armor)' : `Fly Speed: ${walkSpeed}`);
                     }
-                    specialSpeedsEl.innerText = lines.join(', ');
+                    specialSpeedsEl.innerHTML = lines.join('<br>');
                 }
             }
         }
@@ -900,7 +900,7 @@
                             ? `<div class="text-xs font-bold text-slate-300 p-1 h-7 flex items-center" data-tip="Innate weapon names are set when the trait is purchased, in the Ancestry screen.">${w.name}</div>`
                             : `<input type="text" value="${w.name}" onchange="window.updateWeaponName(${idx}, this.value)" placeholder="Weapon Name" class="bg-slate-900 border-slate-700 text-xs font-bold w-full h-7">`}
                         ${forgedWeaponBadge(w)}
-                        ${w.forged ? `<button onclick="window.openWeaponForge(${idx})" class="text-[9px] text-orange-400 hover:text-orange-300 font-bold mt-0.5">🔨 Return to Forge</button>` : ''}
+                        ${w.forged ? `<button onclick="window.openWeaponForge(${idx})" class="text-[9px] text-orange-400 hover:text-orange-300 font-bold mt-0.5">Return to Forge</button>` : ''}
                         ${w.isCustom && opts.editable ? `<input type="text" value="${w.notes || ''}" onchange="window.updateWeaponNotes(${idx}, this.value)" placeholder="Notes (Heavy, Range 20/60, Crit x3...)" class="bg-slate-900 border-slate-700 text-[9px] w-full mt-0.5 px-1 py-0.5">` : ''}
                         ${w.category === 'melee' && w.weightClass === 'medium' ? '<div class="text-[9px] text-slate-500 mt-0.5">1-Handed (2H row below)</div>' : ''}
                         ${cat === 'ranged' && opts.editable ? `<label class="flex items-center gap-1 mt-0.5 cursor-pointer"><input type="checkbox" ${w.aimed ? 'checked' : ''} onchange="window.toggleWeaponAim(${idx}, this.checked)" class="w-3 h-3"><span class="text-[9px] ${w.aimed ? 'text-amber-400 font-bold' : 'text-slate-500'}">Aimed (+PER)</span></label>` : ''}
@@ -965,7 +965,7 @@
                     html += `
                         <tr class="bg-purple-900/20 border-b border-purple-800/50">
                             <td class="px-1 py-2">
-                                <div class="text-xs font-bold text-purple-300">🐾 ${sb.name} (Innate Attack)</div>
+                                <div class="text-xs font-bold text-purple-300">${sb.name} (Innate Attack)</div>
                                 <button onclick="window.openCompanionDetail()" class="text-[9px] text-purple-400 hover:text-purple-300 font-bold">View Stat Block</button>
                             </td>
                             <td class="px-1 py-2 text-center text-[10px] text-slate-400">--</td>
@@ -980,7 +980,7 @@
                         html += `
                             <tr class="bg-purple-900/20 border-b border-purple-800/50">
                                 <td class="px-1 py-2 ${w.isTwoHanded ? 'pl-4' : ''}">
-                                    <div class="text-xs font-bold text-purple-300">${w.isTwoHanded ? '↳ ' : '🐾 ' + sb.name + ' -- '}${w.name}</div>
+                                    <div class="text-xs font-bold text-purple-300">${w.isTwoHanded ? '↳ ' : sb.name + ' -- '}${w.name}</div>
                                     <div class="text-[9px] text-slate-500">${w.typeLabel}${w.attr ? ` (${w.attr})` : ''}</div>
                                     ${w.category === 'ranged' && !w.isTwoHanded ? `<label class="flex items-center gap-1 mt-0.5 cursor-pointer"><input type="checkbox" ${w.aimed ? 'checked' : ''} onchange="window.ncToggleCompanionWeaponAim(${w.weaponIdx}, this.checked)" class="w-3 h-3"><span class="text-[9px] ${w.aimed ? 'text-amber-400 font-bold' : 'text-slate-500'}">Aimed (+PER)</span></label>` : ''}
                                 </td>
@@ -1009,7 +1009,7 @@
                         html += `
                             <tr class="bg-purple-900/10 border-b border-purple-800/50">
                                 <td colspan="7" class="px-2 py-2">
-                                    <div class="text-[9px] font-black text-purple-400 uppercase mb-1">🐾 ${sb.name} -- Power Slots</div>
+                                    <div class="text-[9px] font-black text-purple-400 uppercase mb-1">${sb.name} -- Power Slots</div>
                                     <div class="flex flex-wrap gap-3">${slotsHtml}</div>
                                 </td>
                             </tr>
@@ -1049,7 +1049,7 @@
                         html += `
                             <tr class="bg-purple-900/10 border-b border-purple-800/50">
                                 <td colspan="7" class="px-2 py-2">
-                                    <div class="text-[9px] font-black text-purple-400 uppercase mb-1">🐾 ${sb.name} -- Charges</div>
+                                    <div class="text-[9px] font-black text-purple-400 uppercase mb-1">${sb.name} -- Charges</div>
                                     <div class="flex flex-col gap-1">${chargesHtml}</div>
                                 </td>
                             </tr>
@@ -1177,7 +1177,7 @@
                         <div><span class="text-slate-500">D/H:</span> ${p.dmg}</div>
                     </div>
                     <div class="text-[10px] text-slate-500 leading-tight font-medium">${p.desc}</div>
-                    ${p.draft ? `<button onclick="window.openPowerEditor(${idx})" class="text-[9px] text-purple-400 hover:text-purple-300 font-bold mt-1">🔮 Edit in Power Crafter${p.wasFree ? ' (Free)' : ''}</button>` : ''}
+                    ${p.draft ? `<button onclick="window.openPowerEditor(${idx})" class="text-[9px] text-purple-400 hover:text-purple-300 font-bold mt-1">Edit in Power Crafter${p.wasFree ? ' (Free)' : ''}</button>` : ''}
                 </div>
             `).join('');
             document.getElementById('powersContainer').innerHTML = html;

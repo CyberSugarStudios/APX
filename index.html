@@ -8,8 +8,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/apx-themes.css">
 
-    <!-- Firebase SDK (only active when FIREBASE_ENABLED = true in firebase-config.js) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -17,49 +17,92 @@
     <script src="js/apx-firebase.js"></script>
 
     <style>
-        body {
-            background-color: #0f172a;
-            color: #cbd5e1;
-            font-family: 'Inter', sans-serif;
-        }
-        .auth-panel { transition: all 0.25s ease; }
         input[type="email"], input[type="password"] {
-            background-color: #1e293b;
-            border: 1px solid #334155;
-            color: #e2e8f0;
+            background-color: var(--c-surface, #1e293b);
+            border: 1px solid var(--c-border, #334155);
+            color: var(--c-text, #e2e8f0);
             border-radius: 0.375rem;
             padding: 0.5rem 0.75rem;
             width: 100%;
             font-size: 0.875rem;
-            font-family: 'Inter', sans-serif;
+            font-family: var(--c-font, 'Inter'), sans-serif;
+            transition: all 0.2s;
         }
         input[type="email"]:focus, input[type="password"]:focus {
             outline: none;
-            border-color: #6366f1;
-            box-shadow: 0 0 0 1px #6366f1;
+            border-color: var(--c-indigo, #6366f1);
+            box-shadow: 0 0 0 1px var(--c-indigo, #6366f1);
         }
-        #authError { min-height: 1.5rem; }
+        .launch-card {
+            background: var(--c-surface, #1e293b);
+            border: 1px solid var(--c-border, #334155);
+            border-radius: 0.75rem;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3);
+        }
+        .launch-card:hover { box-shadow: 0 10px 30px -5px rgba(0,0,0,0.5); }
+        .launch-card-player { border-color: var(--c-emerald-dk, #065f46); }
+        .launch-card-player:hover { border-color: var(--c-emerald, #059669); }
+        .launch-card-gm { border-color: var(--c-purple-dk, #581c87); }
+        .launch-card-gm:hover { border-color: var(--c-purple, #9333ea); }
+        .auth-card {
+            background: var(--c-surface, #1e293b);
+            border: 1px solid var(--c-border, #334155);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3);
+        }
+        .card-icon {
+            width: 56px; height: 56px;
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 900; font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .card-icon-player { background: var(--c-emerald-dk, #065f46); color: var(--c-emerald, #34d399); }
+        .card-icon-gm     { background: var(--c-purple-dk, #581c87); color: var(--c-purple, #c084fc); }
+        #authError { min-height: 1.25rem; }
+        .tab-active   { background: var(--c-indigo, #4f46e5); color: #fff; }
+        .tab-inactive { background: var(--c-surface2, #0f172a); color: var(--c-text-muted, #64748b); }
+
+        /* Theme picker swatches */
+        .theme-swatch {
+            width: 18px; height: 18px; border-radius: 50%; cursor: pointer;
+            border: 2px solid transparent; transition: border-color 0.15s, transform 0.15s;
+        }
+        .theme-swatch:hover, .theme-swatch.active { border-color: var(--c-text, #e2e8f0); transform: scale(1.2); }
     </style>
 </head>
-<body class="min-h-screen flex flex-col items-center justify-center p-6">
+<body class="min-h-screen flex flex-col items-center justify-center p-6" style="background: var(--c-page-bg, #0f172a); color: var(--c-text, #cbd5e1); font-family: var(--c-font, 'Inter'), sans-serif;">
 
-    <!-- Main content (auth state toggles between panels) -->
+    <!-- Theme picker (top-right corner) -->
+    <div class="fixed top-3 right-4 flex items-center gap-1.5 z-50">
+        <span style="font-size:10px; color: var(--c-text-muted, #64748b);">Theme</span>
+        <div class="theme-swatch" title="Modern" style="background:#1e293b; border-color:#334155;" onclick="setTheme('modern')"></div>
+        <div class="theme-swatch" title="Fantasy" style="background:#1a1a2e;" onclick="setTheme('fantasy')"></div>
+        <div class="theme-swatch" title="Cyberpunk" style="background:#0d0015;" onclick="setTheme('cyberpunk')"></div>
+        <div class="theme-swatch" title="Futuristic" style="background:#0a1628;" onclick="setTheme('futuristic')"></div>
+        <div class="theme-swatch" title="Kawaii" style="background:#faeef4;" onclick="setTheme('kawaii')"></div>
+    </div>
+
     <div class="max-w-3xl w-full space-y-8 text-center">
 
-        <!-- Title -->
         <div>
-            <h1 class="text-4xl md:text-5xl font-black text-white mb-3 tracking-wider uppercase">APX System Tools</h1>
-            <p id="landingSubtitle" class="text-slate-400 text-lg">Sign in to sync your characters across devices</p>
+            <h1 class="text-4xl md:text-5xl font-black mb-3 tracking-wider uppercase" style="color: var(--c-text, #fff);">APX System Tools</h1>
+            <p id="landingSubtitle" style="color: var(--c-text-muted, #94a3b8);">Sign in to sync your characters across devices</p>
         </div>
 
-        <!-- Auth panel: sign in / sign up / logged in -->
-        <div id="authSignedOut" class="max-w-sm mx-auto auth-panel">
-            <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-xl space-y-4">
+        <!-- Auth panel -->
+        <div id="authSignedOut" class="max-w-sm mx-auto">
+            <div class="auth-card space-y-4">
                 <div class="flex gap-2 mb-2">
-                    <button id="tabSignIn" onclick="showTab('signIn')"
-                        class="flex-1 py-1.5 rounded text-sm font-bold transition bg-indigo-600 text-white">Sign In</button>
-                    <button id="tabSignUp" onclick="showTab('signUp')"
-                        class="flex-1 py-1.5 rounded text-sm font-bold transition bg-slate-700 text-slate-300">Create Account</button>
+                    <button id="tabSignIn" onclick="showTab('signIn')" class="tab-active flex-1 py-1.5 rounded text-sm font-bold transition">Sign In</button>
+                    <button id="tabSignUp" onclick="showTab('signUp')" class="tab-inactive flex-1 py-1.5 rounded text-sm font-bold transition">Create Account</button>
                 </div>
 
                 <div id="panelSignIn">
@@ -69,11 +112,13 @@
                             onkeydown="if(event.key==='Enter') doSignIn()">
                     </div>
                     <button onclick="doSignIn()"
-                        class="w-full mt-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm transition shadow">
+                        class="w-full mt-4 py-2.5 rounded-lg font-bold text-sm transition shadow text-white"
+                        style="background: var(--c-indigo, #4f46e5);">
                         Sign In
                     </button>
                     <button onclick="doForgotPassword()"
-                        class="w-full mt-1 text-[11px] text-slate-500 hover:text-slate-300 transition">
+                        class="w-full mt-1 text-[11px] transition"
+                        style="color: var(--c-text-muted, #64748b);">
                         Forgot password?
                     </button>
                 </div>
@@ -86,62 +131,74 @@
                             onkeydown="if(event.key==='Enter') doSignUp()">
                     </div>
                     <button onclick="doSignUp()"
-                        class="w-full mt-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition shadow">
+                        class="w-full mt-4 py-2.5 rounded-lg font-bold text-sm transition shadow text-white"
+                        style="background: var(--c-emerald, #059669);">
                         Create Account
                     </button>
                 </div>
 
-                <div id="authError" class="text-xs text-red-400 font-bold"></div>
-
-                <div id="firebaseOfflineNote" class="text-[10px] text-slate-600 italic hidden">
-                    Cloud sync is off (no Firebase credentials configured). Characters will be stored locally only.
+                <div id="authError" class="text-xs font-bold" style="color: var(--c-red, #ef4444); min-height: 1.25rem;"></div>
+                <div id="firebaseOfflineNote" class="hidden text-[10px] italic" style="color: var(--c-text-dimmer, #475569);">
+                    Cloud sync is off — no Firebase credentials configured. Characters will be stored locally only.
                 </div>
             </div>
         </div>
 
-        <!-- Logged-in state: show the app launcher + user info -->
-        <div id="authSignedIn" class="hidden auth-panel">
-            <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-4 mb-6 flex items-center justify-between max-w-sm mx-auto">
-                <span class="text-sm text-slate-300">☁️ Signed in as <span id="displayEmail" class="font-bold text-indigo-300"></span></span>
-                <button onclick="doSignOut()" class="text-xs text-slate-500 hover:text-slate-300 transition ml-4">Sign Out</button>
+        <!-- Signed-in user info -->
+        <div id="authSignedIn" class="hidden">
+            <div class="max-w-sm mx-auto auth-card flex items-center justify-between">
+                <span class="text-sm" style="color: var(--c-text-muted, #94a3b8);">
+                    Signed in as <span id="displayEmail" class="font-bold" style="color: var(--c-indigo-lt, #a5b4fc);"></span>
+                </span>
+                <button onclick="doSignOut()" class="text-xs ml-4 transition" style="color: var(--c-text-muted, #64748b);">Sign Out</button>
             </div>
         </div>
 
-        <!-- App launcher: always visible, disabled appearance while not auth'd when cloud is on -->
-        <div id="appLauncher" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <a id="launchPlayer" href="APX_CharSheet.html"
-                class="bg-slate-800 p-8 rounded-xl border border-emerald-900 hover:border-emerald-500 shadow-xl hover:shadow-emerald-900 transition flex flex-col items-center group">
-                <div class="text-5xl mb-4 group-hover:scale-110 transition-transform duration-200">🛡️</div>
-                <h2 class="text-2xl font-bold text-emerald-400 mb-2 uppercase tracking-wide">Player Tools</h2>
-                <p class="text-sm text-slate-400">Universal APX Character Sheet and crafters.</p>
+        <!-- App launcher -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <a href="APX_CharSheet.html" class="launch-card launch-card-player group">
+                <div class="card-icon card-icon-player">P</div>
+                <h2 class="text-2xl font-bold mb-2 uppercase tracking-wide" style="color: var(--c-emerald, #34d399);">Player Tools</h2>
+                <p class="text-sm" style="color: var(--c-text-muted, #94a3b8);">Universal APX Character Sheet and crafters.</p>
             </a>
-            <a id="launchGm" href="APX_GMTools.html"
-                class="bg-slate-800 p-8 rounded-xl border border-purple-900 hover:border-purple-500 shadow-xl hover:shadow-purple-900 transition flex flex-col items-center group">
-                <div class="text-5xl mb-4 group-hover:scale-110 transition-transform duration-200">👑</div>
-                <h2 class="text-2xl font-bold text-purple-400 mb-2 uppercase tracking-wide">GM Tools</h2>
-                <p class="text-sm text-slate-400">Initiative tracker, party roster, and race template builder.</p>
+            <a href="APX_GMTools.html" class="launch-card launch-card-gm group">
+                <div class="card-icon card-icon-gm">GM</div>
+                <h2 class="text-2xl font-bold mb-2 uppercase tracking-wide" style="color: var(--c-purple, #c084fc);">GM Tools</h2>
+                <p class="text-sm" style="color: var(--c-text-muted, #94a3b8);">Initiative tracker, party roster, and race template builder.</p>
             </a>
         </div>
 
-        <!-- Skip link for local-only play -->
         <div class="text-center">
-            <button onclick="playLocally()" class="text-xs text-slate-600 hover:text-slate-400 transition">
+            <button onclick="playLocally()" class="text-xs transition" style="color: var(--c-text-dimmer, #475569);">
                 Continue without an account (local save only)
             </button>
         </div>
     </div>
 
     <script>
+    // ── Theme system ─────────────────────────────────────────────
+    function setTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('apxTheme', theme);
+        document.querySelectorAll('.theme-swatch').forEach(s => s.classList.remove('active'));
+        let themeMap = { modern: 0, fantasy: 1, cyberpunk: 2, futuristic: 3, kawaii: 4 };
+        let swatches = document.querySelectorAll('.theme-swatch');
+        if (swatches[themeMap[theme]]) swatches[themeMap[theme]].classList.add('active');
+    }
+    (function() {
+        let saved = localStorage.getItem('apxTheme') || 'modern';
+        setTheme(saved);
+    })();
+
     // ── Tab switching ────────────────────────────────────────────
     function showTab(tab) {
         let isSignIn = tab === 'signIn';
         document.getElementById('panelSignIn').classList.toggle('hidden', !isSignIn);
         document.getElementById('panelSignUp').classList.toggle('hidden', isSignIn);
-        document.getElementById('tabSignIn').className = `flex-1 py-1.5 rounded text-sm font-bold transition ${isSignIn ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-300'}`;
-        document.getElementById('tabSignUp').className = `flex-1 py-1.5 rounded text-sm font-bold transition ${!isSignIn ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-300'}`;
+        document.getElementById('tabSignIn').className = `${isSignIn ? 'tab-active' : 'tab-inactive'} flex-1 py-1.5 rounded text-sm font-bold transition`;
+        document.getElementById('tabSignUp').className = `${!isSignIn ? 'tab-active' : 'tab-inactive'} flex-1 py-1.5 rounded text-sm font-bold transition`;
         document.getElementById('authError').innerText = '';
     }
-
     function setError(msg) { document.getElementById('authError').innerText = msg; }
     function clearError()  { document.getElementById('authError').innerText = ''; }
 
@@ -151,13 +208,9 @@
         let email = document.getElementById('siEmail').value.trim();
         let pass  = document.getElementById('siPassword').value;
         if (!email || !pass) { setError('Please enter your email and password.'); return; }
-        try {
-            await window.apxAuth.signIn(email, pass);
-        } catch(e) {
-            setError(e.message || 'Sign-in failed. Check your email and password.');
-        }
+        try { await window.apxAuth.signIn(email, pass); }
+        catch(e) { setError(e.message || 'Sign-in failed. Check your email and password.'); }
     }
-
     async function doSignUp() {
         clearError();
         let email   = document.getElementById('suEmail').value.trim();
@@ -166,62 +219,42 @@
         if (!email) { setError('Please enter an email address.'); return; }
         if (pass.length < 6) { setError('Password must be at least 6 characters.'); return; }
         if (pass !== confirm) { setError('Passwords do not match.'); return; }
-        try {
-            await window.apxAuth.signUp(email, pass);
-        } catch(e) {
-            setError(e.message || 'Sign-up failed. The email may already be in use.');
-        }
+        try { await window.apxAuth.signUp(email, pass); }
+        catch(e) { setError(e.message || 'Sign-up failed. The email may already be in use.'); }
     }
-
-    async function doSignOut() {
-        await window.apxAuth.signOut();
-    }
-
+    async function doSignOut() { await window.apxAuth.signOut(); }
     async function doForgotPassword() {
         let email = document.getElementById('siEmail').value.trim();
         if (!email) { setError('Enter your email address first.'); return; }
         try {
             await firebase.auth().sendPasswordResetEmail(email);
-            setError('');
-            document.getElementById('authError').className = 'text-xs text-emerald-400 font-bold';
-            document.getElementById('authError').innerText = 'Reset email sent — check your inbox.';
-        } catch(e) {
-            setError(e.message || 'Could not send reset email.');
-        }
+            document.getElementById('authError').style.color = 'var(--c-emerald, #34d399)';
+            setError('Reset email sent — check your inbox.');
+        } catch(e) { setError(e.message || 'Could not send reset email.'); }
     }
-
-    // ── "Continue without account" ───────────────────────────────
     function playLocally() {
         sessionStorage.setItem('apxLocalOnly', '1');
         window.location.href = 'APX_CharSheet.html';
     }
 
-    // ── Auth state handling ──────────────────────────────────────
-    function showSignedIn(user) {
-        document.getElementById('authSignedOut').classList.add('hidden');
-        document.getElementById('authSignedIn').classList.remove('hidden');
-        document.getElementById('displayEmail').innerText = user.email;
-        document.getElementById('landingSubtitle').innerText = 'Select an application to launch';
-        // Store the UID for auto-load on the character sheet
-        sessionStorage.setItem('apxUid', user.uid);
-    }
-
-    function showSignedOut() {
-        document.getElementById('authSignedOut').classList.remove('hidden');
-        document.getElementById('authSignedIn').classList.add('hidden');
-        sessionStorage.removeItem('apxUid');
-    }
-
-    // If Firebase is off, show the local-only note and unlock launcher
+    // ── Auth state ───────────────────────────────────────────────
     if (!window.FIREBASE_ENABLED) {
         document.getElementById('firebaseOfflineNote').classList.remove('hidden');
         document.getElementById('authSignedOut').classList.add('hidden');
         document.getElementById('landingSubtitle').innerText = 'Select an application to launch';
     } else {
-        // Watch auth state
         window.apxAuth.onAuthChange(user => {
-            if (user) showSignedIn(user);
-            else showSignedOut();
+            if (user) {
+                document.getElementById('authSignedOut').classList.add('hidden');
+                document.getElementById('authSignedIn').classList.remove('hidden');
+                document.getElementById('displayEmail').innerText = user.email;
+                document.getElementById('landingSubtitle').innerText = 'Select an application to launch';
+                sessionStorage.setItem('apxUid', user.uid);
+            } else {
+                document.getElementById('authSignedOut').classList.remove('hidden');
+                document.getElementById('authSignedIn').classList.add('hidden');
+                sessionStorage.removeItem('apxUid');
+            }
         });
     }
     </script>

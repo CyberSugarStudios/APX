@@ -37,7 +37,7 @@
                     html += `
                         <div class="bg-slate-900 p-2 rounded border border-purple-600 relative shadow-inner mb-2">
                             <div class="flex justify-between items-center">
-                                <span class="font-bold text-sm text-purple-300">🐾 Loyal Companion</span>
+                                <span class="font-bold text-sm text-purple-300">Loyal Companion</span>
                                 <button onclick="window.openNpcCrafter()" class="text-[9px] bg-purple-900/30 px-2 py-0.5 rounded border border-purple-800 text-purple-300 font-bold shadow hover:bg-purple-900/50">Build Companion</button>
                             </div>
                         </div>
@@ -47,7 +47,7 @@
                     html += `
                         <div class="bg-slate-900 p-2 rounded border border-purple-600 relative shadow-inner mb-2">
                             <div class="flex justify-between items-center mb-1">
-                                <span class="font-bold text-sm text-purple-300">🐾 ${sb.name}</span>
+                                <span class="font-bold text-sm text-purple-300">${sb.name}</span>
                                 <div class="flex gap-1">
                                     <button onclick="window.openNpcCrafter()" class="text-[9px] bg-slate-800 px-2 py-0.5 rounded border border-slate-600 text-slate-300 font-bold shadow hover:bg-slate-700">Edit</button>
                                     <button onclick="window.openCompanionDetail()" class="text-[9px] bg-purple-900/30 px-2 py-0.5 rounded border border-purple-800 text-purple-300 font-bold shadow hover:bg-purple-900/50">Full Stat Block</button>
@@ -72,7 +72,7 @@
                             </div>
                             ${sb.powerCards.length ? `
                             <details class="mt-1.5">
-                                <summary class="text-[10px] font-bold text-purple-400 cursor-pointer select-none">🔮 Powers (${sb.powerCards.length})</summary>
+                                <summary class="text-[10px] font-bold text-purple-400 cursor-pointer select-none">Powers (${sb.powerCards.length})</summary>
                                 <div class="mt-1.5 space-y-1.5">
                                     ${sb.powerCards.map(p => `
                                         <div class="bg-slate-800 p-1.5 rounded border border-slate-700">
