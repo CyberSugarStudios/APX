@@ -95,13 +95,118 @@
             window.jumpToAncStep(currentAncestryStep + dir);
         }
 
+        // GM's opt-in feature lock list: every distinct trait/flaw (with
+        // its sub-choice detail spelled out where one exists -- Skill
+        // Aptitude shows which skill, Bonus Perk shows which perk, etc.)
+        // plus any non-zero attribute modifier, each with a checkbox
+        // defaulting UNCHECKED. Checking one locks ALL of that feature's
+        // current instances against player removal; anything left
+        // unchecked stays fully player-adjustable, same as an ordinary
+        // player-built ancestry always has been.
+        function renderAncLockFeatureList() {
+            // Sync the ancestry bonus array from whatever the GM currently
+            // has in the form fields before reading it -- the wizard fields
+            // are the live source of truth during building, and the state
+            // object only gets written to at finishAncestry() time.
+            ATTRIBUTES.forEach(a => {
+                let modEl = document.getElementById(`wizMod_${a}`);
+                if (modEl) window.state.ancestry.bonuses[a] = parseInt(modEl.value) || 0;
+            });
+            let locked = window.state.ancestry.gmLockedFeatures || (window.state.ancestry.gmLockedFeatures = { traits: {}, flaws: {}, attrs: {} });
+            let rows = [];
+
+            function traitDetail(id) {
+                if (id === 't_skap') {
+                    let names = window.state.ancestrySkillAptitudeSkills.map(s => s ? (SKILLS.find(sk => sk.id === s)?.name || s) : "Player's Choice");
+                    return names.length ? ` (${names.join(', ')})` : '';
+                }
+                if (id === 't_env') {
+                    let names = window.state.ancestryEnvResistances.filter(e => e.type || e.playerChoice).map(e => e.playerChoice ? "Player's Choice" : `${e.type}${e.immune ? ' Immune' : ''}`);
+                    return names.length ? ` (${names.join(', ')})` : '';
+                }
+                if (id === 't_bp') {
+                    let names = window.state.ancestryBonusPerks.map(bp => bp.playerChoice ? "Player's Choice" : (PERKS_DB.find(p => p.id === bp.perkId)?.name || bp.perkId));
+                    return names.length ? ` (${names.join(', ')})` : '';
+                }
+                if (id === 't_innwpn') {
+                    let names = window.state.ancestryInnateWeapons.map(w => `${w.name} ${w.dmg}`);
+                    return names.length ? ` (${names.join(', ')})` : '';
+                }
+                return '';
+            }
+            function flawDetail(id) {
+                if (id === 'f_env') {
+                    let names = window.state.ancestryEnvVulnerabilities.filter(e => e.type || e.playerChoice).map(e => e.playerChoice ? "Player's Choice" : e.type);
+                    return names.length ? ` (${names.join(', ')})` : '';
+                }
+                return '';
+            }
+
+            let traitCounts = {};
+            window.state.ancestry.traits.forEach(id => traitCounts[id] = (traitCounts[id] || 0) + 1);
+            Object.keys(traitCounts).forEach(id => {
+                let def = ANCESTRY_TRAITS.find(t => t.id === id);
+                if (!def) return;
+                let count = traitCounts[id];
+                rows.push(`
+                    <label class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded p-2 cursor-pointer hover:border-emerald-600">
+                        <input type="checkbox" ${locked.traits[id] ? 'checked' : ''} onchange="window.toggleAncFeatureLock('traits', '${id}', this.checked)" class="w-4 h-4">
+                        <span class="text-xs text-slate-200"><span class="font-bold text-emerald-400">${def.name}</span>${count > 1 ? ` x${count}` : ''}${traitDetail(id)}</span>
+                    </label>
+                `);
+            });
+
+            let flawCounts = {};
+            window.state.ancestry.flaws.forEach(id => flawCounts[id] = (flawCounts[id] || 0) + 1);
+            Object.keys(flawCounts).forEach(id => {
+                let def = ANCESTRY_FLAWS.find(f => f.id === id);
+                if (!def) return;
+                let count = flawCounts[id];
+                rows.push(`
+                    <label class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded p-2 cursor-pointer hover:border-red-600">
+                        <input type="checkbox" ${locked.flaws[id] ? 'checked' : ''} onchange="window.toggleAncFeatureLock('flaws', '${id}', this.checked)" class="w-4 h-4">
+                        <span class="text-xs text-slate-200"><span class="font-bold text-red-400">${def.name}</span>${count > 1 ? ` x${count}` : ''}${flawDetail(id)}</span>
+                    </label>
+                `);
+            });
+
+            ATTRIBUTES.forEach(a => {
+                let mod = window.state.ancestry.bonuses[a] || 0;
+                if (!mod) return;
+                rows.push(`
+                    <label class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded p-2 cursor-pointer hover:border-blue-600">
+                        <input type="checkbox" ${locked.attrs[a] ? 'checked' : ''} onchange="window.toggleAncFeatureLock('attrs', '${a}', this.checked)" class="w-4 h-4">
+                        <span class="text-xs text-slate-200"><span class="font-bold text-blue-400">${mod > 0 ? '+' : ''}${mod} to ${a}</span></span>
+                    </label>
+                `);
+            });
+
+            document.getElementById('ancLockFeatureList').innerHTML = rows.length ? rows.join('') : '<div class="text-xs text-slate-500 italic">No traits, flaws, or attribute bonuses to lock yet.</div>';
+        }
+        window.toggleAncFeatureLock = function(category, key, checked) {
+            if (!window.state.ancestry.gmLockedFeatures) window.state.ancestry.gmLockedFeatures = { traits: {}, flaws: {}, attrs: {} };
+            window.state.ancestry.gmLockedFeatures[category][key] = checked;
+        };
+
         window.jumpToAncStep = function(n) {
-            let maxStep = ancTarget === 'gmRace' ? 3 : 4;
+            let maxStep = 4;
             if (n < 1 || n > maxStep) return;
             document.getElementById(`ancStep${currentAncestryStep}`).classList.remove('active');
             currentAncestryStep = n;
             document.getElementById(`ancStep${currentAncestryStep}`).classList.add('active');
-            if (n === 4) renderAncFinalTraining();
+            if (n === 4) {
+                let player4 = document.getElementById('ancStep4Player');
+                let gm4 = document.getElementById('ancStep4Gm');
+                if (ancTarget === 'gmRace') {
+                    if (player4) player4.classList.add('hidden');
+                    if (gm4) gm4.classList.remove('hidden');
+                    renderAncLockFeatureList();
+                } else {
+                    if (player4) player4.classList.remove('hidden');
+                    if (gm4) gm4.classList.add('hidden');
+                    renderAncFinalTraining();
+                }
+            }
 
             document.getElementById('wizBtnPrev').style.display = currentAncestryStep > 1 ? 'block' : 'none';
             document.getElementById('wizBtnNext').style.display = currentAncestryStep < maxStep ? 'block' : 'none';
@@ -123,6 +228,20 @@
             });
         }
 
+        // After a GM race is imported, re-apply any locked feature states
+        // to the DOM -- syncAncestryWizard() already ran (when the modal
+        // opened), but it ran before the race data was copied to state, so
+        // it didn't know what was locked yet. Called at the end of
+        // selectGmRace to bring the DOM in sync.
+        function applyGmFeatureLocksToDom() {
+            let locked = (window.state.ancestry.gmLockedFeatures || {});
+            ATTRIBUTES.forEach(a => {
+                let modEl = document.getElementById(`wizMod_${a}`);
+                if (modEl) modEl.disabled = !!((locked.attrs || {})[a]);
+            });
+        }
+        window.applyGmFeatureLocksToDom = applyGmFeatureLocksToDom;
+
         window.syncAncestryWizard = function() {
             ancTarget = 'player';
             window.ancTarget = ancTarget;
@@ -133,6 +252,11 @@
             ATTRIBUTES.forEach(a => {
                 document.getElementById(`wizBase_${a}`).value = window.state.baseStats[a] || 5;
                 document.getElementById(`wizMod_${a}`).value = window.state.ancestry.bonuses[a] || 0;
+                // A GM-locked attribute bonus can't be changed by the
+                // player at all -- everything else about attribute mods
+                // stays freely adjustable.
+                let modLocked = !!((window.state.ancestry.gmLockedFeatures || {}).attrs || {})[a];
+                document.getElementById(`wizMod_${a}`).disabled = modLocked;
             });
             document.getElementById('wizSize').value = window.state.ancestry.size;
             document.getElementById('wizSpeed').value = window.state.ancestry.speed;
@@ -325,16 +449,17 @@
                 arr.push(id);
             } else {
                 if (count <= 0) return;
-                // A GM-provided race's traits/flaws are locked in for the
-                // player -- they can add more of their own on top (a
-                // player might independently also pick Skill Aptitude),
-                // but can't strip out what the GM specifically granted.
-                // Attribute mods, size, speed, and lifespan are NOT
-                // covered by this and stay fully player-adjustable.
-                let baselineKey = isFlaw ? 'flaw:' + id : id;
-                let baseline = (window.state.ancestry.gmBaselineCounts || {})[baselineKey] || 0;
-                if (count <= baseline) {
-                    window.showConfirm(`This ${isFlaw ? 'flaw' : 'trait'} was granted by your species and can't be removed. You can still adjust your ancestry's attribute bonuses, size, speed, and lifespan freely.`, null, true);
+                // Opt-in lock: only blocked if the GM specifically checked
+                // this exact feature on the Lock Features screen -- not
+                // just because it happened to come from a race template
+                // at all. Anything the GM left unchecked (or that the
+                // player added themselves on top of what the GM granted)
+                // stays fully removable.
+                let lockCategory = isFlaw ? 'flaws' : 'traits';
+                let isLocked = ((window.state.ancestry.gmLockedFeatures || {})[lockCategory] || {})[id];
+                let lockedCount = isLocked ? ((window.state.ancestry.gmBaselineCounts || {})[isFlaw ? 'flaw:' + id : id] || 0) : 0;
+                if (isLocked && count <= lockedCount) {
+                    window.showConfirm(`This ${isFlaw ? 'flaw' : 'trait'} was locked in by your species and can't be removed. You can still adjust anything the GM left unlocked.`, null, true);
                     return;
                 }
                 if (id === 't_bp') {
@@ -730,6 +855,9 @@
                 if (existingIdx >= 0) window.gmRaces[existingIdx] = entry;
                 else window.gmRaces.push(entry);
 
+                // Fire cloud-sync event so Firebase listener can save to Firestore
+                document.dispatchEvent(new CustomEvent('apxGmRacesSaved'));
+
                 window.closeModal('ancestryModal');
                 if (typeof window.renderGmRaceList === 'function') window.renderGmRaceList();
                 if (typeof window.openGmRaceRosterModal === 'function') {
@@ -1015,6 +1143,10 @@ window.selectGmRace = function(raceId) {
     // Queue up one pop-up per unresolved "Player's Choice" the GM left in
     // this race, then work through them one at a time.
     window.queuePendingRaceChoices();
+    // Re-apply any feature locks to the DOM -- syncAncestryWizard ran
+    // before this function copied the race data to state, so it didn't
+    // know about locked features yet.
+    applyGmFeatureLocksToDom();
 };
 
 // ----------------------------------------------------------------------

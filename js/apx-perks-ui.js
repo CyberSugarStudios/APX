@@ -27,26 +27,11 @@
 
         function renderActivePerks() {
             let html = '';
-            
-            if (window.state.origin && window.state.origin.feature) {
-                html += `
-                    <div class="bg-slate-900 p-2 rounded border border-pink-700/50 relative shadow-inner mb-2">
-                        <div class="flex justify-between items-center mb-1">
-                            <span class="font-bold text-sm text-pink-400">Origin: ${window.state.origin.name}</span>
-                            <span class="text-[10px] bg-pink-900/30 px-2 py-0.5 rounded border border-pink-800 text-pink-300 font-bold shadow">Feature</span>
-                        </div>
-                        <div class="text-[10px] text-slate-300 leading-relaxed italic whitespace-pre-wrap">${window.state.origin.feature}</div>
-                    </div>
-                `;
-            }
 
             let keys = Object.keys(window.state.perks);
 
-            // Loyal Companion is pinned to the top with an always-visible
-            // quick reference (AC/Speed) and an inline HP tracker that
-            // doesn't require opening the full stat block. Show a
-            // build-prompt version if the perk is owned but no companion
-            // has been created yet (openNpcCrafter() is what creates it).
+            // Loyal Companion is pinned ABOVE Origin feature, as the most
+            // active-play element on the perks panel.
             if ((window.state.perks['cha_loyalcompanion'] || 0) >= 1) {
                 if (!window.state.companion) {
                     html += `
@@ -68,9 +53,11 @@
                                     <button onclick="window.openCompanionDetail()" class="text-[9px] bg-purple-900/30 px-2 py-0.5 rounded border border-purple-800 text-purple-300 font-bold shadow hover:bg-purple-900/50">Full Stat Block</button>
                                 </div>
                             </div>
-                            <div class="grid grid-cols-4 gap-1 mb-1.5 text-[10px] text-slate-400">
+                            <div class="grid grid-cols-6 gap-1 mb-1.5 text-[10px] text-slate-400">
                                 <div><span class="text-slate-500">Tier:</span> ${sb.tier}</div>
                                 <div><span class="text-slate-500">AC:</span> ${sb.ac}</div>
+                                <div><span class="text-slate-500">DR:</span> ${sb.dr}</div>
+                                <div><span class="text-slate-500">ER:</span> ${sb.er}</div>
                                 <div><span class="text-slate-500">Speed:</span> ${sb.speed}</div>
                                 <div><span class="text-slate-500">AP:</span> ${sb.ap}</div>
                             </div>
@@ -106,6 +93,19 @@
                         </div>
                     `;
                 }
+            }
+
+            // Origin feature pinned immediately after companion card
+            if (window.state.origin && window.state.origin.feature) {
+                html += `
+                    <div class="bg-slate-900 p-2 rounded border border-pink-700/50 relative shadow-inner mb-2">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="font-bold text-sm text-pink-400">Origin: ${window.state.origin.name}</span>
+                            <span class="text-[10px] bg-pink-900/30 px-2 py-0.5 rounded border border-pink-800 text-pink-300 font-bold shadow">Feature</span>
+                        </div>
+                        <div class="text-[10px] text-slate-300 leading-relaxed italic whitespace-pre-wrap">${window.state.origin.feature}</div>
+                    </div>
+                `;
             }
 
             keys.forEach(id => {

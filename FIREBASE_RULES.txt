@@ -1,0 +1,26 @@
+// Paste these rules into:
+// Firebase Console > Firestore Database > Rules tab
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users can read and write their own data only
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+  }
+}
+
+// After saving rules, your players and GMs can safely read/write
+// only their own data. No one else can see another user's characters
+// or GM race templates.
+//
+// If you want players to be able to load GM race templates from a
+// connected GM, change the gmRaces rule to:
+//
+//   match /users/{userId}/gmRaces/{docId} {
+//     allow read: if request.auth != null;   // any signed-in user can read
+//     allow write: if request.auth.uid == userId;  // only owner can write
+//   }

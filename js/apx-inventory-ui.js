@@ -351,9 +351,64 @@
         };
         
         window.addWeapon = function() {
-            window.state.weapons.push({ name: "New Weapon", attr: "STR", tr: false, dmg: "2d4", ap: 2, isUnarmed: false, isCustom: true, category: 'melee', notes: '' });
+            // Reset form fields and show the creation popup rather than
+            // pushing directly -- avoids the inconsistency where the
+            // hand-check was bypassed at creation time but enforced on
+            // re-equip from inventory.
+            document.getElementById('cwName').value = '';
+            document.getElementById('cwDmg').value = '2d4';
+            document.getElementById('cwCategory').value = 'melee';
+            document.getElementById('cwAttr').value = 'STR';
+            document.getElementById('cwWeightClass').value = 'light';
+            document.getElementById('cwWt').value = '2';
+            document.getElementById('cwVal').value = '0';
+            document.getElementById('cwNotes').value = '';
+            window.updateCwApPreview();
+            window.openModal('customWeaponModal');
+        };
+        window.updateCwApPreview = function() {
+            let wc = document.getElementById('cwWeightClass').value;
+            let apMap = { light: { ap: 2, hands: '1 Hand' }, medium: { ap: 3, hands: '1 Hand' }, heavy: { ap: 4, hands: '2 Hands' } };
+            let info = apMap[wc] || apMap.light;
+            document.getElementById('cwApPreview').innerText = `AP: ${info.ap} · ${info.hands}`;
+            // Show warning if this weight class can't be equipped right now
+            let handsNeeded = wc === 'heavy' ? 2 : 1;
+            let testWeap = { weightClass: wc, category: document.getElementById('cwCategory').value };
+            let freeAfterAdd = (window.calcTotalHands ? window.calcTotalHands() : 2) - (window.calcHandsUsed ? window.calcHandsUsed() : 0) - handsNeeded;
+            let warn = document.getElementById('cwHandsWarning');
+            if (warn) warn.classList.toggle('hidden', freeAfterAdd >= 0);
+        };
+        window.confirmAddCustomWeapon = function() {
+            let name = document.getElementById('cwName').value.trim() || 'Custom Weapon';
+            let wc = document.getElementById('cwWeightClass').value;
+            let apMap = { light: 2, medium: 3, heavy: 4 };
+            let weapon = {
+                name, attr: document.getElementById('cwAttr').value,
+                tr: false, dmg: document.getElementById('cwDmg').value,
+                ap: apMap[wc] || 2, isUnarmed: false, isCustom: true,
+                category: document.getElementById('cwCategory').value,
+                weightClass: wc, weight: parseFloat(document.getElementById('cwWt').value) || 0,
+                paidCost: parseInt(document.getElementById('cwVal').value) || 0,
+                notes: document.getElementById('cwNotes').value.trim()
+            };
+            // Hand-check: if not enough hands, route to inventory instead
+            // of the active weapons list -- same logic as the Weapon Forge's
+            // fallback, so creation and re-equip are now consistent.
+            let handsNeeded = wc === 'heavy' ? 2 : 1;
+            let handsFree = (window.calcTotalHands ? window.calcTotalHands() : 2) - (window.calcHandsUsed ? window.calcHandsUsed() : 0);
+            if (handsFree >= handsNeeded) {
+                window.state.weapons.push(weapon);
+            } else {
+                window.state.items.push({
+                    name: weapon.name, wt: weapon.weight || 0, ct: 1, val: weapon.paidCost || 0,
+                    isWeapon: true, isLocked: true, weaponData: JSON.parse(JSON.stringify(weapon)),
+                    desc: `Weapon: ${weapon.dmg} damage, ${weapon.ap} AP`
+                });
+                window.showConfirm(`${weapon.name} was added to your Inventory -- not enough free hands to wield it right now. Equip it from inventory whenever a hand is free.`, null, true);
+            }
+            window.closeModal('customWeaponModal');
             window.recalculateMath();
-        }
+        };
         window.updateWeaponNotes = (idx, val) => { window.state.weapons[idx].notes = val; };
         window.updateWeaponName = (idx, val) => { window.state.weapons[idx].name = val; window.recalculateMath(); };
         window.updateWeaponAttr = (idx, val) => { window.state.weapons[idx].attr = val; window.recalculateMath(); };

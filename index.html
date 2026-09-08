@@ -8,122 +8,222 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+    <!-- Firebase SDK (only active when FIREBASE_ENABLED = true in firebase-config.js) -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="js/firebase-config.js"></script>
+    <script src="js/apx-firebase.js"></script>
+
     <style>
         body {
-            background-color: var(--c-page-bg, #0f172a);
-            color: var(--c-text-dimmer, #e2e8f0);
-            font-family: var(--c-font, 'Inter'), sans-serif;
-            transition: background-color 0.3s, color 0.3s;
+            background-color: #0f172a;
+            color: #cbd5e1;
+            font-family: 'Inter', sans-serif;
         }
-
-        :root {
-            --c-surface2: #0f172a;
-            --c-surface: #1e293b;
-            --c-border: #334155;
-            --c-text: #ffffff;
-            --c-text-dimmer: #cbd5e1;
-            --c-emerald: #059669;
-            --c-purple: #9333ea;
-            --c-page-bg: #0f172a;
+        .auth-panel { transition: all 0.25s ease; }
+        input[type="email"], input[type="password"] {
+            background-color: #1e293b;
+            border: 1px solid #334155;
+            color: #e2e8f0;
+            border-radius: 0.375rem;
+            padding: 0.5rem 0.75rem;
+            width: 100%;
+            font-size: 0.875rem;
+            font-family: 'Inter', sans-serif;
         }
-        
-        [data-theme="fantasy"] {
-            --c-surface2: #1c1610;
-            --c-surface: #2a2118;
-            --c-border: #4a3a26;
-            --c-text: #e8dcc0;
-            --c-text-dimmer: #d4c4a0;
-            --c-emerald: #6ba85c;
-            --c-purple: #9169c9;
-            --c-page-bg: #14100c;
+        input[type="email"]:focus, input[type="password"]:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 1px #6366f1;
         }
-        
-        [data-theme="cyberpunk"] {
-            --c-surface2: #0a0410;
-            --c-surface: #160a20;
-            --c-border: #3d0a2e;
-            --c-text: #f0f0ff;
-            --c-text-dimmer: #ffd0e8;
-            --c-emerald: #00a86b;
-            --c-purple: #c724ea;
-            --c-page-bg: #050208;
-        }
-        
-        [data-theme="futuristic"] {
-            --c-surface2: #0a0e16;
-            --c-surface: #121a26;
-            --c-border: #2a3d52;
-            --c-text: #e0f2ff;
-            --c-text-dimmer: #c0e0f5;
-            --c-emerald: #0e9488;
-            --c-purple: #818cf8;
-            --c-page-bg: #060a10;
-        }
-        
-        [data-theme="kawaii"] {
-            --c-surface2: #f5ddec;
-            --c-surface: #faeef4;
-            --c-border: #e0a8c8;
-            --c-text: #3d1830;
-            --c-text-dimmer: #5c2f4a;
-            --c-emerald: #2d7a54;
-            --c-purple: #6b3d94;
-            --c-page-bg: #e8b8d0;
-        }
-
-        .theme-surface { background-color: var(--c-surface); border-color: var(--c-border); }
-        .theme-text { color: var(--c-text); }
-        .theme-text-dimmer { color: var(--c-text-dimmer); }
+        #authError { min-height: 1.5rem; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col items-center justify-center p-6">
-    <div class="max-w-3xl w-full space-y-10 text-center relative">
-        <div class="absolute top-0 right-0">
-            <select id="themeSelector" onchange="setLandingTheme(this.value)" class="theme-surface text-xs p-1.5 rounded outline-none cursor-pointer">
-                <option value="modern">Modern</option>
-                <option value="fantasy">Fantasy</option>
-                <option value="cyberpunk">Cyberpunk</option>
-                <option value="futuristic">Futuristic</option>
-                <option value="kawaii">Kawaii</option>
-            </select>
-        </div>
 
+    <!-- Main content (auth state toggles between panels) -->
+    <div class="max-w-3xl w-full space-y-8 text-center">
+
+        <!-- Title -->
         <div>
-            <h1 class="text-4xl md:text-5xl font-black theme-text mb-3 tracking-wider uppercase">APX System Tools</h1>
-            <p class="theme-text-dimmer text-lg">Select an application to launch</p>
+            <h1 class="text-4xl md:text-5xl font-black text-white mb-3 tracking-wider uppercase">APX System Tools</h1>
+            <p id="landingSubtitle" class="text-slate-400 text-lg">Sign in to sync your characters across devices</p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <a href="APX_CharSheet.html" class="theme-surface p-8 rounded-xl border hover:border-emerald-500 shadow-xl transition flex flex-col items-center group" style="border-color: var(--c-border); hover:border-color: var(--c-emerald);">
-                <h2 class="text-2xl font-bold mb-2 uppercase tracking-wide" style="color: var(--c-emerald);">Player Tools</h2>
-                <p class="text-sm theme-text-dimmer">Universal APX Character Sheet and crafter.</p>
-            </a>
+        <!-- Auth panel: sign in / sign up / logged in -->
+        <div id="authSignedOut" class="max-w-sm mx-auto auth-panel">
+            <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-xl space-y-4">
+                <div class="flex gap-2 mb-2">
+                    <button id="tabSignIn" onclick="showTab('signIn')"
+                        class="flex-1 py-1.5 rounded text-sm font-bold transition bg-indigo-600 text-white">Sign In</button>
+                    <button id="tabSignUp" onclick="showTab('signUp')"
+                        class="flex-1 py-1.5 rounded text-sm font-bold transition bg-slate-700 text-slate-300">Create Account</button>
+                </div>
 
-            <a href="APX_GMTools.html" class="theme-surface p-8 rounded-xl border shadow-xl transition flex flex-col items-center group" style="border-color: var(--c-border); hover:border-color: var(--c-purple);">
-                <h2 class="text-2xl font-bold mb-2 uppercase tracking-wide" style="color: var(--c-purple);">GM Tools</h2>
-                <p class="text-sm theme-text-dimmer">Initiative tracker and party roster management.</p>
+                <div id="panelSignIn">
+                    <div class="space-y-3">
+                        <input type="email" id="siEmail" placeholder="Email" autocomplete="email">
+                        <input type="password" id="siPassword" placeholder="Password" autocomplete="current-password"
+                            onkeydown="if(event.key==='Enter') doSignIn()">
+                    </div>
+                    <button onclick="doSignIn()"
+                        class="w-full mt-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm transition shadow">
+                        Sign In
+                    </button>
+                    <button onclick="doForgotPassword()"
+                        class="w-full mt-1 text-[11px] text-slate-500 hover:text-slate-300 transition">
+                        Forgot password?
+                    </button>
+                </div>
+
+                <div id="panelSignUp" class="hidden">
+                    <div class="space-y-3">
+                        <input type="email" id="suEmail" placeholder="Email" autocomplete="email">
+                        <input type="password" id="suPassword" placeholder="Password (min. 6 chars)" autocomplete="new-password">
+                        <input type="password" id="suConfirm" placeholder="Confirm password" autocomplete="new-password"
+                            onkeydown="if(event.key==='Enter') doSignUp()">
+                    </div>
+                    <button onclick="doSignUp()"
+                        class="w-full mt-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition shadow">
+                        Create Account
+                    </button>
+                </div>
+
+                <div id="authError" class="text-xs text-red-400 font-bold"></div>
+
+                <div id="firebaseOfflineNote" class="text-[10px] text-slate-600 italic hidden">
+                    Cloud sync is off (no Firebase credentials configured). Characters will be stored locally only.
+                </div>
+            </div>
+        </div>
+
+        <!-- Logged-in state: show the app launcher + user info -->
+        <div id="authSignedIn" class="hidden auth-panel">
+            <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-4 mb-6 flex items-center justify-between max-w-sm mx-auto">
+                <span class="text-sm text-slate-300">☁️ Signed in as <span id="displayEmail" class="font-bold text-indigo-300"></span></span>
+                <button onclick="doSignOut()" class="text-xs text-slate-500 hover:text-slate-300 transition ml-4">Sign Out</button>
+            </div>
+        </div>
+
+        <!-- App launcher: always visible, disabled appearance while not auth'd when cloud is on -->
+        <div id="appLauncher" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <a id="launchPlayer" href="APX_CharSheet.html"
+                class="bg-slate-800 p-8 rounded-xl border border-emerald-900 hover:border-emerald-500 shadow-xl hover:shadow-emerald-900 transition flex flex-col items-center group">
+                <div class="text-5xl mb-4 group-hover:scale-110 transition-transform duration-200">🛡️</div>
+                <h2 class="text-2xl font-bold text-emerald-400 mb-2 uppercase tracking-wide">Player Tools</h2>
+                <p class="text-sm text-slate-400">Universal APX Character Sheet and crafters.</p>
             </a>
+            <a id="launchGm" href="APX_GMTools.html"
+                class="bg-slate-800 p-8 rounded-xl border border-purple-900 hover:border-purple-500 shadow-xl hover:shadow-purple-900 transition flex flex-col items-center group">
+                <div class="text-5xl mb-4 group-hover:scale-110 transition-transform duration-200">👑</div>
+                <h2 class="text-2xl font-bold text-purple-400 mb-2 uppercase tracking-wide">GM Tools</h2>
+                <p class="text-sm text-slate-400">Initiative tracker, party roster, and race template builder.</p>
+            </a>
+        </div>
+
+        <!-- Skip link for local-only play -->
+        <div class="text-center">
+            <button onclick="playLocally()" class="text-xs text-slate-600 hover:text-slate-400 transition">
+                Continue without an account (local save only)
+            </button>
         </div>
     </div>
 
     <script>
-        function setLandingTheme(theme) {
-            document.documentElement.setAttribute('data-theme', theme);
-            try {
-                let saved = JSON.parse(localStorage.getItem('apxAppSettings') || '{}');
-                saved.theme = theme;
-                localStorage.setItem('apxAppSettings', JSON.stringify(saved));
-            } catch(e) {}
-        }
+    // ── Tab switching ────────────────────────────────────────────
+    function showTab(tab) {
+        let isSignIn = tab === 'signIn';
+        document.getElementById('panelSignIn').classList.toggle('hidden', !isSignIn);
+        document.getElementById('panelSignUp').classList.toggle('hidden', isSignIn);
+        document.getElementById('tabSignIn').className = `flex-1 py-1.5 rounded text-sm font-bold transition ${isSignIn ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-300'}`;
+        document.getElementById('tabSignUp').className = `flex-1 py-1.5 rounded text-sm font-bold transition ${!isSignIn ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-300'}`;
+        document.getElementById('authError').innerText = '';
+    }
 
-        window.onload = () => {
-            try {
-                let saved = JSON.parse(localStorage.getItem('apxAppSettings') || '{"theme":"modern"}');
-                let theme = saved.theme || 'modern';
-                document.documentElement.setAttribute('data-theme', theme);
-                document.getElementById('themeSelector').value = theme;
-            } catch(e) {}
-        };
+    function setError(msg) { document.getElementById('authError').innerText = msg; }
+    function clearError()  { document.getElementById('authError').innerText = ''; }
+
+    // ── Auth actions ─────────────────────────────────────────────
+    async function doSignIn() {
+        clearError();
+        let email = document.getElementById('siEmail').value.trim();
+        let pass  = document.getElementById('siPassword').value;
+        if (!email || !pass) { setError('Please enter your email and password.'); return; }
+        try {
+            await window.apxAuth.signIn(email, pass);
+        } catch(e) {
+            setError(e.message || 'Sign-in failed. Check your email and password.');
+        }
+    }
+
+    async function doSignUp() {
+        clearError();
+        let email   = document.getElementById('suEmail').value.trim();
+        let pass    = document.getElementById('suPassword').value;
+        let confirm = document.getElementById('suConfirm').value;
+        if (!email) { setError('Please enter an email address.'); return; }
+        if (pass.length < 6) { setError('Password must be at least 6 characters.'); return; }
+        if (pass !== confirm) { setError('Passwords do not match.'); return; }
+        try {
+            await window.apxAuth.signUp(email, pass);
+        } catch(e) {
+            setError(e.message || 'Sign-up failed. The email may already be in use.');
+        }
+    }
+
+    async function doSignOut() {
+        await window.apxAuth.signOut();
+    }
+
+    async function doForgotPassword() {
+        let email = document.getElementById('siEmail').value.trim();
+        if (!email) { setError('Enter your email address first.'); return; }
+        try {
+            await firebase.auth().sendPasswordResetEmail(email);
+            setError('');
+            document.getElementById('authError').className = 'text-xs text-emerald-400 font-bold';
+            document.getElementById('authError').innerText = 'Reset email sent — check your inbox.';
+        } catch(e) {
+            setError(e.message || 'Could not send reset email.');
+        }
+    }
+
+    // ── "Continue without account" ───────────────────────────────
+    function playLocally() {
+        sessionStorage.setItem('apxLocalOnly', '1');
+        window.location.href = 'APX_CharSheet.html';
+    }
+
+    // ── Auth state handling ──────────────────────────────────────
+    function showSignedIn(user) {
+        document.getElementById('authSignedOut').classList.add('hidden');
+        document.getElementById('authSignedIn').classList.remove('hidden');
+        document.getElementById('displayEmail').innerText = user.email;
+        document.getElementById('landingSubtitle').innerText = 'Select an application to launch';
+        // Store the UID for auto-load on the character sheet
+        sessionStorage.setItem('apxUid', user.uid);
+    }
+
+    function showSignedOut() {
+        document.getElementById('authSignedOut').classList.remove('hidden');
+        document.getElementById('authSignedIn').classList.add('hidden');
+        sessionStorage.removeItem('apxUid');
+    }
+
+    // If Firebase is off, show the local-only note and unlock launcher
+    if (!window.FIREBASE_ENABLED) {
+        document.getElementById('firebaseOfflineNote').classList.remove('hidden');
+        document.getElementById('authSignedOut').classList.add('hidden');
+        document.getElementById('landingSubtitle').innerText = 'Select an application to launch';
+    } else {
+        // Watch auth state
+        window.apxAuth.onAuthChange(user => {
+            if (user) showSignedIn(user);
+            else showSignedOut();
+        });
+    }
     </script>
 </body>
 </html>

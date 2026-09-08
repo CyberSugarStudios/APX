@@ -861,6 +861,7 @@
     </style>
 </head>
 <body class="text-slate-200 min-h-screen">
+    <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
 
     <div class="w-full max-w-[1400px] mx-auto p-4">
         <div class="flex items-center justify-between mb-4">
@@ -1064,6 +1065,14 @@
                         <div class="text-xs font-black text-red-400 border-b border-red-900 mb-2 pb-1 sticky top-0 bg-slate-800 z-10">Flaws (Refunds GP)</div>
                         <div id="wizFlawsList" class="space-y-2"></div>
                     </div>
+                </div>
+            </div>
+
+            <div id="ancStep4" class="wizard-step">
+                <div id="ancStep4Gm">
+                    <h4 class="text-sm font-bold text-indigo-400 mb-2">Step 4: Lock Features</h4>
+                    <p class="text-[10px] text-slate-400 mb-3">Check anything that's a fixed, defining part of this species -- the player won't be able to remove it (they can still add MORE of the same trait themselves, or adjust anything left unchecked). Things a player might reasonably want to reflavor or opt out of -- like a Flying race whose character has clipped or injured wings, refunding the GP -- are best left unchecked.</p>
+                    <div id="ancLockFeatureList" class="space-y-1"><!-- JS injected --></div>
                 </div>
             </div>
 
@@ -1595,6 +1604,35 @@
     <script src="js/apx-ancestry-wizard.js"></script>
     <script src="js/apx-gm-screen.js"></script>
     <script src="js/apx-gmtools-main.js"></script>
+
+    <!-- Firebase (cloud sync) -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="js/firebase-config.js"></script>
+    <script src="js/apx-firebase.js"></script>
+    <script>
+    // Auto-save GM races to Firestore whenever they change
+    window.onApxAuthReady = async function(user) {
+        if (!window.apxAuth.enabled) return;
+        try {
+            // Load existing cloud races and merge with local
+            let cloudRaces = await window.apxAuth.loadGmRaces();
+            cloudRaces.forEach(r => {
+                if (!window.gmRaces.find(x => x.id === r.id)) window.gmRaces.push(r);
+            });
+            if (typeof window.renderGmRaceList === 'function') window.renderGmRaceList();
+        } catch(e) {
+            console.warn('Cloud GM race load failed:', e.message);
+        }
+    };
+    // GM races are saved to Firestore whenever finishAncestry saves a race
+    document.addEventListener('apxGmRacesSaved', async () => {
+        if (!window.apxAuth.enabled) return;
+        try { await window.apxAuth.saveGmRaces(window.gmRaces || []); }
+        catch(e) { console.warn('Cloud GM race save failed:', e.message); }
+    });
+    </script>
     <div id="floatingWindowContainer"></div>
 
 </body>

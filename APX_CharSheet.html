@@ -836,6 +836,8 @@
     </style>
 </head>
 <body class="p-2 md:p-6 flex justify-center text-sm ml-0 lg:ml-8 transition-all">
+    <!-- Auth bar: shows signed-in email + sign out, or a sign-in link -->
+    <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"><!-- Firebase auth populates this --></div>
 
     <button class="hamburger-btn" onclick="window.toggleSidebar()">☰ Roster</button>
     <div class="undo-redo-cluster">
@@ -1470,18 +1472,25 @@
             </div>
 
             <div id="ancStep4" class="wizard-step">
-                <h4 class="text-sm font-bold text-indigo-400 mb-2">Step 4: Final Training</h4>
-                <p class="text-[10px] text-slate-400 mb-3">Choose <span id="ancFinalSkillCount">4</span> skills to train (4 + your INT modifier), and 2 Saving Throws to train.</p>
-                <div class="mb-4">
-                    <div class="flex justify-between items-center mb-1">
-                        <div class="text-xs font-black text-emerald-400 uppercase">Trained Skills (<span id="ancFinalSkillProgress">0/4</span>)</div>
-                        <button id="ancAddFinalSkillBtn" onclick="window.ancAddFinalSkill()" class="px-2 py-1 rounded bg-emerald-700 hover:bg-emerald-600 text-white text-[10px] font-bold">+ Add Skill</button>
+                <div id="ancStep4Player">
+                    <h4 class="text-sm font-bold text-indigo-400 mb-2">Step 4: Final Training</h4>
+                    <p class="text-[10px] text-slate-400 mb-3">Choose <span id="ancFinalSkillCount">4</span> skills to train (4 + your INT modifier), and 2 Saving Throws to train.</p>
+                    <div class="mb-4">
+                        <div class="flex justify-between items-center mb-1">
+                            <div class="text-xs font-black text-emerald-400 uppercase">Trained Skills (<span id="ancFinalSkillProgress">0/4</span>)</div>
+                            <button id="ancAddFinalSkillBtn" onclick="window.ancAddFinalSkill()" class="px-2 py-1 rounded bg-emerald-700 hover:bg-emerald-600 text-white text-[10px] font-bold">+ Add Skill</button>
+                        </div>
+                        <div id="ancFinalSkillList" class="space-y-1"></div>
                     </div>
-                    <div id="ancFinalSkillList" class="space-y-1"></div>
+                    <div>
+                        <div class="text-xs font-black text-blue-400 uppercase mb-1">Saving Throws (<span id="ancFinalSaveProgress">0/2</span>)</div>
+                        <div id="ancFinalSaveGrid" class="grid grid-cols-7 gap-2"></div>
+                    </div>
                 </div>
-                <div>
-                    <div class="text-xs font-black text-blue-400 uppercase mb-1">Saving Throws (<span id="ancFinalSaveProgress">0/2</span>)</div>
-                    <div id="ancFinalSaveGrid" class="grid grid-cols-7 gap-2"></div>
+                <div id="ancStep4Gm" class="hidden">
+                    <h4 class="text-sm font-bold text-indigo-400 mb-2">Step 4: Lock Features</h4>
+                    <p class="text-[10px] text-slate-400 mb-3">Check anything that's a fixed, defining part of this species -- the player won't be able to remove it (they can still add MORE of the same trait themselves, or adjust anything left unchecked). Things a player might reasonably want to reflavor or opt out of -- like a Flying race whose character has clipped or injured wings, refunding the GP -- are best left unchecked.</p>
+                    <div id="ancLockFeatureList" class="space-y-1"><!-- JS injected --></div>
                 </div>
             </div>
 
@@ -2314,7 +2323,86 @@
         </div>
     </div>
 
-    <div class="modal-overlay" id="innateWeaponPickerModal">
+        <div class="modal-overlay" id="customWeaponModal">
+        <div class="modal-content max-w-sm">
+            <h3 class="text-lg font-bold text-white mb-2 border-b border-slate-600 pb-2">Add Custom Weapon</h3>
+            <div class="space-y-2">
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Weapon Name</label>
+                        <input type="text" id="cwName" placeholder="e.g. Dagger" class="bg-slate-900 text-xs w-full">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Damage</label>
+                        <select id="cwDmg" class="bg-slate-900 text-xs w-full">
+                            <option value="1d4">1d4</option>
+                            <option value="2d4" selected>2d4</option>
+                            <option value="1d6">1d6</option>
+                            <option value="2d6">2d6</option>
+                            <option value="1d8">1d8</option>
+                            <option value="2d8">2d8</option>
+                            <option value="1d10">1d10</option>
+                            <option value="1d12">1d12</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Type</label>
+                        <select id="cwCategory" class="bg-slate-900 text-xs w-full">
+                            <option value="melee">Melee</option>
+                            <option value="ranged">Ranged</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Attribute</label>
+                        <select id="cwAttr" class="bg-slate-900 text-xs w-full">
+                            <option value="STR">STR</option>
+                            <option value="AGI">AGI</option>
+                            <option value="CON">CON</option>
+                            <option value="PER">PER</option>
+                            <option value="INT">INT</option>
+                            <option value="CHA">CHA</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Weight Class</label>
+                        <select id="cwWeightClass" class="bg-slate-900 text-xs w-full" onchange="window.updateCwApPreview()">
+                            <option value="light">Light (1 hand, 2 AP)</option>
+                            <option value="medium">Medium (1 hand, 3 AP)</option>
+                            <option value="heavy">Heavy (2 hands, 4 AP)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Item Wt (lbs)</label>
+                        <input type="number" id="cwWt" value="2" min="0" class="bg-slate-900 text-xs w-full">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Value (Currency)</label>
+                        <input type="number" id="cwVal" value="0" min="0" class="bg-slate-900 text-xs w-full">
+                    </div>
+                    <div class="flex flex-col justify-end">
+                        <div id="cwApPreview" class="text-[10px] text-slate-400 bg-slate-900 border border-slate-700 rounded p-2 text-center">AP: 2 &middot; 1 Hand</div>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Notes (Heavy, Range 20/60, Crit x3...)</label>
+                    <input type="text" id="cwNotes" placeholder="Optional" class="bg-slate-900 text-xs w-full">
+                </div>
+                <div id="cwHandsWarning" class="hidden bg-amber-900/30 border border-amber-700/50 rounded p-2 text-[10px] text-amber-300">No free hands right now — this weapon will be added to your Inventory instead of your active weapon list.</div>
+            </div>
+            <div class="flex justify-end gap-2 mt-4">
+                <button onclick="window.closeModal('customWeaponModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Cancel</button>
+                <button onclick="window.confirmAddCustomWeapon()" class="px-4 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition">Add Weapon</button>
+            </div>
+        </div>
+    </div>
+
+<div class="modal-overlay" id="innateWeaponPickerModal">
         <div class="modal-content max-w-sm">
             <h3 class="text-lg font-bold text-white mb-2 border-b border-slate-600 pb-2">Innate Weapon</h3>
             <div id="innateWeaponPickerBody" class="space-y-3 mb-3"><!-- JS injected --></div>
@@ -2369,5 +2457,60 @@
     <script src="js/apx-engine.js"></script>
     <script src="js/apx-perks-ui.js"></script>
     <script src="js/apx-main.js"></script>
+
+    <!-- Firebase (cloud sync — requires firebase-config.js to be configured) -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="js/firebase-config.js"></script>
+    <script src="js/apx-firebase.js"></script>
+    <script>
+    // Auto-load characters from Firestore when auth is ready
+    window.onApxAuthReady = async function(user) {
+        if (!window.apxAuth.enabled) return;
+        let uid = user.uid;
+
+        // Populate roster from Firestore on first load
+        try {
+            let chars = await window.apxAuth.loadCharacters();
+            // Merge cloud characters into the local roster array without
+            // overwriting anything already loaded from localStorage
+            if (chars.length && window.state) {
+                let existingIds = new Set((window.savedRosterData || []).map(c => c.id));
+                chars.forEach(c => {
+                    if (!existingIds.has(c.id)) {
+                        if (!window.savedRosterData) window.savedRosterData = [];
+                        window.savedRosterData.push({ id: c.id, name: c.name, state: c.state });
+                    }
+                });
+                if (typeof window.renderRoster === 'function') window.renderRoster();
+            }
+
+            // Auto-load GM races from any connected GM
+            let gmCode = localStorage.getItem('apxConnectedGm');
+            if (gmCode) {
+                let races = await window.apxAuth.connectToGm(gmCode);
+                if (races.length && Array.isArray(window.gmRaces)) {
+                    races.forEach(r => {
+                        if (!window.gmRaces.find(x => x.id === r.id)) window.gmRaces.push(r);
+                    });
+                    if (typeof window.renderImportedRaceList === 'function') window.renderImportedRaceList();
+                }
+            }
+        } catch(e) {
+            console.warn('Cloud load failed (offline or rules not set up):', e.message);
+        }
+    };
+
+    // Hook auto-save: whenever recalculateMath runs, schedule a cloud save
+    // for the active character. Debounced inside apx-firebase.js (3 sec).
+    document.addEventListener('apxStateChanged', () => {
+        if (!window.apxAuth || !window.apxAuth.enabled) return;
+        let charId = window._activeCloudCharId;
+        if (!charId || !window.state) return;
+        window.apxAuth.scheduleAutoSave(window.state);
+        window.apxAuth.setActiveCharId(charId);
+    });
+    </script>
 </body>
 </html>
