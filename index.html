@@ -10,32 +10,120 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet">
     <style>
         body {
-            background-color: #0f172a;
-            color: #cbd5e1;
-            font-family: 'Inter', sans-serif;
+            background-color: var(--c-page-bg, #0f172a);
+            color: var(--c-text-dimmer, #e2e8f0);
+            font-family: var(--c-font, 'Inter'), sans-serif;
+            transition: background-color 0.3s, color 0.3s;
         }
+
+        :root {
+            --c-surface2: #0f172a;
+            --c-surface: #1e293b;
+            --c-border: #334155;
+            --c-text: #ffffff;
+            --c-text-dimmer: #cbd5e1;
+            --c-emerald: #059669;
+            --c-purple: #9333ea;
+            --c-page-bg: #0f172a;
+        }
+        
+        [data-theme="fantasy"] {
+            --c-surface2: #1c1610;
+            --c-surface: #2a2118;
+            --c-border: #4a3a26;
+            --c-text: #e8dcc0;
+            --c-text-dimmer: #d4c4a0;
+            --c-emerald: #6ba85c;
+            --c-purple: #9169c9;
+            --c-page-bg: #14100c;
+        }
+        
+        [data-theme="cyberpunk"] {
+            --c-surface2: #0a0410;
+            --c-surface: #160a20;
+            --c-border: #3d0a2e;
+            --c-text: #f0f0ff;
+            --c-text-dimmer: #ffd0e8;
+            --c-emerald: #00a86b;
+            --c-purple: #c724ea;
+            --c-page-bg: #050208;
+        }
+        
+        [data-theme="futuristic"] {
+            --c-surface2: #0a0e16;
+            --c-surface: #121a26;
+            --c-border: #2a3d52;
+            --c-text: #e0f2ff;
+            --c-text-dimmer: #c0e0f5;
+            --c-emerald: #0e9488;
+            --c-purple: #818cf8;
+            --c-page-bg: #060a10;
+        }
+        
+        [data-theme="kawaii"] {
+            --c-surface2: #f5ddec;
+            --c-surface: #faeef4;
+            --c-border: #e0a8c8;
+            --c-text: #3d1830;
+            --c-text-dimmer: #5c2f4a;
+            --c-emerald: #2d7a54;
+            --c-purple: #6b3d94;
+            --c-page-bg: #e8b8d0;
+        }
+
+        .theme-surface { background-color: var(--c-surface); border-color: var(--c-border); }
+        .theme-text { color: var(--c-text); }
+        .theme-text-dimmer { color: var(--c-text-dimmer); }
     </style>
 </head>
 <body class="min-h-screen flex flex-col items-center justify-center p-6">
-    <div class="max-w-3xl w-full space-y-10 text-center">
+    <div class="max-w-3xl w-full space-y-10 text-center relative">
+        <div class="absolute top-0 right-0">
+            <select id="themeSelector" onchange="setLandingTheme(this.value)" class="theme-surface text-xs p-1.5 rounded outline-none cursor-pointer">
+                <option value="modern">Modern</option>
+                <option value="fantasy">Fantasy</option>
+                <option value="cyberpunk">Cyberpunk</option>
+                <option value="futuristic">Futuristic</option>
+                <option value="kawaii">Kawaii</option>
+            </select>
+        </div>
+
         <div>
-            <h1 class="text-4xl md:text-5xl font-black text-white mb-3 tracking-wider uppercase">APX System Tools</h1>
-            <p class="text-slate-400 text-lg">Select an application to launch</p>
+            <h1 class="text-4xl md:text-5xl font-black theme-text mb-3 tracking-wider uppercase">APX System Tools</h1>
+            <p class="theme-text-dimmer text-lg">Select an application to launch</p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <a href="APX_CharSheet.html" class="bg-slate-800 p-8 rounded-xl border border-emerald-900 hover:border-emerald-500 shadow-xl hover:shadow-emerald-900 transition flex flex-col items-center group">
-                <div class="text-5xl mb-4 group-hover:scale-110 transition-transform duration-200">🛡️</div>
-                <h2 class="text-2xl font-bold text-emerald-400 mb-2 uppercase tracking-wide">Player Tools</h2>
-                <p class="text-sm text-slate-400">Universal APX Character Sheet and crafter.</p>
+            <a href="APX_CharSheet.html" class="theme-surface p-8 rounded-xl border hover:border-emerald-500 shadow-xl transition flex flex-col items-center group" style="border-color: var(--c-border); hover:border-color: var(--c-emerald);">
+                <h2 class="text-2xl font-bold mb-2 uppercase tracking-wide" style="color: var(--c-emerald);">Player Tools</h2>
+                <p class="text-sm theme-text-dimmer">Universal APX Character Sheet and crafter.</p>
             </a>
 
-            <a href="APX_GMTools.html" class="bg-slate-800 p-8 rounded-xl border border-purple-900 hover:border-purple-500 shadow-xl hover:shadow-purple-900 transition flex flex-col items-center group">
-                <div class="text-5xl mb-4 group-hover:scale-110 transition-transform duration-200">👑</div>
-                <h2 class="text-2xl font-bold text-purple-400 mb-2 uppercase tracking-wide">GM Tools</h2>
-                <p class="text-sm text-slate-400">Initiative tracker and party roster management.</p>
+            <a href="APX_GMTools.html" class="theme-surface p-8 rounded-xl border shadow-xl transition flex flex-col items-center group" style="border-color: var(--c-border); hover:border-color: var(--c-purple);">
+                <h2 class="text-2xl font-bold mb-2 uppercase tracking-wide" style="color: var(--c-purple);">GM Tools</h2>
+                <p class="text-sm theme-text-dimmer">Initiative tracker and party roster management.</p>
             </a>
         </div>
     </div>
+
+    <script>
+        function setLandingTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            try {
+                let saved = JSON.parse(localStorage.getItem('apxAppSettings') || '{}');
+                saved.theme = theme;
+                localStorage.setItem('apxAppSettings', JSON.stringify(saved));
+            } catch(e) {}
+        }
+
+        window.onload = () => {
+            try {
+                let saved = JSON.parse(localStorage.getItem('apxAppSettings') || '{"theme":"modern"}');
+                let theme = saved.theme || 'modern';
+                document.documentElement.setAttribute('data-theme', theme);
+                document.getElementById('themeSelector').value = theme;
+            } catch(e) {}
+        };
+    </script>
 </body>
 </html>
