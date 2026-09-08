@@ -39,6 +39,13 @@
         try {
             let saved = JSON.parse(localStorage.getItem('apxAppSettings') || 'null');
             if (saved) window.appSettings = Object.assign(window.appSettings, saved);
+            // If the landing page already set a theme, prefer it over the
+            // default 'modern', so navigating from the landing page
+            // respects the selection made there.
+            var landingTheme = localStorage.getItem('apxTheme');
+            if (landingTheme && !saved) window.appSettings.theme = landingTheme;
+            else if (landingTheme && saved && saved.theme === 'modern' && landingTheme !== 'modern')
+                window.appSettings.theme = landingTheme;
         } catch (e) { /* corrupt or inaccessible storage -- fall back to defaults */ }
 
         function apxSaveAppSettings() {

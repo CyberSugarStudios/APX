@@ -239,9 +239,17 @@
 
     // ── Auth state ───────────────────────────────────────────────
     if (!window.FIREBASE_ENABLED) {
+        // Firebase not yet configured -- show the form anyway so the user
+        // can see what to expect, but replace the Sign In button with an
+        // explanatory note and still let them navigate to the apps.
         document.getElementById('firebaseOfflineNote').classList.remove('hidden');
-        document.getElementById('authSignedOut').classList.add('hidden');
-        document.getElementById('landingSubtitle').innerText = 'Select an application to launch';
+        document.getElementById('siPassword').closest('.space-y-3').insertAdjacentHTML('afterend',
+            '<p class="text-xs text-center mt-1" style="color:var(--c-text-muted,#64748b)">Add your Firebase config to enable accounts.</p>');
+        ['doSignIn','doSignUp','doForgotPassword'].forEach(fn => {
+            window[fn] = () => {
+                setError('Cloud sync is not configured yet. See firebase-config.js.');
+            };
+        });
     } else {
         window.apxAuth.onAuthChange(user => {
             if (user) {

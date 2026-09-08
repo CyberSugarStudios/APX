@@ -7,5 +7,4 @@ const FIREBASE_CONFIG = {
   appId: "1:814108370010:web:104e62bb5a1583fdbb2463",
   measurementId: "G-FF2EX35QLM"
 };
-
 const FIREBASE_ENABLED = true;
