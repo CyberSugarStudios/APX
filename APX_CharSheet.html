@@ -1,0 +1,2373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal APX Character Sheet</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IM+Fell+English&family=EB+Garamond:wght@400;500;600;700&family=Cinzel:wght@400;700&family=Rajdhani:wght@400;500;700&family=Orbitron:wght@400;700;900&family=Exo+2:wght@400;500;700&family=Inter:wght@400;500;700&family=Baloo+2:wght@400;600;700&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: var(--c-page-bg, #0f172a);
+            color: var(--c-text-dimmer, #e2e8f0);
+            font-family: var(--c-font, 'Inter'), sans-serif;
+        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--c-surface); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: var(--c-border2); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--c-border3); }
+        
+        input[type="text"], input[type="number"], select, textarea {
+            background-color: var(--c-surface);
+            border: 1px solid var(--c-border);
+            color: var(--c-text);
+            border-radius: 0.375rem;
+            padding: 0.375rem 0.5rem;
+            width: 100%;
+            transition: all 0.2s;
+            font-size: 0.875rem;
+            font-family: var(--c-font);
+        }
+        input[type="text"]:focus, input[type="number"]:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--c-emerald-lt);
+            box-shadow: 0 0 0 1px var(--c-emerald-lt);
+        }
+        input[type="text"]:disabled, input[type="number"]:disabled {
+            background-color: var(--c-surface2);
+            color: var(--c-text-muted);
+            border-color: var(--c-surface2);
+            cursor: not-allowed;
+        }
+
+        /* Compact numeric fields (Currency, Crafting Materials, etc.) that
+           need to stay small and side-by-side instead of stretching to
+           their container's full width. clamp() scales them smoothly
+           between a usable minimum and a sensible maximum across any
+           screen size, no breakpoints needed. Needs type+attribute+class
+           specificity to reliably beat the width:100% rule above. */
+        input[type="text"].compact-num, input[type="number"].compact-num {
+            width: clamp(44px, 16vw, 100px);
+            flex: none;
+        }
+        
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] { -moz-appearance: textfield; text-align: center; }
+
+        /* Buttons with no explicit background class (icon-only buttons
+           like the inventory detail-view magnifying glass) otherwise fall
+           through to the browser's native light-gray button chrome,
+           which isn't theme-aware and can end up illegible against
+           whatever text color the theme applies. */
+        button { background: transparent; }
+        /* Negative skill modifiers: red on every dark theme (Modern,
+           Fantasy, Cyberpunk, Futuristic all already have a red distinct
+           enough to read as a warning color), but Kawaii's own --c-red is
+           a dark rose that leans too close to the rest of its pink
+           palette to stand out at this small a text size -- a true,
+           burnt red-orange reads as "negative" much more clearly there. */
+        .skill-mod-negative { color: var(--c-red); }
+        [data-theme="kawaii"] .skill-mod-negative { color: #8a2e0a; }
+        /* Minimum readable font size floor, applied across every theme --
+           text-[7px] through text-[10px] utility classes throughout the
+           app get bumped up to a legible 11px rather than staying at
+           their original, genuinely-too-small sizes. */
+        [class*="text-[7px]"], [class*="text-[8px]"], [class*="text-[9px]"], [class*="text-[10px]"] { font-size: 11px !important; }
+
+
+        /* Range slider (Undo History size) -- browser default thumb color
+           blends into a dark modal background across every theme, so it
+           needs an explicit, theme-aware, high-contrast color. */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            border-radius: 3px;
+            background: var(--c-border2);
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--c-emerald);
+            border: 2px solid var(--c-text);
+            cursor: pointer;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--c-emerald);
+            border: 2px solid var(--c-text);
+            cursor: pointer;
+        }
+        
+        .section-title {
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 900;
+            color: var(--c-text-dimmer);
+            border-bottom: 2px solid var(--c-border);
+            padding-bottom: 0.25rem;
+            margin-bottom: 0.75rem;
+            font-size: 0.875rem;
+        }
+        
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0, 0, 0, 0.88);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 50; backdrop-filter: blur(4px);
+            opacity: 0; pointer-events: none; transition: opacity 0.2s;
+        }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        
+        .modal-content {
+            background-color: var(--c-surface); border: 1px solid var(--c-border);
+            color: var(--c-text-dimmer);
+            border-radius: 0.75rem; padding: 1.5rem; width: 100%; max-width: 900px;
+            max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            transform: translateY(20px); transition: transform 0.2s;
+        }
+        .modal-overlay.active .modal-content { transform: translateY(0); }
+        
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
+        
+        .power-bubble {
+            width: 14px; height: 14px; border-radius: 50%;
+            border: 2px solid var(--c-border2); display: inline-block; cursor: pointer;
+            transition: all 0.2s;
+            background-color: transparent;
+        }
+        .power-bubble.filled { background-color: var(--c-indigo); border-color: var(--c-indigo); }
+        .power-bubble:hover { transform: scale(1.2); }
+        .power-bubble.static, .power-bubble.static:hover { cursor: default; transform: none; }
+        
+        .wizard-step { display: none; }
+        .wiz-tab { cursor: pointer; transition: all 0.15s; }
+        .wiz-tab:hover { background-color: var(--c-border2) !important; }
+        .wiz-tab-active { background-color: var(--c-purple) !important; color: #ffffff !important; }
+        .wizard-step.active { display: block; animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: translateX(0); } }
+
+        #sidebar {
+            position: fixed; top: 0; left: -300px; width: 300px; height: 100vh;
+            background-color: var(--c-surface2); border-right: 1px solid var(--c-border);
+            color: var(--c-text-dimmer);
+            z-index: 100; transition: 0.3s ease-in-out; padding: 4rem 1rem 1rem 1rem;
+            display: flex; flex-direction: column; box-shadow: 10px 0 25px rgba(0,0,0,0.5);
+        }
+        #sidebar.active { left: 0; }
+        #sidebarOverlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0,0,0,0.5); z-index: 99;
+            display: none; opacity: 0; transition: 0.3s;
+        }
+        #sidebarOverlay.active { display: block; opacity: 1; }
+        
+        .hamburger-btn {
+            position: fixed; top: 1rem; left: 1rem; z-index: 101;
+            background: var(--c-surface); border: 1px solid var(--c-border); padding: 0.5rem 0.75rem;
+            border-radius: 0.375rem; cursor: pointer; color: var(--c-text);
+            font-size: 1.25rem; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: 0.2s;
+        }
+        .hamburger-btn:hover { background: var(--c-border); }
+        .undo-redo-cluster {
+            position: fixed; top: 1rem; right: 1rem; z-index: 101;
+            display: flex; gap: 0.5rem;
+        }
+        .undo-redo-cluster button {
+            background: var(--c-surface); border: 1px solid var(--c-border); padding: 0.5rem 0.75rem;
+            border-radius: 0.375rem; cursor: pointer; color: var(--c-text);
+            font-size: 0.875rem; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: 0.2s;
+        }
+        .undo-redo-cluster button:hover:not(:disabled) { background: var(--c-border); }
+        .undo-redo-cluster button:disabled { opacity: 0.35; cursor: not-allowed; }
+        
+        .char-list-item {
+            padding: 0.75rem; border-radius: 0.5rem; border: 1px solid var(--c-border);
+            background: var(--c-surface); margin-bottom: 0.5rem; cursor: pointer;
+            transition: all 0.2s; display: flex; justify-content: space-between; align-items: center;
+        }
+        .char-list-item:hover { border-color: var(--c-blue-lt); }
+        .char-list-item.active-char { border-color: var(--c-emerald-lt); background: var(--c-emerald-dark); }
+    
+
+        /* ===== GENERATED THEME CSS ===== */
+        /* ===== Opacity-variant classes (bg-X-Y/Z, border-X-Y/Z) -- Tailwind's slash-opacity syntax generates a SEPARATE class from the base color, so these need their own overrides ===== */
+        [class*="bg-amber-600/20"] { background-color: color-mix(in srgb, var(--c-amber) 20%, transparent) !important; }
+        [class*="bg-amber-600/40"] { background-color: color-mix(in srgb, var(--c-amber) 40%, transparent) !important; }
+        [class*="bg-amber-900/40"] { background-color: color-mix(in srgb, var(--c-amber-dark) 40%, transparent) !important; }
+        [class*="bg-amber-900/50"] { background-color: color-mix(in srgb, var(--c-amber-dark) 50%, transparent) !important; }
+        [class*="bg-amber-950/30"] { background-color: color-mix(in srgb, var(--c-amber-dark) 30%, transparent) !important; }
+        [class*="bg-blue-950/40"] { background-color: color-mix(in srgb, var(--c-blue) 40%, transparent) !important; }
+        [class*="bg-emerald-900/30"] { background-color: color-mix(in srgb, var(--c-emerald-dark) 30%, transparent) !important; }
+        [class*="bg-emerald-900/50"] { background-color: color-mix(in srgb, var(--c-emerald-dark) 50%, transparent) !important; }
+        [class*="bg-green-950/40"] { background-color: color-mix(in srgb, var(--c-emerald-dark) 40%, transparent) !important; }
+        [class*="bg-indigo-600/20"] { background-color: color-mix(in srgb, var(--c-indigo) 20%, transparent) !important; }
+        [class*="bg-indigo-600/40"] { background-color: color-mix(in srgb, var(--c-indigo) 40%, transparent) !important; }
+        [class*="bg-indigo-800/50"] { background-color: color-mix(in srgb, var(--c-indigo-dark) 50%, transparent) !important; }
+        [class*="bg-indigo-900/20"] { background-color: color-mix(in srgb, var(--c-indigo-dark) 20%, transparent) !important; }
+        [class*="bg-indigo-900/30"] { background-color: color-mix(in srgb, var(--c-indigo-dark) 30%, transparent) !important; }
+        [class*="bg-orange-600/20"] { background-color: color-mix(in srgb, var(--c-orange) 20%, transparent) !important; }
+        [class*="bg-orange-600/40"] { background-color: color-mix(in srgb, var(--c-orange) 40%, transparent) !important; }
+        [class*="bg-pink-800/50"] { background-color: color-mix(in srgb, var(--c-pink) 50%, transparent) !important; }
+        [class*="bg-pink-900/30"] { background-color: color-mix(in srgb, var(--c-pink) 30%, transparent) !important; }
+        [class*="bg-purple-600/20"] { background-color: color-mix(in srgb, var(--c-purple) 20%, transparent) !important; }
+        [class*="bg-purple-600/40"] { background-color: color-mix(in srgb, var(--c-purple) 40%, transparent) !important; }
+        [class*="bg-purple-900/10"] { background-color: color-mix(in srgb, var(--c-purple-dark) 10%, transparent) !important; }
+        [class*="bg-purple-900/20"] { background-color: color-mix(in srgb, var(--c-purple-dark) 20%, transparent) !important; }
+        [class*="bg-purple-900/30"] { background-color: color-mix(in srgb, var(--c-purple-dark) 30%, transparent) !important; }
+        [class*="bg-purple-900/50"] { background-color: color-mix(in srgb, var(--c-purple-dark) 50%, transparent) !important; }
+        [class*="bg-red-600/20"] { background-color: color-mix(in srgb, var(--c-red) 20%, transparent) !important; }
+        [class*="bg-red-600/40"] { background-color: color-mix(in srgb, var(--c-red) 40%, transparent) !important; }
+        [class*="bg-red-600/50"] { background-color: color-mix(in srgb, var(--c-red) 50%, transparent) !important; }
+        [class*="bg-cyan-600/20"] { background-color: color-mix(in srgb, var(--c-cyan) 20%, transparent) !important; }
+        [class*="bg-cyan-600/40"] { background-color: color-mix(in srgb, var(--c-cyan) 40%, transparent) !important; }
+        [class*="border-cyan-700/50"] { border-color: color-mix(in srgb, var(--c-cyan) 50%, transparent) !important; }
+        [class*="bg-red-900/30"] { background-color: color-mix(in srgb, var(--c-red-dark) 30%, transparent) !important; }
+        [class*="bg-red-900/40"] { background-color: color-mix(in srgb, var(--c-red-dark) 40%, transparent) !important; }
+        [class*="bg-red-900/50"] { background-color: color-mix(in srgb, var(--c-red-dark) 50%, transparent) !important; }
+        [class*="bg-red-950/40"] { background-color: color-mix(in srgb, var(--c-red-dark) 40%, transparent) !important; }
+        [class*="bg-slate-700/50"] { background-color: color-mix(in srgb, var(--c-border) 50%, transparent) !important; }
+        [class*="bg-slate-800/30"] { background-color: color-mix(in srgb, var(--c-surface) 30%, transparent) !important; }
+        [class*="bg-slate-800/50"] { background-color: color-mix(in srgb, var(--c-surface) 50%, transparent) !important; }
+        [class*="bg-slate-800/60"] { background-color: color-mix(in srgb, var(--c-surface) 60%, transparent) !important; }
+        [class*="bg-slate-900/50"] { background-color: color-mix(in srgb, var(--c-surface2) 50%, transparent) !important; }
+        [class*="border-amber-700/50"] { border-color: color-mix(in srgb, var(--c-amber-dk) 50%, transparent) !important; }
+        [class*="border-amber-800/50"] { border-color: color-mix(in srgb, var(--c-amber-dark) 50%, transparent) !important; }
+        [class*="border-cyan-800/50"] { border-color: color-mix(in srgb, var(--c-cyan) 50%, transparent) !important; }
+        [class*="border-emerald-700/50"] { border-color: color-mix(in srgb, var(--c-emerald) 50%, transparent) !important; }
+        [class*="border-emerald-800/50"] { border-color: color-mix(in srgb, var(--c-emerald-dark) 50%, transparent) !important; }
+        [class*="border-emerald-900/50"] { border-color: color-mix(in srgb, var(--c-emerald-dark) 50%, transparent) !important; }
+        [class*="border-indigo-500/50"] { border-color: color-mix(in srgb, var(--c-indigo-lt) 50%, transparent) !important; }
+        [class*="border-indigo-700/50"] { border-color: color-mix(in srgb, var(--c-indigo) 50%, transparent) !important; }
+        [class*="border-indigo-900/50"] { border-color: color-mix(in srgb, var(--c-indigo-dark) 50%, transparent) !important; }
+        [class*="border-orange-700/50"] { border-color: color-mix(in srgb, var(--c-orange) 50%, transparent) !important; }
+        [class*="border-orange-800/50"] { border-color: color-mix(in srgb, var(--c-orange-dark) 50%, transparent) !important; }
+        [class*="border-orange-900/50"] { border-color: color-mix(in srgb, var(--c-orange-dark) 50%, transparent) !important; }
+        [class*="border-pink-500/50"] { border-color: color-mix(in srgb, var(--c-pink-lt) 50%, transparent) !important; }
+        [class*="border-pink-700/50"] { border-color: color-mix(in srgb, var(--c-pink) 50%, transparent) !important; }
+        [class*="border-purple-700/50"] { border-color: color-mix(in srgb, var(--c-purple) 50%, transparent) !important; }
+        [class*="border-purple-800/50"] { border-color: color-mix(in srgb, var(--c-purple-dark) 50%, transparent) !important; }
+        [class*="border-purple-900/50"] { border-color: color-mix(in srgb, var(--c-purple-dark) 50%, transparent) !important; }
+        [class*="border-red-700/50"] { border-color: color-mix(in srgb, var(--c-red) 50%, transparent) !important; }
+        [class*="border-red-800/50"] { border-color: color-mix(in srgb, var(--c-red-dark) 50%, transparent) !important; }
+        [class*="border-slate-700/50"] { border-color: color-mix(in srgb, var(--c-border) 50%, transparent) !important; }
+        [class*="border-yellow-900/50"] { border-color: color-mix(in srgb, var(--c-yellow-dk) 50%, transparent) !important; }
+        [class*="divide-slate-700/50"] > :not([hidden]) ~ :not([hidden]) { border-color: color-mix(in srgb, var(--c-border2) 50%, transparent) !important; }
+        [class*="divide-slate-800/50"] > :not([hidden]) ~ :not([hidden]) { border-color: color-mix(in srgb, var(--c-border2) 50%, transparent) !important; }
+        [class*="text-emerald-400/80"] { color: color-mix(in srgb, var(--c-emerald) 80%, transparent) !important; }
+        [class*="text-orange-400/80"] { color: color-mix(in srgb, var(--c-orange) 80%, transparent) !important; }
+        [class*="text-yellow-500/50"] { color: color-mix(in srgb, var(--c-yellow-dk) 50%, transparent) !important; }
+        /* ===== Instant tooltips (data-tip="...") -- no native browser delay ===== */
+        [data-tip] { position: relative; cursor: help; }
+
+        /* ===== Bubble-style checkboxes, everywhere in the document ===== */
+        input[type="checkbox"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 15px;
+            height: 15px;
+            min-width: 15px;
+            border-radius: 50%;
+            border: 2px solid var(--c-border2);
+            background: var(--c-surface2);
+            cursor: pointer;
+            position: relative;
+            flex-shrink: 0;
+            transition: background-color 0.15s, border-color 0.15s;
+            vertical-align: middle;
+        }
+        input[type="checkbox"]:hover:not(:disabled) { border-color: var(--c-emerald); }
+        input[type="checkbox"]:checked {
+            background: var(--c-emerald);
+            border-color: var(--c-emerald);
+        }
+        input[type="checkbox"]:checked::after {
+            content: '';
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 5px; height: 5px;
+            border-radius: 50%;
+            background: #ffffff;
+        }
+        input[type="checkbox"]:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+
+        /* ===== Theme system ===== */
+        :root {
+          --c-surface2: #0f172a;
+          --c-surface: #1e293b;
+          --c-border: #334155;
+          --c-border2: #475569;
+          --c-border3: #64748b;
+          --c-text: #ffffff;
+          --c-text-muted: #94a3b8;
+          --c-text-dim: #64748b;
+          --c-text-dimmer: #cbd5e1;
+          --c-emerald-dark: #064e3b;
+          --c-emerald: #059669;
+          --c-emerald-lt: #10b981;
+          --c-red-dark: #7f1d1d;
+          --c-red: #dc2626;
+          --c-purple-dark: #581c87;
+          --c-purple: #9333ea;
+          --c-purple-lt: #a855f7;
+          --c-amber-dark: #78350f;
+          --c-amber: #d97706;
+          --c-amber-dk: #b45309;
+          --c-blue: #2563eb;
+          --c-blue-lt: #3b82f6;
+          --c-orange-dark: #7c2d12;
+          --c-orange: #ea580c;
+          --c-orange-lt: #fdba74;
+          --c-indigo-dark: #312e81;
+          --c-indigo: #4f46e5;
+          --c-indigo-lt: #6366f1;
+          --c-yellow: #facc15;
+          --c-yellow-dk: #eab308;
+          --c-cyan: #22d3ee;
+          --c-pink: #f472b6;
+          --c-pink-lt: #f9a8d4;
+          --c-page-bg: #0f172a;
+          --c-font: 'Inter', ui-sans-serif, system-ui, sans-serif;
+          --c-heading-font: 'Inter', ui-sans-serif, system-ui, sans-serif;
+        }
+        [data-theme="fantasy"] {
+          --c-surface2: #1c1610;
+          --c-surface: #2a2118;
+          --c-border: #4a3a26;
+          --c-border2: #5c4a34;
+          --c-border3: #6e5c42;
+          --c-text: #e8dcc0;
+          --c-text-muted: #a89270;
+          --c-text-dim: #8a7860;
+          --c-text-dimmer: #d4c4a0;
+          --c-emerald-dark: #1a2e1a;
+          --c-emerald: #6ba85c;
+          --c-emerald-lt: #85c470;
+          --c-red-dark: #3d0e0e;
+          --c-red: #c94f4f;
+          --c-purple-dark: #2a1a3d;
+          --c-purple: #9169c9;
+          --c-purple-lt: #a685d6;
+          --c-amber-dark: #4a3410;
+          --c-amber: #d1a23d;
+          --c-amber-dk: #b3872e;
+          --c-blue: #4a80b3;
+          --c-blue-lt: #5f97c9;
+          --c-orange-dark: #3d1f0e;
+          --c-orange: #c9803d;
+          --c-orange-lt: #d9985a;
+          --c-indigo-dark: #241a3d;
+          --c-indigo: #7a69c4;
+          --c-indigo-lt: #8f80d1;
+          --c-yellow: #d9b854;
+          --c-yellow-dk: #bfa03f;
+          --c-cyan: #5fa8a8;
+          --c-pink: #c46f8f;
+          --c-pink-lt: #d1859f;
+          --c-page-bg: #14100c;
+          --c-font: 'EB Garamond', 'Georgia', serif;
+          --c-heading-font: 'Cinzel', 'Georgia', serif;
+        }
+        [data-theme="cyberpunk"] {
+          --c-surface2: #0a0410;
+          --c-surface: #160a20;
+          --c-border: #3d0a2e;
+          --c-border2: #5c1044;
+          --c-border3: #7a1858;
+          --c-text: #f0f0ff;
+          --c-text-muted: #ff2079;
+          --c-text-dim: #c8548a;
+          --c-text-dimmer: #ffd0e8;
+          --c-emerald-dark: #0a2e1a;
+          --c-emerald: #00a86b;
+          --c-emerald-lt: #00d98a;
+          --c-red-dark: #3d000e;
+          --c-red: #ff003c;
+          --c-purple-dark: #2a0a3d;
+          --c-purple: #c724ea;
+          --c-purple-lt: #e040f0;
+          --c-amber-dark: #3d2e00;
+          --c-amber: #ffe600;
+          --c-amber-dk: #d9c300;
+          --c-blue: #00c8ff;
+          --c-blue-lt: #40d8ff;
+          --c-orange-dark: #3d1200;
+          --c-orange: #ff6b00;
+          --c-orange-lt: #ff9040;
+          --c-indigo-dark: #1e0a3d;
+          --c-indigo: #ab5cf0;
+          --c-indigo-lt: #a855f7;
+          --c-yellow: #ffe600;
+          --c-yellow-dk: #d9c300;
+          --c-cyan: #00e5ff;
+          --c-pink: #ff2079;
+          --c-pink-lt: #ff5599;
+          --c-page-bg: #050208;
+          --c-font: 'Rajdhani', 'Courier New', monospace;
+          --c-heading-font: 'Orbitron', 'Courier New', monospace;
+        }
+        [data-theme="futuristic"] {
+          --c-surface2: #0a0e16;
+          --c-surface: #121a26;
+          --c-border: #2a3d52;
+          --c-border2: #3d5670;
+          --c-border3: #4d6d8a;
+          --c-text: #e0f2ff;
+          --c-text-muted: #7fa8c9;
+          --c-text-dim: #4d6d85;
+          --c-text-dimmer: #c0e0f5;
+          --c-emerald-dark: #0a2e28;
+          --c-emerald: #0e9488;
+          --c-emerald-lt: #14b8a6;
+          --c-red-dark: #3d1418;
+          --c-red: #f87171;
+          --c-purple-dark: #1e1a3d;
+          --c-purple: #818cf8;
+          --c-purple-lt: #a5b4fc;
+          --c-amber-dark: #1a3040;
+          --c-amber: #67e8f9;
+          --c-amber-dk: #22d3ee;
+          --c-blue: #38bdf8;
+          --c-blue-lt: #7dd3fc;
+          --c-orange-dark: #1a2d40;
+          --c-orange: #67e8f9;
+          --c-orange-lt: #a5f3fc;
+          --c-indigo-dark: #1a1a40;
+          --c-indigo: #818cf8;
+          --c-indigo-lt: #a5b4fc;
+          --c-yellow: #a3e635;
+          --c-yellow-dk: #84cc16;
+          --c-cyan: #67e8f9;
+          --c-pink: #c4b5fd;
+          --c-pink-lt: #ddd6fe;
+          --c-page-bg: #060a10;
+          --c-font: 'Exo 2', 'Segoe UI', sans-serif;
+          --c-heading-font: 'Orbitron', 'Segoe UI', sans-serif;
+        }
+        [data-theme="kawaii"] {
+          /* A deliberately light theme -- pastel/cream, unlike the other
+             four -- so text colors below skew dark for contrast instead
+             of light-on-dark like everywhere else. Every color pairing in
+             this theme (text-on-surface, text-on-page, white-on-button)
+             has been checked against a 3:1/4.5:1 contrast-ratio target,
+             not eyeballed. */
+          --c-surface2: #f5ddec;
+          --c-surface: #faeef4;
+          --c-border: #e0a8c8;
+          --c-border2: #d190b8;
+          --c-border3: #c078a8;
+          --c-text: #3d1830;
+          --c-text-muted: #8a5570;
+          --c-text-dim: #a8759a;
+          --c-text-dimmer: #5c2f4a;
+          --c-emerald-dark: #d4ecdf;
+          --c-emerald: #2d7a54;
+          --c-emerald-lt: #3d9668;
+          --c-red-dark: #f5dce2;
+          --c-red: #a83d54;
+          --c-purple-dark: #e8dcf0;
+          --c-purple: #6b3d94;
+          --c-purple-lt: #8557ad;
+          --c-amber-dark: #f0e0c8;
+          --c-amber: #8a5c28;
+          --c-amber-dk: #734a1f;
+          --c-blue: #2d7494;
+          --c-blue-lt: #3d8fad;
+          --c-orange-dark: #f0ddc8;
+          --c-orange: #985022;
+          --c-orange-lt: #b06838;
+          --c-indigo-dark: #e0dcf0;
+          --c-indigo: #5c4d94;
+          --c-indigo-lt: #7563ad;
+          --c-yellow: #7a6320;
+          --c-yellow-dk: #655118;
+          --c-cyan: #1f6e6e;
+          --c-pink: #a83d70;
+          --c-pink-lt: #c05a8a;
+          --c-page-bg: #e8b8d0;
+          --c-font: 'Quicksand', 'Comic Sans MS', sans-serif;
+          --c-heading-font: 'Baloo 2', 'Comic Sans MS', sans-serif;
+        }
+
+        /* Kawaii-specific: text-white is correct on the theme's own dark,
+           saturated accent-color buttons (bg-emerald-600 text-white etc --
+           those pass contrast fine), but wrong wherever it sits directly
+           on a light surface with no colored button background of its
+           own: modal titles (h1-h4) and the many bg-slate-600/700
+           "-"/"+" buttons throughout the NPC Crafter, whose slate-700
+           equivalent (--c-border2) is light enough that white text on it
+           fails contrast (2.5:1, needs 3:1). Scoped narrowly so it never
+           touches the buttons that need white to stay white. */
+        [data-theme="cyberpunk"] [class*="text-slate-500"],
+        [data-theme="cyberpunk"] [class*="text-slate-600"],
+        [data-theme="cyberpunk"] [class*="text-slate-700"] {
+            /* Same root cause as the Kawaii fix above: these numbers map
+               correctly for bg-/border- use, but as TEXT they're far too
+               dark against Cyberpunk's near-black surfaces. */
+            color: #d070a8 !important;
+        }
+                /* Per-theme, per-button-color text fix: many of this app's
+           accent colors are bright/pastel by design (especially in
+           Fantasy, Cyberpunk, and Futuristic), which makes literal
+           white text on top of them fail contrast outright -- this
+           was never just one button, a systematic check found white
+           failing against nearly every button color in three whole
+           themes. Verified computationally: black passes every one
+           of these specific theme+color combinations with margin. */
+        [data-theme="modern"] [class*="bg-emerald-500"][class*="text-white"],
+        [data-theme="modern"] [class*="bg-emerald-600"][class*="text-white"],
+        [data-theme="modern"] [class*="bg-emerald-700"][class*="text-white"],
+        [data-theme="modern"] [class*="bg-amber-500"][class*="text-white"],
+        [data-theme="modern"] [class*="bg-amber-600"][class*="text-white"],
+        [data-theme="modern"] [class*="bg-amber-700"][class*="text-white"],
+        [data-theme="modern"] [class*="bg-orange-500"][class*="text-white"],
+        [data-theme="modern"] [class*="bg-orange-600"][class*="text-white"],
+        [data-theme="modern"] [class*="bg-pink-500"][class*="text-white"],
+        [data-theme="modern"] [class*="bg-pink-600"][class*="text-white"],
+        [data-theme="modern"] [class*="bg-cyan-600"][class*="text-white"],
+        [data-theme="fantasy"] [class*="bg-emerald-500"][class*="text-white"],
+        [data-theme="fantasy"] [class*="bg-emerald-600"][class*="text-white"],
+        [data-theme="fantasy"] [class*="bg-emerald-700"][class*="text-white"],
+        [data-theme="fantasy"] [class*="bg-blue-500"][class*="text-white"],
+        [data-theme="fantasy"] [class*="bg-blue-600"][class*="text-white"],
+        [data-theme="fantasy"] [class*="bg-purple-500"][class*="text-white"],
+        [data-theme="fantasy"] [class*="bg-purple-600"][class*="text-white"],
+        [data-theme="fantasy"] [class*="bg-purple-700"][class*="text-white"],
+        [data-theme="fantasy"] [class*="bg-amber-500"][class*="text-white"],
+        [data-theme="fantasy"] [class*="bg-amber-600"][class*="text-white"],
+        [data-theme="fantasy"] [class*="bg-amber-700"][class*="text-white"],
+        [data-theme="fantasy"] [class*="bg-orange-500"][class*="text-white"],
+        [data-theme="fantasy"] [class*="bg-orange-600"][class*="text-white"],
+        [data-theme="fantasy"] [class*="bg-pink-500"][class*="text-white"],
+        [data-theme="fantasy"] [class*="bg-pink-600"][class*="text-white"],
+        [data-theme="fantasy"] [class*="bg-red-600"][class*="text-white"],
+        [data-theme="fantasy"] [class*="bg-red-700"][class*="text-white"],
+        [data-theme="fantasy"] [class*="bg-cyan-600"][class*="text-white"],
+        [data-theme="cyberpunk"] [class*="bg-emerald-500"][class*="text-white"],
+        [data-theme="cyberpunk"] [class*="bg-emerald-600"][class*="text-white"],
+        [data-theme="cyberpunk"] [class*="bg-emerald-700"][class*="text-white"],
+        [data-theme="cyberpunk"] [class*="bg-blue-500"][class*="text-white"],
+        [data-theme="cyberpunk"] [class*="bg-blue-600"][class*="text-white"],
+        [data-theme="cyberpunk"] [class*="bg-purple-500"][class*="text-white"],
+        [data-theme="cyberpunk"] [class*="bg-purple-600"][class*="text-white"],
+        [data-theme="cyberpunk"] [class*="bg-purple-700"][class*="text-white"],
+        [data-theme="cyberpunk"] [class*="bg-indigo-500"][class*="text-white"],
+        [data-theme="cyberpunk"] [class*="bg-indigo-600"][class*="text-white"],
+        [data-theme="cyberpunk"] [class*="bg-indigo-700"][class*="text-white"],
+        [data-theme="cyberpunk"] [class*="bg-amber-500"][class*="text-white"],
+        [data-theme="cyberpunk"] [class*="bg-amber-600"][class*="text-white"],
+        [data-theme="cyberpunk"] [class*="bg-amber-700"][class*="text-white"],
+        [data-theme="cyberpunk"] [class*="bg-orange-500"][class*="text-white"],
+        [data-theme="cyberpunk"] [class*="bg-orange-600"][class*="text-white"],
+        [data-theme="cyberpunk"] [class*="bg-pink-500"][class*="text-white"],
+        [data-theme="cyberpunk"] [class*="bg-pink-600"][class*="text-white"],
+        [data-theme="cyberpunk"] [class*="bg-red-600"][class*="text-white"],
+        [data-theme="cyberpunk"] [class*="bg-red-700"][class*="text-white"],
+        [data-theme="cyberpunk"] [class*="bg-cyan-600"][class*="text-white"],
+        [data-theme="futuristic"] [class*="bg-emerald-500"][class*="text-white"],
+        [data-theme="futuristic"] [class*="bg-emerald-600"][class*="text-white"],
+        [data-theme="futuristic"] [class*="bg-emerald-700"][class*="text-white"],
+        [data-theme="futuristic"] [class*="bg-blue-500"][class*="text-white"],
+        [data-theme="futuristic"] [class*="bg-blue-600"][class*="text-white"],
+        [data-theme="futuristic"] [class*="bg-purple-500"][class*="text-white"],
+        [data-theme="futuristic"] [class*="bg-purple-600"][class*="text-white"],
+        [data-theme="futuristic"] [class*="bg-purple-700"][class*="text-white"],
+        [data-theme="futuristic"] [class*="bg-indigo-500"][class*="text-white"],
+        [data-theme="futuristic"] [class*="bg-indigo-600"][class*="text-white"],
+        [data-theme="futuristic"] [class*="bg-indigo-700"][class*="text-white"],
+        [data-theme="futuristic"] [class*="bg-amber-500"][class*="text-white"],
+        [data-theme="futuristic"] [class*="bg-amber-600"][class*="text-white"],
+        [data-theme="futuristic"] [class*="bg-amber-700"][class*="text-white"],
+        [data-theme="futuristic"] [class*="bg-orange-500"][class*="text-white"],
+        [data-theme="futuristic"] [class*="bg-orange-600"][class*="text-white"],
+        [data-theme="futuristic"] [class*="bg-pink-500"][class*="text-white"],
+        [data-theme="futuristic"] [class*="bg-pink-600"][class*="text-white"],
+        [data-theme="futuristic"] [class*="bg-red-600"][class*="text-white"],
+        [data-theme="futuristic"] [class*="bg-red-700"][class*="text-white"],
+        [data-theme="futuristic"] [class*="bg-cyan-600"][class*="text-white"] {
+            color: #000000 !important;
+        }
+
+        [data-theme="kawaii"] [class*="text-slate-500"],
+        [data-theme="kawaii"] [class*="text-slate-600"],
+        [data-theme="kawaii"] [class*="text-slate-700"],
+        [data-theme="kawaii"] [class*="text-slate-800"],
+        [data-theme="kawaii"] [class*="text-slate-900"] {
+            /* These numbers were mapped (correctly, for bg-/border- use)
+               to border-role variables that are far too light to read as
+               KAWAII BODY TEXT -- this is the single biggest source of
+               low-contrast text across the whole app under this theme,
+               since text-slate-500/600/700+ is the most common way
+               secondary/muted labels are styled throughout. A dedicated,
+               properly-dark text color, scoped to the text- prefix only
+               (bg-/border-slate-* keep their existing, correct mapping). */
+            color: #7a4568 !important;
+        }
+        [data-theme="kawaii"] [class*="text-emerald-500"] { color: #0f5c35 !important; }
+        [data-theme="kawaii"] [class*="text-blue-500"] { color: #0f5c7a !important; }
+        [data-theme="kawaii"] h1[class*="text-white"],
+        [data-theme="kawaii"] h2[class*="text-white"],
+        [data-theme="kawaii"] h3[class*="text-white"],
+        [data-theme="kawaii"] h4[class*="text-white"],
+        [data-theme="kawaii"] [class*="bg-slate-600"][class*="text-white"],
+        [data-theme="kawaii"] [class*="bg-slate-700"][class*="text-white"],
+        [data-theme="kawaii"] [class*="bg-slate-800"][class*="text-white"],
+        [data-theme="kawaii"] [class*="bg-slate-900"][class*="text-white"] {
+            color: var(--c-text) !important;
+        }
+        /* Blanket default: text-white is dark under Kawaii UNLESS the
+           element also carries one of the specific dark, saturated
+           button-background classes whitelisted below. This is
+           deliberately the inverse of enumerating every "bad" light
+           context (headings, paragraphs, labels, confirm-dialog text,
+           etc.) -- that list kept growing every time a new modal or
+           control was added elsewhere in the app, since anything without
+           an explicit bg-* class was silently missed. The set of
+           legitimate dark-button backgrounds is small and closed, so
+           whitelisting THAT is the version that can't be caught out by
+           code added later. */
+        [data-theme="kawaii"] [class*="text-white"] { color: var(--c-text) !important; }
+        [data-theme="kawaii"] [class*="bg-emerald-500"][class*="text-white"],
+        [data-theme="kawaii"] [class*="bg-emerald-600"][class*="text-white"],
+        [data-theme="kawaii"] [class*="bg-emerald-700"][class*="text-white"],
+        [data-theme="kawaii"] [class*="bg-blue-500"][class*="text-white"],
+        [data-theme="kawaii"] [class*="bg-blue-600"][class*="text-white"],
+        [data-theme="kawaii"] [class*="bg-purple-500"][class*="text-white"],
+        [data-theme="kawaii"] [class*="bg-purple-600"][class*="text-white"],
+        [data-theme="kawaii"] [class*="bg-purple-700"][class*="text-white"],
+        [data-theme="kawaii"] [class*="bg-indigo-500"][class*="text-white"],
+        [data-theme="kawaii"] [class*="bg-indigo-600"][class*="text-white"],
+        [data-theme="kawaii"] [class*="bg-indigo-700"][class*="text-white"],
+        [data-theme="kawaii"] [class*="bg-amber-500"][class*="text-white"],
+        [data-theme="kawaii"] [class*="bg-amber-600"][class*="text-white"],
+        [data-theme="kawaii"] [class*="bg-amber-700"][class*="text-white"],
+        [data-theme="kawaii"] [class*="bg-orange-500"][class*="text-white"],
+        [data-theme="kawaii"] [class*="bg-orange-600"][class*="text-white"],
+        [data-theme="kawaii"] [class*="bg-pink-500"][class*="text-white"],
+        [data-theme="kawaii"] [class*="bg-pink-600"][class*="text-white"],
+        [data-theme="kawaii"] [class*="bg-red-600"][class*="text-white"],
+        [data-theme="kawaii"] [class*="bg-red-700"][class*="text-white"],
+        [data-theme="kawaii"] [class*="bg-cyan-600"][class*="text-white"] {
+            color: #ffffff !important;
+        }
+
+        
+        body { background: var(--c-page-bg) !important; font-family: var(--c-font); color: var(--c-text-dimmer); }
+        h1,h2,h3,h4,h5,h6 { font-family: var(--c-heading-font); }
+        .modal-content { font-family: var(--c-font); }
+        [class*="bg-amber-500"] { background-color: var(--c-amber-dk) !important; }
+        [class*="bg-amber-600"] { background-color: var(--c-amber) !important; }
+        [class*="bg-amber-700"] { background-color: var(--c-amber-dk) !important; }
+        [class*="bg-amber-900"] { background-color: var(--c-amber-dark) !important; }
+        [class*="bg-blue-500"] { background-color: var(--c-blue-lt) !important; }
+        [class*="bg-blue-600"] { background-color: var(--c-blue) !important; }
+        [class*="bg-emerald-500"] { background-color: var(--c-emerald-lt) !important; }
+        [class*="bg-emerald-600"] { background-color: var(--c-emerald) !important; }
+        [class*="bg-emerald-700"] { background-color: var(--c-emerald) !important; }
+        [class*="bg-emerald-900"] { background-color: var(--c-emerald-dark) !important; }
+        [class*="bg-indigo-500"] { background-color: var(--c-indigo-lt) !important; }
+        [class*="bg-indigo-600"] { background-color: var(--c-indigo) !important; }
+        [class*="bg-indigo-700"] { background-color: var(--c-indigo) !important; }
+        [class*="bg-indigo-900"] { background-color: var(--c-indigo-dark) !important; }
+        [class*="bg-orange-500"] { background-color: var(--c-orange-lt) !important; }
+        [class*="bg-orange-600"] { background-color: var(--c-orange) !important; }
+        [class*="bg-pink-500"] { background-color: var(--c-pink-lt) !important; }
+        [class*="bg-pink-600"] { background-color: var(--c-pink) !important; }
+        [class*="bg-purple-500"] { background-color: var(--c-purple-lt) !important; }
+        [class*="bg-purple-600"] { background-color: var(--c-purple) !important; }
+        [class*="bg-purple-700"] { background-color: var(--c-purple) !important; }
+        [class*="bg-red-500"] { background-color: var(--c-red) !important; }
+        [class*="bg-red-600"] { background-color: var(--c-red) !important; }
+        [class*="bg-red-700"] { background-color: var(--c-red) !important; }
+        [class*="bg-red-900"] { background-color: var(--c-red-dark) !important; }
+        [class*="bg-slate-500"] { background-color: var(--c-border3) !important; }
+        [class*="bg-slate-600"] { background-color: var(--c-border2) !important; }
+        [class*="bg-slate-700"] { background-color: var(--c-border) !important; }
+        [class*="bg-slate-800"] { background-color: var(--c-surface) !important; }
+        [class*="bg-slate-900"] { background-color: var(--c-surface2) !important; }
+        [class*="border-amber-400"] { border-color: var(--c-amber) !important; }
+        [class*="border-amber-600"] { border-color: var(--c-amber) !important; }
+        [class*="border-amber-800"] { border-color: var(--c-amber-dark) !important; }
+        [class*="border-blue-500"] { border-color: var(--c-blue-lt) !important; }
+        [class*="border-cyan-900"] { border-color: var(--c-cyan) !important; }
+        [class*="border-emerald-600"] { border-color: var(--c-emerald) !important; }
+        [class*="border-emerald-700"] { border-color: var(--c-emerald) !important; }
+        [class*="border-emerald-800"] { border-color: var(--c-emerald-dark) !important; }
+        [class*="border-emerald-900"] { border-color: var(--c-emerald-dark) !important; }
+        [class*="border-green-500"] { border-color: var(--c-emerald) !important; }
+        [class*="border-indigo-500"] { border-color: var(--c-indigo-lt) !important; }
+        [class*="border-indigo-600"] { border-color: var(--c-indigo) !important; }
+        [class*="border-indigo-700"] { border-color: var(--c-indigo) !important; }
+        [class*="border-orange-600"] { border-color: var(--c-orange) !important; }
+        [class*="border-orange-700"] { border-color: var(--c-orange) !important; }
+        [class*="border-orange-900"] { border-color: var(--c-orange-dark) !important; }
+        [class*="border-pink-600"] { border-color: var(--c-pink) !important; }
+        [class*="border-pink-800"] { border-color: var(--c-pink) !important; }
+        [class*="border-purple-500"] { border-color: var(--c-purple-lt) !important; }
+        [class*="border-purple-600"] { border-color: var(--c-purple) !important; }
+        [class*="border-purple-700"] { border-color: var(--c-purple) !important; }
+        [class*="border-purple-800"] { border-color: var(--c-purple-dark) !important; }
+        [class*="border-purple-900"] { border-color: var(--c-purple-dark) !important; }
+        [class*="border-red-500"] { border-color: var(--c-red) !important; }
+        [class*="border-red-600"] { border-color: var(--c-red) !important; }
+        [class*="border-red-700"] { border-color: var(--c-red) !important; }
+        [class*="border-red-800"] { border-color: var(--c-red-dark) !important; }
+        [class*="border-red-900"] { border-color: var(--c-red-dark) !important; }
+        [class*="border-slate-500"] { border-color: var(--c-border3) !important; }
+        [class*="border-slate-600"] { border-color: var(--c-border2) !important; }
+        [class*="border-slate-700"] { border-color: var(--c-border) !important; }
+        [class*="border-slate-800"] { border-color: var(--c-surface) !important; }
+        [class*="text-amber-300"] { color: var(--c-amber) !important; }
+        [class*="text-amber-400"] { color: var(--c-amber) !important; }
+        [class*="text-amber-500"] { color: var(--c-amber-dk) !important; }
+        [class*="text-blue-300"] { color: var(--c-blue-lt) !important; }
+        [class*="text-blue-400"] { color: var(--c-blue) !important; }
+        [class*="text-blue-500"] { color: var(--c-blue-lt) !important; }
+        [class*="text-cyan-300"] { color: var(--c-cyan) !important; }
+        [class*="text-cyan-400"] { color: var(--c-cyan) !important; }
+        [class*="bg-cyan-600"] { background-color: var(--c-cyan) !important; }
+        [class*="border-cyan-700"] { border-color: color-mix(in srgb, var(--c-cyan) 50%, transparent) !important; }
+        [class*="text-emerald-300"] { color: var(--c-emerald-lt) !important; }
+        [class*="text-emerald-400"] { color: var(--c-emerald) !important; }
+        [class*="text-emerald-500"] { color: var(--c-emerald-lt) !important; }
+        [class*="text-green-300"] { color: var(--c-emerald-lt) !important; }
+        [class*="text-indigo-300"] { color: var(--c-indigo-lt) !important; }
+        [class*="text-indigo-400"] { color: var(--c-indigo) !important; }
+        [class*="text-orange-300"] { color: var(--c-orange-lt) !important; }
+        [class*="text-orange-400"] { color: var(--c-orange) !important; }
+        [class*="text-pink-300"] { color: var(--c-pink-lt) !important; }
+        [class*="text-pink-400"] { color: var(--c-pink-lt) !important; }
+        [class*="text-purple-300"] { color: var(--c-purple-lt) !important; }
+        [class*="text-purple-400"] { color: var(--c-purple) !important; }
+        [class*="text-red-300"] { color: var(--c-red) !important; }
+        [class*="text-red-400"] { color: var(--c-red) !important; }
+        [class*="text-red-500"] { color: var(--c-red) !important; }
+        [class*="text-slate-200"] { color: var(--c-text-dimmer) !important; }
+        [class*="text-slate-300"] { color: var(--c-text-dimmer) !important; }
+        [class*="text-slate-400"] { color: var(--c-text-muted) !important; }
+        [class*="text-slate-500"] { color: var(--c-border3) !important; }
+        [class*="text-slate-600"] { color: var(--c-border2) !important; }
+        [class*="text-slate-700"] { color: var(--c-border) !important; }
+        [class*="text-yellow-400"] { color: var(--c-yellow) !important; }
+        [class*="text-yellow-500"] { color: var(--c-yellow-dk) !important; }
+        /* Opacity-variant rules repeated here (after the plain rules above) so they win the cascade for any element that has both an opacity-suffixed class and a plain class sharing the same prefix (e.g. bg-amber-600/20 vs bg-amber-600) -- equal specificity means source order decides. */
+        [class*="bg-amber-600/20"] { background-color: color-mix(in srgb, var(--c-amber) 20%, transparent) !important; }
+        [class*="bg-amber-600/40"] { background-color: color-mix(in srgb, var(--c-amber) 40%, transparent) !important; }
+        [class*="bg-amber-900/40"] { background-color: color-mix(in srgb, var(--c-amber-dark) 40%, transparent) !important; }
+        [class*="bg-amber-900/50"] { background-color: color-mix(in srgb, var(--c-amber-dark) 50%, transparent) !important; }
+        [class*="bg-amber-950/30"] { background-color: color-mix(in srgb, var(--c-amber-dark) 30%, transparent) !important; }
+        [class*="bg-blue-950/40"] { background-color: color-mix(in srgb, var(--c-blue) 40%, transparent) !important; }
+        [class*="bg-emerald-900/30"] { background-color: color-mix(in srgb, var(--c-emerald-dark) 30%, transparent) !important; }
+        [class*="bg-emerald-900/50"] { background-color: color-mix(in srgb, var(--c-emerald-dark) 50%, transparent) !important; }
+        [class*="bg-green-950/40"] { background-color: color-mix(in srgb, var(--c-emerald-dark) 40%, transparent) !important; }
+        [class*="bg-indigo-600/20"] { background-color: color-mix(in srgb, var(--c-indigo) 20%, transparent) !important; }
+        [class*="bg-indigo-600/40"] { background-color: color-mix(in srgb, var(--c-indigo) 40%, transparent) !important; }
+        [class*="bg-indigo-800/50"] { background-color: color-mix(in srgb, var(--c-indigo-dark) 50%, transparent) !important; }
+        [class*="bg-indigo-900/20"] { background-color: color-mix(in srgb, var(--c-indigo-dark) 20%, transparent) !important; }
+        [class*="bg-indigo-900/30"] { background-color: color-mix(in srgb, var(--c-indigo-dark) 30%, transparent) !important; }
+        [class*="bg-orange-600/20"] { background-color: color-mix(in srgb, var(--c-orange) 20%, transparent) !important; }
+        [class*="bg-orange-600/40"] { background-color: color-mix(in srgb, var(--c-orange) 40%, transparent) !important; }
+        [class*="bg-pink-800/50"] { background-color: color-mix(in srgb, var(--c-pink) 50%, transparent) !important; }
+        [class*="bg-pink-900/30"] { background-color: color-mix(in srgb, var(--c-pink) 30%, transparent) !important; }
+        [class*="bg-purple-600/20"] { background-color: color-mix(in srgb, var(--c-purple) 20%, transparent) !important; }
+        [class*="bg-purple-600/40"] { background-color: color-mix(in srgb, var(--c-purple) 40%, transparent) !important; }
+        [class*="bg-purple-900/10"] { background-color: color-mix(in srgb, var(--c-purple-dark) 10%, transparent) !important; }
+        [class*="bg-purple-900/20"] { background-color: color-mix(in srgb, var(--c-purple-dark) 20%, transparent) !important; }
+        [class*="bg-purple-900/30"] { background-color: color-mix(in srgb, var(--c-purple-dark) 30%, transparent) !important; }
+        [class*="bg-purple-900/50"] { background-color: color-mix(in srgb, var(--c-purple-dark) 50%, transparent) !important; }
+        [class*="bg-red-600/20"] { background-color: color-mix(in srgb, var(--c-red) 20%, transparent) !important; }
+        [class*="bg-red-600/40"] { background-color: color-mix(in srgb, var(--c-red) 40%, transparent) !important; }
+        [class*="bg-red-600/50"] { background-color: color-mix(in srgb, var(--c-red) 50%, transparent) !important; }
+        [class*="bg-cyan-600/20"] { background-color: color-mix(in srgb, var(--c-cyan) 20%, transparent) !important; }
+        [class*="bg-cyan-600/40"] { background-color: color-mix(in srgb, var(--c-cyan) 40%, transparent) !important; }
+        [class*="border-cyan-700/50"] { border-color: color-mix(in srgb, var(--c-cyan) 50%, transparent) !important; }
+        [class*="bg-red-900/30"] { background-color: color-mix(in srgb, var(--c-red-dark) 30%, transparent) !important; }
+        [class*="bg-red-900/40"] { background-color: color-mix(in srgb, var(--c-red-dark) 40%, transparent) !important; }
+        [class*="bg-red-900/50"] { background-color: color-mix(in srgb, var(--c-red-dark) 50%, transparent) !important; }
+        [class*="bg-red-950/40"] { background-color: color-mix(in srgb, var(--c-red-dark) 40%, transparent) !important; }
+        [class*="bg-slate-700/50"] { background-color: color-mix(in srgb, var(--c-border) 50%, transparent) !important; }
+        [class*="bg-slate-800/30"] { background-color: color-mix(in srgb, var(--c-surface) 30%, transparent) !important; }
+        [class*="bg-slate-800/50"] { background-color: color-mix(in srgb, var(--c-surface) 50%, transparent) !important; }
+        [class*="bg-slate-800/60"] { background-color: color-mix(in srgb, var(--c-surface) 60%, transparent) !important; }
+        [class*="bg-slate-900/50"] { background-color: color-mix(in srgb, var(--c-surface2) 50%, transparent) !important; }
+        [class*="border-amber-700/50"] { border-color: color-mix(in srgb, var(--c-amber-dk) 50%, transparent) !important; }
+        [class*="border-amber-800/50"] { border-color: color-mix(in srgb, var(--c-amber-dark) 50%, transparent) !important; }
+        [class*="border-cyan-800/50"] { border-color: color-mix(in srgb, var(--c-cyan) 50%, transparent) !important; }
+        [class*="border-emerald-700/50"] { border-color: color-mix(in srgb, var(--c-emerald) 50%, transparent) !important; }
+        [class*="border-emerald-800/50"] { border-color: color-mix(in srgb, var(--c-emerald-dark) 50%, transparent) !important; }
+        [class*="border-emerald-900/50"] { border-color: color-mix(in srgb, var(--c-emerald-dark) 50%, transparent) !important; }
+        [class*="border-indigo-500/50"] { border-color: color-mix(in srgb, var(--c-indigo-lt) 50%, transparent) !important; }
+        [class*="border-indigo-700/50"] { border-color: color-mix(in srgb, var(--c-indigo) 50%, transparent) !important; }
+        [class*="border-indigo-900/50"] { border-color: color-mix(in srgb, var(--c-indigo-dark) 50%, transparent) !important; }
+        [class*="border-orange-700/50"] { border-color: color-mix(in srgb, var(--c-orange) 50%, transparent) !important; }
+        [class*="border-orange-800/50"] { border-color: color-mix(in srgb, var(--c-orange-dark) 50%, transparent) !important; }
+        [class*="border-orange-900/50"] { border-color: color-mix(in srgb, var(--c-orange-dark) 50%, transparent) !important; }
+        [class*="border-pink-500/50"] { border-color: color-mix(in srgb, var(--c-pink-lt) 50%, transparent) !important; }
+        [class*="border-pink-700/50"] { border-color: color-mix(in srgb, var(--c-pink) 50%, transparent) !important; }
+        [class*="border-purple-700/50"] { border-color: color-mix(in srgb, var(--c-purple) 50%, transparent) !important; }
+        [class*="border-purple-800/50"] { border-color: color-mix(in srgb, var(--c-purple-dark) 50%, transparent) !important; }
+        [class*="border-purple-900/50"] { border-color: color-mix(in srgb, var(--c-purple-dark) 50%, transparent) !important; }
+        [class*="border-red-700/50"] { border-color: color-mix(in srgb, var(--c-red) 50%, transparent) !important; }
+        [class*="border-red-800/50"] { border-color: color-mix(in srgb, var(--c-red-dark) 50%, transparent) !important; }
+        [class*="border-slate-700/50"] { border-color: color-mix(in srgb, var(--c-border) 50%, transparent) !important; }
+        [class*="border-yellow-900/50"] { border-color: color-mix(in srgb, var(--c-yellow-dk) 50%, transparent) !important; }
+        [class*="divide-slate-700/50"] > :not([hidden]) ~ :not([hidden]) { border-color: color-mix(in srgb, var(--c-border2) 50%, transparent) !important; }
+        [class*="divide-slate-800/50"] > :not([hidden]) ~ :not([hidden]) { border-color: color-mix(in srgb, var(--c-border2) 50%, transparent) !important; }
+        [class*="text-emerald-400/80"] { color: color-mix(in srgb, var(--c-emerald) 80%, transparent) !important; }
+        [class*="text-orange-400/80"] { color: color-mix(in srgb, var(--c-orange) 80%, transparent) !important; }
+        [class*="text-yellow-500/50"] { color: color-mix(in srgb, var(--c-yellow-dk) 50%, transparent) !important; }
+    </style>
+</head>
+<body class="p-2 md:p-6 flex justify-center text-sm ml-0 lg:ml-8 transition-all">
+
+    <button class="hamburger-btn" onclick="window.toggleSidebar()">☰ Roster</button>
+    <div class="undo-redo-cluster">
+        <button id="btnUndo" onclick="window.performUndo()" title="Undo (Ctrl+Z)" disabled>↶ Undo</button>
+        <button id="btnRedo" onclick="window.performRedo()" title="Redo (Ctrl+Y)" disabled>↷ Redo</button>
+        <button onclick="window.openModal('settingsModal')" title="Settings">⚙</button>
+    </div>
+    <div id="sidebarOverlay" onclick="window.toggleSidebar()"></div>
+    <div id="sidebar">
+        <h2 class="text-xl font-black text-white mb-4 border-b border-slate-600 pb-2">Character Roster</h2>
+        <button onclick="window.createNewCharacter()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded mb-4 shadow transition">
+            + Create New Character
+        </button>
+        <div class="grid grid-cols-2 gap-2 mb-4">
+            <button onclick="window.loadRosterFolder()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2 px-2 rounded shadow transition" title="Select a folder to load multiple characters">
+                📁 Load Roster
+            </button>
+            <button id="btnSaveRoster" onclick="window.saveToRosterFolder()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2 px-2 rounded shadow transition" title="Save current character to the loaded folder">
+                💾 Save to Roster
+            </button>
+            <button onclick="window.saveToLocal()" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-2 px-2 rounded shadow transition" title="Download character to your PC">
+                ⬇️ Export
+            </button>
+            <button onclick="document.getElementById('importFile').click()" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-2 px-2 rounded shadow transition" title="Load a single character from your PC">
+                ⬆️ Import Single
+            </button>
+            <input type="file" id="importFile" accept=".json" class="hidden" onchange="window.loadFromLocal(event)">
+        </div>
+        <div id="characterList" class="flex-1 overflow-y-auto pr-2 space-y-2">
+            <div class="text-xs text-slate-500 text-center py-4">Click "Load Roster" to select a folder.</div>
+        </div>
+        <div class="mt-4 text-[10px] text-slate-500 text-center">Use Save to Roster to update your local files.</div>
+    </div>
+
+    <div class="w-full max-w-[1400px] space-y-4" id="mainContent">
+        
+        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-xl grid grid-cols-2 md:grid-cols-4 lg:grid-cols-12 gap-3 items-end relative overflow-hidden">
+            <div class="col-span-2 lg:col-span-3">
+                <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Character Name</label>
+                <input type="text" id="charName" onchange="window.updateState('name', this.value)" placeholder="Hero Name" class="font-black text-lg text-white bg-slate-900 border-slate-600">
+            </div>
+            
+            <div class="col-span-2 lg:col-span-2 relative">
+                <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Ancestry & Genetics</label>
+                <button onclick="window.openModal('ancestryModal')" class="w-full bg-indigo-900/30 border border-indigo-500/50 text-indigo-300 rounded p-1.5 text-left hover:bg-indigo-800/50 transition flex justify-between items-center shadow-inner font-bold h-[38px]">
+                    <span id="dispAncestryName" class="truncate">Human</span>
+                    <span class="text-xs text-indigo-400 ml-2">(<span id="dispGpUsed">0</span>/<span id="dispGpLimit">15</span>)</span>
+                </button>
+            </div>
+
+            <div class="col-span-2 lg:col-span-2 relative">
+                <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Background Origin</label>
+                <button onclick="window.openModal('originModal')" class="w-full bg-pink-900/30 border border-pink-500/50 text-pink-300 rounded p-1.5 text-left hover:bg-pink-800/50 transition flex justify-between items-center shadow-inner font-bold h-[38px]">
+                    <span id="dispOriginName" class="truncate">Unknown</span>
+                </button>
+            </div>
+
+            <div class="col-span-2 lg:col-span-2">
+                <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Languages</label>
+                <input type="text" id="languages" onchange="window.updateState('languages', this.value)" placeholder="Common..." class="bg-slate-900 text-xs h-[38px]">
+            </div>
+
+            <div class="col-span-2 lg:col-span-3 flex flex-col justify-end">
+                <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1 text-center">Experience (XP)</label>
+                <div class="flex gap-1 items-stretch h-[38px]">
+                    <div class="flex-1 relative group">
+                        <input type="text" id="unspentXp" onfocus="this.select()" onchange="window.handleMathInput('unspentXp', this); window.updateXpCosts();" onkeydown="if(event.key === 'Enter') { this.blur(); }" class="text-emerald-400 font-black bg-slate-900 border-emerald-900/50 text-lg h-full">
+                        <span class="absolute -top-2 -right-2 text-[8px] bg-emerald-900 text-emerald-400 px-1 rounded shadow">Unspent</span>
+                    </div>
+                    <div class="flex-1 relative group">
+                        <input type="number" id="spentXp" onchange="window.updateState('spentXp', parseInt(this.value)||0)" class="text-slate-400 font-black bg-slate-900 border-slate-700/50 text-lg h-full" readonly>
+                        <span class="absolute -top-2 -right-2 text-[8px] bg-slate-800 text-slate-400 px-1 rounded shadow">Spent</span>
+                    </div>
+                    <button onclick="window.openModal('spendXpModal')" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-2 rounded shadow transition text-xs whitespace-nowrap leading-tight">
+                        Spend<br>XP
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            
+            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg flex flex-col">
+                <h2 class="section-title text-emerald-400 border-emerald-900 flex justify-between items-end">
+                    <span>Vitals</span>
+                    <span class="text-[10px] text-slate-400 font-bold bg-slate-900 px-2 py-0.5 rounded border border-slate-700">Wound Thresh: <span id="dispWt" class="text-red-400 font-black">10</span></span>
+                </h2>
+                <div class="grid grid-cols-3 gap-2">
+                    <div class="bg-slate-900 p-2 rounded border border-slate-700 text-center relative">
+                        <div class="text-[10px] text-slate-500 uppercase font-bold" data-tip="(CON x 5) + XP-purchased HP + perk bonuses (e.g. Vitality)">Max HP</div>
+                        <div class="text-2xl font-black text-slate-200 mt-1" id="dispMaxHp">25</div>
+                    </div>
+                    <div class="bg-slate-900 p-2 rounded border border-slate-700 text-center relative shadow-inner">
+                        <div class="text-[10px] text-emerald-500 uppercase font-bold">Current HP</div>
+                        <input type="text" id="currentHpInput" onfocus="this.select()" onchange="window.handleMathInput('currentHp', this)" onkeydown="if(event.key === 'Enter') { this.blur(); }" class="text-2xl font-black text-emerald-400 bg-transparent border-none p-0 mt-1 focus:ring-0 w-full text-center">
+                    </div>
+                    <div class="bg-slate-900 p-2 rounded border border-slate-700 text-center relative">
+                        <div class="text-[10px] text-blue-500 uppercase font-bold">Temp HP</div>
+                        <input type="text" id="tempHpInput" onfocus="this.select()" onchange="window.handleMathInput('tempHp', this)" onkeydown="if(event.key === 'Enter') { this.blur(); }" placeholder="0" class="text-xl font-bold text-blue-300 bg-transparent border-none p-0 mt-1 focus:ring-0 w-full text-center">
+                    </div>
+
+                    <div class="bg-slate-900 p-2 rounded border border-slate-700 text-center">
+                        <div class="text-[10px] text-slate-500 uppercase font-bold" data-tip="6 base + AGI modifier, reduced by unrecovered Fatigue">Base AP</div>
+                        <div class="text-2xl font-black text-blue-400 mt-1" id="dispAp">6</div>
+                    </div>
+
+                    <div class="bg-slate-900 p-2 rounded border border-slate-700 text-center relative flex flex-col items-center justify-center">
+                        <div class="text-[10px] text-slate-500 uppercase font-bold mb-1">Initiative</div>
+                        <div class="flex items-center gap-2">
+                            <div class="text-xl font-black text-yellow-400" id="dispInit">10</div>
+                            <div class="flex flex-col text-[9px] text-slate-400 gap-0.5">
+                                <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="initStatAGI" onchange="window.setInitStat('AGI', this.checked)"> AGI</label>
+                                <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="initStatPER" onchange="window.setInitStat('PER', this.checked)"> PER</label>
+                                <label class="flex items-center gap-1 cursor-pointer" data-tip="Requires Tactical Mind General Perk"><input type="checkbox" id="initStatINT" onchange="window.setInitStat('INT', this.checked)"> INT</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-slate-900 p-2 rounded border border-slate-700 text-center flex flex-col justify-center">
+                        <div class="text-[10px] text-slate-500 uppercase font-bold">Speed</div>
+                        <div class="text-xl font-black text-emerald-400 mt-1" id="dispSpeed">3 <span class="text-[10px] font-normal text-slate-500">sq</span></div>
+                        <div id="dispSpecialSpeeds" class="text-[9px] text-slate-500 leading-tight"><!-- JS injected: Climb/Fly Speed from Vertical Advantage/Flight --></div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2 mt-2">
+                    <div class="bg-slate-900 p-2 rounded border border-slate-700 text-center">
+                        <div class="text-[10px] text-slate-500 uppercase font-bold">Fatigue</div>
+                        <input type="text" id="fatigueInput" onfocus="this.select()" onchange="window.handleMathInput('fatigue', this)" onkeydown="if(event.key === 'Enter') { this.blur(); }" min="0" class="w-full text-xl font-black text-red-400 bg-transparent border-none p-0 mt-1 focus:ring-0 text-center">
+                    </div>
+
+                    <div class="bg-slate-900 p-2 rounded border border-slate-700 text-center flex flex-col items-center">
+                        <div class="text-[10px] text-slate-500 uppercase font-bold">Rest Dice</div>
+                        <div class="flex items-center justify-center gap-1 mt-1">
+                            <input type="text" id="currentRestDice" onfocus="this.select()" onchange="window.handleMathInput('restDice', this)" onkeydown="if(event.key === 'Enter') { this.blur(); }" class="w-8 text-xl font-black text-emerald-400 bg-transparent border-none p-0 focus:ring-0 text-right">
+                            <span class="text-slate-500 text-xs font-bold">/<span id="dispMaxRest">5</span></span>
+                            <span id="dispRestDieStep" class="text-xs font-black text-slate-300 ml-0.5">d6</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900 p-2 rounded border border-slate-700 text-center flex flex-col items-center">
+                        <div class="text-[10px] text-slate-500 uppercase font-bold">Luck Pts</div>
+                        <div class="flex items-center justify-center gap-1 mt-1">
+                            <input type="text" id="luckPtsInput" onfocus="this.select()" onchange="window.handleMathInput('luckPts', this)" onkeydown="if(event.key === 'Enter') { this.blur(); }" class="w-6 text-xl font-black text-yellow-400 bg-transparent border-none p-0 focus:ring-0 text-right">
+                            <span class="text-slate-500 text-xs font-bold">/<span id="dispMaxLuck">1</span></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex-1 flex flex-col mt-2">
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="block text-[9px] text-slate-500 uppercase font-bold">Wounded Limbs & Conditions</label>
+                        <button onclick="window.openConditionPicker()" class="bg-red-600/20 text-red-400 hover:bg-red-600/40 text-[9px] px-2 py-0.5 rounded border border-red-800/50 transition font-bold">+ Add Condition</button>
+                    </div>
+                    <div id="activeConditionsDisplay" class="flex flex-wrap gap-1 mb-1"><span class="text-[10px] text-slate-600">No active conditions.</span></div>
+                </div>
+            </div>
+
+            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg flex flex-col">
+                <div class="flex justify-between items-end border-b border-cyan-900 pb-2 mb-3">
+                    <h2 class="section-title border-none mb-0 pb-0 text-cyan-400">Armor & Defenses</h2>
+                </div>
+                
+                <div class="grid grid-cols-3 gap-2 mb-3">
+                    <div class="bg-slate-900 p-2 rounded border border-slate-700 text-center">
+                        <div class="text-[10px] text-slate-500 uppercase font-bold" data-tip="10 + AGI modifier (or LUC if higher, with Lucky) + equipped Armor + Shield + other bonuses">Total AC</div>
+                        <div class="text-3xl font-black text-white mt-1" id="dispAc">10</div>
+                        <div class="text-[9px] text-slate-500 mt-1" id="dispAcCalc">10+0(AGI)+0</div>
+                    </div>
+                    <div class="bg-slate-900 p-2 rounded border border-slate-700 text-center flex flex-col justify-center">
+                        <div class="text-[10px] text-slate-500 uppercase font-bold" data-tip="CON modifier (if positive) + equipped Armor's DR + perks/traits granting Damage Reduction">Total DR</div>
+                        <div class="text-2xl font-black text-orange-400 mt-1" id="dispDr">0</div>
+                    </div>
+                    <div class="bg-slate-900 p-2 rounded border border-slate-700 text-center flex flex-col justify-center">
+                        <div class="text-[10px] text-slate-500 uppercase font-bold" data-tip="Highest of AGI/PER/INT/CHA/LUC modifiers (if positive) + equipped Armor's ER + perks/traits granting Energy Resistance">Total ER</div>
+                        <div class="text-2xl font-black text-cyan-400 mt-1" id="dispEr">0</div>
+                    </div>
+                </div>
+                <div id="dispEnvResistances" class="text-[10px] text-slate-400 mt-1"><!-- JS injected: Environmental Resistance trait's energy types --></div>
+                
+                <div class="flex gap-2 mt-auto">
+                    <div class="flex-1">
+                        <label class="block text-[9px] text-slate-500 uppercase font-bold">Equipped Armor</label>
+                        <input type="text" id="armorName" onchange="window.updateNestedState('equippedArmor', 'name', this.value)" placeholder="Unarmored" class="text-xs bg-slate-900 h-7 text-cyan-300 font-bold">
+                    </div>
+                    <div class="w-14">
+                        <label class="block text-[9px] text-slate-500 uppercase font-bold">Wt(lbs)</label>
+                        <div id="armorWt" class="text-xs bg-slate-900 h-7 flex items-center justify-center rounded" data-tip="Combined weight of worn Armor, Shield, and Helmet. Fixed by what was purchased or forged -- use the Armor Forge or Remove/re-buy to change it.">0</div>
+                    </div>
+                    <div class="w-10">
+                        <label class="block text-[9px] text-slate-500 uppercase font-bold">+AC</label>
+                        <div id="armorAc" class="text-xs bg-slate-900 h-7 flex items-center justify-center rounded" data-tip="Armor stats are fixed by what was purchased or forged. Use the Armor Forge or Remove/re-buy to change them.">0</div>
+                    </div>
+                    <div class="w-10">
+                        <label class="block text-[9px] text-slate-500 uppercase font-bold">+DR</label>
+                        <div id="armorDr" class="text-xs bg-slate-900 h-7 flex items-center justify-center rounded" data-tip="Armor stats are fixed by what was purchased or forged. Use the Armor Forge or Remove/re-buy to change them.">0</div>
+                    </div>
+                    <div class="w-10">
+                        <label class="block text-[9px] text-slate-500 uppercase font-bold">+ER</label>
+                        <div id="armorEr" class="text-xs bg-slate-900 h-7 flex items-center justify-center rounded" data-tip="Armor stats are fixed by what was purchased or forged. Use the Armor Forge or Remove/re-buy to change them.">0</div>
+                    </div>
+                </div>
+                <div class="flex gap-2 mt-2">
+                    <button onclick="window.openArmorForge()" class="flex-1 bg-orange-600/20 text-orange-400 hover:bg-orange-600/40 text-[10px] px-3 py-1.5 rounded border border-orange-700/50 transition font-black tracking-wider">
+                        🔨 OPEN ARMOR FORGE
+                    </button>
+                    <button id="removeArmorBtn" onclick="window.removeEquippedArmor()" class="bg-red-600/20 text-red-400 hover:bg-red-600/40 text-[10px] px-3 py-1.5 rounded border border-red-700/50 transition font-black tracking-wider hidden">
+                        Remove
+                    </button>
+                </div>
+                <div id="armorWarning" class="text-[10px] text-red-400 mt-2 hidden text-center font-black uppercase tracking-wider bg-red-900/30 border border-red-800 rounded p-1">Strength Requirement Not Met! (-2 Speed, Disadvantage on Atk/Checks/Saves)</div>
+
+                <div class="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-700">
+                    <div id="shieldControl" class="bg-slate-900 rounded border border-slate-700 p-2 text-center">
+                        <div class="text-[9px] text-slate-500 uppercase font-bold mb-1" data-tip="Requires one hand to wield. Can be used to perform the Block Combat Maneuver.">Shield</div>
+                        <div id="shieldStatus" class="text-[10px] text-slate-400 mb-1">Not Equipped</div>
+                        <button id="shieldActionBtn" onclick="window.toggleEquipShield()" class="w-full bg-cyan-600/20 text-cyan-400 hover:bg-cyan-600/40 text-[10px] px-2 py-1 rounded border border-cyan-700/50 transition font-bold">Equip Shield</button>
+                    </div>
+                    <div id="helmetControl" class="bg-slate-900 rounded border border-slate-700 p-2 text-center">
+                        <div class="text-[9px] text-slate-500 uppercase font-bold mb-1" data-tip="As a Reaction to taking a Critical Hit, you can destroy your Helmet to turn the hit into a normal hit.">Helmet</div>
+                        <div id="helmetStatus" class="text-[10px] text-slate-400 mb-1">Not Equipped</div>
+                        <div class="flex gap-1">
+                            <button id="helmetActionBtn" onclick="window.toggleEquipHelmet()" class="flex-1 bg-cyan-600/20 text-cyan-400 hover:bg-cyan-600/40 text-[10px] px-2 py-1 rounded border border-cyan-700/50 transition font-bold">Equip Helmet</button>
+                            <button id="helmetBreakBtn" onclick="window.breakHelmet()" class="hidden bg-red-600/20 text-red-400 hover:bg-red-600/40 text-[10px] px-2 py-1 rounded border border-red-700/50 transition font-bold">Break</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg flex flex-col">
+                <h2 class="section-title text-red-400 border-red-900">
+                    <span>Notes</span>
+                </h2>
+                <textarea id="woundsInput" onchange="window.updateState('wounds', this.value)" class="flex-1 w-full h-full resize-none bg-slate-900 border-slate-700 text-xs text-red-300 font-medium mt-2" placeholder="Additional freeform notes..."></textarea>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-4">
+            
+            <div class="xl:col-span-5 bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg flex flex-col h-full max-h-[600px]">
+                <div class="flex justify-between items-end border-b border-slate-600 pb-2 mb-3">
+                    <h2 class="section-title border-none mb-0 pb-0 text-slate-200">Core Attributes & Skills</h2>
+                    <div class="flex items-center bg-slate-900 border border-slate-700 rounded p-1 px-2 shadow-inner">
+                        <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mr-2">Training Bonus</span>
+                        <span class="text-blue-400 font-black text-sm">+<span id="dispGlobalTb">2</span></span>
+                    </div>
+                </div>
+                <div class="text-[9px] text-slate-500 mb-2 italic">Check the box to apply your Training Bonus. Passives automatically calculate as 10 + Total (if capable).</div>
+                
+                <div class="overflow-y-auto pr-2 space-y-4 flex-1" id="attrSkillContainer">
+                    <!-- JS Injected: Attributes with their nested skills -->
+                </div>
+            </div>
+
+            <div class="xl:col-span-7 flex flex-col gap-4">
+                
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg flex flex-col">
+                    <div class="flex justify-between items-center border-b border-slate-700 pb-2 mb-3">
+                        <h2 class="section-title border-none mb-0 pb-0 text-orange-400">Weapons & Attacks</h2>
+                        <div class="flex gap-2">
+                            <button onclick="window.openWeaponForge()" class="bg-orange-600/20 text-orange-400 hover:bg-orange-600/40 text-xs px-3 py-1 rounded border border-orange-700/50 transition font-bold shadow">
+                                🔨 Forge Weapon
+                            </button>
+                            <button onclick="window.addWeapon()" class="bg-slate-700/50 text-slate-300 hover:bg-slate-700 text-xs px-3 py-1 rounded border border-slate-600 transition font-bold shadow">
+                                + Add Weapon
+                            </button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left whitespace-nowrap">
+                            <thead class="text-[10px] text-slate-400 bg-slate-900 uppercase">
+                                <tr>
+                                    <th class="px-2 py-2 rounded-l w-1/3">Weapon</th>
+                                    <th class="px-2 py-2 text-center" title="Governing Attribute">Att</th>
+                                    <th class="px-2 py-2 text-center text-blue-400" title="Trained?">Trn</th>
+                                    <th class="px-2 py-2 text-center text-emerald-400">Atk</th>
+                                    <th class="px-2 py-2 text-center">Dmg</th>
+                                    <th class="px-2 py-2 text-center w-12">AP</th>
+                                    <th class="px-2 py-2 rounded-r w-8"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="weaponsBody" class="divide-y divide-slate-700/50">
+                                <!-- Weapons JS injected -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg flex flex-col flex-1 max-h-[350px]">
+                    <div class="flex justify-between items-end border-b border-slate-700 pb-2 mb-3">
+                        <div>
+                            <h2 class="section-title border-none mb-0 pb-0 text-purple-400">Purchased Perks & Traits</h2>
+                            <div class="text-[9px] text-slate-500 mt-1">Displays exact rank effects of your purchased perks.</div>
+                        </div>
+                        <button onclick="window.openModal('perkModal')" class="bg-purple-600 hover:bg-purple-500 text-white text-xs px-4 py-2 rounded font-black transition shadow-lg tracking-wider">
+                            OPEN PERK FORGE
+                        </button>
+                    </div>
+                    <div class="space-y-2 flex-1 overflow-y-auto pr-2" id="activePerksContainer">
+                        <!-- Purchased Perks JS injected -->
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            
+            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg flex flex-col">
+                <div class="flex justify-between items-end border-b border-slate-700 pb-2 mb-3">
+                    <div>
+                        <h2 class="section-title border-none mb-0 pb-0 text-indigo-400">Crafted Powers</h2>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span class="text-[10px] text-slate-500 font-bold">Casting Stat:</span>
+                            <select id="powerAttr" class="text-[10px] p-0.5 w-16 bg-slate-900 border-slate-600 text-indigo-300 font-bold" onchange="window.updateState('powerAttr', this.value)">
+                                <option value="INT">INT</option>
+                                <option value="CHA">CHA</option>
+                            </select>
+                            <div class="bg-slate-900 px-2 py-0.5 rounded border border-slate-700 flex gap-3 ml-2">
+                                <span class="text-[10px] text-emerald-400 font-bold">Atk: <span id="dispPwrAtk" class="font-black text-sm">+0</span></span>
+                                <span class="text-[10px] text-orange-400 font-bold">DC: <span id="dispPwrDc" class="font-black text-sm">10</span></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="window.openPowerCrafter(false)" class="bg-purple-600/20 text-purple-400 hover:bg-purple-600/40 text-xs px-3 py-1 rounded border border-purple-700/50 transition font-bold">
+                            🔮 Power Crafter
+                        </button>
+                        <button onclick="window.openModal('powerModal')" class="bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/40 text-xs px-3 py-1 rounded border border-indigo-700/50 transition font-bold">
+                            + Add Power
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="bg-slate-900 p-3 rounded-lg border border-slate-700 mb-3 grid grid-cols-5 gap-2 text-center shadow-inner" id="powerSlotsContainer">
+                    <!-- Power Slots JS injected based on perks -->
+                </div>
+
+                <div class="space-y-3 flex-1 overflow-y-auto max-h-[300px] pr-2" id="powersContainer">
+                    <!-- Powers JS injected -->
+                </div>
+            </div>
+
+            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg flex flex-col">
+                <div class="flex justify-between items-end border-b border-slate-700 pb-2 mb-3">
+                    <div>
+                        <h2 class="section-title border-none mb-0 pb-0 text-amber-500">Inventory & Encumbrance</h2>
+                        <div class="flex items-center gap-2 mt-1 flex-wrap">
+                            <label class="text-[10px] text-yellow-500 uppercase tracking-wider font-bold">Currency:</label>
+                            <input type="text" id="currency" onfocus="this.select()" onchange="window.handleMathInput('currency', this)" onkeydown="if(event.key === 'Enter') { this.blur(); }" placeholder="0" class="compact-num text-yellow-400 font-bold bg-slate-900 border-yellow-900/50 h-6 text-sm px-2 rounded">
+                            <label class="flex items-center gap-1 text-[9px] text-slate-500 cursor-pointer" title="Track Crafting Material weight (optional rule)">
+                                <input type="checkbox" id="craftMatWeightToggle" checked onchange="window.toggleCraftMatWeight(this.checked)"> Track Crafting Material Weight
+                            </label>
+                        </div>
+                    </div>
+                    <button onclick="window.openGearPicker()" class="bg-amber-600/20 text-amber-500 hover:bg-amber-600/40 text-xs px-3 py-1 rounded border border-amber-700/50 transition font-bold">
+                        + Add Item
+                    </button>
+                </div>
+                
+                <div class="overflow-x-auto flex-1 max-h-[300px] overflow-y-auto">
+                    <table class="w-full text-left whitespace-nowrap relative">
+                        <thead class="text-[10px] text-slate-400 bg-slate-900 uppercase sticky top-0 z-10 shadow">
+                            <tr>
+                                <th class="px-2 py-2 rounded-l w-1/2">Item Name</th>
+                                <th class="px-2 py-2 text-center w-16">Wt(ea)</th>
+                                <th class="px-2 py-2 text-center w-16">Count</th>
+                                <th class="px-2 py-2 text-center w-20">Total Wt</th>
+                                <th class="px-2 py-2 text-center w-20">Value</th>
+                                <th class="px-2 py-2 rounded-r w-8"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventoryBody" class="divide-y divide-slate-700/50">
+                            <!-- Inventory JS injected -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="mt-4 flex justify-between items-center bg-slate-900 p-3 rounded-xl border border-slate-700 shadow-inner">
+                    <div class="flex items-center gap-4">
+                        <div class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Total Wt:</div>
+                        <div class="text-2xl font-black text-white" id="dispTotalWeight">0 <span class="text-[10px] text-slate-500 font-normal">lbs</span></div>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Capacity:</div>
+                        <div class="text-2xl font-black text-amber-500" id="dispCarryCap">150 <span class="text-[10px] text-slate-500 font-normal">lbs</span></div>
+                    </div>
+                    <div id="overburdenedWarning" class="text-xs bg-red-600 text-white font-black uppercase hidden animate-pulse px-3 py-1 rounded shadow-lg">Overburdened!</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Origin Builder Modal -->
+    <div class="modal-overlay" id="originModal">
+        <div class="modal-content max-w-[600px]">
+            <div class="flex justify-between items-center mb-4 border-b border-pink-600 pb-2">
+                <h3 class="text-xl font-black text-white">Origin Builder</h3>
+            </div>
+            <div class="flex gap-1 mb-3 flex-wrap text-[10px]">
+                <span id="origTab1" onclick="window.jumpToOrigStep(1)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">1. Background</span>
+                <span id="origTab2" onclick="window.jumpToOrigStep(2)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">2. Wealth & Feature</span>
+            </div>
+
+            <div id="origStep1" class="wizard-step active">
+                <h4 class="text-sm font-bold text-pink-400 mb-2">Step 1: Background & Competencies</h4>
+                <p class="text-[10px] text-slate-400 mb-4">Your origin grants you knowledge of the primary language of the setting. You may choose up to 4 additional Languages. For every language you don't choose, you can gain training in one Skill or Weapon Type of your choice instead. Note your choices below.</p>
+                <div class="mb-3">
+                    <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Common/Basic Language of the Setting</label>
+                    <input type="text" id="origCommonLanguage" onchange="window.origSetCommonLanguage(this.value)" placeholder="e.g. Common" class="bg-slate-900 text-xs w-full">
+                </div>
+                <div class="bg-slate-800 p-3 rounded-lg border border-slate-700 shadow-inner">
+                    <div class="grid grid-cols-[24px_24px_24px_1fr] gap-2 text-[9px] text-slate-500 font-bold uppercase text-center mb-1 max-w-md">
+                        <div>Lang</div><div>Skill</div><div>Wpn</div><div></div>
+                    </div>
+                    <div id="origCompsGrid" class="max-w-md"><!-- JS injected --></div>
+                </div>
+            </div>
+
+            <div id="origStep2" class="wizard-step">
+                <h4 class="text-sm font-bold text-pink-400 mb-2">Step 2: Wealth & Feature</h4>
+                <div class="space-y-3">
+                    <div class="bg-slate-800 p-3 rounded border border-slate-700">
+                        <label class="block text-xs font-bold text-slate-300 mb-1">Origin Name</label>
+                        <input type="text" id="origName" placeholder="e.g. Space Wizard Apprentice" class="bg-slate-900 font-bold text-pink-300 w-full mb-3">
+
+                        <label class="block text-xs font-bold text-slate-300 mb-1">Starting Wealth</label>
+                        <select id="origWealth" class="bg-slate-900 text-xs w-full mb-1">
+                            <option value="0">None / Already Applied</option>
+                            <option value="150">Impoverished / Ascetic (+150 Currency)</option>
+                            <option value="300">Working / Traveler (+300 Currency)</option>
+                            <option value="600">Wealthy / Funded (+600 Currency)</option>
+                        </select>
+                        <p class="text-[9px] text-slate-500 mb-3">This will instantly add the currency to your inventory.</p>
+
+                        <label class="block text-xs font-bold text-slate-300 mb-1">Origin Feature</label>
+                        <p class="text-[9px] text-slate-500 mb-1">Describe your unique social access, specialized knowledge, or shelter.</p>
+                        <textarea id="origFeature" class="bg-slate-900 text-xs w-full h-24 resize-none" placeholder="e.g. Sanctuary of the Order: You can always find free healing and basic lodgings at any temple..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center mt-6 pt-4 border-t border-slate-600">
+                <div class="flex gap-2 w-full justify-end">
+                    <button onclick="window.closeModal('originModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition mr-auto">Cancel</button>
+                    <button id="origBtnPrev" onclick="window.navOriginWizard(-1)" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition hidden">Back</button>
+                    <button id="origBtnNext" onclick="window.navOriginWizard(1)" class="px-4 py-2 rounded bg-pink-600 hover:bg-pink-500 text-white text-sm font-bold transition">Next Step</button>
+                    <button id="origBtnFinish" onclick="window.finishOrigin()" class="px-6 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition hidden shadow-lg">Save Origin</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Spend XP Modal -->
+    <div class="modal-overlay" id="spendXpModal">
+        <div class="modal-content max-w-[500px]">
+            <h3 class="text-xl font-black text-white mb-2 border-b border-emerald-600 pb-2 flex justify-between items-center">
+                <span>Spend Experience</span>
+                <span class="text-sm font-bold bg-emerald-900 text-emerald-400 px-2 py-1 rounded border border-emerald-700">Unspent XP: <span id="modalXpDisp">0</span></span>
+            </h3>
+            <p class="text-xs text-slate-400 mb-4">Spend XP to permanently upgrade your Core Attributes, Vitals, and Training capabilities.</p>
+            
+            <div class="space-y-4">
+                <div class="bg-slate-800 p-3 rounded border border-slate-700">
+                    <div class="text-sm font-bold text-slate-200 mb-2">Increase Core Attribute</div>
+                    <div class="flex gap-2">
+                        <select id="xpAttrSelect" class="bg-slate-900 w-32" onchange="window.updateXpCosts()">
+                            <option value="STR">STR</option><option value="AGI">AGI</option><option value="CON">CON</option>
+                            <option value="PER">PER</option><option value="INT">INT</option><option value="CHA">CHA</option><option value="LUC">LUC</option>
+                        </select>
+                        <div class="flex-1 flex items-center justify-between bg-slate-900 px-3 rounded border border-slate-700">
+                            <span class="text-xs text-slate-400">Current Score: <span id="xpAttrCurrent" class="font-bold text-white">5</span></span>
+                            <span class="text-xs text-emerald-400 font-bold">Cost: <span id="xpAttrCost">25</span> XP</span>
+                        </div>
+                        <button id="btnBuyAttr" onclick="window.buyXpUpgrade('attr')" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-1.5 rounded transition text-xs shadow">Upgrade</button>
+                    </div>
+                </div>
+
+                <div class="bg-slate-800 p-3 rounded border border-slate-700 space-y-3">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <div class="text-sm font-bold text-slate-200">Increase Max HP (+1)</div>
+                            <div class="text-[10px] text-slate-400">Limit: CON x 10. Cost: 1 XP per HP.</div>
+                        </div>
+                        <button id="btnBuyHp" onclick="window.buyXpUpgrade('hp')" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-1.5 rounded transition text-xs shadow w-28 text-right">Buy (1 XP)</button>
+                    </div>
+                    <div class="h-px bg-slate-700 w-full"></div>
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <div class="text-sm font-bold text-slate-200">Increase Training Bonus (+1)</div>
+                            <div class="text-[10px] text-slate-400">Current: +<span id="xpTbCurrent">2</span></div>
+                        </div>
+                        <button id="btnBuyTb" onclick="window.buyXpUpgrade('tb')" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-1.5 rounded transition text-xs shadow w-28 text-right">Buy (100 XP)</button>
+                    </div>
+                    <div class="h-px bg-slate-700 w-full"></div>
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <div class="text-sm font-bold text-slate-200">Train New Weapon Type</div>
+                            <div class="text-[10px] text-slate-400">Auto-applies to every equipped weapon of that type.</div>
+                        </div>
+                        <button id="btnBuyWpn" onclick="window.openWeaponTypePicker()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-1.5 rounded transition text-xs shadow w-28 text-right">Train (10 XP)</button>
+                    </div>
+                    <div class="h-px bg-slate-700 w-full"></div>
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <div class="text-sm font-bold text-slate-200">Train New Skill</div>
+                            <div class="text-[10px] text-slate-400">Current Trained: <span id="xpSkillCount">0</span>. Cost: 5 XP x skills already trained.</div>
+                        </div>
+                        <button id="btnBuySkill" onclick="window.buyXpUpgrade('skill')" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-1.5 rounded transition text-xs shadow w-28 text-right">Buy (0 XP)</button>
+                    </div>
+                    <div class="h-px bg-slate-700 w-full"></div>
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <div class="text-sm font-bold text-slate-200">Train New Saving Throw</div>
+                            <div class="text-[10px] text-slate-400">Current Trained: <span id="xpSaveCount">0</span>. Cost: 25 XP x saves already trained.</div>
+                        </div>
+                        <button id="btnBuySave" onclick="window.buyXpUpgrade('save')" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-1.5 rounded transition text-xs shadow w-28 text-right">Buy (0 XP)</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex justify-end mt-4">
+                <button onclick="window.closeModal('spendXpModal')" class="px-6 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition shadow">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="weaponTypePickerModal">
+        <div class="modal-content max-w-[420px]">
+            <h3 class="text-lg font-bold text-white mb-3 border-b border-emerald-600 pb-2">Train a Weapon Type</h3>
+            <div id="weaponTypePickerBody" class="max-h-[50vh] overflow-y-auto pr-1 space-y-1"><!-- JS injected --></div>
+            <div class="flex justify-end mt-3">
+                <button onclick="window.closeModal('weaponTypePickerModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ancestry Modal -->
+    <div class="modal-overlay" id="ancestryModal">
+        <div class="modal-content max-w-[800px]">
+            <div class="flex justify-between items-center mb-4 border-b border-indigo-600 pb-2">
+                <h3 class="text-xl font-black text-white" id="ancestryWizardTitle">Ancestry & Genetics Builder</h3>
+                <div class="text-sm font-bold bg-indigo-900 text-indigo-300 px-3 py-1 rounded border border-indigo-700 shadow flex items-center gap-2">
+                    <span>GP Used: <span id="wizGpUsed" class="text-white font-black text-lg">0</span></span>
+                    <span class="text-slate-500">/</span>
+                    <input type="number" id="wizGpLimit" value="15" onchange="window.calcAncestryGp()" class="bg-slate-800 border-slate-600 text-indigo-300 font-bold w-12 text-center p-0.5" title="GM GP Limit Override">
+                </div>
+            </div>
+            <div class="flex gap-1 mb-3 flex-wrap text-[10px]">
+                <span id="ancTab1" onclick="window.jumpToAncStep(1)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">1. Attributes</span>
+                <span id="ancTab2" onclick="window.jumpToAncStep(2)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">2. Traits & Flaws</span>
+                <span id="ancTab3" onclick="window.jumpToAncStep(3)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">3. Details</span>
+                <span id="ancTab4" onclick="window.jumpToAncStep(4)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">4. Training</span>
+            </div>
+
+            <div id="ancStep1" class="wizard-step active">
+                <h4 class="text-sm font-bold text-indigo-400 mb-2">Step 1: Core Attributes</h4>
+                <div class="flex items-center justify-between bg-indigo-900/20 border border-indigo-700/50 rounded p-2 mb-3">
+                    <span class="text-[10px] text-slate-400">Has your GM sent you race files? Import them to choose a starting race below.</span>
+                    <div class="flex gap-1">
+                        <button onclick="document.getElementById('importRaceFile').click()" class="px-2 py-1 rounded bg-indigo-700 hover:bg-indigo-600 text-white text-[10px] font-bold shadow">⬆️ Import GM Races</button>
+                        <input type="file" id="importRaceFile" accept=".json" multiple class="hidden" onchange="window.importGmRace(event)">
+                    </div>
+                </div>
+                <div id="importedRaceListWrap" class="hidden mb-3">
+                    <div class="text-[10px] font-black text-indigo-400 uppercase mb-1">Choose a Starting Race</div>
+                    <div id="importedRaceList" class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 mb-1"><!-- JS injected --></div>
+                    <div class="text-[9px] text-slate-500">Selecting a race loads it as a starting point -- your own Base attribute allocation below is untouched, and any GP a race left unspent is still yours to customize as a subrace.</div>
+                </div>
+                <p class="text-[10px] text-slate-400 mb-4">Set your starting base scores (Standard Array or Point Buy) and apply your Ancestry modifiers. (+1 costs 1 GP. -1 refunds 1 GP. Max +2/-2 per stat).</p>
+                <div class="grid grid-cols-7 gap-2 bg-slate-800 p-3 rounded-lg border border-slate-700 shadow-inner">
+                    <script>
+                        const attrsInit = ['STR', 'AGI', 'CON', 'PER', 'INT', 'CHA', 'LUC'];
+                        document.write(attrsInit.map(a => `
+                            <div class="flex flex-col items-center gap-1">
+                                <span class="text-[10px] font-bold text-slate-400">${a}</span>
+                                <input type="number" id="wizBase_${a}" value="5" min="2" max="10" class="w-full text-center bg-slate-900 font-bold wiz-base-attr-input" onchange="window.calcAncestryGp()">
+                                <span id="wizBaseGmNote_${a}" class="hidden text-[9px] text-slate-600 italic">(player's own)</span>
+                                <select id="wizMod_${a}" class="w-full text-[10px] p-0.5 bg-slate-700 text-center" onchange="window.calcAncestryGp()">
+                                    <option value="2">+2 (2 GP)</option><option value="1">+1 (1 GP)</option><option value="0" selected>0</option><option value="-1">-1 (+1 GP)</option><option value="-2">-2 (+2 GP)</option>
+                                </select>
+                            </div>
+                        `).join(''));
+                    </script>
+                </div>
+            </div>
+
+            <div id="ancStep2" class="wizard-step">
+                <h4 class="text-sm font-bold text-indigo-400 mb-2">Step 2: Biology & Locomotion</h4>
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="bg-slate-800 p-3 rounded border border-slate-700">
+                        <label class="block text-xs font-bold text-slate-300 mb-2">Lifespan</label>
+                        <select id="wizLife" class="bg-slate-900 text-xs" onchange="window.calcAncestryGp()">
+                            <option value="-1">Ephemeral (~50 yrs) [+1 GP]</option>
+                            <option value="0" selected>Average (~100 yrs) [0 GP]</option>
+                            <option value="2">Extended (200-500 yrs) [2 GP]</option>
+                            <option value="3">Ageless (1000+ yrs) [3 GP]</option>
+                        </select>
+                    </div>
+                    <div class="bg-slate-800 p-3 rounded border border-slate-700">
+                        <label class="block text-xs font-bold text-slate-300 mb-2">Size Category</label>
+                        <select id="wizSize" class="bg-slate-900 text-xs" onchange="window.calcAncestryGp()">
+                            <option value="15">Small (x15 lbs) [1 GP]</option>
+                            <option value="30" selected>Medium (x30 lbs) [0 GP]</option>
+                            <option value="60">Large (x60 lbs) [1 GP]</option>
+                        </select>
+                    </div>
+                    <div class="bg-slate-800 p-3 rounded border border-slate-700">
+                        <label class="block text-xs font-bold text-slate-300 mb-2">Base Speed (Squares)</label>
+                        <div class="flex items-center gap-2">
+                            <input type="number" id="wizSpeed" value="3" min="0" max="6" class="bg-slate-900" onchange="window.calcAncestryGp()">
+                            <span class="text-[9px] text-slate-500 leading-tight">Base 3. +1 Cost 1 GP. -1 Refunds 1 GP.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="ancStep3" class="wizard-step">
+                <h4 class="text-sm font-bold text-indigo-400 mb-2">Step 3: Traits & Flaws</h4>
+                <p class="text-[10px] text-slate-400 mb-2">Select genetic traits. Flaws refund GP (Max 5 GP refunded by flaws). See APX Chapter 3 for full rules.</p>
+                <div class="grid grid-cols-2 gap-4 h-[40vh] overflow-y-auto pr-2">
+                    <div>
+                        <div class="text-xs font-black text-emerald-400 border-b border-emerald-900 mb-2 pb-1 sticky top-0 bg-slate-800 z-10">Traits (Costs GP)</div>
+                        <div id="wizTraitsList" class="space-y-2"></div>
+                    </div>
+                    <div>
+                        <div class="text-xs font-black text-red-400 border-b border-red-900 mb-2 pb-1 sticky top-0 bg-slate-800 z-10">Flaws (Refunds GP)</div>
+                        <div id="wizFlawsList" class="space-y-2"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="ancStep4" class="wizard-step">
+                <h4 class="text-sm font-bold text-indigo-400 mb-2">Step 4: Final Training</h4>
+                <p class="text-[10px] text-slate-400 mb-3">Choose <span id="ancFinalSkillCount">4</span> skills to train (4 + your INT modifier), and 2 Saving Throws to train.</p>
+                <div class="mb-4">
+                    <div class="flex justify-between items-center mb-1">
+                        <div class="text-xs font-black text-emerald-400 uppercase">Trained Skills (<span id="ancFinalSkillProgress">0/4</span>)</div>
+                        <button id="ancAddFinalSkillBtn" onclick="window.ancAddFinalSkill()" class="px-2 py-1 rounded bg-emerald-700 hover:bg-emerald-600 text-white text-[10px] font-bold">+ Add Skill</button>
+                    </div>
+                    <div id="ancFinalSkillList" class="space-y-1"></div>
+                </div>
+                <div>
+                    <div class="text-xs font-black text-blue-400 uppercase mb-1">Saving Throws (<span id="ancFinalSaveProgress">0/2</span>)</div>
+                    <div id="ancFinalSaveGrid" class="grid grid-cols-7 gap-2"></div>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center mt-6 pt-4 border-t border-slate-600 gap-3">
+                <div class="flex-1 min-w-0">
+                    <input type="text" id="wizName" placeholder="Name your Species/Ancestry..." class="bg-slate-900 border-indigo-900/50 text-indigo-300 font-bold w-full">
+                </div>
+                <div class="flex gap-2 flex-shrink-0">
+                    <button onclick="window.closeModal('ancestryModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Cancel</button>
+                    <button id="wizBtnPrev" onclick="window.navWizard(-1)" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition hidden">Back</button>
+                    <button id="wizBtnNext" onclick="window.navWizard(1)" class="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold transition">Next Step</button>
+                    <button id="wizBtnFinish" onclick="window.finishAncestry()" class="px-6 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition hidden shadow-lg">Save & Apply</button>
+                </div>
+            </div>
+            <div id="wizError" class="text-xs text-red-500 font-bold mt-2 text-right hidden">Cannot exceed GP limit! Flaws can only refund max 5 GP.</div>
+            <div id="wizBaseStatNote" class="text-xs text-amber-400 font-bold mt-2 text-right hidden"></div>
+        </div>
+    </div>
+
+    <!-- Standard Item Modal -->
+    <div class="modal-overlay" id="gearPickerModal">
+        <div class="modal-content max-w-[550px]">
+            <div class="flex justify-between items-center mb-3 border-b border-amber-600 pb-2">
+                <h3 class="text-lg font-bold text-white">Adventuring Gear</h3>
+                <div class="text-[10px] text-slate-500">Chapter 8: Adventuring Gear</div>
+            </div>
+            <div class="grid grid-cols-2 gap-2 mb-3">
+                <button onclick="window.closeModal('gearPickerModal'); window.openModal('itemModal');" class="px-3 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold transition">✏️ Add Custom Item</button>
+                <button onclick="window.closeModal('gearPickerModal'); window.openConsumableCrafter();" class="px-3 py-2 rounded bg-purple-600/20 border border-purple-700/50 text-purple-300 hover:bg-purple-600/40 text-xs font-bold transition">🧪 Add Consumable Item</button>
+            </div>
+            <div id="gearPickerList" class="max-h-[50vh] overflow-y-auto pr-1 space-y-3"><!-- JS injected --></div>
+            <div class="flex justify-end mt-3">
+                <button onclick="window.closeModal('gearPickerModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="conditionPickerModal">
+        <div class="modal-content max-w-[550px]">
+            <div class="flex justify-between items-center mb-3 border-b border-red-600 pb-2">
+                <h3 class="text-lg font-bold text-white">Conditions</h3>
+                <div class="text-[10px] text-slate-500">Disadvantage / Speed / Fatigue tracked automatically</div>
+            </div>
+
+            <div class="flex items-center justify-between bg-slate-900 border border-amber-800/50 rounded p-2 mb-3">
+                <div>
+                    <span class="text-xs font-bold text-slate-200">Fatigue</span>
+                    <div class="text-[9px] text-slate-500">Each level reduces Max AP by 1.</div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="window.adjustFatigueFromPicker(-1)" class="w-7 h-7 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">-</button>
+                    <span id="fatigueLevelDisplay" class="w-8 text-center font-black text-lg text-amber-400">0</span>
+                    <button onclick="window.adjustFatigueFromPicker(1)" class="w-7 h-7 rounded bg-amber-700 hover:bg-amber-600 text-white font-bold">+</button>
+                </div>
+            </div>
+
+            <div class="text-[10px] font-black text-red-400 uppercase tracking-wider mb-1">Wounded (by limb)</div>
+            <div id="woundedLimbsList" class="grid grid-cols-2 gap-1.5 mb-3"><!-- JS injected --></div>
+
+            <div class="text-[10px] font-black text-red-400 uppercase tracking-wider mb-1">Other Conditions</div>
+            <div id="conditionPickerList" class="space-y-1.5 max-h-[35vh] overflow-y-auto pr-1"><!-- JS injected --></div>
+
+            <div class="flex justify-end mt-4 pt-3 border-t border-slate-600">
+                <button onclick="window.closeModal('conditionPickerModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="itemDetailModal">
+        <div class="modal-content max-w-[420px]">
+            <h3 class="text-lg font-bold text-white mb-3 border-b border-slate-600 pb-2" id="itemDetailTitle">Item</h3>
+            <div id="itemDetailBody"><!-- JS injected --></div>
+            <div class="flex justify-between items-center mt-4">
+                <div class="flex gap-2">
+                    <button onclick="window.sellItem(window._itemDetailIdx)" class="px-3 py-2 rounded bg-yellow-700 hover:bg-yellow-600 text-white text-sm font-bold transition">Sell</button>
+                    <button onclick="window.discardItem(window._itemDetailIdx)" class="px-3 py-2 rounded bg-red-700 hover:bg-red-600 text-white text-sm font-bold transition">Discard</button>
+                </div>
+                <button onclick="window.closeModal('itemDetailModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="itemModal">
+        <div class="modal-content max-w-[400px]">
+            <h3 class="text-lg font-bold text-white mb-4 border-b border-slate-600 pb-2">Add Inventory Item</h3>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Item Name</label>
+                    <input type="text" id="newItemName" class="bg-slate-900">
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Unit Weight</label>
+                        <input type="number" id="newItemWt" value="1" class="bg-slate-900">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Count</label>
+                        <input type="number" id="newItemCt" value="1" class="bg-slate-900">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Value (ea)</label>
+                        <input type="number" id="newItemVal" value="0" class="bg-slate-900 text-yellow-400">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Description</label>
+                    <textarea id="newItemDesc" class="bg-slate-900 text-xs h-16 resize-none w-full" placeholder="What does this item do?"></textarea>
+                </div>
+                <label class="flex items-center gap-2 text-xs text-slate-300 font-bold cursor-pointer border-t border-slate-700 pt-3">
+                    <input type="checkbox" id="newItemEquippable" onchange="window.toggleNewItemEquippable(this.checked)">
+                    Equippable (grants a bonus while equipped -- rings, circlets, etc.)
+                </label>
+                <div id="newItemEquipFields" class="hidden space-y-3 bg-slate-900 border border-slate-700 rounded p-2">
+                    <div class="grid grid-cols-3 gap-2">
+                        <div>
+                            <label class="block text-[10px] text-slate-500 mb-1" data-tip="Negative values are allowed -- a cursed or flawed item can penalize AC instead of boosting it.">+AC</label>
+                            <input type="number" id="newItemAcBonus" value="0" class="bg-slate-800 text-xs">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-slate-500 mb-1" data-tip="Negative values are allowed -- a cursed or flawed item can penalize DR instead of boosting it.">+DR</label>
+                            <input type="number" id="newItemDrBonus" value="0" class="bg-slate-800 text-xs">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-slate-500 mb-1" data-tip="Negative values are allowed -- a cursed or flawed item can penalize ER instead of boosting it.">+ER (generic)</label>
+                            <input type="number" id="newItemErBonus" value="0" class="bg-slate-800 text-xs">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-slate-500 mb-1" data-tip="Negative values are allowed -- a cursed or flawed item can slow the wearer down instead of speeding them up.">+Speed</label>
+                        <input type="number" id="newItemSpeedBonus" value="0" class="bg-slate-800 text-xs w-full">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-slate-500 mb-1" data-tip="Amounts can be negative -- a cursed item can impose an Attribute penalty instead of a bonus.">Attribute Bonuses</label>
+                        <div id="newItemAttrBonusList" class="space-y-1 mb-1"><!-- JS injected --></div>
+                        <button type="button" onclick="window.addBonusDraftRow('newItem', 'attr')" class="text-[10px] text-cyan-400 hover:text-cyan-300 font-bold">+ Add Attribute Bonus</button>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-slate-500 mb-1" data-tip="Amounts can be negative -- a cursed item can impose a Skill penalty instead of a bonus.">Skill Bonuses</label>
+                        <div id="newItemSkillBonusList" class="space-y-1 mb-1"><!-- JS injected --></div>
+                        <button type="button" onclick="window.addBonusDraftRow('newItem', 'skill')" class="text-[10px] text-cyan-400 hover:text-cyan-300 font-bold">+ Add Skill Bonus</button>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-slate-500 mb-1" data-tip="Amounts can be negative -- a cursed item can grant an Energy Vulnerability instead of a Resistance.">Energy Resistance Bonuses</label>
+                        <div id="newItemErBonusList" class="space-y-1 mb-1"><!-- JS injected --></div>
+                        <button type="button" onclick="window.addBonusDraftRow('newItem', 'er')" class="text-[10px] text-cyan-400 hover:text-cyan-300 font-bold">+ Add Energy Resistance Bonus</button>
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 mt-6">
+                <button onclick="window.closeModal('itemModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Cancel</button>
+                <button onclick="window.saveItem()" class="px-4 py-2 rounded bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold transition">Add Item</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="companionDetailModal">
+        <div class="modal-content max-w-[550px]">
+            <div class="flex justify-between items-center mb-3 border-b border-purple-600 pb-2">
+                <h3 class="text-lg font-bold text-white" id="companionDetailTitle">Companion</h3>
+                <button onclick="window.closeModal('companionDetailModal'); window.openNpcCrafter();" class="text-[10px] text-purple-400 hover:text-purple-300 font-bold">Edit in NPC Crafter</button>
+            </div>
+            <div id="companionDetailBody" class="max-h-[60vh] overflow-y-auto pr-1"><!-- JS injected --></div>
+            <div class="flex justify-end mt-4">
+                <button onclick="window.closeModal('companionDetailModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="npcCrafterModal">
+        <div class="modal-content max-w-[850px]">
+            <div class="flex justify-between items-center mb-1 border-b border-purple-600 pb-2">
+                <h3 class="text-xl font-black text-white" id="npcCrafterTitle">The NPC Crafter -- Loyal Companion</h3>
+                <div class="text-[10px] text-slate-500">Chapter 15: NPCs</div>
+            </div>
+            <div class="mb-3">
+                <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Companion Name</label>
+                <input type="text" id="ncName" onchange="window.ncUpdateName(this.value)" placeholder="e.g. Fang" class="bg-slate-900 border-purple-900/50 text-purple-300 font-bold">
+            </div>
+            <div class="grid grid-cols-3 gap-2 mb-3 bg-slate-900 border border-purple-800/50 rounded-lg p-2">
+                <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">Tier</div><div class="text-lg font-black text-white" id="ncSumTier">0</div></div>
+                <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">TP Spent</div><div class="text-lg font-black text-white" id="ncSumTp">0 / 0</div></div>
+                <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">Max HP</div><div class="text-lg font-black text-white" id="ncSumHp">0</div></div>
+            </div>
+            <div class="flex items-center justify-between bg-slate-900 border border-amber-800/50 rounded p-2 mb-3">
+                <span class="text-[10px] text-slate-400" id="ncTpBannerText">Buy more TP with XP -- currently 20 XP/TP (Unspent XP: 0)</span>
+                <div class="flex gap-1" id="ncTpBannerButtons">
+                    <button onclick="window.ncBuyExtraTp(1)" class="px-2 py-1 rounded bg-amber-700 hover:bg-amber-600 text-white text-[10px] font-bold">+1 TP</button>
+                    <button onclick="window.ncBuyExtraTp(5)" class="px-2 py-1 rounded bg-amber-700 hover:bg-amber-600 text-white text-[10px] font-bold">+5 TP</button>
+                </div>
+            </div>
+
+            <div class="flex gap-1 mb-2 flex-wrap text-[10px]">
+                <span id="ncTab1" onclick="window.jumpToNcStep(1)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">1. Attributes</span>
+                <span id="ncTab2" onclick="window.jumpToNcStep(2)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">2. Size/Move</span>
+                <span id="ncTab3" onclick="window.jumpToNcStep(3)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">3. Senses</span>
+                <span id="ncTab4" onclick="window.jumpToNcStep(4)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">4. Defenses</span>
+                <span id="ncTab5" onclick="window.jumpToNcStep(5)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">5. Weapons</span>
+                <span id="ncTab6" onclick="window.jumpToNcStep(6)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">6. Powers</span>
+                <span id="ncTab7" onclick="window.jumpToNcStep(7)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">7. Traits</span>
+            </div>
+
+            <div class="max-h-[45vh] overflow-y-auto pr-1">
+                <div id="ncStep1" class="wizard-step active">
+                    <div id="ncStep1Attrs" class="space-y-1.5 mb-3"><!-- JS injected --></div>
+                    <div id="ncStep1Extras" class="space-y-1.5"><!-- JS injected --></div>
+                </div>
+                <div id="ncStep2" class="wizard-step">
+                    <div id="ncStep2Sizes" class="space-y-1.5 mb-3"><!-- JS injected --></div>
+                    <div id="ncStep2Loc" class="space-y-1.5"><!-- JS injected --></div>
+                </div>
+                <div id="ncStep3" class="wizard-step">
+                    <div class="ncSensesList space-y-1.5"><!-- JS injected --></div>
+                </div>
+                <div id="ncStep4" class="wizard-step">
+                    <div class="ncDefList space-y-1.5"><!-- JS injected --></div>
+                </div>
+                <div id="ncStep5" class="wizard-step">
+                    <div class="ncWeaponList space-y-1.5"><!-- JS injected --></div>
+                </div>
+                <div id="ncStep6" class="wizard-step">
+                    <div class="ncPowerList"><!-- JS injected --></div>
+                </div>
+                <div id="ncStep7" class="wizard-step">
+                    <div class="ncTraitList space-y-1.5"><!-- JS injected --></div>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center mt-4 pt-3 border-t border-slate-600">
+                <button onclick="window.closeNpcCrafter()" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Close</button>
+                <div class="flex gap-2">
+                    <button id="ncBtnPrev" onclick="window.navNpcCrafter(-1)" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition hidden">Back</button>
+                    <button id="ncBtnNext" onclick="window.navNpcCrafter(1)" class="px-4 py-2 rounded bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold transition">Next Step</button>
+                    <button id="ncBtnFinishGm" onclick="window.finishGmNpc()" class="px-6 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition hidden shadow-lg">Save NPC</button>
+                    <button id="ncBtnFinishCompanion" onclick="window.closeNpcCrafter()" class="px-6 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition hidden shadow-lg">Confirm & Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="ncTrainingPickerModal">
+        <div class="modal-content max-w-[450px]">
+            <h3 class="text-lg font-bold text-white mb-3 border-b border-purple-600 pb-2">Choose Training</h3>
+            <div id="ncTrainingPickerBody" class="max-h-[50vh] overflow-y-auto pr-1"><!-- JS injected --></div>
+            <div class="flex justify-end mt-3">
+                <button onclick="window.closeModal('ncTrainingPickerModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="armorForgeModal">
+        <div class="modal-content max-w-[820px]">
+            <div class="flex justify-between items-center mb-1 border-b border-orange-600 pb-2">
+                <h3 class="text-xl font-black text-white">The Armor Forge</h3>
+                <button onclick="window.resetArmorForge()" class="text-[10px] text-slate-400 hover:text-red-400 font-bold border border-slate-600 hover:border-red-700 rounded px-2 py-1 transition">Reset to Blank Base Armor</button>
+            </div>
+            <div class="mb-3">
+                <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Armor Name</label>
+                <input type="text" id="armorForgeName" onchange="window.setArmorForgeName(this.value)" placeholder="e.g. Kevlar Vest" class="bg-slate-900 border-orange-900/50 text-orange-300 font-bold">
+            </div>
+            <div id="armorForgeBody"><!-- JS injected --></div>
+            <div class="flex justify-end gap-2 mt-4">
+                <button onclick="window.closeModal('armorForgeModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Cancel</button>
+                <button id="armorBtnCraft" onclick="window.openArmorCraftModal()" class="px-4 py-2 rounded bg-orange-600/20 border border-orange-700/50 text-orange-400 hover:bg-orange-600/40 text-sm font-bold transition">Craft...</button>
+                <button id="armorBtnPurchase" onclick="window.purchaseArmor()" class="px-6 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-black transition shadow-lg">Purchase & Equip</button>
+                <button id="armorBtnGmAdd" onclick="window.gmAddArmorFree()" class="px-6 py-2 rounded bg-purple-600 hover:bg-purple-500 text-white text-sm font-black transition shadow-lg hidden">Equip on NPC (Free)</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="armorCraftModal">
+        <div class="modal-content max-w-[420px]">
+            <h3 class="text-lg font-bold text-white mb-4 border-b border-orange-600 pb-2">Craft These Modifications</h3>
+            <div id="armorCraftBody"><!-- JS injected --></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="weaponForgeModal">
+        <div class="modal-content max-w-[800px]">
+            <div class="flex justify-between items-center mb-1 border-b border-orange-600 pb-2">
+                <h3 class="text-xl font-black text-white">The Weapon Forge</h3>
+                <div class="text-[10px] text-slate-500">Chapter 8: The Weapon Forge</div>
+            </div>
+            <div class="mb-3">
+                <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Weapon Name</label>
+                <input type="text" id="weaponForgeName" onchange="window.setWeaponForgeName(this.value)" placeholder="e.g. Ashfall Blade" class="bg-slate-900 border-orange-900/50 text-orange-300 font-bold">
+            </div>
+            <div class="flex gap-1 mb-3 flex-wrap text-[10px]">
+                <span id="wpnTab1" onclick="window.jumpToWpnStep(1)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">1. Base Weapon</span>
+                <span id="wpnTab2" onclick="window.jumpToWpnStep(2)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">2. Damage/Crit</span>
+                <span id="wpnTab3" onclick="window.jumpToWpnStep(3)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">3. Range/Properties</span>
+            </div>
+            <div id="wpnLockedNote" class="text-[10px] text-amber-400 mb-3 hidden">Returning to the forge on a crafted weapon: Category, Weight Class, and Damage Type are locked (they define the item). You can still add or remove tiers, properties, and Elemental.</div>
+
+            <div id="wpnStep1" class="wizard-step active">
+                <h4 class="text-sm font-bold text-orange-400 mb-2">Step 1: Base Weapon</h4>
+                <p class="text-[10px] text-slate-400 mb-3">Every weapon begins as a standardized foundation. Choose its category, weight class, and physical damage type.</p>
+
+                <div class="mb-4">
+                    <div class="text-[10px] text-slate-500 uppercase font-bold mb-1">Category</div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <label class="bg-slate-900 border border-slate-700 rounded p-2 flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="wpnCategory" value="melee" onchange="window.setWeaponForgeField('category', this.value)"> <span class="text-sm font-bold text-white">Melee</span>
+                        </label>
+                        <label class="bg-slate-900 border border-slate-700 rounded p-2 flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="wpnCategory" value="ranged" onchange="window.setWeaponForgeField('category', this.value)"> <span class="text-sm font-bold text-white">Ranged</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <div class="text-[10px] text-slate-500 uppercase font-bold mb-1">Weight Class</div>
+                    <div class="grid grid-cols-3 gap-2" id="wpnWeightClassOptions"><!-- JS injected --></div>
+                </div>
+
+                <div>
+                    <div class="text-[10px] text-slate-500 uppercase font-bold mb-1">Physical Damage Type</div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <label class="bg-slate-900 border border-slate-700 rounded p-2 flex items-center gap-2 cursor-pointer"><input type="radio" name="wpnDmgType" value="Bludgeoning" onchange="window.setWeaponForgeField('dmgType', this.value)"> <span class="text-xs font-bold text-white">Bludgeoning</span></label>
+                        <label class="bg-slate-900 border border-slate-700 rounded p-2 flex items-center gap-2 cursor-pointer"><input type="radio" name="wpnDmgType" value="Piercing" onchange="window.setWeaponForgeField('dmgType', this.value)"> <span class="text-xs font-bold text-white">Piercing</span></label>
+                        <label class="bg-slate-900 border border-slate-700 rounded p-2 flex items-center gap-2 cursor-pointer"><input type="radio" name="wpnDmgType" value="Slashing" onchange="window.setWeaponForgeField('dmgType', this.value)"> <span class="text-xs font-bold text-white">Slashing</span></label>
+                    </div>
+                </div>
+            </div>
+
+            <div id="wpnStep2" class="wizard-step">
+                <h4 class="text-sm font-bold text-orange-400 mb-2">Step 2: Damage & Critical Multiplier</h4>
+                <p class="text-[10px] text-slate-400 mb-3">Invest Currency to upgrade lethality. Each tier is capped by your weapon's weight class.</p>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <div class="text-xs font-black text-slate-300 mb-2">Damage Dice</div>
+                        <div id="wpnDmgTierOptions" class="space-y-1.5"><!-- JS injected --></div>
+                    </div>
+                    <div>
+                        <div class="text-xs font-black text-slate-300 mb-2">Critical Multiplier</div>
+                        <div id="wpnCritTierOptions" class="space-y-1.5"><!-- JS injected --></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="wpnStep3" class="wizard-step">
+                <h4 class="text-sm font-bold text-orange-400 mb-2">Step 3: Modifications</h4>
+                <div id="wpnRangeSection" class="mb-4">
+                    <div class="text-xs font-black text-slate-300 mb-2">Range Increment</div>
+                    <div id="wpnRangeTierOptions" class="grid grid-cols-2 gap-1.5"><!-- JS injected --></div>
+                </div>
+                <div class="mb-3">
+                    <label class="bg-slate-900 border border-slate-700 rounded p-2 flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="wpnElementalCheck" onchange="window.toggleWeaponElemental(this.checked)">
+                        <span class="text-xs font-bold text-white">Elemental (300 Cu)</span>
+                        <span class="text-[10px] text-slate-500">-- deals Energy damage instead of the physical type chosen in Step 1</span>
+                    </label>
+                    <select id="wpnElementalType" onchange="window.setWeaponForgeField('elemental', this.value)" class="mt-1.5 bg-slate-900 text-xs hidden"></select>
+                </div>
+                <div class="text-xs font-black text-slate-300 mb-2">Weapon Properties</div>
+                <div id="wpnPropertiesList" class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-[30vh] overflow-y-auto pr-1"><!-- JS injected --></div>
+            </div>
+
+            <div class="grid grid-cols-5 gap-2 mt-4 bg-slate-900 border border-slate-700 rounded-lg p-3">
+                <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">Weight</div><div class="text-lg font-black text-white" id="wpnSumWeight">2</div></div>
+                <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">Damage</div><div class="text-lg font-black text-white" id="wpnSumDmg">2d4</div></div>
+                <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">Crit</div><div class="text-lg font-black text-white" id="wpnSumCrit">x2</div></div>
+                <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">AP</div><div class="text-lg font-black text-white" id="wpnSumAp">2</div></div>
+                <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">Total Cost</div><div class="text-lg font-black text-yellow-400" id="wpnSumCost">25 Cu</div></div>
+            </div>
+            <div class="flex justify-between items-center mt-2 bg-slate-900 border border-amber-800/50 rounded-lg p-3">
+                <div><div class="text-[10px] text-slate-500 uppercase font-bold">Already Paid For</div><div class="text-sm font-bold text-slate-400" id="wpnSumPaid">0 Cu</div></div>
+                <div class="text-right"><div class="text-[10px] text-slate-500 uppercase font-bold">Cost Now</div><div class="text-xl font-black text-emerald-400" id="wpnSumCostNow">25 Cu</div></div>
+            </div>
+
+            <div class="flex justify-between items-center mt-4 pt-3 border-t border-slate-600">
+                <button onclick="window.closeModal('weaponForgeModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Cancel</button>
+                <div class="flex gap-2">
+                    <button id="wpnBtnPrev" onclick="window.navWeaponWizard(-1)" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition hidden">Back</button>
+                    <button id="wpnBtnNext" onclick="window.navWeaponWizard(1)" class="px-4 py-2 rounded bg-orange-600 hover:bg-orange-500 text-white text-sm font-bold transition">Next Step</button>
+                    <button id="wpnBtnCraft" onclick="window.openWeaponCraftModal()" class="px-4 py-2 rounded bg-orange-600/20 border border-orange-700/50 text-orange-400 hover:bg-orange-600/40 text-sm font-bold transition hidden">Craft...</button>
+                    <button id="wpnBtnPurchase" onclick="window.purchaseWeapon()" class="px-6 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition hidden shadow-lg">Purchase & Add Weapon</button>
+                    <button id="wpnBtnGmAdd" onclick="window.gmAddWeaponFree()" class="px-6 py-2 rounded bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold transition hidden shadow-lg">Add to NPC (Free)</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="weaponCraftModal">
+        <div class="modal-content max-w-[420px]">
+            <h3 class="text-lg font-bold text-white mb-4 border-b border-orange-600 pb-2">Craft These Upgrades</h3>
+            <div id="weaponCraftBody"><!-- JS injected --></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="consumableCrafterModal">
+        <div class="modal-content max-w-[850px]">
+            <div class="flex justify-between items-center mb-1 border-b border-purple-600 pb-2">
+                <h3 class="text-xl font-black text-white">The Consumable Crafter</h3>
+                <div class="text-[10px] text-slate-500">Chapter 8: Consumable Items</div>
+            </div>
+            <div class="mb-3">
+                <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Item Name</label>
+                <input type="text" id="ccName" placeholder="e.g. Healing Salve" class="bg-slate-900 border-purple-900/50 text-purple-300 font-bold">
+            </div>
+            <div class="flex gap-1 mb-3 flex-wrap text-[10px]">
+                <span id="ccTab1" onclick="window.jumpToCcStep(1)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">1. Targeting</span>
+                <span id="ccTab2" onclick="window.jumpToCcStep(2)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">2. Range</span>
+                <span id="ccTab3" onclick="window.jumpToCcStep(3)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">3. Area of Effect</span>
+                <span id="ccTab4" onclick="window.jumpToCcStep(4)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">4. Damage/Healing</span>
+                <span id="ccTab5" onclick="window.jumpToCcStep(5)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">5. Utility</span>
+                <span id="ccTab6" onclick="window.jumpToCcStep(6)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">6. Duration</span>
+                <span id="ccTab7" onclick="window.jumpToCcStep(7)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">7. Refunds/Charges</span>
+            </div>
+
+            <div id="ccStep1" class="wizard-step active">
+                <h4 class="text-sm font-bold text-purple-400 mb-2">Step 1: Targeting and Delivery</h4>
+                <p class="text-[10px] text-slate-400 mb-3">How does the item's effect reach the target, and how do they resist it?</p>
+                <div id="ccStep1Options" class="space-y-1.5"><!-- JS injected --></div>
+            </div>
+
+            <div id="ccStep2" class="wizard-step">
+                <h4 class="text-sm font-bold text-purple-400 mb-2">Step 2: Range</h4>
+                <div id="ccStep2Options" class="space-y-1.5"><!-- JS injected --></div>
+            </div>
+
+            <div id="ccStep3" class="wizard-step">
+                <h4 class="text-sm font-bold text-purple-400 mb-2">Step 3: Area of Effect</h4>
+                <div id="ccStep3Options" class="space-y-1.5"><!-- JS injected --></div>
+            </div>
+
+            <div id="ccStep4" class="wizard-step">
+                <h4 class="text-sm font-bold text-purple-400 mb-2">Step 4: Damage or Healing</h4>
+                <p class="text-[10px] text-slate-400 mb-3">Optional -- skip if this item neither damages nor heals.</p>
+                <div id="ccStep4Dice" class="space-y-1.5 mb-3"><!-- JS injected --></div>
+                <div id="ccStep4Extras" class="space-y-1.5"><!-- JS injected --></div>
+            </div>
+
+            <div id="ccStep5" class="wizard-step">
+                <h4 class="text-sm font-bold text-purple-400 mb-2">Step 5: Utility</h4>
+                <div id="ccStep5List" class="max-h-[40vh] overflow-y-auto pr-1"><!-- JS injected --></div>
+            </div>
+
+            <div id="ccStep6" class="wizard-step">
+                <h4 class="text-sm font-bold text-purple-400 mb-2">Step 6: Duration</h4>
+                <div id="ccStep6Options" class="space-y-1.5 mb-3"><!-- JS injected --></div>
+                <div class="text-xs font-black text-slate-300 mb-2">Duration Modifiers</div>
+                <div id="ccStep6Mods" class="space-y-1.5"><!-- JS injected --></div>
+            </div>
+
+            <div id="ccStep7" class="wizard-step">
+                <h4 class="text-sm font-bold text-purple-400 mb-2">Step 7: Refunds, Charges & Flavor Text</h4>
+                <p class="text-[10px] text-slate-400 mb-2">Consumables always cost a flat 3 AP to use -- there is no AP-modification step.</p>
+                <div id="ccStep7Refunds" class="space-y-1.5 mb-3"><!-- JS injected --></div>
+                <div class="flex items-center gap-2 mb-3 bg-slate-900 border border-slate-700 rounded p-2">
+                    <label class="text-xs font-bold text-slate-200">Charges (1st is full price, each after is half):</label>
+                    <input type="number" id="ccChargesInput" value="1" min="1" onchange="window.ccSetCharges(this.value)" class="bg-slate-800 text-xs w-16 text-center ml-auto">
+                </div>
+                <div class="bg-slate-900 border border-slate-700 rounded p-2 text-[10px] text-slate-500 leading-relaxed mb-3" id="ccStep7Reference"><!-- JS injected --></div>
+                <textarea id="ccFlavorText" onchange="window.ccSetFlavorText(this.value)" class="bg-slate-900 border-purple-900/50 text-xs text-slate-200 h-20 resize-none w-full" placeholder="A thick red fluid that smells sickeningly sweet..."></textarea>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2 mt-4 bg-slate-900 border border-purple-800/50 rounded-lg p-3">
+                <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">XP Spent</div><div class="text-lg font-black text-white" id="ccSumXp">0 / 30 XP</div></div>
+                <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">Weight</div><div class="text-lg font-black text-white" id="ccSumWeight">0 lb</div></div>
+                <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">Total Cost</div><div class="text-lg font-black text-yellow-400" id="ccSumCost">0 Cu</div></div>
+            </div>
+            <div id="ccCapNote" class="text-[10px] text-red-400 font-bold mt-2 text-center hidden"></div>
+
+            <div class="flex justify-between items-center mt-4 pt-3 border-t border-slate-600">
+                <button onclick="window.closeModal('consumableCrafterModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Cancel</button>
+                <div class="flex gap-2">
+                    <button id="ccBtnPrev" onclick="window.navConsumableCrafter(-1)" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition hidden">Back</button>
+                    <button id="ccBtnNext" onclick="window.navConsumableCrafter(1)" class="px-4 py-2 rounded bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold transition">Next Step</button>
+                    <button id="ccBtnFinish" onclick="window.finishConsumableCrafter()" class="px-6 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition hidden shadow-lg">Add to Inventory</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="powerCrafterModal">
+        <div class="modal-content max-w-[850px]">
+            <div class="flex justify-between items-center mb-1 border-b border-purple-600 pb-2">
+                <h3 class="text-xl font-black text-white">The Power Crafter</h3>
+                <div class="text-[10px] text-slate-500">Chapter 7: Power Crafter Perk</div>
+            </div>
+            <div id="pcFreeBanner" class="hidden bg-emerald-900/30 border border-emerald-700 text-emerald-300 text-xs font-bold rounded p-2 mb-2 text-center">
+                Free Power! This new Power rank grants you one Power for free -- no XP will be spent.
+            </div>
+            <div class="mb-3">
+                <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Power Name</label>
+                <input type="text" id="pcName" placeholder="e.g. Ember Lance" class="bg-slate-900 border-purple-900/50 text-purple-300 font-bold">
+            </div>
+            <div id="pcUsageTypeSection" class="hidden mb-3 bg-slate-900 border border-slate-700 rounded p-2">
+                <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Usage</label>
+                <div class="flex flex-col gap-1 text-xs text-slate-200 mb-2">
+                    <label class="flex items-center gap-1"><input type="radio" name="pcUsageType" value="unlimited" onchange="window.pcSetUsageType('unlimited')"> Once per Full Rest <span class="text-[9px] text-slate-500">(no extra TP)</span></label>
+                    <label class="flex items-center gap-1"><input type="radio" name="pcUsageType" value="charges" onchange="window.pcSetUsageType('charges')"> Charges <span class="text-[9px] text-slate-500">(+half base TP per extra charge)</span></label>
+                    <label class="flex items-center gap-1"><input type="radio" name="pcUsageType" value="recharge" onchange="window.pcSetUsageType('recharge')"> Recharge (5-6 on a d6) <span class="text-[9px] text-slate-500">(+1 TP per Power Level)</span></label>
+                    <label class="flex items-center gap-1" id="pcUnlimitedPaidLabel"><input type="radio" name="pcUsageType" value="unlimitedPaid" onchange="window.pcSetUsageType('unlimitedPaid')"> Unlimited Uses <span class="text-[9px] text-slate-500">(+5 TP per Power Level)</span></label>
+                </div>
+                <div id="pcChargesFields" class="hidden flex items-center gap-2 text-[10px] text-slate-400 mb-1">
+                    <span>Charges per Full Rest:</span>
+                    <input type="number" id="pcMaxCharges" min="1" value="2" onchange="window.pcSetMaxCharges(this.value)" class="w-14 bg-slate-800 border-slate-600 text-center">
+                </div>
+                <div id="pcRechargeFields" class="hidden text-[10px] text-slate-400 mb-1">
+                    Rolls a d6 at the start of its turn; recharges on a 5 or 6. It can also spend half the AP it costs to cast (minimum 1) to attempt an early recharge.
+                </div>
+                <div id="pcUnlimitedPaidWarning" class="hidden text-[10px] text-red-400 mb-1">Unlimited Uses only applies to a Level 1 Power on a Tier 1-3 NPC, or a Level 2 Power on a Tier 4-5 NPC.</div>
+                <div id="pcUsageTpNote" class="text-[10px] text-amber-400 font-bold"></div>
+            </div>
+            <div class="flex gap-1 mb-3 flex-wrap text-[10px]">
+                <span id="pcTab1" onclick="window.jumpToPcStep(1)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">1. Targeting</span>
+                <span id="pcTab2" onclick="window.jumpToPcStep(2)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">2. Range</span>
+                <span id="pcTab3" onclick="window.jumpToPcStep(3)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">3. Area of Effect</span>
+                <span id="pcTab4" onclick="window.jumpToPcStep(4)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">4. Damage/Healing</span>
+                <span id="pcTab5" onclick="window.jumpToPcStep(5)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">5. Utility</span>
+                <span id="pcTab6" onclick="window.jumpToPcStep(6)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">6. Duration</span>
+                <span id="pcTab7" onclick="window.jumpToPcStep(7)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">7. AP Mods</span>
+                <span id="pcTab8" onclick="window.jumpToPcStep(8)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">8. Refunds</span>
+                <span id="pcTab9" onclick="window.jumpToPcStep(9)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">9. Flavor Text</span>
+            </div>
+
+            <div id="pcStep1" class="wizard-step active">
+                <h4 class="text-sm font-bold text-purple-400 mb-2">Step 1: Targeting and Delivery</h4>
+                <p class="text-[10px] text-slate-400 mb-3">How does your power reach the target, and how do they resist it?</p>
+                <div id="pcStep1Options" class="space-y-1.5"><!-- JS injected --></div>
+            </div>
+
+            <div id="pcStep2" class="wizard-step">
+                <h4 class="text-sm font-bold text-purple-400 mb-2">Step 2: Range</h4>
+                <p class="text-[10px] text-slate-400 mb-3">How far can you be from your target?</p>
+                <div id="pcStep2Options" class="space-y-1.5"><!-- JS injected --></div>
+            </div>
+
+            <div id="pcStep3" class="wizard-step">
+                <h4 class="text-sm font-bold text-purple-400 mb-2">Step 3: Area of Effect</h4>
+                <p class="text-[10px] text-slate-400 mb-3">What area does your power cover? This also multiplies the cost of Damage Dice and Utility effects.</p>
+                <div id="pcStep3Options" class="space-y-1.5"><!-- JS injected --></div>
+            </div>
+
+            <div id="pcStep4" class="wizard-step">
+                <h4 class="text-sm font-bold text-purple-400 mb-2">Step 4: Damage or Healing</h4>
+                <p class="text-[10px] text-slate-400 mb-3">Optional -- skip if your power neither damages nor heals. Max 12 dice per die step.</p>
+                <div id="pcStep4Dice" class="space-y-1.5 mb-3"><!-- JS injected --></div>
+                <div id="pcStep4Extras" class="space-y-1.5"><!-- JS injected --></div>
+            </div>
+
+            <div id="pcStep5" class="wizard-step">
+                <h4 class="text-sm font-bold text-purple-400 mb-2">Step 5: Utility</h4>
+                <p class="text-[10px] text-slate-400 mb-3">Buffs, debuffs, summons, and everything else beyond raw damage. Entries marked "repeatable" stack additively.</p>
+                <div id="pcStep5List" class="max-h-[45vh] overflow-y-auto pr-1"><!-- JS injected --></div>
+            </div>
+
+            <div id="pcStep6" class="wizard-step">
+                <h4 class="text-sm font-bold text-purple-400 mb-2">Step 6: Duration</h4>
+                <p class="text-[10px] text-slate-400 mb-3">If your power only deals damage, Instant is usually all you need.</p>
+                <div id="pcStep6Options" class="space-y-1.5 mb-3"><!-- JS injected --></div>
+                <div class="text-xs font-black text-slate-300 mb-2">Duration Modifiers</div>
+                <div id="pcStep6Mods" class="space-y-1.5"><!-- JS injected --></div>
+            </div>
+
+            <div id="pcStep7" class="wizard-step">
+                <h4 class="text-sm font-bold text-purple-400 mb-2">Step 7: AP Modifications</h4>
+                <p class="text-[10px] text-slate-400 mb-3">Powers cost 4 AP by default. Spend XP to lower it, or take more AP to refund some.</p>
+                <div id="pcStep7Options" class="space-y-1.5"><!-- JS injected --></div>
+            </div>
+
+            <div id="pcStep8" class="wizard-step">
+                <h4 class="text-sm font-bold text-purple-400 mb-2">Step 8: Refunds</h4>
+                <p class="text-[10px] text-slate-400 mb-3">Add restrictions and hindrances to refund XP and increase potency elsewhere.</p>
+                <div id="pcStep8Options" class="space-y-1.5"><!-- JS injected --></div>
+            </div>
+
+            <div id="pcStep9" class="wizard-step">
+                <h4 class="text-sm font-bold text-purple-400 mb-2">Step 9: Flavor Text</h4>
+                <p class="text-[10px] text-slate-400 mb-3">Turn the mechanical build below into a description of what actually happens when you use this Power. Leave it blank to just save the mechanical summary instead.</p>
+                <div class="bg-slate-900 border border-slate-700 rounded p-2 text-[10px] text-slate-500 leading-relaxed mb-3" id="pcStep9Reference"><!-- JS injected --></div>
+                <textarea id="pcFlavorText" onchange="window.pcSetFlavorText(this.value)" class="bg-slate-900 border-purple-900/50 text-xs text-slate-200 h-28 resize-none w-full" placeholder="e.g. You cast forward 4 bolts of force, each one dealing 1d4 + 1 damage to up to 4 targets. Each bolt automatically strikes a target within range, and all bolts strike simultaneously."></textarea>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2 mt-4 bg-slate-900 border border-purple-800/50 rounded-lg p-3">
+                <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">Total XP Cost</div><div class="text-lg font-black text-yellow-400" id="pcSumXp">0 XP</div></div>
+                <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">Power Level</div><div class="text-lg font-black text-white" id="pcSumLevel">Level 1</div></div>
+                <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">AP Cost</div><div class="text-lg font-black text-white" id="pcSumAp">4 AP</div></div>
+            </div>
+            <div id="pcCapNote" class="text-[10px] text-red-400 font-bold mt-2 text-center hidden"></div>
+
+            <div class="flex justify-between items-center mt-4 pt-3 border-t border-slate-600">
+                <button onclick="window.closeModal('powerCrafterModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Cancel</button>
+                <div class="flex gap-2">
+                    <button id="pcBtnPrev" onclick="window.navPowerCrafter(-1)" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition hidden">Back</button>
+                    <button id="pcBtnNext" onclick="window.navPowerCrafter(1)" class="px-4 py-2 rounded bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold transition">Next Step</button>
+                    <button id="pcBtnFinish" onclick="window.finishPowerCrafter()" class="px-6 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition hidden shadow-lg">Learn Power</button>
+                    <button id="pcBtnSaveChanges" onclick="window.savePowerChanges()" class="px-4 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition hidden shadow-lg">Save Changes</button>
+                    <button id="pcBtnSaveAsNew" onclick="window.savePowerAsNew()" class="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold transition hidden shadow-lg">Save as New</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="powerModal">
+        <div class="modal-content">
+            <h3 class="text-lg font-bold text-white mb-4 border-b border-slate-600 pb-2">Add Crafted Power</h3>
+            <div class="space-y-3">
+                <div class="flex gap-2">
+                    <div class="flex-1">
+                        <label class="block text-xs text-slate-400 mb-1">Power Name</label>
+                        <input type="text" id="newPwrName" class="bg-slate-900 text-indigo-300 font-bold">
+                    </div>
+                    <div class="w-20">
+                        <label class="block text-xs text-slate-400 mb-1">Level</label>
+                        <input type="number" id="newPwrLvl" value="1" min="1" max="5" class="bg-slate-900">
+                    </div>
+                    <div class="w-20">
+                        <label class="block text-xs text-slate-400 mb-1">AP Cost</label>
+                        <input type="number" id="newPwrAp" value="4" class="bg-slate-900">
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Attack / Save</label>
+                        <input type="text" id="newPwrAtk" placeholder="e.g. AGI Save" class="bg-slate-900 text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Range / AoE</label>
+                        <input type="text" id="newPwrRng" placeholder="e.g. 10 sq / 2 sq rad" class="bg-slate-900 text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Damage / Heal</label>
+                        <input type="text" id="newPwrDmg" placeholder="e.g. 3d6 Fire" class="bg-slate-900 text-xs">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Utility & Effects</label>
+                    <textarea id="newPwrDesc" class="bg-slate-900 text-xs h-16 resize-none" placeholder="Target is Stunned..."></textarea>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 mt-6">
+                <button onclick="window.closeModal('powerModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Cancel</button>
+                <button onclick="window.savePower()" class="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold transition">Add Power</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="perkModal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4 border-b border-purple-600 pb-2">
+                <h3 class="text-xl font-black text-white">The Perk Forge</h3>
+                <div class="flex items-center gap-2">
+                    <input type="text" id="perkSearch" placeholder="Search perks..." oninput="window.renderPerkList()" class="bg-slate-900 p-1.5 text-xs w-40 border-slate-600 rounded font-bold text-white placeholder-slate-500">
+                    <span class="text-xs text-slate-400">Filter:</span>
+                    <select id="perkFilter" class="bg-slate-900 p-1.5 text-xs w-36 border-slate-600 rounded font-bold" onchange="window.renderPerkList()">
+                        <option value="ALL">All Perks</option><option value="STR">STR Perks</option><option value="AGI">AGI Perks</option>
+                        <option value="CON">CON Perks</option><option value="PER">PER Perks</option><option value="INT">INT Perks</option>
+                        <option value="CHA">CHA Perks</option><option value="LUC">LUC Perks</option><option value="GEN">General Perks</option><option value="PWR">Power Perks</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="mb-3 bg-slate-900 p-3 rounded-lg border border-slate-700 flex justify-between items-center sticky top-0 z-10 shadow-xl">
+                <div class="text-xs text-slate-400 flex items-center gap-4">
+                    <span class="font-black text-emerald-400 text-lg bg-emerald-900/30 px-3 py-1 rounded border border-emerald-800">Unspent XP: <span id="modalDispUnspent">0</span></span>
+                    <span class="leading-tight">Core Perks require Attribute Score >= (Rank x 2).<br>Purchasing a rank automatically applies its mechanical effects.</span>
+                </div>
+            </div>
+
+            <div class="space-y-3 overflow-y-auto pr-2 pb-4" id="perkListContainer" style="max-height: 60vh;">
+                <!-- Perk List JS Injected -->
+            </div>
+            
+            <div class="flex justify-end mt-4 pt-4 border-t border-slate-600">
+                <button onclick="window.closeModal('perkModal')" class="px-8 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-black transition shadow-lg tracking-wider">DONE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Modal -->
+
+    <!-- Delete Character Confirm Modal -->
+    <div class="modal-overlay" id="typeDeleteModal">
+        <div class="modal-content max-w-sm text-center border border-red-600">
+            <h3 class="text-xl font-black text-red-500 mb-2">Delete Character?</h3>
+            <p class="mb-4 text-slate-400 text-xs">This action cannot be undone. Type "DELETE" to confirm.</p>
+            <input type="text" id="deleteConfirmInput" class="w-full text-center bg-slate-900 font-bold mb-6" placeholder="DELETE" onkeyup="window.checkDeleteInput(this.value)">
+            <div class="flex justify-center gap-4">
+                <button onclick="window.closeModal('typeDeleteModal')" class="px-6 py-2 rounded bg-slate-600 hover:bg-slate-500 text-white font-bold transition">Cancel</button>
+                <button id="btnTypeDeleteConfirm" onclick="window.confirmDeleteCharacter()" disabled class="px-6 py-2 rounded bg-red-600/50 text-white/50 font-bold transition shadow-lg cursor-not-allowed">Confirm Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Perk Choice Modal -->
+    <div class="modal-overlay" id="perkChoiceModal">
+        <div class="modal-content max-w-sm">
+            <h3 class="text-lg font-bold text-white mb-2 border-b border-purple-600 pb-2">Select Perk Specialization</h3>
+            <p id="perkChoiceDesc" class="text-xs text-slate-400 mb-4">Choose how you want to apply this perk's rank.</p>
+            <select id="perkChoiceSelect" class="bg-slate-900 border-slate-700 text-sm w-full mb-6 p-2 rounded font-bold text-purple-300"></select>
+            <input type="text" id="perkChoiceTextInput" class="bg-slate-900 border-slate-700 text-sm w-full mb-6 p-2 rounded font-bold text-purple-300 hidden" placeholder="Name your specialization...">
+            <div class="flex justify-end gap-2">
+                <button onclick="window.closeModal('perkChoiceModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Cancel</button>
+                <button id="perkChoiceConfirmBtn" class="px-4 py-2 rounded bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold transition">Confirm Selection</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Encyclopedia Modal -->
+    <div class="modal-overlay" id="addEncyclopediaModal">
+        <div class="modal-content max-w-sm">
+            <h3 class="text-lg font-bold text-white mb-2 border-b border-slate-600 pb-2">Add Encyclopedia Field</h3>
+            <p class="text-xs text-slate-400 mb-4">Enter the specific field of study (e.g. Magic, Mutants, Technology).</p>
+            <input type="text" id="encTextInput" placeholder="Field of Study..." class="bg-slate-900 text-white font-bold mb-6">
+            <div class="flex justify-end gap-2">
+                <button onclick="window.closeModal('addEncyclopediaModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Cancel</button>
+                <button onclick="window.saveEncyclopedia()" class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold transition">Add Skill</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="skillTrainPickerModal">
+        <div class="modal-content max-w-sm">
+            <h3 class="text-lg font-bold text-white mb-2 border-b border-slate-600 pb-2" id="skillTrainPickerTitle">Choose a Skill to Train</h3>
+            <div id="skillTrainPickerBody" class="max-h-[50vh] overflow-y-auto pr-1 space-y-1 mb-3"><!-- JS injected --></div>
+            <div class="flex justify-end">
+                <button onclick="window.closeModal('skillTrainPickerModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="saveTrainPickerModal">
+        <div class="modal-content max-w-sm">
+            <h3 class="text-lg font-bold text-white mb-2 border-b border-slate-600 pb-2">Choose a Saving Throw to Train</h3>
+            <div id="saveTrainPickerBody" class="max-h-[50vh] overflow-y-auto pr-1 space-y-1 mb-3"><!-- JS injected --></div>
+            <div class="flex justify-end">
+                <button onclick="window.closeModal('saveTrainPickerModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="chaUpgradePickerModal">
+        <div class="modal-content max-w-sm">
+            <h3 class="text-lg font-bold text-white mb-2 border-b border-slate-600 pb-2">Choose a Power to Upgrade for Free</h3>
+            <div id="chaUpgradePickerBody" class="max-h-[50vh] overflow-y-auto pr-1 space-y-1 mb-3"><!-- JS injected --></div>
+            <div class="flex justify-end">
+                <button onclick="window.closeModal('chaUpgradePickerModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Skip for Now</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ancestry Bonus Perk Modal -->
+    <div class="modal-overlay" id="ancBonusPerkModal">
+        <div class="modal-content max-w-md">
+            <h3 class="text-lg font-bold text-white mb-2 border-b border-indigo-600 pb-2">Select Bonus General Perk</h3>
+            <p class="text-xs text-slate-400 mb-4">Your genetic trait grants you one free General Perk.</p>
+            <div class="space-y-2 max-h-[50vh] overflow-y-auto pr-2 mb-4" id="ancBonusPerkList">
+                <!-- JS injected list of GEN perks -->
+            </div>
+            <div class="flex justify-end gap-2">
+                <button onclick="window.cancelAncBonusPerk()" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="settingsModal">
+        <div class="modal-content max-w-md">
+            <h3 class="text-lg font-bold text-white mb-4 border-b border-slate-600 pb-2">Settings</h3>
+
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-slate-300 mb-1">Undo History Size: <span id="undoHistoryValue">60</span> steps</label>
+                <input type="range" id="undoHistorySlider" min="10" max="200" step="10" value="60" oninput="window.setUndoHistorySize(this.value)" class="w-full">
+                <div class="text-[10px] text-slate-500 mt-1">How many actions back you can undo. Higher uses a bit more memory.</div>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-slate-300 mb-1">Theme</label>
+                <select id="themeSelector" onchange="window.setTheme(this.value)" class="bg-slate-800 text-white w-full p-2 rounded border border-slate-600">
+                    <option value="modern">Modern</option>
+                    <option value="fantasy">Fantasy</option>
+                    <option value="cyberpunk">Cyberpunk</option>
+                    <option value="futuristic">Futuristic</option>
+                    <option value="kawaii">Kawaii</option>
+                </select>
+            </div>
+
+            <div class="text-xs text-slate-500 italic mb-4 border-t border-slate-700 pt-3">Alt Rule toggles will live here in a future update.</div>
+
+            <div class="flex justify-end">
+                <button onclick="window.closeModal('settingsModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="envResistPickerModal">
+        <div class="modal-content max-w-sm">
+            <h3 class="text-lg font-bold text-white mb-2 border-b border-slate-600 pb-2">Environmental Resistance</h3>
+            <div id="envResistPickerBody" class="max-h-[50vh] overflow-y-auto pr-1 space-y-1 mb-3"><!-- JS injected --></div>
+            <div class="flex justify-end">
+                <button onclick="window.closeModal('envResistPickerModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="helmetRepairModal">
+        <div class="modal-content max-w-sm">
+            <h3 class="text-lg font-bold text-white mb-2 border-b border-slate-600 pb-2">Repair Broken Helmet</h3>
+            <div class="bg-slate-900 border border-slate-700 rounded p-3 mb-4 text-xs space-y-1">
+                <div class="flex justify-between"><span class="text-slate-400">Repair DC:</span><span id="helmetRepairDc" class="font-bold text-white">11</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">Materials Needed:</span><span id="helmetRepairMats" class="font-bold text-white">15 Common Crafting Materials</span></div>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button onclick="window.closeModal('helmetRepairModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Cancel</button>
+                <button onclick="window.confirmHelmetRepair()" class="px-4 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition">Repair Succeeded</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="payOrGrantModal">
+        <div class="modal-content max-w-sm">
+            <h3 class="text-lg font-bold text-white mb-2 border-b border-slate-600 pb-2">Add Item</h3>
+            <p id="payOrGrantMessage" class="text-xs text-slate-400 mb-4">How are you acquiring this item?</p>
+            <div class="flex flex-col gap-2">
+                <button id="payOrGrantPayBtn" onclick="window.resolvePayOrGrant(true)" class="px-4 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition">Pay with Currency</button>
+                <button onclick="window.resolvePayOrGrant(false)" class="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold transition">GM Granted (Free)</button>
+                <button onclick="window.closeModal('payOrGrantModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition mt-1">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="envVulnPickerModal">
+        <div class="modal-content max-w-sm">
+            <h3 class="text-lg font-bold text-white mb-2 border-b border-slate-600 pb-2">Environmental Vulnerability</h3>
+            <div id="envVulnPickerBody" class="max-h-[50vh] overflow-y-auto pr-1 space-y-1 mb-3"><!-- JS injected --></div>
+            <div class="flex justify-end">
+                <button onclick="window.closeModal('envVulnPickerModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="innateWeaponPickerModal">
+        <div class="modal-content max-w-sm">
+            <h3 class="text-lg font-bold text-white mb-2 border-b border-slate-600 pb-2">Innate Weapon</h3>
+            <div id="innateWeaponPickerBody" class="space-y-3 mb-3"><!-- JS injected --></div>
+            <div class="flex justify-end">
+                <button onclick="window.closeModal('innateWeaponPickerModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="sellQuantityModal">
+        <div class="modal-content max-w-sm">
+            <h3 class="text-lg font-bold text-white mb-2 border-b border-slate-600 pb-2">Sell <span id="sellQtyItemName"></span></h3>
+            <div class="mb-3">
+                <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">How many? (have <span id="sellQtyMax"></span>)</label>
+                <input type="number" id="sellQtyInput" value="1" min="1" oninput="window.updateSellQtyPayout()" class="bg-slate-900 text-sm w-full text-center">
+            </div>
+            <div class="bg-slate-900 border border-slate-700 rounded p-2 mb-4 text-center">
+                <span class="text-[10px] text-slate-500 uppercase font-bold">You'll receive</span>
+                <div class="text-xl font-black text-yellow-400"><span id="sellQtyPayout">0</span> Currency</div>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button onclick="window.closeModal('sellQuantityModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Cancel</button>
+                <button onclick="window.confirmSellQuantity()" class="px-4 py-2 rounded bg-yellow-700 hover:bg-yellow-600 text-white text-sm font-bold transition">Sell</button>
+            </div>
+        </div>
+    </div>
+
+<div class="modal-overlay" id="confirmModal">
+        <div class="modal-content max-w-sm text-center border border-slate-600">
+            <p id="confirmMessage" class="mb-6 text-white font-bold text-lg"></p>
+            <div class="flex justify-center gap-4">
+                <button id="btnConfirmNo" class="px-6 py-2 rounded bg-slate-600 hover:bg-slate-500 text-white font-bold transition" onclick="window.cancelConfirm()">Cancel</button>
+                <button id="btnConfirmYes" class="px-6 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition shadow-lg" onclick="window.executeConfirm()">OK</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script src="js/apx-data.js"></script>
+    <script src="js/apx-perks-db.js"></script>
+    <script src="js/apx-roster.js"></script>
+    <script src="js/apx-state.js"></script>
+    <script src="js/apx-origin-wizard.js"></script>
+    <script src="js/apx-ancestry-wizard.js"></script>
+    <script src="js/apx-inventory-ui.js"></script>
+    <script src="js/apx-craft-shared.js"></script>
+    <script src="js/apx-armor-forge.js"></script>
+    <script src="js/apx-weapon-forge.js"></script>
+    <script src="js/apx-power-crafter.js"></script>
+    <script src="js/apx-consumable-crafter.js"></script>
+    <script src="js/apx-npc-crafter.js"></script>
+    <script src="js/apx-engine.js"></script>
+    <script src="js/apx-perks-ui.js"></script>
+    <script src="js/apx-main.js"></script>
+</body>
+</html>

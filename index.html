@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>APX System Tools</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #cbd5e1;
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-6">
+    <div class="max-w-3xl w-full space-y-10 text-center">
+        <div>
+            <h1 class="text-4xl md:text-5xl font-black text-white mb-3 tracking-wider uppercase">APX System Tools</h1>
+            <p class="text-slate-400 text-lg">Select an application to launch</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <a href="APX_CharSheet.html" class="bg-slate-800 p-8 rounded-xl border border-emerald-900 hover:border-emerald-500 shadow-xl hover:shadow-emerald-900 transition flex flex-col items-center group">
+                <div class="text-5xl mb-4 group-hover:scale-110 transition-transform duration-200">🛡️</div>
+                <h2 class="text-2xl font-bold text-emerald-400 mb-2 uppercase tracking-wide">Player Tools</h2>
+                <p class="text-sm text-slate-400">Universal APX Character Sheet and crafter.</p>
+            </a>
+
+            <a href="APX_GMTools.html" class="bg-slate-800 p-8 rounded-xl border border-purple-900 hover:border-purple-500 shadow-xl hover:shadow-purple-900 transition flex flex-col items-center group">
+                <div class="text-5xl mb-4 group-hover:scale-110 transition-transform duration-200">👑</div>
+                <h2 class="text-2xl font-bold text-purple-400 mb-2 uppercase tracking-wide">GM Tools</h2>
+                <p class="text-sm text-slate-400">Initiative tracker and party roster management.</p>
+            </a>
+        </div>
+    </div>
+</body>
+</html>
