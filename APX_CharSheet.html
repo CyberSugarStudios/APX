@@ -336,27 +336,21 @@
     </div>
     <div id="sidebarOverlay" onclick="window.toggleSidebar()"></div>
     <div id="sidebar">
-        <h2 class="text-xl font-black text-white mb-4 border-b border-slate-600 pb-2">Character Roster</h2>
-        <button onclick="window.createNewCharacter()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded mb-4 shadow transition">
-            + Create New Character
+        <h2 class="text-xl font-black text-white mb-4 border-b border-slate-600 pb-2">Characters</h2>
+        <button onclick="window.sidebarNewCharacter()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded mb-3 shadow transition">
+            + New Character
         </button>
         <div class="grid grid-cols-2 gap-2 mb-4">
-            <button onclick="window.loadRosterFolder()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2 px-2 rounded shadow transition" title="Select a folder to load multiple characters">
-                📁 Load Roster
+            <button onclick="window.saveToLocal()" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-2 px-2 rounded shadow transition" title="Download current character as a JSON file">
+                Export
             </button>
-            <button id="btnSaveRoster" onclick="window.saveToRosterFolder()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2 px-2 rounded shadow transition" title="Save current character to the loaded folder">
-                💾 Save to Roster
-            </button>
-            <button onclick="window.saveToLocal()" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-2 px-2 rounded shadow transition" title="Download character to your PC">
-                ⬇️ Export
-            </button>
-            <button onclick="document.getElementById('importFile').click()" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-2 px-2 rounded shadow transition" title="Load a single character from your PC">
-                ⬆️ Import Single
+            <button onclick="document.getElementById('importFile').click()" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-2 px-2 rounded shadow transition" title="Import a character from a JSON file">
+                Import
             </button>
             <input type="file" id="importFile" accept=".json" class="hidden" onchange="window.loadFromLocal(event)">
         </div>
         <div id="characterList" class="flex-1 overflow-y-auto pr-2 space-y-2">
-            <div class="text-xs text-slate-500 text-center py-4">Click "Load Roster" to select a folder.</div>
+            <div class="text-xs text-slate-500 text-center py-4">Loading...</div>
         </div>
         <div class="mt-4 text-[10px] text-slate-500 text-center">Characters auto-save to the cloud when signed in.</div>
 
@@ -1841,13 +1835,15 @@
                         <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Damage</label>
                         <select id="cwDmg" class="bg-slate-900 text-xs w-full">
                             <option value="1d4">1d4</option>
-                            <option value="2d4" selected>2d4</option>
                             <option value="1d6">1d6</option>
-                            <option value="2d6">2d6</option>
                             <option value="1d8">1d8</option>
-                            <option value="2d8">2d8</option>
                             <option value="1d10">1d10</option>
                             <option value="1d12">1d12</option>
+                            <option value="2d4" selected>2d4</option>
+                            <option value="2d6">2d6</option>
+                            <option value="2d8">2d8</option>
+                            <option value="3d8">3d8</option>
+                            <option value="4d12">4d12</option>
                         </select>
                     </div>
                 </div>
@@ -1942,7 +1938,7 @@
             <div id="deleteStep1">
                 <p class="text-xs text-slate-300 mb-3">This will permanently delete your account and all cloud-saved characters. This <span class="font-bold text-red-400">cannot be undone</span>.</p>
                 <p class="text-xs text-slate-400 mb-2">Type <span class="font-black text-white">DELETE</span> to continue:</p>
-                <input type="text" id="deleteConfirmInput" placeholder="Type DELETE" class="bg-slate-900 text-xs w-full mb-3">
+                <input type="text" id="acctDeleteInput" placeholder="Type DELETE" class="bg-slate-900 text-xs w-full mb-3">
                 <div class="flex gap-2 justify-end">
                     <button onclick="window.closeModal('deleteAccountModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Cancel</button>
                     <button onclick="window.deleteStep2Check()" class="px-4 py-2 rounded bg-red-800 hover:bg-red-700 text-white text-sm font-bold transition">Continue</button>
@@ -2042,6 +2038,85 @@
     <script src="js/firebase-config.js"></script>
     <script src="js/apx-firebase.js"></script>
     <script>
+    // ── Sidebar character list ───────────────────────────────────
+    window._sidebarChars = [];
+
+    function renderSidebarCharList() {
+        let list = document.getElementById('characterList');
+        if (!list) return;
+        if (!window._sidebarChars.length) {
+            list.innerHTML = '<div class="text-xs text-slate-500 text-center py-4">No saved characters yet.</div>';
+            return;
+        }
+        list.innerHTML = window._sidebarChars.map(c => `
+            <button onclick="window.sidebarLoadCharacter('${c.id}')"
+                class="w-full text-left px-3 py-2 rounded text-xs font-bold transition ${c.id === window._activeCloudCharId ? 'bg-emerald-900/40 border border-emerald-700/50 text-emerald-300' : 'bg-slate-900 border border-slate-700 text-slate-200 hover:border-slate-500'}">
+                ${c.name || 'Unnamed Character'}
+            </button>
+        `).join('');
+    }
+
+    window.sidebarNewCharacter = async function() {
+        // Save current character before starting a new one
+        if (window._activeCloudCharId && window.state && window.apxAuth.enabled) {
+            try {
+                let saveData = Object.assign({}, window.state);
+                if (window.undoStack) saveData._undoStack = window.undoStack;
+                await window.apxAuth.saveCharacter(window._activeCloudCharId, saveData);
+            } catch(e) {}
+        }
+        let newId = 'char_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+        window._activeCloudCharId = newId;
+        window.apxAuth.setActiveCharId(newId);
+        window.createNewCharacter();
+        window._sidebarChars.push({ id: newId, name: 'New Character', state: null });
+        renderSidebarCharList();
+        if (typeof window.toggleSidebar === 'function') window.toggleSidebar();
+    };
+
+    window.sidebarLoadCharacter = async function(id) {
+        if (window._activeCloudCharId && window.state && window.apxAuth.enabled) {
+            try {
+                let saveData = Object.assign({}, window.state);
+                if (window.undoStack) saveData._undoStack = window.undoStack;
+                await window.apxAuth.saveCharacter(window._activeCloudCharId, saveData);
+            } catch(e) {}
+        }
+        let entry = window._sidebarChars.find(c => c.id === id);
+        if (!entry || !entry.state) {
+            if (window.apxAuth.enabled) {
+                try {
+                    let chars = await window.apxAuth.loadCharacters();
+                    let found = chars.find(c => c.id === id);
+                    if (found) entry = { id, name: found.name, state: found.state };
+                } catch(e) {}
+            }
+        }
+        if (!entry || !entry.state) { alert('Could not load character data.'); return; }
+        window._activeCloudCharId = id;
+        window.apxAuth.setActiveCharId(id);
+        window.loadCharacterState(entry.state);
+        renderSidebarCharList();
+    };
+
+    window.loadCharacterState = function(state) {
+        if (!state) return;
+        Object.assign(window.state, JSON.parse(JSON.stringify(state)));
+        if (typeof window.recalculateMath === 'function') window.recalculateMath();
+        if (typeof window.syncDOM === 'function') window.syncDOM();
+    };
+
+    // Live sidebar rename when character name field changes
+    document.addEventListener('DOMContentLoaded', () => {
+        let nameInput = document.getElementById('charName');
+        if (nameInput) {
+            nameInput.addEventListener('input', () => {
+                let entry = window._sidebarChars.find(c => c.id === window._activeCloudCharId);
+                if (entry) { entry.name = nameInput.value || 'Unnamed Character'; renderSidebarCharList(); }
+            });
+        }
+    });
+
     // ── Character Lobby ──────────────────────────────────────────
     // Shown on page load; hides once a character is chosen or created.
     async function renderLobby(user) {
@@ -2054,7 +2129,6 @@
             accountLine.innerText = 'Not signed in — characters load from local files only.';
         }
 
-        // Gather characters: cloud first, then localStorage roster
         let chars = [];
         if (window.apxAuth.enabled && user) {
             try {
@@ -2062,10 +2136,10 @@
                 cloudChars.forEach(c => chars.push({ id: c.id, name: c.name || 'Unnamed', state: c.state, source: 'cloud' }));
             } catch(e) { console.warn('Cloud load failed:', e.message); }
         }
-        // Also surface local roster entries not already in the cloud list
-        (window.savedRosterData || []).forEach(c => {
-            if (!chars.find(x => x.id === c.id)) chars.push({ ...c, source: 'local' });
-        });
+
+        // Populate sidebar list too
+        window._sidebarChars = chars.map(c => ({ id: c.id, name: c.name, state: c.state }));
+        renderSidebarCharList();
 
         if (!chars.length) {
             list.innerHTML = '<div class="text-xs text-center py-4" style="color:var(--c-text-muted,#94a3b8);">No saved characters yet — create one to get started.</div>';
@@ -2078,16 +2152,19 @@
                 onmouseover="this.style.borderColor='var(--c-emerald,#059669)'"
                 onmouseout="this.style.borderColor='var(--c-border,#334155)'">
                 <span class="font-bold text-sm" style="color:var(--c-text,#e2e8f0);">${c.name}</span>
-                <span class="text-[10px]" style="color:var(--c-text-muted,#94a3b8);">${c.source === 'cloud' ? 'Cloud' : 'Local'}</span>
+                <span class="text-[10px]" style="color:var(--c-text-muted,#94a3b8);">Cloud</span>
             </button>
         `).join('');
         window._lobbyChars = chars;
     }
 
     window.lobbyNewCharacter = function() {
-        // Generate a new cloud ID for this character so auto-save knows where to put it
-        window._activeCloudCharId = 'char_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+        let newId = 'char_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+        window._activeCloudCharId = newId;
+        window.apxAuth.setActiveCharId(newId);
         window.createNewCharacter();
+        window._sidebarChars.push({ id: newId, name: 'New Character', state: null });
+        renderSidebarCharList();
         document.getElementById('characterLobby').style.display = 'none';
     };
     window.lobbyLoadCharacter = function(id) {
@@ -2096,7 +2173,10 @@
         if (!entry || !entry.state) return;
         window._activeCloudCharId = id;
         window.apxAuth.setActiveCharId(id);
+        let sidebarEntry = window._sidebarChars.find(c => c.id === id);
+        if (sidebarEntry) sidebarEntry.state = entry.state;
         window.loadCharacterState(entry.state);
+        renderSidebarCharList();
         document.getElementById('characterLobby').style.display = 'none';
     };
     window.lobbySkip = function() {
@@ -2179,7 +2259,7 @@
 
     // ── Delete Account ───────────────────────────────────────────
     window.openDeleteAccountModal = function() {
-        document.getElementById('deleteConfirmInput').value = '';
+        document.getElementById('acctDeleteInput').value = '';
         document.getElementById('deleteStep1').classList.remove('hidden');
         document.getElementById('deleteStep2').classList.add('hidden');
         document.getElementById('deleteStep3').classList.add('hidden');
@@ -2187,7 +2267,7 @@
         window.openModal('deleteAccountModal');
     };
     window.deleteStep2Check = function() {
-        let val = document.getElementById('deleteConfirmInput').value.replace(/[^A-Za-z]/g, '').toUpperCase();
+        let val = document.getElementById('acctDeleteInput').value.replace(/[^A-Za-z]/g, '').toUpperCase();
         if (val !== 'DELETE') {
             document.getElementById('deleteStepError').innerText = 'You must type DELETE exactly.';
             return;
@@ -2201,19 +2281,41 @@
         document.getElementById('deleteStep3').classList.remove('hidden');
     };
     window.executeDeleteAccount = async function() {
+        let errEl = document.getElementById('deleteStepError');
         try {
             let user = window.apxAuth.user;
             if (!user) return;
-            // Delete all Firestore data first, then the auth account
+            // Delete all Firestore data first
             try {
                 let chars = await window.apxAuth.loadCharacters();
-                for (let c of chars) await window.apxAuth.deleteCharacter(c.id);
-            } catch(e) { /* data deletion best-effort */ }
+                for (let c of chars) await window.apxAuth.deleteCharacter(c.id).catch(() => {});
+                let worlds = await window.apxAuth.loadWorlds();
+                for (let w of worlds) await window.apxAuth.deleteWorld(w.worldId || w.id, w.inviteCode).catch(() => {});
+                // Delete GM races doc
+                await firebase.firestore().collection('users').doc(user.uid).collection('gmRaces').doc('all').delete().catch(() => {});
+            } catch(e) { console.warn('Partial data cleanup:', e.message); }
+            // Delete the auth account
             await user.delete();
             window.closeModal('deleteAccountModal');
             window.location.href = 'index.html';
         } catch(e) {
-            document.getElementById('deleteStepError').innerText = e.message || 'Deletion failed. Try signing out and back in, then try again.';
+            if (e.code === 'auth/requires-recent-login') {
+                // Prompt for re-auth inline
+                errEl.innerText = '';
+                let pass = prompt('Your session has expired. Re-enter your password to confirm deletion:');
+                if (!pass) return;
+                try {
+                    let user = window.apxAuth.user;
+                    let cred = firebase.auth.EmailAuthProvider.credential(user.email, pass);
+                    await user.reauthenticateWithCredential(cred);
+                    // Retry deletion after re-auth
+                    await window.executeDeleteAccount();
+                } catch(e2) {
+                    errEl.innerText = e2.message || 'Re-authentication failed.';
+                }
+            } else {
+                errEl.innerText = e.message || 'Deletion failed.';
+            }
         }
     };
 

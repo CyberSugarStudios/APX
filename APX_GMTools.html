@@ -1194,14 +1194,18 @@
         let name = prompt('World name:');
         if (!name) return;
         try {
-            let w = window.apxAuth.enabled
-                ? await window.apxAuth.createWorld(name)
-                : { worldId: 'local_' + Date.now(), inviteCode: Math.random().toString(36).slice(2, 8).toUpperCase(), name, notes: {}, races: [] };
-            if (!window.apxAuth.enabled) {
+            let w;
+            if (window.apxAuth.enabled && window.apxAuth.user) {
+                w = await window.apxAuth.createWorld(name);
+            } else {
+                // Local-only world — no Firestore needed
+                w = { worldId: 'local_' + Date.now(), id: 'local_' + Date.now(), inviteCode: Math.random().toString(36).slice(2, 8).toUpperCase(), name, notes: {}, races: [] };
                 let local = JSON.parse(localStorage.getItem('apxLocalWorlds') || '[]');
                 local.push(w); localStorage.setItem('apxLocalWorlds', JSON.stringify(local));
             }
+            if (!w || !(w.worldId || w.id)) { alert('World creation failed — no ID returned.'); return; }
             _gmWorlds.push(w);
+            _worldModalLoaded = true;
             selectGmWorld(w.worldId || w.id);
             renderWorldSelector();
         } catch(e) { alert('Error creating world: ' + e.message); }

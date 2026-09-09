@@ -909,17 +909,19 @@
                         ${cat === 'ranged'
                             ? `<div class="text-[10px] font-bold text-slate-300 p-1 h-7 flex items-center justify-center" title="Ranged attack and damage rolls always use AGI (Ch.9 Making Attacks)${w.weightClass === 'heavy' ? '; Heavy ranged also adds STR to damage' : ''}">AGI${w.weightClass === 'heavy' ? '+STR' : ''}</div>`
                             : (() => {
-                                // Melee: only STR and AGI are valid (book rule). LUC is added
-                                // only when Fortunate Fighter rank >= 3 AND the weapon is
-                                // untrained -- that perk specifically lets you sub LUC on
-                                // untrained attacks.
-                                let ffRank = window.state.perks['gen_fortfighter'] || 0;
+                                // Custom weapons can use any attribute (player defined).
+                                // Forged/standard melee: only STR and AGI per book rules.
+                                // Fortunate Fighter rank 3+ adds LUC on untrained weapons only.
                                 let isTrained = weaponIsTrained(w);
+                                if (w.isCustom) {
+                                    // All attributes available for custom weapons
+                                    return `<select onchange="window.updateWeaponAttr(${idx}, this.value)" class="bg-slate-900 border-slate-700 text-[10px] font-bold p-1 h-7 w-14">
+                                        ${ATTRIBUTES.map(a => `<option value="${a}" ${a===w.attr?'selected':''}>${a}</option>`).join('')}
+                                    </select>`;
+                                }
+                                let ffRank = window.state.perks['gen_fortfighter'] || 0;
                                 let meleeAttrs = ['STR', 'AGI'];
                                 if (ffRank >= 3 && !isTrained) meleeAttrs.push('LUC');
-                                // If the weapon's current attr is no longer in the allowed list
-                                // (e.g. LUC was removed because weapon got trained), quietly
-                                // reset it to STR so the state stays valid.
                                 if (!meleeAttrs.includes(w.attr)) { w.attr = 'STR'; }
                                 return `<select onchange="window.updateWeaponAttr(${idx}, this.value)" class="bg-slate-900 border-slate-700 text-[10px] font-bold p-1 h-7 w-14">
                                     ${meleeAttrs.map(a => `<option value="${a}" ${a===w.attr?'selected':''}>${a}</option>`).join('')}
@@ -957,28 +959,23 @@
                 let handsFreeForThis = window.calcTotalHands() - window.calcHandsUsed(idx);
                 let couldGoTwoHanded = handsFreeForThis >= 2;
                 html += renderWeaponRow(w, idx, { attr: w.attr, dice: w.dmg, ap: w.ap, editable: true });
-                // Custom weapon notes span the full table width below the row
-                if (w.isCustom) {
-                    let colCount = 7; // ATT TRN ATK DMG AP Actions
-                    html += `<tr><td colspan="${colCount}" class="px-2 pb-1 pt-0">
-                        <input type="text" value="${(w.notes || '').replace(/"/g, '&quot;')}"
-                            onchange="window.updateWeaponNotes(${idx}, this.value)"
-                            placeholder="Notes: Heavy, Range 20/60, Crit x3, etc."
-                            class="bg-slate-800 border-slate-700 text-[9px] text-slate-400 w-full px-1.5 py-0.5 rounded">
-                    </td></tr>`;
-                }
                 if (isMediumMelee && couldGoTwoHanded) {
                     let twoHDice = nextDieTier(w.dmg) || w.dmg;
                     html += renderWeaponRow(w, idx, { label: '↳ 2-Handed (STR, +1 AP, +1 die step)', attr: 'STR', dice: twoHDice, ap: 4, editable: false });
                 }
                 if (isMediumRanged && w.aimed && !w.twoHanded && couldGoTwoHanded) {
-                    // Preview-only: temporarily flip twoHanded to compute
-                    // what the doubled Aim bonus would look like, then
-                    // restore it immediately -- this never touches the
-                    // weapon's actual saved state.
                     w.twoHanded = true;
                     html += renderWeaponRow(w, idx, { label: '↳ 2-Handed Aim (2x PER bonus)', attr: w.attr, dice: w.dmg, ap: w.ap, editable: false });
                     w.twoHanded = false;
+                }
+                // Notes row AFTER all 2H rows so it never covers the 2H preview
+                if (w.isCustom) {
+                    html += `<tr><td colspan="7" class="px-2 pb-1.5 pt-0">
+                        <input type="text" value="${(w.notes || '').replace(/"/g, '&quot;')}"
+                            onchange="window.updateWeaponNotes(${idx}, this.value)"
+                            placeholder="Notes: Heavy, Range 20/60, Crit x3, etc."
+                            class="bg-slate-800 border-slate-700 text-[9px] text-slate-400 w-full px-1.5 py-0.5 rounded">
+                    </td></tr>`;
                 }
             });
 
