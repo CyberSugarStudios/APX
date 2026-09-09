@@ -373,7 +373,7 @@
                 <button onclick="window.loadGmPartyFolder()" class="px-3 py-2 rounded bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold shadow">Load Party Folder</button>
                 <button onclick="window.openGmRaceRosterModal()" class="px-3 py-2 rounded bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-bold shadow">Race Templates</button>
                 <button onclick="window.openGmNpcRosterModal()" class="px-3 py-2 rounded bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold shadow">NPCs &amp; Enemies</button>
-                <button onclick="window.openModal('campaignNotesModal')" class="px-3 py-2 rounded bg-amber-700 hover:bg-amber-600 text-white text-xs font-bold shadow">Campaign Notes</button>
+                <button onclick="window.openModal('gmWorldModal')" class="px-3 py-2 rounded bg-amber-700 hover:bg-amber-600 text-white text-xs font-bold shadow">World</button>
             </div>
         </div>
 
@@ -500,8 +500,9 @@
             </div>
             <div class="flex gap-1 mb-3 flex-wrap text-[10px]">
                 <span id="ancTab1" onclick="window.jumpToAncStep(1)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">1. Attributes</span>
-                <span id="ancTab2" onclick="window.jumpToAncStep(2)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">2. Traits & Flaws</span>
-                <span id="ancTab3" onclick="window.jumpToAncStep(3)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">3. Details</span>
+                <span id="ancTab2" onclick="window.jumpToAncStep(2)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">2. Biology</span>
+                <span id="ancTab3" onclick="window.jumpToAncStep(3)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">3. Traits & Flaws</span>
+                <span id="ancTab4" onclick="window.jumpToAncStep(4)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">4. Lock Features</span>
             </div>
 
             <div id="ancStep1" class="wizard-step active">
@@ -1080,50 +1081,54 @@
         </div>
     </div>
 
-    <div class="modal-overlay" id="campaignNotesModal">
-        <div class="modal-content" style="max-width:700px; max-height:90vh; display:flex; flex-direction:column;">
+    <div class="modal-overlay" id="gmWorldModal">
+        <div class="modal-content" style="max-width:760px; max-height:92vh; display:flex; flex-direction:column;">
             <div class="flex justify-between items-center mb-3 border-b border-slate-600 pb-2 flex-shrink-0">
-                <input type="text" id="campaignName" placeholder="Campaign Name..." onchange="window.saveCampaignNotes()"
-                    class="bg-transparent text-lg font-bold text-amber-400 border-none p-0 focus:ring-0 w-64">
-                <button onclick="window.closeModal('campaignNotesModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Close</button>
+                <h3 class="text-lg font-bold text-amber-400">World</h3>
+                <button onclick="window.closeModal('gmWorldModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Close</button>
             </div>
-            <div class="flex gap-2 mb-3 flex-shrink-0 flex-wrap">
-                <button onclick="window.showCampaignTab('session')" id="cTabSession" class="px-3 py-1.5 rounded text-xs font-bold transition bg-amber-700 text-white">Session Notes</button>
-                <button onclick="window.showCampaignTab('world')"   id="cTabWorld"   class="px-3 py-1.5 rounded text-xs font-bold transition bg-slate-700 text-slate-300">World Notes</button>
-                <button onclick="window.showCampaignTab('npcs')"    id="cTabNpcs"    class="px-3 py-1.5 rounded text-xs font-bold transition bg-slate-700 text-slate-300">NPCs</button>
-                <button onclick="window.showCampaignTab('locations')" id="cTabLocations" class="px-3 py-1.5 rounded text-xs font-bold transition bg-slate-700 text-slate-300">Locations</button>
-                <button onclick="window.showCampaignTab('secrets')" id="cTabSecrets" class="px-3 py-1.5 rounded text-xs font-bold transition bg-slate-700 text-slate-300">GM Secrets</button>
-            </div>
-            <div class="flex-1 overflow-hidden">
-                <div id="cPanelSession" class="h-full flex flex-col">
-                    <div class="text-[10px] text-slate-500 uppercase font-bold mb-1">Session Notes — what happened this session, next steps, etc.</div>
-                    <textarea id="cNotesSession" onchange="window.saveCampaignNotes()" oninput="window.saveCampaignNotes()"
-                        class="flex-1 resize-none bg-slate-900 border-slate-700 text-xs text-slate-200 leading-relaxed" placeholder="Session notes..."></textarea>
+
+            <!-- World selector / creation -->
+            <div id="gmWorldList" class="flex-shrink-0 mb-3">
+                <div class="flex gap-2 items-center mb-2 flex-wrap">
+                    <select id="gmWorldSelector" onchange="window.switchGmWorld(this.value)" class="bg-slate-900 text-sm font-bold flex-1 min-w-0"></select>
+                    <button onclick="window.createGmWorld()" class="px-3 py-2 rounded bg-amber-700 hover:bg-amber-600 text-white text-xs font-bold flex-shrink-0">+ New World</button>
+                    <button onclick="window.deleteCurrentWorld()" class="px-3 py-2 rounded bg-red-900/50 hover:bg-red-900 text-red-400 text-xs font-bold flex-shrink-0">Delete World</button>
                 </div>
-                <div id="cPanelWorld" class="h-full flex-col hidden">
-                    <div class="text-[10px] text-slate-500 uppercase font-bold mb-1">World Notes — lore, rules, factions, history</div>
-                    <textarea id="cNotesWorld" onchange="window.saveCampaignNotes()" oninput="window.saveCampaignNotes()"
-                        class="flex-1 resize-none bg-slate-900 border-slate-700 text-xs text-slate-200 leading-relaxed" placeholder="World building notes..." style="height:100%;"></textarea>
-                </div>
-                <div id="cPanelNpcs" class="h-full flex-col hidden">
-                    <div class="text-[10px] text-slate-500 uppercase font-bold mb-1">NPCs — names, descriptions, relationships</div>
-                    <textarea id="cNotesNpcs" onchange="window.saveCampaignNotes()" oninput="window.saveCampaignNotes()"
-                        class="flex-1 resize-none bg-slate-900 border-slate-700 text-xs text-slate-200 leading-relaxed font-mono" placeholder="NPC Name — description, role, relationship to party..." style="height:100%;"></textarea>
-                </div>
-                <div id="cPanelLocations" class="h-full flex-col hidden">
-                    <div class="text-[10px] text-slate-500 uppercase font-bold mb-1">Locations — places visited, rumours, points of interest</div>
-                    <textarea id="cNotesLocations" onchange="window.saveCampaignNotes()" oninput="window.saveCampaignNotes()"
-                        class="flex-1 resize-none bg-slate-900 border-slate-700 text-xs text-slate-200 leading-relaxed" placeholder="Location notes..." style="height:100%;"></textarea>
-                </div>
-                <div id="cPanelSecrets" class="h-full flex-col hidden">
-                    <div class="text-[10px] text-slate-500 uppercase font-bold mb-1">GM Secrets — plot twists, hidden info the players don't know yet</div>
-                    <textarea id="cNotesSecrets" onchange="window.saveCampaignNotes()" oninput="window.saveCampaignNotes()"
-                        class="flex-1 resize-none bg-slate-900 border-slate-700 text-xs text-red-200 leading-relaxed" placeholder="Secrets the players don't know yet..." style="height:100%;"></textarea>
+                <!-- Invite code display -->
+                <div id="gmInviteCodeSection" class="hidden bg-slate-900 border border-amber-700/30 rounded p-3 mb-2">
+                    <div class="flex items-center gap-3">
+                        <div>
+                            <div class="text-[10px] text-slate-500 uppercase font-bold mb-0.5">Player Invite Code</div>
+                            <div id="gmInviteCode" class="text-2xl font-black tracking-widest text-amber-400 select-all"></div>
+                        </div>
+                        <div class="text-[10px] text-slate-400 flex-1">Players enter this code in the Character Sheet lobby to automatically receive all assets from this world (race templates, etc.).</div>
+                    </div>
                 </div>
             </div>
-            <div class="text-[9px] text-slate-600 mt-2 flex-shrink-0">Notes auto-save to localStorage and cloud (when signed in).</div>
+
+            <!-- Notes tabs (same as campaign notes, but world-scoped) -->
+            <div id="gmWorldContent" class="hidden flex-1 flex flex-col overflow-hidden">
+                <div class="flex gap-2 mb-3 flex-shrink-0 flex-wrap">
+                    <button onclick="window.showCampaignTab('session')"  id="cTabSession"   class="px-3 py-1.5 rounded text-xs font-bold transition bg-amber-700 text-white">Session Notes</button>
+                    <button onclick="window.showCampaignTab('world')"    id="cTabWorld"     class="px-3 py-1.5 rounded text-xs font-bold transition bg-slate-700 text-slate-300">World Notes</button>
+                    <button onclick="window.showCampaignTab('npcs')"     id="cTabNpcs"      class="px-3 py-1.5 rounded text-xs font-bold transition bg-slate-700 text-slate-300">NPCs</button>
+                    <button onclick="window.showCampaignTab('locations')" id="cTabLocations" class="px-3 py-1.5 rounded text-xs font-bold transition bg-slate-700 text-slate-300">Locations</button>
+                    <button onclick="window.showCampaignTab('secrets')"  id="cTabSecrets"   class="px-3 py-1.5 rounded text-xs font-bold transition bg-slate-700 text-slate-300">GM Secrets</button>
+                </div>
+                <div class="flex-1 overflow-hidden" style="min-height:300px;">
+                    <div id="cPanelSession"   class="h-full flex flex-col"><div class="text-[10px] text-slate-500 uppercase font-bold mb-1">Session Notes</div><textarea id="cNotesSession"   oninput="window.saveCampaignNotes()" class="flex-1 resize-none bg-slate-900 border-slate-700 text-xs text-slate-200" placeholder="Session notes..."></textarea></div>
+                    <div id="cPanelWorld"     class="h-full flex-col hidden" style="height:100%;"><div class="text-[10px] text-slate-500 uppercase font-bold mb-1">World Notes</div><textarea id="cNotesWorld"     oninput="window.saveCampaignNotes()" class="flex-1 resize-none bg-slate-900 border-slate-700 text-xs text-slate-200" style="height:100%;" placeholder="World notes..."></textarea></div>
+                    <div id="cPanelNpcs"      class="h-full flex-col hidden" style="height:100%;"><div class="text-[10px] text-slate-500 uppercase font-bold mb-1">NPCs</div><textarea id="cNotesNpcs"      oninput="window.saveCampaignNotes()" class="flex-1 resize-none bg-slate-900 border-slate-700 text-xs text-slate-200 font-mono" style="height:100%;" placeholder="NPC Name — description..."></textarea></div>
+                    <div id="cPanelLocations" class="h-full flex-col hidden" style="height:100%;"><div class="text-[10px] text-slate-500 uppercase font-bold mb-1">Locations</div><textarea id="cNotesLocations" oninput="window.saveCampaignNotes()" class="flex-1 resize-none bg-slate-900 border-slate-700 text-xs text-slate-200" style="height:100%;" placeholder="Location notes..."></textarea></div>
+                    <div id="cPanelSecrets"   class="h-full flex-col hidden" style="height:100%;"><div class="text-[10px] text-slate-500 uppercase font-bold mb-1">GM Secrets</div><textarea id="cNotesSecrets"   oninput="window.saveCampaignNotes()" class="flex-1 resize-none bg-slate-900 border-slate-700 text-xs text-red-200" style="height:100%;" placeholder="Secrets the players don't know..."></textarea></div>
+                </div>
+                <div class="text-[9px] text-slate-600 mt-1 flex-shrink-0">Notes auto-save. Invite code players with the code above — they'll receive all race templates and assets tied to this world.</div>
+            </div>
+            <div id="gmWorldEmpty" class="text-center py-8 text-slate-500 text-sm">Create a world to start organizing your campaign.</div>
         </div>
     </div>
+
 
 <div class="modal-overlay" id="confirmModal">
         <div class="modal-content max-w-sm text-center border border-slate-600">
@@ -1180,8 +1185,138 @@
     </script>
 
     <script>
-    // ── Campaign Notes ──────────────────────────────────────────
-    window._campaignNotes = JSON.parse(localStorage.getItem('apxCampaignNotes') || '{}');
+    // ── World System + Campaign Notes ───────────────────────────
+    let _gmWorlds = [];
+    let _activeWorldId = null;
+    window._campaignNotes = {};
+
+    window.createGmWorld = async function() {
+        let name = prompt('World name:');
+        if (!name) return;
+        try {
+            let w = window.apxAuth.enabled
+                ? await window.apxAuth.createWorld(name)
+                : { worldId: 'local_' + Date.now(), inviteCode: Math.random().toString(36).slice(2, 8).toUpperCase(), name, notes: {}, races: [] };
+            if (!window.apxAuth.enabled) {
+                let local = JSON.parse(localStorage.getItem('apxLocalWorlds') || '[]');
+                local.push(w); localStorage.setItem('apxLocalWorlds', JSON.stringify(local));
+            }
+            _gmWorlds.push(w);
+            selectGmWorld(w.worldId || w.id);
+            renderWorldSelector();
+        } catch(e) { alert('Error creating world: ' + e.message); }
+    };
+
+    window.deleteCurrentWorld = async function() {
+        if (!_activeWorldId) return;
+        if (!confirm('Delete this world and all its notes? Race templates are not deleted.')) return;
+        let w = _gmWorlds.find(x => (x.worldId || x.id) === _activeWorldId);
+        if (window.apxAuth.enabled && w) {
+            await window.apxAuth.deleteWorld(_activeWorldId, w.inviteCode).catch(() => {});
+        }
+        _gmWorlds = _gmWorlds.filter(x => (x.worldId || x.id) !== _activeWorldId);
+        _activeWorldId = _gmWorlds.length ? (_gmWorlds[0].worldId || _gmWorlds[0].id) : null;
+        if (!window.apxAuth.enabled) localStorage.setItem('apxLocalWorlds', JSON.stringify(_gmWorlds));
+        renderWorldSelector();
+    };
+
+    window.switchGmWorld = function(id) {
+        saveCampaignNotes();
+        selectGmWorld(id);
+    };
+
+    function selectGmWorld(id) {
+        _activeWorldId = id;
+        let w = _gmWorlds.find(x => (x.worldId || x.id) === id);
+        document.getElementById('gmWorldContent').classList.toggle('hidden', !w);
+        document.getElementById('gmWorldEmpty').classList.toggle('hidden', !!w);
+        document.getElementById('gmInviteCodeSection').classList.toggle('hidden', !w);
+        if (w) {
+            document.getElementById('gmInviteCode').innerText = w.inviteCode || '';
+            window._campaignNotes = w.notes || {};
+            loadCampaignNotesIntoForm();
+        }
+    }
+
+    function renderWorldSelector() {
+        let sel = document.getElementById('gmWorldSelector');
+        sel.innerHTML = _gmWorlds.length
+            ? _gmWorlds.map(w => `<option value="${w.worldId || w.id}">${w.name}</option>`).join('')
+            : '<option value="">No worlds yet</option>';
+        if (_activeWorldId) sel.value = _activeWorldId;
+        let w = _gmWorlds.find(x => (x.worldId || x.id) === _activeWorldId);
+        document.getElementById('gmWorldContent').classList.toggle('hidden', !w);
+        document.getElementById('gmWorldEmpty').classList.toggle('hidden', !!w);
+        document.getElementById('gmInviteCodeSection').classList.toggle('hidden', !w);
+        if (w) document.getElementById('gmInviteCode').innerText = w.inviteCode || '';
+    }
+
+    window.showCampaignTab = function(tab) {
+        ['session','world','npcs','locations','secrets'].forEach(t => {
+            let p = document.getElementById(`cPanel${t.charAt(0).toUpperCase()}${t.slice(1)}`);
+            p.classList.toggle('hidden', t !== tab);
+            p.classList.toggle('flex', t === tab);
+            let btn = document.getElementById(`cTab${t.charAt(0).toUpperCase()}${t.slice(1)}`);
+            if (btn) btn.className = `px-3 py-1.5 rounded text-xs font-bold transition ${t === tab ? 'bg-amber-700 text-white' : 'bg-slate-700 text-slate-300'}`;
+        });
+    };
+
+    let _saveNotesTimer = null;
+    window.saveCampaignNotes = function() {
+        clearTimeout(_saveNotesTimer);
+        _saveNotesTimer = setTimeout(async () => {
+            window._campaignNotes = {
+                session:   document.getElementById('cNotesSession')?.value || '',
+                world:     document.getElementById('cNotesWorld')?.value || '',
+                npcs:      document.getElementById('cNotesNpcs')?.value || '',
+                locations: document.getElementById('cNotesLocations')?.value || '',
+                secrets:   document.getElementById('cNotesSecrets')?.value || '',
+            };
+            // Write back to the active world object and persist
+            let w = _gmWorlds.find(x => (x.worldId || x.id) === _activeWorldId);
+            if (w) { w.notes = window._campaignNotes; }
+            if (window.apxAuth.enabled && _activeWorldId) {
+                await window.apxAuth.saveWorld(_activeWorldId, { notes: window._campaignNotes }).catch(() => {});
+            } else {
+                localStorage.setItem('apxLocalWorlds', JSON.stringify(_gmWorlds));
+            }
+        }, 500);
+    };
+
+    function loadCampaignNotesIntoForm() {
+        let n = window._campaignNotes || {};
+        let set = (id, val) => { let el = document.getElementById(id); if (el) el.value = val || ''; };
+        set('cNotesSession', n.session); set('cNotesWorld', n.world);
+        set('cNotesNpcs', n.npcs); set('cNotesLocations', n.locations); set('cNotesSecrets', n.secrets);
+    }
+
+    // Load worlds when modal opens
+    let _worldModalLoaded = false;
+    let _origOpenModal2 = window.openModal;
+    if (_origOpenModal2) {
+        window.openModal = function(id) {
+            _origOpenModal2(id);
+            if (id === 'gmWorldModal' && !_worldModalLoaded) {
+                _worldModalLoaded = true;
+                (async () => {
+                    if (window.apxAuth.enabled) {
+                        _gmWorlds = await window.apxAuth.loadWorlds().catch(() => []);
+                    } else {
+                        _gmWorlds = JSON.parse(localStorage.getItem('apxLocalWorlds') || '[]');
+                    }
+                    if (_gmWorlds.length) {
+                        _activeWorldId = _gmWorlds[0].worldId || _gmWorlds[0].id;
+                        renderWorldSelector();
+                        selectGmWorld(_activeWorldId);
+                    } else {
+                        renderWorldSelector();
+                    }
+                })();
+            } else if (id === 'gmWorldModal') {
+                loadCampaignNotesIntoForm();
+            }
+        };
+    }
 
     window.showCampaignTab = function(tab) {
         ['session','world','npcs','locations','secrets'].forEach(t => {
@@ -1192,40 +1327,6 @@
         });
     };
 
-    window.saveCampaignNotes = function() {
-        window._campaignNotes = {
-            name: document.getElementById('campaignName').value,
-            session:   document.getElementById('cNotesSession').value,
-            world:     document.getElementById('cNotesWorld').value,
-            npcs:      document.getElementById('cNotesNpcs').value,
-            locations: document.getElementById('cNotesLocations').value,
-            secrets:   document.getElementById('cNotesSecrets').value,
-        };
-        localStorage.setItem('apxCampaignNotes', JSON.stringify(window._campaignNotes));
-    };
-
-    function loadCampaignNotesIntoForm() {
-        let n = window._campaignNotes;
-        document.getElementById('campaignName').value    = n.name      || '';
-        document.getElementById('cNotesSession').value   = n.session   || '';
-        document.getElementById('cNotesWorld').value     = n.world     || '';
-        document.getElementById('cNotesNpcs').value      = n.npcs      || '';
-        document.getElementById('cNotesLocations').value = n.locations || '';
-        document.getElementById('cNotesSecrets').value   = n.secrets   || '';
-    }
-
-    // Load notes into form whenever the modal opens
-    document.getElementById('campaignNotesModal').addEventListener('transitionend', function() {
-        if (this.classList.contains('active')) loadCampaignNotesIntoForm();
-    });
-    // Also load immediately if already open (no transition)
-    let _origOpenModal = window.openModal;
-    if (_origOpenModal) {
-        window.openModal = function(id) {
-            _origOpenModal(id);
-            if (id === 'campaignNotesModal') loadCampaignNotesIntoForm();
-        };
-    }
 
     // Add sidebar account section to GM Tools as well
     document.addEventListener('DOMContentLoaded', () => {

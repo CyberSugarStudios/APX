@@ -894,8 +894,8 @@
             </div>
             <div class="flex gap-1 mb-3 flex-wrap text-[10px]">
                 <span id="ancTab1" onclick="window.jumpToAncStep(1)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">1. Attributes</span>
-                <span id="ancTab2" onclick="window.jumpToAncStep(2)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">2. Traits & Flaws</span>
-                <span id="ancTab3" onclick="window.jumpToAncStep(3)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">3. Details</span>
+                <span id="ancTab2" onclick="window.jumpToAncStep(2)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">2. Biology</span>
+                <span id="ancTab3" onclick="window.jumpToAncStep(3)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">3. Traits & Flaws</span>
                 <span id="ancTab4" onclick="window.jumpToAncStep(4)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">4. Training</span>
             </div>
 
@@ -1990,6 +1990,20 @@
                     Continue without loading a character
                 </button>
             </div>
+
+            <!-- World code entry -->
+            <div class="mt-4 border-t border-slate-800 pt-4">
+                <div class="text-xs text-center mb-2" style="color:var(--c-text-muted,#94a3b8);">Have a GM world code?</div>
+                <div class="flex gap-2 max-w-xs mx-auto">
+                    <input type="text" id="lobbyWorldCode" placeholder="Enter code (e.g. XK4R2P)"
+                        class="flex-1 text-center font-mono font-bold uppercase text-sm"
+                        style="background:var(--c-surface,#1e293b); border:1px solid var(--c-border,#334155); color:var(--c-text,#e2e8f0); border-radius:0.375rem; padding:0.5rem;">
+                    <button onclick="window.lobbyJoinWorld()" style="background:var(--c-indigo,#4f46e5); color:#fff; border:none; border-radius:0.375rem; padding:0.5rem 1rem; font-weight:700; font-size:0.75rem; cursor:pointer;">
+                        Join
+                    </button>
+                </div>
+                <div id="lobbyWorldCodeError" class="text-xs text-center mt-1" style="color:var(--c-red,#ef4444); min-height:1rem;"></div>
+            </div>
         </div>
     </div>
 
@@ -2086,11 +2100,29 @@
         document.getElementById('characterLobby').style.display = 'none';
     };
     window.lobbySkip = function() {
-        // Assign an ID even for non-loaded characters so auto-save works
         if (!window._activeCloudCharId) {
             window._activeCloudCharId = 'char_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
         }
         document.getElementById('characterLobby').style.display = 'none';
+    };
+    window.lobbyJoinWorld = async function() {
+        let code = document.getElementById('lobbyWorldCode').value.trim().toUpperCase();
+        let errEl = document.getElementById('lobbyWorldCodeError');
+        errEl.innerText = '';
+        if (!code) { errEl.innerText = 'Enter a world code.'; return; }
+        if (!window.apxAuth.enabled) { errEl.innerText = 'Sign in to join a world.'; return; }
+        try {
+            let world = await window.apxAuth.joinWorldByCode(code);
+            if (!world) { errEl.innerText = 'Code not found. Check with your GM.'; return; }
+            // Store connected world and load its assets
+            localStorage.setItem('apxConnectedWorld', JSON.stringify({ code, gmUid: world.gmUid, worldId: world.worldId }));
+            if (world.races && Array.isArray(window.gmRaces)) {
+                world.races.forEach(r => { if (!window.gmRaces.find(x => x.id === r.id)) window.gmRaces.push(r); });
+                if (typeof window.renderImportedRaceList === 'function') window.renderImportedRaceList();
+            }
+            errEl.style.color = 'var(--c-emerald,#34d399)';
+            errEl.innerText = `Joined "${world.worldName || world.name}"! GM assets loaded.`;
+        } catch(e) { errEl.innerText = 'Error: ' + e.message; }
     };
 
     // loadCharacterState: the roster system already has this logic — reuse it
@@ -2120,12 +2152,19 @@
         if (!window.apxAuth || !window.apxAuth.enabled) return;
         if (!window._activeCloudCharId || !window.state) return;
         clearTimeout(_autoSaveTimer);
+        // 500ms debounce -- fast enough to feel instant, long enough to
+        // batch rapid changes (typing a character name, adjusting stats)
+        // into a single write rather than one per keystroke.
         _autoSaveTimer = setTimeout(async () => {
             try {
+                let saveData = Object.assign({}, window.state);
+                // Include the undo history so the player can undo across sessions
+                if (window.undoStack) saveData._undoStack = window.undoStack;
+                if (window.redoStack) saveData._redoStack = window.redoStack;
                 window.apxAuth.setActiveCharId(window._activeCloudCharId);
-                await window.apxAuth.saveCharacter(window._activeCloudCharId, window.state);
+                await window.apxAuth.saveCharacter(window._activeCloudCharId, saveData);
             } catch(e) { console.warn('Auto-save failed:', e.message); }
-        }, 3000);
+        }, 500);
     }
     // Patch recalculateMath to trigger auto-save after each calculation
     let _origRecalc = null;
@@ -2148,7 +2187,7 @@
         window.openModal('deleteAccountModal');
     };
     window.deleteStep2Check = function() {
-        let val = document.getElementById('deleteConfirmInput').value.trim();
+        let val = document.getElementById('deleteConfirmInput').value.replace(/[^A-Za-z]/g, '').toUpperCase();
         if (val !== 'DELETE') {
             document.getElementById('deleteStepError').innerText = 'You must type DELETE exactly.';
             return;

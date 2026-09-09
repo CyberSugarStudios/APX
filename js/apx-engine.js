@@ -901,7 +901,6 @@
                             : `<input type="text" value="${w.name}" onchange="window.updateWeaponName(${idx}, this.value)" placeholder="Weapon Name" class="bg-slate-900 border-slate-700 text-xs font-bold w-full h-7">`}
                         ${forgedWeaponBadge(w)}
                         ${w.forged ? `<button onclick="window.openWeaponForge(${idx})" class="text-[9px] text-orange-400 hover:text-orange-300 font-bold mt-0.5">Return to Forge</button>` : ''}
-                        ${w.isCustom && opts.editable ? `<input type="text" value="${w.notes || ''}" onchange="window.updateWeaponNotes(${idx}, this.value)" placeholder="Notes (Heavy, Range 20/60, Crit x3...)" class="bg-slate-900 border-slate-700 text-[9px] w-full mt-0.5 px-1 py-0.5">` : ''}
                         ${w.category === 'melee' && w.weightClass === 'medium' ? '<div class="text-[9px] text-slate-500 mt-0.5">1-Handed (2H row below)</div>' : ''}
                         ${cat === 'ranged' && opts.editable ? `<label class="flex items-center gap-1 mt-0.5 cursor-pointer"><input type="checkbox" ${w.aimed ? 'checked' : ''} onchange="window.toggleWeaponAim(${idx}, this.checked)" class="w-3 h-3"><span class="text-[9px] ${w.aimed ? 'text-amber-400 font-bold' : 'text-slate-500'}">Aimed (+PER)</span></label>` : ''}
                         ${cat === 'ranged' && w.weightClass === 'medium' && opts.editable ? `<label class="flex items-center gap-1 mt-0.5 ${window.calcTotalHands() - window.calcHandsUsed(idx) >= 2 || w.twoHanded ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}" data-tip="Requires Medium Ammo. May be wielded one- or two-handed; two-handed doubles the Aim action's PER bonus, but needs a free second hand."><input type="checkbox" ${w.twoHanded ? 'checked' : ''} ${(window.calcTotalHands() - window.calcHandsUsed(idx) >= 2 || w.twoHanded) ? '' : 'disabled'} onchange="window.toggleWeaponTwoHanded(${idx}, this.checked)" class="w-3 h-3"><span class="text-[9px] ${w.twoHanded ? 'text-amber-400 font-bold' : 'text-slate-500'}">2-Handed (2x Aim PER)</span></label>` : ''}
@@ -909,9 +908,23 @@
                     <td class="px-1 py-2 w-14">
                         ${cat === 'ranged'
                             ? `<div class="text-[10px] font-bold text-slate-300 p-1 h-7 flex items-center justify-center" title="Ranged attack and damage rolls always use AGI (Ch.9 Making Attacks)${w.weightClass === 'heavy' ? '; Heavy ranged also adds STR to damage' : ''}">AGI${w.weightClass === 'heavy' ? '+STR' : ''}</div>`
-                            : `<select onchange="window.updateWeaponAttr(${idx}, this.value)" class="bg-slate-900 border-slate-700 text-[10px] font-bold p-1 h-7 w-14">
-                                ${ATTRIBUTES.map(a => `<option value="${a}" ${a===w.attr?'selected':''}>${a}</option>`).join('')}
-                              </select>`}
+                            : (() => {
+                                // Melee: only STR and AGI are valid (book rule). LUC is added
+                                // only when Fortunate Fighter rank >= 3 AND the weapon is
+                                // untrained -- that perk specifically lets you sub LUC on
+                                // untrained attacks.
+                                let ffRank = window.state.perks['gen_fortfighter'] || 0;
+                                let isTrained = weaponIsTrained(w);
+                                let meleeAttrs = ['STR', 'AGI'];
+                                if (ffRank >= 3 && !isTrained) meleeAttrs.push('LUC');
+                                // If the weapon's current attr is no longer in the allowed list
+                                // (e.g. LUC was removed because weapon got trained), quietly
+                                // reset it to STR so the state stays valid.
+                                if (!meleeAttrs.includes(w.attr)) { w.attr = 'STR'; }
+                                return `<select onchange="window.updateWeaponAttr(${idx}, this.value)" class="bg-slate-900 border-slate-700 text-[10px] font-bold p-1 h-7 w-14">
+                                    ${meleeAttrs.map(a => `<option value="${a}" ${a===w.attr?'selected':''}>${a}</option>`).join('')}
+                                </select>`;
+                            })()}
                     </td>
                     <td class="px-1 py-2 text-center"><input type="checkbox" ${weaponIsTrained(w) ? 'checked' : ''} ${w.isUnarmed || w.isAncestry || window.state.trainedWeaponTypes.includes(companionWeaponTypeLabel(w)) ? `disabled title="${(w.isUnarmed || w.isAncestry) ? 'All creatures are inherently trained in their innate weapons' : 'Trained via Weapon Type training'}"` : ''} onchange="window.updateWeaponTr(${idx}, this.checked)" class="w-4 h-4"></td>
                     <td class="px-1 py-2 text-center">
@@ -944,6 +957,16 @@
                 let handsFreeForThis = window.calcTotalHands() - window.calcHandsUsed(idx);
                 let couldGoTwoHanded = handsFreeForThis >= 2;
                 html += renderWeaponRow(w, idx, { attr: w.attr, dice: w.dmg, ap: w.ap, editable: true });
+                // Custom weapon notes span the full table width below the row
+                if (w.isCustom) {
+                    let colCount = 7; // ATT TRN ATK DMG AP Actions
+                    html += `<tr><td colspan="${colCount}" class="px-2 pb-1 pt-0">
+                        <input type="text" value="${(w.notes || '').replace(/"/g, '&quot;')}"
+                            onchange="window.updateWeaponNotes(${idx}, this.value)"
+                            placeholder="Notes: Heavy, Range 20/60, Crit x3, etc."
+                            class="bg-slate-800 border-slate-700 text-[9px] text-slate-400 w-full px-1.5 py-0.5 rounded">
+                    </td></tr>`;
+                }
                 if (isMediumMelee && couldGoTwoHanded) {
                     let twoHDice = nextDieTier(w.dmg) || w.dmg;
                     html += renderWeaponRow(w, idx, { label: '↳ 2-Handed (STR, +1 AP, +1 die step)', attr: 'STR', dice: twoHDice, ap: 4, editable: false });

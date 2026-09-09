@@ -10,17 +10,13 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
+    // World invite codes: any signed-in player can read a code to join,
+    // but only the GM (owner) can create or delete the code entry.
+    match /worldCodes/{inviteCode} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == resource.data.gmUid;
+      allow create: if request.auth != null;
+    }
+
   }
 }
-
-// After saving rules, your players and GMs can safely read/write
-// only their own data. No one else can see another user's characters
-// or GM race templates.
-//
-// If you want players to be able to load GM race templates from a
-// connected GM, change the gmRaces rule to:
-//
-//   match /users/{userId}/gmRaces/{docId} {
-//     allow read: if request.auth != null;   // any signed-in user can read
-//     allow write: if request.auth.uid == userId;  // only owner can write
-//   }
