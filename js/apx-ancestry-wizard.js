@@ -112,7 +112,18 @@
                 let modEl = document.getElementById(`wizMod_${a}`);
                 if (modEl) window.state.ancestry.bonuses[a] = parseInt(modEl.value) || 0;
             });
-            let locked = window.state.ancestry.gmLockedFeatures || (window.state.ancestry.gmLockedFeatures = { traits: {}, flaws: {}, attrs: {} });
+            // Also sync biology fields
+            let sizeEl = document.getElementById('wizSize'); if (sizeEl) window.state.ancestry.size = parseInt(sizeEl.value) || 30;
+            let speedEl = document.getElementById('wizSpeed'); if (speedEl) window.state.ancestry.speed = parseInt(speedEl.value) || 3;
+            let lifeEl = document.getElementById('wizLife'); if (lifeEl && lifeEl.options[lifeEl.selectedIndex]) window.state.ancestry.lifespan = lifeEl.options[lifeEl.selectedIndex].text;
+
+            if (!window.state.ancestry.gmLockedFeatures) window.state.ancestry.gmLockedFeatures = {};
+            let locked = window.state.ancestry.gmLockedFeatures;
+            if (!locked.traits)  locked.traits  = {};
+            if (!locked.flaws)   locked.flaws   = {};
+            if (!locked.attrs)   locked.attrs   = {};
+            if (!locked.biology) locked.biology  = {};
+
             let rows = [];
 
             function traitDetail(id) {
@@ -181,6 +192,28 @@
                 `);
             });
 
+            // Biology: Size, Speed, and Lifespan are lockable so the GM can
+            // define a race that always moves at Speed 4, or always starts
+            // Medium -- players can't reflavor those unless the GM leaves
+            // them unlocked.
+            let bioFields = [];
+            let anc = window.state.ancestry;
+            if (anc.size && anc.size !== 30) bioFields.push({ key: 'size', label: `Size: ${anc.size}` });
+            else bioFields.push({ key: 'size', label: `Size: ${anc.size || 30} (Medium)` });
+            bioFields.push({ key: 'speed', label: `Speed: ${anc.speed || 3} sq` });
+            let lifeText = (anc.lifespan || '').replace(/\s*\[.*\]/, '');
+            bioFields.push({ key: 'lifespan', label: `Lifespan: ${lifeText || 'Average'}` });
+
+            let bioSection = `
+                <div class="mt-3 mb-1 text-[10px] text-slate-500 uppercase font-bold tracking-wider">Biology</div>
+                ${bioFields.map(f => `
+                <label class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded p-2 cursor-pointer hover:border-cyan-600">
+                    <input type="checkbox" ${locked.biology[f.key] ? 'checked' : ''} onchange="window.toggleAncFeatureLock('biology', '${f.key}', this.checked)" class="w-4 h-4">
+                    <span class="text-xs text-slate-200 font-bold" style="color:var(--c-cyan,#22d3ee);">${f.label}</span>
+                </label>`).join('')}
+            `;
+            rows.push(bioSection);
+
             document.getElementById('ancLockFeatureList').innerHTML = rows.length ? rows.join('') : '<div class="text-xs text-slate-500 italic">No traits, flaws, or attribute bonuses to lock yet.</div>';
         }
         window.toggleAncFeatureLock = function(category, key, checked) {
@@ -239,6 +272,20 @@
                 let modEl = document.getElementById(`wizMod_${a}`);
                 if (modEl) modEl.disabled = !!((locked.attrs || {})[a]);
             });
+            // Biology locks — disable fields and show the "Species-Locked" badge
+            let bio = locked.biology || {};
+            let fields = [
+                { key: 'size',     elId: 'wizSize',  badgeId: 'bioLockBadge_size' },
+                { key: 'speed',    elId: 'wizSpeed', badgeId: 'bioLockBadge_speed' },
+                { key: 'lifespan', elId: 'wizLife',  badgeId: 'bioLockBadge_lifespan' },
+            ];
+            fields.forEach(({ key, elId, badgeId }) => {
+                let el    = document.getElementById(elId);
+                let badge = document.getElementById(badgeId);
+                let isLocked = !!bio[key];
+                if (el)    el.disabled = isLocked;
+                if (badge) badge.classList.toggle('hidden', !isLocked);
+            });
         }
         window.applyGmFeatureLocksToDom = applyGmFeatureLocksToDom;
 
@@ -258,6 +305,16 @@
                 let modLocked = !!((window.state.ancestry.gmLockedFeatures || {}).attrs || {})[a];
                 document.getElementById(`wizMod_${a}`).disabled = modLocked;
             });
+            // Re-apply biology locks (size, speed, lifespan)
+            {
+                let bio = ((window.state.ancestry.gmLockedFeatures || {}).biology) || {};
+                let sizeEl  = document.getElementById('wizSize');
+                let speedEl = document.getElementById('wizSpeed');
+                let lifeEl  = document.getElementById('wizLife');
+                if (sizeEl)  sizeEl.disabled  = !!bio.size;
+                if (speedEl) speedEl.disabled = !!bio.speed;
+                if (lifeEl)  lifeEl.disabled  = !!bio.lifespan;
+            }
             document.getElementById('wizSize').value = window.state.ancestry.size;
             document.getElementById('wizSpeed').value = window.state.ancestry.speed;
             
@@ -821,12 +878,20 @@
             let limit = parseInt(document.getElementById('wizGpLimit').value) || 15;
             if(window.state.ancestry.gpUsed > limit) return;
             window.state.ancestry.name = document.getElementById('wizName').value || "Unknown Species";
-            window.state.ancestry.size = parseInt(document.getElementById('wizSize').value) || 30;
-            window.state.ancestry.speed = parseInt(document.getElementById('wizSpeed').value) || 3;
-            window.state.ancestry.lifespan = document.getElementById('wizLife').options[document.getElementById('wizLife').selectedIndex].text;
+
+            // Only apply biology fields that the GM hasn't locked -- if a
+            // field is locked, the DOM element is disabled and its value
+            // reflects the original imported value anyway, so skipping it
+            // here prevents a disabled (locked) field from accidentally
+            // clearing the saved value on a player's second open-and-save.
+            let bio = ((window.state.ancestry.gmLockedFeatures || {}).biology) || {};
+            if (!bio.size)     window.state.ancestry.size     = parseInt(document.getElementById('wizSize').value) || 30;
+            if (!bio.speed)    window.state.ancestry.speed    = parseInt(document.getElementById('wizSpeed').value) || 3;
+            if (!bio.lifespan) window.state.ancestry.lifespan = document.getElementById('wizLife').options[document.getElementById('wizLife').selectedIndex].text;
 
             ATTRIBUTES.forEach(a => {
-                window.state.ancestry.bonuses[a] = parseInt(document.getElementById(`wizMod_${a}`).value) || 0;
+                let locked = !!((window.state.ancestry.gmLockedFeatures || {}).attrs || {})[a];
+                if (!locked) window.state.ancestry.bonuses[a] = parseInt(document.getElementById(`wizMod_${a}`).value) || 0;
             });
 
             if (ancTarget === 'gmRace') {

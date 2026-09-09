@@ -929,7 +929,10 @@
                 <h4 class="text-sm font-bold text-indigo-400 mb-2">Step 2: Biology & Locomotion</h4>
                 <div class="grid grid-cols-3 gap-4">
                     <div class="bg-slate-800 p-3 rounded border border-slate-700">
-                        <label class="block text-xs font-bold text-slate-300 mb-2">Lifespan</label>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-xs font-bold text-slate-300">Lifespan</label>
+                            <span id="bioLockBadge_lifespan" class="hidden text-[9px] text-cyan-400 font-bold">Species-Locked</span>
+                        </div>
                         <select id="wizLife" class="bg-slate-900 text-xs" onchange="window.calcAncestryGp()">
                             <option value="-1">Ephemeral (~50 yrs) [+1 GP]</option>
                             <option value="0" selected>Average (~100 yrs) [0 GP]</option>
@@ -938,7 +941,10 @@
                         </select>
                     </div>
                     <div class="bg-slate-800 p-3 rounded border border-slate-700">
-                        <label class="block text-xs font-bold text-slate-300 mb-2">Size Category</label>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-xs font-bold text-slate-300">Size Category</label>
+                            <span id="bioLockBadge_size" class="hidden text-[9px] text-cyan-400 font-bold">Species-Locked</span>
+                        </div>
                         <select id="wizSize" class="bg-slate-900 text-xs" onchange="window.calcAncestryGp()">
                             <option value="15">Small (x15 lbs) [1 GP]</option>
                             <option value="30" selected>Medium (x30 lbs) [0 GP]</option>
@@ -946,7 +952,10 @@
                         </select>
                     </div>
                     <div class="bg-slate-800 p-3 rounded border border-slate-700">
-                        <label class="block text-xs font-bold text-slate-300 mb-2">Base Speed (Squares)</label>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block text-xs font-bold text-slate-300">Base Speed (Squares)</label>
+                            <span id="bioLockBadge_speed" class="hidden text-[9px] text-cyan-400 font-bold">Species-Locked</span>
+                        </div>
                         <div class="flex items-center gap-2">
                             <input type="number" id="wizSpeed" value="3" min="0" max="6" class="bg-slate-900" onchange="window.calcAncestryGp()">
                             <span class="text-[9px] text-slate-500 leading-tight">Base 3. +1 Cost 1 GP. -1 Refunds 1 GP.</span>
