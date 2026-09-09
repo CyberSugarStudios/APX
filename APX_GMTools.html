@@ -373,6 +373,7 @@
                 <button onclick="window.loadGmPartyFolder()" class="px-3 py-2 rounded bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold shadow">Load Party Folder</button>
                 <button onclick="window.openGmRaceRosterModal()" class="px-3 py-2 rounded bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-bold shadow">Race Templates</button>
                 <button onclick="window.openGmNpcRosterModal()" class="px-3 py-2 rounded bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold shadow">NPCs &amp; Enemies</button>
+                <button onclick="window.openModal('campaignNotesModal')" class="px-3 py-2 rounded bg-amber-700 hover:bg-amber-600 text-white text-xs font-bold shadow">Campaign Notes</button>
             </div>
         </div>
 
@@ -1079,6 +1080,51 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="campaignNotesModal">
+        <div class="modal-content" style="max-width:700px; max-height:90vh; display:flex; flex-direction:column;">
+            <div class="flex justify-between items-center mb-3 border-b border-slate-600 pb-2 flex-shrink-0">
+                <input type="text" id="campaignName" placeholder="Campaign Name..." onchange="window.saveCampaignNotes()"
+                    class="bg-transparent text-lg font-bold text-amber-400 border-none p-0 focus:ring-0 w-64">
+                <button onclick="window.closeModal('campaignNotesModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Close</button>
+            </div>
+            <div class="flex gap-2 mb-3 flex-shrink-0 flex-wrap">
+                <button onclick="window.showCampaignTab('session')" id="cTabSession" class="px-3 py-1.5 rounded text-xs font-bold transition bg-amber-700 text-white">Session Notes</button>
+                <button onclick="window.showCampaignTab('world')"   id="cTabWorld"   class="px-3 py-1.5 rounded text-xs font-bold transition bg-slate-700 text-slate-300">World Notes</button>
+                <button onclick="window.showCampaignTab('npcs')"    id="cTabNpcs"    class="px-3 py-1.5 rounded text-xs font-bold transition bg-slate-700 text-slate-300">NPCs</button>
+                <button onclick="window.showCampaignTab('locations')" id="cTabLocations" class="px-3 py-1.5 rounded text-xs font-bold transition bg-slate-700 text-slate-300">Locations</button>
+                <button onclick="window.showCampaignTab('secrets')" id="cTabSecrets" class="px-3 py-1.5 rounded text-xs font-bold transition bg-slate-700 text-slate-300">GM Secrets</button>
+            </div>
+            <div class="flex-1 overflow-hidden">
+                <div id="cPanelSession" class="h-full flex flex-col">
+                    <div class="text-[10px] text-slate-500 uppercase font-bold mb-1">Session Notes — what happened this session, next steps, etc.</div>
+                    <textarea id="cNotesSession" onchange="window.saveCampaignNotes()" oninput="window.saveCampaignNotes()"
+                        class="flex-1 resize-none bg-slate-900 border-slate-700 text-xs text-slate-200 leading-relaxed" placeholder="Session notes..."></textarea>
+                </div>
+                <div id="cPanelWorld" class="h-full flex-col hidden">
+                    <div class="text-[10px] text-slate-500 uppercase font-bold mb-1">World Notes — lore, rules, factions, history</div>
+                    <textarea id="cNotesWorld" onchange="window.saveCampaignNotes()" oninput="window.saveCampaignNotes()"
+                        class="flex-1 resize-none bg-slate-900 border-slate-700 text-xs text-slate-200 leading-relaxed" placeholder="World building notes..." style="height:100%;"></textarea>
+                </div>
+                <div id="cPanelNpcs" class="h-full flex-col hidden">
+                    <div class="text-[10px] text-slate-500 uppercase font-bold mb-1">NPCs — names, descriptions, relationships</div>
+                    <textarea id="cNotesNpcs" onchange="window.saveCampaignNotes()" oninput="window.saveCampaignNotes()"
+                        class="flex-1 resize-none bg-slate-900 border-slate-700 text-xs text-slate-200 leading-relaxed font-mono" placeholder="NPC Name — description, role, relationship to party..." style="height:100%;"></textarea>
+                </div>
+                <div id="cPanelLocations" class="h-full flex-col hidden">
+                    <div class="text-[10px] text-slate-500 uppercase font-bold mb-1">Locations — places visited, rumours, points of interest</div>
+                    <textarea id="cNotesLocations" onchange="window.saveCampaignNotes()" oninput="window.saveCampaignNotes()"
+                        class="flex-1 resize-none bg-slate-900 border-slate-700 text-xs text-slate-200 leading-relaxed" placeholder="Location notes..." style="height:100%;"></textarea>
+                </div>
+                <div id="cPanelSecrets" class="h-full flex-col hidden">
+                    <div class="text-[10px] text-slate-500 uppercase font-bold mb-1">GM Secrets — plot twists, hidden info the players don't know yet</div>
+                    <textarea id="cNotesSecrets" onchange="window.saveCampaignNotes()" oninput="window.saveCampaignNotes()"
+                        class="flex-1 resize-none bg-slate-900 border-slate-700 text-xs text-red-200 leading-relaxed" placeholder="Secrets the players don't know yet..." style="height:100%;"></textarea>
+                </div>
+            </div>
+            <div class="text-[9px] text-slate-600 mt-2 flex-shrink-0">Notes auto-save to localStorage and cloud (when signed in).</div>
+        </div>
+    </div>
+
 <div class="modal-overlay" id="confirmModal">
         <div class="modal-content max-w-sm text-center border border-slate-600">
             <p id="confirmMessage" class="mb-6 text-white font-bold text-lg"></p>
@@ -1130,6 +1176,69 @@
         if (!window.apxAuth.enabled) return;
         try { await window.apxAuth.saveGmRaces(window.gmRaces || []); }
         catch(e) { console.warn('Cloud GM race save failed:', e.message); }
+    });
+    </script>
+
+    <script>
+    // ── Campaign Notes ──────────────────────────────────────────
+    window._campaignNotes = JSON.parse(localStorage.getItem('apxCampaignNotes') || '{}');
+
+    window.showCampaignTab = function(tab) {
+        ['session','world','npcs','locations','secrets'].forEach(t => {
+            document.getElementById(`cPanel${t.charAt(0).toUpperCase()}${t.slice(1)}`).classList.toggle('hidden', t !== tab);
+            document.getElementById(`cPanel${t.charAt(0).toUpperCase()}${t.slice(1)}`).classList.toggle('flex', t === tab);
+            let btn = document.getElementById(`cTab${t.charAt(0).toUpperCase()}${t.slice(1)}`);
+            btn.className = `px-3 py-1.5 rounded text-xs font-bold transition ${t === tab ? 'bg-amber-700 text-white' : 'bg-slate-700 text-slate-300'}`;
+        });
+    };
+
+    window.saveCampaignNotes = function() {
+        window._campaignNotes = {
+            name: document.getElementById('campaignName').value,
+            session:   document.getElementById('cNotesSession').value,
+            world:     document.getElementById('cNotesWorld').value,
+            npcs:      document.getElementById('cNotesNpcs').value,
+            locations: document.getElementById('cNotesLocations').value,
+            secrets:   document.getElementById('cNotesSecrets').value,
+        };
+        localStorage.setItem('apxCampaignNotes', JSON.stringify(window._campaignNotes));
+    };
+
+    function loadCampaignNotesIntoForm() {
+        let n = window._campaignNotes;
+        document.getElementById('campaignName').value    = n.name      || '';
+        document.getElementById('cNotesSession').value   = n.session   || '';
+        document.getElementById('cNotesWorld').value     = n.world     || '';
+        document.getElementById('cNotesNpcs').value      = n.npcs      || '';
+        document.getElementById('cNotesLocations').value = n.locations || '';
+        document.getElementById('cNotesSecrets').value   = n.secrets   || '';
+    }
+
+    // Load notes into form whenever the modal opens
+    document.getElementById('campaignNotesModal').addEventListener('transitionend', function() {
+        if (this.classList.contains('active')) loadCampaignNotesIntoForm();
+    });
+    // Also load immediately if already open (no transition)
+    let _origOpenModal = window.openModal;
+    if (_origOpenModal) {
+        window.openModal = function(id) {
+            _origOpenModal(id);
+            if (id === 'campaignNotesModal') loadCampaignNotesIntoForm();
+        };
+    }
+
+    // Add sidebar account section to GM Tools as well
+    document.addEventListener('DOMContentLoaded', () => {
+        if (window.FIREBASE_ENABLED && window.apxAuth) {
+            window.apxAuth.onAuthChange(user => {
+                let bar = document.getElementById('apxAuthBar');
+                if (!bar) return;
+                if (user) {
+                    bar.innerHTML = `<span style="color:var(--c-text-muted,#94a3b8);font-size:10px;">${user.email}</span>
+                        <button onclick="window.apxAuth.signOut().then(()=>location.href='index.html')" style="font-size:10px;color:var(--c-text-muted,#94a3b8);background:none;border:none;cursor:pointer;margin-left:6px;">Sign Out</button>`;
+                }
+            });
+        }
     });
     </script>
     <div id="floatingWindowContainer"></div>

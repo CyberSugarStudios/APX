@@ -324,8 +324,9 @@
     <link rel="stylesheet" href="css/apx-themes.css">
 </head>
 <body class="p-2 md:p-6 flex justify-center text-sm ml-0 lg:ml-8 transition-all">
-    <!-- Auth bar: shows signed-in email + sign out, or a sign-in link -->
-    <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"><!-- Firebase auth populates this --></div>
+    <!-- Auth bar removed — account controls are in the sidebar -->
+
+
 
     <button class="hamburger-btn" onclick="window.toggleSidebar()">☰ Roster</button>
     <div class="undo-redo-cluster">
@@ -357,7 +358,23 @@
         <div id="characterList" class="flex-1 overflow-y-auto pr-2 space-y-2">
             <div class="text-xs text-slate-500 text-center py-4">Click "Load Roster" to select a folder.</div>
         </div>
-        <div class="mt-4 text-[10px] text-slate-500 text-center">Use Save to Roster to update your local files.</div>
+        <div class="mt-4 text-[10px] text-slate-500 text-center">Characters auto-save to the cloud when signed in.</div>
+
+        <!-- Account section at bottom of sidebar -->
+        <div id="sidebarAccountSection" class="mt-4 border-t border-slate-700 pt-3 hidden">
+            <div class="text-[10px] text-slate-500 uppercase font-bold mb-1">Account</div>
+            <div id="sidebarAccountEmail" class="text-xs text-indigo-300 font-bold mb-2 truncate"></div>
+            <div class="grid grid-cols-2 gap-1">
+                <button onclick="window.apxAuth.signOut().then(() => location.href='index.html')"
+                    class="text-xs bg-slate-700 hover:bg-slate-600 text-white font-bold py-1.5 px-2 rounded transition">
+                    Sign Out
+                </button>
+                <button onclick="window.openDeleteAccountModal()"
+                    class="text-xs bg-red-900/50 hover:bg-red-900 text-red-400 font-bold py-1.5 px-2 rounded transition">
+                    Delete Account
+                </button>
+            </div>
+        </div>
     </div>
 
     <div class="w-full max-w-[1400px] space-y-4" id="mainContent">
@@ -1918,6 +1935,64 @@
         </div>
     </div>
 
+    <!-- Delete Account modal: triple-gated -->
+    <div class="modal-overlay" id="deleteAccountModal">
+        <div class="modal-content max-w-sm">
+            <h3 class="text-lg font-bold text-red-400 mb-2 border-b border-red-900 pb-2">Delete Account</h3>
+            <div id="deleteStep1">
+                <p class="text-xs text-slate-300 mb-3">This will permanently delete your account and all cloud-saved characters. This <span class="font-bold text-red-400">cannot be undone</span>.</p>
+                <p class="text-xs text-slate-400 mb-2">Type <span class="font-black text-white">DELETE</span> to continue:</p>
+                <input type="text" id="deleteConfirmInput" placeholder="Type DELETE" class="bg-slate-900 text-xs w-full mb-3">
+                <div class="flex gap-2 justify-end">
+                    <button onclick="window.closeModal('deleteAccountModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Cancel</button>
+                    <button onclick="window.deleteStep2Check()" class="px-4 py-2 rounded bg-red-800 hover:bg-red-700 text-white text-sm font-bold transition">Continue</button>
+                </div>
+            </div>
+            <div id="deleteStep2" class="hidden">
+                <p class="text-xs text-slate-300 mb-4">Second confirmation: are you absolutely sure? Every character, every GM template, every setting — gone permanently.</p>
+                <div class="flex gap-2 justify-end">
+                    <button onclick="window.closeModal('deleteAccountModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Cancel</button>
+                    <button onclick="window.deleteStep3Check()" class="px-4 py-2 rounded bg-red-700 hover:bg-red-600 text-white text-sm font-bold transition">Yes, I'm Sure</button>
+                </div>
+            </div>
+            <div id="deleteStep3" class="hidden">
+                <p class="text-xs text-slate-300 mb-4">Final confirmation. There is no recovery after this.</p>
+                <div class="flex gap-2 justify-end">
+                    <button onclick="window.closeModal('deleteAccountModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Cancel</button>
+                    <button onclick="window.executeDeleteAccount()" class="px-4 py-2 rounded bg-red-600 hover:bg-red-500 text-white text-sm font-bold transition">Permanently Delete Account</button>
+                </div>
+            </div>
+            <div id="deleteStepError" class="text-xs text-red-400 font-bold mt-2"></div>
+        </div>
+    </div>
+
+    <!-- Character Lobby: shown on load instead of a blank sheet -->
+    <div id="characterLobby" class="fixed inset-0 z-[200] flex items-center justify-center p-4" style="background: var(--c-page-bg, #0f172a);">
+        <div class="w-full max-w-lg">
+            <h1 class="text-3xl font-black text-white text-center mb-1 uppercase tracking-wider">APX Character Sheet</h1>
+            <p id="lobbyAccountLine" class="text-center text-xs mb-6" style="color: var(--c-text-muted, #94a3b8);"></p>
+
+            <div class="grid grid-cols-2 gap-3 mb-6">
+                <button onclick="window.lobbyNewCharacter()" class="py-4 rounded-xl font-bold text-sm transition text-white" style="background: var(--c-emerald, #059669);">
+                    + New Character
+                </button>
+                <button onclick="document.getElementById('importFile').click()" class="py-4 rounded-xl font-bold text-sm transition" style="background: var(--c-surface, #1e293b); color: var(--c-text, #e2e8f0); border: 1px solid var(--c-border, #334155);">
+                    Import from File
+                </button>
+            </div>
+
+            <div id="lobbyCharacterList" class="space-y-2 max-h-72 overflow-y-auto">
+                <div class="text-xs text-center py-6" style="color: var(--c-text-muted, #94a3b8);">Loading characters...</div>
+            </div>
+
+            <div class="mt-4 text-center">
+                <button onclick="window.lobbySkip()" class="text-xs transition" style="color: var(--c-text-dimmer, #475569);">
+                    Continue without loading a character
+                </button>
+            </div>
+        </div>
+    </div>
+
 <div class="modal-overlay" id="confirmModal">
         <div class="modal-content max-w-sm text-center border border-slate-600">
             <p id="confirmMessage" class="mb-6 text-white font-bold text-lg"></p>
@@ -1953,52 +2028,187 @@
     <script src="js/firebase-config.js"></script>
     <script src="js/apx-firebase.js"></script>
     <script>
-    // Auto-load characters from Firestore when auth is ready
-    window.onApxAuthReady = async function(user) {
-        if (!window.apxAuth.enabled) return;
-        let uid = user.uid;
+    // ── Character Lobby ──────────────────────────────────────────
+    // Shown on page load; hides once a character is chosen or created.
+    async function renderLobby(user) {
+        let list = document.getElementById('lobbyCharacterList');
+        let accountLine = document.getElementById('lobbyAccountLine');
 
-        // Populate roster from Firestore on first load
+        if (user) {
+            accountLine.innerText = 'Signed in as ' + user.email;
+        } else {
+            accountLine.innerText = 'Not signed in — characters load from local files only.';
+        }
+
+        // Gather characters: cloud first, then localStorage roster
+        let chars = [];
+        if (window.apxAuth.enabled && user) {
+            try {
+                let cloudChars = await window.apxAuth.loadCharacters();
+                cloudChars.forEach(c => chars.push({ id: c.id, name: c.name || 'Unnamed', state: c.state, source: 'cloud' }));
+            } catch(e) { console.warn('Cloud load failed:', e.message); }
+        }
+        // Also surface local roster entries not already in the cloud list
+        (window.savedRosterData || []).forEach(c => {
+            if (!chars.find(x => x.id === c.id)) chars.push({ ...c, source: 'local' });
+        });
+
+        if (!chars.length) {
+            list.innerHTML = '<div class="text-xs text-center py-4" style="color:var(--c-text-muted,#94a3b8);">No saved characters yet — create one to get started.</div>';
+            return;
+        }
+        list.innerHTML = chars.map(c => `
+            <button onclick="window.lobbyLoadCharacter('${c.id}')"
+                class="w-full text-left px-4 py-3 rounded-lg transition flex items-center justify-between"
+                style="background:var(--c-surface,#1e293b); border:1px solid var(--c-border,#334155);"
+                onmouseover="this.style.borderColor='var(--c-emerald,#059669)'"
+                onmouseout="this.style.borderColor='var(--c-border,#334155)'">
+                <span class="font-bold text-sm" style="color:var(--c-text,#e2e8f0);">${c.name}</span>
+                <span class="text-[10px]" style="color:var(--c-text-muted,#94a3b8);">${c.source === 'cloud' ? 'Cloud' : 'Local'}</span>
+            </button>
+        `).join('');
+        window._lobbyChars = chars;
+    }
+
+    window.lobbyNewCharacter = function() {
+        // Generate a new cloud ID for this character so auto-save knows where to put it
+        window._activeCloudCharId = 'char_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+        window.createNewCharacter();
+        document.getElementById('characterLobby').style.display = 'none';
+    };
+    window.lobbyLoadCharacter = function(id) {
+        let chars = window._lobbyChars || [];
+        let entry = chars.find(c => c.id === id);
+        if (!entry || !entry.state) return;
+        window._activeCloudCharId = id;
+        window.apxAuth.setActiveCharId(id);
+        window.loadCharacterState(entry.state);
+        document.getElementById('characterLobby').style.display = 'none';
+    };
+    window.lobbySkip = function() {
+        // Assign an ID even for non-loaded characters so auto-save works
+        if (!window._activeCloudCharId) {
+            window._activeCloudCharId = 'char_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+        }
+        document.getElementById('characterLobby').style.display = 'none';
+    };
+
+    // loadCharacterState: the roster system already has this logic — reuse it
+    window.loadCharacterState = function(state) {
+        if (!state) return;
+        Object.assign(window.state, JSON.parse(JSON.stringify(state)));
+        if (typeof window.recalculateMath === 'function') window.recalculateMath();
+        if (typeof window.syncDOM === 'function') window.syncDOM();
+    };
+
+    // ── Sidebar account section ──────────────────────────────────
+    function updateSidebarAccount(user) {
+        let section = document.getElementById('sidebarAccountSection');
+        let emailEl = document.getElementById('sidebarAccountEmail');
+        if (!section) return;
+        if (user) {
+            section.classList.remove('hidden');
+            emailEl.innerText = user.email;
+        } else {
+            section.classList.add('hidden');
+        }
+    }
+
+    // ── Auto-save ────────────────────────────────────────────────
+    let _autoSaveTimer = null;
+    function scheduleAutoSave() {
+        if (!window.apxAuth || !window.apxAuth.enabled) return;
+        if (!window._activeCloudCharId || !window.state) return;
+        clearTimeout(_autoSaveTimer);
+        _autoSaveTimer = setTimeout(async () => {
+            try {
+                window.apxAuth.setActiveCharId(window._activeCloudCharId);
+                await window.apxAuth.saveCharacter(window._activeCloudCharId, window.state);
+            } catch(e) { console.warn('Auto-save failed:', e.message); }
+        }, 3000);
+    }
+    // Patch recalculateMath to trigger auto-save after each calculation
+    let _origRecalc = null;
+    function patchRecalc() {
+        if (!window.recalculateMath || _origRecalc) return;
+        _origRecalc = window.recalculateMath;
+        window.recalculateMath = function() {
+            _origRecalc.apply(this, arguments);
+            scheduleAutoSave();
+        };
+    }
+
+    // ── Delete Account ───────────────────────────────────────────
+    window.openDeleteAccountModal = function() {
+        document.getElementById('deleteConfirmInput').value = '';
+        document.getElementById('deleteStep1').classList.remove('hidden');
+        document.getElementById('deleteStep2').classList.add('hidden');
+        document.getElementById('deleteStep3').classList.add('hidden');
+        document.getElementById('deleteStepError').innerText = '';
+        window.openModal('deleteAccountModal');
+    };
+    window.deleteStep2Check = function() {
+        let val = document.getElementById('deleteConfirmInput').value.trim();
+        if (val !== 'DELETE') {
+            document.getElementById('deleteStepError').innerText = 'You must type DELETE exactly.';
+            return;
+        }
+        document.getElementById('deleteStepError').innerText = '';
+        document.getElementById('deleteStep1').classList.add('hidden');
+        document.getElementById('deleteStep2').classList.remove('hidden');
+    };
+    window.deleteStep3Check = function() {
+        document.getElementById('deleteStep2').classList.add('hidden');
+        document.getElementById('deleteStep3').classList.remove('hidden');
+    };
+    window.executeDeleteAccount = async function() {
         try {
-            let chars = await window.apxAuth.loadCharacters();
-            // Merge cloud characters into the local roster array without
-            // overwriting anything already loaded from localStorage
-            if (chars.length && window.state) {
-                let existingIds = new Set((window.savedRosterData || []).map(c => c.id));
-                chars.forEach(c => {
-                    if (!existingIds.has(c.id)) {
-                        if (!window.savedRosterData) window.savedRosterData = [];
-                        window.savedRosterData.push({ id: c.id, name: c.name, state: c.state });
-                    }
-                });
-                if (typeof window.renderRoster === 'function') window.renderRoster();
-            }
-
-            // Auto-load GM races from any connected GM
-            let gmCode = localStorage.getItem('apxConnectedGm');
-            if (gmCode) {
-                let races = await window.apxAuth.connectToGm(gmCode);
-                if (races.length && Array.isArray(window.gmRaces)) {
-                    races.forEach(r => {
-                        if (!window.gmRaces.find(x => x.id === r.id)) window.gmRaces.push(r);
-                    });
-                    if (typeof window.renderImportedRaceList === 'function') window.renderImportedRaceList();
-                }
-            }
+            let user = window.apxAuth.user;
+            if (!user) return;
+            // Delete all Firestore data first, then the auth account
+            try {
+                let chars = await window.apxAuth.loadCharacters();
+                for (let c of chars) await window.apxAuth.deleteCharacter(c.id);
+            } catch(e) { /* data deletion best-effort */ }
+            await user.delete();
+            window.closeModal('deleteAccountModal');
+            window.location.href = 'index.html';
         } catch(e) {
-            console.warn('Cloud load failed (offline or rules not set up):', e.message);
+            document.getElementById('deleteStepError').innerText = e.message || 'Deletion failed. Try signing out and back in, then try again.';
         }
     };
 
-    // Hook auto-save: whenever recalculateMath runs, schedule a cloud save
-    // for the active character. Debounced inside apx-firebase.js (3 sec).
-    document.addEventListener('apxStateChanged', () => {
-        if (!window.apxAuth || !window.apxAuth.enabled) return;
-        let charId = window._activeCloudCharId;
-        if (!charId || !window.state) return;
-        window.apxAuth.scheduleAutoSave(window.state);
-        window.apxAuth.setActiveCharId(charId);
-    });
+    // ── Auth ready ───────────────────────────────────────────────
+    window.onApxAuthReady = async function(user) {
+        updateSidebarAccount(user);
+        patchRecalc();
+
+        // Show lobby and populate it
+        await renderLobby(user);
+
+        // Load GM races from connected GM if set
+        if (window.apxAuth.enabled && user) {
+            try {
+                let gmCode = localStorage.getItem('apxConnectedGm');
+                if (gmCode) {
+                    let races = await window.apxAuth.connectToGm(gmCode);
+                    races.forEach(r => {
+                        if (window.gmRaces && !window.gmRaces.find(x => x.id === r.id)) window.gmRaces.push(r);
+                    });
+                    if (typeof window.renderImportedRaceList === 'function') window.renderImportedRaceList();
+                }
+            } catch(e) { console.warn('GM races load failed:', e.message); }
+        }
+    };
+
+    // When Firebase is not enabled: still show the lobby with local chars only,
+    // and patch recalc for any local-only auto-save hooks.
+    if (!window.FIREBASE_ENABLED) {
+        window.addEventListener('load', () => {
+            patchRecalc();
+            renderLobby(null);
+        });
+    }
     </script>
 </body>
 </html>
