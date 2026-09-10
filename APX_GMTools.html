@@ -1045,11 +1045,18 @@
                 <option value="kawaii">Kawaii</option>
             </select>
         </div>
-        <div class="flex justify-end">
+        <div class="flex justify-between items-center">
+            <div class="text-[10px] text-slate-600" id="gmSettingsVersionLabel"></div>
             <button onclick="window.closeModal('settingsModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Close</button>
         </div>
     </div>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    let el = document.getElementById('gmSettingsVersionLabel');
+    if (el && window.APX_VERSION) el.innerText = 'APX System Tools ' + window.APX_VERSION;
+});
+</script>
 
     <div class="modal-overlay" id="envResistPickerModal">
         <div class="modal-content max-w-sm">
@@ -1177,6 +1184,18 @@
     </div>
 
 
+
+    <div class="modal-overlay" id="npcStatBlockPickerModal">
+        <div class="modal-content max-w-md">
+            <h3 class="text-base font-bold text-white mb-3 border-b border-slate-600 pb-2">Link Stat Block</h3>
+            <p class="text-[10px] text-slate-400 mb-3">Choose an existing stat block, or create a new one and link it.</p>
+            <div id="npcPickerList" class="space-y-1.5 max-h-64 overflow-y-auto mb-4"><!-- JS injected --></div>
+            <div class="flex justify-between">
+                <button onclick="window.createAndLinkStatBlock()" class="px-3 py-1.5 rounded bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold">+ Create New Stat Block</button>
+                <button onclick="window.closeModal('npcStatBlockPickerModal')" class="px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold">Cancel</button>
+            </div>
+        </div>
+    </div>
 
 <div class="modal-overlay" id="confirmModal">
         <div class="modal-content max-w-sm text-center border border-slate-600">
@@ -1385,12 +1404,27 @@
     // ── NPC Notes ────────────────────────────────────────────────
     window.renderNpcList = function() {
         let q = (document.getElementById('npcSearch')?.value||'').toLowerCase();
-        let list = (_wNotes.npcs||[]).filter(n=>!q||n.name.toLowerCase().includes(q)||n.description.toLowerCase().includes(q));
+        let list = (_wNotes.npcs||[]).filter(n=>!q||n.name.toLowerCase().includes(q)||(n.description||'').toLowerCase().includes(q));
         let el = document.getElementById('npcList');
         if (!el) return;
         el.innerHTML = list.length
-            ? list.map(n=>noteCard({ id:n.id, type:'npc', header:n.name||'Unnamed NPC', sub:n.role, body:n.description })).join('')
-            : emptyState('No NPCs yet');
+            ? list.map(n => {
+                let linked = n.statBlockId ? window.gmNpcs?.find(g=>g.id===n.statBlockId) : null;
+                let statBadge = linked
+                    ? `<button onclick="event.stopPropagation();window.openGmNpcBuilder('${n.statBlockId}')" class="text-[9px] bg-indigo-900/50 border border-indigo-700/50 text-indigo-300 px-1.5 py-0.5 rounded font-bold hover:bg-indigo-900">Stat Block: ${linked.npc?.name||'View'}</button>`
+                    : `<button onclick="event.stopPropagation();window.openNpcStatBlockPicker('${n.id}')" class="text-[9px] bg-slate-800 border border-slate-600 text-slate-400 px-1.5 py-0.5 rounded font-bold hover:border-slate-400">Link Stat Block</button>`;
+                return `<div class="bg-slate-900 border border-slate-700 rounded p-3 cursor-pointer hover:border-slate-500" onclick="window.openNoteModal('npc','${n.id}')">
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="min-w-0">
+                            <div class="text-xs font-bold text-slate-200 truncate">${n.name||'Unnamed NPC'}</div>
+                            ${n.role?`<div class="text-[10px] text-slate-500 mt-0.5">${n.role}</div>`:''}
+                        </div>
+                        <div onclick="event.stopPropagation();">${statBadge}</div>
+                    </div>
+                    ${n.description?`<div class="text-[10px] text-slate-400 mt-1.5 line-clamp-2">${n.description}</div>`:''}
+                </div>`;
+              }).join('')
+            : '<div class="text-center py-8 text-slate-600 text-sm">No NPCs yet</div>';
     };
 
     // ── Location Notes ───────────────────────────────────────────
@@ -1505,6 +1539,38 @@
         if (type==='npc')       window.renderNpcList();
         if (type==='location')  { window.renderLocationList(); renderMapPins(); }
         if (type==='secret')    window.renderSecretList();
+    };
+
+    // ── NPC Stat Block Linking ───────────────────────────────────
+    let _linkingNpcNoteId = null;
+
+    window.openNpcStatBlockPicker = function(npcNoteId) {
+        _linkingNpcNoteId = npcNoteId;
+        let gmNpcs = window.gmNpcs || [];
+        let el = document.getElementById('npcPickerList');
+        el.innerHTML = gmNpcs.length
+            ? gmNpcs.map(g => `
+                <button onclick="window.linkStatBlock('${g.id}')"
+                    class="w-full text-left px-3 py-2 rounded bg-slate-900 border border-slate-700 hover:border-indigo-500 transition">
+                    <div class="text-xs font-bold text-slate-200">${g.npc?.name || 'Unnamed'}</div>
+                    <div class="text-[10px] text-slate-500">Tier ${g.npc?.tier ?? 0} · ${g.npc?.role || 'No role'}</div>
+                </button>`).join('')
+            : '<div class="text-slate-500 text-xs text-center py-4">No stat blocks created yet.</div>';
+        window.openModal('npcStatBlockPickerModal');
+    };
+
+    window.linkStatBlock = function(gmNpcId) {
+        let note = (_wNotes.npcs||[]).find(n=>n.id===_linkingNpcNoteId);
+        if (note) { note.statBlockId = gmNpcId; saveWorldNotes(); }
+        window.closeModal('npcStatBlockPickerModal');
+        window.renderNpcList();
+    };
+
+    window.createAndLinkStatBlock = function() {
+        window.closeModal('npcStatBlockPickerModal');
+        // Open the GM NPC builder for a fresh entry; after save we'll auto-link
+        window._pendingLinkNpcNoteId = _linkingNpcNoteId;
+        window.openGmNpcBuilder();
     };
 
     // ── World Map ────────────────────────────────────────────────

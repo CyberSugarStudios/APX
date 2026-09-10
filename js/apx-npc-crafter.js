@@ -756,6 +756,20 @@ window.finishGmNpc = function() {
     let c = ncActiveCompanion();
     window.closeModal('npcCrafterModal');
     window.renderGmNpcList();
+    // If this NPC was created via "Link Stat Block" from a world NPC note,
+    // auto-link it and return to the world modal instead of the NPC roster.
+    if (window._pendingLinkNpcNoteId && ncActiveGmNpcId) {
+        let noteId = window._pendingLinkNpcNoteId;
+        window._pendingLinkNpcNoteId = null;
+        // Find the note in the active world and link it
+        if (typeof _wNotes !== 'undefined') {
+            let note = (_wNotes.npcs||[]).find(n=>n.id===noteId);
+            if (note) { note.statBlockId = ncActiveGmNpcId; if (typeof saveWorldNotes === 'function') saveWorldNotes(); }
+        }
+        window.showWorldTab('npcs');
+        window.openModal('gmWorldModal');
+        return;
+    }
     window.openGmNpcRosterModal();
     window.showConfirm(`${c.name || 'This NPC'} is saved to your NPC roster. Use Export to save it to a file.`, null, true);
 };
