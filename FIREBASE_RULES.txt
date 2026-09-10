@@ -5,13 +5,13 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users can read and write their own data only
+    // Users own everything under their UID
     match /users/{userId}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // World invite codes: signed-in players can read to join;
-    // signed-in GMs can create and update their own codes.
+    // World invite codes: any signed-in user can read to join;
+    // the GM (owner) can create/update their own codes.
     match /worldCodes/{inviteCode} {
       allow read: if request.auth != null;
       allow create: if request.auth != null;
@@ -19,8 +19,8 @@ service cloud.firestore {
         && request.auth.uid == resource.data.gmUid;
     }
 
-    // Players register themselves when joining a world.
-    // The GM (owner) can also read the list.
+    // Players self-register when joining a world (consent = entering the code).
+    // Anyone signed-in can read the list (so the GM can load the party).
     match /worldCodes/{inviteCode}/players/{playerId} {
       allow read: if request.auth != null;
       allow write: if request.auth != null && request.auth.uid == playerId;

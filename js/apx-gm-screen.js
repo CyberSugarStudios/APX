@@ -245,17 +245,15 @@ window.loadGmPartyFromCloud = async function() {
             showStatus('No players have joined with this invite code yet.', '#94a3b8');
             return;
         }
-        showStatus(`Found ${players.length} player(s). Note: full character sheets require the player to export their file — only names are available from the cloud.`, '#94a3b8');
-        // Add players to the party display as name-only entries
-        let newEntries = players.map(p => ({
-            fileName: p.uid,
-            state: { name: p.charName || 'Unknown Player', baseStats: {}, ancestry: { name: '' } },
-            summary: computeCharSummary({ name: p.charName || 'Unknown Player', baseStats: {}, ancestry: { name: '' } })
-        }));
-        // Merge with existing party, avoid duplicates
+        // Players share their full state when they join with an invite code
+        let newEntries = players.map(p => {
+            let state = p.state || { name: p.charName || 'Unknown Player', baseStats: {}, ancestry: { name: '' } };
+            return { fileName: p.uid, state, summary: computeCharSummary(state) };
+        });
         newEntries.forEach(e => {
             if (!window.gmParty.find(p => p.fileName === e.fileName)) window.gmParty.push(e);
         });
+        showStatus(`Loaded ${newEntries.length} player(s) from world ${inviteCode}.`, 'var(--c-emerald,#34d399)');
         window.renderGmScreen();
         setTimeout(() => window.closeModal('loadPartyModal'), 1500);
     } catch(e) {

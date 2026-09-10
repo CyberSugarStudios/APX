@@ -138,13 +138,27 @@
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
             background-color: rgba(0, 0, 0, 0.88);
             display: flex; justify-content: center; align-items: center;
-            z-index: 50; backdrop-filter: blur(4px);
+            z-index: 1000; backdrop-filter: blur(4px);
             opacity: 0; pointer-events: none; transition: opacity 0.2s;
         }
         .modal-overlay.active { opacity: 1; pointer-events: auto; }
-        
-        .modal-content {
-            background-color: var(--c-surface); border: 1px solid var(--c-border);
+        /* Stacked modals increment z-index so nested popups always appear on top */
+        .modal-overlay.active ~ .modal-overlay.active { z-index: 1100; }
+        .modal-overlay.active ~ .modal-overlay.active ~ .modal-overlay.active { z-index: 1200; }
+
+        /* Meatball (⋮) dropdown menu */
+        .meatball-menu {
+            position: absolute; right: 0; top: 100%; min-width: 130px;
+            background: var(--c-surface, #1e293b); border: 1px solid var(--c-border, #334155);
+            border-radius: 0.375rem; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            z-index: 9000; overflow: hidden;
+        }
+        .meatball-menu button {
+            display: block; width: 100%; text-align: left;
+            padding: 0.45rem 0.75rem; font-size: 0.7rem; font-weight: 700;
+            color: var(--c-text, #e2e8f0); background: none; border: none; cursor: pointer;
+        }
+        .meatball-menu button:hover { background: var(--c-surface2, #0f172a); }
             color: var(--c-text-dimmer);
             border-radius: 0.75rem; padding: 1.5rem; width: 100%; max-width: 900px;
             max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
@@ -338,20 +352,17 @@
     </div>
     <div id="sidebarOverlay" onclick="window.toggleSidebar()"></div>
     <div id="sidebar">
-        <h2 class="text-xl font-black text-white mb-4 border-b border-slate-600 pb-2">Characters</h2>
-        <button onclick="window.sidebarNewCharacter()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded mb-3 shadow transition">
+        <h2 class="text-xl font-black text-white mb-3 border-b border-slate-600 pb-2">Characters</h2>
+        <button onclick="window.sidebarNewCharacter()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded mb-2 shadow transition text-sm">
             + New Character
         </button>
-        <div class="grid grid-cols-2 gap-2 mb-4">
-            <button onclick="window.saveToLocal()" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-2 px-2 rounded shadow transition" title="Download current character as a JSON file">
-                Export
-            </button>
-            <button onclick="document.getElementById('importFile').click()" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-2 px-2 rounded shadow transition" title="Import a character from a JSON file">
-                Import
-            </button>
+        <div class="grid grid-cols-2 gap-1 mb-3">
+            <button onclick="window.saveToLocal()" class="bg-slate-700 hover:bg-slate-600 text-white text-[10px] font-bold py-1.5 px-2 rounded shadow transition">Export JSON</button>
+            <button onclick="document.getElementById('importFile').click()" class="bg-slate-700 hover:bg-slate-600 text-white text-[10px] font-bold py-1.5 px-2 rounded shadow transition">Import JSON</button>
             <input type="file" id="importFile" accept=".json" class="hidden" onchange="window.loadFromLocal(event)">
+            <button onclick="window.openFolderManager()" class="bg-slate-700 hover:bg-slate-600 text-slate-300 text-[10px] font-bold py-1.5 px-2 rounded shadow transition col-span-2">+ New Folder</button>
         </div>
-        <div id="characterList" class="flex-1 overflow-y-auto pr-2 space-y-2">
+        <div id="characterList" class="flex-1 overflow-y-auto pr-1 space-y-1">
             <div class="text-xs text-slate-500 text-center py-4">Loading...</div>
         </div>
         <div class="mt-4 text-[10px] text-slate-500 text-center">Characters auto-save to the cloud when signed in.</div>
@@ -2050,6 +2061,30 @@
         </div>
     </div>
 
+    <!-- Folder manager: create / rename folders -->
+    <div class="modal-overlay" id="folderManagerModal">
+        <div class="modal-content max-w-xs">
+            <h3 class="text-base font-bold text-white mb-3 border-b border-slate-600 pb-2">New Folder</h3>
+            <input type="text" id="folderNameInput" placeholder="Folder name..." class="bg-slate-900 text-sm w-full mb-4">
+            <div class="flex gap-2 justify-end">
+                <button onclick="window.closeModal('folderManagerModal')" class="px-4 py-2 rounded bg-slate-700 text-white text-sm font-bold">Cancel</button>
+                <button onclick="window.confirmCreateFolder()" class="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add to folder picker -->
+    <div class="modal-overlay" id="addToFolderModal" style="z-index:10100;">
+        <div class="modal-content max-w-xs" style="z-index:10101;">
+            <h3 class="text-base font-bold text-white mb-3 border-b border-slate-600 pb-2">Move to Folder</h3>
+            <div id="folderPickerList" class="space-y-1.5 max-h-56 overflow-y-auto mb-3"></div>
+            <div class="flex gap-2">
+                <button onclick="window.openFolderManager()" class="flex-1 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold">+ New Folder</button>
+                <button onclick="window.closeModal('addToFolderModal')" class="px-4 py-2 rounded bg-slate-700 text-slate-400 text-xs font-bold">Cancel</button>
+            </div>
+        </div>
+    </div>
+
 <div class="modal-overlay" id="confirmModal">
         <div class="modal-content max-w-sm text-center border border-slate-600">
             <p id="confirmMessage" class="mb-6 text-white font-bold text-lg"></p>
@@ -2085,27 +2120,192 @@
     <script src="js/firebase-config.js"></script>
     <script src="js/apx-firebase.js"></script>
     <script>
-    // ── Sidebar character list ───────────────────────────────────
+    // ── Sidebar: folders, worlds, meatball menus ─────────────────
     window._sidebarChars = [];
+    window._sidebarFolders = []; // [{ id, name }]
+    let _activeMeatball = null;  // currently open meatball menu element
 
-    function renderSidebarCharList() {
+    function closeMeatball() {
+        if (_activeMeatball) { _activeMeatball.remove(); _activeMeatball = null; }
+    }
+    document.addEventListener('click', closeMeatball);
+
+    window.renderSidebarCharList = function renderSidebarCharList() {
         let list = document.getElementById('characterList');
         if (!list) return;
         if (!window._sidebarChars.length) {
-            list.innerHTML = '<div class="text-xs text-slate-500 text-center py-4">No saved characters yet.</div>';
+            list.innerHTML = '<div class="text-xs text-slate-500 text-center py-4">No characters yet.</div>';
             return;
         }
-        list.innerHTML = window._sidebarChars.map(c => `
-            <div class="flex items-center gap-1">
-                <button onclick="window.sidebarLoadCharacter('${c.id}')"
-                    class="flex-1 text-left px-3 py-2 rounded text-xs font-bold transition truncate ${c.id === window._activeCloudCharId ? 'bg-emerald-900/40 border border-emerald-700/50 text-emerald-300' : 'bg-slate-900 border border-slate-700 text-slate-200 hover:border-slate-500'}">
-                    ${c.name || 'Unnamed Character'}
-                </button>
-                <button onclick="window.sidebarDeleteCharacter('${c.id}', '${(c.name||'Unnamed Character').replace(/'/g,'&#39;')}')"
-                    class="px-1.5 py-2 rounded text-red-500 hover:text-red-400 hover:bg-red-900/20 text-xs font-bold flex-shrink-0" title="Delete character">×</button>
-            </div>
-        `).join('');
+
+        // Group: world sections first, then folders, then unfiled
+        let connectedWorld = JSON.parse(localStorage.getItem('apxConnectedWorld') || 'null');
+        let worldCode = connectedWorld?.code;
+
+        // Collect unique folders in order
+        let folderMap = {};
+        window._sidebarFolders.forEach(f => folderMap[f.id] = f);
+
+        // Group characters
+        let worldChars = worldCode ? window._sidebarChars.filter(c => c.worldCode === worldCode) : [];
+        let folderGroups = {}; // folderId → chars
+        let unfiled = [];
+        window._sidebarChars.forEach(c => {
+            if (c.worldCode === worldCode && worldCode) return; // handled in world section
+            if (c.folderId && folderMap[c.folderId]) {
+                (folderGroups[c.folderId] = folderGroups[c.folderId] || []).push(c);
+            } else {
+                unfiled.push(c);
+            }
+        });
+
+        let html = '';
+
+        // World section
+        if (worldCode && worldChars.length) {
+            html += `<div class="text-[9px] text-amber-400 uppercase font-black tracking-wider px-1 pt-1 pb-0.5">World: ${worldCode}</div>`;
+            worldChars.forEach(c => html += charRow(c));
+            html += '<div class="border-b border-slate-700/50 my-1"></div>';
+        }
+
+        // Named folders
+        window._sidebarFolders.forEach(f => {
+            let chars = folderGroups[f.id] || [];
+            html += `<div class="flex items-center gap-1 px-1 pt-1 pb-0.5">
+                <span class="text-[9px] text-indigo-400 uppercase font-black tracking-wider flex-1">${f.name}</span>
+                <button onclick="window.deleteFolderConfirm('${f.id}')" class="text-[9px] text-slate-600 hover:text-red-500 px-0.5" title="Delete folder">×</button>
+            </div>`;
+            if (chars.length) chars.forEach(c => html += charRow(c));
+            else html += `<div class="text-[10px] text-slate-600 px-2 pb-1 italic">Empty</div>`;
+        });
+
+        // Unfiled
+        if (unfiled.length) {
+            if (window._sidebarFolders.length || (worldCode && worldChars.length))
+                html += `<div class="text-[9px] text-slate-500 uppercase font-black tracking-wider px-1 pt-1 pb-0.5">Unfiled</div>`;
+            unfiled.forEach(c => html += charRow(c));
+        }
+
+        list.innerHTML = html;
+    };
+
+    function charRow(c) {
+        let isActive = c.id === window._activeCloudCharId;
+        let worldBadge = c.worldCode ? `<span class="text-[8px] text-amber-500 font-bold ml-1">${c.worldCode}</span>` : '';
+        return `<div class="flex items-center gap-0.5 relative mb-0.5">
+            <button onclick="window.sidebarLoadCharacter('${c.id}')"
+                class="flex-1 text-left px-2 py-1.5 rounded text-[11px] font-bold transition truncate
+                       ${isActive ? 'bg-emerald-900/40 border border-emerald-700/50 text-emerald-300' : 'bg-slate-900 border border-slate-700 text-slate-200 hover:border-slate-500'}">
+                ${c.name || 'Unnamed'}${worldBadge}
+            </button>
+            <button onclick="window.openMeatball(event,'${c.id}')"
+                class="px-1.5 py-1.5 text-slate-500 hover:text-white text-xs font-black leading-none rounded hover:bg-slate-700 flex-shrink-0"
+                title="Options">⋮</button>
+        </div>`;
     }
+
+    window.openMeatball = function(e, charId) {
+        e.stopPropagation();
+        closeMeatball();
+        let btn = e.currentTarget;
+        let rect = btn.getBoundingClientRect();
+        let menu = document.createElement('div');
+        menu.className = 'meatball-menu';
+        menu.style.position = 'fixed';
+        menu.style.top = (rect.bottom + 2) + 'px';
+        menu.style.right = (window.innerWidth - rect.right) + 'px';
+        menu.innerHTML = `
+            <button onclick="window.meatballAddToFolder('${charId}')">Move to Folder</button>
+            <button onclick="window.meatballArchive('${charId}')">Archive</button>
+            <button onclick="window.sidebarDeleteCharacter('${charId}','${(window._sidebarChars.find(c=>c.id===charId)?.name||'Character').replace(/'/g,"\\'")}'); closeMeatball();" style="color:var(--c-red,#ef4444);">Delete</button>
+        `;
+        document.body.appendChild(menu);
+        _activeMeatball = menu;
+        e.stopPropagation();
+    };
+
+    // ── Folder actions ───────────────────────────────────────────
+    window.openFolderManager = function() {
+        document.getElementById('folderNameInput').value = '';
+        window.openModal('folderManagerModal');
+    };
+    window.confirmCreateFolder = async function() {
+        let name = document.getElementById('folderNameInput').value.trim();
+        if (!name) return;
+        let id = 'folder_' + Date.now();
+        window._sidebarFolders.push({ id, name });
+        if (window.apxAuth?.enabled) {
+            await window.apxAuth.saveFolder(id, name).catch(()=>{});
+        } else {
+            localStorage.setItem('apxFolders', JSON.stringify(window._sidebarFolders));
+        }
+        window.closeModal('folderManagerModal');
+        renderSidebarCharList();
+    };
+    window.deleteFolderConfirm = async function(folderId) {
+        let folder = window._sidebarFolders.find(f=>f.id===folderId);
+        window.showConfirm(`Delete folder "${folder?.name||'this folder'}"? Characters inside will become unfiled.`, async () => {
+            window._sidebarFolders = window._sidebarFolders.filter(f=>f.id!==folderId);
+            window._sidebarChars.forEach(c => { if (c.folderId===folderId) c.folderId=null; });
+            if (window.apxAuth?.enabled) await window.apxAuth.deleteFolder(folderId).catch(()=>{});
+            else localStorage.setItem('apxFolders', JSON.stringify(window._sidebarFolders));
+            renderSidebarCharList();
+        });
+    };
+    window.meatballAddToFolder = function(charId) {
+        closeMeatball();
+        let listEl = document.getElementById('folderPickerList');
+        listEl.innerHTML = window._sidebarFolders.length
+            ? window._sidebarFolders.map(f=>`
+                <button onclick="window.moveCharToFolder('${charId}','${f.id}')"
+                    class="w-full text-left px-3 py-2 rounded bg-slate-900 border border-slate-700 hover:border-indigo-500 text-xs font-bold text-slate-200 transition">
+                    ${f.name}
+                </button>`).join('') +
+              `<button onclick="window.moveCharToFolder('${charId}',null)"
+                  class="w-full text-left px-3 py-2 rounded bg-slate-900 border border-slate-700 hover:border-slate-500 text-xs font-bold text-slate-500 transition">
+                  Remove from folder (Unfiled)
+              </button>`
+            : '<div class="text-xs text-slate-500 text-center py-3">No folders yet. Create one below.</div>';
+        window.openModal('addToFolderModal');
+    };
+    window.moveCharToFolder = async function(charId, folderId) {
+        let c = window._sidebarChars.find(x=>x.id===charId);
+        if (c) { c.folderId = folderId || null; }
+        if (window.apxAuth?.enabled) {
+            await window.apxAuth.saveCharacter(charId, window.state, { folderId: folderId || null }).catch(()=>{});
+        }
+        window.closeModal('addToFolderModal');
+        renderSidebarCharList();
+    };
+    window.meatballArchive = async function(charId) {
+        closeMeatball();
+        // Find or create "Archived" folder
+        let archiveFolder = window._sidebarFolders.find(f=>f.name.toLowerCase()==='archived');
+        if (!archiveFolder) {
+            let id = 'folder_archive';
+            archiveFolder = { id, name: 'Archived' };
+            window._sidebarFolders.push(archiveFolder);
+            if (window.apxAuth?.enabled) await window.apxAuth.saveFolder(id, 'Archived').catch(()=>{});
+        }
+        await window.moveCharToFolder(charId, archiveFolder.id);
+    };
+
+    window.sidebarNewCharacter = async function() {
+        if (window._activeCloudCharId && window.state && window.apxAuth?.enabled) {
+            try {
+                let saveData = Object.assign({}, window.state);
+                if (window.undoStack) saveData._undoStack = window.undoStack;
+                await window.apxAuth.saveCharacter(window._activeCloudCharId, saveData);
+            } catch(e) {}
+        }
+        let newId = 'char_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+        window._activeCloudCharId = newId;
+        window.apxAuth?.setActiveCharId(newId);
+        window.createNewCharacter();
+        window._sidebarChars.push({ id: newId, name: 'New Character', state: null, folderId: null, worldCode: null });
+        window.renderSidebarCharList();
+        if (typeof window.toggleSidebar === 'function') window.toggleSidebar();
+    };
 
     window.sidebarDeleteCharacter = async function(id, name) {
         window.showConfirm(`Permanently delete "${name}"? This cannot be undone.`, async () => {
@@ -2115,32 +2315,14 @@
                 window.createNewCharacter();
             }
             if (window.apxAuth?.enabled) {
-                try { await window.apxAuth.deleteCharacter(id); } catch(e) { console.warn('Delete failed:', e.message); }
+                await window.apxAuth.deleteCharacter(id).catch(e => console.warn('Delete failed:', e.message));
             }
-            renderSidebarCharList();
+            window.renderSidebarCharList();
         });
     };
 
-    window.sidebarNewCharacter = async function() {
-        // Save current character before starting a new one
-        if (window._activeCloudCharId && window.state && window.apxAuth.enabled) {
-            try {
-                let saveData = Object.assign({}, window.state);
-                if (window.undoStack) saveData._undoStack = window.undoStack;
-                await window.apxAuth.saveCharacter(window._activeCloudCharId, saveData);
-            } catch(e) {}
-        }
-        let newId = 'char_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-        window._activeCloudCharId = newId;
-        window.apxAuth.setActiveCharId(newId);
-        window.createNewCharacter();
-        window._sidebarChars.push({ id: newId, name: 'New Character', state: null });
-        renderSidebarCharList();
-        if (typeof window.toggleSidebar === 'function') window.toggleSidebar();
-    };
-
     window.sidebarLoadCharacter = async function(id) {
-        if (window._activeCloudCharId && window.state && window.apxAuth.enabled) {
+        if (window._activeCloudCharId && window.state && window.apxAuth?.enabled) {
             try {
                 let saveData = Object.assign({}, window.state);
                 if (window.undoStack) saveData._undoStack = window.undoStack;
@@ -2149,19 +2331,19 @@
         }
         let entry = window._sidebarChars.find(c => c.id === id);
         if (!entry || !entry.state) {
-            if (window.apxAuth.enabled) {
+            if (window.apxAuth?.enabled) {
                 try {
                     let chars = await window.apxAuth.loadCharacters();
                     let found = chars.find(c => c.id === id);
-                    if (found) entry = { id, name: found.name, state: found.state };
+                    if (found) { entry = { id, name: found.name, state: found.state, folderId: found.folderId, worldCode: found.worldCode }; }
                 } catch(e) {}
             }
         }
         if (!entry || !entry.state) { alert('Could not load character data.'); return; }
         window._activeCloudCharId = id;
-        window.apxAuth.setActiveCharId(id);
+        window.apxAuth?.setActiveCharId(id);
         window.loadCharacterState(entry.state);
-        renderSidebarCharList();
+        window.renderSidebarCharList();
     };
 
     window.loadCharacterState = function(state) {
@@ -2195,16 +2377,16 @@
         }
 
         let chars = [];
-        if (window.apxAuth.enabled && user) {
+        if (window.apxAuth?.enabled && user) {
             try {
                 let cloudChars = await window.apxAuth.loadCharacters();
-                cloudChars.forEach(c => chars.push({ id: c.id, name: c.name || 'Unnamed', state: c.state, source: 'cloud' }));
+                cloudChars.forEach(c => chars.push({ id: c.id, name: c.name || 'Unnamed', state: c.state, source: 'cloud', folderId: c.folderId||null, worldCode: c.worldCode||null }));
             } catch(e) { console.warn('Cloud load failed:', e.message); }
         }
 
-        // Populate sidebar list too
-        window._sidebarChars = chars.map(c => ({ id: c.id, name: c.name, state: c.state }));
-        renderSidebarCharList();
+        // Populate sidebar list with full metadata
+        window._sidebarChars = chars.map(c => ({ id: c.id, name: c.name, state: c.state, folderId: c.folderId, worldCode: c.worldCode }));
+        window.renderSidebarCharList();
 
         if (!chars.length) {
             list.innerHTML = '<div class="text-xs text-center py-4" style="color:var(--c-text-muted,#94a3b8);">No saved characters yet — create one to get started.</div>';
@@ -2226,10 +2408,10 @@
     window.lobbyNewCharacter = function() {
         let newId = 'char_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
         window._activeCloudCharId = newId;
-        window.apxAuth.setActiveCharId(newId);
+        window.apxAuth?.setActiveCharId(newId);
         window.createNewCharacter();
-        window._sidebarChars.push({ id: newId, name: 'New Character', state: null });
-        renderSidebarCharList();
+        window._sidebarChars.push({ id: newId, name: 'New Character', state: null, folderId: null, worldCode: null });
+        window.renderSidebarCharList();
         document.getElementById('characterLobby').style.display = 'none';
     };
     window.lobbyLoadCharacter = function(id) {
@@ -2237,11 +2419,11 @@
         let entry = chars.find(c => c.id === id);
         if (!entry || !entry.state) return;
         window._activeCloudCharId = id;
-        window.apxAuth.setActiveCharId(id);
+        window.apxAuth?.setActiveCharId(id);
         let sidebarEntry = window._sidebarChars.find(c => c.id === id);
         if (sidebarEntry) sidebarEntry.state = entry.state;
         window.loadCharacterState(entry.state);
-        renderSidebarCharList();
+        window.renderSidebarCharList();
         document.getElementById('characterLobby').style.display = 'none';
     };
     window.lobbySkip = function() {
@@ -2261,6 +2443,13 @@
             if (!world) { errEl.innerText = 'Code not found. Check with your GM.'; return; }
             localStorage.setItem('apxConnectedWorld', JSON.stringify({ code, gmUid: world.gmUid, worldId: world.worldId }));
             window._playerWorldData = world;
+            // Mark the active character as linked to this world and save it
+            let entry = window._sidebarChars.find(c => c.id === window._activeCloudCharId);
+            if (entry) { entry.worldCode = code; }
+            if (window.apxAuth?.enabled && window._activeCloudCharId) {
+                await window.apxAuth.saveCharacter(window._activeCloudCharId, window.state, { worldCode: code }).catch(()=>{});
+            }
+            window.renderSidebarCharList();
             if (world.races && Array.isArray(window.gmRaces)) {
                 world.races.forEach(r => { if (!window.gmRaces.find(x => x.id === r.id)) window.gmRaces.push(r); });
                 if (typeof window.renderImportedRaceList === 'function') window.renderImportedRaceList();
@@ -2389,11 +2578,13 @@
         _autoSaveTimer = setTimeout(async () => {
             try {
                 let saveData = Object.assign({}, window.state);
-                // Include the undo history so the player can undo across sessions
                 if (window.undoStack) saveData._undoStack = window.undoStack;
                 if (window.redoStack) saveData._redoStack = window.redoStack;
-                window.apxAuth.setActiveCharId(window._activeCloudCharId);
-                await window.apxAuth.saveCharacter(window._activeCloudCharId, saveData);
+                window.apxAuth?.setActiveCharId(window._activeCloudCharId);
+                // Include folder and world metadata so the roster reloads correctly
+                let charMeta = window._sidebarChars.find(c => c.id === window._activeCloudCharId);
+                let meta = { folderId: charMeta?.folderId || null, worldCode: charMeta?.worldCode || null };
+                await window.apxAuth.saveCharacter(window._activeCloudCharId, saveData, meta);
             } catch(e) { console.warn('Auto-save failed:', e.message); }
         }, 500);
     }
@@ -2475,28 +2666,36 @@
         updateSidebarAccount(user);
         patchRecalc();
 
-        // Show lobby and populate it
+        // Load folders first so the character list renders with correct groupings
+        try {
+            let folders = window.apxAuth?.enabled
+                ? await window.apxAuth.loadFolders()
+                : JSON.parse(localStorage.getItem('apxFolders') || '[]');
+            window._sidebarFolders = folders;
+        } catch(e) { window._sidebarFolders = []; }
+
+        // Show lobby (populates _sidebarChars from cloud)
         await renderLobby(user);
 
-        // Load GM races from connected GM if set
-        if (window.apxAuth.enabled && user) {
+        // Load GM races from connected world's invite code
+        if (window.apxAuth?.enabled && user) {
             try {
-                let gmCode = localStorage.getItem('apxConnectedGm');
-                if (gmCode) {
-                    let races = await window.apxAuth.connectToGm(gmCode);
-                    races.forEach(r => {
-                        if (window.gmRaces && !window.gmRaces.find(x => x.id === r.id)) window.gmRaces.push(r);
-                    });
-                    if (typeof window.renderImportedRaceList === 'function') window.renderImportedRaceList();
+                let saved = JSON.parse(localStorage.getItem('apxConnectedWorld') || 'null');
+                if (saved?.code) {
+                    let world = await window.apxAuth.joinWorldByCode(saved.code);
+                    if (world?.races?.length && Array.isArray(window.gmRaces)) {
+                        world.races.forEach(r => { if (!window.gmRaces.find(x => x.id === r.id)) window.gmRaces.push(r); });
+                        if (typeof window.renderImportedRaceList === 'function') window.renderImportedRaceList();
+                    }
                 }
             } catch(e) { console.warn('GM races load failed:', e.message); }
         }
     };
 
-    // When Firebase is not enabled: still show the lobby with local chars only,
-    // and patch recalc for any local-only auto-save hooks.
+    // When Firebase is not enabled: still show the lobby with local chars only.
     if (!window.FIREBASE_ENABLED) {
         window.addEventListener('load', () => {
+            window._sidebarFolders = JSON.parse(localStorage.getItem('apxFolders') || '[]');
             patchRecalc();
             renderLobby(null);
         });
