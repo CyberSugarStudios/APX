@@ -138,6 +138,18 @@
                 window.state.origin.wealthApplied = true;
             }
 
+            // Auto-fill the languages field with the common language from this origin.
+            // Only add it if the language field is empty or doesn't already contain it.
+            let commonLang = window.state.origin.commonLanguage || '';
+            if (commonLang) {
+                let langInput = document.getElementById('languages');
+                let current = (langInput?.value || '').trim();
+                if (!current.toLowerCase().includes(commonLang.toLowerCase())) {
+                    langInput.value = current ? current + ', ' + commonLang : commonLang;
+                    window.updateState('languages', langInput.value);
+                }
+            }
+
             window.closeModal('originModal');
             window.recalculateMath();
         }

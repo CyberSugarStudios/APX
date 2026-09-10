@@ -20,7 +20,8 @@
             connectToGm: () => Promise.resolve([]),
             createWorld: () => Promise.resolve(null), loadWorlds: () => Promise.resolve([]),
             saveWorld: () => Promise.resolve(), saveWorldRaces: () => Promise.resolve(),
-            deleteWorld: () => Promise.resolve(), joinWorldByCode: () => Promise.resolve(null) };
+            deleteWorld: () => Promise.resolve(), joinWorldByCode: () => Promise.resolve(null),
+            loadWorldPlayers: () => Promise.resolve([]) };
         return;
     }
 
@@ -161,17 +162,43 @@
         if (inviteCode) await db.collection('worldCodes').doc(inviteCode).delete().catch(() => {});
     }
 
-    async function joinWorldByCode(inviteCode) {
+    async function joinWorldByCode(inviteCode, playerState) {
         // worldCodes is publicly readable — this always works
         let doc = await db.collection('worldCodes').doc(inviteCode.toUpperCase().trim()).get();
         if (!doc.exists) return null;
         let data = doc.data();
+        // Register this player in the world's joined players list
+        if (playerState && currentUser()) {
+            let uid = currentUser().uid;
+            let charName = (playerState.name || 'Unknown Player').slice(0, 60);
+            await db.collection('worldCodes').doc(inviteCode.toUpperCase().trim())
+                .collection('players').doc(uid).set({
+                    uid, charName,
+                    joinedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+        }
         return {
             gmUid: data.gmUid, worldId: data.worldId,
             worldName: data.worldName, name: data.worldName,
             races: data.races || [],
             notesV2: { locations: data.publicNotes?.locations || [], npcs: data.publicNotes?.npcs || [] }
         };
+    }
+
+    async function loadWorldPlayers(inviteCode) {
+        let snap = await db.collection('worldCodes').doc(inviteCode.toUpperCase().trim())
+            .collection('players').get();
+        return snap.docs.map(d => d.data());
+    }
+
+    // Load a specific player's characters from their Firestore collection.
+    // Only works if that player has shared their characters — uses the GM's
+    // read access via a cloud function approach; for now returns the player list
+    // so the GM can see who joined (full character data requires player export).
+    async function loadPlayerCharacters(playerUid) {
+        // Players own their own data — GM cannot read it directly with current rules.
+        // Return null to signal we need the player to export manually.
+        return null;
     }
 
     // A player can "connect to a GM" by entering the GM's share code
@@ -240,6 +267,7 @@
         saveGmRaces, loadGmRaces,
         getShareCode, connectToGm,
         createWorld, loadWorlds, saveWorld, saveWorldRaces, deleteWorld, joinWorldByCode,
+        loadWorldPlayers,
         scheduleAutoSave, setActiveCharId,
         renderAuthBar,
     };

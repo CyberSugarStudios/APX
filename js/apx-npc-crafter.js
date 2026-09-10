@@ -1030,9 +1030,37 @@ window.setCompanionHp = function(val) {
 window.openCompanionDetail = function() {
     let sb = window.companionStatBlock();
     if (!sb) return;
-    document.getElementById('companionDetailTitle').innerText = sb.name;
-    document.getElementById('companionDetailBody').innerHTML = buildStatBlockHtml(sb, true);
-    window.openModal('companionDetailModal');
+    // Use the same floating window system as the GM screen's NPC stat blocks
+    // so the companion card can be dragged around and left open during play.
+    let winId = 'companion';
+    if (window.gmFloatingWindows && window.gmFloatingWindows[winId]) {
+        window.gmFloatingWindows[winId].style.zIndex = ++window.gmFloatingZTop;
+        return;
+    }
+    // If the floating window system isn't available (e.g. GM screen not open),
+    // fall back to the modal.
+    if (!window.openFloatingStatBlockRaw) {
+        document.getElementById('companionDetailTitle').innerText = sb.name;
+        document.getElementById('companionDetailBody').innerHTML = buildStatBlockHtml(sb, true);
+        window.openModal('companionDetailModal');
+        return;
+    }
+    window.openFloatingStatBlockRaw(winId, sb.name, buildStatBlockHtml(sb, true));
+};
+
+// Allow opening any NPC stat block as a floating window by gmNpc ID.
+// Used from the World Notes NPC list and the NPC roster.
+window.openFloatingNpcStatBlockById = function(gmNpcId) {
+    let entry = (window.gmNpcs || []).find(n => n.id === gmNpcId);
+    if (!entry) return;
+    let winId = 'npc_' + gmNpcId;
+    if (window.gmFloatingWindows && window.gmFloatingWindows[winId]) {
+        window.gmFloatingWindows[winId].style.zIndex = ++window.gmFloatingZTop;
+        return;
+    }
+    if (!window.openFloatingStatBlockRaw) return;
+    let sb = ncStatBlockFor(gmNpcId);
+    window.openFloatingStatBlockRaw(winId, entry.npc?.name || 'NPC', window.buildStatBlockHtml(sb, false));
 };
 
 // Shared by the builder's own detail popup (editable HP) and the GM

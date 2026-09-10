@@ -866,11 +866,20 @@
         }
         window.ancAddFinalSkill = function() {
             let ft = window.state.ancestryFinalTraining;
-            if (ft.skills.length >= ancFinalSkillLimit()) return;
-            window.openSkillTrainPicker((skillId) => {
-                ft.skills.push(skillId);
-                renderAncFinalTraining();
-            }, 'Choose a Skill to Train (Ancestry Training)', 'Ancestry (Final Training)');
+            let limit = ancFinalSkillLimit();
+            if (ft.skills.length >= limit) return;
+            // After each pick, reopen the picker if we're not at the limit yet
+            function pickOne() {
+                let remaining = limit - (ft.skills.length);
+                if (remaining <= 0) return;
+                window.openSkillTrainPicker((skillId) => {
+                    ft.skills.push(skillId);
+                    renderAncFinalTraining();
+                    // If still slots remaining, reopen automatically
+                    if (ft.skills.length < ancFinalSkillLimit()) pickOne();
+                }, `Choose a Skill to Train (${ft.skills.length + 1} of ${limit})`, 'Ancestry (Final Training)');
+            }
+            pickOne();
         };
         window.ancRemoveFinalSkill = function(idx) {
             let ft = window.state.ancestryFinalTraining;

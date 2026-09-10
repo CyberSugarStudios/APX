@@ -370,7 +370,7 @@
             </div>
             <div class="flex gap-2">
                 <button onclick="window.openModal('settingsModal')" title="Settings" class="px-3 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold shadow">⚙</button>
-                <button onclick="window.loadGmPartyFolder()" class="px-3 py-2 rounded bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold shadow">Load Party Folder</button>
+                <button onclick="window.openLoadPartyModal()" class="px-3 py-2 rounded bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold shadow">Load Party</button>
                 <button onclick="window.openGmRaceRosterModal()" class="px-3 py-2 rounded bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-bold shadow">Race Templates</button>
                 <button onclick="window.openGmNpcRosterModal()" class="px-3 py-2 rounded bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold shadow">NPCs &amp; Enemies</button>
                 <button onclick="window.openModal('gmWorldModal')" class="px-3 py-2 rounded bg-amber-700 hover:bg-amber-600 text-white text-xs font-bold shadow">World</button>
@@ -1186,7 +1186,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-    <div class="modal-overlay" id="npcStatBlockPickerModal">
+        <div class="modal-overlay" id="loadPartyModal">
+        <div class="modal-content max-w-sm">
+            <h3 class="text-base font-bold text-white mb-3 border-b border-slate-600 pb-2">Load Party</h3>
+            <div class="space-y-2 mb-4">
+                <button onclick="window.loadGmPartyFromCloud()" class="w-full py-3 rounded bg-emerald-700 hover:bg-emerald-600 text-white text-sm font-bold transition text-left px-4">
+                    Load from World Invite Code
+                    <div class="text-[10px] text-emerald-200 font-normal mt-0.5">Pull all characters who joined this world via invite code.</div>
+                </button>
+                <button onclick="window.closeModal('loadPartyModal'); window.loadGmPartyFolder();" class="w-full py-3 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition text-left px-4">
+                    Load from Folder
+                    <div class="text-[10px] text-slate-400 font-normal mt-0.5">Select a local folder of exported character JSON files.</div>
+                </button>
+            </div>
+            <div id="loadPartyStatus" class="text-xs text-slate-400 mb-3 hidden"></div>
+            <div class="flex justify-end">
+                <button onclick="window.closeModal('loadPartyModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+<div class="modal-overlay" id="npcStatBlockPickerModal">
         <div class="modal-content max-w-md">
             <h3 class="text-base font-bold text-white mb-3 border-b border-slate-600 pb-2">Link Stat Block</h3>
             <p class="text-[10px] text-slate-400 mb-3">Choose an existing stat block, or create a new one and link it.</p>
@@ -1441,7 +1461,10 @@ document.addEventListener('DOMContentLoaded', () => {
             ? list.map(n => {
                 let linked = n.statBlockId ? window.gmNpcs?.find(g=>g.id===n.statBlockId) : null;
                 let statBadge = linked
-                    ? `<button onclick="event.stopPropagation();window.openGmNpcBuilder('${n.statBlockId}')" class="text-[9px] bg-indigo-900/50 border border-indigo-700/50 text-indigo-300 px-1.5 py-0.5 rounded font-bold hover:bg-indigo-900">Stat Block: ${linked.npc?.name||'View'}</button>`
+                    ? `<span class="flex gap-1">
+                           <button onclick="event.stopPropagation();window.openFloatingNpcStatBlockById('${n.statBlockId}')" class="text-[9px] bg-indigo-900/50 border border-indigo-700/50 text-indigo-300 px-1.5 py-0.5 rounded font-bold hover:bg-indigo-900">View Stat Block</button>
+                           <button onclick="event.stopPropagation();window.openGmNpcBuilder('${n.statBlockId}')" class="text-[9px] bg-slate-800 border border-slate-700 text-slate-400 px-1.5 py-0.5 rounded font-bold hover:border-slate-500">Edit</button>
+                       </span>`
                     : `<button onclick="event.stopPropagation();window.openNpcStatBlockPicker('${n.id}')" class="text-[9px] bg-slate-800 border border-slate-600 text-slate-400 px-1.5 py-0.5 rounded font-bold hover:border-slate-400">Link Stat Block</button>`;
                 return `<div class="bg-slate-900 border border-slate-700 rounded p-3 cursor-pointer hover:border-slate-500" onclick="window.openNoteModal('npc','${n.id}')">
                     <div class="flex items-start justify-between gap-2">
@@ -1460,11 +1483,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── Location Notes ───────────────────────────────────────────
     window.renderLocationList = function() {
         let q = (document.getElementById('locationSearch')?.value||'').toLowerCase();
-        let list = (_wNotes.locations||[]).filter(n=>!q||n.name.toLowerCase().includes(q)||n.description.toLowerCase().includes(q));
+        let list = (_wNotes.locations||[]).filter(n=>!q||n.name.toLowerCase().includes(q)||(n.description||'').toLowerCase().includes(q));
         let el = document.getElementById('locationList');
         if (!el) return;
         el.innerHTML = list.length
-            ? list.map(n=>noteCard({ id:n.id, type:'location', header:n.name||'Unnamed Location', body:n.description, sub:n.pinX!=null?`Pinned on map at (${Math.round(n.pinX*100)}%, ${Math.round(n.pinY*100)}%)`:'' })).join('')
+            ? list.map(n => {
+                let pinBadge = n.pinX != null
+                    ? `<button onclick="event.stopPropagation(); window.zoomToLocationPin('${n.id}')"
+                           style="background:${n.pinColor||'#ef4444'}22; border:1px solid ${n.pinColor||'#ef4444'}; color:${n.pinColor||'#ef4444'};"
+                           class="text-[9px] px-1.5 py-0.5 rounded font-bold hover:opacity-80">View on Map</button>`
+                    : `<span class="text-[9px] text-slate-600">No pin</span>`;
+                return `<div class="bg-slate-900 border border-slate-700 rounded p-3 cursor-pointer hover:border-slate-500" onclick="window.openNoteModal('location','${n.id}')">
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="font-bold text-xs text-slate-200">${n.name||'Unnamed Location'}</div>
+                        <div onclick="event.stopPropagation();">${pinBadge}</div>
+                    </div>
+                    ${n.description ? `<div class="text-[10px] text-slate-400 mt-1 line-clamp-2">${n.description}</div>` : ''}
+                </div>`;
+              }).join('')
             : emptyState('No locations yet');
     };
 
@@ -1510,8 +1546,12 @@ document.addEventListener('DOMContentLoaded', () => {
             <div><label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Location Name</label>
             <input type="text" id="nfName" value="${n.name||''}" placeholder="Ironveil, The Sunken Archive..." class="bg-slate-900 text-sm font-bold w-full"></div>
             <div><label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Description</label>
-            <textarea id="nfContent" class="bg-slate-900 text-xs w-full resize-none" rows="6" placeholder="What does this place look like? What's notable here?">${n.description||''}</textarea></div>
-            ${n.pinX!=null ? `<div class="text-[10px] text-slate-500">Map pin: ${Math.round(n.pinX*100)}%, ${Math.round(n.pinY*100)}%</div>` : ''}`,
+            <textarea id="nfContent" class="bg-slate-900 text-xs w-full resize-none" rows="5" placeholder="What does this place look like? What's notable here?">${n.description||''}</textarea></div>
+            <div class="flex items-center gap-3">
+                <div><label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Pin Color</label>
+                <input type="color" id="nfPinColor" value="${n.pinColor||'#ef4444'}" class="w-10 h-8 rounded cursor-pointer bg-slate-900 border border-slate-700"></div>
+                ${n.pinX!=null ? `<div class="text-[10px] text-slate-500 self-end pb-1">Pinned at ${Math.round(n.pinX*100)}%, ${Math.round(n.pinY*100)}%</div>` : '<div class="text-[10px] text-slate-500 self-end pb-1">Click map to pin</div>'}
+            </div>`,
         secret: (n={}) => `
             <div><label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Secret Title</label>
             <input type="text" id="nfTitle" value="${n.title||''}" placeholder="The king is actually a vampire..." class="bg-slate-900 text-sm font-bold w-full"></div>
@@ -1545,7 +1585,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let note = existing || { id: type+'_'+Date.now() };
         if (type==='session') { note.title=g('nfTitle')?.value||''; note.date=g('nfDate')?.value||''; note.content=g('nfContent')?.value||''; }
         if (type==='npc')     { note.name=g('nfName')?.value||''; note.role=g('nfRole')?.value||''; note.description=g('nfContent')?.value||''; }
-        if (type==='location'){ note.name=g('nfName')?.value||''; note.description=g('nfContent')?.value||''; }
+        if (type==='location'){ note.name=g('nfName')?.value||''; note.description=g('nfContent')?.value||''; note.pinColor=g('nfPinColor')?.value||'#ef4444'; }
         if (type==='secret')  { note.title=g('nfTitle')?.value||''; note.content=g('nfContent')?.value||''; note.revealed=!!(g('nfRevealed')?.checked); }
 
         if (!existing) arr.push(note);
@@ -1565,12 +1605,13 @@ document.addEventListener('DOMContentLoaded', () => {
             let msg = document.getElementById('gmCopiedMsg');
             if (msg) { msg.classList.remove('hidden'); setTimeout(() => msg.classList.add('hidden'), 2000); }
         }).catch(() => {
-            // Fallback for browsers that block clipboard without HTTPS
             let ta = document.createElement('textarea');
             ta.value = code; document.body.appendChild(ta); ta.select();
             document.execCommand('copy'); document.body.removeChild(ta);
         });
     };
+
+    window.deleteCurrentNote = function() {
         if (!confirm('Delete this note?')) return;
         let { type, id } = _noteContext;
         let arrKey = type==='session'?'session':type==='npc'?'npcs':type==='location'?'locations':'secrets';
@@ -1641,22 +1682,60 @@ document.addEventListener('DOMContentLoaded', () => {
             _mapImg.style.display = 'block';
             document.getElementById('mapEmptyState').style.display = 'none';
             _wNotes.worldMapDataUrl = e.target.result;
-            mapResetView();
+            // Wait for image to load so natural dimensions are available for reset
+            _mapImg.onload = () => window.mapResetView();
             saveWorldNotes();
         };
         reader.readAsDataURL(input.files[0]);
     };
     function applyMapTransform() {
         document.getElementById('mapViewport').style.transform = `translate(${_mapOffX}px,${_mapOffY}px) scale(${_mapScale})`;
+        renderMapPins(); // re-render pins with current scale for size-invariance
+    }
+    // Zoom toward a specific screen point (clientX/Y), keeping that point stationary
+    function zoomAtPoint(factor, clientX, clientY) {
+        let container = document.getElementById('mapContainer');
+        let rect = container.getBoundingClientRect();
+        let mouseX = clientX - rect.left;
+        let mouseY = clientY - rect.top;
+        // Point in map-image space before zoom
+        let mapX = (mouseX - _mapOffX) / _mapScale;
+        let mapY = (mouseY - _mapOffY) / _mapScale;
+        _mapScale = Math.max(0.05, Math.min(10, _mapScale * factor));
+        // Adjust offset so same map point stays under cursor
+        _mapOffX = mouseX - mapX * _mapScale;
+        _mapOffY = mouseY - mapY * _mapScale;
+        applyMapTransform();
     }
     window.mapZoom = function(factor) {
-        _mapScale = Math.max(0.1, Math.min(8, _mapScale * factor));
+        // Zoom toward center of container when using buttons
+        let container = document.getElementById('mapContainer');
+        if (container) {
+            let rect = container.getBoundingClientRect();
+            zoomAtPoint(factor, rect.left + rect.width / 2, rect.top + rect.height / 2);
+        } else {
+            _mapScale = Math.max(0.05, Math.min(10, _mapScale * factor));
+            applyMapTransform();
+        }
+    };
+    window.mapResetView = function() {
+        // Fit the full image in view, centered
+        let container = document.getElementById('mapContainer');
+        let img = document.getElementById('mapImage');
+        if (container && img && img.naturalWidth) {
+            let cw = container.clientWidth, ch = container.clientHeight;
+            let iw = img.naturalWidth, ih = img.naturalHeight;
+            _mapScale = Math.min(cw / iw, ch / ih, 1);
+            _mapOffX = (cw - iw * _mapScale) / 2;
+            _mapOffY = (ch - ih * _mapScale) / 2;
+        } else {
+            _mapScale = 1; _mapOffX = 0; _mapOffY = 0;
+        }
         applyMapTransform();
     };
-    window.mapResetView = function() { _mapScale=1; _mapOffX=0; _mapOffY=0; applyMapTransform(); };
     window.mapScroll = function(e) {
         e.preventDefault();
-        window.mapZoom(e.deltaY < 0 ? 1.1 : 0.9);
+        zoomAtPoint(e.deltaY < 0 ? 1.1 : 0.9, e.clientX, e.clientY);
     };
     window.mapStartDrag = function(e) {
         if (e.button !== 0) return;
@@ -1702,7 +1781,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let arrKey = 'locations';
             _origSaveNote();
             let newNote = (_wNotes[arrKey]||[]).slice(-1)[0];
-            if (newNote) { newNote.pinX = _pendingMapPin.x; newNote.pinY = _pendingMapPin.y; saveWorldNotes(); }
+            if (newNote) { newNote.pinX = _pendingMapPin.x; newNote.pinY = _pendingMapPin.y; newNote.pinColor = document.getElementById('nfPinColor')?.value||'#ef4444'; saveWorldNotes(); }
             _pendingMapPin = null;
             renderMapPins();
             return;
@@ -1718,14 +1797,38 @@ document.addEventListener('DOMContentLoaded', () => {
         let imgH = _mapImg.naturalHeight || 600;
         layer.style.width = imgW + 'px';
         layer.style.height = imgH + 'px';
-        layer.innerHTML = (_wNotes.locations||[]).filter(l=>l.pinX!=null).map(l=>`
-            <div style="position:absolute; left:${l.pinX*imgW}px; top:${l.pinY*imgH}px; transform:translate(-50%,-100%); pointer-events:auto; cursor:pointer;"
-                 onclick="window.openNoteModal('location','${l.id}')" title="${l.name||'Location'}">
-                <div style="background:#ef4444; color:#fff; font-size:10px; font-weight:700; padding:2px 5px; border-radius:3px; white-space:nowrap; box-shadow:0 1px 4px rgba(0,0,0,.5);">${l.name||'?'}</div>
-                <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid #ef4444;margin:0 auto;"></div>
-            </div>
-        `).join('');
+        // Counter-scale: pins shrink in map-space by 1/scale so they appear
+        // the same size on screen regardless of zoom level.
+        let pinScale = 1 / Math.max(_mapScale, 0.1);
+        layer.innerHTML = (_wNotes.locations||[]).filter(l=>l.pinX!=null).map(l=>{
+            let c = l.pinColor || '#ef4444';
+            return `<div style="position:absolute; left:${l.pinX*imgW}px; top:${l.pinY*imgH}px;
+                         transform:translate(-50%,-100%) scale(${pinScale}); transform-origin:50% 100%;
+                         pointer-events:auto; cursor:pointer;"
+                     onclick="window.openNoteModal('location','${l.id}')" title="${l.name||'Location'}">
+                <div style="background:${c}; color:#fff; font-size:11px; font-weight:700; padding:2px 6px; border-radius:3px; white-space:nowrap; box-shadow:0 1px 4px rgba(0,0,0,.6); min-width:12px; min-height:14px;">${l.name||'?'}</div>
+                <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid ${c};margin:0 auto;"></div>
+            </div>`;
+        }).join('');
     }
+
+    // Jump to a specific location pin on the map (called from Locations tab)
+    window.zoomToLocationPin = function(locationId) {
+        window.showWorldTab('map');
+        initMap();
+        let loc = (_wNotes.locations||[]).find(l=>l.id===locationId);
+        if (!loc || loc.pinX == null) return;
+        let img = document.getElementById('mapImage');
+        let container = document.getElementById('mapContainer');
+        if (!img || !container) return;
+        let iw = img.naturalWidth || 800, ih = img.naturalHeight || 600;
+        let cw = container.clientWidth, ch = container.clientHeight;
+        // Zoom in to 2x and center on pin
+        _mapScale = 2;
+        _mapOffX = cw/2 - loc.pinX * iw * _mapScale;
+        _mapOffY = ch/2 - loc.pinY * ih * _mapScale;
+        applyMapTransform();
+    };
 
     // ── Modal open hook ──────────────────────────────────────────
     let _origOpenModal2 = window.openModal;

@@ -192,7 +192,7 @@ window.loadGmPartyFolder = async function() {
                     const file = await entry.getFile();
                     const text = await file.text();
                     const charData = JSON.parse(text);
-                    if (!charData.baseStats || !charData.ancestry) continue; // not a character file, skip
+                    if (!charData.baseStats || !charData.ancestry) continue;
                     loaded.push({ fileName: entry.name, state: charData, summary: computeCharSummary(charData) });
                 } catch (e) {
                     console.warn("Skipping invalid character file:", entry.name, e);
@@ -207,6 +207,62 @@ window.loadGmPartyFolder = async function() {
     }
 };
 
+window.openLoadPartyModal = function() {
+    let status = document.getElementById('loadPartyStatus');
+    if (status) status.classList.add('hidden');
+    window.openModal('loadPartyModal');
+};
+
+window.loadGmPartyFromCloud = async function() {
+    let statusEl = document.getElementById('loadPartyStatus');
+    let showStatus = (msg, color) => {
+        if (!statusEl) return;
+        statusEl.classList.remove('hidden');
+        statusEl.style.color = color || '';
+        statusEl.innerText = msg;
+    };
+
+    if (!window.apxAuth?.enabled || !window.apxAuth.user) {
+        showStatus('Sign in to load players from the cloud.', 'var(--c-red,#ef4444)');
+        return;
+    }
+
+    // Find the active world's invite code
+    let activeWorldId = typeof _activeWorldId !== 'undefined' ? _activeWorldId : null;
+    let worlds = typeof _gmWorlds !== 'undefined' ? _gmWorlds : [];
+    let activeWorld = worlds.find(w => (w.worldId || w.id) === activeWorldId);
+    let inviteCode = activeWorld?.inviteCode;
+
+    if (!inviteCode) {
+        showStatus('Open a World first, then use its invite code to pull players.', 'var(--c-red,#ef4444)');
+        return;
+    }
+
+    try {
+        showStatus('Fetching players who joined with code ' + inviteCode + '...');
+        let players = await window.apxAuth.loadWorldPlayers(inviteCode);
+        if (!players.length) {
+            showStatus('No players have joined with this invite code yet.', '#94a3b8');
+            return;
+        }
+        showStatus(`Found ${players.length} player(s). Note: full character sheets require the player to export their file — only names are available from the cloud.`, '#94a3b8');
+        // Add players to the party display as name-only entries
+        let newEntries = players.map(p => ({
+            fileName: p.uid,
+            state: { name: p.charName || 'Unknown Player', baseStats: {}, ancestry: { name: '' } },
+            summary: computeCharSummary({ name: p.charName || 'Unknown Player', baseStats: {}, ancestry: { name: '' } })
+        }));
+        // Merge with existing party, avoid duplicates
+        newEntries.forEach(e => {
+            if (!window.gmParty.find(p => p.fileName === e.fileName)) window.gmParty.push(e);
+        });
+        window.renderGmScreen();
+        setTimeout(() => window.closeModal('loadPartyModal'), 1500);
+    } catch(e) {
+        showStatus('Error: ' + e.message, 'var(--c-red,#ef4444)');
+    }
+};
+
 
 function statBadge(label, value, colorClass) {
     return `<div class="text-center bg-slate-900 rounded border border-slate-700 py-1"><div class="text-[8px] text-slate-500 uppercase font-bold">${label}</div><div class="text-sm font-black ${colorClass || 'text-white'}">${value}</div></div>`;
@@ -216,7 +272,7 @@ window.renderGmScreen = function() {
     let body = document.getElementById('gmScreenBody');
     if (!body) return;
     if (!window.gmParty.length) {
-        body.innerHTML = '<div class="text-xs text-slate-500 text-center py-6">No party loaded yet. Click "Load Party Folder" to select a folder of character files.</div>';
+        body.innerHTML = '<div class="text-xs text-slate-500 text-center py-6">No party loaded yet. Click "Load Party" to pull from the active world or load from exported files.</div>';
         return;
     }
     body.innerHTML = window.gmParty.map((p, idx) => {
@@ -959,4 +1015,55 @@ window.closeFloatingStatBlock = function(entryId) {
 };
 window.closeAllFloatingStatBlocks = function() {
     Object.keys(window.gmFloatingWindows).forEach(id => window.closeFloatingStatBlock(id));
+};
+
+// Generic floating window spawner — used by companion detail and world NPC
+// stat blocks so they open in the same draggable panel as initiative entries.
+window.openFloatingStatBlockRaw = function(winId, title, bodyHtml) {
+    if (window.gmFloatingWindows[winId]) {
+        gmFloatingZTop++;
+        window.gmFloatingWindows[winId].style.zIndex = gmFloatingZTop;
+        return;
+    }
+    let win = document.createElement('div');
+    win.className = 'floating-stat-window';
+    win.style.left = `${120 + Object.keys(window.gmFloatingWindows).length * 24}px`;
+    win.style.top  = `${100 + Object.keys(window.gmFloatingWindows).length * 24}px`;
+    gmFloatingZTop++;
+    win.style.zIndex = gmFloatingZTop;
+    win.innerHTML = `
+        <div class="floating-stat-window-header">
+            <span class="text-sm font-black text-white">${title}</span>
+            <button class="text-slate-400 hover:text-white font-bold text-lg leading-none px-1" onclick="window.closeFloatingStatBlock('${winId}')">&times;</button>
+        </div>
+        <div class="floating-stat-window-body">${bodyHtml}</div>
+    `;
+    let container = document.getElementById('floatingWindowContainer');
+    if (!container) { document.body.appendChild(win); }
+    else container.appendChild(win);
+    window.gmFloatingWindows[winId] = win;
+
+    win.addEventListener('mousedown', () => { gmFloatingZTop++; win.style.zIndex = gmFloatingZTop; });
+    let header = win.querySelector('.floating-stat-window-header');
+    let dragging = false, offsetX = 0, offsetY = 0;
+    function onMouseDown(e) {
+        if (e.target.tagName === 'BUTTON') return;
+        dragging = true;
+        let rect = win.getBoundingClientRect();
+        offsetX = e.clientX - rect.left; offsetY = e.clientY - rect.top;
+        e.preventDefault();
+    }
+    function onMouseMove(e) {
+        if (!dragging) return;
+        win.style.left = `${Math.max(0, Math.min(window.innerWidth - 60, e.clientX - offsetX))}px`;
+        win.style.top  = `${Math.max(0, Math.min(window.innerHeight - 40, e.clientY - offsetY))}px`;
+    }
+    function onMouseUp() { dragging = false; }
+    header.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    win._dragCleanup = () => {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+    };
 };

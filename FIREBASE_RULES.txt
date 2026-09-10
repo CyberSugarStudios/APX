@@ -19,5 +19,12 @@ service cloud.firestore {
         && request.auth.uid == resource.data.gmUid;
     }
 
+    // Players register themselves when joining a world.
+    // The GM (owner) can also read the list.
+    match /worldCodes/{inviteCode}/players/{playerId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == playerId;
+    }
+
   }
 }

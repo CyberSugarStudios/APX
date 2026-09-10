@@ -372,6 +372,18 @@
 
             calc.ac += allowedAgi + armorAc;
             document.getElementById('dispAc').innerText = calc.ac;
+            // Update AC tooltip to reflect Defensive perk formula
+            {
+                let acLabel = document.querySelector('[data-tip*="Total AC"], [data-tip*="AGI modifier"]');
+                if (acLabel) {
+                    let defRank = window.state.perks['con_defensive'] || 0;
+                    if (defRank >= 1 && armorWt === 0) {
+                        acLabel.setAttribute('data-tip', `10 + AGI mod + CON mod (Defensive perk, unarmored only). Equipping any armor removes the CON bonus and reverts to 10 + AGI mod + armor bonus.`);
+                    } else {
+                        acLabel.setAttribute('data-tip', `10 + AGI modifier (or LUC if higher, with Lucky) + equipped Armor + Shield + other bonuses`);
+                    }
+                }
+            }
             document.getElementById('dispAcCalc').innerText = `10+${allowedAgi}(AGI)+${armorAc}`;
             {
                 let s = window.state.equippedShield, h = window.state.equippedHelmet;
@@ -907,7 +919,24 @@
                     </td>
                     <td class="px-1 py-2 w-14">
                         ${cat === 'ranged'
-                            ? `<div class="text-[10px] font-bold text-slate-300 p-1 h-7 flex items-center justify-center" title="Ranged attack and damage rolls always use AGI (Ch.9 Making Attacks)${w.weightClass === 'heavy' ? '; Heavy ranged also adds STR to damage' : ''}">AGI${w.weightClass === 'heavy' ? '+STR' : ''}</div>`
+                            ? (() => {
+                                // Ranged always uses AGI for the attack roll.
+                                // With FF rank 3+ and untrained, LUC can substitute.
+                                let ffRank = window.state.perks['luc_fortunatefighter'] || 0;
+                                let isTrained = weaponIsTrained(w);
+                                let isHeavyR = w.weightClass === 'heavy';
+                                if (ffRank >= 3 && !isTrained) {
+                                    // Light/medium ranged: AGI or LUC
+                                    // Heavy ranged: AGI+STR or LUC+STR (STR always adds to heavy ranged damage)
+                                    let suffix = isHeavyR ? '+STR' : '';
+                                    let opts = [{ val:'AGI', label:`AGI${suffix}` }, { val:'LUC', label:`LUC${suffix}` }];
+                                    return `<select onchange="window.updateWeaponAttr(${idx}, this.value)" class="bg-slate-900 border-slate-700 text-[10px] font-bold p-1 h-7 w-20" title="Fortunate Fighter: use LUC instead of AGI for untrained ranged attacks">
+                                        ${opts.map(o=>`<option value="${o.val}" ${w.attr===o.val?'selected':''}>${o.label}</option>`).join('')}
+                                    </select>`;
+                                }
+                                // Standard: AGI only (show +STR note for heavy)
+                                return `<div class="text-[10px] font-bold text-slate-300 p-1 h-7 flex items-center justify-center" title="Ranged attack and damage rolls always use AGI${isHeavyR?'; Heavy ranged also adds STR to damage':''}">AGI${isHeavyR?'+STR':''}</div>`;
+                              })()
                             : (() => {
                                 // Custom weapons can use any attribute (player defined).
                                 // Forged/standard melee: only STR and AGI per book rules.
