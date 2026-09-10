@@ -329,6 +329,7 @@
 
 
     <button class="hamburger-btn" onclick="window.toggleSidebar()">☰ Roster</button>
+    <button id="playerWorldBtn" class="hamburger-btn hidden" onclick="window.openModal('playerWorldModal')" style="background:var(--c-surface,#1e293b); border:1px solid var(--c-border,#334155);">World</button>
     <div class="undo-redo-cluster">
         <button id="btnUndo" onclick="window.performUndo()" title="Undo (Ctrl+Z)" disabled>↶ Undo</button>
         <button id="btnRedo" onclick="window.performRedo()" title="Redo (Ctrl+Y)" disabled>↷ Redo</button>
@@ -2012,6 +2013,35 @@
         </div>
     </div>
 
+    <!-- Player World Modal: shows publicly-visible world info -->
+    <div class="modal-overlay" id="playerWorldModal">
+        <div class="modal-content" style="max-width:680px; max-height:90vh; display:flex; flex-direction:column;">
+            <div class="flex justify-between items-center mb-3 border-b border-slate-600 pb-2 flex-shrink-0">
+                <div>
+                    <h3 id="playerWorldTitle" class="text-base font-bold text-amber-400">World</h3>
+                    <div id="playerWorldCode" class="text-[10px] text-slate-500"></div>
+                </div>
+                <button onclick="window.closeModal('playerWorldModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Close</button>
+            </div>
+            <div class="flex gap-2 mb-3 flex-shrink-0">
+                <button onclick="window.showPlayerWorldTab('locations')" id="pwTabLocations" class="px-3 py-1.5 rounded text-xs font-bold bg-emerald-700 text-white">Locations</button>
+                <button onclick="window.showPlayerWorldTab('npcs')"      id="pwTabNpcs"      class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">NPCs</button>
+                <button onclick="window.showPlayerWorldTab('map')"       id="pwTabMap"       class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Map</button>
+            </div>
+            <div id="pwPanelLocations" class="flex-1 overflow-y-auto space-y-2 pr-1"></div>
+            <div id="pwPanelNpcs" class="hidden flex-1 overflow-y-auto space-y-2 pr-1"></div>
+            <div id="pwPanelMap" class="hidden flex-1 overflow-hidden rounded border border-slate-700 bg-slate-950 relative" style="min-height:280px;">
+                <div id="pwMapViewport" style="position:absolute; transform-origin:0 0; will-change:transform;">
+                    <img id="pwMapImage" src="" alt="" style="display:none; max-width:none; user-select:none; pointer-events:none;">
+                    <div id="pwMapPins" style="position:absolute; top:0; left:0; pointer-events:none;"></div>
+                </div>
+                <div id="pwMapEmpty" class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <p class="text-slate-600 text-sm">No map uploaded for this world yet</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
 <div class="modal-overlay" id="confirmModal">
         <div class="modal-content max-w-sm text-center border border-slate-600">
             <p id="confirmMessage" class="mb-6 text-white font-bold text-lg"></p>
@@ -2203,16 +2233,99 @@
         try {
             let world = await window.apxAuth.joinWorldByCode(code);
             if (!world) { errEl.innerText = 'Code not found. Check with your GM.'; return; }
-            // Store connected world and load its assets
             localStorage.setItem('apxConnectedWorld', JSON.stringify({ code, gmUid: world.gmUid, worldId: world.worldId }));
+            window._playerWorldData = world;
             if (world.races && Array.isArray(window.gmRaces)) {
                 world.races.forEach(r => { if (!window.gmRaces.find(x => x.id === r.id)) window.gmRaces.push(r); });
                 if (typeof window.renderImportedRaceList === 'function') window.renderImportedRaceList();
             }
+            document.getElementById('playerWorldBtn').classList.remove('hidden');
             errEl.style.color = 'var(--c-emerald,#34d399)';
             errEl.innerText = `Joined "${world.worldName || world.name}"! GM assets loaded.`;
         } catch(e) { errEl.innerText = 'Error: ' + e.message; }
     };
+
+    // ── Player World View ────────────────────────────────────────
+    window._playerWorldData = null;
+    window.showPlayerWorldTab = function(tab) {
+        ['locations','npcs','map'].forEach(t => {
+            let p = document.getElementById(`pwPanel${t.charAt(0).toUpperCase()}${t.slice(1)}`);
+            if (p) p.classList.toggle('hidden', t !== tab);
+            let b = document.getElementById(`pwTab${t.charAt(0).toUpperCase()}${t.slice(1)}`);
+            if (b) b.className = `px-3 py-1.5 rounded text-xs font-bold ${t===tab?'bg-emerald-700 text-white':'bg-slate-700 text-slate-300'}`;
+        });
+        if (tab === 'map') renderPlayerMap();
+    };
+    window.openModal = (function(origOpen) {
+        return function(id) {
+            origOpen(id);
+            if (id === 'playerWorldModal') renderPlayerWorld();
+        };
+    })(window.openModal);
+
+    function renderPlayerWorld() {
+        let world = window._playerWorldData;
+        if (!world) {
+            // Try to reload from localStorage
+            let saved = JSON.parse(localStorage.getItem('apxConnectedWorld')||'null');
+            if (saved) { document.getElementById('playerWorldCode').innerText = 'Code: ' + saved.code; }
+            return;
+        }
+        let notes = world.notesV2 || {};
+        document.getElementById('playerWorldTitle').innerText = world.worldName || world.name || 'World';
+        let saved = JSON.parse(localStorage.getItem('apxConnectedWorld')||'{}');
+        document.getElementById('playerWorldCode').innerText = 'Code: ' + (saved.code||'');
+        document.getElementById('playerWorldBtn').classList.remove('hidden');
+
+        // Locations: all non-secret ones
+        let locs = (notes.locations||[]).filter(l => !l.spoiler || l.revealed);
+        let locEl = document.getElementById('pwPanelLocations');
+        locEl.innerHTML = locs.length ? locs.map(l => `
+            <div class="bg-slate-900 border border-slate-700 rounded p-3">
+                <div class="text-xs font-bold text-emerald-300">${l.name||'Unknown Location'}</div>
+                ${l.description ? `<div class="text-[10px] text-slate-400 mt-1">${l.description}</div>` : ''}
+            </div>`).join('') : '<div class="text-slate-600 text-sm text-center py-6">No locations shared yet</div>';
+
+        // NPCs: all visible ones
+        let npcs = (notes.npcs||[]).filter(n => !n.spoiler || n.revealed);
+        let npcEl = document.getElementById('pwPanelNpcs');
+        npcEl.innerHTML = npcs.length ? npcs.map(n => `
+            <div class="bg-slate-900 border border-slate-700 rounded p-3">
+                <div class="flex items-baseline gap-2">
+                    <div class="text-xs font-bold text-indigo-300">${n.name||'Unknown NPC'}</div>
+                    ${n.role ? `<div class="text-[10px] text-slate-500">${n.role}</div>` : ''}
+                </div>
+                ${n.description ? `<div class="text-[10px] text-slate-400 mt-1">${n.description}</div>` : ''}
+            </div>`).join('') : '<div class="text-slate-600 text-sm text-center py-6">No NPCs shared yet</div>';
+    }
+
+    function renderPlayerMap() {
+        let world = window._playerWorldData;
+        let notes = world?.notesV2 || {};
+        let img = document.getElementById('pwMapImage');
+        let emptyEl = document.getElementById('pwMapEmpty');
+        if (notes.worldMapDataUrl && img) {
+            img.src = notes.worldMapDataUrl;
+            img.style.display = 'block';
+            emptyEl.style.display = 'none';
+            // Show location pins
+            let locs = (notes.locations||[]).filter(l => l.pinX != null && (!l.spoiler || l.revealed));
+            let layer = document.getElementById('pwMapPins');
+            let iw = img.naturalWidth || 800, ih = img.naturalHeight || 600;
+            layer.style.width = iw+'px'; layer.style.height = ih+'px';
+            layer.innerHTML = locs.map(l=>`
+                <div style="position:absolute; left:${l.pinX*iw}px; top:${l.pinY*ih}px; transform:translate(-50%,-100%);" title="${l.name||'?'}">
+                    <div style="background:#34d399; color:#0f172a; font-size:9px; font-weight:700; padding:2px 4px; border-radius:3px; white-space:nowrap;">${l.name||'?'}</div>
+                    <div style="width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid #34d399;margin:0 auto;"></div>
+                </div>`).join('');
+        }
+    }
+
+    // On load, restore world button if a code is stored
+    window.addEventListener('load', () => {
+        let saved = JSON.parse(localStorage.getItem('apxConnectedWorld')||'null');
+        if (saved) document.getElementById('playerWorldBtn')?.classList.remove('hidden');
+    });
 
     // loadCharacterState: the roster system already has this logic — reuse it
     window.loadCharacterState = function(state) {

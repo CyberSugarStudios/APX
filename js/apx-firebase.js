@@ -145,7 +145,10 @@
         let { gmUid, worldId, worldName } = doc.data();
         let worldDoc = await db.collection('users').doc(gmUid).collection('worlds').doc(worldId).get();
         if (!worldDoc.exists) return null;
-        return { gmUid, worldId, worldName, ...worldDoc.data() };
+        let data = worldDoc.data();
+        // Return everything the player needs: world name, races, and visible notes
+        return { gmUid, worldId, worldName: worldName || data.name, name: data.name,
+                 races: data.races || [], notesV2: data.notesV2 || {} };
     }
 
     // A player can "connect to a GM" by entering the GM's share code
