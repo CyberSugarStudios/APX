@@ -372,13 +372,14 @@
 
             calc.ac += allowedAgi + armorAc;
             document.getElementById('dispAc').innerText = calc.ac;
-            // Update AC tooltip to reflect Defensive perk formula
+            // Update AC label tooltip to reflect Defensive perk formula
             {
-                let acLabel = document.querySelector('[data-tip*="Total AC"], [data-tip*="AGI modifier"]');
+                let acLabel = document.querySelector('[data-tip*="Total AC"], div[data-tip*="10 + AGI"]');
+                if (!acLabel) acLabel = document.querySelector('div[data-tip*="AGI modifier"]');
                 if (acLabel) {
                     let defRank = window.state.perks['con_defensive'] || 0;
                     if (defRank >= 1 && armorWt === 0) {
-                        acLabel.setAttribute('data-tip', `10 + AGI mod + CON mod (Defensive perk, unarmored only). Equipping any armor removes the CON bonus and reverts to 10 + AGI mod + armor bonus.`);
+                        acLabel.setAttribute('data-tip', `Unarmored with Defensive perk: 10 + AGI mod + CON mod. Equipping any armor or shield removes the CON bonus and reverts to the standard formula.`);
                     } else {
                         acLabel.setAttribute('data-tip', `10 + AGI modifier (or LUC if higher, with Lucky) + equipped Armor + Shield + other bonuses`);
                     }

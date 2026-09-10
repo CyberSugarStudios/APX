@@ -1030,8 +1030,9 @@
                     window.state.skillSource[skillId] = 'Ancestry (Skill Aptitude)';
                 });
             }
-            window.openModal('ancestryModal'); // this calls syncAncestryWizard(), which resets ancTarget to 'player'
-            ancTarget = 'gmRace'; // ...so it's set back to 'gmRace' immediately after
+            window.openModal('ancestryModal'); // this calls syncAncestryWizard(), which resets ancTarget to 'player' and ancRaceEditId to null
+            ancRaceEditId = raceId || null;   // restore after syncAncestryWizard clears it
+            ancTarget = 'gmRace'; // ...so ancTarget is also restored immediately after
             window.ancTarget = ancTarget;
             document.getElementById('ancestryWizardTitle').innerText = 'Race Template Builder';
             toggleWizBaseAttrFields(true);
@@ -1050,19 +1051,32 @@
                 body.innerHTML = '<div class="text-xs text-slate-500 text-center py-6">No race templates yet. Click "+ New Race" to build one.</div>';
                 return;
             }
-            body.innerHTML = window.gmRaces.map(entry => `
-                <div class="flex items-center justify-between bg-slate-900 border border-slate-700 rounded p-2">
-                    <div>
-                        <div class="text-sm font-bold text-indigo-300">${entry.name || 'Unnamed Race'}</div>
-                        <div class="text-[10px] text-slate-500">${entry.ancestry.gpUsed} / 15 GP spent${entry.ancestry.gpUsed < 15 ? ` -- ${15 - entry.ancestry.gpUsed} GP left for subrace customization` : ''}</div>
+            body.innerHTML = window.gmRaces.map(entry => {
+                // Show which worlds this race is assigned to
+                let assignedWorlds = (window._gmWorlds || []).filter(w => {
+                    let races = w.races || [];
+                    return races.some(r => r.id === entry.id);
+                });
+                let worldBadges = assignedWorlds.length
+                    ? assignedWorlds.map(w => `<span class="bg-amber-900/30 border border-amber-700/50 text-amber-400 px-1.5 py-0.5 rounded text-[9px] font-bold">${w.name||w.inviteCode}</span>`).join(' ')
+                    : '<span class="text-[9px] text-slate-600 italic">Not assigned to any world</span>';
+                return `
+                <div class="bg-slate-900 border border-slate-700 rounded p-2">
+                    <div class="flex items-center justify-between mb-1">
+                        <div>
+                            <div class="text-sm font-bold text-indigo-300">${entry.name || 'Unnamed Race'}</div>
+                            <div class="text-[10px] text-slate-500">${entry.ancestry.gpUsed} / 15 GP spent${entry.ancestry.gpUsed < 15 ? ` — ${15 - entry.ancestry.gpUsed} GP left for player customization` : ''}</div>
+                        </div>
+                        <div class="flex gap-1 flex-shrink-0">
+                            <button onclick="window.openGmRaceBuilder('${entry.id}')" class="text-[10px] text-indigo-400 hover:text-indigo-300 font-bold px-2 py-1">Edit</button>
+                            <button onclick="window.openRaceWorldAssigner('${entry.id}')" class="text-[10px] text-amber-400 hover:text-amber-300 font-bold px-2 py-1">Worlds</button>
+                            <button onclick="window.exportGmRace('${entry.id}')" class="text-[10px] text-slate-400 hover:text-slate-300 font-bold px-2 py-1">Export</button>
+                            <button onclick="window.deleteGmRace('${entry.id}')" class="text-[10px] text-red-400 hover:text-red-300 font-bold px-2 py-1">Delete</button>
+                        </div>
                     </div>
-                    <div class="flex gap-1">
-                        <button onclick="window.openGmRaceBuilder('${entry.id}')" class="text-[10px] text-indigo-400 hover:text-indigo-300 font-bold px-2 py-1">Edit</button>
-                        <button onclick="window.exportGmRace('${entry.id}')" class="text-[10px] text-slate-400 hover:text-slate-300 font-bold px-2 py-1">Export</button>
-                        <button onclick="window.deleteGmRace('${entry.id}')" class="text-[10px] text-red-400 hover:text-red-300 font-bold px-2 py-1">Delete</button>
-                    </div>
-                </div>
-            `).join('');
+                    <div class="flex gap-1 flex-wrap">${worldBadges}</div>
+                </div>`;
+            }).join('');
         };
 
         window.deleteGmRace = function(id) {

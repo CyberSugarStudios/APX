@@ -23,7 +23,7 @@
             deleteFolder: () => Promise.resolve(),
             createWorld: () => Promise.resolve(null), loadWorlds: () => Promise.resolve([]),
             saveWorld: () => Promise.resolve(), saveWorldRaces: () => Promise.resolve(),
-            deleteWorld: () => Promise.resolve(), joinWorldByCode: () => Promise.resolve(null),
+            saveRacesToAllWorlds: () => Promise.resolve(), deleteWorld: () => Promise.resolve(), joinWorldByCode: () => Promise.resolve(null),
             loadWorldPlayers: () => Promise.resolve([]) };
         return;
     }
@@ -192,6 +192,18 @@
         if (inviteCode) await db.collection('worldCodes').doc(inviteCode).set({ races }, { merge: true });
     }
 
+    // Push the current gmRaces to EVERY world this GM has created,
+    // so players who joined any world always get all race templates.
+    async function saveRacesToAllWorlds(races) {
+        let user = currentUser();
+        if (!user) return;
+        let snap = await db.collection('users').doc(user.uid).collection('worlds').get().catch(()=>({docs:[]}));
+        await Promise.all(snap.docs.map(async d => {
+            let code = d.data().inviteCode;
+            if (code) await db.collection('worldCodes').doc(code).set({ races }, { merge: true }).catch(()=>{});
+        }));
+    }
+
     async function deleteWorld(worldId, inviteCode) {
         let user = currentUser();
         if (!user) return;
@@ -295,7 +307,7 @@
         loadFolders, saveFolder, deleteFolder,
         saveGmRaces, loadGmRaces, saveGmNpcs, loadGmNpcs,
         getShareCode, connectToGm,
-        createWorld, loadWorlds, saveWorld, saveWorldRaces, deleteWorld, joinWorldByCode,
+        createWorld, loadWorlds, saveWorld, saveWorldRaces, saveRacesToAllWorlds, deleteWorld, joinWorldByCode,
         loadWorldPlayers,
         scheduleAutoSave, setActiveCharId,
         renderAuthBar,

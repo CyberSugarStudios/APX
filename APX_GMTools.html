@@ -142,6 +142,8 @@
         }
         .modal-overlay.active .modal-content { transform: translateY(0); }
 
+        input[type="date"] { color-scheme: dark; }
+        [data-theme="kawaii"] input[type="date"] { color-scheme: light; }
         details > summary { list-style: none; }
         details > summary::-webkit-details-marker { display: none; }
 
@@ -1089,7 +1091,7 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
     <div class="modal-overlay" id="gmWorldModal">
-        <div class="modal-content" style="max-width:820px; max-height:94vh; display:flex; flex-direction:column;">
+        <div class="modal-content" style="max-width:1100px; width:95vw; max-height:96vh; display:flex; flex-direction:column;">
             <div class="flex justify-between items-center mb-3 border-b border-slate-600 pb-2 flex-shrink-0">
                 <div class="flex items-center gap-3">
                     <h3 class="text-lg font-bold text-amber-400">World</h3>
@@ -1126,7 +1128,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <div id="wPanelMap" class="hidden flex-1 flex flex-col overflow-hidden min-h-0">
                     <div class="flex gap-2 mb-2 flex-shrink-0 items-center">
-                        <label class="px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold cursor-pointer">Upload Map<input type="file" id="mapImageUpload" accept="image/*" class="hidden" onchange="window.loadMapImage(this)"></label>
+                        <button onclick="window.promptMapUpload()" class="px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold">Upload Map</button>
+                        <input type="file" id="mapImageUpload" accept="image/*" class="hidden" onchange="window.loadMapImage(this)">
                         <button onclick="window.mapZoom(1.25)" class="px-2 py-1.5 rounded bg-slate-700 text-white text-xs font-bold">+</button>
                         <button onclick="window.mapZoom(0.8)" class="px-2 py-1.5 rounded bg-slate-700 text-white text-xs font-bold">&#8722;</button>
                         <button onclick="window.mapResetView()" class="px-2 py-1.5 rounded bg-slate-700 text-slate-400 text-xs">Reset</button>
@@ -1200,7 +1203,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-        <div class="modal-overlay" id="loadPartyModal">
+            <div class="modal-overlay" id="raceWorldAssignerModal" style="z-index:1400;">
+        <div class="modal-content max-w-sm">
+            <h3 class="text-base font-bold text-white mb-1 border-b border-slate-600 pb-2">Assign Race to Worlds</h3>
+            <p id="raceWorldAssignerName" class="text-xs text-indigo-300 font-bold mb-3"></p>
+            <div id="raceWorldAssignerList" class="space-y-2 max-h-60 overflow-y-auto mb-4"><!-- JS injected --></div>
+            <div class="flex justify-end gap-2">
+                <button onclick="window.closeModal('raceWorldAssignerModal')" class="px-4 py-2 rounded bg-slate-700 text-white text-sm font-bold">Cancel</button>
+                <button onclick="window.saveRaceWorldAssignments()" class="px-4 py-2 rounded bg-emerald-700 hover:bg-emerald-600 text-white text-sm font-bold">Save</button>
+            </div>
+        </div>
+    </div>
+
+<div class="modal-overlay" id="loadPartyModal">
         <div class="modal-content max-w-sm">
             <h3 class="text-base font-bold text-white mb-3 border-b border-slate-600 pb-2">Load Party</h3>
             <div class="space-y-2 mb-4">
@@ -1280,11 +1295,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // GM races are saved to Firestore whenever finishAncestry saves a race
     document.addEventListener('apxGmRacesSaved', async () => {
         if (!window.apxAuth?.enabled) return;
+        // Save the master list of all GM races under the GM's own account.
+        // World assignment is handled separately via the "Assign to World"
+        // button in the race roster — races don't auto-push to any world here.
         try { await window.apxAuth.saveGmRaces(window.gmRaces || []); } catch(e) {}
-        // Also push races to the active world's worldCodes so players get them on join
-        if (typeof _activeWorldId !== 'undefined' && _activeWorldId) {
-            try { await window.apxAuth.saveWorldRaces(_activeWorldId, window.gmRaces || []); } catch(e) {}
-        }
     });
     </script>
 
@@ -1320,14 +1334,15 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     window.deleteCurrentWorld = async function() {
         if (!_activeWorldId) return;
-        if (!confirm('Delete this world and all its notes?')) return;
-        let w = getActiveWorld();
-        if (window.apxAuth?.enabled && w) await window.apxAuth.deleteWorld(_activeWorldId, w.inviteCode).catch(()=>{});
-        _gmWorlds = _gmWorlds.filter(x => (x.worldId||x.id) !== _activeWorldId);
-        _activeWorldId = _gmWorlds.length ? (_gmWorlds[0].worldId||_gmWorlds[0].id) : null;
-        if (!window.apxAuth.enabled) localStorage.setItem('apxLocalWorlds', JSON.stringify(_gmWorlds));
-        renderWorldSelector();
-        if (_activeWorldId) selectGmWorld(_activeWorldId);
+        window.showConfirm('Delete this world and all its notes? Race templates are not deleted.', async () => {
+            let w = getActiveWorld();
+            if (window.apxAuth?.enabled && w) await window.apxAuth.deleteWorld(_activeWorldId, w.inviteCode).catch(()=>{});
+            _gmWorlds = _gmWorlds.filter(x => (x.worldId||x.id) !== _activeWorldId);
+            _activeWorldId = _gmWorlds.length ? (_gmWorlds[0].worldId||_gmWorlds[0].id) : null;
+            if (!window.apxAuth?.enabled) localStorage.setItem('apxLocalWorlds', JSON.stringify(_gmWorlds));
+            renderWorldSelector();
+            if (_activeWorldId) selectGmWorld(_activeWorldId);
+        });
     };
     window.switchGmWorld = function(id) {
         saveWorldNotes();
@@ -1336,6 +1351,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function selectGmWorld(id) {
         _activeWorldId = id;
+        window._gmWorlds = _gmWorlds; // keep window copy in sync for cross-script access
         let w = getActiveWorld();
         document.getElementById('gmWorldContent').classList.toggle('hidden', !w);
         document.getElementById('gmWorldEmpty').classList.toggle('hidden', !!w);
@@ -1357,6 +1373,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     function renderWorldSelector() {
+        window._gmWorlds = _gmWorlds; // keep in sync for cross-script access
         let sel = document.getElementById('gmWorldSelector');
         sel.innerHTML = _gmWorlds.length
             ? _gmWorlds.map(w=>`<option value="${w.worldId||w.id}">${w.name}</option>`).join('')
@@ -1611,9 +1628,71 @@ document.addEventListener('DOMContentLoaded', () => {
         if (type==='secret')    window.renderSecretList();
     };
 
+    // ── Race ↔ World assignment ──────────────────────────────────
+    let _assigningRaceId = null;
+
+    window.openRaceWorldAssigner = function(raceId) {
+        _assigningRaceId = raceId;
+        let race = window.gmRaces.find(r=>r.id===raceId);
+        document.getElementById('raceWorldAssignerName').innerText = race?.name || 'Race';
+        let list = document.getElementById('raceWorldAssignerList');
+        if (!_gmWorlds.length) {
+            list.innerHTML = '<div class="text-xs text-slate-500 text-center py-4">No worlds created yet. Create a world first.</div>';
+        } else {
+            list.innerHTML = _gmWorlds.map(w => {
+                let worldId = w.worldId || w.id;
+                let isAssigned = (w.races||[]).some(r=>r.id===raceId);
+                return `<label class="flex items-center gap-3 bg-slate-900 border border-slate-700 rounded p-2.5 cursor-pointer hover:border-amber-600">
+                    <input type="checkbox" ${isAssigned?'checked':''} data-world-id="${worldId}" class="w-4 h-4 race-world-check">
+                    <div>
+                        <div class="text-xs font-bold text-slate-200">${w.name||'Unnamed World'}</div>
+                        <div class="text-[9px] text-amber-400 font-mono">${w.inviteCode||''}</div>
+                    </div>
+                </label>`;
+            }).join('');
+        }
+        window.openModal('raceWorldAssignerModal');
+    };
+
+    window.saveRaceWorldAssignments = async function() {
+        let race = window.gmRaces.find(r=>r.id===_assigningRaceId);
+        if (!race) { window.closeModal('raceWorldAssignerModal'); return; }
+        let checks = document.querySelectorAll('.race-world-check');
+        let savePromises = [];
+        checks.forEach(cb => {
+            let worldId = cb.dataset.worldId;
+            let world = _gmWorlds.find(w=>(w.worldId||w.id)===worldId);
+            if (!world) return;
+            if (!world.races) world.races = [];
+            if (cb.checked) {
+                // Add to world if not already there
+                if (!world.races.some(r=>r.id===race.id)) world.races.push(race);
+            } else {
+                // Remove from world
+                world.races = world.races.filter(r=>r.id!==race.id);
+            }
+            // Persist: update the worldCodes document's races array
+            if (window.apxAuth?.enabled && world.inviteCode) {
+                savePromises.push(
+                    window.apxAuth.saveWorldRaces(worldId, world.races).catch(e=>console.warn('Race assign save failed:', e.message))
+                );
+            }
+        });
+        await Promise.all(savePromises);
+        window.closeModal('raceWorldAssignerModal');
+        window.renderGmRaceList(); // refresh badges
+        if (!window.apxAuth?.enabled) localStorage.setItem('apxLocalWorlds', JSON.stringify(_gmWorlds));
+    };
+
+    window.linkNpcNoteToStatBlock = function(noteId, statBlockId) {
+        let note = (_wNotes.npcs||[]).find(n=>n.id===noteId);
+        if (note) { note.statBlockId = statBlockId; saveWorldNotes(); }
+        window.showWorldTab('npcs');
+        window.openModal('gmWorldModal');
+    };
+
     window.copyInviteCode = function() {
         let code = document.getElementById('gmInviteCode').innerText;
-        if (!code) return;
         navigator.clipboard.writeText(code).then(() => {
             let msg = document.getElementById('gmCopiedMsg');
             if (msg) { msg.classList.remove('hidden'); setTimeout(() => msg.classList.add('hidden'), 2000); }
@@ -1686,17 +1765,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         renderMapPins();
     }
+    window.promptMapUpload = function() {
+        let hasPins = (_wNotes.locations||[]).some(l=>l.pinX!=null);
+        let hasMap = !!(document.getElementById('mapImage')?.src && _wNotes.worldMapDataUrl);
+        if (hasMap || hasPins) {
+            window.showConfirm(
+                'Uploading a new map will remove all existing map pins (location notes are kept, just unpinned). Continue?',
+                () => { document.getElementById('mapImageUpload').click(); }
+            );
+        } else {
+            document.getElementById('mapImageUpload').click();
+        }
+    };
     window.loadMapImage = function(input) {
         if (!input.files[0]) return;
-        let hasPins = (_wNotes.locations||[]).some(l=>l.pinX!=null);
-        if (hasPins) {
-            if (!confirm('Uploading a new map will remove all existing map pins (location notes are kept, just unpinned). Continue?')) {
-                input.value = '';
-                return;
-            }
-            // Unpin all locations
-            (_wNotes.locations||[]).forEach(l => { delete l.pinX; delete l.pinY; });
-        }
+        // Unpin all locations (warning was already shown via promptMapUpload)
+        (_wNotes.locations||[]).forEach(l => { delete l.pinX; delete l.pinY; });
         let reader = new FileReader();
         reader.onload = e => {
             _mapImg = document.getElementById('mapImage');
@@ -1708,6 +1792,7 @@ document.addEventListener('DOMContentLoaded', () => {
             saveWorldNotes();
         };
         reader.readAsDataURL(input.files[0]);
+        input.value = ''; // reset so same file can be selected again
     };
     function applyMapTransform() {
         document.getElementById('mapViewport').style.transform = `translate(${_mapOffX}px,${_mapOffY}px) scale(${_mapScale})`;
@@ -1855,6 +1940,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return `<div style="position:absolute; left:${l.pinX*imgW}px; top:${l.pinY*imgH}px;
                          transform:translate(-50%,-100%) scale(${pinScale}); transform-origin:50% 100%;
                          pointer-events:auto; cursor:pointer; will-change:transform;"
+                     onmousedown="event.stopPropagation()"
                      onclick="window.openNoteModal('location','${l.id}')" title="${l.name||'Location'}">
                 <div style="background:${c}; color:${textColor}; font-size:11px; font-weight:700; padding:2px 6px;
                             border-radius:3px; white-space:nowrap; box-shadow:0 1px 4px rgba(0,0,0,.6);

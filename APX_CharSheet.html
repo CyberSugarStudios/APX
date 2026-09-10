@@ -169,8 +169,10 @@
         }
         .modal-overlay.active .modal-content { transform: translateY(0); }
         
-        details > summary { list-style: none; }
-        details > summary::-webkit-details-marker { display: none; }
+        /* Date pickers: force dark color-scheme on dark themes so the calendar
+           popup uses white text. Kawaii is a light theme so it uses the default. */
+        input[type="date"] { color-scheme: dark; }
+        [data-theme="kawaii"] input[type="date"] { color-scheme: light; }
         
         .power-bubble {
             width: 14px; height: 14px; border-radius: 50%;
@@ -204,8 +206,11 @@
         }
         #sidebarOverlay.active { display: block; opacity: 1; }
         
-        .hamburger-btn {
+        .hamburger-cluster {
             position: fixed; top: 1rem; left: 1rem; z-index: 101;
+            display: flex; gap: 0.4rem; align-items: center;
+        }
+        .hamburger-btn {
             background: var(--c-surface); border: 1px solid var(--c-border); padding: 0.5rem 0.75rem;
             border-radius: 0.375rem; cursor: pointer; color: var(--c-text);
             font-size: 1.25rem; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: 0.2s;
@@ -346,8 +351,10 @@
 
 
 
-    <button class="hamburger-btn" onclick="window.toggleSidebar()">☰ Roster</button>
-    <button id="playerWorldBtn" class="hamburger-btn hidden" onclick="window.openModal('playerWorldModal')" style="margin-left:4px; background:var(--c-surface,#1e293b); border:1px solid var(--c-border,#334155);">World</button>
+    <div class="hamburger-cluster">
+        <button class="hamburger-btn" onclick="window.toggleSidebar()">☰ Roster</button>
+        <button id="playerWorldBtn" class="hamburger-btn hidden" onclick="window.openModal('playerWorldModal')" style="font-size:0.875rem;">World</button>
+    </div>
     <div class="undo-redo-cluster">
         <button id="btnUndo" onclick="window.performUndo()" title="Undo (Ctrl+Z)" disabled>↶ Undo</button>
         <button id="btnRedo" onclick="window.performRedo()" title="Redo (Ctrl+Y)" disabled>↷ Redo</button>
@@ -518,7 +525,7 @@
                 
                 <div class="grid grid-cols-3 gap-2 mb-3">
                     <div class="bg-slate-900 p-2 rounded border border-slate-700 text-center">
-                        <div class="text-[10px] text-slate-500 uppercase font-bold" data-tip="10 + AGI modifier (or LUC if higher, with Lucky) + equipped Armor + Shield + other bonuses">Total AC</div>
+                        <div class="text-[10px] text-slate-500 uppercase font-bold" id="acLabel" data-tip="10 + AGI modifier (or LUC if higher, with Lucky) + equipped Armor + Shield + other bonuses">Total AC</div>
                         <div class="text-3xl font-black text-white mt-1" id="dispAc">10</div>
                         <div class="text-[9px] text-slate-500 mt-1" id="dispAcCalc">10+0(AGI)+0</div>
                     </div>
@@ -2010,7 +2017,7 @@
             </div>
 
             <div id="lobbyCharacterList" class="space-y-2 max-h-72 overflow-y-auto">
-                <div class="text-xs text-center py-6" style="color: var(--c-text-muted, #94a3b8);">Loading characters...</div>
+                <div class="text-xs text-center py-6" style="color: var(--c-text-muted, #94a3b8);">No characters yet.</div>
             </div>
 
             <div class="mt-4 text-center">
@@ -2020,7 +2027,7 @@
             </div>
 
             <!-- World code entry -->
-            <div class="mt-4 border-t border-slate-800 pt-4">
+            <div id="lobbyWorldSection" class="mt-4 border-t border-slate-800 pt-4">
                 <div class="text-xs text-center mb-2" style="color:var(--c-text-muted,#94a3b8);">Have a GM world code?</div>
                 <div class="flex gap-2 max-w-xs mx-auto">
                     <input type="text" id="lobbyWorldCode" placeholder="Enter code (e.g. XK4R2P)"
@@ -2071,7 +2078,7 @@
             <input type="text" id="folderNameInput" placeholder="Folder name..." class="bg-slate-900 text-sm w-full mb-4">
             <div class="flex gap-2 justify-end">
                 <button onclick="window.closeModal('folderManagerModal')" class="px-4 py-2 rounded bg-slate-700 text-white text-sm font-bold">Cancel</button>
-                <button onclick="window.confirmCreateFolder()" class="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold">Create</button>
+                <button onclick="window.confirmCreateFolder()" class="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold" id="folderModalConfirmBtn">Create</button>
             </div>
         </div>
     </div>
@@ -2175,7 +2182,8 @@
         window._sidebarFolders.forEach(f => {
             let chars = folderGroups[f.id] || [];
             html += `<div class="flex items-center gap-1 px-1 pt-1 pb-0.5">
-                <span class="text-[9px] text-indigo-400 uppercase font-black tracking-wider flex-1">${f.name}</span>
+                <span class="text-[9px] text-indigo-400 uppercase font-black tracking-wider flex-1 truncate">${f.name}</span>
+                <button onclick="window.renameFolder('${f.id}','${f.name.replace(/'/g,"\\'")}')" class="text-[9px] text-slate-600 hover:text-indigo-400 px-0.5" title="Rename folder">✏</button>
                 <button onclick="window.deleteFolderConfirm('${f.id}')" class="text-[9px] text-slate-600 hover:text-red-500 px-0.5" title="Delete folder">×</button>
             </div>`;
             if (chars.length) chars.forEach(c => html += charRow(c));
@@ -2229,21 +2237,38 @@
 
     // ── Folder actions ───────────────────────────────────────────
     window.openFolderManager = function() {
+        window._renamingFolderId = null;
         document.getElementById('folderNameInput').value = '';
+        let h3 = document.querySelector('#folderManagerModal h3');
+        if (h3) h3.innerText = 'New Folder';
+        window.openModal('folderManagerModal');
+    };
+    window.renameFolder = function(folderId, currentName) {
+        window._renamingFolderId = folderId;
+        document.getElementById('folderNameInput').value = currentName;
+        let h3 = document.querySelector('#folderManagerModal h3');
+        if (h3) h3.innerText = 'Rename Folder';
         window.openModal('folderManagerModal');
     };
     window.confirmCreateFolder = async function() {
         let name = document.getElementById('folderNameInput').value.trim();
         if (!name) return;
-        let id = 'folder_' + Date.now();
-        window._sidebarFolders.push({ id, name });
-        if (window.apxAuth?.enabled) {
-            await window.apxAuth.saveFolder(id, name).catch(()=>{});
+        if (window._renamingFolderId) {
+            let f = window._sidebarFolders.find(x=>x.id===window._renamingFolderId);
+            if (f) {
+                f.name = name;
+                if (window.apxAuth?.enabled) await window.apxAuth.saveFolder(f.id, name).catch(()=>{});
+                else localStorage.setItem('apxFolders', JSON.stringify(window._sidebarFolders));
+            }
+            window._renamingFolderId = null;
         } else {
-            localStorage.setItem('apxFolders', JSON.stringify(window._sidebarFolders));
+            let id = 'folder_' + Date.now();
+            window._sidebarFolders.push({ id, name });
+            if (window.apxAuth?.enabled) await window.apxAuth.saveFolder(id, name).catch(()=>{});
+            else localStorage.setItem('apxFolders', JSON.stringify(window._sidebarFolders));
         }
         window.closeModal('folderManagerModal');
-        renderSidebarCharList();
+        window.renderSidebarCharList();
     };
     window.deleteFolderConfirm = async function(folderId) {
         let folder = window._sidebarFolders.find(f=>f.id===folderId);
@@ -2376,7 +2401,11 @@
         if (user) {
             accountLine.innerText = 'Signed in as ' + user.email;
         } else {
-            accountLine.innerText = 'Not signed in — characters load from local files only.';
+            accountLine.innerText = 'Not signed in — create a new character or import a file.';
+            // For local-only mode, hide the character list section and world code section
+            document.getElementById('lobbyCharacterList').innerHTML = '';
+            document.getElementById('lobbyWorldSection')?.classList.add('hidden');
+            return;
         }
 
         let chars = [];

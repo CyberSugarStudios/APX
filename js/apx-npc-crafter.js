@@ -765,13 +765,10 @@ window.finishGmNpc = function() {
     if (window._pendingLinkNpcNoteId && ncActiveGmNpcId) {
         let noteId = window._pendingLinkNpcNoteId;
         window._pendingLinkNpcNoteId = null;
-        // Find the note in the active world and link it
-        if (typeof _wNotes !== 'undefined') {
-            let note = (_wNotes.npcs||[]).find(n=>n.id===noteId);
-            if (note) { note.statBlockId = ncActiveGmNpcId; if (typeof saveWorldNotes === 'function') saveWorldNotes(); }
+        // Use the world-system-scoped function so it can access _wNotes
+        if (typeof window.linkNpcNoteToStatBlock === 'function') {
+            window.linkNpcNoteToStatBlock(noteId, ncActiveGmNpcId);
         }
-        window.showWorldTab('npcs');
-        window.openModal('gmWorldModal');
         return;
     }
     window.openGmNpcRosterModal();
