@@ -806,15 +806,13 @@
             // Ch.9 Making Attacks: ranged attack rolls always use AGI --
             // there's no STR-or-AGI choice like melee gets, regardless of
             // weight class. Only melee's attribute is player-selectable.
-            let attr = cat === 'ranged' ? 'AGI' : (attrOverride || w.attr);
+            // Ranged: use the weapon's attr (AGI normally, or LUC if player chose it via FF)
+            let attr = cat === 'ranged' ? (w.attr === 'LUC' ? 'LUC' : 'AGI') : (attrOverride || w.attr);
             let mod = calc.mods[attr] || 0;
             let trained = weaponIsTrained(w);
-            // Fortunate Fighter Rank 3+: substitute LUC modifier for the
-            // weapon's governing attribute on attacks you're untrained
-            // with, whenever LUC is the better option.
-            if (!trained && (window.state.perks['luc_fortunatefighter'] || 0) >= 3) {
-                mod = Math.max(mod, calc.mods['LUC'] || 0);
-            }
+            // Fortunate Fighter Rank 3+ only applies if the player SELECTED LUC in the
+            // ATT dropdown — it doesn't silently substitute regardless of selection.
+            // (The dropdown already shows LUC as an option when FF rank >= 3 + untrained.)
             let pBonus = cat === 'melee' ? (calc.bonusMeleeAtk || 0) : (calc.bonusRangedAtk || 0);
             // Aim Action (PER): ranged only, toggled per-weapon since the
             // sheet doesn't simulate individual turns. Sharpshooter Rank 4
@@ -835,9 +833,10 @@
         // double it. Melee keeps its normal weight-class attribute rules.
         function weaponDmgModifier(w, attrOverride) {
             let cat = weaponCategory(w);
-            let lucSubstitutes = !weaponIsTrained(w) && (window.state.perks['luc_fortunatefighter'] || 0) >= 3;
-            // Aim Action (PER): "You add your PER modifier to your next
-            // ranged attack AND damage roll this turn" -- applies to both.
+            // FF rank 3+ lets the player SELECT LUC as their attack attribute.
+            // It does NOT automatically substitute LUC — the player must
+            // choose LUC in the ATT dropdown. If they pick STR or AGI,
+            // those are used as-is.
             let aimBonus = 0;
             if (cat === 'ranged' && w.aimed) {
                 aimBonus = calc.mods.PER || 0;
@@ -846,15 +845,15 @@
             }
 
             if (cat === 'ranged') {
-                let agiMod = calc.mods.AGI || 0;
-                if (lucSubstitutes) agiMod = Math.max(agiMod, calc.mods['LUC'] || 0);
+                // Ranged damage: AGI (or LUC if player selected it) + STR for heavy
+                let atkAttr = w.attr === 'LUC' ? 'LUC' : 'AGI';
+                let agiMod = calc.mods[atkAttr] || 0;
                 let heavyStrBonus = (w.weightClass === 'heavy') ? (calc.mods.STR || 0) : 0;
                 return agiMod + heavyStrBonus + (calc.bonusRangedDmg || 0) + aimBonus;
             }
 
             let attr = attrOverride || w.attr;
             let attrMod = calc.mods[attr] || 0;
-            if (lucSubstitutes) attrMod = Math.max(attrMod, calc.mods['LUC'] || 0);
             let mult = (w.weightClass === 'heavy') ? 2 : 1;
             return (attrMod * mult) + (calc.bonusMeleeDmg || 0);
         }

@@ -159,6 +159,9 @@
             color: var(--c-text, #e2e8f0); background: none; border: none; cursor: pointer;
         }
         .meatball-menu button:hover { background: var(--c-surface2, #0f172a); }
+
+        .modal-content {
+            background-color: var(--c-surface); border: 1px solid var(--c-border);
             color: var(--c-text-dimmer);
             border-radius: 0.75rem; padding: 1.5rem; width: 100%; max-width: 900px;
             max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
@@ -2062,7 +2065,7 @@
     </div>
 
     <!-- Folder manager: create / rename folders -->
-    <div class="modal-overlay" id="folderManagerModal">
+    <div class="modal-overlay" id="folderManagerModal" style="z-index:10200;">
         <div class="modal-content max-w-xs">
             <h3 class="text-base font-bold text-white mb-3 border-b border-slate-600 pb-2">New Folder</h3>
             <input type="text" id="folderNameInput" placeholder="Folder name..." class="bg-slate-900 text-sm w-full mb-4">
@@ -2627,22 +2630,25 @@
         try {
             let user = window.apxAuth.user;
             if (!user) return;
-            // Delete all Firestore data first
             try {
                 let chars = await window.apxAuth.loadCharacters();
-                for (let c of chars) await window.apxAuth.deleteCharacter(c.id).catch(() => {});
+                for (let c of chars) await window.apxAuth.deleteCharacter(c.id).catch(()=>{});
                 let worlds = await window.apxAuth.loadWorlds();
-                for (let w of worlds) await window.apxAuth.deleteWorld(w.worldId || w.id, w.inviteCode).catch(() => {});
-                // Delete GM races doc
-                await firebase.firestore().collection('users').doc(user.uid).collection('gmRaces').doc('all').delete().catch(() => {});
+                for (let w of worlds) await window.apxAuth.deleteWorld(w.worldId||w.id, w.inviteCode).catch(()=>{});
+                let db = window._apxDb;
+                if (db) {
+                    let uid = user.uid;
+                    await db.collection('users').doc(uid).collection('gmRaces').doc('all').delete().catch(()=>{});
+                    await db.collection('users').doc(uid).collection('gmNpcs').doc('all').delete().catch(()=>{});
+                    let fSnap = await db.collection('users').doc(uid).collection('folders').get().catch(()=>({docs:[]}));
+                    for (let d of fSnap.docs) await d.ref.delete().catch(()=>{});
+                }
             } catch(e) { console.warn('Partial data cleanup:', e.message); }
-            // Delete the auth account
             await user.delete();
             window.closeModal('deleteAccountModal');
             window.location.href = 'index.html';
         } catch(e) {
             if (e.code === 'auth/requires-recent-login') {
-                // Prompt for re-auth inline
                 errEl.innerText = '';
                 let pass = prompt('Your session has expired. Re-enter your password to confirm deletion:');
                 if (!pass) return;
@@ -2650,14 +2656,9 @@
                     let user = window.apxAuth.user;
                     let cred = firebase.auth.EmailAuthProvider.credential(user.email, pass);
                     await user.reauthenticateWithCredential(cred);
-                    // Retry deletion after re-auth
                     await window.executeDeleteAccount();
-                } catch(e2) {
-                    errEl.innerText = e2.message || 'Re-authentication failed.';
-                }
-            } else {
-                errEl.innerText = e.message || 'Deletion failed.';
-            }
+                } catch(e2) { errEl.innerText = e2.message || 'Re-authentication failed.'; }
+            } else { errEl.innerText = e.message || 'Deletion failed.'; }
         }
     };
 

@@ -138,14 +138,21 @@
                 window.state.origin.wealthApplied = true;
             }
 
-            // Auto-fill the languages field with the common language from this origin.
-            // Only add it if the language field is empty or doesn't already contain it.
+            // Auto-fill the languages field with the common language + any extra
+            // languages the player chose in the Competencies grid.
             let commonLang = window.state.origin.commonLanguage || '';
-            if (commonLang) {
+            let extraLangs = (window.state.origin.comps || [])
+                .filter(c => c.type === 'language' && c.value)
+                .map(c => c.value);
+            let allLangs = commonLang ? [commonLang, ...extraLangs] : extraLangs;
+            if (allLangs.length) {
                 let langInput = document.getElementById('languages');
-                let current = (langInput?.value || '').trim();
-                if (!current.toLowerCase().includes(commonLang.toLowerCase())) {
-                    langInput.value = current ? current + ', ' + commonLang : commonLang;
+                if (langInput) {
+                    let current = (langInput.value || '').split(',').map(s => s.trim()).filter(Boolean);
+                    allLangs.forEach(lang => {
+                        if (!current.some(c => c.toLowerCase() === lang.toLowerCase())) current.push(lang);
+                    });
+                    langInput.value = current.join(', ');
                     window.updateState('languages', langInput.value);
                 }
             }

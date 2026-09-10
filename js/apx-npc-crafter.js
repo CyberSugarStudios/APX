@@ -756,6 +756,10 @@ window.finishGmNpc = function() {
     let c = ncActiveCompanion();
     window.closeModal('npcCrafterModal');
     window.renderGmNpcList();
+    // Auto-save GM NPCs to Firestore
+    if (window.apxAuth?.enabled) {
+        window.apxAuth.saveGmNpcs(window.gmNpcs || []).catch(e => console.warn('NPC save failed:', e.message));
+    }
     // If this NPC was created via "Link Stat Block" from a world NPC note,
     // auto-link it and return to the world modal instead of the NPC roster.
     if (window._pendingLinkNpcNoteId && ncActiveGmNpcId) {
@@ -822,6 +826,7 @@ window.deleteGmNpc = function(id) {
     window.showConfirm(`Delete ${entry.npc.name || 'this NPC'}? This cannot be undone.`, () => {
         window.gmNpcs = window.gmNpcs.filter(n => n.id !== id);
         window.renderGmNpcList();
+        if (window.apxAuth?.enabled) window.apxAuth.saveGmNpcs(window.gmNpcs || []).catch(()=>{});
     });
 };
 

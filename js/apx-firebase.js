@@ -16,7 +16,8 @@
             signIn: () => {}, signUp: () => {}, signOut: () => {},
             onAuthChange: () => {}, saveCharacter: () => Promise.resolve(),
             loadCharacters: () => Promise.resolve([]), saveGmRaces: () => Promise.resolve(),
-            loadGmRaces: () => Promise.resolve([]), getShareCode: () => null,
+            loadGmRaces: () => Promise.resolve([]), saveGmNpcs: () => Promise.resolve(),
+            loadGmNpcs: () => Promise.resolve([]), getShareCode: () => null,
             connectToGm: () => Promise.resolve([],),
             loadFolders: () => Promise.resolve([]), saveFolder: () => Promise.resolve(),
             deleteFolder: () => Promise.resolve(),
@@ -110,17 +111,26 @@
     async function saveGmRaces(racesArray) {
         let user = currentUser();
         if (!user) return;
-        let ref = db.collection('users').doc(user.uid)
-            .collection('gmRaces').doc('all');
-        await ref.set({ races: racesArray, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+        await db.collection('users').doc(user.uid).collection('gmRaces').doc('all')
+            .set({ races: racesArray, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
     }
-
     async function loadGmRaces() {
         let user = currentUser();
         if (!user) return [];
-        let doc = await db.collection('users').doc(user.uid)
-            .collection('gmRaces').doc('all').get();
+        let doc = await db.collection('users').doc(user.uid).collection('gmRaces').doc('all').get();
         return doc.exists ? (doc.data().races || []) : [];
+    }
+    async function saveGmNpcs(npcsArray) {
+        let user = currentUser();
+        if (!user) return;
+        await db.collection('users').doc(user.uid).collection('gmNpcs').doc('all')
+            .set({ npcs: npcsArray, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    }
+    async function loadGmNpcs() {
+        let user = currentUser();
+        if (!user) return [];
+        let doc = await db.collection('users').doc(user.uid).collection('gmNpcs').doc('all').get();
+        return doc.exists ? (doc.data().npcs || []) : [];
     }
 
     // --- World system ---------------------------------------------------
@@ -193,16 +203,17 @@
         let doc = await db.collection('worldCodes').doc(inviteCode.toUpperCase().trim()).get();
         if (!doc.exists) return null;
         let data = doc.data();
-        // Register this player + share their character state (consent = entering the code)
+        // Register this player + share their character name (consent = entering the code).
+        // The full state is shared via auto-save after joining — storing it here on join
+        // risks Firestore 1MB document limits and requires the player to be signed in.
         if (playerState && currentUser()) {
             let uid = currentUser().uid;
             await db.collection('worldCodes').doc(inviteCode.toUpperCase().trim())
                 .collection('players').doc(uid).set({
                     uid,
                     charName: (playerState.name || 'Unknown Player').slice(0, 60),
-                    state: playerState, // full character state — player consented by entering code
                     joinedAt: firebase.firestore.FieldValue.serverTimestamp()
-                }, { merge: true });
+                }, { merge: true }).catch(() => {}); // non-blocking — join succeeds even if registration fails
         }
         return {
             gmUid: data.gmUid, worldId: data.worldId,
@@ -282,7 +293,7 @@
         signIn, signUp, signOut, onAuthChange,
         saveCharacter, loadCharacters, deleteCharacter,
         loadFolders, saveFolder, deleteFolder,
-        saveGmRaces, loadGmRaces,
+        saveGmRaces, loadGmRaces, saveGmNpcs, loadGmNpcs,
         getShareCode, connectToGm,
         createWorld, loadWorlds, saveWorld, saveWorldRaces, deleteWorld, joinWorldByCode,
         loadWorldPlayers,
