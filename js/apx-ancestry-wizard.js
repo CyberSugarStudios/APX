@@ -126,57 +126,63 @@
 
             let rows = [];
 
-            function traitDetail(id) {
+            function traitDetail(id, instanceIdx) {
                 if (id === 't_skap') {
-                    let names = window.state.ancestrySkillAptitudeSkills.map(s => s ? (SKILLS.find(sk => sk.id === s)?.name || s) : "Player's Choice");
-                    return names.length ? ` (${names.join(', ')})` : '';
+                    let skill = window.state.ancestrySkillAptitudeSkills[instanceIdx];
+                    let name = skill ? (SKILLS.find(sk => sk.id === skill)?.name || skill) : "Player's Choice";
+                    return ` (${name})`;
                 }
                 if (id === 't_env') {
-                    let names = window.state.ancestryEnvResistances.filter(e => e.type || e.playerChoice).map(e => e.playerChoice ? "Player's Choice" : `${e.type}${e.immune ? ' Immune' : ''}`);
-                    return names.length ? ` (${names.join(', ')})` : '';
+                    let e = window.state.ancestryEnvResistances[instanceIdx];
+                    if (!e) return '';
+                    return ` (${e.playerChoice ? "Player's Choice" : `${e.type}${e.immune ? ' Immune' : ''}`})`;
                 }
                 if (id === 't_bp') {
-                    let names = window.state.ancestryBonusPerks.map(bp => bp.playerChoice ? "Player's Choice" : (PERKS_DB.find(p => p.id === bp.perkId)?.name || bp.perkId));
-                    return names.length ? ` (${names.join(', ')})` : '';
+                    let bp = window.state.ancestryBonusPerks[instanceIdx];
+                    if (!bp) return '';
+                    return ` (${bp.playerChoice ? "Player's Choice" : (PERKS_DB.find(p=>p.id===bp.perkId)?.name || bp.perkId)})`;
                 }
                 if (id === 't_innwpn') {
-                    let names = window.state.ancestryInnateWeapons.map(w => `${w.name} ${w.dmg}`);
-                    return names.length ? ` (${names.join(', ')})` : '';
+                    let w = window.state.ancestryInnateWeapons[instanceIdx];
+                    return w ? ` (${w.name} ${w.dmg})` : '';
                 }
                 return '';
             }
-            function flawDetail(id) {
+            function flawDetail(id, instanceIdx) {
                 if (id === 'f_env') {
-                    let names = window.state.ancestryEnvVulnerabilities.filter(e => e.type || e.playerChoice).map(e => e.playerChoice ? "Player's Choice" : e.type);
-                    return names.length ? ` (${names.join(', ')})` : '';
+                    let e = window.state.ancestryEnvVulnerabilities[instanceIdx];
+                    return e ? ` (${e.playerChoice ? "Player's Choice" : e.type})` : '';
                 }
                 return '';
             }
 
-            let traitCounts = {};
-            window.state.ancestry.traits.forEach(id => traitCounts[id] = (traitCounts[id] || 0) + 1);
-            Object.keys(traitCounts).forEach(id => {
+            // Traits — one row per purchased instance so each can be locked independently
+            let traitInstanceCounters = {};
+            window.state.ancestry.traits.forEach((id, arrIdx) => {
                 let def = ANCESTRY_TRAITS.find(t => t.id === id);
                 if (!def) return;
-                let count = traitCounts[id];
+                if (!(id in traitInstanceCounters)) traitInstanceCounters[id] = 0;
+                let instIdx = traitInstanceCounters[id]++;
+                let lockKey = id + '_' + arrIdx; // unique per array position
                 rows.push(`
                     <label class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded p-2 cursor-pointer hover:border-emerald-600">
-                        <input type="checkbox" ${locked.traits[id] ? 'checked' : ''} onchange="window.toggleAncFeatureLock('traits', '${id}', this.checked)" class="w-4 h-4">
-                        <span class="text-xs text-slate-200"><span class="font-bold text-emerald-400">${def.name}</span>${count > 1 ? ` x${count}` : ''}${traitDetail(id)}</span>
+                        <input type="checkbox" ${locked.traits[lockKey] ? 'checked' : ''} onchange="window.toggleAncFeatureLock('traits', '${lockKey}', this.checked)" class="w-4 h-4">
+                        <span class="text-xs text-slate-200"><span class="font-bold text-emerald-400">${def.name}</span>${traitDetail(id, instIdx)}</span>
                     </label>
                 `);
             });
 
-            let flawCounts = {};
-            window.state.ancestry.flaws.forEach(id => flawCounts[id] = (flawCounts[id] || 0) + 1);
-            Object.keys(flawCounts).forEach(id => {
+            let flawInstanceCounters = {};
+            window.state.ancestry.flaws.forEach((id, arrIdx) => {
                 let def = ANCESTRY_FLAWS.find(f => f.id === id);
                 if (!def) return;
-                let count = flawCounts[id];
+                if (!(id in flawInstanceCounters)) flawInstanceCounters[id] = 0;
+                let instIdx = flawInstanceCounters[id]++;
+                let lockKey = id + '_' + arrIdx;
                 rows.push(`
                     <label class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded p-2 cursor-pointer hover:border-red-600">
-                        <input type="checkbox" ${locked.flaws[id] ? 'checked' : ''} onchange="window.toggleAncFeatureLock('flaws', '${id}', this.checked)" class="w-4 h-4">
-                        <span class="text-xs text-slate-200"><span class="font-bold text-red-400">${def.name}</span>${count > 1 ? ` x${count}` : ''}${flawDetail(id)}</span>
+                        <input type="checkbox" ${locked.flaws[lockKey] ? 'checked' : ''} onchange="window.toggleAncFeatureLock('flaws', '${lockKey}', this.checked)" class="w-4 h-4">
+                        <span class="text-xs text-slate-200"><span class="font-bold text-red-400">${def.name}</span>${flawDetail(id, instIdx)}</span>
                     </label>
                 `);
             });
@@ -214,11 +220,23 @@
             `;
             rows.push(bioSection);
 
-            document.getElementById('ancLockFeatureList').innerHTML = rows.length ? rows.join('') : '<div class="text-xs text-slate-500 italic">No traits, flaws, or attribute bonuses to lock yet.</div>';
+            document.getElementById('ancLockFeatureList').innerHTML = rows.length
+                ? `<div class="flex justify-end mb-2"><button onclick="window.lockAllFeatures()" class="px-3 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold">Lock All</button></div>` + rows.join('')
+                : '<div class="text-xs text-slate-500 italic">No traits, flaws, or attribute bonuses to lock yet.</div>';
         }
         window.toggleAncFeatureLock = function(category, key, checked) {
-            if (!window.state.ancestry.gmLockedFeatures) window.state.ancestry.gmLockedFeatures = { traits: {}, flaws: {}, attrs: {} };
+            if (!window.state.ancestry.gmLockedFeatures) window.state.ancestry.gmLockedFeatures = { traits: {}, flaws: {}, attrs: {}, biology: {} };
             window.state.ancestry.gmLockedFeatures[category][key] = checked;
+        };
+        window.lockAllFeatures = function() {
+            if (!window.state.ancestry.gmLockedFeatures) window.state.ancestry.gmLockedFeatures = { traits:{}, flaws:{}, attrs:{}, biology:{} };
+            let lf = window.state.ancestry.gmLockedFeatures;
+            // Lock every individual trait instance
+            window.state.ancestry.traits.forEach((id, i) => { lf.traits[id + '_' + i] = true; });
+            window.state.ancestry.flaws.forEach((id, i) => { lf.flaws[id + '_' + i] = true; });
+            ATTRIBUTES.forEach(a => { if (window.state.ancestry.bonuses[a]) lf.attrs[a] = true; });
+            ['size','speed','lifespan'].forEach(k => lf.biology[k] = true);
+            renderAncLockFeatureList();
         };
 
         window.jumpToAncStep = function(n) {
@@ -507,15 +525,17 @@
             } else {
                 if (count <= 0) return;
                 // Opt-in lock: only blocked if the GM specifically checked
-                // this exact feature on the Lock Features screen -- not
-                // just because it happened to come from a race template
-                // at all. Anything the GM left unchecked (or that the
-                // player added themselves on top of what the GM granted)
-                // stays fully removable.
+                // this exact instance on the Lock Features screen.
+                // Keys are stored as "traitId_arrayIndex" so each purchase
+                // is independently lockable (two Skill Aptitude picks can
+                // lock one and leave the other player-editable).
                 let lockCategory = isFlaw ? 'flaws' : 'traits';
-                let isLocked = ((window.state.ancestry.gmLockedFeatures || {})[lockCategory] || {})[id];
-                let lockedCount = isLocked ? ((window.state.ancestry.gmBaselineCounts || {})[isFlaw ? 'flaw:' + id : id] || 0) : 0;
-                if (isLocked && count <= lockedCount) {
+                let lockFeatures = (window.state.ancestry.gmLockedFeatures || {})[lockCategory] || {};
+                // Find the last instance of this trait/flaw and check its lock
+                let arr = isFlaw ? window.state.ancestry.flaws : window.state.ancestry.traits;
+                let lastIdx = arr.lastIndexOf(id);
+                let isLocked = lockFeatures[id + '_' + lastIdx];
+                if (isLocked) {
                     window.showConfirm(`This ${isFlaw ? 'flaw' : 'trait'} was locked in by your species and can't be removed. You can still adjust anything the GM left unlocked.`, null, true);
                     return;
                 }

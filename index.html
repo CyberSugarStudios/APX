@@ -186,28 +186,28 @@
 
         <!-- Delete account modal -->
         <div id="deleteModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:100; display:none; align-items:center; justify-content:center;" class="flex">
-            <div style="background:#1e293b; border:1px solid #334155; border-radius:0.75rem; padding:1.5rem; max-width:380px; width:90%;">
+            <div style="background:var(--c-surface,#1e293b); border:1px solid #7f1d1d; border-radius:0.75rem; padding:1.5rem; max-width:380px; width:90%;">
                 <h3 class="text-lg font-bold mb-2 pb-2" style="color:#f87171; border-bottom:1px solid #7f1d1d;">Delete Account</h3>
                 <div id="dStep1">
-                    <p class="text-xs mb-3" style="color:#e2e8f0;">This permanently deletes your account and all cloud-saved data. <strong style="color:#f87171;">Cannot be undone.</strong></p>
-                    <p class="text-xs mb-2" style="color:#94a3b8;">Type <strong style="color:#fff;">DELETE</strong> to continue:</p>
+                    <p class="text-xs mb-3" style="color:var(--c-text,#e2e8f0);">This permanently deletes your account and all cloud-saved data. <strong style="color:#f87171;">Cannot be undone.</strong></p>
+                    <p class="text-xs mb-2" style="color:var(--c-text-muted,#94a3b8);">Type <strong style="color:#fff;">DELETE</strong> to continue:</p>
                     <input type="text" id="dInput" placeholder="Type DELETE" style="background:#0f172a; border:1px solid #334155; color:#e2e8f0; border-radius:0.375rem; padding:0.5rem 0.75rem; width:100%; margin-bottom:0.75rem; font-family:inherit;">
                     <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
-                        <button onclick="closeDeleteModal()" style="background:#334155; color:#e2e8f0; border:none; padding:0.5rem 1rem; border-radius:0.375rem; font-weight:700; cursor:pointer;">Cancel</button>
+                        <button onclick="closeDeleteModal()" style="background:var(--c-surface2,#0f172a); color:var(--c-text,#e2e8f0); border:1px solid var(--c-border,#334155); padding:0.5rem 1rem; border-radius:0.375rem; font-weight:700; cursor:pointer;">Cancel</button>
                         <button onclick="dCheck2()" style="background:#7f1d1d; color:#fca5a5; border:none; padding:0.5rem 1rem; border-radius:0.375rem; font-weight:700; cursor:pointer;">Continue</button>
                     </div>
                 </div>
                 <div id="dStep2" style="display:none;">
-                    <p class="text-xs mb-4" style="color:#e2e8f0;">Second confirmation: all characters, GM templates, and settings will be gone permanently.</p>
+                    <p class="text-xs mb-4" style="color:var(--c-text,#e2e8f0);">Second confirmation: all characters, GM templates, and settings will be gone permanently.</p>
                     <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
-                        <button onclick="closeDeleteModal()" style="background:#334155; color:#e2e8f0; border:none; padding:0.5rem 1rem; border-radius:0.375rem; font-weight:700; cursor:pointer;">Cancel</button>
+                        <button onclick="closeDeleteModal()" style="background:var(--c-surface2,#0f172a); color:var(--c-text,#e2e8f0); border:1px solid var(--c-border,#334155); padding:0.5rem 1rem; border-radius:0.375rem; font-weight:700; cursor:pointer;">Cancel</button>
                         <button onclick="dCheck3()" style="background:#991b1b; color:#fca5a5; border:none; padding:0.5rem 1rem; border-radius:0.375rem; font-weight:700; cursor:pointer;">Yes, I'm Sure</button>
                     </div>
                 </div>
                 <div id="dStep3" style="display:none;">
-                    <p class="text-xs mb-4" style="color:#e2e8f0;">Final confirmation. No recovery after this.</p>
+                    <p class="text-xs mb-4" style="color:var(--c-text,#e2e8f0);">Final confirmation. No recovery after this.</p>
                     <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
-                        <button onclick="closeDeleteModal()" style="background:#334155; color:#e2e8f0; border:none; padding:0.5rem 1rem; border-radius:0.375rem; font-weight:700; cursor:pointer;">Cancel</button>
+                        <button onclick="closeDeleteModal()" style="background:var(--c-surface2,#0f172a); color:var(--c-text,#e2e8f0); border:1px solid var(--c-border,#334155); padding:0.5rem 1rem; border-radius:0.375rem; font-weight:700; cursor:pointer;">Cancel</button>
                         <button onclick="doDeleteAccount()" style="background:#dc2626; color:#fff; border:none; padding:0.5rem 1rem; border-radius:0.375rem; font-weight:700; cursor:pointer;">Permanently Delete Account</button>
                     </div>
                 </div>
@@ -275,6 +275,7 @@
     }
     function playLocally() {
         sessionStorage.setItem('apxLocalOnly', '1');
+        localStorage.removeItem('apxConnectedWorld'); // never applicable without an account
         window.location.href = 'APX_CharSheet.html';
     }
 

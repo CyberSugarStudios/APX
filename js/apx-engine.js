@@ -919,7 +919,7 @@
                                         ${ATTRIBUTES.map(a => `<option value="${a}" ${a===w.attr?'selected':''}>${a}</option>`).join('')}
                                     </select>`;
                                 }
-                                let ffRank = window.state.perks['gen_fortfighter'] || 0;
+                                let ffRank = window.state.perks['luc_fortunatefighter'] || 0;
                                 let meleeAttrs = ['STR', 'AGI'];
                                 if (ffRank >= 3 && !isTrained) meleeAttrs.push('LUC');
                                 if (!meleeAttrs.includes(w.attr)) { w.attr = 'STR'; }

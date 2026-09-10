@@ -329,7 +329,7 @@
 
 
     <button class="hamburger-btn" onclick="window.toggleSidebar()">☰ Roster</button>
-    <button id="playerWorldBtn" class="hamburger-btn hidden" onclick="window.openModal('playerWorldModal')" style="background:var(--c-surface,#1e293b); border:1px solid var(--c-border,#334155);">World</button>
+    <button id="playerWorldBtn" class="hamburger-btn hidden" onclick="window.openModal('playerWorldModal')" style="margin-left:4px; background:var(--c-surface,#1e293b); border:1px solid var(--c-border,#334155);">World</button>
     <div class="undo-redo-cluster">
         <button id="btnUndo" onclick="window.performUndo()" title="Undo (Ctrl+Z)" disabled>↶ Undo</button>
         <button id="btnRedo" onclick="window.performRedo()" title="Redo (Ctrl+Y)" disabled>↷ Redo</button>
@@ -2328,10 +2328,13 @@
         }
     }
 
-    // On load, restore world button if a code is stored
+    // On load, restore world button if a code is stored AND user is signed in
     window.addEventListener('load', () => {
         let saved = JSON.parse(localStorage.getItem('apxConnectedWorld')||'null');
-        if (saved) document.getElementById('playerWorldBtn')?.classList.remove('hidden');
+        let localOnly = sessionStorage.getItem('apxLocalOnly');
+        if (saved && !localOnly && window.apxAuth?.enabled) {
+            document.getElementById('playerWorldBtn')?.classList.remove('hidden');
+        }
     });
 
     // loadCharacterState: the roster system already has this logic — reuse it

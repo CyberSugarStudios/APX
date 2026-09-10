@@ -1101,8 +1101,9 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
             <div id="gmInviteCodeSection" class="hidden bg-slate-900 border border-amber-700/30 rounded p-2 mb-3 flex-shrink-0 flex items-center gap-4">
                 <div>
-                    <div class="text-[9px] text-slate-500 uppercase font-bold mb-0.5">Player Invite Code</div>
-                    <div id="gmInviteCode" class="text-xl font-black tracking-widest text-amber-400 select-all cursor-text"></div>
+                    <div class="text-[9px] text-slate-500 uppercase font-bold mb-0.5">Player Invite Code — click to copy</div>
+                    <button id="gmInviteCode" onclick="window.copyInviteCode()" class="text-xl font-black tracking-widest text-amber-400 hover:text-amber-300 transition bg-transparent border-none cursor-pointer p-0 font-mono"></button>
+                    <div id="gmCopiedMsg" class="hidden text-[9px] text-emerald-400 font-bold mt-0.5">Copied!</div>
                 </div>
                 <div class="text-[10px] text-slate-400 flex-1">Players enter this in the character sheet lobby to receive all race templates and world info.</div>
             </div>
@@ -1245,9 +1246,12 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     // GM races are saved to Firestore whenever finishAncestry saves a race
     document.addEventListener('apxGmRacesSaved', async () => {
-        if (!window.apxAuth.enabled) return;
-        try { await window.apxAuth.saveGmRaces(window.gmRaces || []); }
-        catch(e) { console.warn('Cloud GM race save failed:', e.message); }
+        if (!window.apxAuth?.enabled) return;
+        try { await window.apxAuth.saveGmRaces(window.gmRaces || []); } catch(e) {}
+        // Also push races to the active world's worldCodes so players get them on join
+        if (typeof _activeWorldId !== 'undefined' && _activeWorldId) {
+            try { await window.apxAuth.saveWorldRaces(_activeWorldId, window.gmRaces || []); } catch(e) {}
+        }
     });
     </script>
 
@@ -1305,7 +1309,17 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('gmInviteCodeSection').classList.toggle('hidden', !w);
         if (w) {
             document.getElementById('gmInviteCode').innerText = w.inviteCode || '';
-            _wNotes = w.notesV2 || { session:[], npcs:[], locations:[], secrets:[], worldMapDataUrl:null };
+            document.getElementById('gmCopiedMsg')?.classList.add('hidden');
+            // Reconstruct notesV2 from both private (notesV2) and public (publicNotes) data
+            let priv = w.notesV2 || {};
+            let pub  = w.publicNotes || {};
+            _wNotes = {
+                session:          priv.session   || [],
+                secrets:          priv.secrets   || [],
+                worldMapDataUrl:  priv.worldMapDataUrl || null,
+                locations:        pub.locations  || priv.locations  || [],
+                npcs:             pub.npcs       || priv.npcs       || [],
+            };
             window.showWorldTab('session');
         }
     }
@@ -1332,8 +1346,24 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!w) return;
             w.notesV2 = JSON.parse(JSON.stringify(_wNotes));
             if (_mapImg && _mapImg.src && _mapImg.src.startsWith('data:')) w.notesV2.worldMapDataUrl = _mapImg.src;
+
             if (window.apxAuth?.enabled && _activeWorldId) {
-                await window.apxAuth.saveWorld(_activeWorldId, { notesV2: w.notesV2 }).catch(()=>{});
+                // Private GM data (session notes, secrets, map image)
+                let privateData = {
+                    notesV2: {
+                        session: w.notesV2.session || [],
+                        secrets: w.notesV2.secrets || [],
+                        worldMapDataUrl: w.notesV2.worldMapDataUrl || null
+                    }
+                };
+                // Public data (locations, npcs) goes to worldCodes so players can read it
+                let publicData = {
+                    publicNotes: {
+                        locations: w.notesV2.locations || [],
+                        npcs: w.notesV2.npcs || []
+                    }
+                };
+                await window.apxAuth.saveWorld(_activeWorldId, privateData, publicData).catch(e => console.warn('World save failed:', e.message));
             } else {
                 localStorage.setItem('apxLocalWorlds', JSON.stringify(_gmWorlds));
             }
@@ -1528,7 +1558,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (type==='secret')    window.renderSecretList();
     };
 
-    window.deleteCurrentNote = function() {
+    window.copyInviteCode = function() {
+        let code = document.getElementById('gmInviteCode').innerText;
+        if (!code) return;
+        navigator.clipboard.writeText(code).then(() => {
+            let msg = document.getElementById('gmCopiedMsg');
+            if (msg) { msg.classList.remove('hidden'); setTimeout(() => msg.classList.add('hidden'), 2000); }
+        }).catch(() => {
+            // Fallback for browsers that block clipboard without HTTPS
+            let ta = document.createElement('textarea');
+            ta.value = code; document.body.appendChild(ta); ta.select();
+            document.execCommand('copy'); document.body.removeChild(ta);
+        });
+    };
         if (!confirm('Delete this note?')) return;
         let { type, id } = _noteContext;
         let arrKey = type==='session'?'session':type==='npc'?'npcs':type==='location'?'locations':'secrets';
@@ -1695,7 +1737,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     _worldModalLoaded = true;
                     (async () => {
                         if (window.apxAuth?.enabled) {
-                            _gmWorlds = await window.apxAuth.loadWorlds().catch(()=>[]);
+                            let worlds = await window.apxAuth.loadWorlds().catch(()=>[]);
+                            // For each world, also fetch its public data from worldCodes
+                            let db = window._apxDb;
+                            if (db) {
+                                for (let w of worlds) {
+                                    if (w.inviteCode) {
+                                        try {
+                                            let pub = await db.collection('worldCodes').doc(w.inviteCode).get();
+                                            if (pub.exists) { w.publicNotes = pub.data().publicNotes || {}; w.races = pub.data().races || []; }
+                                        } catch(e) {}
+                                    }
+                                }
+                            }
+                            _gmWorlds = worlds;
                         } else {
                             _gmWorlds = JSON.parse(localStorage.getItem('apxLocalWorlds')||'[]');
                         }

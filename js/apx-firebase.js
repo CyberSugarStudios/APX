@@ -19,8 +19,8 @@
             loadGmRaces: () => Promise.resolve([]), getShareCode: () => null,
             connectToGm: () => Promise.resolve([]),
             createWorld: () => Promise.resolve(null), loadWorlds: () => Promise.resolve([]),
-            saveWorld: () => Promise.resolve(), deleteWorld: () => Promise.resolve(),
-            joinWorldByCode: () => Promise.resolve(null) };
+            saveWorld: () => Promise.resolve(), saveWorldRaces: () => Promise.resolve(),
+            deleteWorld: () => Promise.resolve(), joinWorldByCode: () => Promise.resolve(null) };
         return;
     }
 
@@ -28,6 +28,7 @@
     firebase.initializeApp(window.FIREBASE_CONFIG);
     const auth = firebase.auth();
     const db   = firebase.firestore();
+    window._apxDb = db; // expose for GMTools inline scripts that need cross-user reads
 
     // --- Auth helpers ---------------------------------------------------
     async function signIn(email, password) {
@@ -95,14 +96,17 @@
     }
 
     // --- World system ---------------------------------------------------
-    // A GM creates one or more Worlds; each world has a short invite code
-    // that players enter to auto-load all the GM's assets for that world.
     // Layout:
-    //   users/{uid}/worlds/{worldId}  -- world data (name, notes, races)
-    //   worldCodes/{inviteCode}       -- maps invite code to gmUid/worldId
+    //   users/{uid}/worlds/{worldId}  -- GM-only private world data
+    //   worldCodes/{inviteCode}       -- public: gmUid, worldId, races, publicNotes
+    //
+    // CRITICAL: players cannot read users/{otherUid}/... due to Firestore rules.
+    // All data that players need (races, locations, NPCs) is stored on the
+    // worldCodes document, which any signed-in user can read. The GM-only
+    // data (session notes, GM secrets) stays in users/{uid}/worlds/.
 
     function generateInviteCode() {
-        let chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no ambiguous chars
+        let chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
         let code = '';
         for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
         return code;
@@ -113,9 +117,11 @@
         if (!user) return null;
         let worldId = 'world_' + Date.now();
         let inviteCode = generateInviteCode();
-        let worldData = { name, inviteCode, races: [], notes: {}, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
+        // Private GM data
+        let worldData = { name, inviteCode, notesV2: null, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
         await db.collection('users').doc(user.uid).collection('worlds').doc(worldId).set(worldData);
-        await db.collection('worldCodes').doc(inviteCode).set({ gmUid: user.uid, worldId, worldName: name });
+        // Public data (readable by players)
+        await db.collection('worldCodes').doc(inviteCode).set({ gmUid: user.uid, worldId, worldName: name, races: [], publicNotes: {} });
         return { worldId, inviteCode, ...worldData };
     }
 
@@ -123,13 +129,29 @@
         let user = currentUser();
         if (!user) return [];
         let snap = await db.collection('users').doc(user.uid).collection('worlds').get();
-        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        return snap.docs.map(d => ({ id: d.id, worldId: d.id, ...d.data() }));
     }
 
-    async function saveWorld(worldId, data) {
+    async function saveWorld(worldId, gmPrivateData, publicData) {
         let user = currentUser();
         if (!user) return;
-        await db.collection('users').doc(user.uid).collection('worlds').doc(worldId).set(data, { merge: true });
+        // Save private GM data (session notes, GM secrets, map)
+        if (gmPrivateData && Object.keys(gmPrivateData).length)
+            await db.collection('users').doc(user.uid).collection('worlds').doc(worldId).set(gmPrivateData, { merge: true });
+        // Push public data to worldCodes so players can read it
+        if (publicData && Object.keys(publicData).length) {
+            let worldDoc = await db.collection('users').doc(user.uid).collection('worlds').doc(worldId).get();
+            let inviteCode = worldDoc.exists ? worldDoc.data().inviteCode : null;
+            if (inviteCode) await db.collection('worldCodes').doc(inviteCode).set(publicData, { merge: true });
+        }
+    }
+
+    async function saveWorldRaces(worldId, races) {
+        let user = currentUser();
+        if (!user) return;
+        let worldDoc = await db.collection('users').doc(user.uid).collection('worlds').doc(worldId).get();
+        let inviteCode = worldDoc.exists ? worldDoc.data().inviteCode : null;
+        if (inviteCode) await db.collection('worldCodes').doc(inviteCode).set({ races }, { merge: true });
     }
 
     async function deleteWorld(worldId, inviteCode) {
@@ -140,15 +162,16 @@
     }
 
     async function joinWorldByCode(inviteCode) {
+        // worldCodes is publicly readable — this always works
         let doc = await db.collection('worldCodes').doc(inviteCode.toUpperCase().trim()).get();
         if (!doc.exists) return null;
-        let { gmUid, worldId, worldName } = doc.data();
-        let worldDoc = await db.collection('users').doc(gmUid).collection('worlds').doc(worldId).get();
-        if (!worldDoc.exists) return null;
-        let data = worldDoc.data();
-        // Return everything the player needs: world name, races, and visible notes
-        return { gmUid, worldId, worldName: worldName || data.name, name: data.name,
-                 races: data.races || [], notesV2: data.notesV2 || {} };
+        let data = doc.data();
+        return {
+            gmUid: data.gmUid, worldId: data.worldId,
+            worldName: data.worldName, name: data.worldName,
+            races: data.races || [],
+            notesV2: { locations: data.publicNotes?.locations || [], npcs: data.publicNotes?.npcs || [] }
+        };
     }
 
     // A player can "connect to a GM" by entering the GM's share code
@@ -216,7 +239,7 @@
         saveCharacter, loadCharacters, deleteCharacter,
         saveGmRaces, loadGmRaces,
         getShareCode, connectToGm,
-        createWorld, loadWorlds, saveWorld, deleteWorld, joinWorldByCode,
+        createWorld, loadWorlds, saveWorld, saveWorldRaces, deleteWorld, joinWorldByCode,
         scheduleAutoSave, setActiveCharId,
         renderAuthBar,
     };
