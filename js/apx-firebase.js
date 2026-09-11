@@ -24,7 +24,10 @@
             createWorld: () => Promise.resolve(null), loadWorlds: () => Promise.resolve([]),
             saveWorld: () => Promise.resolve(), saveWorldRaces: () => Promise.resolve(),
             saveRacesToAllWorlds: () => Promise.resolve(), deleteWorld: () => Promise.resolve(), joinWorldByCode: () => Promise.resolve(null),
-            loadWorldPlayers: () => Promise.resolve([]) };
+            loadWorldPlayers: () => Promise.resolve([]),
+            saveWorldMapFirestore: () => Promise.resolve(),
+            loadWorldMapFirestore: () => Promise.resolve(null),
+            deleteWorldMapFirestore: () => Promise.resolve() };
         return;
     }
 
@@ -176,6 +179,46 @@
         return snap.docs.map(d => ({ id: d.id, worldId: d.id, ...d.data() }));
     }
 
+    // --- World map images via Firestore sub-document --------------------
+    // Stores the compressed map image in its own dedicated document so it
+    // never counts against the 1 MB limit of the main world document.
+    //
+    // Path: users/{uid}/worlds/{worldId}/mapImage/data
+    //
+    // The existing Firestore rule  match /users/{userId}/{document=**}
+    // already covers this path — no rule changes required.
+    // Works on the Spark (free) plan. No Firebase Storage / Blaze needed.
+
+    async function saveWorldMapFirestore(worldId, base64DataUrl) {
+        let user = currentUser();
+        if (!user) return;
+        await db.collection('users').doc(user.uid)
+            .collection('worlds').doc(worldId)
+            .collection('mapImage').doc('data')
+            .set({
+                imageData:  base64DataUrl,
+                updatedAt:  firebase.firestore.FieldValue.serverTimestamp()
+            });
+    }
+
+    async function loadWorldMapFirestore(worldId) {
+        let user = currentUser();
+        if (!user) return null;
+        let snap = await db.collection('users').doc(user.uid)
+            .collection('worlds').doc(worldId)
+            .collection('mapImage').doc('data').get();
+        return snap.exists ? (snap.data().imageData || null) : null;
+    }
+
+    async function deleteWorldMapFirestore(worldId) {
+        let user = currentUser();
+        if (!user) return;
+        await db.collection('users').doc(user.uid)
+            .collection('worlds').doc(worldId)
+            .collection('mapImage').doc('data')
+            .delete().catch(() => {}); // ignore "not found"
+    }
+
     async function saveWorld(worldId, gmPrivateData, publicData) {
         let user = currentUser();
         if (!user) return;
@@ -321,6 +364,7 @@
         getShareCode, connectToGm,
         createWorld, loadWorlds, saveWorld, saveWorldRaces, saveRacesToAllWorlds, deleteWorld, joinWorldByCode,
         loadWorldPlayers,
+        saveWorldMapFirestore, loadWorldMapFirestore, deleteWorldMapFirestore,
         scheduleAutoSave, setActiveCharId,
         renderAuthBar,
     };

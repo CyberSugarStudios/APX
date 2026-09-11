@@ -1308,7 +1308,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let _activeWorldId = null;
     let _worldModalLoaded = false;
     // Data for the active world's notes (V2 structured format)
-    let _wNotes = { session:[], npcs:[], locations:[], secrets:[], worldMapDataUrl:null };
+    // worldMapSaved   = true when an image has been saved to the Firestore sub-document
+    // worldMapDataUrl = base64 data URL, used ONLY for local (non-Firebase) worlds
+    //                   and as an in-session display cache after loading from Firestore
+    let _wNotes = { session:[], npcs:[], locations:[], secrets:[], worldMapSaved:false, worldMapDataUrl:null };
 
     function getActiveWorld() { return _gmWorlds.find(w => (w.worldId||w.id) === _activeWorldId); }
 
@@ -1363,11 +1366,17 @@ document.addEventListener('DOMContentLoaded', () => {
             let priv = w.notesV2 || {};
             let pub  = w.publicNotes || {};
             _wNotes = {
-                session:          priv.session          || [],
-                secrets:          priv.secrets          || [],
-                worldMapDataUrl:  priv.worldMapDataUrl  || null,
-                locations:        pub.locations         || priv.locations  || [],
-                npcs:             pub.npcs              || priv.npcs       || [],
+                session:         priv.session         || [],
+                secrets:         priv.secrets         || [],
+                // worldMapSaved: true means a map image exists in the Firestore sub-doc.
+                // It is loaded on demand when the Map tab is first opened (see initMap).
+                worldMapSaved:   priv.worldMapSaved   || false,
+                // Legacy: pre-patch worlds may have stored a small base64 image directly
+                // in the main doc (only worked if the image was tiny). Load it for display
+                // but it will be migrated to the sub-doc on the next map upload.
+                worldMapDataUrl: priv.worldMapDataUrl || null,
+                locations:       pub.locations        || priv.locations  || [],
+                npcs:            pub.npcs             || priv.npcs       || [],
             };
             window.showWorldTab('session');
         }
@@ -1394,22 +1403,30 @@ document.addEventListener('DOMContentLoaded', () => {
         _saveNotesTimer = setTimeout(async () => {
             let w = getActiveWorld();
             if (!w) return;
+
+            // Deep-copy in-memory notes. worldMapDataUrl is intentionally excluded
+            // from the Firestore payload — it is stored in a separate sub-document
+            // (users/{uid}/worlds/{worldId}/mapImage/data) to avoid Firestore's
+            // hard 1 MB per-document limit.
             w.notesV2 = JSON.parse(JSON.stringify(_wNotes));
-            if (_mapImg && _mapImg.src && _mapImg.src.startsWith('data:')) w.notesV2.worldMapDataUrl = _mapImg.src;
-            // Keep w.publicNotes in sync so selectGmWorld reads fresh data
-            // if the modal is re-opened before Firestore responds.
+
             w.publicNotes = {
-                locations: JSON.parse(JSON.stringify(_wNotes.locations||[])),
-                npcs:      JSON.parse(JSON.stringify(_wNotes.npcs||[])),
+                locations:       JSON.parse(JSON.stringify(_wNotes.locations||[])),
+                npcs:            JSON.parse(JSON.stringify(_wNotes.npcs||[])),
                 revealedSecrets: JSON.parse(JSON.stringify((_wNotes.secrets||[]).filter(s=>s.revealed)))
             };
 
             if (window.apxAuth?.enabled && _activeWorldId) {
+                // ── Firebase path ────────────────────────────────────────────
+                // The main world document only stores a boolean flag indicating
+                // that a map image exists. The actual image lives in its own
+                // sub-document (see saveWorldMapFirestore / loadWorldMapFirestore).
                 let privateData = {
                     notesV2: {
-                        session:          w.notesV2.session          || [],
-                        secrets:          w.notesV2.secrets          || [],
-                        worldMapDataUrl:  w.notesV2.worldMapDataUrl  || null
+                        session:       w.notesV2.session       || [],
+                        secrets:       w.notesV2.secrets       || [],
+                        worldMapSaved: w.notesV2.worldMapSaved || false,
+                        // worldMapDataUrl: deliberately omitted — never in Firestore
                     }
                 };
                 let publicData = {
@@ -1422,6 +1439,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 await window.apxAuth.saveWorld(_activeWorldId, privateData, publicData)
                     .catch(e => console.warn('World save failed:', e.message));
             } else {
+                // ── Local / offline path ─────────────────────────────────────
+                // localStorage has no 1 MB limit per key, so base64 is fine here.
+                if (_mapImg && _mapImg.src && _mapImg.src.startsWith('data:'))
+                    w.notesV2.worldMapDataUrl = _mapImg.src;
                 localStorage.setItem('apxLocalWorlds', JSON.stringify(_gmWorlds));
             }
         }, 400);
@@ -1778,16 +1799,42 @@ document.addEventListener('DOMContentLoaded', () => {
         if (_mapInitialized) { renderMapPins(); return; }
         _mapInitialized = true;
         _mapImg = document.getElementById('mapImage');
-        if (_wNotes.worldMapDataUrl && _mapImg) {
-            _mapImg.src = _wNotes.worldMapDataUrl;
+
+        function _showMapImg(src) {
+            _mapImg.src = src;
             _mapImg.style.display = 'block';
             document.getElementById('mapEmptyState').style.display = 'none';
         }
+
+        // 1. In-session cache or legacy local base64 — instant display
+        if (_wNotes.worldMapDataUrl && _mapImg) {
+            _showMapImg(_wNotes.worldMapDataUrl);
+            renderMapPins();
+            return;
+        }
+
+        // 2. Firebase path — load from sub-document on first Map-tab open
+        if (_wNotes.worldMapSaved && window.apxAuth?.enabled && _activeWorldId) {
+            window.apxAuth.loadWorldMapFirestore(_activeWorldId)
+                .then(dataUrl => {
+                    if (dataUrl && _mapImg) {
+                        _showMapImg(dataUrl);
+                        _wNotes.worldMapDataUrl = dataUrl; // cache for the rest of this session
+                    }
+                    renderMapPins();
+                })
+                .catch(err => {
+                    console.warn('Map load failed:', err.message);
+                    renderMapPins();
+                });
+            return; // renderMapPins called inside .then/.catch
+        }
+
         renderMapPins();
     }
     window.promptMapUpload = function() {
         let hasPins = (_wNotes.locations||[]).some(l=>l.pinX!=null);
-        let hasMap = !!(document.getElementById('mapImage')?.src && _wNotes.worldMapDataUrl);
+        let hasMap = !!(_wNotes.worldMapSaved || _wNotes.worldMapDataUrl);
         if (hasMap || hasPins) {
             window.showConfirm(
                 'Uploading a new map will remove all existing map pins (location notes are kept, just unpinned). Continue?',
@@ -1797,22 +1844,119 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('mapImageUpload').click();
         }
     };
+    // ── Canvas compression helpers ────────────────────────────────────────
+    // Compress a data-URL to a JPEG Blob using an off-screen Canvas.
+    function _canvasCompress(dataUrl, maxSide, quality) {
+        return new Promise(function(resolve, reject) {
+            var img = new Image();
+            img.onerror = reject;
+            img.onload = function() {
+                var w = img.naturalWidth, h = img.naturalHeight;
+                var ratio = Math.min(maxSide / w, maxSide / h, 1);
+                var canvas = document.createElement('canvas');
+                canvas.width  = Math.round(w * ratio);
+                canvas.height = Math.round(h * ratio);
+                canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                canvas.toBlob(function(blob) {
+                    if (blob) resolve(blob);
+                    else reject(new Error('Canvas toBlob returned null'));
+                }, 'image/jpeg', quality);
+            };
+            img.src = dataUrl;
+        });
+    }
+    function _blobToDataUrl(blob) {
+        return new Promise(function(resolve, reject) {
+            var r = new FileReader();
+            r.onload  = function(e) { resolve(e.target.result); };
+            r.onerror = reject;
+            r.readAsDataURL(blob);
+        });
+    }
+    // Adaptive multi-pass: tries progressively smaller/lower-quality until the
+    // base64 string fits inside a Firestore document (targeting ≤ 750 KB —
+    // well under the 1 MB hard limit, leaving headroom for Firestore metadata).
+    async function _compressForFirestore(dataUrl) {
+        const LIMIT = 750_000;
+        const passes = [
+            { maxSide: 1600, quality: 0.80 },
+            { maxSide: 1400, quality: 0.72 },
+            { maxSide: 1200, quality: 0.62 },
+            { maxSide: 1000, quality: 0.55 },
+            { maxSide:  800, quality: 0.45 },
+            { maxSide:  640, quality: 0.38 },
+        ];
+        for (var p of passes) {
+            var blob = await _canvasCompress(dataUrl, p.maxSide, p.quality);
+            var b64  = await _blobToDataUrl(blob);
+            if (b64.length < LIMIT) return b64;
+        }
+        throw new Error(
+            'This map image cannot be compressed small enough to save (result still exceeds 750 KB). ' +
+            'Try a smaller or simpler image, or save it at a lower resolution.'
+        );
+    }
+
+    // Show/hide a compact progress label on the Map tab button while uploading
+    function _setMapUploadProgress(label) {
+        var btn = document.getElementById('wTabMap');
+        if (btn) btn.textContent = label === null ? 'Map' : ('Map — ' + label);
+    }
+
     window.loadMapImage = function(input) {
         if (!input.files[0]) return;
-        // Unpin all locations (warning was already shown via promptMapUpload)
-        (_wNotes.locations||[]).forEach(l => { delete l.pinX; delete l.pinY; });
-        let reader = new FileReader();
-        reader.onload = e => {
+        var file = input.files[0];
+        input.value = ''; // reset so the same file can be re-selected
+
+        // Unpin locations (confirmation dialog already warned the user)
+        (_wNotes.locations||[]).forEach(function(l) { delete l.pinX; delete l.pinY; });
+
+        var reader = new FileReader();
+        reader.onload = async function(e) {
+            var dataUrl = e.target.result;
+
+            // ── Display immediately — don't wait for the upload ───────────
             _mapImg = document.getElementById('mapImage');
-            _mapImg.src = e.target.result;
+            _mapImg.src = dataUrl;
             _mapImg.style.display = 'block';
             document.getElementById('mapEmptyState').style.display = 'none';
-            _wNotes.worldMapDataUrl = e.target.result;
-            _mapImg.onload = () => window.mapResetView();
-            saveWorldNotes();
+            _mapImg.onload = function() { window.mapResetView(); };
+
+            if (window.apxAuth?.enabled && _activeWorldId) {
+                // ── Firebase path ─────────────────────────────────────────
+                // Save all non-image world data immediately (decoupled from
+                // the image upload so a slow/failed compress never blocks NPCs,
+                // Locations, Secrets, or Session Notes from being persisted).
+                _wNotes.worldMapSaved   = true;
+                _wNotes.worldMapDataUrl = dataUrl; // session-only display cache
+                saveWorldNotes();
+
+                _setMapUploadProgress('compressing…');
+                try {
+                    var compressed = await _compressForFirestore(dataUrl);
+                    _setMapUploadProgress('saving…');
+                    await window.apxAuth.saveWorldMapFirestore(_activeWorldId, compressed);
+                    // Replace the session cache with the compressed version so
+                    // subsequent tab switches don't re-fetch from Firestore.
+                    _wNotes.worldMapDataUrl = compressed;
+                    _setMapUploadProgress(null);
+                } catch (err) {
+                    _setMapUploadProgress(null);
+                    console.warn('Map save to Firestore sub-doc failed:', err.message);
+                    // The map is still visible locally for this session.
+                    // Everything else was already saved above.
+                    window.showConfirm
+                        ? window.showConfirm('Map save failed: ' + err.message, () => {})
+                        : alert('Map save failed: ' + err.message);
+                }
+            } else {
+                // ── Local / offline path ──────────────────────────────────
+                _wNotes.worldMapDataUrl = dataUrl;
+                _wNotes.worldMapSaved   = false;
+                saveWorldNotes();
+            }
         };
-        reader.readAsDataURL(input.files[0]);
-        input.value = ''; // reset so same file can be selected again
+        reader.readAsDataURL(file);
     };
     function applyMapTransform() {
         document.getElementById('mapViewport').style.transform = `translate(${_mapOffX}px,${_mapOffY}px) scale(${_mapScale})`;

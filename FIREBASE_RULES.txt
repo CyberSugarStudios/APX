@@ -1,11 +1,19 @@
-// Paste these rules into:
-// Firebase Console > Firestore Database > Rules tab
+// ─────────────────────────────────────────────────────────────────────────────
+// APX FIRESTORE RULES  (v2026.9.11.1117)
+// Paste into: Firebase Console > Firestore Database > Rules tab
+// ─────────────────────────────────────────────────────────────────────────────
+// No Firebase Storage or Blaze plan required.
+// World map images are stored in a Firestore sub-document
+// (users/{uid}/worlds/{worldId}/mapImage/data) so they never count against
+// the main world document's 1 MB limit. The {document=**} wildcard below
+// already covers that sub-collection — no additional rules needed.
 
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users own everything under their UID
+    // Users own everything under their UID, including the map sub-collection.
+    // Path example: users/{uid}/worlds/{worldId}/mapImage/data
     match /users/{userId}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
