@@ -25,6 +25,7 @@
             saveWorld: () => Promise.resolve(), saveWorldRaces: () => Promise.resolve(),
             saveRacesToAllWorlds: () => Promise.resolve(), deleteWorld: () => Promise.resolve(), joinWorldByCode: () => Promise.resolve(null),
             loadWorldPlayers: () => Promise.resolve([]),
+            listenWorldPlayers: () => (() => {}),
             saveWorldMapFirestore: () => Promise.resolve(),
             loadWorldMapFirestore: () => Promise.resolve(null),
             deleteWorldMapFirestore: () => Promise.resolve(),
@@ -208,6 +209,16 @@
     // Stored at: worldCodes/{inviteCode}/mapImage/data
     // Players can read worldCodes sub-collections (see FIREBASE_RULES.txt).
     // The GM writes here when uploading a map; players load from here.
+
+    // --- Real-time listener for player characters in a world ----------------
+    // Returns an unsubscribe function. Call it to stop receiving updates.
+    function listenWorldPlayers(inviteCode, callback) {
+        if (!inviteCode) return () => {};
+        return db.collection('worldCodes').doc(inviteCode.toUpperCase().trim())
+            .collection('players').onSnapshot(snap => {
+                callback(snap.docs.map(d => d.data()));
+            }, err => console.warn('Party listener error:', err.message));
+    }
 
     async function savePublicWorldMap(inviteCode, base64DataUrl) {
         if (!inviteCode) return;
@@ -399,7 +410,7 @@
         createWorld, loadWorlds, saveWorld, saveWorldRaces, saveRacesToAllWorlds, deleteWorld, joinWorldByCode,
         loadWorldPlayers,
         saveWorldMapFirestore, loadWorldMapFirestore, deleteWorldMapFirestore,
-        savePublicWorldMap, loadPublicWorldMap,
+        savePublicWorldMap, loadPublicWorldMap, listenWorldPlayers,
         scheduleAutoSave, setActiveCharId,
         renderAuthBar,
     };

@@ -662,7 +662,13 @@
                             ${chargesControl}
                         </td>
                         <td class="px-1 py-1 text-center">${wtHtml}</td>
-                        <td class="px-1 py-1"><input type="number" value="${item.ct}" onchange="window.updateItemCt(${idx}, this.value)" class="bg-slate-800 border-slate-600 text-xs text-center font-bold text-white w-full"></td>
+                        <td class="px-1 py-1">
+                            <div class="flex items-center justify-center gap-0.5">
+                                <button onclick="window.updateItemCt(${idx}, Math.max(0, (window.state.items[${idx}]?.ct||1)-1)); window.recalculateMath();" class="w-5 h-5 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold leading-none flex items-center justify-center">−</button>
+                                <input type="number" value="${item.ct}" onchange="window.updateItemCt(${idx}, this.value)" class="bg-slate-800 border-slate-600 text-xs text-center font-bold text-white w-8 px-0">
+                                <button onclick="window.updateItemCt(${idx}, (window.state.items[${idx}]?.ct||0)+1); window.recalculateMath();" class="w-5 h-5 rounded bg-amber-700 hover:bg-amber-600 text-white text-xs font-bold leading-none flex items-center justify-center">+</button>
+                            </div>
+                        </td>
                         <td class="px-1 py-1 text-center font-bold text-slate-300 text-xs">${rowWt.toFixed(1).replace(/\.0$/, '')}</td>
                         <td class="px-1 py-1 text-center">${valHtml}</td>
                         <td class="px-1 py-1 text-center">

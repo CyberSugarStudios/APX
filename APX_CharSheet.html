@@ -2327,16 +2327,30 @@
         closeMeatball();
         window._movingCharId = charId;
         let listEl = document.getElementById('folderPickerList');
-        listEl.innerHTML = window._sidebarFolders.length
-            ? window._sidebarFolders.map(f=>`
-                <button onclick="window.moveCharToFolder('${charId}','${f.id}')"
-                    class="w-full text-left px-3 py-2 rounded bg-slate-900 border border-slate-700 hover:border-indigo-500 text-xs font-bold text-slate-200 transition">
-                    ${f.name}
-                </button>`).join('') +
-              `<button onclick="window.moveCharToFolder('${charId}',null)"
-                  class="w-full text-left px-3 py-2 rounded bg-slate-900 border border-slate-700 hover:border-slate-500 text-xs font-bold text-slate-500 transition">
-                  Remove from folder (Unfiled)
-              </button>`
+        if (!listEl) return;
+
+        let rows = (window._sidebarFolders||[]).map(f => {
+            let isWorld = !!f.worldCode;
+            // For world folders check occupancy (another char already in it)
+            let occupant = isWorld ? (window._sidebarChars||[]).find(c => c.folderId===f.id && c.id!==charId) : null;
+            let disabled  = occupant ? 'disabled' : '';
+            let badge     = isWorld  ? `<span class="text-[8px] font-black text-amber-400 bg-amber-900/30 border border-amber-700/40 rounded px-1 ml-1">🌍 World</span>` : '';
+            let sub       = occupant ? `<div class="text-[9px] text-red-400 font-normal mt-0.5">Occupied — ${occupant.name||'Unnamed'} is already here</div>` : '';
+            let cls       = occupant
+                ? 'w-full text-left px-3 py-2 rounded bg-slate-950 border border-red-900/40 text-xs font-bold text-slate-500 cursor-not-allowed'
+                : `w-full text-left px-3 py-2 rounded bg-slate-900 border border-slate-700 hover:border-${isWorld?'amber':'indigo'}-500 text-xs font-bold text-slate-200 transition`;
+            return `<button onclick="window.moveCharToFolder('${charId}','${f.id}')" ${disabled} class="${cls}">
+                ${f.name}${badge}${sub}
+            </button>`;
+        });
+
+        rows.push(`<button onclick="window.moveCharToFolder('${charId}',null)"
+            class="w-full text-left px-3 py-2 rounded bg-slate-900 border border-slate-700 hover:border-slate-500 text-xs font-bold text-slate-500 transition">
+            Remove from folder (Unfiled)
+        </button>`);
+
+        listEl.innerHTML = rows.length > 1
+            ? rows.join('')
             : '<div class="text-xs text-slate-500 text-center py-3">No folders yet. Create one below.</div>';
         window.openModal('addToFolderModal');
     };

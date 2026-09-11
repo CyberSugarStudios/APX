@@ -13,6 +13,14 @@
 // or anything not needed for an at-a-glance summary -- for those, open
 // the character's own file.
 function computeCharSummary(state) {
+    // Null-guard: a freshly-joined player might not have a fully-populated state yet.
+    if (!state) state = {};
+    if (!state.ancestry) state.ancestry = { name: '', speed: 3, traits: [], flaws: [] };
+    if (!state.ancestry.traits) state.ancestry.traits = [];
+    if (!state.ancestry.flaws)  state.ancestry.flaws  = [];
+    if (!state.skillsTrained)   state.skillsTrained = {};
+    if (!state.items)           state.items = [];
+    if (!state.baseStats)       state.baseStats = {};
     let calc = {
         scores: {}, mods: {}, skills: {},
         ac: 10, dr: 0, er: 0, speed: (state.ancestry.speed || 3),
@@ -227,14 +235,24 @@ window.loadGmPartyFromCloud = async function() {
         return;
     }
 
-    // Find the active world's invite code
+    // Find invite code — auto-select the one active world if only one exists
     let activeWorldId = typeof _activeWorldId !== 'undefined' ? _activeWorldId : null;
     let worlds = typeof _gmWorlds !== 'undefined' ? _gmWorlds : [];
     let activeWorld = worlds.find(w => (w.worldId || w.id) === activeWorldId);
+
+    // Auto-use the only world if the GM hasn't explicitly selected one
+    if (!activeWorld && worlds.length === 1) {
+        activeWorld = worlds[0];
+        if (typeof window.switchGmWorld === 'function') window.switchGmWorld(activeWorld.worldId || activeWorld.id);
+    }
+
     let inviteCode = activeWorld?.inviteCode;
 
     if (!inviteCode) {
-        showStatus('Open a World first, then use its invite code to pull players.', 'var(--c-red,#ef4444)');
+        let msg = worlds.length === 0
+            ? 'No worlds yet. Create a world in the World tab first.'
+            : 'Select a world in the World tab, then try again.';
+        showStatus(msg, 'var(--c-red,#ef4444)');
         return;
     }
 
@@ -245,9 +263,9 @@ window.loadGmPartyFromCloud = async function() {
             showStatus('No players have joined with this invite code yet.', '#94a3b8');
             return;
         }
-        // Players share their full state when they join with an invite code
+        // charState (new field name) || state (old field name) || fallback
         let newEntries = players.map(p => {
-            let state = p.state || { name: p.charName || 'Unknown Player', baseStats: {}, ancestry: { name: '' } };
+            let state = p.charState || p.state || { name: p.charName || 'Unknown Player' };
             return { fileName: p.uid, state, summary: computeCharSummary(state) };
         });
         newEntries.forEach(e => {
@@ -255,12 +273,43 @@ window.loadGmPartyFromCloud = async function() {
         });
         showStatus(`Loaded ${newEntries.length} player(s) from world ${inviteCode}.`, 'var(--c-emerald,#34d399)');
         window.renderGmScreen();
+        // Start real-time listener so party auto-updates when players save
+        startPartyListener(inviteCode);
         setTimeout(() => window.closeModal('loadPartyModal'), 1500);
     } catch(e) {
         showStatus('Error: ' + e.message, 'var(--c-red,#ef4444)');
     }
 };
 
+
+// ── Real-time party listener ──────────────────────────────────────────────
+// Subscribes to worldCodes/{inviteCode}/players/* so the GM's party panel
+// refreshes automatically whenever a player saves their character.
+let _partyUnsubscribe = null;
+
+function startPartyListener(inviteCode) {
+    if (_partyUnsubscribe) { _partyUnsubscribe(); _partyUnsubscribe = null; }
+    if (!inviteCode || !window.apxAuth?.enabled) return;
+    if (typeof window.apxAuth.listenWorldPlayers !== 'function') return;
+    _partyUnsubscribe = window.apxAuth.listenWorldPlayers(inviteCode, players => {
+        let changed = false;
+        players.forEach(p => {
+            let state = p.charState || p.state;
+            if (!state) return;
+            let entry = window.gmParty.find(x => x.fileName === p.uid);
+            if (entry) {
+                entry.state   = state;
+                entry.summary = computeCharSummary(state);
+                changed = true;
+            } else {
+                window.gmParty.push({ fileName: p.uid, state, summary: computeCharSummary(state) });
+                changed = true;
+            }
+        });
+        if (changed) window.renderGmScreen();
+    });
+}
+window.startPartyListener = startPartyListener;
 
 function statBadge(label, value, colorClass) {
     return `<div class="text-center bg-slate-900 rounded border border-slate-700 py-1"><div class="text-[8px] text-slate-500 uppercase font-bold">${label}</div><div class="text-sm font-black ${colorClass || 'text-white'}">${value}</div></div>`;

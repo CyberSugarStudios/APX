@@ -392,10 +392,45 @@ window.ncAdjustDef = function(field, delta, tpPer) {
     ncSpend(delta * tpPer, () => { c[field] += delta; });
 };
 window.ncAddTextImmunity = function(field, tp, label) {
+    // Energy fields get a dropdown of known energy types; everything else gets the text picker.
+    let energyFields = ['energyImmunities', 'energyVulnerabilities'];
+    if (energyFields.includes(field)) {
+        window.ncPickEnergyType(field, tp);
+        return;
+    }
     window.openPerkTextPicker({ name: label }, 'Companion', (text) => {
         if (!text) return;
         ncSpend(tp, () => { ncActiveCompanion()[field].push(text); });
     }, 'Name the condition/type...');
+};
+window.ncPickEnergyType = function(field, tp) {
+    // Build a small inline overlay from NPC_ENERGY_TYPES
+    let existing = new Set(ncActiveCompanion()[field]);
+    let options = (window.NPC_ENERGY_TYPES || ['Fire','Cold','Lightning','Acid','Poison','Radiant','Necrotic','Force','Psychic','Sonic'])
+        .filter(t => !existing.has(t));
+    if (!options.length) {
+        window.showConfirm('All energy types are already added.', null, true);
+        return;
+    }
+    let picker = document.getElementById('ncEnergyPickerOverlay');
+    if (!picker) {
+        picker = document.createElement('div');
+        picker.id = 'ncEnergyPickerOverlay';
+        picker.style.cssText = 'position:fixed;inset:0;z-index:1600;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;';
+        document.body.appendChild(picker);
+    }
+    picker.innerHTML = `<div style="background:#1e293b;border:1px solid #475569;border-radius:0.75rem;padding:1.25rem;min-width:260px;max-width:320px;">
+        <div style="font-size:0.75rem;font-weight:700;color:#f8fafc;margin-bottom:0.75rem;">Choose Energy Type</div>
+        <div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:1rem;">
+            ${options.map(t=>`<button onclick="window.ncConfirmEnergyPick('${field}',${tp},'${t}')" style="background:#0f172a;border:1px solid #475569;color:#e2e8f0;font-size:0.7rem;font-weight:700;padding:0.3rem 0.6rem;border-radius:0.375rem;cursor:pointer;">${t}</button>`).join('')}
+        </div>
+        <button onclick="document.getElementById('ncEnergyPickerOverlay').style.display='none'" style="background:#334155;border:none;color:#94a3b8;font-size:0.7rem;font-weight:700;padding:0.4rem 0.8rem;border-radius:0.375rem;cursor:pointer;">Cancel</button>
+    </div>`;
+    picker.style.display = 'flex';
+};
+window.ncConfirmEnergyPick = function(field, tp, type) {
+    document.getElementById('ncEnergyPickerOverlay').style.display = 'none';
+    ncSpend(tp, () => { ncActiveCompanion()[field].push(type); });
 };
 window.ncRemoveTextImmunity = function(field, idx, tp) {
     let c = ncActiveCompanion();

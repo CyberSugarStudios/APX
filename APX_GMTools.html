@@ -705,7 +705,7 @@
         </div>
     </div>
 
-<div class="modal-overlay" id="ncTrainingPickerModal">
+<div class="modal-overlay" id="ncTrainingPickerModal" style="z-index:1500;">
         <div class="modal-content max-w-[450px]">
             <h3 class="text-lg font-bold text-white mb-3 border-b border-purple-600 pb-2">Choose Training</h3>
             <div id="ncTrainingPickerBody" class="max-h-[50vh] overflow-y-auto pr-1"><!-- JS injected --></div>
@@ -728,7 +728,7 @@
         </div>
     </div>
 
-<div class="modal-overlay" id="weaponForgeModal">
+<div class="modal-overlay" id="weaponForgeModal" style="z-index:1500;">
         <div class="modal-content max-w-[800px]">
             <div class="flex justify-between items-center mb-1 border-b border-orange-600 pb-2">
                 <h3 class="text-xl font-black text-white">The Weapon Forge</h3>
@@ -841,7 +841,7 @@
         </div>
     </div>
 
-<div class="modal-overlay" id="armorForgeModal">
+<div class="modal-overlay" id="armorForgeModal" style="z-index:1500;">
         <div class="modal-content max-w-[820px]">
             <div class="flex justify-between items-center mb-1 border-b border-orange-600 pb-2">
                 <h3 class="text-xl font-black text-white">The Armor Forge</h3>
@@ -989,7 +989,7 @@
         </div>
     </div>
 
-<div class="modal-overlay" id="perkChoiceModal">
+<div class="modal-overlay" id="perkChoiceModal" style="z-index:1500;">
         <div class="modal-content max-w-sm">
             <h3 class="text-lg font-bold text-white mb-2 border-b border-purple-600 pb-2">Select Perk Specialization</h3>
             <p id="perkChoiceDesc" class="text-xs text-slate-400 mb-4">Choose how you want to apply this perk's rank.</p>
@@ -1096,6 +1096,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="flex items-center gap-3">
                     <h3 class="text-lg font-bold text-amber-400">World</h3>
                     <select id="gmWorldSelector" onchange="window.switchGmWorld(this.value)" class="bg-slate-900 text-sm font-bold"></select>
+                    <div id="gmActiveWorldBadge" class="hidden text-[10px] font-bold text-emerald-400 bg-emerald-900/30 border border-emerald-700/40 rounded px-2 py-0.5"></div>
                     <button onclick="window.createGmWorld()" class="px-2 py-1 rounded bg-amber-800 hover:bg-amber-700 text-white text-[10px] font-bold">+ New World</button>
                     <button onclick="window.deleteCurrentWorld()" class="px-2 py-1 rounded bg-red-900/40 hover:bg-red-900 text-red-400 text-[10px] font-bold">Delete</button>
                 </div>
@@ -1188,7 +1189,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
     </div>
 
-<div class="modal-overlay" id="noteDetailModal">
+<div class="modal-overlay" id="noteDetailModal" style="z-index:1500;">
         <div class="modal-content max-w-lg">
             <div class="flex justify-between items-center mb-3 border-b border-slate-600 pb-2">
                 <h3 id="noteDetailTitle" class="text-base font-bold text-white">Add Note</h3>
@@ -1362,6 +1363,11 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('gmWorldContent').classList.toggle('hidden', !w);
         document.getElementById('gmWorldEmpty').classList.toggle('hidden', !!w);
         document.getElementById('gmInviteCodeSection').classList.toggle('hidden', !w);
+        let badge = document.getElementById('gmActiveWorldBadge');
+        if (badge) {
+            if (w?.name) { badge.textContent = '● ' + w.name; badge.classList.remove('hidden'); }
+            else badge.classList.add('hidden');
+        }
         if (w) {
             document.getElementById('gmInviteCode').innerText = w.inviteCode || '';
             document.getElementById('gmCopiedMsg')?.classList.add('hidden');
@@ -1374,12 +1380,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 notes:           priv.notes           || priv.secrets || [],
                 worldMapSaved:   priv.worldMapSaved   || false,
                 worldMapDataUrl: priv.worldMapDataUrl || null,
-                // locations and npcs now carry revealed + notes sub-arrays; existing items
-                // without these fields simply default to revealed:false and notes:[]
-                locations: (pub.locations || priv.locations || []).map(l => ({
+                // ALWAYS load from private data first — priv contains the full unfiltered
+                // list. publicNotes only holds revealed items and is player-facing only.
+                // Using pub.locations first would silently delete every hidden location.
+                locations: (priv.locations || pub.locations || []).map(l => ({
                     revealed: false, notes: [], ...l
                 })),
-                npcs: (pub.npcs || priv.npcs || []).map(n => ({
+                npcs: (priv.npcs || pub.npcs || []).map(n => ({
                     revealed: false, notes: [], ...n
                 })),
             };
@@ -1585,15 +1592,57 @@ document.addEventListener('DOMContentLoaded', () => {
             !q || (n.title||'').toLowerCase().includes(q) || (n.content||'').toLowerCase().includes(q));
         let el = document.getElementById('noteList');
         if (!el) return;
-        el.innerHTML = list.length
-            ? list.map(n=>`<div class="bg-slate-900 border border-slate-700 rounded p-3 cursor-pointer hover:border-slate-500" onclick="window.openNoteModal('note','${n.id}')">
-                <div class="flex items-start justify-between gap-2">
-                    <div class="text-xs font-bold text-slate-200 min-w-0 truncate">${n.title||'Untitled Note'}</div>
-                    <div onclick="event.stopPropagation()">${revealBadge('note', n.id, !!n.revealed)}</div>
+
+        // Aggregate sub-notes from all locations and NPCs
+        let subNotes = [];
+        (_wNotes.locations||[]).forEach(l => {
+            (l.notes||[]).forEach(sn => {
+                if (!q || (sn.title||'').toLowerCase().includes(q) || (sn.content||'').toLowerCase().includes(q))
+                    subNotes.push({ ...sn, _parentType:'location', _parentName:l.name, _parentId:l.id });
+            });
+        });
+        (_wNotes.npcs||[]).forEach(n => {
+            (n.notes||[]).forEach(sn => {
+                if (!q || (sn.title||'').toLowerCase().includes(q) || (sn.content||'').toLowerCase().includes(q))
+                    subNotes.push({ ...sn, _parentType:'npc', _parentName:n.name, _parentId:n.id });
+            });
+        });
+
+        let standaloneHtml = list.map(n=>`<div class="bg-slate-900 border border-slate-700 rounded p-3 cursor-pointer hover:border-slate-500" onclick="window.openNoteModal('note','${n.id}')">
+            <div class="flex items-start justify-between gap-2">
+                <div class="text-xs font-bold text-slate-200 min-w-0 truncate">${n.title||'Untitled Note'}</div>
+                <div onclick="event.stopPropagation()">${revealBadge('note', n.id, !!n.revealed)}</div>
+            </div>
+            ${n.content?`<div class="text-[10px] text-slate-400 mt-1.5 line-clamp-2 leading-relaxed">${n.content}</div>`:''}
+        </div>`).join('');
+
+        let subHtml = subNotes.map(sn=>`<div class="bg-slate-900 border border-slate-600 rounded p-3 cursor-pointer hover:border-slate-400"
+            onclick="window.openNoteModal('${sn._parentType}','${sn._parentId}')">
+            <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0">
+                    <div class="text-[9px] text-slate-500 mb-0.5">${sn._parentType==='location'?'📍':'👤'} <span class="text-slate-400">${sn._parentName}</span></div>
+                    <div class="text-xs font-bold text-slate-200 truncate">${sn.title||'Untitled Note'}</div>
                 </div>
-                ${n.content?`<div class="text-[10px] text-slate-400 mt-1.5 line-clamp-2 leading-relaxed">${n.content}</div>`:''}
-            </div>`).join('')
-            : emptyState('No notes yet');
+                <div onclick="event.stopPropagation()">
+                    <label class="flex items-center gap-1 text-[10px] cursor-pointer shrink-0" onclick="event.stopPropagation()">
+                        <input type="checkbox" ${sn.revealed?'checked':''} onchange="window.toggleSubNoteReveal('${sn._parentType}','${sn._parentId}','${sn.id}',this.checked)" class="w-3 h-3">
+                        <span class="${sn.revealed?'text-emerald-400':'text-slate-500'}">${sn.revealed?'Revealed':'Hidden'}</span>
+                    </label>
+                </div>
+            </div>
+            ${sn.content?`<div class="text-[10px] text-slate-400 mt-1 line-clamp-2">${sn.content}</div>`:''}
+        </div>`).join('');
+
+        el.innerHTML = (standaloneHtml + subHtml) || emptyState('No notes yet');
+    };
+
+    // Toggle reveal for a sub-note embedded inside a location or npc
+    window.toggleSubNoteReveal = function(parentType, parentId, noteId, val) {
+        let arr = parentType==='location' ? (_wNotes.locations||[]) : (_wNotes.npcs||[]);
+        let parent = arr.find(x=>x.id===parentId);
+        if (!parent) return;
+        let sn = (parent.notes||[]).find(x=>x.id===noteId);
+        if (sn) { sn.revealed = val; saveWorldNotes(); window.renderNoteList(); }
     };
 
     // ── Sub-note editor (used inside Location/NPC modal) ─────────
@@ -1926,7 +1975,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 .then(dataUrl => {
                     if (dataUrl && _mapImg) {
                         _showMapImg(dataUrl);
-                        _wNotes.worldMapDataUrl = dataUrl; // cache for the rest of this session
+                        _wNotes.worldMapDataUrl = dataUrl;
+                        // Background-sync to public path so players can load it.
+                        // This is idempotent — runs silently every time the Map tab
+                        // is first opened so even maps uploaded before this patch
+                        // get published automatically.
+                        let w = getActiveWorld();
+                        if (w?.inviteCode) {
+                            window.apxAuth.savePublicWorldMap(w.inviteCode, dataUrl)
+                                .catch(e => console.warn('initMap public sync:', e.message));
+                        }
                     }
                     renderMapPins();
                 })
