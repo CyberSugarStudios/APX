@@ -2062,7 +2062,7 @@
 
     <!-- Player World Modal: shows publicly-visible world info -->
     <div class="modal-overlay" id="playerWorldModal">
-        <div class="modal-content" style="max-width:680px; max-height:90vh; display:flex; flex-direction:column;">
+        <div class="modal-content" style="max-width:1100px; width:95vw; max-height:96vh; display:flex; flex-direction:column;">
             <div class="flex justify-between items-center mb-3 border-b border-slate-600 pb-2 flex-shrink-0">
                 <div>
                     <h3 id="playerWorldTitle" class="text-base font-bold text-amber-400">World</h3>
@@ -2073,13 +2073,18 @@
             <div class="flex gap-2 mb-3 flex-shrink-0">
                 <button onclick="window.showPlayerWorldTab('locations')" id="pwTabLocations" class="px-3 py-1.5 rounded text-xs font-bold bg-emerald-700 text-white">Locations</button>
                 <button onclick="window.showPlayerWorldTab('npcs')"      id="pwTabNpcs"      class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">NPCs</button>
-                <button onclick="window.showPlayerWorldTab('secrets')"   id="pwTabSecrets"   class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Revealed Secrets</button>
+                <button onclick="window.showPlayerWorldTab('notes')"     id="pwTabNotes"     class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Notes</button>
                 <button onclick="window.showPlayerWorldTab('map')"       id="pwTabMap"       class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Map</button>
             </div>
             <div id="pwPanelLocations" class="flex-1 overflow-y-auto space-y-2 pr-1"></div>
-            <div id="pwPanelNpcs" class="hidden flex-1 overflow-y-auto space-y-2 pr-1"></div>
-            <div id="pwPanelSecrets" class="hidden flex-1 overflow-y-auto space-y-2 pr-1"></div>
-            <div id="pwPanelMap" class="hidden flex-1 overflow-hidden rounded border border-slate-700 bg-slate-950 relative" style="min-height:280px;">
+            <div id="pwPanelNpcs"      class="hidden flex-1 overflow-y-auto space-y-2 pr-1"></div>
+            <div id="pwPanelNotes"     class="hidden flex-1 overflow-y-auto space-y-2 pr-1"></div>
+            <div id="pwPanelMap" class="hidden flex-1 overflow-hidden rounded border border-slate-700 bg-slate-950 relative" style="min-height:420px;">
+                <div class="flex gap-2 p-2 flex-shrink-0 absolute top-0 left-0 z-10">
+                    <button onclick="window.pwMapZoom(1.25)" class="px-2 py-1 rounded bg-slate-800/80 text-white text-xs font-bold backdrop-blur">+</button>
+                    <button onclick="window.pwMapZoom(0.8)"  class="px-2 py-1 rounded bg-slate-800/80 text-white text-xs font-bold backdrop-blur">−</button>
+                    <button onclick="window.pwMapResetView()" class="px-2 py-1 rounded bg-slate-800/80 text-slate-400 text-xs backdrop-blur">Reset</button>
+                </div>
                 <div id="pwMapViewport" style="position:absolute; transform-origin:0 0; will-change:transform;">
                     <img id="pwMapImage" src="" alt="" style="display:none; max-width:none; user-select:none; pointer-events:none;">
                     <div id="pwMapPins" style="position:absolute; top:0; left:0; pointer-events:none;"></div>
@@ -2169,22 +2174,21 @@
             return;
         }
 
-        // Group: world sections first, then folders, then unfiled
-        let connectedWorld = JSON.parse(localStorage.getItem('apxConnectedWorld') || 'null');
-        let worldCode = connectedWorld?.code;
-
-        // Collect unique folders in order
         let folderMap = {};
         window._sidebarFolders.forEach(f => folderMap[f.id] = f);
 
-        // Group characters
-        let worldChars = worldCode ? window._sidebarChars.filter(c => c.worldCode === worldCode) : [];
-        let folderGroups = {}; // folderId → chars
+        // Partition chars into world-folders, regular folders, unfiled
+        let worldFolderIds = new Set((window._sidebarFolders||[]).filter(f=>f.worldCode).map(f=>f.id));
+        let worldFolderGroups = {}; // folderId → chars (max 1)
+        let folderGroups = {};      // folderId → chars
         let unfiled = [];
+
         window._sidebarChars.forEach(c => {
-            if (c.worldCode === worldCode && worldCode) return; // handled in world section
-            if (c.folderId && folderMap[c.folderId]) {
-                (folderGroups[c.folderId] = folderGroups[c.folderId] || []).push(c);
+            let fid = c.folderId;
+            if (fid && worldFolderIds.has(fid)) {
+                (worldFolderGroups[fid] = worldFolderGroups[fid] || []).push(c);
+            } else if (fid && folderMap[fid]) {
+                (folderGroups[fid] = folderGroups[fid] || []).push(c);
             } else {
                 unfiled.push(c);
             }
@@ -2192,19 +2196,23 @@
 
         let html = '';
 
-        // World section
-        if (worldCode && worldChars.length) {
-            html += `<div class="text-[9px] text-amber-400 uppercase font-black tracking-wider px-1 pt-1 pb-0.5">World: ${worldCode}</div>`;
-            worldChars.forEach(c => html += charRow(c));
-            html += '<div class="border-b border-slate-700/50 my-1"></div>';
-        }
+        // World folders — one section per world
+        (window._sidebarFolders||[]).filter(f=>f.worldCode).forEach(f => {
+            let chars = worldFolderGroups[f.id] || [];
+            html += `<div class="flex items-center gap-1 px-1 pt-1 pb-0.5">
+                <span class="text-[9px] text-amber-400 uppercase font-black tracking-wider flex-1 truncate">🌍 ${f.worldName||f.name}</span>
+                <button onclick="window.deleteFolderConfirm('${f.id}')" class="text-[9px] text-slate-600 hover:text-red-500 px-0.5" title="Leave world">×</button>
+            </div>`;
+            if (chars.length) chars.forEach(c => html += charRow(c));
+            else html += `<div class="text-[10px] text-slate-600 px-2 pb-1 italic">No character assigned</div>`;
+        });
 
-        // Named folders
-        window._sidebarFolders.forEach(f => {
+        // Regular folders
+        (window._sidebarFolders||[]).filter(f=>!f.worldCode).forEach(f => {
             let chars = folderGroups[f.id] || [];
             html += `<div class="flex items-center gap-1 px-1 pt-1 pb-0.5">
                 <span class="text-[9px] text-indigo-400 uppercase font-black tracking-wider flex-1 truncate">${f.name}</span>
-                <button onclick="window.renameFolder('${f.id}','${f.name.replace(/'/g,"\\'")}')" class="text-[9px] text-slate-600 hover:text-indigo-400 px-0.5" title="Rename folder">✏</button>
+                <button onclick="window.renameFolder('${f.id}','${f.name.replace(/'/g,"\\'")}') " class="text-[9px] text-slate-600 hover:text-indigo-400 px-0.5" title="Rename folder">✏</button>
                 <button onclick="window.deleteFolderConfirm('${f.id}')" class="text-[9px] text-slate-600 hover:text-red-500 px-0.5" title="Delete folder">×</button>
             </div>`;
             if (chars.length) chars.forEach(c => html += charRow(c));
@@ -2213,7 +2221,7 @@
 
         // Unfiled
         if (unfiled.length) {
-            if (window._sidebarFolders.length || (worldCode && worldChars.length))
+            if (window._sidebarFolders.length)
                 html += `<div class="text-[9px] text-slate-500 uppercase font-black tracking-wider px-1 pt-1 pb-0.5">Unfiled</div>`;
             unfiled.forEach(c => html += charRow(c));
         }
@@ -2334,12 +2342,33 @@
     };
     window.moveCharToFolder = async function(charId, folderId) {
         let c = window._sidebarChars.find(x=>x.id===charId);
-        if (c) { c.folderId = folderId || null; }
+        if (!c) { window.closeModal('addToFolderModal'); return; }
+
+        // World-folder enforcement: max 1 character per world folder
+        if (folderId) {
+            let folder = (window._sidebarFolders||[]).find(f=>f.id===folderId);
+            if (folder?.worldCode) {
+                let occupant = window._sidebarChars.find(x=>x.folderId===folderId && x.id!==charId);
+                if (occupant) {
+                    window.showConfirm(`"${folder.name}" already has a character (${occupant.name||'Unnamed'}). A world folder can only hold one character. Remove them first.`, null, true);
+                    window.closeModal('addToFolderModal');
+                    return;
+                }
+                // Set worldCode to match the world folder
+                c.worldCode = folder.worldCode;
+            }
+        }
+
+        // If leaving a world folder, clear worldCode
+        let oldFolder = c.folderId ? (window._sidebarFolders||[]).find(f=>f.id===c.folderId) : null;
+        if (oldFolder?.worldCode && folderId !== c.folderId) { c.worldCode = null; }
+
+        c.folderId = folderId || null;
         if (window.apxAuth?.enabled) {
-            await window.apxAuth.saveCharacter(charId, window.state, { folderId: folderId || null }).catch(()=>{});
+            await window.apxAuth.saveCharacter(charId, window.state, { folderId: folderId||null, worldCode: c.worldCode||null }).catch(()=>{});
         }
         window.closeModal('addToFolderModal');
-        renderSidebarCharList();
+        window.renderSidebarCharList();
     };
     window.meatballArchive = async function(charId) {
         closeMeatball();
@@ -2500,178 +2529,330 @@
         }
         document.getElementById('characterLobby').style.display = 'none';
     };
-    window.lobbyJoinWorld = async function() {
-        let code = document.getElementById('lobbyWorldCode').value.trim().toUpperCase();
-        let errEl = document.getElementById('lobbyWorldCodeError');
-        errEl.innerText = '';
-        if (!code) { errEl.innerText = 'Enter a world code.'; return; }
-        if (!window.apxAuth.enabled) { errEl.innerText = 'Sign in to join a world.'; return; }
+    // ── Multi-World State ────────────────────────────────────────
+    // Supports multiple worlds. Each entry: { code, gmUid, worldId, worldName, folderId }
+    // Backward compat: migrates old single apxConnectedWorld on first load.
+    function _getWorlds() {
+        let arr = JSON.parse(localStorage.getItem('apxConnectedWorlds')||'null');
+        if (!arr) {
+            let old = JSON.parse(localStorage.getItem('apxConnectedWorld')||'null');
+            arr = old ? [{ code:old.code, gmUid:old.gmUid, worldId:old.worldId, worldName:'', folderId:null }] : [];
+            localStorage.setItem('apxConnectedWorlds', JSON.stringify(arr));
+        }
+        return arr;
+    }
+    function _saveWorlds(arr) { localStorage.setItem('apxConnectedWorlds', JSON.stringify(arr)); }
+    function _getPrimaryWorld() { return _getWorlds()[0] || null; }
+
+    // Join via code (lobby or in-world modal)
+    async function _doJoinWorld(code, errEl) {
+        if (!code) { if(errEl) errEl.innerText='Enter a world code.'; return; }
+        if (!window.apxAuth.enabled) { if(errEl) errEl.innerText='Sign in to join a world.'; return; }
         try {
             let world = await window.apxAuth.joinWorldByCode(code, window.state);
-            if (!world) { errEl.innerText = 'Code not found. Check with your GM.'; return; }
-            localStorage.setItem('apxConnectedWorld', JSON.stringify({ code, gmUid: world.gmUid, worldId: world.worldId }));
-            window._playerWorldData = world;
-            // Mark the active character as linked to this world and save it
-            let entry = window._sidebarChars.find(c => c.id === window._activeCloudCharId);
-            if (entry) { entry.worldCode = code; }
-            if (window.apxAuth?.enabled && window._activeCloudCharId) {
-                await window.apxAuth.saveCharacter(window._activeCloudCharId, window.state, { worldCode: code }).catch(()=>{});
+            if (!world) { if(errEl) errEl.innerText='Code not found. Check with your GM.'; return; }
+
+            let worlds = _getWorlds();
+            let existing = worlds.find(w=>w.code===code);
+
+            // Auto-create a world folder named after the world
+            let folderId = existing?.folderId || null;
+            if (!folderId) {
+                folderId = 'wfolder_' + code;
+                let folderName = world.worldName || world.name || ('World '+code);
+                window._sidebarFolders = window._sidebarFolders || [];
+                if (!window._sidebarFolders.find(f=>f.id===folderId)) {
+                    window._sidebarFolders.push({ id:folderId, name:folderName, worldCode:code, worldName:folderName });
+                }
+                if (window.apxAuth?.enabled) {
+                    await window.apxAuth.saveFolder(folderId, folderName, { worldCode:code, worldName:folderName }).catch(()=>{});
+                }
             }
-            window.renderSidebarCharList();
+
+            // Upsert world entry
+            let entry = { code, gmUid:world.gmUid, worldId:world.worldId, worldName:world.worldName||world.name||code, folderId };
+            if (existing) { Object.assign(existing, entry); } else { worlds.push(entry); }
+            _saveWorlds(worlds);
+
+            // Load data for this world
+            if (!window._playerWorldsData) window._playerWorldsData = {};
+            window._playerWorldsData[code] = world;
+            window._playerWorldData = world; // keep primary alias
+
+            // Mark the active character as linked to this world
+            let charEntry = window._sidebarChars.find(c => c.id === window._activeCloudCharId);
+            if (charEntry && !charEntry.worldCode) {
+                charEntry.worldCode = code;
+                charEntry.folderId  = folderId;
+                if (window.apxAuth?.enabled && window._activeCloudCharId) {
+                    await window.apxAuth.saveCharacter(window._activeCloudCharId, window.state,
+                        { worldCode:code, folderId }).catch(()=>{});
+                }
+            }
+
+            // Load race templates
             if (world.races && Array.isArray(window.gmRaces)) {
-                world.races.forEach(r => { if (!window.gmRaces.find(x => x.id === r.id)) window.gmRaces.push(r); });
+                world.races.forEach(r => { if (!window.gmRaces.find(x=>x.id===r.id)) window.gmRaces.push(r); });
                 if (typeof window.renderImportedRaceList === 'function') window.renderImportedRaceList();
             }
+
+            window.renderSidebarCharList();
             document.getElementById('playerWorldBtn').classList.remove('hidden');
-            errEl.style.color = 'var(--c-emerald,#34d399)';
-            errEl.innerText = `Joined "${world.worldName || world.name}"! GM assets loaded.`;
-        } catch(e) { errEl.innerText = 'Error: ' + e.message; }
+
+            if (errEl) { errEl.style.color='var(--c-emerald,#34d399)'; errEl.innerText=`Joined "${world.worldName||world.name}"! GM assets loaded.`; }
+        } catch(e) { if(errEl) errEl.innerText='Error: '+e.message; }
+    }
+
+    window.lobbyJoinWorld = async function() {
+        let code = document.getElementById('lobbyWorldCode').value.trim().toUpperCase();
+        await _doJoinWorld(code, document.getElementById('lobbyWorldCodeError'));
     };
 
     // ── Player World View ────────────────────────────────────────
     window._playerWorldData = null;
+    window._playerWorldsData = {};
+
+    // Pan/zoom state for player map
+    let _pwScale=1, _pwOffX=0, _pwOffY=0, _pwDragging=false, _pwLastX=0, _pwLastY=0;
+
     window.showPlayerWorldTab = function(tab) {
-        ['locations','npcs','secrets','map'].forEach(t => {
+        ['locations','npcs','notes','map'].forEach(t => {
             let p = document.getElementById(`pwPanel${t.charAt(0).toUpperCase()}${t.slice(1)}`);
             if (p) p.classList.toggle('hidden', t !== tab);
             let b = document.getElementById(`pwTab${t.charAt(0).toUpperCase()}${t.slice(1)}`);
             if (b) b.className = `px-3 py-1.5 rounded text-xs font-bold ${t===tab?'bg-emerald-700 text-white':'bg-slate-700 text-slate-300'}`;
         });
-        if (tab === 'map') renderPlayerMap();
+        if (tab==='map') renderPlayerMap();
     };
+
+    // Pan/zoom helpers
+    window.pwMapZoom = function(factor) {
+        _pwScale = Math.max(0.15, Math.min(8, _pwScale * factor));
+        _applyPwTransform();
+    };
+    window.pwMapResetView = function() {
+        _pwScale=1; _pwOffX=0; _pwOffY=0; _applyPwTransform();
+    };
+    function _applyPwTransform() {
+        let vp = document.getElementById('pwMapViewport');
+        if (vp) vp.style.transform = `translate(${_pwOffX}px,${_pwOffY}px) scale(${_pwScale})`;
+        _pwRenderPins();
+    }
+    function _pwStartDrag(e) { _pwDragging=true; _pwLastX=e.clientX||e.touches?.[0]?.clientX||0; _pwLastY=e.clientY||e.touches?.[0]?.clientY||0; e.preventDefault(); }
+    function _pwDoDrag(e) {
+        if (!_pwDragging) return;
+        let cx=e.clientX||e.touches?.[0]?.clientX||0, cy=e.clientY||e.touches?.[0]?.clientY||0;
+        _pwOffX+=cx-_pwLastX; _pwOffY+=cy-_pwLastY; _pwLastX=cx; _pwLastY=cy;
+        _applyPwTransform();
+    }
+    function _pwEndDrag() { _pwDragging=false; }
+    function _pwScroll(e) {
+        e.preventDefault();
+        window.pwMapZoom(e.deltaY < 0 ? 1.15 : 0.87);
+    }
+
+    // Hook drag/zoom events on the map container
+    function _initPwMapEvents() {
+        let c = document.getElementById('pwPanelMap');
+        if (!c || c._pwEventsAttached) return;
+        c._pwEventsAttached = true;
+        c.addEventListener('mousedown',  _pwStartDrag);
+        c.addEventListener('mousemove',  _pwDoDrag);
+        c.addEventListener('mouseup',    _pwEndDrag);
+        c.addEventListener('mouseleave', _pwEndDrag);
+        c.addEventListener('wheel',      _pwScroll, { passive:false });
+        c.style.cursor = 'grab';
+    }
+
+    // Zoom to a pinned location
+    window.pwZoomToPin = function(locationId) {
+        let world = window._playerWorldData;
+        let notes = world?.notesV2||{};
+        let loc = (notes.locations||[]).find(l=>l.id===locationId);
+        if (!loc || loc.pinX==null) return;
+        let img = document.getElementById('pwMapImage');
+        if (!img) return;
+        let iw = img.naturalWidth||800, ih = img.naturalHeight||600;
+        let container = document.getElementById('pwPanelMap');
+        let cw = container?.clientWidth||800, ch = container?.clientHeight||500;
+        _pwScale = 2;
+        _pwOffX = (cw/2) - (loc.pinX * iw * _pwScale);
+        _pwOffY = (ch/2) - (loc.pinY * ih * _pwScale);
+        _applyPwTransform();
+        window.showPlayerWorldTab('map');
+    };
+
+    function _pwRenderPins() {
+        let world = window._playerWorldData;
+        let locs = (world?.notesV2?.locations||[]).filter(l => l.pinX != null);
+        let layer = document.getElementById('pwMapPins'); if (!layer) return;
+        let img = document.getElementById('pwMapImage'); if (!img) return;
+        let iw = img.naturalWidth||800, ih = img.naturalHeight||600;
+        layer.style.width=iw+'px'; layer.style.height=ih+'px';
+        layer.innerHTML = locs.map(l => {
+            let color = l.pinColor || '#34d399';
+            return `<div style="position:absolute;left:${l.pinX*iw}px;top:${l.pinY*ih}px;transform:translate(-50%,-100%);" title="${l.name||'?'}">
+                <div style="background:${color};color:#0f172a;font-size:9px;font-weight:700;padding:2px 5px;border-radius:3px;white-space:nowrap;">${l.name||'?'}</div>
+                <div style="width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid ${color};margin:0 auto;"></div>
+            </div>`;
+        }).join('');
+    }
+
     window.openModal = (function(origOpen) {
         return function(id) {
             origOpen(id);
-            if (id === 'playerWorldModal') renderPlayerWorld();
+            if (id === 'playerWorldModal') { renderPlayerWorld(); _initPwMapEvents(); }
         };
     })(window.openModal);
 
     function renderPlayerWorld() {
         let isSignedIn = !!(window.apxAuth?.enabled && window.apxAuth?.user);
-        let world = window._playerWorldData;
-        let saved = JSON.parse(localStorage.getItem('apxConnectedWorld')||'null');
+        let worlds = _getWorlds();
+        let world  = window._playerWorldData;
 
-        let title = document.getElementById('playerWorldTitle');
+        let title  = document.getElementById('playerWorldTitle');
         let codeEl = document.getElementById('playerWorldCode');
         let tabBar = document.querySelector('#playerWorldModal .flex.gap-2.mb-3');
-        let panels = ['pwPanelLocations','pwPanelNpcs','pwPanelSecrets','pwPanelMap'];
-
-        // Helper: show one panel, hide rest, hide/show tab bar
-        function showOnlyPanel(panelId, hideTabBar) {
-            if (tabBar) tabBar.style.display = hideTabBar ? 'none' : '';
-            panels.forEach(p => {
-                let el = document.getElementById(p);
-                if (el) el.classList.toggle('hidden', p !== panelId);
-            });
+        let panels = ['pwPanelLocations','pwPanelNpcs','pwPanelNotes','pwPanelMap'];
+        function showOnly(id, hideBar) {
+            if (tabBar) tabBar.style.display = hideBar ? 'none' : '';
+            panels.forEach(p => { let el=document.getElementById(p); if(el) el.classList.toggle('hidden', p!==id); });
         }
 
-        // ── STATE 1: Not signed in ───────────────────────────────
         if (!isSignedIn) {
-            title.innerText = 'World';
-            codeEl.innerText = '';
-            showOnlyPanel('pwPanelLocations', true);
-            let locEl = document.getElementById('pwPanelLocations');
-            if (locEl) locEl.innerHTML = `
-                <div class="text-center py-8 px-4">
-                    <div class="text-base font-bold text-slate-300 mb-2">World Codes</div>
-                    <p class="text-xs text-slate-500 mb-4">GM World Codes let players connect to a GM's campaign and automatically receive race templates, world lore, and shared content. You need a free account to use this feature.</p>
-                    <a href="index.html" class="inline-block px-4 py-2 rounded font-bold text-sm text-white" style="background:var(--c-indigo,#4f46e5);">Create Account</a>
-                </div>`;
+            title.innerText='World'; codeEl.innerText='';
+            showOnly('pwPanelLocations', true);
+            let el = document.getElementById('pwPanelLocations');
+            if (el) el.innerHTML = `<div class="text-center py-8 px-4">
+                <div class="text-base font-bold text-slate-300 mb-2">World Codes</div>
+                <p class="text-xs text-slate-500 mb-4">Sign in to join a GM's world and receive shared campaign content.</p>
+                <a href="index.html" class="inline-block px-4 py-2 rounded font-bold text-sm text-white" style="background:var(--c-indigo,#4f46e5);">Create Account</a>
+            </div>`;
             return;
         }
 
-        // ── STATE 2: Signed in but not in a world ────────────────
-        if (!world && !saved) {
-            title.innerText = 'Join a World';
-            codeEl.innerText = '';
-            showOnlyPanel('pwPanelLocations', true);
-            let locEl = document.getElementById('pwPanelLocations');
-            if (locEl) locEl.innerHTML = `
-                <div class="text-center py-6 px-4">
-                    <p class="text-xs text-slate-400 mb-4">Enter a GM World Invite Code to access world info, race templates, and campaign content.</p>
-                    <div class="flex gap-2 max-w-xs mx-auto">
-                        <input type="text" id="pwJoinCodeInput" placeholder="e.g. XK4R2P" maxlength="6"
-                            class="flex-1 text-center font-mono font-bold uppercase text-sm"
-                            style="background:var(--c-surface2,#1e293b); border:1px solid var(--c-border,#334155); color:var(--c-text,#e2e8f0); border-radius:0.375rem; padding:0.5rem;"
-                            onkeydown="if(event.key==='Enter') window.pwJoinWorld()">
-                        <button onclick="window.pwJoinWorld()" style="background:var(--c-indigo,#4f46e5); color:#fff; border:none; border-radius:0.375rem; padding:0.5rem 1rem; font-weight:700; font-size:0.75rem; cursor:pointer;">Join</button>
-                    </div>
-                    <div id="pwJoinError" class="text-xs mt-2" style="color:var(--c-red,#ef4444); min-height:1rem;"></div>
-                </div>`;
+        if (!world && !worlds.length) {
+            title.innerText='Join a World'; codeEl.innerText='';
+            showOnly('pwPanelLocations', true);
+            let el = document.getElementById('pwPanelLocations');
+            if (el) el.innerHTML = `<div class="text-center py-6 px-4">
+                <p class="text-xs text-slate-400 mb-4">Enter a GM World Invite Code to access world info, race templates, and campaign content.</p>
+                <div class="flex gap-2 max-w-xs mx-auto">
+                    <input type="text" id="pwJoinCodeInput" placeholder="e.g. XK4R2P" maxlength="6"
+                        class="flex-1 text-center font-mono font-bold uppercase text-sm"
+                        style="background:var(--c-surface2,#1e293b);border:1px solid var(--c-border,#334155);color:var(--c-text,#e2e8f0);border-radius:0.375rem;padding:0.5rem;"
+                        onkeydown="if(event.key==='Enter')window.pwJoinWorld()">
+                    <button onclick="window.pwJoinWorld()" style="background:var(--c-indigo,#4f46e5);color:#fff;border:none;border-radius:0.375rem;padding:0.5rem 1rem;font-weight:700;font-size:0.75rem;cursor:pointer;">Join</button>
+                </div>
+                <div id="pwJoinError" class="text-xs mt-2" style="color:var(--c-red,#ef4444);min-height:1rem;"></div>
+            </div>`;
             return;
         }
 
-        // ── STATE 3: In a world — show full content ───────────────
-        if (tabBar) tabBar.style.display = '';
-        panels.forEach(p => { let el = document.getElementById(p); if (el) el.classList.add('hidden'); });
-        document.getElementById('pwPanelLocations')?.classList.remove('hidden'); // default tab
+        // World loaded — render content
+        if (tabBar) tabBar.style.display='';
+        panels.forEach(p => { let el=document.getElementById(p); if(el) el.classList.add('hidden'); });
+        document.getElementById('pwPanelLocations')?.classList.remove('hidden');
 
-        // Handle case where saved code exists but data not loaded yet
-        if (!world && saved) {
-            title.innerText = 'World';
-            codeEl.innerText = '';
-            return;
-        }
+        if (!world && worlds.length) { title.innerText='World'; codeEl.innerText=''; return; }
 
-        let notes = world.notesV2 || {};
-        title.innerText = world.worldName || world.name || 'World';
-        codeEl.innerText = '';
+        let notes = world.notesV2||{};
+        title.innerText = world.worldName||world.name||'World';
 
+        // Locations with "View on Map" button
         let locEl = document.getElementById('pwPanelLocations');
         let locs = notes.locations||[];
-        if (locEl) locEl.innerHTML = locs.length ? locs.map(l=>`
-            <div class="bg-slate-900 border border-slate-700 rounded p-3">
-                <div class="text-xs font-bold text-emerald-300">${l.name||'Location'}</div>
+        if (locEl) locEl.innerHTML = locs.length ? locs.map(l => {
+            let subNotes = (l.notes||[]);
+            let pinBtn = l.pinX!=null
+                ? `<button onclick="window.pwZoomToPin('${l.id}')" class="text-[9px] px-1.5 py-0.5 rounded font-bold" style="background:#0f172a;border:1px solid #334155;color:#94a3b8;">View on Map</button>`
+                : '';
+            let subHtml = subNotes.length ? `<div class="mt-2 space-y-1">${subNotes.map(sn=>`
+                <div class="bg-slate-950 rounded px-2 py-1 border border-slate-800">
+                    <div class="text-[10px] font-bold text-slate-300">${sn.title||'Note'}</div>
+                    ${sn.content?`<div class="text-[9px] text-slate-400">${sn.content}</div>`:''}
+                </div>`).join('')}</div>` : '';
+            return `<div class="bg-slate-900 border border-slate-700 rounded p-3">
+                <div class="flex items-start justify-between gap-2">
+                    <div class="text-xs font-bold text-emerald-300">${l.name||'Location'}</div>
+                    ${pinBtn}
+                </div>
                 ${l.description?`<div class="text-[10px] text-slate-400 mt-1">${l.description}</div>`:''}
-            </div>`).join('') : '<div class="text-slate-600 text-sm text-center py-6">No locations shared yet</div>';
+                ${subHtml}
+            </div>`;
+        }).join('') : '<div class="text-slate-600 text-sm text-center py-6">No locations shared yet</div>';
 
+        // NPCs
         let npcEl = document.getElementById('pwPanelNpcs');
         let npcs = notes.npcs||[];
-        if (npcEl) npcEl.innerHTML = npcs.length ? npcs.map(n=>`
-            <div class="bg-slate-900 border border-slate-700 rounded p-3">
+        if (npcEl) npcEl.innerHTML = npcs.length ? npcs.map(n => {
+            let subNotes = (n.notes||[]);
+            let subHtml = subNotes.length ? `<div class="mt-2 space-y-1">${subNotes.map(sn=>`
+                <div class="bg-slate-950 rounded px-2 py-1 border border-slate-800">
+                    <div class="text-[10px] font-bold text-slate-300">${sn.title||'Note'}</div>
+                    ${sn.content?`<div class="text-[9px] text-slate-400">${sn.content}</div>`:''}
+                </div>`).join('')}</div>` : '';
+            return `<div class="bg-slate-900 border border-slate-700 rounded p-3">
                 <div class="flex items-baseline gap-2">
                     <div class="text-xs font-bold text-indigo-300">${n.name||'NPC'}</div>
                     ${n.role?`<div class="text-[10px] text-slate-500">${n.role}</div>`:''}
                 </div>
                 ${n.description?`<div class="text-[10px] text-slate-400 mt-1">${n.description}</div>`:''}
-            </div>`).join('') : '<div class="text-slate-600 text-sm text-center py-6">No NPCs shared yet</div>';
+                ${subHtml}
+            </div>`;
+        }).join('') : '<div class="text-slate-600 text-sm text-center py-6">No NPCs shared yet</div>';
 
-        let secEl = document.getElementById('pwPanelSecrets');
-        let secrets = notes.secrets||[];
-        if (secEl) secEl.innerHTML = secrets.length ? secrets.map(s=>`
+        // Notes (was Revealed Secrets)
+        let notesEl = document.getElementById('pwPanelNotes');
+        let rnotes = notes.notes||[];
+        if (notesEl) notesEl.innerHTML = rnotes.length ? rnotes.map(s=>`
             <div class="bg-slate-900 border border-amber-700/30 rounded p-3">
-                <div class="text-xs font-bold text-amber-300">${s.title||'Secret'}</div>
+                <div class="text-xs font-bold text-amber-300">${s.title||'Note'}</div>
                 ${s.content?`<div class="text-[10px] text-slate-300 mt-1">${s.content}</div>`:''}
-            </div>`).join('') : '<div class="text-slate-600 text-sm text-center py-6">No secrets revealed yet</div>';
+            </div>`).join('') : '<div class="text-slate-600 text-sm text-center py-6">No notes revealed yet</div>';
     }
 
-    function renderPlayerMap() {
+    async function renderPlayerMap() {
         let world = window._playerWorldData;
-        let notes = world?.notesV2 || {};
+        let saved = _getPrimaryWorld();
         let img = document.getElementById('pwMapImage');
         let emptyEl = document.getElementById('pwMapEmpty');
-        if (notes.worldMapDataUrl && img) {
-            img.src = notes.worldMapDataUrl;
+        if (!img || !emptyEl) return;
+
+        // Try loading from Firebase public map sub-collection
+        let mapSrc = world?.notesV2?.worldMapDataUrl || null;
+        if (!mapSrc && saved?.code && window.apxAuth?.enabled) {
+            try {
+                mapSrc = await window.apxAuth.loadPublicWorldMap(saved.code);
+                // Cache on world object for subsequent tab switches
+                if (mapSrc && world?.notesV2) world.notesV2.worldMapDataUrl = mapSrc;
+            } catch(e) { console.warn('Player map load:', e.message); }
+        }
+
+        if (mapSrc) {
+            img.src = mapSrc;
             img.style.display = 'block';
             emptyEl.style.display = 'none';
-            // Show location pins
-            let locs = (notes.locations||[]).filter(l => l.pinX != null && (!l.spoiler || l.revealed));
-            let layer = document.getElementById('pwMapPins');
-            let iw = img.naturalWidth || 800, ih = img.naturalHeight || 600;
-            layer.style.width = iw+'px'; layer.style.height = ih+'px';
-            layer.innerHTML = locs.map(l=>`
-                <div style="position:absolute; left:${l.pinX*iw}px; top:${l.pinY*ih}px; transform:translate(-50%,-100%);" title="${l.name||'?'}">
-                    <div style="background:#34d399; color:#0f172a; font-size:9px; font-weight:700; padding:2px 4px; border-radius:3px; white-space:nowrap;">${l.name||'?'}</div>
-                    <div style="width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid #34d399;margin:0 auto;"></div>
-                </div>`).join('');
+            img.onload = () => { window.pwMapResetView(); _pwRenderPins(); };
+            _pwRenderPins();
         }
     }
 
-    // On load, restore world button if a code is stored AND user is signed in
+    window.pwJoinWorld = async function() {
+        let code = (document.getElementById('pwJoinCodeInput')?.value||'').trim().toUpperCase();
+        let errEl = document.getElementById('pwJoinError');
+        await _doJoinWorld(code, errEl);
+        if (errEl && errEl.style.color !== 'var(--c-red,#ef4444)') {
+            // success — re-render the modal
+            renderPlayerWorld();
+        }
+    };
+
+    // On load, restore world button if any worlds are saved AND user is signed in
     window.addEventListener('load', () => {
-        let saved = JSON.parse(localStorage.getItem('apxConnectedWorld')||'null');
+        let worlds = _getWorlds();
         let localOnly = sessionStorage.getItem('apxLocalOnly');
-        if (saved && !localOnly && window.apxAuth?.enabled) {
+        if (worlds.length && !localOnly && window.apxAuth?.enabled) {
             document.getElementById('playerWorldBtn')?.classList.remove('hidden');
         }
     });
@@ -2821,18 +3002,26 @@
         // Show lobby (populates _sidebarChars from cloud)
         await renderLobby(user);
 
-        // Load GM races from connected world's invite code
+        // Reload GM races and world data for all saved worlds on sign-in
         if (window.apxAuth?.enabled && user) {
             try {
-                let saved = JSON.parse(localStorage.getItem('apxConnectedWorld') || 'null');
-                if (saved?.code) {
-                    let world = await window.apxAuth.joinWorldByCode(saved.code);
-                    if (world?.races?.length && Array.isArray(window.gmRaces)) {
-                        world.races.forEach(r => { if (!window.gmRaces.find(x => x.id === r.id)) window.gmRaces.push(r); });
-                        if (typeof window.renderImportedRaceList === 'function') window.renderImportedRaceList();
-                    }
+                let worlds = _getWorlds();
+                for (let w of worlds) {
+                    try {
+                        let world = await window.apxAuth.joinWorldByCode(w.code);
+                        if (world) {
+                            if (!window._playerWorldsData) window._playerWorldsData = {};
+                            window._playerWorldsData[w.code] = world;
+                            if (!window._playerWorldData) window._playerWorldData = world;
+                            if (world.races?.length && Array.isArray(window.gmRaces)) {
+                                world.races.forEach(r => { if (!window.gmRaces.find(x=>x.id===r.id)) window.gmRaces.push(r); });
+                                if (typeof window.renderImportedRaceList === 'function') window.renderImportedRaceList();
+                            }
+                            document.getElementById('playerWorldBtn')?.classList.remove('hidden');
+                        }
+                    } catch(e) { console.warn('World reload:', w.code, e.message); }
                 }
-            } catch(e) { console.warn('GM races load failed:', e.message); }
+            } catch(e) { console.warn('World data load failed:', e.message); }
         }
     };
 

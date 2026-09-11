@@ -27,7 +27,9 @@
             loadWorldPlayers: () => Promise.resolve([]),
             saveWorldMapFirestore: () => Promise.resolve(),
             loadWorldMapFirestore: () => Promise.resolve(null),
-            deleteWorldMapFirestore: () => Promise.resolve() };
+            deleteWorldMapFirestore: () => Promise.resolve(),
+            savePublicWorldMap: () => Promise.resolve(),
+            loadPublicWorldMap: () => Promise.resolve(null) };
         return;
     }
 
@@ -77,6 +79,19 @@
         if (meta) Object.assign(doc, meta); // folderId, worldCode, etc.
         await db.collection('users').doc(user.uid)
             .collection('characters').doc(charId).set(doc, { merge: true });
+
+        // Sync character state into the world players sub-collection so the GM's
+        // party panel can display live stats without needing cross-user Firestore access.
+        let worldCode = meta?.worldCode || stateObj.worldCode;
+        if (worldCode) {
+            await db.collection('worldCodes').doc(worldCode)
+                .collection('players').doc(user.uid).set({
+                    uid:       user.uid,
+                    charName:  (stateObj.name || 'Unknown Player').slice(0, 60),
+                    charState: stateObj,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true }).catch(e => console.warn('World char sync:', e.message));
+        }
     }
 
     async function loadCharacters() {
@@ -103,12 +118,12 @@
         return snap.docs.map(d => ({ id: d.id, ...d.data() }));
     }
 
-    async function saveFolder(folderId, name) {
+    async function saveFolder(folderId, name, extra) {
         let user = currentUser();
         if (!user) return;
-        await db.collection('users').doc(user.uid).collection('folders').doc(folderId).set({
-            name, createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
+        let data = { name, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
+        if (extra) Object.assign(data, extra); // worldCode, worldName, etc.
+        await db.collection('users').doc(user.uid).collection('folders').doc(folderId).set(data, { merge: true });
     }
 
     async function deleteFolder(folderId) {
@@ -188,6 +203,25 @@
     // The existing Firestore rule  match /users/{userId}/{document=**}
     // already covers this path — no rule changes required.
     // Works on the Spark (free) plan. No Firebase Storage / Blaze needed.
+
+    // --- Public world map (readable by all players in the world) -----------
+    // Stored at: worldCodes/{inviteCode}/mapImage/data
+    // Players can read worldCodes sub-collections (see FIREBASE_RULES.txt).
+    // The GM writes here when uploading a map; players load from here.
+
+    async function savePublicWorldMap(inviteCode, base64DataUrl) {
+        if (!inviteCode) return;
+        await db.collection('worldCodes').doc(inviteCode)
+            .collection('mapImage').doc('data')
+            .set({ imageData: base64DataUrl, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    }
+
+    async function loadPublicWorldMap(inviteCode) {
+        if (!inviteCode) return null;
+        let snap = await db.collection('worldCodes').doc(inviteCode.toUpperCase().trim())
+            .collection('mapImage').doc('data').get();
+        return snap.exists ? (snap.data().imageData || null) : null;
+    }
 
     async function saveWorldMapFirestore(worldId, base64DataUrl) {
         let user = currentUser();
@@ -365,6 +399,7 @@
         createWorld, loadWorlds, saveWorld, saveWorldRaces, saveRacesToAllWorlds, deleteWorld, joinWorldByCode,
         loadWorldPlayers,
         saveWorldMapFirestore, loadWorldMapFirestore, deleteWorldMapFirestore,
+        savePublicWorldMap, loadPublicWorldMap,
         scheduleAutoSave, setActiveCharId,
         renderAuthBar,
     };

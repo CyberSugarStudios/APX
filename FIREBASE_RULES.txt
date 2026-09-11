@@ -1,36 +1,51 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// APX FIRESTORE RULES  (v2026.9.11.1117)
+// APX FIRESTORE RULES  (v2026.9.11.1118)
 // Paste into: Firebase Console > Firestore Database > Rules tab
 // ─────────────────────────────────────────────────────────────────────────────
 // No Firebase Storage or Blaze plan required.
-// World map images are stored in a Firestore sub-document
-// (users/{uid}/worlds/{worldId}/mapImage/data) so they never count against
-// the main world document's 1 MB limit. The {document=**} wildcard below
-// already covers that sub-collection — no additional rules needed.
+//
+// Map layout:
+//   users/{uid}/worlds/{worldId}          — GM private world doc (NPCs, Locations, Notes, etc.)
+//   users/{uid}/worlds/{worldId}/mapImage/data — GM private map image (sub-doc, own 1 MB budget)
+//   worldCodes/{inviteCode}               — public world doc (publicNotes for players)
+//   worldCodes/{inviteCode}/mapImage/data — public map image (readable by all signed-in players)
+//   worldCodes/{inviteCode}/players/{uid} — player character state (for GM party panel)
+//
+// The {document=**} wildcard on users/{userId}/... already covers the mapImage sub-collection
+// for GMs. The worldCodes/mapImage sub-collection needs its own rule below.
 
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users own everything under their UID, including the map sub-collection.
-    // Path example: users/{uid}/worlds/{worldId}/mapImage/data
+    // ── Users own everything under their UID ────────────────────────────────
+    // Covers: characters, folders, worlds, and the mapImage sub-collection.
     match /users/{userId}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // World invite codes: any signed-in user can read to join;
-    // the GM (owner) can create/update their own codes.
+    // ── World invite codes: any signed-in user can read; GM can write ───────
     match /worldCodes/{inviteCode} {
-      allow read: if request.auth != null;
+      allow read:   if request.auth != null;
       allow create: if request.auth != null;
       allow update, delete: if request.auth != null
-        && request.auth.uid == resource.data.gmUid;
+          && request.auth.uid == resource.data.gmUid;
     }
 
-    // Players self-register when joining a world (consent = entering the code).
-    // Anyone signed-in can read the list (so the GM can load the party).
+    // ── Public map image: readable by all players; writable only by the GM ──
+    // Uses get() to verify the writer is the GM of this world.
+    // get() costs one Firestore read per write — negligible on the free Spark plan.
+    match /worldCodes/{inviteCode}/mapImage/{docId} {
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null
+          && get(/databases/$(database)/documents/worldCodes/$(inviteCode)).data.gmUid == request.auth.uid;
+    }
+
+    // ── Player character data: players write their own; everyone signed-in reads ──
+    // Players sync their character state here so the GM's party panel can display
+    // live stats without cross-user reads on users/{playerUid}/characters/.
     match /worldCodes/{inviteCode}/players/{playerId} {
-      allow read: if request.auth != null;
+      allow read:  if request.auth != null;
       allow write: if request.auth != null && request.auth.uid == playerId;
     }
 

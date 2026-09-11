@@ -1115,7 +1115,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button onclick="window.showWorldTab('map')"       id="wTabMap"       class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">World Map</button>
                     <button onclick="window.showWorldTab('npcs')"      id="wTabNpcs"      class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">NPCs</button>
                     <button onclick="window.showWorldTab('locations')" id="wTabLocations" class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Locations</button>
-                    <button onclick="window.showWorldTab('secrets')"   id="wTabSecrets"   class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">GM Secrets</button>
+                    <button onclick="window.showWorldTab('notes')"     id="wTabNotes"     class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Notes</button>
                 </div>
                 <div id="wPanelSession" class="flex-1 flex flex-col overflow-hidden min-h-0">
                     <div class="flex gap-2 mb-2 flex-shrink-0">
@@ -1161,12 +1161,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <div id="locationList" class="flex-1 overflow-y-auto space-y-2 min-h-0 pr-1"></div>
                 </div>
-                <div id="wPanelSecrets" class="hidden flex-1 flex flex-col overflow-hidden min-h-0">
+                <div id="wPanelNotes" class="hidden flex-1 flex flex-col overflow-hidden min-h-0">
                     <div class="flex gap-2 mb-2 flex-shrink-0 items-center">
-                        <span class="text-[10px] text-slate-500 flex-1">Unrevealed secrets are hidden from players. Toggle Revealed to share.</span>
-                        <button onclick="window.openNoteModal('secret')" class="px-3 py-1.5 rounded bg-red-800 hover:bg-red-700 text-white text-xs font-bold">+ Add Secret</button>
+                        <input type="text" id="noteSearch" oninput="window.renderNoteList()" placeholder="Search notes..." class="bg-slate-900 text-xs flex-1">
+                        <span class="text-[10px] text-slate-500">Hidden by default. Toggle Revealed to share with players.</span>
+                        <button onclick="window.openNoteModal('note')" class="px-3 py-1.5 rounded bg-indigo-800 hover:bg-indigo-700 text-white text-xs font-bold">+ Add Note</button>
                     </div>
-                    <div id="secretList" class="flex-1 overflow-y-auto space-y-2 min-h-0 pr-1"></div>
+                    <div id="noteList" class="flex-1 overflow-y-auto space-y-2 min-h-0 pr-1"></div>
                 </div>
             </div>
             <div id="gmWorldEmpty" class="flex-1 flex items-center justify-center text-slate-500 text-sm">Create a world to start organizing your campaign.</div>
@@ -1311,7 +1312,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // worldMapSaved   = true when an image has been saved to the Firestore sub-document
     // worldMapDataUrl = base64 data URL, used ONLY for local (non-Firebase) worlds
     //                   and as an in-session display cache after loading from Firestore
-    let _wNotes = { session:[], npcs:[], locations:[], secrets:[], worldMapSaved:false, worldMapDataUrl:null };
+    // notes[]         = standalone GM notes (renamed from "secrets"). Each: { id, title, content, revealed }
+    // locations[]/npcs[] each now carry: revealed (bool) + notes[] sub-array for nested notes
+    let _wNotes = { session:[], npcs:[], locations:[], notes:[], worldMapSaved:false, worldMapDataUrl:null };
 
     function getActiveWorld() { return _gmWorlds.find(w => (w.worldId||w.id) === _activeWorldId); }
 
@@ -1367,16 +1370,18 @@ document.addEventListener('DOMContentLoaded', () => {
             let pub  = w.publicNotes || {};
             _wNotes = {
                 session:         priv.session         || [],
-                secrets:         priv.secrets         || [],
-                // worldMapSaved: true means a map image exists in the Firestore sub-doc.
-                // It is loaded on demand when the Map tab is first opened (see initMap).
+                // "notes" was previously "secrets" — support both field names for old worlds
+                notes:           priv.notes           || priv.secrets || [],
                 worldMapSaved:   priv.worldMapSaved   || false,
-                // Legacy: pre-patch worlds may have stored a small base64 image directly
-                // in the main doc (only worked if the image was tiny). Load it for display
-                // but it will be migrated to the sub-doc on the next map upload.
                 worldMapDataUrl: priv.worldMapDataUrl || null,
-                locations:       pub.locations        || priv.locations  || [],
-                npcs:            pub.npcs             || priv.npcs       || [],
+                // locations and npcs now carry revealed + notes sub-arrays; existing items
+                // without these fields simply default to revealed:false and notes:[]
+                locations: (pub.locations || priv.locations || []).map(l => ({
+                    revealed: false, notes: [], ...l
+                })),
+                npcs: (pub.npcs || priv.npcs || []).map(n => ({
+                    revealed: false, notes: [], ...n
+                })),
             };
             window.showWorldTab('session');
         }
@@ -1404,43 +1409,42 @@ document.addEventListener('DOMContentLoaded', () => {
             let w = getActiveWorld();
             if (!w) return;
 
-            // Deep-copy in-memory notes. worldMapDataUrl is intentionally excluded
-            // from the Firestore payload — it is stored in a separate sub-document
-            // (users/{uid}/worlds/{worldId}/mapImage/data) to avoid Firestore's
-            // hard 1 MB per-document limit.
             w.notesV2 = JSON.parse(JSON.stringify(_wNotes));
 
+            // publicNotes is what players see — only revealed items are included.
+            // Locations and NPCs marked revealed:false are invisible to players.
+            // Sub-notes within a revealed item are filtered to only revealed sub-notes.
             w.publicNotes = {
-                locations:       JSON.parse(JSON.stringify(_wNotes.locations||[])),
-                npcs:            JSON.parse(JSON.stringify(_wNotes.npcs||[])),
-                revealedSecrets: JSON.parse(JSON.stringify((_wNotes.secrets||[]).filter(s=>s.revealed)))
+                locations: (_wNotes.locations||[])
+                    .filter(l => l.revealed)
+                    .map(l => ({ ...l, notes: (l.notes||[]).filter(n => n.revealed) })),
+                npcs: (_wNotes.npcs||[])
+                    .filter(n => n.revealed)
+                    .map(n => ({ ...n, notes: (n.notes||[]).filter(sn => sn.revealed) })),
+                notes: (_wNotes.notes||[]).filter(n => n.revealed),
             };
 
             if (window.apxAuth?.enabled && _activeWorldId) {
-                // ── Firebase path ────────────────────────────────────────────
-                // The main world document only stores a boolean flag indicating
-                // that a map image exists. The actual image lives in its own
-                // sub-document (see saveWorldMapFirestore / loadWorldMapFirestore).
                 let privateData = {
                     notesV2: {
                         session:       w.notesV2.session       || [],
-                        secrets:       w.notesV2.secrets       || [],
+                        // Full (unfiltered) locations/npcs/notes stored privately for GM
+                        locations:     w.notesV2.locations     || [],
+                        npcs:          w.notesV2.npcs          || [],
+                        notes:         w.notesV2.notes         || [],
                         worldMapSaved: w.notesV2.worldMapSaved || false,
-                        // worldMapDataUrl: deliberately omitted — never in Firestore
                     }
                 };
                 let publicData = {
                     publicNotes: {
-                        locations:       w.notesV2.locations || [],
-                        npcs:            w.notesV2.npcs      || [],
-                        revealedSecrets: w.publicNotes.revealedSecrets
+                        locations: w.publicNotes.locations,
+                        npcs:      w.publicNotes.npcs,
+                        notes:     w.publicNotes.notes,
                     }
                 };
                 await window.apxAuth.saveWorld(_activeWorldId, privateData, publicData)
                     .catch(e => console.warn('World save failed:', e.message));
             } else {
-                // ── Local / offline path ─────────────────────────────────────
-                // localStorage has no 1 MB limit per key, so base64 is fine here.
                 if (_mapImg && _mapImg.src && _mapImg.src.startsWith('data:'))
                     w.notesV2.worldMapDataUrl = _mapImg.src;
                 localStorage.setItem('apxLocalWorlds', JSON.stringify(_gmWorlds));
@@ -1450,44 +1454,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── Tab switching ────────────────────────────────────────────
     window.showWorldTab = function(tab) {
-        ['session','map','npcs','locations','secrets'].forEach(t => {
+        ['session','map','npcs','locations','notes'].forEach(t => {
             let panel = document.getElementById(`wPanel${t.charAt(0).toUpperCase()}${t.slice(1)}`);
             if (panel) { panel.classList.toggle('hidden', t!==tab); panel.classList.toggle('flex', t===tab && panel.style.display!=='block'); }
             let btn = document.getElementById(`wTab${t.charAt(0).toUpperCase()}${t.slice(1)}`);
             if (btn) btn.className = `px-3 py-1.5 rounded text-xs font-bold ${t===tab?'bg-amber-700 text-white':'bg-slate-700 text-slate-300'}`;
         });
         if (tab==='session')   { renderSessionList(); }
-        if (tab==='npcs')      { renderNpcList(); }
-        if (tab==='locations') { renderLocationList(); }
-        if (tab==='secrets')   { renderSecretList(); }
+        if (tab==='npcs')      { window.renderNpcList(); }
+        if (tab==='locations') { window.renderLocationList(); }
+        if (tab==='notes')     { window.renderNoteList(); }
         if (tab==='map')       { initMap(); }
     };
     window.showCampaignTab = window.showWorldTab; // alias for old refs
 
     // ── Note rendering helpers ───────────────────────────────────
-    function noteCard(opts) {
-        // opts: { id, type, header, sub, body, revealed, spoiler, onReveal }
-        let badgeHtml = '';
-        if (opts.type === 'secret') {
-            badgeHtml = `<label class="flex items-center gap-1 text-[10px] cursor-pointer" title="Revealed notes are visible to players">
-                <input type="checkbox" ${opts.revealed?'checked':''} onchange="window.toggleSecretReveal('${opts.id}',this.checked)" class="w-3 h-3">
-                <span class="${opts.revealed?'text-emerald-400':'text-slate-500'}">Revealed</span>
-            </label>`;
-        }
-        return `<div class="bg-slate-900 border border-slate-700 rounded p-3 cursor-pointer hover:border-slate-500" onclick="window.openNoteModal('${opts.type}','${opts.id}')">
-            <div class="flex items-start justify-between gap-2">
-                <div class="min-w-0">
-                    <div class="text-xs font-bold text-slate-200 truncate">${opts.header}</div>
-                    ${opts.sub ? `<div class="text-[10px] text-slate-500 mt-0.5">${opts.sub}</div>` : ''}
-                </div>
-                ${badgeHtml}
-            </div>
-            ${opts.body ? `<div class="text-[10px] text-slate-400 mt-1.5 line-clamp-2 leading-relaxed">${opts.body}</div>` : ''}
-        </div>`;
+    // Unified reveal badge for any item type (note, location, npc)
+    function revealBadge(type, id, revealed) {
+        return `<label class="flex items-center gap-1 text-[10px] cursor-pointer shrink-0" title="Toggle player visibility" onclick="event.stopPropagation()">
+            <input type="checkbox" ${revealed?'checked':''} onchange="window.toggleReveal('${type}','${id}',this.checked)" class="w-3 h-3">
+            <span class="${revealed?'text-emerald-400':'text-slate-500'}">${revealed?'Revealed':'Hidden'}</span>
+        </label>`;
     }
     function emptyState(msg) {
         return `<div class="text-center py-8 text-slate-600 text-sm">${msg}</div>`;
     }
+    window.toggleReveal = function(type, id, val) {
+        let arr = type==='note'     ? (_wNotes.notes||[])
+                : type==='location' ? (_wNotes.locations||[])
+                :                     (_wNotes.npcs||[]);
+        let item = arr.find(x=>x.id===id);
+        if (item) { item.revealed=val; saveWorldNotes(); }
+        if (type==='note')     window.renderNoteList();
+        if (type==='location') window.renderLocationList();
+        if (type==='npc')      window.renderNpcList();
+    };
+    window.toggleSecretReveal = (id,val) => window.toggleReveal('note',id,val);
 
     // ── Session Notes ────────────────────────────────────────────
     window.renderSessionList = function() {
@@ -1500,7 +1502,11 @@ document.addEventListener('DOMContentLoaded', () => {
         let el = document.getElementById('sessionList');
         if (!el) return;
         el.innerHTML = list.length
-            ? list.map(n=>noteCard({ id:n.id, type:'session', header:n.title||'Untitled Session', sub:n.date, body:n.content })).join('')
+            ? list.map(n=>`<div class="bg-slate-900 border border-slate-700 rounded p-3 cursor-pointer hover:border-slate-500" onclick="window.openNoteModal('session','${n.id}')">
+                <div class="text-xs font-bold text-slate-200">${n.title||'Untitled Session'}</div>
+                ${n.date?`<div class="text-[10px] text-slate-500 mt-0.5">${n.date}</div>`:''}
+                ${n.content?`<div class="text-[10px] text-slate-400 mt-1.5 line-clamp-2">${n.content}</div>`:''}
+            </div>`).join('')
             : emptyState('No sessions yet — add one above');
     };
     window.clearSessionFilter = function() {
@@ -1524,15 +1530,20 @@ document.addEventListener('DOMContentLoaded', () => {
                            <button onclick="event.stopPropagation();window.openGmNpcBuilder('${n.statBlockId}')" class="text-[9px] bg-slate-800 border border-slate-700 text-slate-400 px-1.5 py-0.5 rounded font-bold hover:border-slate-500">Edit</button>
                        </span>`
                     : `<button onclick="event.stopPropagation();window.openNpcStatBlockPicker('${n.id}')" class="text-[9px] bg-slate-800 border border-slate-600 text-slate-400 px-1.5 py-0.5 rounded font-bold hover:border-slate-400">Link Stat Block</button>`;
+                let notesCount = (n.notes||[]).length;
                 return `<div class="bg-slate-900 border border-slate-700 rounded p-3 cursor-pointer hover:border-slate-500" onclick="window.openNoteModal('npc','${n.id}')">
                     <div class="flex items-start justify-between gap-2">
                         <div class="min-w-0">
                             <div class="text-xs font-bold text-slate-200 truncate">${n.name||'Unnamed NPC'}</div>
                             ${n.role?`<div class="text-[10px] text-slate-500 mt-0.5">${n.role}</div>`:''}
                         </div>
-                        <div onclick="event.stopPropagation();">${statBadge}</div>
+                        <div class="flex items-center gap-2 shrink-0" onclick="event.stopPropagation()">
+                            ${revealBadge('npc', n.id, !!n.revealed)}
+                            ${statBadge}
+                        </div>
                     </div>
                     ${n.description?`<div class="text-[10px] text-slate-400 mt-1.5 line-clamp-2">${n.description}</div>`:''}
+                    ${notesCount?`<div class="text-[9px] text-slate-500 mt-1">${notesCount} sub-note${notesCount>1?'s':''}</div>`:''}
                 </div>`;
               }).join('')
             : '<div class="text-center py-8 text-slate-600 text-sm">No NPCs yet</div>';
@@ -1551,33 +1562,87 @@ document.addEventListener('DOMContentLoaded', () => {
                            class="text-[9px] px-1.5 py-0.5 rounded font-bold hover:opacity-80 transition"
                            style="background:var(--c-surface2,#0f172a); border:1px solid var(--c-border,#334155); color:var(--c-text-muted,#94a3b8);">View on Map</button>`
                     : `<span class="text-[9px] text-slate-600">No pin</span>`;
+                let notesCount = (n.notes||[]).length;
                 return `<div class="bg-slate-900 border border-slate-700 rounded p-3 cursor-pointer hover:border-slate-500" onclick="window.openNoteModal('location','${n.id}')">
                     <div class="flex items-start justify-between gap-2">
                         <div class="font-bold text-xs text-slate-200">${n.name||'Unnamed Location'}</div>
-                        <div onclick="event.stopPropagation();">${pinBadge}</div>
+                        <div class="flex items-center gap-2 shrink-0" onclick="event.stopPropagation()">
+                            ${revealBadge('location', n.id, !!n.revealed)}
+                            ${pinBadge}
+                        </div>
                     </div>
                     ${n.description ? `<div class="text-[10px] text-slate-400 mt-1 line-clamp-2">${n.description}</div>` : ''}
+                    ${notesCount?`<div class="text-[9px] text-slate-500 mt-1">${notesCount} sub-note${notesCount>1?'s':''}</div>`:''}
                 </div>`;
               }).join('')
             : emptyState('No locations yet');
     };
 
-    // ── GM Secrets ───────────────────────────────────────────────
-    window.renderSecretList = function() {
-        let list = _wNotes.secrets||[];
-        let el = document.getElementById('secretList');
+    // ── Standalone Notes (was GM Secrets) ────────────────────────
+    window.renderNoteList = function() {
+        let q = (document.getElementById('noteSearch')?.value||'').toLowerCase();
+        let list = (_wNotes.notes||[]).filter(n =>
+            !q || (n.title||'').toLowerCase().includes(q) || (n.content||'').toLowerCase().includes(q));
+        let el = document.getElementById('noteList');
         if (!el) return;
         el.innerHTML = list.length
-            ? list.map(n=>noteCard({ id:n.id, type:'secret', header:n.title||'Untitled Secret', body:n.content, revealed:!!n.revealed })).join('')
-            : emptyState('No secrets yet');
+            ? list.map(n=>`<div class="bg-slate-900 border border-slate-700 rounded p-3 cursor-pointer hover:border-slate-500" onclick="window.openNoteModal('note','${n.id}')">
+                <div class="flex items-start justify-between gap-2">
+                    <div class="text-xs font-bold text-slate-200 min-w-0 truncate">${n.title||'Untitled Note'}</div>
+                    <div onclick="event.stopPropagation()">${revealBadge('note', n.id, !!n.revealed)}</div>
+                </div>
+                ${n.content?`<div class="text-[10px] text-slate-400 mt-1.5 line-clamp-2 leading-relaxed">${n.content}</div>`:''}
+            </div>`).join('')
+            : emptyState('No notes yet');
     };
-    window.toggleSecretReveal = function(id, val) {
-        let n = (_wNotes.secrets||[]).find(x=>x.id===id);
-        if (n) { n.revealed=val; saveWorldNotes(); }
-        // Don't re-render the whole list — just update the badge text in-place
-        let el = document.getElementById('secretList');
-        if (el) window.renderSecretList();
-    };
+
+    // ── Sub-note editor (used inside Location/NPC modal) ─────────
+    let _editingSubNotes = [];
+    function _snRender() {
+        let el = document.getElementById('subNotesList'); if (!el) return;
+        el.innerHTML = _editingSubNotes.length
+            ? _editingSubNotes.map(sn => sn._open
+                ? `<div class="bg-slate-950 border border-slate-600 rounded p-2 space-y-1">
+                    <input type="text" value="${(sn.title||'').replace(/"/g,'&quot;')}" placeholder="Note title…" oninput="window._snSet('${sn.id}','title',this.value)" class="bg-slate-800 text-xs w-full font-bold rounded px-2 py-1">
+                    <textarea rows="3" placeholder="Content…" oninput="window._snSet('${sn.id}','content',this.value)" class="bg-slate-800 text-[10px] w-full resize-none rounded px-2 py-1">${sn.content||''}</textarea>
+                    <div class="flex items-center justify-between">
+                        <label class="flex items-center gap-1 text-[10px] cursor-pointer">
+                            <input type="checkbox" ${sn.revealed?'checked':''} onchange="window._snSet('${sn.id}','revealed',this.checked)" class="w-3 h-3">
+                            <span class="${sn.revealed?'text-emerald-400':'text-slate-500'}">Revealed to players</span>
+                        </label>
+                        <div class="flex gap-2">
+                            <button onclick="window._snClose('${sn.id}')" class="text-[9px] text-slate-400 hover:text-slate-200">Done</button>
+                            <button onclick="window._snDel('${sn.id}')" class="text-[9px] text-red-500 hover:text-red-400">Remove</button>
+                        </div>
+                    </div>
+                  </div>`
+                : `<div class="flex items-center justify-between bg-slate-950 border border-slate-700 rounded px-2 py-1.5 cursor-pointer hover:border-slate-500" onclick="window._snOpen('${sn.id}')">
+                    <div class="min-w-0">
+                        <div class="text-[10px] font-bold text-slate-300">${sn.title||'Untitled Note'}</div>
+                        ${sn.content?`<div class="text-[9px] text-slate-500 line-clamp-1">${sn.content}</div>`:''}
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <span class="text-[9px] ${sn.revealed?'text-emerald-400':'text-slate-600'}">${sn.revealed?'Revealed':'Hidden'}</span>
+                        <button onclick="event.stopPropagation();window._snDel('${sn.id}')" class="text-[9px] text-red-500 hover:text-red-400">✕</button>
+                    </div>
+                  </div>`
+              ).join('')
+            : '<div class="text-[10px] text-slate-600 text-center py-2">No sub-notes yet</div>';
+    }
+    window._snSet   = (id,f,v) => { let n=_editingSubNotes.find(x=>x.id===id); if(n){n[f]=v; if(f==='revealed')_snRender();} };
+    window._snOpen  = (id)     => { let n=_editingSubNotes.find(x=>x.id===id); if(n){n._open=true;  _snRender();} };
+    window._snClose = (id)     => { let n=_editingSubNotes.find(x=>x.id===id); if(n){n._open=false; _snRender();} };
+    window._snDel   = (id)     => { _editingSubNotes=_editingSubNotes.filter(x=>x.id!==id); _snRender(); };
+    window.addSubNote = () => { _editingSubNotes.push({id:'sn_'+Date.now(),title:'',content:'',revealed:false,_open:true}); _snRender(); };
+    function subNotesSection() {
+        return `<div class="border-t border-slate-700 mt-3 pt-3">
+            <div class="flex items-center justify-between mb-1.5">
+                <span class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Sub-Notes</span>
+                <button onclick="window.addSubNote()" class="px-2 py-0.5 text-[10px] bg-slate-700 hover:bg-slate-600 text-slate-300 rounded font-bold">+ Add Note</button>
+            </div>
+            <div id="subNotesList" class="space-y-1 max-h-48 overflow-y-auto"></div>
+        </div>`;
+    }
 
     // ── Note Detail Modal ─────────────────────────────────────────
     let _noteContext = { type:null, id:null };
@@ -1599,42 +1664,84 @@ document.addEventListener('DOMContentLoaded', () => {
                 <input type="text" id="nfRole" value="${n.role||''}" placeholder="Blacksmith, City Guard..." class="bg-slate-900 text-xs w-full"></div>
             </div>
             <div><label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Description</label>
-            <textarea id="nfContent" class="bg-slate-900 text-xs w-full resize-none" rows="6" placeholder="Appearance, personality, relationship to the party...">${n.description||''}</textarea></div>`,
+            <textarea id="nfContent" class="bg-slate-900 text-xs w-full resize-none" rows="4" placeholder="Appearance, personality, relationship to the party...">${n.description||''}</textarea></div>
+            <label class="flex items-center gap-2 text-xs cursor-pointer"><input type="checkbox" id="nfRevealed" ${n.revealed?'checked':''} class="w-4 h-4"> <span class="text-slate-300">Revealed to players</span></label>
+            ${subNotesSection()}`,
         location: (n={}) => `
             <div><label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Location Name</label>
             <input type="text" id="nfName" value="${n.name||''}" placeholder="Ironveil, The Sunken Archive..." class="bg-slate-900 text-sm font-bold w-full"></div>
             <div><label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Description</label>
-            <textarea id="nfContent" class="bg-slate-900 text-xs w-full resize-none" rows="5" placeholder="What does this place look like? What's notable here?">${n.description||''}</textarea></div>
-            <div class="flex items-center gap-3">
+            <textarea id="nfContent" class="bg-slate-900 text-xs w-full resize-none" rows="3" placeholder="What does this place look like?">${n.description||''}</textarea></div>
+            <div class="flex items-center gap-3 flex-wrap">
                 <div><label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Pin Color</label>
                 <input type="color" id="nfPinColor" value="${n.pinColor||'#ef4444'}" class="w-10 h-8 rounded cursor-pointer bg-slate-900 border border-slate-700"></div>
                 ${n.pinX!=null ? `<div class="text-[10px] text-slate-500 self-end pb-1">Pinned at ${Math.round(n.pinX*100)}%, ${Math.round(n.pinY*100)}%</div>` : '<div class="text-[10px] text-slate-500 self-end pb-1">Click map to pin</div>'}
-            </div>`,
-        secret: (n={}) => `
-            <div><label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Secret Title</label>
+                <label class="flex items-center gap-2 text-xs cursor-pointer self-end pb-1"><input type="checkbox" id="nfRevealed" ${n.revealed?'checked':''} class="w-4 h-4"> <span class="text-slate-300">Revealed to players</span></label>
+            </div>
+            ${subNotesSection()}`,
+        note: (n={}) => `
+            <div><label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Note Title</label>
             <input type="text" id="nfTitle" value="${n.title||''}" placeholder="The king is actually a vampire..." class="bg-slate-900 text-sm font-bold w-full"></div>
             <div><label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Details</label>
-            <textarea id="nfContent" class="bg-slate-900 text-xs w-full resize-none" rows="6" placeholder="Full details of this secret...">${n.content||''}</textarea></div>
-            <label class="flex items-center gap-2 text-xs cursor-pointer"><input type="checkbox" id="nfRevealed" ${n.revealed?'checked':''} class="w-4 h-4"> <span class="text-slate-300">Revealed to players</span></label>`
+            <textarea id="nfContent" class="bg-slate-900 text-xs w-full resize-none" rows="6" placeholder="Full details...">${n.content||''}</textarea></div>
+            <label class="flex items-center gap-2 text-xs cursor-pointer"><input type="checkbox" id="nfRevealed" ${n.revealed?'checked':''} class="w-4 h-4"> <span class="text-slate-300">Revealed to players</span></label>`,
+        secret: (n={}) => NOTE_TEMPLATES.note(n),
     };
 
     window.openNoteModal = function(type, id=null) {
+        if (type==='secret') type='note';
         _noteContext = { type, id };
-        let existing = null;
-        if (id) {
-            let arr = _wNotes[type==='session'?'session':type==='npc'?'npcs':type==='location'?'locations':'secrets']||[];
-            existing = arr.find(n=>n.id===id);
-        }
-        let titles = { session:'Session Note', npc:'NPC', location:'Location', secret:'GM Secret' };
+        let arrKey = type==='session'?'session':type==='npc'?'npcs':type==='location'?'locations':'notes';
+        let existing = id ? (_wNotes[arrKey]||[]).find(n=>n.id===id) : null;
+        _editingSubNotes = (existing?.notes||[]).map(sn=>({...sn, _open:false}));
+        let titles = { session:'Session Note', npc:'NPC', location:'Location', note:'Note' };
         document.getElementById('noteDetailTitle').innerText = (id?'Edit ':'Add ')+titles[type];
         document.getElementById('noteDetailDeleteBtn').classList.toggle('hidden', !id);
         document.getElementById('noteDetailBody').innerHTML = NOTE_TEMPLATES[type]?.(existing||{}) || '';
+        if (type==='location'||type==='npc') _snRender();
         window.openModal('noteDetailModal');
     };
 
     window.saveNote = function() {
         let { type, id } = _noteContext;
-        let arrKey = type==='session'?'session':type==='npc'?'npcs':type==='location'?'locations':'secrets';
+        if (type==='secret') type='note';
+        let arrKey = type==='session'?'session':type==='npc'?'npcs':type==='location'?'locations':'notes';
+        if (!_wNotes[arrKey]) _wNotes[arrKey]=[];
+        let arr = _wNotes[arrKey];
+        let existing = id ? arr.find(n=>n.id===id) : null;
+        let g = id => document.getElementById(id);
+
+        let note = existing || { id: type+'_'+Date.now() };
+        if (type==='session')  { note.title=g('nfTitle')?.value||''; note.date=g('nfDate')?.value||''; note.content=g('nfContent')?.value||''; }
+        if (type==='npc')      { note.name=g('nfName')?.value||''; note.role=g('nfRole')?.value||''; note.description=g('nfContent')?.value||''; note.revealed=!!(g('nfRevealed')?.checked); note.notes=_editingSubNotes.map(({_open,...sn})=>sn); }
+        if (type==='location') { note.name=g('nfName')?.value||''; note.description=g('nfContent')?.value||''; note.pinColor=g('nfPinColor')?.value||'#ef4444'; note.revealed=!!(g('nfRevealed')?.checked); note.notes=_editingSubNotes.map(({_open,...sn})=>sn); }
+        if (type==='note')     { note.title=g('nfTitle')?.value||''; note.content=g('nfContent')?.value||''; note.revealed=!!(g('nfRevealed')?.checked); }
+
+        if (!existing) arr.push(note);
+        saveWorldNotes();
+        window.closeModal('noteDetailModal');
+        if (type==='session')   window.renderSessionList();
+        if (type==='npc')       window.renderNpcList();
+        if (type==='location')  { window.renderLocationList(); renderMapPins(); }
+        if (type==='note')      window.renderNoteList();
+    };
+    window.openNoteModal = function(type, id=null) {
+        if (type==='secret') type='note';
+        _noteContext = { type, id };
+        let arrKey0 = type==='session'?'session':type==='npc'?'npcs':type==='location'?'locations':'notes';
+        let existing = id ? (_wNotes[arrKey0]||[]).find(n=>n.id===id) : null;
+        _editingSubNotes = (existing?.notes||[]).map(sn=>({...sn, _open:false}));
+        let titles = { session:'Session Note', npc:'NPC', location:'Location', note:'Note' };
+        document.getElementById('noteDetailTitle').innerText = (id?'Edit ':'Add ')+titles[type];
+        document.getElementById('noteDetailDeleteBtn').classList.toggle('hidden', !id);
+        document.getElementById('noteDetailBody').innerHTML = NOTE_TEMPLATES[type]?.(existing||{}) || '';
+        if (type==='location'||type==='npc') _snRender();
+        window.openModal('noteDetailModal');
+    };
+
+    window.saveNote = function() {
+        let { type, id } = _noteContext;
+        let arrKey = type==='session'?'session':type==='npc'?'npcs':type==='location'?'locations':'notes';
         if (!_wNotes[arrKey]) _wNotes[arrKey]=[];
         let arr = _wNotes[arrKey];
         let existing = id ? arr.find(n=>n.id===id) : null;
@@ -1644,7 +1751,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (type==='session') { note.title=g('nfTitle')?.value||''; note.date=g('nfDate')?.value||''; note.content=g('nfContent')?.value||''; }
         if (type==='npc')     { note.name=g('nfName')?.value||''; note.role=g('nfRole')?.value||''; note.description=g('nfContent')?.value||''; }
         if (type==='location'){ note.name=g('nfName')?.value||''; note.description=g('nfContent')?.value||''; note.pinColor=g('nfPinColor')?.value||'#ef4444'; }
-        if (type==='secret')  { note.title=g('nfTitle')?.value||''; note.content=g('nfContent')?.value||''; note.revealed=!!(g('nfRevealed')?.checked); }
+        if (type==='note')     { note.title=g('nfTitle')?.value||''; note.content=g('nfContent')?.value||''; note.revealed=!!(g('nfRevealed')?.checked); }
 
         if (!existing) arr.push(note);
         saveWorldNotes();
@@ -1653,7 +1760,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (type==='session')   window.renderSessionList();
         if (type==='npc')       window.renderNpcList();
         if (type==='location')  { window.renderLocationList(); renderMapPins(); }
-        if (type==='secret')    window.renderSecretList();
+        if (type==='note')      window.renderNoteList();
     };
 
     // ── Race ↔ World assignment ──────────────────────────────────
@@ -1747,14 +1854,14 @@ document.addEventListener('DOMContentLoaded', () => {
     window.deleteCurrentNote = function() {
         if (!confirm('Delete this note?')) return;
         let { type, id } = _noteContext;
-        let arrKey = type==='session'?'session':type==='npc'?'npcs':type==='location'?'locations':'secrets';
+        let arrKey = type==='session'?'session':type==='npc'?'npcs':type==='location'?'locations':'notes';
         _wNotes[arrKey] = (_wNotes[arrKey]||[]).filter(n=>n.id!==id);
         saveWorldNotes();
         window.closeModal('noteDetailModal');
         if (type==='session')   window.renderSessionList();
         if (type==='npc')       window.renderNpcList();
         if (type==='location')  { window.renderLocationList(); renderMapPins(); }
-        if (type==='secret')    window.renderSecretList();
+        if (type==='note')      window.renderNoteList();
     };
 
     // ── NPC Stat Block Linking ───────────────────────────────────
@@ -1936,6 +2043,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     var compressed = await _compressForFirestore(dataUrl);
                     _setMapUploadProgress('saving…');
                     await window.apxAuth.saveWorldMapFirestore(_activeWorldId, compressed);
+                    // Also publish to worldCodes so players can load the map
+                    var world = getActiveWorld();
+                    if (world?.inviteCode) {
+                        await window.apxAuth.savePublicWorldMap(world.inviteCode, compressed)
+                            .catch(e => console.warn('Public map save:', e.message));
+                    }
                     // Replace the session cache with the compressed version so
                     // subsequent tab switches don't re-fetch from Firestore.
                     _wNotes.worldMapDataUrl = compressed;
