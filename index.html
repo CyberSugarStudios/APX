@@ -137,9 +137,10 @@
 
                 <div id="panelSignUp" class="hidden">
                     <div class="space-y-3">
-                        <input type="text" id="suUsername" placeholder="Display name" autocomplete="username">
+                        <input type="text" id="suUsername" placeholder="Display name" autocomplete="username" style="background:var(--c-surface,#1e293b); border:1px solid var(--c-border,#334155); color:var(--c-text,#e2e8f0); border-radius:0.375rem; padding:0.5rem 0.75rem; width:100%; font-size:0.875rem; font-family:var(--c-font,'Inter'),sans-serif;">
                         <input type="email" id="suEmail" placeholder="Email" autocomplete="email">
-                        <input type="password" id="suPassword" placeholder="Password (min. 6 chars)" autocomplete="new-password">
+                        <input type="password" id="suPassword" placeholder="Password" autocomplete="new-password">
+                        <div class="text-[10px]" style="color:var(--c-text-dimmer,#475569);">Min 15 chars · uppercase · lowercase · number · special character</div>
                         <input type="password" id="suConfirm" placeholder="Confirm password" autocomplete="new-password"
                             onkeydown="if(event.key==='Enter') doSignUp()">
                     </div>
@@ -198,7 +199,7 @@
             </button>
         </div>
         <div class="text-center">
-            <span id="landingVersion" class="text-[10px]" style="color:var(--c-text-dimmer,#334155);">APX System Tools v2026.9.10.1700</span>
+            <span id="landingVersion" class="text-[10px]" style="color:var(--c-text-dimmer,#334155);">APX System Tools v2026.9.10.1801</span>
         </div>
 
         <!-- Delete account (shown only when signed in) -->
@@ -299,15 +300,22 @@
         let confirm = document.getElementById('suConfirm').value;
         if (!username) { setError('Please enter a display name.'); return; }
         if (!email) { setError('Please enter an email address.'); return; }
-        if (pass.length < 6) { setError('Password must be at least 6 characters.'); return; }
+        if (pass.length < 15) { setError('Password must be at least 15 characters.'); return; }
+        if (!/[a-z]/.test(pass)) { setError('Password must contain a lowercase letter.'); return; }
+        if (!/[A-Z]/.test(pass)) { setError('Password must contain an uppercase letter.'); return; }
+        if (!/[0-9]/.test(pass)) { setError('Password must contain a number.'); return; }
+        if (!/[^a-zA-Z0-9]/.test(pass)) { setError('Password must contain a special character.'); return; }
         if (pass !== confirm) { setError('Passwords do not match.'); return; }
         try {
             let cred = await window.apxAuth.signUp(email, pass);
-            // Save username to Firestore profile
-            if (cred && cred.user && window.FIREBASE_ENABLED) {
-                await firebase.firestore().collection('users').doc(cred.user.uid)
-                    .collection('profile').doc('info').set({ displayName: username }).catch(()=>{});
+            if (cred?.user) {
+                // Set display name immediately so auth state fires with it
                 await cred.user.updateProfile({ displayName: username }).catch(()=>{});
+                // Also store in Firestore for backup
+                if (window.FIREBASE_ENABLED) {
+                    firebase.firestore().collection('users').doc(cred.user.uid)
+                        .collection('profile').doc('info').set({ displayName: username }).catch(()=>{});
+                }
             }
         } catch(e) { setError(friendlyAuthError(e)); }
     }
@@ -396,6 +404,7 @@
                     }
                     await db.collection('users').doc(uid).collection('gmRaces').doc('all').delete().catch(()=>{});
                     await db.collection('users').doc(uid).collection('gmNpcs').doc('all').delete().catch(()=>{});
+                    await db.collection('users').doc(uid).collection('profile').doc('info').delete().catch(()=>{});
                     let fSnap = await db.collection('users').doc(uid).collection('folders').get().catch(()=>({docs:[]}));
                     for (let d of fSnap.docs) await d.ref.delete().catch(()=>{});
                 }

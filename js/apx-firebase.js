@@ -50,6 +50,12 @@
     function currentUser() {
         return auth.currentUser;
     }
+    // Returns display name if set, otherwise falls back to email prefix
+    function getUserDisplay(user) {
+        if (!user) return '';
+        return user.displayName || user.email?.split('@')[0] || user.email || '';
+    }
+    window.apxGetUserDisplay = getUserDisplay;
 
     // --- Firestore helpers -----------------------------------------------
     // Data layout:
@@ -232,7 +238,11 @@
             gmUid: data.gmUid, worldId: data.worldId,
             worldName: data.worldName, name: data.worldName,
             races: data.races || [],
-            notesV2: { locations: data.publicNotes?.locations || [], npcs: data.publicNotes?.npcs || [] }
+            notesV2: {
+                locations:       data.publicNotes?.locations       || [],
+                npcs:            data.publicNotes?.npcs            || [],
+                secrets:         data.publicNotes?.revealedSecrets || []
+            }
         };
     }
 
@@ -278,9 +288,10 @@
         if (!bar) return;
         let user = currentUser();
         if (user) {
+            let display = getUserDisplay(user);
             bar.innerHTML = `
                 <div class="flex items-center gap-3 text-xs">
-                    <span class="text-slate-400">${user.email}</span>
+                    <span class="text-slate-400">${display}</span>
                     <button onclick="window.apxAuth.signOut().then(() => location.reload())"
                         class="text-slate-500 hover:text-slate-300 transition">Sign Out</button>
                 </div>`;

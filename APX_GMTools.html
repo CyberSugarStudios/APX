@@ -1363,11 +1363,11 @@ document.addEventListener('DOMContentLoaded', () => {
             let priv = w.notesV2 || {};
             let pub  = w.publicNotes || {};
             _wNotes = {
-                session:          priv.session   || [],
-                secrets:          priv.secrets   || [],
-                worldMapDataUrl:  priv.worldMapDataUrl || null,
-                locations:        pub.locations  || priv.locations  || [],
-                npcs:             pub.npcs       || priv.npcs       || [],
+                session:          priv.session          || [],
+                secrets:          priv.secrets          || [],
+                worldMapDataUrl:  priv.worldMapDataUrl  || null,
+                locations:        pub.locations         || priv.locations  || [],
+                npcs:             pub.npcs              || priv.npcs       || [],
             };
             window.showWorldTab('session');
         }
@@ -1386,9 +1386,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (hasWorld) document.getElementById('gmInviteCode').innerText = getActiveWorld().inviteCode||'';
     }
 
-    // ── Notes auto-save ──────────────────────────────────────────
-    let _saveNotesTimer = null;
-    window.saveCampaignNotes = function() {}; // kept for compat, no-op
     function saveWorldNotes() {
         clearTimeout(_saveNotesTimer);
         _saveNotesTimer = setTimeout(async () => {
@@ -1396,28 +1393,35 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!w) return;
             w.notesV2 = JSON.parse(JSON.stringify(_wNotes));
             if (_mapImg && _mapImg.src && _mapImg.src.startsWith('data:')) w.notesV2.worldMapDataUrl = _mapImg.src;
+            // Keep w.publicNotes in sync so selectGmWorld reads fresh data
+            // if the modal is re-opened before Firestore responds.
+            w.publicNotes = {
+                locations: JSON.parse(JSON.stringify(_wNotes.locations||[])),
+                npcs:      JSON.parse(JSON.stringify(_wNotes.npcs||[])),
+                revealedSecrets: JSON.parse(JSON.stringify((_wNotes.secrets||[]).filter(s=>s.revealed)))
+            };
 
             if (window.apxAuth?.enabled && _activeWorldId) {
-                // Private GM data (session notes, secrets, map image)
                 let privateData = {
                     notesV2: {
-                        session: w.notesV2.session || [],
-                        secrets: w.notesV2.secrets || [],
-                        worldMapDataUrl: w.notesV2.worldMapDataUrl || null
+                        session:          w.notesV2.session          || [],
+                        secrets:          w.notesV2.secrets          || [],
+                        worldMapDataUrl:  w.notesV2.worldMapDataUrl  || null
                     }
                 };
-                // Public data (locations, npcs) goes to worldCodes so players can read it
                 let publicData = {
                     publicNotes: {
-                        locations: w.notesV2.locations || [],
-                        npcs: w.notesV2.npcs || []
+                        locations:       w.notesV2.locations || [],
+                        npcs:            w.notesV2.npcs      || [],
+                        revealedSecrets: w.publicNotes.revealedSecrets
                     }
                 };
-                await window.apxAuth.saveWorld(_activeWorldId, privateData, publicData).catch(e => console.warn('World save failed:', e.message));
+                await window.apxAuth.saveWorld(_activeWorldId, privateData, publicData)
+                    .catch(e => console.warn('World save failed:', e.message));
             } else {
                 localStorage.setItem('apxLocalWorlds', JSON.stringify(_gmWorlds));
             }
-        }, 600);
+        }, 400);
     }
 
     // ── Tab switching ────────────────────────────────────────────
