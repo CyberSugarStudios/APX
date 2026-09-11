@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/apx-themes.css">
 
+    <!-- Firebase SDK (auth + firestore) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -116,6 +117,17 @@
                         style="background: var(--c-indigo, #4f46e5);">
                         Sign In
                     </button>
+                    <div class="flex items-center gap-2 my-2">
+                        <div class="flex-1 border-t" style="border-color:var(--c-border,#334155);"></div>
+                        <span class="text-[10px]" style="color:var(--c-text-dimmer,#475569);">or</span>
+                        <div class="flex-1 border-t" style="border-color:var(--c-border,#334155);"></div>
+                    </div>
+                    <button onclick="doGoogleSignIn()"
+                        class="w-full py-2.5 rounded-lg font-bold text-sm transition flex items-center justify-center gap-2"
+                        style="background:var(--c-surface2,#0f172a); border:1px solid var(--c-border,#334155); color:var(--c-text,#e2e8f0);">
+                        <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                        Continue with Google
+                    </button>
                     <button onclick="doForgotPassword()"
                         class="w-full mt-1 text-[11px] transition"
                         style="color: var(--c-text-muted, #64748b);">
@@ -125,6 +137,7 @@
 
                 <div id="panelSignUp" class="hidden">
                     <div class="space-y-3">
+                        <input type="text" id="suUsername" placeholder="Display name" autocomplete="username">
                         <input type="email" id="suEmail" placeholder="Email" autocomplete="email">
                         <input type="password" id="suPassword" placeholder="Password (min. 6 chars)" autocomplete="new-password">
                         <input type="password" id="suConfirm" placeholder="Confirm password" autocomplete="new-password"
@@ -134,6 +147,17 @@
                         class="w-full mt-4 py-2.5 rounded-lg font-bold text-sm transition shadow text-white"
                         style="background: var(--c-emerald, #059669);">
                         Create Account
+                    </button>
+                    <div class="flex items-center gap-2 my-2">
+                        <div class="flex-1 border-t" style="border-color:var(--c-border,#334155);"></div>
+                        <span class="text-[10px]" style="color:var(--c-text-dimmer,#475569);">or</span>
+                        <div class="flex-1 border-t" style="border-color:var(--c-border,#334155);"></div>
+                    </div>
+                    <button onclick="doGoogleSignIn()"
+                        class="w-full py-2.5 rounded-lg font-bold text-sm transition flex items-center justify-center gap-2"
+                        style="background:var(--c-surface2,#0f172a); border:1px solid var(--c-border,#334155); color:var(--c-text,#e2e8f0);">
+                        <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                        Sign up with Google
                     </button>
                 </div>
 
@@ -174,7 +198,7 @@
             </button>
         </div>
         <div class="text-center">
-            <span id="landingVersion" class="text-[10px]" style="color:var(--c-text-dimmer,#334155);">APX System Tools v2026.9.10.1149</span>
+            <span id="landingVersion" class="text-[10px]" style="color:var(--c-text-dimmer,#334155);">APX System Tools v2026.9.10.1700</span>
         </div>
 
         <!-- Delete account (shown only when signed in) -->
@@ -269,14 +293,34 @@
     }
     async function doSignUp() {
         clearError();
+        let username = document.getElementById('suUsername').value.trim();
         let email   = document.getElementById('suEmail').value.trim();
         let pass    = document.getElementById('suPassword').value;
         let confirm = document.getElementById('suConfirm').value;
+        if (!username) { setError('Please enter a display name.'); return; }
         if (!email) { setError('Please enter an email address.'); return; }
         if (pass.length < 6) { setError('Password must be at least 6 characters.'); return; }
         if (pass !== confirm) { setError('Passwords do not match.'); return; }
-        try { await window.apxAuth.signUp(email, pass); }
-        catch(e) { setError(friendlyAuthError(e)); }
+        try {
+            let cred = await window.apxAuth.signUp(email, pass);
+            // Save username to Firestore profile
+            if (cred && cred.user && window.FIREBASE_ENABLED) {
+                await firebase.firestore().collection('users').doc(cred.user.uid)
+                    .collection('profile').doc('info').set({ displayName: username }).catch(()=>{});
+                await cred.user.updateProfile({ displayName: username }).catch(()=>{});
+            }
+        } catch(e) { setError(friendlyAuthError(e)); }
+    }
+    async function doGoogleSignIn() {
+        clearError();
+        if (!window.FIREBASE_ENABLED) { setError('Firebase not configured. Add your credentials to firebase-config.js.'); return; }
+        try {
+            let provider = new firebase.auth.GoogleAuthProvider();
+            await firebase.auth().signInWithPopup(provider);
+        } catch(e) {
+            if (e.code === 'auth/popup-closed-by-user') return; // user cancelled
+            setError(friendlyAuthError(e));
+        }
     }
     async function doSignOut() { await window.apxAuth.signOut(); }
     async function doForgotPassword() {
@@ -313,21 +357,7 @@
         document.getElementById('dStep2').style.display = 'none';
         document.getElementById('dStep3').style.display = 'block';
     }
-    async function doDeleteAccount() {
-        try {
-            let user = window.apxAuth.user;
-            if (!user) return;
-            try {
-                let chars = await window.apxAuth.loadCharacters();
-                for (let c of chars) await window.apxAuth.deleteCharacter(c.id);
-            } catch(e) {}
-            await user.delete();
-            closeDeleteModal();
-            window.location.reload();
-        } catch(e) {
-            document.getElementById('dError').innerText = e.message || 'Deletion failed. Sign out and back in, then try again.';
-        }
-    }
+
 
     // Show delete account link when signed in
     function openDeleteModal() {
@@ -347,37 +377,53 @@
     }
     function dCheck3() { document.getElementById('dStep2').style.display = 'none'; document.getElementById('dStep3').style.display = 'block'; }
     async function doDeleteAccount() {
+        let errEl = document.getElementById('dError');
         try {
             let user = window.apxAuth.user;
             if (!user) return;
+            errEl.innerText = 'Deleting account data...';
             try {
-                let chars = await window.apxAuth.loadCharacters();
-                for (let c of chars) await window.apxAuth.deleteCharacter(c.id).catch(() => {});
-                let worlds = await window.apxAuth.loadWorlds();
-                for (let w of worlds) await window.apxAuth.deleteWorld(w.worldId || w.id, w.inviteCode).catch(() => {});
-            } catch(e) {}
+                let uid = user.uid;
+                let db = window._apxDb || (window.FIREBASE_ENABLED ? firebase.firestore() : null);
+                if (db) {
+                    let cSnap = await db.collection('users').doc(uid).collection('characters').get().catch(()=>({docs:[]}));
+                    for (let d of cSnap.docs) await d.ref.delete().catch(()=>{});
+                    let wSnap = await db.collection('users').doc(uid).collection('worlds').get().catch(()=>({docs:[]}));
+                    for (let d of wSnap.docs) {
+                        let code = d.data().inviteCode;
+                        if (code) await db.collection('worldCodes').doc(code).delete().catch(()=>{});
+                        await d.ref.delete().catch(()=>{});
+                    }
+                    await db.collection('users').doc(uid).collection('gmRaces').doc('all').delete().catch(()=>{});
+                    await db.collection('users').doc(uid).collection('gmNpcs').doc('all').delete().catch(()=>{});
+                    let fSnap = await db.collection('users').doc(uid).collection('folders').get().catch(()=>({docs:[]}));
+                    for (let d of fSnap.docs) await d.ref.delete().catch(()=>{});
+                }
+            } catch(e) { console.warn('Data cleanup:', e.message); }
             await user.delete();
             closeDeleteModal();
             window.location.reload();
         } catch(e) {
             if (e.code === 'auth/requires-recent-login') {
+                errEl.innerText = '';
                 let pass = prompt('Your session has expired. Re-enter your password to confirm deletion:');
-                if (!pass) return;
+                if (!pass) { errEl.innerText = ''; return; }
                 try {
+                    let user = window.apxAuth.user;
                     let cred = firebase.auth.EmailAuthProvider.credential(user.email, pass);
                     await user.reauthenticateWithCredential(cred);
                     await doDeleteAccount();
-                } catch(e2) { document.getElementById('dError').innerText = e2.message || 'Re-authentication failed.'; }
-            } else {
-                document.getElementById('dError').innerText = e.message || 'Deletion failed.';
-            }
+                } catch(e2) { errEl.innerText = e2.message || 'Re-authentication failed.'; }
+            } else { errEl.innerText = e.message || 'Deletion failed.'; }
         }
     }
 
     function showSignedIn(user) {
         document.getElementById('authSignedOut').classList.add('hidden');
         document.getElementById('authSignedIn').classList.remove('hidden');
-        document.getElementById('displayEmail').innerText = user.email;
+        // Show display name if set, otherwise fall back to email
+        let display = user.displayName || user.email;
+        document.getElementById('displayEmail').innerText = display;
         document.getElementById('landingSubtitle').innerText = 'Select an application to launch';
         document.getElementById('deleteAccountSection').classList.remove('hidden');
         sessionStorage.setItem('apxUid', user.uid);

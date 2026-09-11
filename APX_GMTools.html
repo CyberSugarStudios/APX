@@ -1135,7 +1135,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <button onclick="window.mapResetView()" class="px-2 py-1.5 rounded bg-slate-700 text-slate-400 text-xs">Reset</button>
                         <span class="text-[10px] text-slate-500 flex-1">Click map to pin a Location. Drag to pan.</span>
                     </div>
-                    <div id="mapContainer" class="flex-1 overflow-hidden rounded border border-slate-700 relative bg-slate-950 select-none" style="min-height:280px; cursor:crosshair;"
+                    <div id="mapContainer" class="flex-1 overflow-hidden rounded border border-slate-700 relative bg-slate-950 select-none" style="min-height:420px; cursor:crosshair;"
                          onmousedown="window.mapStartDrag(event)" onmousemove="window.mapDrag(event)" onmouseup="window.mapEndDrag(event)" onmouseleave="window.mapEndDrag(event)"
                          onwheel="window.mapScroll(event)">
                         <div id="mapViewport" style="position:absolute; transform-origin:0 0; will-change:transform;">
@@ -1686,9 +1686,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.linkNpcNoteToStatBlock = function(noteId, statBlockId) {
         let note = (_wNotes.npcs||[]).find(n=>n.id===noteId);
-        if (note) { note.statBlockId = statBlockId; saveWorldNotes(); }
+        if (note) {
+            note.statBlockId = statBlockId;
+            // Update the in-memory world object immediately so selectGmWorld
+            // doesn't overwrite the change if the modal re-opens.
+            let w = getActiveWorld();
+            if (w) {
+                if (!w.publicNotes) w.publicNotes = {};
+                w.publicNotes.npcs = JSON.parse(JSON.stringify(_wNotes.npcs));
+            }
+            saveWorldNotes();
+        }
+        // Switch to NPCs tab directly — DO NOT call openModal('gmWorldModal')
+        // because the override handler would call selectGmWorld which re-reads
+        // _wNotes from the stored data, overwriting the statBlockId we just set.
         window.showWorldTab('npcs');
-        window.openModal('gmWorldModal');
+        // World modal stays open where it is — NPC list refreshes in place.
     };
 
     window.copyInviteCode = function() {

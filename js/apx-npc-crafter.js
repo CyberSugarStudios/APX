@@ -1029,22 +1029,60 @@ window.setCompanionHp = function(val) {
     window.recalculateMath();
 };
 
+// ── Standalone floating window system ───────────────────────
+// Used for companion stat blocks on the character sheet AND for
+// NPC stat blocks in GM Tools. apx-gm-screen.js has its own
+// extended version; this minimal copy makes it available on
+// pages where the full GM screen isn't loaded.
+if (!window.gmFloatingWindows) {
+    window.gmFloatingWindows = {};
+    let _floatZ = 200;
+
+    window.openFloatingStatBlockRaw = function(winId, title, bodyHtml) {
+        if (window.gmFloatingWindows[winId]) {
+            _floatZ++;
+            window.gmFloatingWindows[winId].style.zIndex = _floatZ;
+            return;
+        }
+        let win = document.createElement('div');
+        win.className = 'floating-stat-window';
+        let offset = Object.keys(window.gmFloatingWindows).length * 24;
+        win.style.cssText = `left:${120+offset}px;top:${80+offset}px;z-index:${++_floatZ};`;
+        win.innerHTML = `
+            <div class="floating-stat-window-header">
+                <span class="text-sm font-black text-white">${title}</span>
+                <button class="text-slate-400 hover:text-white font-bold text-lg leading-none px-1" onclick="window.closeFloatingStatBlock('${winId}')">&times;</button>
+            </div>
+            <div class="floating-stat-window-body">${bodyHtml}</div>
+        `;
+        let container = document.getElementById('floatingWindowContainer');
+        (container || document.body).appendChild(win);
+        window.gmFloatingWindows[winId] = win;
+
+        win.addEventListener('mousedown', () => { _floatZ++; win.style.zIndex = _floatZ; });
+        let header = win.querySelector('.floating-stat-window-header');
+        let dragging = false, ox = 0, oy = 0;
+        function onDown(e) { if (e.target.tagName==='BUTTON') return; dragging=true; let r=win.getBoundingClientRect(); ox=e.clientX-r.left; oy=e.clientY-r.top; e.preventDefault(); }
+        function onMove(e) { if (!dragging) return; win.style.left=`${Math.max(0,Math.min(window.innerWidth-60,e.clientX-ox))}px`; win.style.top=`${Math.max(0,Math.min(window.innerHeight-40,e.clientY-oy))}px`; }
+        function onUp() { dragging=false; }
+        header.addEventListener('mousedown', onDown);
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+        win._dragCleanup = () => { document.removeEventListener('mousemove',onMove); document.removeEventListener('mouseup',onUp); };
+    };
+
+    window.closeFloatingStatBlock = function(winId) {
+        let win = window.gmFloatingWindows[winId];
+        if (win) { if (win._dragCleanup) win._dragCleanup(); win.remove(); delete window.gmFloatingWindows[winId]; }
+    };
+}
+
 window.openCompanionDetail = function() {
     let sb = window.companionStatBlock();
     if (!sb) return;
-    // Use the same floating window system as the GM screen's NPC stat blocks
-    // so the companion card can be dragged around and left open during play.
     let winId = 'companion';
-    if (window.gmFloatingWindows && window.gmFloatingWindows[winId]) {
-        window.gmFloatingWindows[winId].style.zIndex = ++window.gmFloatingZTop;
-        return;
-    }
-    // If the floating window system isn't available (e.g. GM screen not open),
-    // fall back to the modal.
-    if (!window.openFloatingStatBlockRaw) {
-        document.getElementById('companionDetailTitle').innerText = sb.name;
-        document.getElementById('companionDetailBody').innerHTML = buildStatBlockHtml(sb, true);
-        window.openModal('companionDetailModal');
+    if (window.gmFloatingWindows[winId]) {
+        window.gmFloatingWindows[winId].style.zIndex = 9999;
         return;
     }
     window.openFloatingStatBlockRaw(winId, sb.name, buildStatBlockHtml(sb, true));

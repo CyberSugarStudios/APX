@@ -173,14 +173,15 @@
     async function saveWorld(worldId, gmPrivateData, publicData) {
         let user = currentUser();
         if (!user) return;
-        // Save private GM data (session notes, GM secrets, map)
         if (gmPrivateData && Object.keys(gmPrivateData).length)
             await db.collection('users').doc(user.uid).collection('worlds').doc(worldId).set(gmPrivateData, { merge: true });
-        // Push public data to worldCodes so players can read it
         if (publicData && Object.keys(publicData).length) {
             let worldDoc = await db.collection('users').doc(user.uid).collection('worlds').doc(worldId).get();
             let inviteCode = worldDoc.exists ? worldDoc.data().inviteCode : null;
-            if (inviteCode) await db.collection('worldCodes').doc(inviteCode).set(publicData, { merge: true });
+            if (inviteCode) await db.collection('worldCodes').doc(inviteCode).set({
+                ...publicData,
+                gmUid: user.uid  // always include gmUid so update rule passes on older docs
+            }, { merge: true });
         }
     }
 
@@ -189,7 +190,7 @@
         if (!user) return;
         let worldDoc = await db.collection('users').doc(user.uid).collection('worlds').doc(worldId).get();
         let inviteCode = worldDoc.exists ? worldDoc.data().inviteCode : null;
-        if (inviteCode) await db.collection('worldCodes').doc(inviteCode).set({ races }, { merge: true });
+        if (inviteCode) await db.collection('worldCodes').doc(inviteCode).set({ races, gmUid: user.uid }, { merge: true });
     }
 
     // Push the current gmRaces to EVERY world this GM has created,

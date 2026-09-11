@@ -2020,7 +2020,7 @@
                 <div class="text-xs text-center py-6" style="color: var(--c-text-muted, #94a3b8);">No characters yet.</div>
             </div>
 
-            <div class="mt-4 text-center">
+            <div class="mt-4 text-center" id="lobbySkipSection">
                 <button onclick="window.lobbySkip()" class="text-xs transition" style="color: var(--c-text-dimmer, #475569);">
                     Continue without loading a character
                 </button>
@@ -2055,10 +2055,12 @@
             <div class="flex gap-2 mb-3 flex-shrink-0">
                 <button onclick="window.showPlayerWorldTab('locations')" id="pwTabLocations" class="px-3 py-1.5 rounded text-xs font-bold bg-emerald-700 text-white">Locations</button>
                 <button onclick="window.showPlayerWorldTab('npcs')"      id="pwTabNpcs"      class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">NPCs</button>
+                <button onclick="window.showPlayerWorldTab('secrets')"   id="pwTabSecrets"   class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Revealed Secrets</button>
                 <button onclick="window.showPlayerWorldTab('map')"       id="pwTabMap"       class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Map</button>
             </div>
             <div id="pwPanelLocations" class="flex-1 overflow-y-auto space-y-2 pr-1"></div>
             <div id="pwPanelNpcs" class="hidden flex-1 overflow-y-auto space-y-2 pr-1"></div>
+            <div id="pwPanelSecrets" class="hidden flex-1 overflow-y-auto space-y-2 pr-1"></div>
             <div id="pwPanelMap" class="hidden flex-1 overflow-hidden rounded border border-slate-700 bg-slate-950 relative" style="min-height:280px;">
                 <div id="pwMapViewport" style="position:absolute; transform-origin:0 0; will-change:transform;">
                     <img id="pwMapImage" src="" alt="" style="display:none; max-width:none; user-select:none; pointer-events:none;">
@@ -2075,7 +2077,8 @@
     <div class="modal-overlay" id="folderManagerModal" style="z-index:10200;">
         <div class="modal-content max-w-xs">
             <h3 class="text-base font-bold text-white mb-3 border-b border-slate-600 pb-2">New Folder</h3>
-            <input type="text" id="folderNameInput" placeholder="Folder name..." class="bg-slate-900 text-sm w-full mb-4">
+            <input type="text" id="folderNameInput" placeholder="Folder name..." class="bg-slate-900 text-sm w-full mb-4"
+                onkeydown="if(event.key==='Enter'){event.preventDefault();window.confirmCreateFolder();}">
             <div class="flex gap-2 justify-end">
                 <button onclick="window.closeModal('folderManagerModal')" class="px-4 py-2 rounded bg-slate-700 text-white text-sm font-bold">Cancel</button>
                 <button onclick="window.confirmCreateFolder()" class="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold" id="folderModalConfirmBtn">Create</button>
@@ -2266,6 +2269,20 @@
             window._sidebarFolders.push({ id, name });
             if (window.apxAuth?.enabled) await window.apxAuth.saveFolder(id, name).catch(()=>{});
             else localStorage.setItem('apxFolders', JSON.stringify(window._sidebarFolders));
+            // If the "Add to Folder" picker is open, refresh it immediately
+            // so the new folder appears without the user having to close and reopen.
+            let pickerEl = document.getElementById('folderPickerList');
+            if (pickerEl && document.getElementById('addToFolderModal').classList.contains('active')) {
+                pickerEl.innerHTML = window._sidebarFolders.map(f=>`
+                    <button onclick="window.moveCharToFolder('${window._movingCharId||''}','${f.id}')"
+                        class="w-full text-left px-3 py-2 rounded bg-slate-900 border border-slate-700 hover:border-indigo-500 text-xs font-bold text-slate-200 transition">
+                        ${f.name}
+                    </button>`).join('') +
+                `<button onclick="window.moveCharToFolder('${window._movingCharId||''}',null)"
+                    class="w-full text-left px-3 py-2 rounded bg-slate-900 border border-slate-700 hover:border-slate-500 text-xs font-bold text-slate-500 transition">
+                    Remove from folder (Unfiled)
+                </button>`;
+            }
         }
         window.closeModal('folderManagerModal');
         window.renderSidebarCharList();
@@ -2282,6 +2299,7 @@
     };
     window.meatballAddToFolder = function(charId) {
         closeMeatball();
+        window._movingCharId = charId;
         let listEl = document.getElementById('folderPickerList');
         listEl.innerHTML = window._sidebarFolders.length
             ? window._sidebarFolders.map(f=>`
@@ -2401,10 +2419,10 @@
         if (user) {
             accountLine.innerText = 'Signed in as ' + user.email;
         } else {
-            accountLine.innerText = 'Not signed in — create a new character or import a file.';
-            // For local-only mode, hide the character list section and world code section
+            accountLine.innerText = 'Create a new character or import an existing one.';
             document.getElementById('lobbyCharacterList').innerHTML = '';
             document.getElementById('lobbyWorldSection')?.classList.add('hidden');
+            document.getElementById('lobbySkipSection')?.classList.add('hidden');
             return;
         }
 
@@ -2495,7 +2513,7 @@
     // ── Player World View ────────────────────────────────────────
     window._playerWorldData = null;
     window.showPlayerWorldTab = function(tab) {
-        ['locations','npcs','map'].forEach(t => {
+        ['locations','npcs','secrets','map'].forEach(t => {
             let p = document.getElementById(`pwPanel${t.charAt(0).toUpperCase()}${t.slice(1)}`);
             if (p) p.classList.toggle('hidden', t !== tab);
             let b = document.getElementById(`pwTab${t.charAt(0).toUpperCase()}${t.slice(1)}`);
@@ -2544,6 +2562,15 @@
                 </div>
                 ${n.description ? `<div class="text-[10px] text-slate-400 mt-1">${n.description}</div>` : ''}
             </div>`).join('') : '<div class="text-slate-600 text-sm text-center py-6">No NPCs shared yet</div>';
+
+        // Revealed secrets only
+        let secrets = (notes.secrets||[]).filter(s => s.revealed);
+        let secEl = document.getElementById('pwPanelSecrets');
+        secEl.innerHTML = secrets.length ? secrets.map(s => `
+            <div class="bg-slate-900 border border-amber-700/30 rounded p-3">
+                <div class="text-xs font-bold text-amber-300">${s.title||'Secret'}</div>
+                ${s.content ? `<div class="text-[10px] text-slate-300 mt-1">${s.content}</div>` : ''}
+            </div>`).join('') : '<div class="text-slate-600 text-sm text-center py-6">No secrets revealed yet</div>';
     }
 
     function renderPlayerMap() {
@@ -2659,20 +2686,29 @@
         try {
             let user = window.apxAuth.user;
             if (!user) return;
+            errEl.innerText = 'Deleting account data...';
             try {
-                let chars = await window.apxAuth.loadCharacters();
-                for (let c of chars) await window.apxAuth.deleteCharacter(c.id).catch(()=>{});
-                let worlds = await window.apxAuth.loadWorlds();
-                for (let w of worlds) await window.apxAuth.deleteWorld(w.worldId||w.id, w.inviteCode).catch(()=>{});
-                let db = window._apxDb;
+                let uid = user.uid;
+                let db = window._apxDb || (window.FIREBASE_ENABLED ? firebase.firestore() : null);
                 if (db) {
-                    let uid = user.uid;
+                    // Delete all characters
+                    let cSnap = await db.collection('users').doc(uid).collection('characters').get().catch(()=>({docs:[]}));
+                    for (let d of cSnap.docs) await d.ref.delete().catch(()=>{});
+                    // Delete all worlds (and their worldCodes)
+                    let wSnap = await db.collection('users').doc(uid).collection('worlds').get().catch(()=>({docs:[]}));
+                    for (let d of wSnap.docs) {
+                        let code = d.data().inviteCode;
+                        if (code) await db.collection('worldCodes').doc(code).delete().catch(()=>{});
+                        await d.ref.delete().catch(()=>{});
+                    }
+                    // Delete singleton docs
                     await db.collection('users').doc(uid).collection('gmRaces').doc('all').delete().catch(()=>{});
                     await db.collection('users').doc(uid).collection('gmNpcs').doc('all').delete().catch(()=>{});
+                    // Delete folders
                     let fSnap = await db.collection('users').doc(uid).collection('folders').get().catch(()=>({docs:[]}));
                     for (let d of fSnap.docs) await d.ref.delete().catch(()=>{});
                 }
-            } catch(e) { console.warn('Partial data cleanup:', e.message); }
+            } catch(e) { console.warn('Data cleanup error:', e.message); }
             await user.delete();
             window.closeModal('deleteAccountModal');
             window.location.href = 'index.html';
@@ -2680,7 +2716,7 @@
             if (e.code === 'auth/requires-recent-login') {
                 errEl.innerText = '';
                 let pass = prompt('Your session has expired. Re-enter your password to confirm deletion:');
-                if (!pass) return;
+                if (!pass) { errEl.innerText = ''; return; }
                 try {
                     let user = window.apxAuth.user;
                     let cred = firebase.auth.EmailAuthProvider.credential(user.email, pass);
