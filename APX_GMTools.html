@@ -1386,6 +1386,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (hasWorld) document.getElementById('gmInviteCode').innerText = getActiveWorld().inviteCode||'';
     }
 
+    // ── Notes auto-save ──────────────────────────────────────────
+    let _saveNotesTimer = null;
+    window.saveCampaignNotes = function() {}; // compat no-op
     function saveWorldNotes() {
         clearTimeout(_saveNotesTimer);
         _saveNotesTimer = setTimeout(async () => {
@@ -2035,8 +2038,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 let bar = document.getElementById('apxAuthBar');
                 if (!bar) return;
                 if (user) {
-                    bar.innerHTML = `<span style="color:var(--c-text-muted,#94a3b8);font-size:10px;">${user.email}</span>
-                        <button onclick="window.apxAuth.signOut().then(()=>location.href='index.html')" style="font-size:10px;color:var(--c-text-muted,#94a3b8);background:none;border:none;cursor:pointer;margin-left:6px;">Sign Out</button>`;
+                    let display = user.displayName || user.email;
+                    bar.innerHTML = `<span style="color:var(--c-text-muted,#94a3b8);font-size:10px;">${display}</span>
+                        <span style="color:var(--c-text-dimmer,#475569);font-size:10px;"> | </span>
+                        <button onclick="window.apxAuth.signOut().then(()=>location.href='index.html')" style="font-size:10px;color:var(--c-text-muted,#94a3b8);background:none;border:none;cursor:pointer;">Sign Out</button>`;
                 }
             });
         }

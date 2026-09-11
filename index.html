@@ -307,17 +307,16 @@
         if (!/[^a-zA-Z0-9]/.test(pass)) { setError('Password must contain a special character.'); return; }
         if (pass !== confirm) { setError('Passwords do not match.'); return; }
         try {
+            sessionStorage.setItem('apxPendingUsername', username); // read by showSignedIn before profile loads
             let cred = await window.apxAuth.signUp(email, pass);
             if (cred?.user) {
-                // Set display name immediately so auth state fires with it
                 await cred.user.updateProfile({ displayName: username }).catch(()=>{});
-                // Also store in Firestore for backup
                 if (window.FIREBASE_ENABLED) {
                     firebase.firestore().collection('users').doc(cred.user.uid)
                         .collection('profile').doc('info').set({ displayName: username }).catch(()=>{});
                 }
             }
-        } catch(e) { setError(friendlyAuthError(e)); }
+        } catch(e) { sessionStorage.removeItem('apxPendingUsername'); setError(friendlyAuthError(e)); }
     }
     async function doGoogleSignIn() {
         clearError();
@@ -430,8 +429,11 @@
     function showSignedIn(user) {
         document.getElementById('authSignedOut').classList.add('hidden');
         document.getElementById('authSignedIn').classList.remove('hidden');
-        // Show display name if set, otherwise fall back to email
-        let display = user.displayName || user.email;
+        // Use display name, falling back to a pending username from signup
+        // (set before the auth state fires so it shows correctly on first login)
+        let pendingName = sessionStorage.getItem('apxPendingUsername');
+        sessionStorage.removeItem('apxPendingUsername');
+        let display = user.displayName || pendingName || user.email;
         document.getElementById('displayEmail').innerText = display;
         document.getElementById('landingSubtitle').innerText = 'Select an application to launch';
         document.getElementById('deleteAccountSection').classList.remove('hidden');
