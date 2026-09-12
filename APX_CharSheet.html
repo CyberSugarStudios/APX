@@ -2666,6 +2666,10 @@
             // Load data for this world
             if (!window._playerWorldsData) window._playerWorldsData = {};
             window._playerWorldsData[code] = world;
+            // Clear any stale map cache on the previous world before switching
+            if (window._playerWorldData && window._playerWorldData !== world) {
+                // don't carry old world's map into new world
+            }
             window._playerWorldData = world; // keep primary alias
 
             // Mark the active character as linked to this world
@@ -2799,7 +2803,14 @@
             let b = document.getElementById(`pwTab${t.charAt(0).toUpperCase()}${t.slice(1)}`);
             if (b) b.className = `px-3 py-1.5 rounded text-xs font-bold ${t===tab?'bg-emerald-700 text-white':'bg-slate-700 text-slate-300'}`;
         });
-        if (tab === 'map') renderPlayerMap();
+        if (tab === 'map') {
+            // Reset display so we don't flash the previous world's map while loading
+            let img = document.getElementById('pwMapImage');
+            let empty = document.getElementById('pwMapEmpty');
+            if (img) { img.src = ''; img.style.display = 'none'; }
+            if (empty) empty.style.display = '';
+            renderPlayerMap();
+        }
     };
 
 
@@ -3048,7 +3059,6 @@
 
     async function renderPlayerMap() {
         let world  = window._playerWorldData;
-        let saved  = _getPrimaryWorld(); // { code, gmUid, worldId, worldName, folderId }
         let img    = document.getElementById('pwMapImage');
         let emptyEl= document.getElementById('pwMapEmpty');
         if (!img || !emptyEl) return;
@@ -3057,30 +3067,34 @@
         let mapSrc = world?.notesV2?.worldMapDataUrl || null;
 
         if (!mapSrc && window.apxAuth?.enabled) {
-            // ── PRIMARY: read DIRECTLY from the GM's Firestore sub-document ──
-            // Same path as GMTools uses: users/{gmUid}/worlds/{worldId}/mapImage/data
-            // The Firestore rule "match /users/{userId}/worlds/{worldId}/mapImage/{docId}"
-            // allows any authenticated user to read — see FIREBASE_RULES.txt.
-            if (saved?.gmUid && saved?.worldId) {
+            // Use gmUid/worldId from the CURRENT _playerWorldData — not _getPrimaryWorld()
+            // which always returns world[0] regardless of which world is active.
+            let gmUid   = world?.gmUid;
+            let worldId = world?.worldId;
+
+            // Primary: same Firestore path the GM uses
+            if (gmUid && worldId) {
                 try {
-                    mapSrc = await window.apxAuth.loadWorldMapForPlayer(saved.gmUid, saved.worldId);
+                    mapSrc = await window.apxAuth.loadWorldMapForPlayer(gmUid, worldId);
                 } catch(e) { console.warn('Map load (direct):', e.message); }
             }
 
-            // ── FALLBACK: public worldCodes sub-collection (older synced maps) ──
-            if (!mapSrc && saved?.code) {
-                try {
-                    mapSrc = await window.apxAuth.loadPublicWorldMap(saved.code);
-                } catch(e) { console.warn('Map load (public):', e.message); }
+            // Fallback: public worldCodes sub-collection
+            if (!mapSrc) {
+                let worlds = _getWorlds();
+                let entry  = worlds.find(w => w.worldId === worldId) ||
+                             worlds.find(w => w.gmUid  === gmUid);
+                if (entry?.code) {
+                    try {
+                        mapSrc = await window.apxAuth.loadPublicWorldMap(entry.code);
+                    } catch(e) { console.warn('Map load (public):', e.message); }
+                }
             }
 
-            // Cache for this session so tab-switching doesn't re-fetch
             if (mapSrc && world?.notesV2) world.notesV2.worldMapDataUrl = mapSrc;
         }
 
         if (mapSrc) {
-            let img = document.getElementById('pwMapImage');
-            let emptyEl = document.getElementById('pwMapEmpty');
             img.src = mapSrc;
             img.style.display = 'block';
             if (emptyEl) emptyEl.style.display = 'none';
