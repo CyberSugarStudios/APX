@@ -30,7 +30,9 @@
             loadWorldMapFirestore: () => Promise.resolve(null),
             deleteWorldMapFirestore: () => Promise.resolve(),
             savePublicWorldMap: () => Promise.resolve(),
-            loadPublicWorldMap: () => Promise.resolve(null) };
+            loadPublicWorldMap: () => Promise.resolve(null),
+            loadWorldMapForPlayer: () => Promise.resolve(null),
+            setGmHpOverride: () => Promise.resolve() };
         return;
     }
 
@@ -218,6 +220,31 @@
             .collection('players').onSnapshot(snap => {
                 callback(snap.docs.map(d => d.data()));
             }, err => console.warn('Party listener error:', err.message));
+    }
+
+    // --- loadWorldMapForPlayer: read the GM's map image DIRECTLY using gmUid + worldId ----
+    // This is the same path the GM reads from — users/{gmUid}/worlds/{worldId}/mapImage/data.
+    // Players know gmUid and worldId from their connected-worlds localStorage after joining.
+    // A Firestore rule override allows any authenticated user to READ map images
+    // (see FIREBASE_RULES.txt: match /users/{userId}/worlds/{worldId}/mapImage/{docId}).
+    // Because the path requires the specific gmUid + worldId (not guessable without the invite
+    // code), this is acceptable for a party TTRPG tool.
+    async function loadWorldMapForPlayer(gmUid, worldId) {
+        if (!gmUid || !worldId) return null;
+        let snap = await db.collection('users').doc(gmUid)
+            .collection('worlds').doc(worldId)
+            .collection('mapImage').doc('data').get();
+        return snap.exists ? (snap.data().imageData || null) : null;
+    }
+
+    // --- setGmHpOverride: GM writes an HP value that the player's charsheet listens for ---
+    // Stored in worldCodes/{inviteCode}/players/{uid} as { _gmHp: { hp, at } }.
+    // The player never writes this field — only the GM does — so there's no sync loop.
+    async function setGmHpOverride(inviteCode, uid, hp) {
+        if (!inviteCode || !uid) return;
+        await db.collection('worldCodes').doc(inviteCode)
+            .collection('players').doc(uid)
+            .set({ _gmHp: { hp, at: firebase.firestore.FieldValue.serverTimestamp() } }, { merge: true });
     }
 
     async function savePublicWorldMap(inviteCode, base64DataUrl) {
@@ -410,7 +437,8 @@
         createWorld, loadWorlds, saveWorld, saveWorldRaces, saveRacesToAllWorlds, deleteWorld, joinWorldByCode,
         loadWorldPlayers,
         saveWorldMapFirestore, loadWorldMapFirestore, deleteWorldMapFirestore,
-        savePublicWorldMap, loadPublicWorldMap, listenWorldPlayers,
+        savePublicWorldMap, loadPublicWorldMap, loadWorldMapForPlayer, setGmHpOverride,
+        listenWorldPlayers,
         scheduleAutoSave, setActiveCharId,
         renderAuthBar,
     };

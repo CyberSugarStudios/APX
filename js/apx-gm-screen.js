@@ -61,11 +61,26 @@ function computeCharSummary(state) {
 
     ATTRIBUTES.forEach(a => { calc.mods[a] = calc.scores[a] - 5; });
 
+    // Custom equippable items contribute AC/DR/ER/speed/skill/attribute bonuses
+    let customAc=0, customDr=0, customEr=0;
+    (state.items||[]).forEach(item => {
+        if (!(item.isCustomEquippable && item.equipped && item.bonuses)) return;
+        let b = item.bonuses;
+        customAc += (b.ac||0); customDr += (b.dr||0); customEr += (b.er||0);
+        if (b.speedBonus) calc.speed += b.speedBonus;
+        (b.attrBonuses||[]).forEach(r => { if(calc.scores[r.target]!==undefined) calc.scores[r.target]+=(r.amount||0); });
+        if (b.attrTarget && calc.scores[b.attrTarget]!==undefined) calc.scores[b.attrTarget]+=(b.attrBonus||0);
+        (b.skillBonuses||[]).forEach(r => { if(r.target&&r.amount) calc.skills[r.target]=(calc.skills[r.target]||0)+r.amount; });
+        if (b.skillTarget && b.skillBonus) calc.skills[b.skillTarget]=(calc.skills[b.skillTarget]||0)+b.skillBonus;
+    });
+    // Recalculate mods after any attribute bonuses from items
+    ATTRIBUTES.forEach(a => { calc.mods[a] = calc.scores[a] - 5; });
+
     let vitalHpRank = (state.perks || {})['con_vitality'] || 0;
     let maxHp = Math.max(5, (calc.scores.CON * 5) + (vitalHpRank * 5) + (state.xpHpBought || 0) - calc.maxHpPenalty);
 
     let armor = state.equippedArmor || { wt: 0, ac: 0, dr: 0, er: 0 };
-    let armorWt = armor.wt || 0, armorAc = armor.ac || 0, armorDr = armor.dr || 0, armorEr = armor.er || 0;
+    let armorWt = armor.wt || 0, armorAc = (armor.ac||0)+customAc, armorDr = (armor.dr||0)+customDr, armorEr = (armor.er||0)+customEr;
     if (armor.speedMod) calc.speed += armor.speedMod;
 
     let reqStr = Math.floor(armorWt / 10);
@@ -296,6 +311,7 @@ function startPartyListener(inviteCode) {
         players.forEach(p => {
             let state = p.charState || p.state;
             if (!state) return;
+            // Update the party panel
             let entry = window.gmParty.find(x => x.fileName === p.uid);
             if (entry) {
                 entry.state   = state;
@@ -305,8 +321,23 @@ function startPartyListener(inviteCode) {
                 window.gmParty.push({ fileName: p.uid, state, summary: computeCharSummary(state) });
                 changed = true;
             }
+            // Also update any matching initiative tracker entry's HP so the
+            // tracker stays in sync when a player heals or takes damage outside of combat.
+            let newHp = state.currentHp;
+            if (newHp !== undefined) {
+                (window.gmInitiative||[]).forEach(e => {
+                    if (e.playerUid === p.uid && e.currentHp !== newHp) {
+                        e.currentHp = newHp;
+                        e.maxHp     = computeCharSummary(state).maxHp;
+                        changed     = true;
+                    }
+                });
+            }
         });
-        if (changed) window.renderGmScreen();
+        if (changed) {
+            window.renderGmScreen();
+            if (typeof window.renderInitiativeTracker === 'function') window.renderInitiativeTracker();
+        }
     });
 }
 window.startPartyListener = startPartyListener;
@@ -477,7 +508,8 @@ window.addToInitiative = function(sourceIdx, sourceType, faction) {
     let entry;
     if (sourceType === 'party') {
         let p = window.gmParty[sourceIdx];
-        entry = { id: crypto.randomUUID(), name: p.summary.name, baseInitiative: p.summary.initiative, surprised: false, currentHp: p.summary.currentHp, maxHp: p.summary.maxHp, tempHp: p.summary.tempHp || 0, ap: p.summary.ap, ac: p.summary.ac, dr: p.summary.dr, er: p.summary.er, faction: 'player', bleedOutTurns: null, tpValue: 0, lairTraitNote: null };
+        entry = { id: crypto.randomUUID(), name: p.summary.name, baseInitiative: p.summary.initiative, surprised: false, currentHp: p.summary.currentHp, maxHp: p.summary.maxHp, tempHp: p.summary.tempHp || 0, ap: p.summary.ap, ac: p.summary.ac, dr: p.summary.dr, er: p.summary.er, faction: 'player', bleedOutTurns: null, tpValue: 0, lairTraitNote: null,
+            playerUid: p.fileName }; // stored so HP changes can sync back to the player's sheet
     } else if (sourceType === 'npc') {
         let n = window.gmNpcs[sourceIdx];
         let sb = ncStatBlockFor(n.id);
@@ -680,6 +712,19 @@ window.updateInitiativeHp = function(id, value) {
         }
     } else if (entry.currentHp > 0) {
         entry.bleedOutTurns = null; // healed
+    }
+    // ── Sync HP back to player's character sheet ──────────────────────────
+    // If this is a party member (faction:'player'), push the new HP to
+    // worldCodes/{inviteCode}/players/{uid} so the player's sheet listener
+    // picks it up immediately.
+    if (entry.faction === 'player' && entry.playerUid) {
+        let worlds = typeof _gmWorlds !== 'undefined' ? _gmWorlds : [];
+        let activeWorld = worlds.find(w => (w.worldId||w.id) === (typeof _activeWorldId !== 'undefined' ? _activeWorldId : null));
+        let inviteCode = activeWorld?.inviteCode;
+        if (inviteCode && window.apxAuth?.enabled && typeof window.apxAuth.setGmHpOverride === 'function') {
+            window.apxAuth.setGmHpOverride(inviteCode, entry.playerUid, entry.currentHp)
+                .catch(e => console.warn('HP sync to player:', e.message));
+        }
     }
     window.renderInitiativeTracker();
 };

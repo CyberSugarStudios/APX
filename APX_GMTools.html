@@ -376,6 +376,7 @@
                 <button onclick="window.openGmRaceRosterModal()" class="px-3 py-2 rounded bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-bold shadow">Race Templates</button>
                 <button onclick="window.openGmNpcRosterModal()" class="px-3 py-2 rounded bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold shadow">NPCs &amp; Enemies</button>
                 <button onclick="window.openModal('gmWorldModal')" class="px-3 py-2 rounded bg-amber-700 hover:bg-amber-600 text-white text-xs font-bold shadow">World</button>
+                <span id="gmToolbarWorldName" class="hidden text-xs font-bold text-amber-400 bg-amber-900/30 border border-amber-700/40 rounded px-2 py-1 cursor-pointer" onclick="window.openModal('gmWorldModal')"></span>
             </div>
         </div>
 
@@ -1368,6 +1369,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (w?.name) { badge.textContent = '● ' + w.name; badge.classList.remove('hidden'); }
             else badge.classList.add('hidden');
         }
+        let toolbar = document.getElementById('gmToolbarWorldName');
+        if (toolbar) {
+            if (w?.name) { toolbar.textContent = '🌍 ' + w.name; toolbar.classList.remove('hidden'); }
+            else toolbar.classList.add('hidden');
+        }
         if (w) {
             document.getElementById('gmInviteCode').innerText = w.inviteCode || '';
             document.getElementById('gmCopiedMsg')?.classList.add('hidden');
@@ -1770,8 +1776,8 @@ document.addEventListener('DOMContentLoaded', () => {
         saveWorldNotes();
         window.closeModal('noteDetailModal');
         if (type==='session')   window.renderSessionList();
-        if (type==='npc')       window.renderNpcList();
-        if (type==='location')  { window.renderLocationList(); renderMapPins(); }
+        if (type==='npc')       { window.renderNpcList(); window.renderNoteList(); }
+        if (type==='location')  { window.renderLocationList(); renderMapPins(); window.renderNoteList(); }
         if (type==='note')      window.renderNoteList();
     };
     window.openNoteModal = function(type, id=null) {
@@ -1807,8 +1813,8 @@ document.addEventListener('DOMContentLoaded', () => {
         window.closeModal('noteDetailModal');
         // Refresh the active list
         if (type==='session')   window.renderSessionList();
-        if (type==='npc')       window.renderNpcList();
-        if (type==='location')  { window.renderLocationList(); renderMapPins(); }
+        if (type==='npc')       { window.renderNpcList(); window.renderNoteList(); }
+        if (type==='location')  { window.renderLocationList(); renderMapPins(); window.renderNoteList(); }
         if (type==='note')      window.renderNoteList();
     };
 
@@ -2346,17 +2352,44 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // ── GM Tools auth bar ────────────────────────────────────────
+    // ── GM Tools auth bar + world pre-load ────────────────────────
     document.addEventListener('DOMContentLoaded', () => {
         if (window.FIREBASE_ENABLED && window.apxAuth) {
-            window.apxAuth.onAuthChange(user => {
+            window.apxAuth.onAuthChange(async user => {
                 let bar = document.getElementById('apxAuthBar');
-                if (!bar) return;
-                if (user) {
+                if (bar && user) {
                     let display = user.displayName || user.email;
                     bar.innerHTML = `<span style="color:var(--c-text-muted,#94a3b8);font-size:10px;">${display}</span>
                         <span style="color:var(--c-text-dimmer,#475569);font-size:10px;"> | </span>
                         <button onclick="window.apxAuth.signOut().then(()=>location.href='index.html')" style="font-size:10px;color:var(--c-text-muted,#94a3b8);background:none;border:none;cursor:pointer;">Sign Out</button>`;
+                }
+                // Pre-load worlds at sign-in so the active world shows immediately on
+                // the landing page without requiring the GM to open the World popup.
+                if (user && window.apxAuth.enabled) {
+                    try {
+                        let worlds = await window.apxAuth.loadWorlds().catch(()=>[]);
+                        let db = window._apxDb;
+                        if (db) {
+                            for (let w of worlds) {
+                                if (w.inviteCode) {
+                                    try {
+                                        let pub = await db.collection('worldCodes').doc(w.inviteCode).get();
+                                        if (pub.exists) { w.publicNotes = pub.data().publicNotes||{}; w.races = pub.data().races||[]; }
+                                    } catch(e) {}
+                                }
+                            }
+                        }
+                        _gmWorlds = worlds;
+                        _worldModalLoaded = true; // prevent double-load when modal opens
+                        if (_gmWorlds.length) {
+                            // Auto-select: the one world if only one, otherwise the first
+                            _activeWorldId = _gmWorlds[0].worldId || _gmWorlds[0].id;
+                            renderWorldSelector();
+                            selectGmWorld(_activeWorldId);
+                        } else {
+                            renderWorldSelector();
+                        }
+                    } catch(e) { console.warn('World pre-load:', e.message); }
                 }
             });
         }

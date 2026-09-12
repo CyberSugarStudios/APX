@@ -391,17 +391,52 @@ window.ncAdjustDef = function(field, delta, tpPer) {
     if (c[field] + delta < 0 || c[field] + delta > max) return;
     ncSpend(delta * tpPer, () => { c[field] += delta; });
 };
+// All text-immunity Add buttons now route to specific pickers by field type.
+const NPC_CONDITION_TYPES = [
+    'Blinded','Burning','Deafened','Diseased','Frightened','Incapacitated',
+    'Paralyzed','Poisoned','Prone','Provoked','Restrained','Staggered',
+    'Stunned','Unconscious','Bleeding Out','Dehydrated','Freezing',
+    'Infected','Starving','Suffocating'
+];
+const NPC_PHYS_DMG_TYPES = ['Bludgeoning','Slashing','Piercing'];
+
 window.ncAddTextImmunity = function(field, tp, label) {
-    // Energy fields get a dropdown of known energy types; everything else gets the text picker.
-    let energyFields = ['energyImmunities', 'energyVulnerabilities'];
-    if (energyFields.includes(field)) {
+    if (field === 'energyImmunities' || field === 'energyVulnerabilities') {
         window.ncPickEnergyType(field, tp);
-        return;
+    } else if (field === 'conditionImmunities') {
+        window.ncPickFromList(field, tp, 'Condition Immunity', NPC_CONDITION_TYPES);
+    } else if (field === 'conditionalDmgImmunities') {
+        let all = NPC_PHYS_DMG_TYPES.concat(
+            window.NPC_ENERGY_TYPES || ['Fire','Cold','Lightning','Acid','Poison','Radiant','Necrotic','Force','Psychic','Sonic']
+        );
+        window.ncPickFromList(field, tp, 'Damage Type Immunity', all);
+    } else {
+        window.openPerkTextPicker({ name: label }, 'Companion', (text) => {
+            if (!text) return;
+            ncSpend(tp, () => { ncActiveCompanion()[field].push(text); });
+        }, 'Name the condition/type...');
     }
-    window.openPerkTextPicker({ name: label }, 'Companion', (text) => {
-        if (!text) return;
-        ncSpend(tp, () => { ncActiveCompanion()[field].push(text); });
-    }, 'Name the condition/type...');
+};
+
+window.ncPickFromList = function(field, tp, title, options) {
+    let existing = new Set(ncActiveCompanion()[field]);
+    let available = options.filter(t => !existing.has(t));
+    if (!available.length) { window.showConfirm('All options are already added.', null, true); return; }
+    let picker = document.getElementById('ncEnergyPickerOverlay');
+    if (!picker) {
+        picker = document.createElement('div');
+        picker.id = 'ncEnergyPickerOverlay';
+        picker.style.cssText = 'position:fixed;inset:0;z-index:1600;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;';
+        document.body.appendChild(picker);
+    }
+    picker.innerHTML = `<div style="background:#1e293b;border:1px solid #475569;border-radius:0.75rem;padding:1.25rem;min-width:280px;max-width:360px;">
+        <div style="font-size:0.75rem;font-weight:700;color:#f8fafc;margin-bottom:0.75rem;">Choose ${title}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:1rem;max-height:220px;overflow-y:auto;">
+            ${available.map(t=>`<button onclick="window.ncConfirmEnergyPick('${field}',${tp},'${t.replace(/'/g,"\\\\'")}'); " style="background:#0f172a;border:1px solid #475569;color:#e2e8f0;font-size:0.7rem;font-weight:700;padding:0.3rem 0.6rem;border-radius:0.375rem;cursor:pointer;">${t}</button>`).join('')}
+        </div>
+        <button onclick="document.getElementById('ncEnergyPickerOverlay').style.display='none'" style="background:#334155;border:none;color:#94a3b8;font-size:0.7rem;font-weight:700;padding:0.4rem 0.8rem;border-radius:0.375rem;cursor:pointer;">Cancel</button>
+    </div>`;
+    picker.style.display='flex';
 };
 window.ncPickEnergyType = function(field, tp) {
     // Build a small inline overlay from NPC_ENERGY_TYPES

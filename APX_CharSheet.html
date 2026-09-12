@@ -2614,6 +2614,10 @@
             document.getElementById('playerWorldBtn').classList.remove('hidden');
 
             if (errEl) { errEl.style.color='var(--c-emerald,#34d399)'; errEl.innerText=`Joined "${world.worldName||world.name}"! GM assets loaded.`; }
+
+            // Start listening for GM-applied HP changes
+            let me = window.apxAuth?.user?.uid;
+            if (me) startPlayerHpListener(code, me);
         } catch(e) { if(errEl) errEl.innerText='Error: '+e.message; }
     }
 
@@ -2827,20 +2831,35 @@
     }
 
     async function renderPlayerMap() {
-        let world = window._playerWorldData;
-        let saved = _getPrimaryWorld();
-        let img = document.getElementById('pwMapImage');
-        let emptyEl = document.getElementById('pwMapEmpty');
+        let world  = window._playerWorldData;
+        let saved  = _getPrimaryWorld(); // { code, gmUid, worldId, worldName, folderId }
+        let img    = document.getElementById('pwMapImage');
+        let emptyEl= document.getElementById('pwMapEmpty');
         if (!img || !emptyEl) return;
 
-        // Try loading from Firebase public map sub-collection
+        // Serve from session cache first (avoids repeated Firestore reads)
         let mapSrc = world?.notesV2?.worldMapDataUrl || null;
-        if (!mapSrc && saved?.code && window.apxAuth?.enabled) {
-            try {
-                mapSrc = await window.apxAuth.loadPublicWorldMap(saved.code);
-                // Cache on world object for subsequent tab switches
-                if (mapSrc && world?.notesV2) world.notesV2.worldMapDataUrl = mapSrc;
-            } catch(e) { console.warn('Player map load:', e.message); }
+
+        if (!mapSrc && window.apxAuth?.enabled) {
+            // ── PRIMARY: read DIRECTLY from the GM's Firestore sub-document ──
+            // Same path as GMTools uses: users/{gmUid}/worlds/{worldId}/mapImage/data
+            // The Firestore rule "match /users/{userId}/worlds/{worldId}/mapImage/{docId}"
+            // allows any authenticated user to read — see FIREBASE_RULES.txt.
+            if (saved?.gmUid && saved?.worldId) {
+                try {
+                    mapSrc = await window.apxAuth.loadWorldMapForPlayer(saved.gmUid, saved.worldId);
+                } catch(e) { console.warn('Map load (direct):', e.message); }
+            }
+
+            // ── FALLBACK: public worldCodes sub-collection (older synced maps) ──
+            if (!mapSrc && saved?.code) {
+                try {
+                    mapSrc = await window.apxAuth.loadPublicWorldMap(saved.code);
+                } catch(e) { console.warn('Map load (public):', e.message); }
+            }
+
+            // Cache for this session so tab-switching doesn't re-fetch
+            if (mapSrc && world?.notesV2) world.notesV2.worldMapDataUrl = mapSrc;
         }
 
         if (mapSrc) {
@@ -2861,6 +2880,38 @@
             renderPlayerWorld();
         }
     };
+
+    // ── GM→Player HP sync listener ────────────────────────────────
+    // When the GM applies damage/healing in the initiative tracker, they write
+    // { _gmHp: { hp, at } } to worldCodes/{code}/players/{uid}.
+    // This listener picks that up and updates the player's sheet immediately.
+    let _lastGmHpAt = 0;
+    function startPlayerHpListener(inviteCode, uid) {
+        if (!inviteCode || !uid || !window.apxAuth?.enabled || !window._apxDb) return;
+        let db = window._apxDb;
+        db.collection('worldCodes').doc(inviteCode)
+            .collection('players').doc(uid)
+            .onSnapshot(snap => {
+                if (!snap.exists) return;
+                let data = snap.data();
+                let gmHp = data._gmHp;
+                if (!gmHp) return;
+                let at = gmHp.at?.toMillis?.() || 0;
+                if (at <= _lastGmHpAt) return; // already applied or stale
+                _lastGmHpAt = at;
+                let hp = gmHp.hp;
+                if (hp !== undefined && hp !== window.state?.currentHp) {
+                    if (window.state) window.state.currentHp = hp;
+                    if (typeof window.recalculateMath === 'function') window.recalculateMath();
+                    // Brief toast so player notices the GM-applied change
+                    let toast = document.createElement('div');
+                    toast.textContent = `HP updated by GM: ${hp}`;
+                    toast.style.cssText = 'position:fixed;bottom:1.5rem;right:1.5rem;z-index:99999;background:#1e3a5f;color:#93c5fd;font-size:0.75rem;font-weight:700;padding:0.5rem 1rem;border-radius:0.5rem;border:1px solid #3b82f6;pointer-events:none;';
+                    document.body.appendChild(toast);
+                    setTimeout(() => toast.remove(), 3500);
+                }
+            }, err => console.warn('Player HP listener:', err.message));
+    }
 
     // On load, restore world button if any worlds are saved AND user is signed in
     window.addEventListener('load', () => {
@@ -3032,6 +3083,9 @@
                                 if (typeof window.renderImportedRaceList === 'function') window.renderImportedRaceList();
                             }
                             document.getElementById('playerWorldBtn')?.classList.remove('hidden');
+                            // Resume HP listener for returning players
+                            let me = window.apxAuth?.user?.uid;
+                            if (me) startPlayerHpListener(w.code, me);
                         }
                     } catch(e) { console.warn('World reload:', w.code, e.message); }
                 }
