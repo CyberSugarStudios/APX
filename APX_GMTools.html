@@ -1359,12 +1359,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function selectGmWorld(id) {
         _activeWorldId = id;
-        window._gmWorlds = _gmWorlds; // keep window copy in sync for cross-script access
-        window._gmSelectWorld = selectGmWorld; // expose to other script blocks
+        window._gmWorlds = _gmWorlds;
         let w = getActiveWorld();
-        document.getElementById('gmWorldContent').classList.toggle('hidden', !w);
-        document.getElementById('gmWorldEmpty').classList.toggle('hidden', !!w);
-        document.getElementById('gmInviteCodeSection').classList.toggle('hidden', !w);
+        let wc = document.getElementById('gmWorldContent');
+        let we = document.getElementById('gmWorldEmpty');
+        let wi = document.getElementById('gmInviteCodeSection');
+        if (wc) wc.classList.toggle('hidden', !w);
+        if (we) we.classList.toggle('hidden', !!w);
+        if (wi) wi.classList.toggle('hidden', !w);
         let badge = document.getElementById('gmActiveWorldBadge');
         if (badge) {
             if (w?.name) { badge.textContent = '● ' + w.name; badge.classList.remove('hidden'); }
@@ -1401,34 +1403,37 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     function renderWorldSelector() {
-        window._gmWorlds = _gmWorlds; // keep in sync for cross-script access
-        window._gmRenderWorldSelector = renderWorldSelector; // expose to other script blocks
-
-    // ── Display name editor (works for Google and email accounts) ────
-    window.gmEditDisplayName = async function() {
-        let current = window.apxAuth?.user?.displayName || '';
-        let newName = prompt('Set display name:', current);
-        if (!newName || newName === current) return;
-        try {
-            let user = firebase.auth().currentUser;
-            if (!user) { alert('Not signed in.'); return; }
-            await user.updateProfile({ displayName: newName });
-            // Refresh the auth bar
-            let bar = document.getElementById('apxAuthBar');
-            if (bar) bar.querySelector('span').textContent = newName;
-        } catch(e) { alert('Could not update name: ' + e.message); }
-    };
         let sel = document.getElementById('gmWorldSelector');
+        if (!sel) return;
+        window._gmWorlds = _gmWorlds;
         sel.innerHTML = _gmWorlds.length
             ? _gmWorlds.map(w=>`<option value="${w.worldId||w.id}">${w.name}</option>`).join('')
             : '<option value="">No worlds yet</option>';
         if (_activeWorldId) sel.value = _activeWorldId;
         let hasWorld = !!getActiveWorld();
-        document.getElementById('gmWorldContent').classList.toggle('hidden', !hasWorld);
-        document.getElementById('gmWorldEmpty').classList.toggle('hidden', hasWorld);
-        document.getElementById('gmInviteCodeSection').classList.toggle('hidden', !hasWorld);
-        if (hasWorld) document.getElementById('gmInviteCode').innerText = getActiveWorld().inviteCode||'';
+        let wc = document.getElementById('gmWorldContent');
+        let we = document.getElementById('gmWorldEmpty');
+        let wi = document.getElementById('gmInviteCodeSection');
+        if (wc) wc.classList.toggle('hidden', !hasWorld);
+        if (we) we.classList.toggle('hidden', hasWorld);
+        if (wi) wi.classList.toggle('hidden', !hasWorld);
+        let ic = document.getElementById('gmInviteCode');
+        if (hasWorld && ic) ic.innerText = getActiveWorld().inviteCode||'';
     }
+
+    // ── Display name editor ──────────────────────────────────────
+    window.gmEditDisplayName = async function() {
+        let current = window.apxAuth?.user?.displayName || '';
+        let newName = prompt('Set display name:', current);
+        if (!newName || newName === current) return;
+        try {
+            let user = firebase.auth?.().currentUser;
+            if (!user) { alert('Not signed in.'); return; }
+            await user.updateProfile({ displayName: newName });
+            let bar = document.getElementById('apxAuthBar');
+            if (bar) { let sp = bar.querySelector('span'); if (sp) sp.textContent = newName; }
+        } catch(e) { alert('Could not update name: ' + e.message); }
+    };
 
     // ── Notes auto-save ──────────────────────────────────────────
     let _saveNotesTimer = null;
@@ -2296,23 +2301,18 @@ document.addEventListener('DOMContentLoaded', () => {
         window.openModal = function(id) {
             _origOpenModal2(id);
             if (id === 'gmWorldModal') {
-                // Sync any worlds loaded by the auth pre-load callback
-                if (window._gmWorlds && window._gmWorlds !== _gmWorlds) _gmWorlds = window._gmWorlds;
-                let pendingId = window._gmPendingWorldId;
-                if (pendingId) { window._gmPendingWorldId = null; window._worldModalLoaded = true; }
                 if (!_worldModalLoaded) {
                     _worldModalLoaded = true;
                     (async () => {
                         if (window.apxAuth?.enabled) {
                             let worlds = await window.apxAuth.loadWorlds().catch(()=>[]);
-                            // For each world, also fetch its public data from worldCodes
                             let db = window._apxDb;
                             if (db) {
                                 for (let w of worlds) {
                                     if (w.inviteCode) {
                                         try {
                                             let pub = await db.collection('worldCodes').doc(w.inviteCode).get();
-                                            if (pub.exists) { w.publicNotes = pub.data().publicNotes || {}; w.races = pub.data().races || []; }
+                                            if (pub.exists) { w.publicNotes = pub.data().publicNotes||{}; w.races = pub.data().races||[]; }
                                         } catch(e) {}
                                     }
                                 }
@@ -2331,8 +2331,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     })();
                 } else {
                     renderWorldSelector();
-                    let useId = pendingId || _activeWorldId;
-                    if (useId) selectGmWorld(useId);
+                    if (_activeWorldId) selectGmWorld(_activeWorldId);
                 }
             }
         };
@@ -2370,26 +2369,20 @@ document.addEventListener('DOMContentLoaded', () => {
                                 }
                             }
                         }
-                        // Assign via window so the world-system script block can see the change
-                        window._gmWorlds = worlds;
-
-                        if (worlds.length) {
-                            let firstId = worlds[0].worldId || worlds[0].id;
-                            // Use the aliases if they've registered themselves already
-                            if (typeof window._gmSelectWorld === 'function') {
-                                window._gmSelectWorld(firstId);
-                                window._gmRenderWorldSelector?.();
-                                window._worldModalLoaded = true;
-                            } else {
-                                // Functions not yet assigned — mark for deferred setup
-                                window._gmPendingWorldId = firstId;
-                            }
-                            // Update toolbar badge directly (safe — element is in main page)
-                            let toolbar = document.getElementById('gmToolbarWorldName');
-                            if (toolbar && worlds[0].name) {
-                                toolbar.textContent = '🌍 ' + worlds[0].name;
-                                toolbar.classList.remove('hidden');
-                            }
+                        _gmWorlds = worlds;        // direct assignment updates the let binding
+                        _worldModalLoaded = true;  // prevents double-load when modal opens
+                        if (_gmWorlds.length) {
+                            _activeWorldId = _gmWorlds[0].worldId || _gmWorlds[0].id;
+                            renderWorldSelector();
+                            selectGmWorld(_activeWorldId);
+                        } else {
+                            renderWorldSelector();
+                        }
+                        // Update toolbar badge (element is in main page, always safe)
+                        let toolbar = document.getElementById('gmToolbarWorldName');
+                        if (toolbar && _gmWorlds[0]?.name) {
+                            toolbar.textContent = '🌍 ' + _gmWorlds[0].name;
+                            toolbar.classList.remove('hidden');
                         }
                     } catch(e) { console.warn('World pre-load:', e.message); }
                 }
