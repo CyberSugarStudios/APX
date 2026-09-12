@@ -257,6 +257,7 @@
             restDice: 5,
             luckPts: 1,
             wounds: "",
+            charNotes: [], // [{id, title, session, date, content}] — personal character notes
             conditions: [], // array of active condition ids from CONDITIONS
             woundedLimbs: [], // array of active limb names (Head, Torso, Left Arm, ...)
             savesTrained: { STR: false, AGI: false, CON: false, PER: false, INT: false, CHA: false, LUC: false },
