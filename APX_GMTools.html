@@ -1380,6 +1380,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (w) {
             document.getElementById('gmInviteCode').innerText = w.inviteCode || '';
             document.getElementById('gmCopiedMsg')?.classList.add('hidden');
+            // Reset map state so the previous world's image never bleeds into this one
+            _mapInitialized = false;
+            if (_mapImg) {
+                _mapImg.src = '';
+                _mapImg.style.display = 'none';
+            }
+            let mapEmpty = document.getElementById('mapEmptyState');
+            if (mapEmpty) mapEmpty.style.display = '';
             // Reconstruct notesV2 from both private (notesV2) and public (publicNotes) data
             let priv = w.notesV2 || {};
             let pub  = w.publicNotes || {};

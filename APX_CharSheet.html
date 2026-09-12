@@ -2068,8 +2068,20 @@
                     <h3 id="playerWorldTitle" class="text-base font-bold text-amber-400">World</h3>
                     <div id="playerWorldCode" class="text-[10px] text-slate-500"></div>
                 </div>
-                <button onclick="window.closeModal('playerWorldModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Close</button>
+                <div class="flex items-center gap-2">
+                    <button onclick="window.pwShowJoinAnother()" class="px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-bold transition">+ Join World</button>
+                    <button onclick="window.closeModal('playerWorldModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Close</button>
+                </div>
             </div>
+            <div id="pwJoinAnotherBar" class="hidden flex gap-2 mb-3 flex-shrink-0">
+                <input type="text" id="pwJoinAnotherCode" placeholder="Enter invite code…" maxlength="6"
+                    class="flex-1 text-center font-mono font-bold uppercase text-sm"
+                    style="background:var(--c-surface2,#1e293b);border:1px solid var(--c-border,#334155);color:var(--c-text,#e2e8f0);border-radius:0.375rem;padding:0.4rem;"
+                    onkeydown="if(event.key==='Enter')window.pwDoJoinAnother()">
+                <button onclick="window.pwDoJoinAnother()" class="px-3 py-1.5 rounded text-xs font-bold text-white" style="background:var(--c-indigo,#4f46e5);">Join</button>
+                <button onclick="window.pwHideJoinAnother()" class="px-2 py-1.5 rounded text-xs text-slate-400 bg-slate-800">✕</button>
+            </div>
+            <div id="pwJoinAnotherError" class="hidden text-xs mb-2 flex-shrink-0" style="color:var(--c-red,#ef4444);min-height:1rem;"></div>
             <div class="flex gap-2 mb-3 flex-shrink-0">
                 <button onclick="window.showPlayerWorldTab('locations')" id="pwTabLocations" class="px-3 py-1.5 rounded text-xs font-bold bg-emerald-700 text-white">Locations</button>
                 <button onclick="window.showPlayerWorldTab('npcs')"      id="pwTabNpcs"      class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">NPCs</button>
@@ -2714,7 +2726,9 @@
         _worldNotesUnsub = window.apxAuth.listenPublicWorldNotes(inviteCode, data => {
             let world = window._playerWorldData;
             if (!world) return;
-            // Preserve the cached map image — it's not in publicNotes
+            // Preserve the cached map — it's stored separately from publicNotes and
+            // won't change as a result of this update. The listener is already scoped
+            // to this specific world's inviteCode, so the cached map is always correct.
             let cachedMap = world.notesV2?.worldMapDataUrl;
             world.notesV2 = {
                 locations: data.publicNotes?.locations || [],
@@ -3035,7 +3049,26 @@
         let errEl = document.getElementById('pwJoinError');
         await _doJoinWorld(code, errEl);
         if (errEl && errEl.style.color !== 'var(--c-red,#ef4444)') {
-            // success — re-render the modal
+            renderPlayerWorld();
+        }
+    };
+
+    window.pwShowJoinAnother = function() {
+        document.getElementById('pwJoinAnotherBar').classList.remove('hidden');
+        document.getElementById('pwJoinAnotherCode').focus();
+    };
+    window.pwHideJoinAnother = function() {
+        document.getElementById('pwJoinAnotherBar').classList.add('hidden');
+        let e = document.getElementById('pwJoinAnotherError');
+        if (e) { e.textContent = ''; e.classList.add('hidden'); }
+    };
+    window.pwDoJoinAnother = async function() {
+        let code = (document.getElementById('pwJoinAnotherCode')?.value||'').trim().toUpperCase();
+        let errEl = document.getElementById('pwJoinAnotherError');
+        if (errEl) errEl.classList.remove('hidden');
+        await _doJoinWorld(code, errEl);
+        if (errEl && errEl.style.color !== 'var(--c-red,#ef4444)') {
+            window.pwHideJoinAnother();
             renderPlayerWorld();
         }
     };
