@@ -2073,7 +2073,7 @@
             <div class="flex gap-2 mb-3 flex-shrink-0">
                 <button onclick="window.showPlayerWorldTab('locations')" id="pwTabLocations" class="px-3 py-1.5 rounded text-xs font-bold bg-emerald-700 text-white">Locations</button>
                 <button onclick="window.showPlayerWorldTab('npcs')"      id="pwTabNpcs"      class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">NPCs</button>
-                <button onclick="window.showPlayerWorldTab('notes')"     id="pwTabNotes"     class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Notes</button>
+                <button onclick="window.showPlayerWorldTab('notes')"     id="pwTabNotes"     class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Discoveries</button>
                 <button onclick="window.showPlayerWorldTab('map')"       id="pwTabMap"       class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Map</button>
             </div>
             <div id="pwPanelLocations" class="flex-1 overflow-y-auto space-y-2 pr-1"></div>
@@ -2527,7 +2527,18 @@
         window._activeCloudCharId = newId;
         window.apxAuth?.setActiveCharId(newId);
         window.createNewCharacter();
-        window._sidebarChars.push({ id: newId, name: 'New Character', state: null, folderId: null, worldCode: null });
+
+        // If the player is already in a world, auto-assign the new character
+        // to that world's folder (if the slot is still empty).
+        let autoFolderId = null, autoWorldCode = null;
+        let worlds = _getWorlds();
+        for (let w of worlds) {
+            if (!w.folderId) continue;
+            let occupied = (window._sidebarChars||[]).find(c => c.folderId === w.folderId);
+            if (!occupied) { autoFolderId = w.folderId; autoWorldCode = w.code; break; }
+        }
+
+        window._sidebarChars.push({ id: newId, name: 'New Character', state: null, folderId: autoFolderId, worldCode: autoWorldCode });
         window.renderSidebarCharList();
         document.getElementById('characterLobby').style.display = 'none';
     };
@@ -2624,6 +2635,17 @@
             // Start listening for GM-applied HP changes
             let me = window.apxAuth?.user?.uid;
             if (me) startPlayerHpListener(code, me);
+
+            // Real-time listener: re-render player world tab when GM reveals/adds content
+            startWorldNotesListener(code);
+
+            // If there are unassigned existing characters, show a picker so the
+            // player can choose which one belongs in this world.
+            let unassigned = (window._sidebarChars||[]).filter(c => !c.worldCode && c.id !== 'archive');
+            let slotEmpty  = !window._sidebarChars.find(c => c.folderId === folderId);
+            if (slotEmpty && unassigned.length) {
+                showWorldCharPicker(world.worldName||world.name||code, folderId, code);
+            }
         } catch(e) { if(errEl) errEl.innerText='Error: '+e.message; }
     }
 
@@ -2631,6 +2653,80 @@
         let code = document.getElementById('lobbyWorldCode').value.trim().toUpperCase();
         await _doJoinWorld(code, document.getElementById('lobbyWorldCodeError'));
     };
+
+    // ── World character picker ────────────────────────────────────
+    // Shown when a player joins a world and already has unassigned characters.
+    function showWorldCharPicker(worldName, folderId, worldCode) {
+        let existing = document.getElementById('worldCharPickerOverlay');
+        if (existing) existing.remove();
+
+        let chars = (window._sidebarChars||[]).filter(c => !c.worldCode && c.id !== 'archive');
+        let overlay = document.createElement('div');
+        overlay.id = 'worldCharPickerOverlay';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;';
+        overlay.innerHTML = `
+            <div style="background:#1e293b;border:1px solid #475569;border-radius:0.75rem;padding:1.5rem;max-width:340px;width:90vw;">
+                <div style="font-size:0.875rem;font-weight:700;color:#f8fafc;margin-bottom:0.25rem;">You joined <span style="color:#fbbf24;">${worldName}</span></div>
+                <div style="font-size:0.7rem;color:#94a3b8;margin-bottom:1rem;">Which character represents you in this world?</div>
+                <div style="display:flex;flex-direction:column;gap:0.4rem;margin-bottom:0.75rem;max-height:200px;overflow-y:auto;">
+                    ${chars.map(c=>`<button onclick="window._pickWorldChar('${c.id}','${folderId}','${worldCode}')"
+                        style="text-align:left;background:#0f172a;border:1px solid #334155;color:#e2e8f0;font-size:0.75rem;font-weight:700;padding:0.5rem 0.75rem;border-radius:0.375rem;cursor:pointer;">${c.name||'Unnamed'}</button>`).join('')}
+                </div>
+                <div style="display:flex;gap:0.5rem;">
+                    <button onclick="window._pickWorldNewChar('${folderId}','${worldCode}')"
+                        style="flex:1;background:#059669;border:none;color:#fff;font-size:0.7rem;font-weight:700;padding:0.4rem 0.6rem;border-radius:0.375rem;cursor:pointer;">+ New Character</button>
+                    <button onclick="document.getElementById('worldCharPickerOverlay').remove()"
+                        style="background:#334155;border:none;color:#94a3b8;font-size:0.7rem;font-weight:700;padding:0.4rem 0.6rem;border-radius:0.375rem;cursor:pointer;">Skip</button>
+                </div>
+            </div>`;
+        document.body.appendChild(overlay);
+    }
+
+    window._pickWorldChar = async function(charId, folderId, worldCode) {
+        document.getElementById('worldCharPickerOverlay')?.remove();
+        let c = (window._sidebarChars||[]).find(x=>x.id===charId);
+        if (!c) return;
+        c.folderId = folderId; c.worldCode = worldCode;
+        if (window.apxAuth?.enabled) {
+            await window.apxAuth.saveCharacter(charId, c.state||window.state, { folderId, worldCode }).catch(()=>{});
+        }
+        window.renderSidebarCharList();
+    };
+
+    window._pickWorldNewChar = function(folderId, worldCode) {
+        document.getElementById('worldCharPickerOverlay')?.remove();
+        // Create and auto-assign via lobbyNewCharacter (which checks world slots)
+        window.lobbyNewCharacter();
+        // The new char gets auto-assigned since the slot is empty — override
+        // folderId/worldCode in case auto-assign picked a different world
+        let newest = window._sidebarChars[window._sidebarChars.length - 1];
+        if (newest) { newest.folderId = folderId; newest.worldCode = worldCode; }
+        window.renderSidebarCharList();
+    };
+
+    // ── Real-time public world notes listener ─────────────────────
+    // Fires whenever the GM reveals content, adds pins, etc.
+    let _worldNotesUnsub = null;
+    function startWorldNotesListener(inviteCode) {
+        if (_worldNotesUnsub) { _worldNotesUnsub(); _worldNotesUnsub = null; }
+        if (!inviteCode || !window.apxAuth?.enabled) return;
+        if (typeof window.apxAuth.listenPublicWorldNotes !== 'function') return;
+        _worldNotesUnsub = window.apxAuth.listenPublicWorldNotes(inviteCode, data => {
+            let world = window._playerWorldData;
+            if (!world) return;
+            // Preserve the cached map image — it's not in publicNotes
+            let cachedMap = world.notesV2?.worldMapDataUrl;
+            world.notesV2 = {
+                locations: data.publicNotes?.locations || [],
+                npcs:      data.publicNotes?.npcs      || [],
+                notes:     data.publicNotes?.notes     || [],
+                worldMapDataUrl: cachedMap
+            };
+            // Re-render the modal if it's currently open
+            let modal = document.getElementById('playerWorldModal');
+            if (modal?.classList.contains('active')) renderPlayerWorld();
+        });
+    }
 
     // ── Player World View ────────────────────────────────────────
     window._playerWorldData = null;
@@ -2880,14 +2976,14 @@
             </div>`;
         }).join('') : '<div class="text-slate-600 text-sm text-center py-6">No NPCs shared yet</div>';
 
-        // Notes (was Revealed Secrets)
+        // Discoveries (revealed notes from GM)
         let notesEl = document.getElementById('pwPanelNotes');
         let rnotes = notes.notes||[];
         if (notesEl) notesEl.innerHTML = rnotes.length ? rnotes.map(s=>`
             <div class="bg-slate-900 border border-amber-700/30 rounded p-3">
-                <div class="text-xs font-bold text-amber-300">${s.title||'Note'}</div>
+                <div class="text-xs font-bold text-amber-300">${s.title||'Discovery'}</div>
                 ${s.content?`<div class="text-[10px] text-slate-300 mt-1">${s.content}</div>`:''}
-            </div>`).join('') : '<div class="text-slate-600 text-sm text-center py-6">No notes revealed yet</div>';
+            </div>`).join('') : '<div class="text-slate-600 text-sm text-center py-6">No discoveries yet</div>';
     }
 
     async function renderPlayerMap() {
@@ -3146,9 +3242,10 @@
                                 if (typeof window.renderImportedRaceList === 'function') window.renderImportedRaceList();
                             }
                             document.getElementById('playerWorldBtn')?.classList.remove('hidden');
-                            // Resume HP listener for returning players
+                            // Resume listeners for returning players
                             let me = window.apxAuth?.user?.uid;
                             if (me) startPlayerHpListener(w.code, me);
+                            startWorldNotesListener(w.code);
                         }
                     } catch(e) { console.warn('World reload:', w.code, e.message); }
                 }

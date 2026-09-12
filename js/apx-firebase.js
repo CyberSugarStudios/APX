@@ -26,6 +26,7 @@
             saveRacesToAllWorlds: () => Promise.resolve(), deleteWorld: () => Promise.resolve(), joinWorldByCode: () => Promise.resolve(null),
             loadWorldPlayers: () => Promise.resolve([]),
             listenWorldPlayers: () => (() => {}),
+            listenPublicWorldNotes: () => (() => {}),
             saveWorldMapFirestore: () => Promise.resolve(),
             loadWorldMapFirestore: () => Promise.resolve(null),
             deleteWorldMapFirestore: () => Promise.resolve(),
@@ -214,6 +215,16 @@
 
     // --- Real-time listener for player characters in a world ----------------
     // Returns an unsubscribe function. Call it to stop receiving updates.
+    // Real-time listener on a world's public notes so the player's world
+    // tab updates live as the GM reveals locations, NPCs, notes, and pins.
+    function listenPublicWorldNotes(inviteCode, callback) {
+        if (!inviteCode) return () => {};
+        return db.collection('worldCodes').doc(inviteCode.toUpperCase().trim())
+            .onSnapshot(snap => {
+                if (snap.exists) callback(snap.data());
+            }, err => console.warn('World notes listener:', err.message));
+    }
+
     function listenWorldPlayers(inviteCode, callback) {
         if (!inviteCode) return () => {};
         return db.collection('worldCodes').doc(inviteCode.toUpperCase().trim())
@@ -438,7 +449,7 @@
         loadWorldPlayers,
         saveWorldMapFirestore, loadWorldMapFirestore, deleteWorldMapFirestore,
         savePublicWorldMap, loadPublicWorldMap, loadWorldMapForPlayer, setGmHpOverride,
-        listenWorldPlayers,
+        listenWorldPlayers, listenPublicWorldNotes,
         scheduleAutoSave, setActiveCharId,
         renderAuthBar,
     };
