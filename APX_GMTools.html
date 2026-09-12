@@ -1137,7 +1137,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <button onclick="window.mapResetView()" class="px-2 py-1.5 rounded bg-slate-700 text-slate-400 text-xs">Reset</button>
                         <span class="text-[10px] text-slate-500 flex-1">Click map to pin a Location. Drag to pan.</span>
                     </div>
-                    <div id="mapContainer" class="flex-1 overflow-hidden rounded border border-slate-700 relative bg-slate-950 select-none" style="min-height:420px; cursor:crosshair;"
+                    <div id="mapContainer" class="flex-1 overflow-hidden rounded border border-slate-700 relative bg-slate-950 select-none" style="min-height:540px; cursor:crosshair;"
                          onmousedown="window.mapStartDrag(event)" onmousemove="window.mapDrag(event)" onmouseup="window.mapEndDrag(event)" onmouseleave="window.mapEndDrag(event)"
                          onwheel="window.mapScroll(event)">
                         <div id="mapViewport" style="position:absolute; transform-origin:0 0; will-change:transform;">
@@ -1780,42 +1780,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (type==='location')  { window.renderLocationList(); renderMapPins(); window.renderNoteList(); }
         if (type==='note')      window.renderNoteList();
     };
-    window.openNoteModal = function(type, id=null) {
-        if (type==='secret') type='note';
-        _noteContext = { type, id };
-        let arrKey0 = type==='session'?'session':type==='npc'?'npcs':type==='location'?'locations':'notes';
-        let existing = id ? (_wNotes[arrKey0]||[]).find(n=>n.id===id) : null;
-        _editingSubNotes = (existing?.notes||[]).map(sn=>({...sn, _open:false}));
-        let titles = { session:'Session Note', npc:'NPC', location:'Location', note:'Note' };
-        document.getElementById('noteDetailTitle').innerText = (id?'Edit ':'Add ')+titles[type];
-        document.getElementById('noteDetailDeleteBtn').classList.toggle('hidden', !id);
-        document.getElementById('noteDetailBody').innerHTML = NOTE_TEMPLATES[type]?.(existing||{}) || '';
-        if (type==='location'||type==='npc') _snRender();
-        window.openModal('noteDetailModal');
-    };
-
-    window.saveNote = function() {
-        let { type, id } = _noteContext;
-        let arrKey = type==='session'?'session':type==='npc'?'npcs':type==='location'?'locations':'notes';
-        if (!_wNotes[arrKey]) _wNotes[arrKey]=[];
-        let arr = _wNotes[arrKey];
-        let existing = id ? arr.find(n=>n.id===id) : null;
-        let g = id => document.getElementById(id);
-
-        let note = existing || { id: type+'_'+Date.now() };
-        if (type==='session') { note.title=g('nfTitle')?.value||''; note.date=g('nfDate')?.value||''; note.content=g('nfContent')?.value||''; }
-        if (type==='npc')     { note.name=g('nfName')?.value||''; note.role=g('nfRole')?.value||''; note.description=g('nfContent')?.value||''; }
-        if (type==='location'){ note.name=g('nfName')?.value||''; note.description=g('nfContent')?.value||''; note.pinColor=g('nfPinColor')?.value||'#ef4444'; }
-        if (type==='note')     { note.title=g('nfTitle')?.value||''; note.content=g('nfContent')?.value||''; note.revealed=!!(g('nfRevealed')?.checked); }
-
-        if (!existing) arr.push(note);
-        saveWorldNotes();
-        window.closeModal('noteDetailModal');
-        // Refresh the active list
-        if (type==='session')   window.renderSessionList();
-        if (type==='npc')       { window.renderNpcList(); window.renderNoteList(); }
-        if (type==='location')  { window.renderLocationList(); renderMapPins(); window.renderNoteList(); }
-        if (type==='note')      window.renderNoteList();
     };
 
     // ── Race ↔ World assignment ──────────────────────────────────

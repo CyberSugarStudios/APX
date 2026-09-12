@@ -321,13 +321,15 @@ function startPartyListener(inviteCode) {
                 window.gmParty.push({ fileName: p.uid, state, summary: computeCharSummary(state) });
                 changed = true;
             }
-            // Also update any matching initiative tracker entry's HP so the
-            // tracker stays in sync when a player heals or takes damage outside of combat.
-            let newHp = state.currentHp;
+            // Also update any matching initiative tracker entry's HP/TempHP so the
+            // tracker stays in sync when a player heals, takes damage, or gains temp HP.
+            let newHp    = state.currentHp;
+            let newTempHp= state.tempHp || 0;
             if (newHp !== undefined) {
                 (window.gmInitiative||[]).forEach(e => {
-                    if (e.playerUid === p.uid && e.currentHp !== newHp) {
+                    if (e.playerUid === p.uid) {
                         e.currentHp = newHp;
+                        e.tempHp    = newTempHp;
                         e.maxHp     = computeCharSummary(state).maxHp;
                         changed     = true;
                     }
@@ -508,8 +510,11 @@ window.addToInitiative = function(sourceIdx, sourceType, faction) {
     let entry;
     if (sourceType === 'party') {
         let p = window.gmParty[sourceIdx];
-        entry = { id: crypto.randomUUID(), name: p.summary.name, baseInitiative: p.summary.initiative, surprised: false, currentHp: p.summary.currentHp, maxHp: p.summary.maxHp, tempHp: p.summary.tempHp || 0, ap: p.summary.ap, ac: p.summary.ac, dr: p.summary.dr, er: p.summary.er, faction: 'player', bleedOutTurns: null, tpValue: 0, lairTraitNote: null,
-            playerUid: p.fileName }; // stored so HP changes can sync back to the player's sheet
+        entry = { id: crypto.randomUUID(), name: p.summary.name, baseInitiative: p.summary.initiative, surprised: false,
+            currentHp: p.summary.currentHp, maxHp: p.summary.maxHp, tempHp: p.summary.tempHp || 0,
+            ap: p.summary.ap, ac: p.summary.ac, dr: p.summary.dr, er: p.summary.er,
+            faction: 'player', bleedOutTurns: null, tpValue: 0, lairTraitNote: null,
+            playerUid: p.fileName };
     } else if (sourceType === 'npc') {
         let n = window.gmNpcs[sourceIdx];
         let sb = ncStatBlockFor(n.id);
