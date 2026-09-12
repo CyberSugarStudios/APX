@@ -2748,11 +2748,12 @@
             // Real-time listener: re-render player world tab when GM reveals/adds content
             startWorldNotesListener(code);
 
-            // If there are unassigned existing characters, show a picker so the
-            // player can choose which one belongs in this world.
-            let unassigned = (window._sidebarChars||[]).filter(c => !c.worldCode && c.id !== 'archive');
+            // Show a character picker if the new world's folder slot is empty.
+            // Include ALL characters not already in this specific world folder —
+            // even those in other worlds — so the player can move their character here.
             let slotEmpty  = !window._sidebarChars.find(c => c.folderId === folderId);
-            if (slotEmpty && unassigned.length) {
+            let available  = (window._sidebarChars||[]).filter(c => c.folderId !== folderId && c.id !== 'archive');
+            if (slotEmpty && available.length) {
                 showWorldCharPicker(world.worldName||world.name||code, folderId, code);
             }
         } catch(e) { if(errEl) errEl.innerText='Error: '+e.message; }
@@ -2764,38 +2765,40 @@
     };
 
     // ── World character picker ────────────────────────────────────
-    // Shown when a player joins a world and already has unassigned characters.
+    // Shown when a player joins a world and needs to pick a character for it.
+    // Includes ALL characters not already in this world folder — even those
+    // in other worlds — so the player can move their character here.
     function showWorldCharPicker(worldName, folderId, worldCode) {
         let existing = document.getElementById('worldCharPickerOverlay');
         if (existing) existing.remove();
 
-        let chars = (window._sidebarChars||[]).filter(c => !c.worldCode && c.id !== 'archive');
+        let chars = (window._sidebarChars||[]).filter(c => c.folderId !== folderId && c.id !== 'archive');
         let overlay = document.createElement('div');
         overlay.id = 'worldCharPickerOverlay';
         overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;';
-        overlay.innerHTML = `
-            <div style="background:#1e293b;border:1px solid #475569;border-radius:0.75rem;padding:1.5rem;max-width:340px;width:90vw;">
-                <div style="font-size:0.875rem;font-weight:700;color:#f8fafc;margin-bottom:0.25rem;">You joined <span style="color:#fbbf24;">${worldName}</span></div>
-                <div style="font-size:0.7rem;color:#94a3b8;margin-bottom:1rem;">Which character represents you in this world?</div>
-                <div style="display:flex;flex-direction:column;gap:0.4rem;margin-bottom:0.75rem;max-height:200px;overflow-y:auto;">
-                    ${chars.map(c=>`<button onclick="window._pickWorldChar('${c.id}','${folderId}','${worldCode}')"
-                        style="text-align:left;background:#0f172a;border:1px solid #334155;color:#e2e8f0;font-size:0.75rem;font-weight:700;padding:0.5rem 0.75rem;border-radius:0.375rem;cursor:pointer;">${c.name||'Unnamed'}</button>`).join('')}
-                </div>
-                <div style="display:flex;gap:0.5rem;">
-                    <button onclick="window._pickWorldNewChar('${folderId}','${worldCode}')"
-                        style="flex:1;background:#059669;border:none;color:#fff;font-size:0.7rem;font-weight:700;padding:0.4rem 0.6rem;border-radius:0.375rem;cursor:pointer;">+ New Character</button>
-                    <button onclick="document.getElementById('worldCharPickerOverlay').remove()"
-                        style="background:#334155;border:none;color:#94a3b8;font-size:0.7rem;font-weight:700;padding:0.4rem 0.6rem;border-radius:0.375rem;cursor:pointer;">Skip</button>
-                </div>
-            </div>`;
+        let rows = chars.map(c => {
+            let note = (c.worldCode && c.worldCode !== worldCode) ? '<div style="font-size:0.6rem;color:#64748b;margin-top:1px;">Currently in another world — will be moved</div>' : '';
+            return `<button onclick="window._pickWorldChar('${c.id}','${folderId}','${worldCode}')" style="text-align:left;background:#0f172a;border:1px solid #334155;color:#e2e8f0;font-size:0.75rem;font-weight:700;padding:0.5rem 0.75rem;border-radius:0.375rem;cursor:pointer;">${c.name||'Unnamed'}${note}</button>`;
+        }).join('');
+        overlay.innerHTML = `<div style="background:#1e293b;border:1px solid #475569;border-radius:0.75rem;padding:1.5rem;max-width:360px;width:90vw;">
+            <div style="font-size:0.875rem;font-weight:700;color:#f8fafc;margin-bottom:0.25rem;">You joined <span style="color:#fbbf24;">${worldName}</span></div>
+            <div style="font-size:0.7rem;color:#94a3b8;margin-bottom:1rem;">Which character represents you in this world?</div>
+            <div style="display:flex;flex-direction:column;gap:0.4rem;margin-bottom:0.75rem;max-height:200px;overflow-y:auto;">${rows}</div>
+            <div style="display:flex;gap:0.5rem;">
+                <button onclick="window._pickWorldNewChar('${folderId}','${worldCode}')" style="flex:1;background:#059669;border:none;color:#fff;font-size:0.7rem;font-weight:700;padding:0.4rem 0.6rem;border-radius:0.375rem;cursor:pointer;">+ New Character</button>
+                <button onclick="document.getElementById('worldCharPickerOverlay').remove()" style="background:#334155;border:none;color:#94a3b8;font-size:0.7rem;font-weight:700;padding:0.4rem 0.6rem;border-radius:0.375rem;cursor:pointer;">Skip</button>
+            </div>
+        </div>`;
         document.body.appendChild(overlay);
     }
-
     window._pickWorldChar = async function(charId, folderId, worldCode) {
         document.getElementById('worldCharPickerOverlay')?.remove();
         let c = (window._sidebarChars||[]).find(x=>x.id===charId);
         if (!c) return;
-        c.folderId = folderId; c.worldCode = worldCode;
+        // If moving from a different world folder, clear the old association first
+        let oldWorldCode = c.worldCode;
+        c.folderId  = folderId;
+        c.worldCode = worldCode;
         if (window.apxAuth?.enabled) {
             await window.apxAuth.saveCharacter(charId, c.state||window.state, { folderId, worldCode }).catch(()=>{});
         }
