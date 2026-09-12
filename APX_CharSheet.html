@@ -2469,6 +2469,30 @@
         window.apxAuth?.setActiveCharId(id);
         window.loadCharacterState(entry.state);
         window.renderSidebarCharList();
+
+        // If this character is in a world, activate that world's data
+        let worldCode = entry.worldCode;
+        if (worldCode && window.apxAuth?.enabled && window.apxAuth.user) {
+            // Use cached data immediately if available
+            if (window._playerWorldsData?.[worldCode]) {
+                window._playerWorldData = window._playerWorldsData[worldCode];
+                document.getElementById('playerWorldBtn')?.classList.remove('hidden');
+                startWorldNotesListener(worldCode);
+            }
+            // Refresh from Firestore in the background
+            window.apxAuth.joinWorldByCode(worldCode).then(world => {
+                if (!world) return;
+                if (!window._playerWorldsData) window._playerWorldsData = {};
+                window._playerWorldsData[worldCode] = world;
+                window._playerWorldData = world;
+                if (world.races?.length && Array.isArray(window.gmRaces)) {
+                    world.races.forEach(r => { if (!window.gmRaces.find(x=>x.id===r.id)) window.gmRaces.push(r); });
+                    if (typeof window.renderImportedRaceList === 'function') window.renderImportedRaceList();
+                }
+                document.getElementById('playerWorldBtn')?.classList.remove('hidden');
+                startWorldNotesListener(worldCode);
+            }).catch(() => {});
+        }
     };
 
     window.loadCharacterState = function(state) {
@@ -2565,6 +2589,28 @@
         window.loadCharacterState(entry.state);
         window.renderSidebarCharList();
         document.getElementById('characterLobby').style.display = 'none';
+
+        // Auto-load world if this character belongs to one
+        let worldCode = entry.worldCode || sidebarEntry?.worldCode;
+        if (worldCode && window.apxAuth?.enabled && window.apxAuth.user) {
+            if (window._playerWorldsData?.[worldCode]) {
+                window._playerWorldData = window._playerWorldsData[worldCode];
+                document.getElementById('playerWorldBtn')?.classList.remove('hidden');
+                startWorldNotesListener(worldCode);
+            }
+            window.apxAuth.joinWorldByCode(worldCode).then(world => {
+                if (!world) return;
+                if (!window._playerWorldsData) window._playerWorldsData = {};
+                window._playerWorldsData[worldCode] = world;
+                window._playerWorldData = world;
+                if (world.races?.length && Array.isArray(window.gmRaces)) {
+                    world.races.forEach(r => { if (!window.gmRaces.find(x=>x.id===r.id)) window.gmRaces.push(r); });
+                    if (typeof window.renderImportedRaceList === 'function') window.renderImportedRaceList();
+                }
+                document.getElementById('playerWorldBtn')?.classList.remove('hidden');
+                startWorldNotesListener(worldCode);
+            }).catch(() => {});
+        }
     };
     window.lobbySkip = function() {
         if (!window._activeCloudCharId) {

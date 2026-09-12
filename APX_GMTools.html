@@ -1118,6 +1118,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button onclick="window.showWorldTab('npcs')"      id="wTabNpcs"      class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">NPCs</button>
                     <button onclick="window.showWorldTab('locations')" id="wTabLocations" class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Locations</button>
                     <button onclick="window.showWorldTab('notes')"     id="wTabNotes"     class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Notes</button>
+                    <button onclick="window.showWorldTab('players')"   id="wTabPlayers"   class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Players</button>
                 </div>
                 <div id="wPanelSession" class="flex-1 flex flex-col overflow-hidden min-h-0">
                     <div class="flex gap-2 mb-2 flex-shrink-0">
@@ -1170,6 +1171,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         <button onclick="window.openNoteModal('note')" class="px-3 py-1.5 rounded bg-indigo-800 hover:bg-indigo-700 text-white text-xs font-bold">+ Add Note</button>
                     </div>
                     <div id="noteList" class="flex-1 overflow-y-auto space-y-2 min-h-0 pr-1"></div>
+                </div>
+                <div id="wPanelPlayers" class="hidden flex-1 flex flex-col overflow-hidden min-h-0">
+                    <div class="flex gap-2 mb-2 flex-shrink-0 items-center">
+                        <span class="text-[10px] text-slate-400 flex-1">Players who have joined this world via invite code.</span>
+                        <button onclick="window.renderPlayersList()" class="px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-bold">↻ Refresh</button>
+                    </div>
+                    <div id="playersList" class="flex-1 overflow-y-auto space-y-2 min-h-0 pr-1"></div>
                 </div>
             </div>
             <div id="gmWorldEmpty" class="flex-1 flex items-center justify-center text-slate-500 text-sm">Create a world to start organizing your campaign.</div>
@@ -1497,7 +1505,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── Tab switching ────────────────────────────────────────────
     window.showWorldTab = function(tab) {
-        ['session','map','npcs','locations','notes'].forEach(t => {
+        ['session','map','npcs','locations','notes','players'].forEach(t => {
             let panel = document.getElementById(`wPanel${t.charAt(0).toUpperCase()}${t.slice(1)}`);
             if (panel) { panel.classList.toggle('hidden', t!==tab); panel.classList.toggle('flex', t===tab && panel.style.display!=='block'); }
             let btn = document.getElementById(`wTab${t.charAt(0).toUpperCase()}${t.slice(1)}`);
@@ -1508,6 +1516,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (tab==='locations') { window.renderLocationList(); }
         if (tab==='notes')     { window.renderNoteList(); }
         if (tab==='map')       { initMap(); }
+        if (tab==='players')   { window.renderPlayersList(); }
     };
     window.showCampaignTab = window.showWorldTab; // alias for old refs
 
@@ -1760,7 +1769,10 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="flex items-center gap-3 flex-wrap">
                 <div><label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Pin Color</label>
                 <input type="color" id="nfPinColor" value="${n.pinColor||'#ef4444'}" class="w-10 h-8 rounded cursor-pointer bg-slate-900 border border-slate-700"></div>
-                ${n.pinX!=null ? `<div class="text-[10px] text-slate-500 self-end pb-1">Pinned at ${Math.round(n.pinX*100)}%, ${Math.round(n.pinY*100)}%</div>` : '<div class="text-[10px] text-slate-500 self-end pb-1">Click map to pin</div>'}
+                ${n.pinX!=null ? `<div id="nfPinInfo" class="flex items-center gap-2 self-end pb-1">
+                    <div class="text-[10px] text-slate-500">Pinned at ${Math.round(n.pinX*100)}%, ${Math.round(n.pinY*100)}%</div>
+                    <button onclick="window.removeLocationPin()" class="text-[9px] text-red-400 hover:text-red-300 font-bold px-1.5 py-0.5 rounded bg-red-900/20 border border-red-800/30">Remove Pin</button>
+                </div>` : '<div id="nfPinInfo" class="text-[10px] text-slate-500 self-end pb-1">Click map to pin</div>'}
                 <label class="flex items-center gap-2 text-xs cursor-pointer self-end pb-1"><input type="checkbox" id="nfRevealed" ${n.revealed?'checked':''} class="w-4 h-4"> <span class="text-slate-300">Revealed to players</span></label>
             </div>
             ${subNotesSection()}`,
@@ -1809,6 +1821,78 @@ document.addEventListener('DOMContentLoaded', () => {
         if (type==='npc')       { window.renderNpcList(); window.renderNoteList(); }
         if (type==='location')  { window.renderLocationList(); renderMapPins(); window.renderNoteList(); }
         if (type==='note')      window.renderNoteList();
+    };
+
+    window.removeLocationPin = function() {
+        let { type, id } = _noteContext;
+        if (type !== 'location' || !id) return;
+        let loc = (_wNotes.locations||[]).find(l => l.id === id);
+        if (!loc) return;
+        delete loc.pinX; delete loc.pinY;
+        saveWorldNotes();
+        renderMapPins();
+        window.renderLocationList();
+        let el = document.getElementById('nfPinInfo');
+        if (el) el.outerHTML = '<div id="nfPinInfo" class="text-[10px] text-slate-500 self-end pb-1">Click map to pin</div>';
+    };
+
+    // ── Players tab ───────────────────────────────────────────────
+    window.renderPlayersList = async function() {
+        let el = document.getElementById('playersList');
+        if (!el) return;
+        let w = getActiveWorld();
+        if (!w?.inviteCode) { el.innerHTML = '<div class="text-slate-500 text-sm text-center py-6">No active world or invite code.</div>'; return; }
+        el.innerHTML = '<div class="text-slate-500 text-xs text-center py-4">Loading…</div>';
+        try {
+            let players = await window.apxAuth.loadWorldPlayers(w.inviteCode);
+            if (!players.length) { el.innerHTML = '<div class="text-slate-500 text-sm text-center py-6">No players have joined yet.</div>'; return; }
+            el.innerHTML = players.map(p => {
+                let name = p.charName || p.charState?.name || p.uid || 'Unknown Player';
+                return `<div class="bg-slate-900 border border-slate-700 rounded p-3 flex items-center justify-between gap-3">
+                    <div>
+                        <div class="text-xs font-bold text-slate-200">${name}</div>
+                        <div class="text-[10px] text-slate-500">${p.uid||''}</div>
+                    </div>
+                    <button onclick="window.gmKickPlayer('${w.inviteCode}','${p.uid}','${name.replace(/'/g,"\\'")}')"
+                        class="px-2 py-1 rounded bg-red-900/40 hover:bg-red-900 text-red-400 text-[10px] font-bold border border-red-800/40 transition">Kick</button>
+                </div>`;
+            }).join('');
+        } catch(e) { el.innerHTML = `<div class="text-red-400 text-xs text-center py-4">Error: ${e.message}</div>`; }
+    };
+
+    window.gmKickPlayer = function(inviteCode, uid, displayName) {
+        let existing = document.getElementById('gmKickOverlay');
+        if (existing) existing.remove();
+        let overlay = document.createElement('div');
+        overlay.id = 'gmKickOverlay';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:1600;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;';
+        overlay.innerHTML = `<div style="background:#1e293b;border:1px solid #475569;border-radius:0.75rem;padding:1.5rem;max-width:320px;width:90vw;">
+            <div style="font-size:0.8rem;font-weight:700;color:#f8fafc;margin-bottom:0.5rem;">Kick <span style="color:#fbbf24;">${displayName}</span>?</div>
+            <div style="font-size:0.7rem;color:#94a3b8;margin-bottom:1.25rem;">Do you want to ban this player from rejoining?</div>
+            <div style="display:flex;flex-direction:column;gap:0.5rem;">
+                <button onclick="window._gmDoKick('${inviteCode}','${uid}',true)"
+                    style="background:#7f1d1d;border:1px solid #991b1b;color:#fca5a5;font-size:0.75rem;font-weight:700;padding:0.5rem;border-radius:0.375rem;cursor:pointer;">
+                    Yes — Kick &amp; Ban from Rejoining
+                </button>
+                <button onclick="window._gmDoKick('${inviteCode}','${uid}',false)"
+                    style="background:#1e3a5f;border:1px solid #2563eb;color:#93c5fd;font-size:0.75rem;font-weight:700;padding:0.5rem;border-radius:0.375rem;cursor:pointer;">
+                    No — Kick Without Ban
+                </button>
+                <button onclick="document.getElementById('gmKickOverlay').remove()"
+                    style="background:#334155;border:none;color:#94a3b8;font-size:0.75rem;font-weight:700;padding:0.5rem;border-radius:0.375rem;cursor:pointer;">
+                    Cancel
+                </button>
+            </div>
+        </div>`;
+        document.body.appendChild(overlay);
+    };
+
+    window._gmDoKick = async function(inviteCode, uid, ban) {
+        document.getElementById('gmKickOverlay')?.remove();
+        try {
+            await window.apxAuth.kickWorldPlayer(inviteCode, uid, ban);
+            window.renderPlayersList();
+        } catch(e) { alert('Could not kick player: ' + e.message); }
     };
 
     // ── Race ↔ World assignment ──────────────────────────────────

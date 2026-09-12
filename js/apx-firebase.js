@@ -27,6 +27,7 @@
             loadWorldPlayers: () => Promise.resolve([]),
             listenWorldPlayers: () => (() => {}),
             listenPublicWorldNotes: () => (() => {}),
+            kickWorldPlayer: () => Promise.resolve(),
             saveWorldMapFirestore: () => Promise.resolve(),
             loadWorldMapFirestore: () => Promise.resolve(null),
             deleteWorldMapFirestore: () => Promise.resolve(),
@@ -348,28 +349,40 @@
         let doc = await db.collection('worldCodes').doc(inviteCode.toUpperCase().trim()).get();
         if (!doc.exists) return null;
         let data = doc.data();
-        // Register this player + share their character name (consent = entering the code).
-        // The full state is shared via auto-save after joining — storing it here on join
-        // risks Firestore 1MB document limits and requires the player to be signed in.
-        if (playerState && currentUser()) {
-            let uid = currentUser().uid;
+        // Check if this player is banned
+        let user = currentUser();
+        if (user && (data.banned||[]).includes(user.uid)) {
+            throw new Error('You have been removed from this world by the GM.');
+        }
+        if (playerState && user) {
             await db.collection('worldCodes').doc(inviteCode.toUpperCase().trim())
-                .collection('players').doc(uid).set({
-                    uid,
+                .collection('players').doc(user.uid).set({
+                    uid: user.uid,
                     charName: (playerState.name || 'Unknown Player').slice(0, 60),
                     joinedAt: firebase.firestore.FieldValue.serverTimestamp()
-                }, { merge: true }).catch(() => {}); // non-blocking — join succeeds even if registration fails
+                }, { merge: true }).catch(() => {});
         }
         return {
             gmUid: data.gmUid, worldId: data.worldId,
             worldName: data.worldName, name: data.worldName,
             races: data.races || [],
             notesV2: {
-                locations:       data.publicNotes?.locations       || [],
-                npcs:            data.publicNotes?.npcs            || [],
-                secrets:         data.publicNotes?.revealedSecrets || []
+                locations: data.publicNotes?.locations || [],
+                npcs:      data.publicNotes?.npcs      || [],
+                notes:     data.publicNotes?.notes     || data.publicNotes?.revealedSecrets || []
             }
         };
+    }
+
+    async function kickWorldPlayer(inviteCode, uid, ban) {
+        // Remove from the players sub-collection
+        await db.collection('worldCodes').doc(inviteCode)
+            .collection('players').doc(uid).delete().catch(()=>{});
+        // Optionally add to the banned list on the worldCodes document
+        if (ban) {
+            await db.collection('worldCodes').doc(inviteCode)
+                .update({ banned: firebase.firestore.FieldValue.arrayUnion(uid) });
+        }
     }
 
     async function loadWorldPlayers(inviteCode) {
@@ -449,7 +462,7 @@
         loadWorldPlayers,
         saveWorldMapFirestore, loadWorldMapFirestore, deleteWorldMapFirestore,
         savePublicWorldMap, loadPublicWorldMap, loadWorldMapForPlayer, setGmHpOverride,
-        listenWorldPlayers, listenPublicWorldNotes,
+        listenWorldPlayers, listenPublicWorldNotes, kickWorldPlayer,
         scheduleAutoSave, setActiveCharId,
         renderAuthBar,
     };
