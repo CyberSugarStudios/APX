@@ -349,10 +349,18 @@
         let doc = await db.collection('worldCodes').doc(inviteCode.toUpperCase().trim()).get();
         if (!doc.exists) return null;
         let data = doc.data();
-        // Check if this player is banned
         let user = currentUser();
+        // Banned players are permanently blocked — throw so the caller can clean up
         if (user && (data.banned||[]).includes(user.uid)) {
-            throw new Error('You have been removed from this world by the GM.');
+            throw new Error('BANNED: You have been removed from this world by the GM.');
+        }
+        // Kicked players are blocked from auto-rejoin (no playerState) but can
+        // manually rejoin by entering the code again (playerState present).
+        if (user && (data.kicked||[]).includes(user.uid)) {
+            if (!playerState) return null; // auto-load silently blocked
+            // Manual rejoin — remove from kicked list, then proceed
+            await db.collection('worldCodes').doc(inviteCode.toUpperCase().trim())
+                .update({ kicked: firebase.firestore.FieldValue.arrayRemove(user.uid) }).catch(()=>{});
         }
         if (playerState && user) {
             await db.collection('worldCodes').doc(inviteCode.toUpperCase().trim())
@@ -378,11 +386,10 @@
         // Remove from the players sub-collection
         await db.collection('worldCodes').doc(inviteCode)
             .collection('players').doc(uid).delete().catch(()=>{});
-        // Optionally add to the banned list on the worldCodes document
-        if (ban) {
-            await db.collection('worldCodes').doc(inviteCode)
-                .update({ banned: firebase.firestore.FieldValue.arrayUnion(uid) });
-        }
+        // Add to banned (permanent) or kicked (blocks auto-rejoin, allows manual rejoin)
+        let field = ban ? 'banned' : 'kicked';
+        await db.collection('worldCodes').doc(inviteCode)
+            .update({ [field]: firebase.firestore.FieldValue.arrayUnion(uid) });
     }
 
     async function loadWorldPlayers(inviteCode) {

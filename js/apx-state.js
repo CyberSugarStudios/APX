@@ -381,7 +381,9 @@ window.APX_VERSION = 'v2026.9.11.1630';
             document.getElementById('fatigueInput').value = window.state.fatigue;
             document.getElementById('currentRestDice').value = window.state.restDice;
             document.getElementById('luckPtsInput').value = window.state.luckPts;
-            document.getElementById('woundsInput').value = window.state.wounds;
+            let woundsEl = document.getElementById('woundsInput');
+            if (woundsEl) woundsEl.value = window.state.wounds;
+            if (typeof window.renderCharNotes === 'function') window.renderCharNotes();
             window.syncInitStatCheckboxes();
             document.getElementById('powerAttr').value = window.state.powerAttr;
             
