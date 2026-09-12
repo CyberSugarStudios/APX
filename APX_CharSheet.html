@@ -2128,11 +2128,13 @@
                 <button onclick="window.showPlayerWorldTab('locations')" id="pwTabLocations" class="px-3 py-1.5 rounded text-xs font-bold bg-emerald-700 text-white">Locations</button>
                 <button onclick="window.showPlayerWorldTab('npcs')"      id="pwTabNpcs"      class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">NPCs</button>
                 <button onclick="window.showPlayerWorldTab('notes')"     id="pwTabNotes"     class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Discoveries</button>
-                <button onclick="window.showPlayerWorldTab('map')"       id="pwTabMap"       class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Map</button>
+                <button onclick="window.showPlayerWorldTab('othermaps')" id="pwTabOthermaps" class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Other Maps</button>
+                <button onclick="window.showPlayerWorldTab('map')"       id="pwTabMap"       class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">World Map</button>
             </div>
             <div id="pwPanelLocations" class="flex-1 overflow-y-auto space-y-2 pr-1"></div>
             <div id="pwPanelNpcs"      class="hidden flex-1 overflow-y-auto space-y-2 pr-1"></div>
             <div id="pwPanelNotes"     class="hidden flex-1 overflow-y-auto space-y-2 pr-1"></div>
+            <div id="pwPanelOthermaps" class="hidden flex-1 overflow-y-auto space-y-2 pr-1"></div>
             <div id="pwPanelMap" class="hidden flex-1 overflow-hidden rounded border border-slate-700 bg-slate-950 relative" style="min-height:540px;">
                 <div class="flex gap-2 p-2 flex-shrink-0 absolute top-0 left-0 z-10">
                     <button onclick="window.pwMapZoom(1.25)" class="px-2 py-1 rounded bg-slate-800/80 text-white text-xs font-bold backdrop-blur">+</button>
@@ -2925,6 +2927,7 @@
                 locations: data.publicNotes?.locations || [],
                 npcs:      data.publicNotes?.npcs      || [],
                 notes:     data.publicNotes?.notes     || [],
+                otherMaps: data.publicNotes?.otherMaps || [],
                 worldMapDataUrl: cachedMap
             };
             // Re-render the modal if it's currently open
@@ -2938,7 +2941,7 @@
     window._playerWorldsData = {};
 
     window.showPlayerWorldTab = function(tab) {
-        ['locations','npcs','notes','map'].forEach(t => {
+        ['locations','npcs','notes','othermaps','map'].forEach(t => {
             let p = document.getElementById(`pwPanel${t.charAt(0).toUpperCase()}${t.slice(1)}`);
             if (p) p.classList.toggle('hidden', t !== tab);
             let b = document.getElementById(`pwTab${t.charAt(0).toUpperCase()}${t.slice(1)}`);
@@ -2952,6 +2955,7 @@
             if (empty) empty.style.display = '';
             renderPlayerMap();
         }
+        if (tab === 'othermaps') renderPlayerOtherMaps();
     };
 
 
@@ -3206,9 +3210,133 @@
                 <div class="text-xs font-bold text-amber-300">${s.title||'Discovery'}</div>
                 ${s.content?`<div class="text-[10px] text-slate-300 mt-1">${s.content}</div>`:''}
             </div>`).join('') : '<div class="text-slate-600 text-sm text-center py-6">No discoveries yet</div>';
+
+        // Other Maps panel — just list them; actual viewing is via floating window
+        renderPlayerOtherMaps();
     }
 
-    async function renderPlayerMap() {
+    function renderPlayerOtherMaps() {
+        let el = document.getElementById('pwPanelOthermaps'); if (!el) return;
+        let world = window._playerWorldData;
+        let omaps = world?.notesV2?.otherMaps || [];
+        if (!omaps.length) { el.innerHTML = '<div class="text-slate-600 text-sm text-center py-6">No maps shared yet</div>'; return; }
+        el.innerHTML = omaps.map(m => `<div class="bg-slate-900 border border-slate-700 rounded p-3 flex items-center justify-between gap-3">
+            <div>
+                <div class="text-xs font-bold text-slate-200">${m.name}</div>
+                <div class="text-[10px] text-slate-500">${(m.tokens||[]).length} marked area(s)</div>
+            </div>
+            <button onclick="window.openPlayerOtherMapWindow('${m.id}')"
+                class="px-3 py-1.5 rounded text-xs font-bold text-white" style="background:var(--c-indigo,#4f46e5);">View Map</button>
+        </div>`).join('');
+    }
+
+    // Read-only floating map window for players
+    let _pwOmZ = 800;
+    window.openPlayerOtherMapWindow = async function(mapId) {
+        let world = window._playerWorldData;
+        let map = (world?.notesV2?.otherMaps||[]).find(m => m.id === mapId); if (!map) return;
+
+        let winId = 'pwOmWin_'+mapId;
+        let existing = document.getElementById(winId);
+        if (existing) { _pwOmZ++; existing.style.zIndex=_pwOmZ; return; }
+        _pwOmZ++;
+
+        let win = document.createElement('div');
+        win.id = winId;
+        win.style.cssText = `position:fixed;left:160px;top:90px;width:680px;height:520px;
+            background:#0f172a;border:1px solid #334155;border-radius:0.75rem;z-index:${_pwOmZ};
+            display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.85);
+            min-width:340px;min-height:280px;resize:both;overflow:hidden;`;
+        win.innerHTML = `
+            <div id="${winId}_hdr" style="cursor:grab;user-select:none;background:#1e293b;padding:0.5rem 0.75rem;
+                border-bottom:1px solid #334155;border-radius:0.75rem 0.75rem 0 0;
+                display:flex;align-items:center;gap:0.5rem;flex-shrink:0;">
+                <span style="font-size:0.75rem;font-weight:700;color:#e2e8f0;flex:1;">${map.name}</span>
+                <button onclick="document.getElementById('${winId}').remove()"
+                    style="background:none;border:none;color:#94a3b8;font-size:1.1rem;cursor:pointer;line-height:1;">✕</button>
+            </div>
+            <div id="${winId}_area" style="flex:1;position:relative;overflow:hidden;cursor:grab;">
+                <div style="position:absolute;top:0.5rem;left:0.5rem;z-index:10;display:flex;gap:0.25rem;">
+                    <button onclick="window.pwOmZoom('${winId}',1.25)" style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;font-size:0.7rem;font-weight:700;padding:0.2rem 0.5rem;border-radius:0.25rem;cursor:pointer;">+</button>
+                    <button onclick="window.pwOmZoom('${winId}',0.8)"  style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;font-size:0.7rem;font-weight:700;padding:0.2rem 0.5rem;border-radius:0.25rem;cursor:pointer;">−</button>
+                    <button onclick="window.pwOmReset('${winId}')"     style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;padding:0.2rem 0.5rem;border-radius:0.25rem;cursor:pointer;">Reset</button>
+                </div>
+                <div id="${winId}_vp" style="position:absolute;transform-origin:0 0;will-change:transform;">
+                    <img id="${winId}_img" src="" alt="" style="display:none;max-width:none;user-select:none;pointer-events:none;">
+                    <div id="${winId}_tok" style="position:absolute;top:0;left:0;pointer-events:none;"></div>
+                </div>
+                <div id="${winId}_empty" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+                    <div style="color:#475569;font-size:0.75rem;">Loading map…</div>
+                </div>
+            </div>`;
+
+        document.getElementById('playerWorldModal').appendChild(win);
+        win._scale=1; win._offX=0; win._offY=0; win._dragging=false; win._didDrag=false;
+        win._dragSX=0; win._dragSY=0; win._dragOX=0; win._dragOY=0;
+
+        win.addEventListener('mousedown', ()=>{ _pwOmZ++; win.style.zIndex=_pwOmZ; });
+        let hdr=document.getElementById(winId+'_hdr'), wDrag=false, wOX=0, wOY=0;
+        hdr.addEventListener('mousedown', e=>{ if(e.target.tagName==='BUTTON')return; wDrag=true; let r=win.getBoundingClientRect(); wOX=e.clientX-r.left; wOY=e.clientY-r.top; e.preventDefault(); });
+        document.addEventListener('mousemove', e=>{ if(!wDrag)return; win.style.left=Math.max(0,Math.min(window.innerWidth-60,e.clientX-wOX))+'px'; win.style.top=Math.max(0,Math.min(window.innerHeight-40,e.clientY-wOY))+'px'; });
+        document.addEventListener('mouseup', ()=>wDrag=false);
+
+        let area=document.getElementById(winId+'_area');
+        area.addEventListener('mousedown', e=>{ if(e.button!==0)return; win._dragging=true; win._didDrag=false; win._dragSX=e.clientX; win._dragSY=e.clientY; win._dragOX=win._offX; win._dragOY=win._offY; area.style.cursor='grabbing'; e.preventDefault(); });
+        area.addEventListener('mousemove', e=>{ if(!win._dragging)return; let dx=e.clientX-win._dragSX, dy=e.clientY-win._dragSY; if(Math.abs(dx)+Math.abs(dy)>4)win._didDrag=true; win._offX=win._dragOX+dx; win._offY=win._dragOY+dy; _pwOmTransform(winId,win); });
+        area.addEventListener('mouseup', ()=>{ win._dragging=false; area.style.cursor='grab'; });
+        area.addEventListener('mouseleave', ()=>{ win._dragging=false; area.style.cursor='grab'; });
+        area.addEventListener('wheel', e=>{ e.preventDefault(); let r=area.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top, mapX=(mx-win._offX)/win._scale, mapY=(my-win._offY)/win._scale; win._scale=Math.max(0.05,Math.min(10,win._scale*(e.deltaY<0?1.1:0.9))); win._offX=mx-mapX*win._scale; win._offY=my-mapY*win._scale; _pwOmTransform(winId,win); }, {passive:false});
+
+        // Load image directly from GM's storage
+        let saved = _getWorlds().find(w => w.worldId === world?.worldId) || _getPrimaryWorld();
+        if (saved?.gmUid && world?.worldId && window.apxAuth?.enabled) {
+            try {
+                let img = await window.apxAuth.loadOtherMapImageForPlayer(saved.gmUid, world.worldId, mapId);
+                if (img) { _pwOmShowImg(winId, win, map, img); } else {
+                    let e=document.getElementById(winId+'_empty'); if(e) e.innerHTML='<div style="color:#475569;font-size:0.75rem;">No image uploaded for this map</div>';
+                }
+            } catch(err){ console.warn('Player other map load:', err.message); }
+        }
+    };
+
+    function _pwOmTransform(winId, win) {
+        let vp=document.getElementById(winId+'_vp'); if(vp) vp.style.transform=`translate(${win._offX}px,${win._offY}px) scale(${win._scale})`;
+        _pwOmRenderTok(winId, win);
+    }
+    function _pwOmShowImg(winId, win, map, src) {
+        let img=document.getElementById(winId+'_img'); if(!img) return;
+        let e=document.getElementById(winId+'_empty');
+        img.src=src; img.style.display='block'; if(e) e.style.display='none';
+        img.onload=()=>{ window.pwOmReset(winId); _pwOmRenderTok(winId, win, map); };
+        win._map=map;
+    }
+    function _pwOmRenderTok(winId, win, map) {
+        let m = map || win._map; if(!m) return;
+        let layer=document.getElementById(winId+'_tok'); if(!layer) return;
+        let img=document.getElementById(winId+'_img'); if(!img||!img.naturalWidth) return;
+        let iw=img.naturalWidth, ih=img.naturalHeight;
+        layer.style.width=iw+'px'; layer.style.height=ih+'px';
+        let ps=Math.max(0.5,Math.min(2.5,1/win._scale));
+        layer.innerHTML=(m.tokens||[]).map(t=>`
+            <div style="position:absolute;left:${t.x*iw}px;top:${t.y*ih}px;
+                transform:translate(-50%,-50%) scale(${ps});transform-origin:50% 50%;
+                pointer-events:none;will-change:transform;">
+                <div style="width:26px;height:26px;background:#dc2626;border:2.5px solid #fff;border-radius:50%;
+                    display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#fff;
+                    box-shadow:0 2px 6px rgba(0,0,0,.65);">${t.letter}</div>
+            </div>`).join('');
+    }
+    window.pwOmZoom = function(winId, factor) {
+        let win=document.getElementById(winId); if(!win) return;
+        let area=document.getElementById(winId+'_area'); if(area){ let r=area.getBoundingClientRect(), cx=r.width/2, cy=r.height/2, mx=(cx-win._offX)/win._scale, my=(cy-win._offY)/win._scale; win._scale=Math.max(0.05,Math.min(10,win._scale*factor)); win._offX=cx-mx*win._scale; win._offY=cy-my*win._scale; } else { win._scale=Math.max(0.05,Math.min(10,win._scale*factor)); }
+        _pwOmTransform(winId, win);
+    };
+    window.pwOmReset = function(winId) {
+        let win=document.getElementById(winId); if(!win) return;
+        let img=document.getElementById(winId+'_img'), area=document.getElementById(winId+'_area');
+        if(img&&img.naturalWidth&&area){ let cw=area.clientWidth, ch=area.clientHeight, iw=img.naturalWidth, ih=img.naturalHeight; win._scale=Math.min(cw/iw,ch/ih,1); win._offX=(cw-iw*win._scale)/2; win._offY=(ch-ih*win._scale)/2; } else { win._scale=1; win._offX=0; win._offY=0; }
+        _pwOmTransform(winId, win);
+    };
         let world  = window._playerWorldData;
         let img    = document.getElementById('pwMapImage');
         let emptyEl= document.getElementById('pwMapEmpty');

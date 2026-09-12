@@ -22,6 +22,11 @@ service cloud.firestore {
       allow read: if request.auth != null;
     }
 
+    // Other map images (dungeons, buildings, etc) — same read-access for players
+    match /users/{userId}/worlds/{worldId}/otherMaps/{mapId} {
+      allow read: if request.auth != null;
+    }
+
     // ── World invite codes ───────────────────────────────────────────────────
     match /worldCodes/{inviteCode} {
       allow read:   if request.auth != null;

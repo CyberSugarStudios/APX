@@ -34,7 +34,11 @@
             savePublicWorldMap: () => Promise.resolve(),
             loadPublicWorldMap: () => Promise.resolve(null),
             loadWorldMapForPlayer: () => Promise.resolve(null),
-            setGmHpOverride: () => Promise.resolve() };
+            setGmHpOverride: () => Promise.resolve(),
+            saveOtherMapImage: () => Promise.resolve(),
+            loadOtherMapImage: () => Promise.resolve(null),
+            loadOtherMapImageForPlayer: () => Promise.resolve(null),
+            deleteOtherMapImage: () => Promise.resolve() };
         return;
     }
 
@@ -259,6 +263,37 @@
             .set({ _gmHp: { hp, at: firebase.firestore.FieldValue.serverTimestamp() } }, { merge: true });
     }
 
+    // --- Other map images (GM private, one doc per map) ---------------------
+    // Path: users/{uid}/worlds/{worldId}/otherMaps/{mapId}
+    // Firestore rule allows any auth user to READ (for player loading).
+    async function saveOtherMapImage(worldId, mapId, base64DataUrl) {
+        let user = currentUser(); if (!user) return;
+        await db.collection('users').doc(user.uid)
+            .collection('worlds').doc(worldId)
+            .collection('otherMaps').doc(mapId)
+            .set({ imageData: base64DataUrl, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    }
+    async function loadOtherMapImage(worldId, mapId) {
+        let user = currentUser(); if (!user) return null;
+        let snap = await db.collection('users').doc(user.uid)
+            .collection('worlds').doc(worldId)
+            .collection('otherMaps').doc(mapId).get();
+        return snap.exists ? (snap.data().imageData || null) : null;
+    }
+    async function loadOtherMapImageForPlayer(gmUid, worldId, mapId) {
+        if (!gmUid || !worldId || !mapId) return null;
+        let snap = await db.collection('users').doc(gmUid)
+            .collection('worlds').doc(worldId)
+            .collection('otherMaps').doc(mapId).get();
+        return snap.exists ? (snap.data().imageData || null) : null;
+    }
+    async function deleteOtherMapImage(worldId, mapId) {
+        let user = currentUser(); if (!user) return;
+        await db.collection('users').doc(user.uid)
+            .collection('worlds').doc(worldId)
+            .collection('otherMaps').doc(mapId).delete().catch(()=>{});
+    }
+
     async function savePublicWorldMap(inviteCode, base64DataUrl) {
         if (!inviteCode) return;
         await db.collection('worldCodes').doc(inviteCode)
@@ -377,7 +412,8 @@
             notesV2: {
                 locations: data.publicNotes?.locations || [],
                 npcs:      data.publicNotes?.npcs      || [],
-                notes:     data.publicNotes?.notes     || data.publicNotes?.revealedSecrets || []
+                notes:     data.publicNotes?.notes     || data.publicNotes?.revealedSecrets || [],
+                otherMaps: data.publicNotes?.otherMaps || []
             }
         };
     }
@@ -469,6 +505,7 @@
         loadWorldPlayers,
         saveWorldMapFirestore, loadWorldMapFirestore, deleteWorldMapFirestore,
         savePublicWorldMap, loadPublicWorldMap, loadWorldMapForPlayer, setGmHpOverride,
+        saveOtherMapImage, loadOtherMapImage, loadOtherMapImageForPlayer, deleteOtherMapImage,
         listenWorldPlayers, listenPublicWorldNotes, kickWorldPlayer,
         scheduleAutoSave, setActiveCharId,
         renderAuthBar,

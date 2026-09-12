@@ -1118,6 +1118,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button onclick="window.showWorldTab('npcs')"      id="wTabNpcs"      class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">NPCs</button>
                     <button onclick="window.showWorldTab('locations')" id="wTabLocations" class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Locations</button>
                     <button onclick="window.showWorldTab('notes')"     id="wTabNotes"     class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Notes</button>
+                    <button onclick="window.showWorldTab('othermaps')" id="wTabOthermaps" class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Other Maps</button>
                     <button onclick="window.showWorldTab('players')"   id="wTabPlayers"   class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Players</button>
                 </div>
                 <div id="wPanelSession" class="flex-1 flex flex-col overflow-hidden min-h-0">
@@ -1171,6 +1172,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         <button onclick="window.openNoteModal('note')" class="px-3 py-1.5 rounded bg-indigo-800 hover:bg-indigo-700 text-white text-xs font-bold">+ Add Note</button>
                     </div>
                     <div id="noteList" class="flex-1 overflow-y-auto space-y-2 min-h-0 pr-1"></div>
+                </div>
+                <div id="wPanelOthermaps" class="hidden flex-1 flex flex-col overflow-hidden min-h-0">
+                    <div class="flex gap-2 mb-2 flex-shrink-0 items-center">
+                        <button onclick="window.addOtherMap()" class="px-3 py-1.5 rounded bg-emerald-800 hover:bg-emerald-700 text-white text-xs font-bold">+ Add Map</button>
+                        <span class="text-[10px] text-slate-500 flex-1">Upload dungeon maps, building layouts, etc. Click the map to place lettered area tokens.</span>
+                    </div>
+                    <div id="otherMapsList" class="flex-1 overflow-y-auto space-y-2 min-h-0 pr-1"></div>
                 </div>
                 <div id="wPanelPlayers" class="hidden flex-1 flex flex-col overflow-hidden min-h-0">
                     <div class="flex gap-2 mb-2 flex-shrink-0 items-center">
@@ -1324,7 +1332,7 @@ document.addEventListener('DOMContentLoaded', () => {
     //                   and as an in-session display cache after loading from Firestore
     // notes[]         = standalone GM notes (renamed from "secrets"). Each: { id, title, content, revealed }
     // locations[]/npcs[] each now carry: revealed (bool) + notes[] sub-array for nested notes
-    let _wNotes = { session:[], npcs:[], locations:[], notes:[], worldMapSaved:false, worldMapDataUrl:null };
+    let _wNotes = { session:[], npcs:[], locations:[], notes:[], otherMaps:[], worldMapSaved:false, worldMapDataUrl:null };
 
     function getActiveWorld() { return _gmWorlds.find(w => (w.worldId||w.id) === _activeWorldId); }
 
@@ -1403,6 +1411,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 session:         priv.session         || [],
                 // "notes" was previously "secrets" — support both field names for old worlds
                 notes:           priv.notes           || priv.secrets || [],
+                otherMaps:       priv.otherMaps        || [],
                 worldMapSaved:   priv.worldMapSaved   || false,
                 worldMapDataUrl: priv.worldMapDataUrl || null,
                 // ALWAYS load from private data first — priv contains the full unfiltered
@@ -1479,10 +1488,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 let privateData = {
                     notesV2: {
                         session:       w.notesV2.session       || [],
-                        // Full (unfiltered) locations/npcs/notes stored privately for GM
                         locations:     w.notesV2.locations     || [],
                         npcs:          w.notesV2.npcs          || [],
                         notes:         w.notesV2.notes         || [],
+                        otherMaps:     (w.notesV2.otherMaps||[]).map(m=>({
+                            id:m.id, name:m.name, revealed:!!m.revealed,
+                            tokens:(m.tokens||[]).map(t=>({id:t.id,letter:t.letter,x:t.x,y:t.y,name:t.name||'',description:t.description||''}))
+                        })),
                         worldMapSaved: w.notesV2.worldMapSaved || false,
                     }
                 };
@@ -1491,6 +1503,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         locations: w.publicNotes.locations,
                         npcs:      w.publicNotes.npcs,
                         notes:     w.publicNotes.notes,
+                        otherMaps: (_wNotes.otherMaps||[])
+                            .filter(m=>m.revealed)
+                            .map(m=>({ id:m.id, name:m.name, tokens:(m.tokens||[]).map(t=>({id:t.id,letter:t.letter,x:t.x,y:t.y})) })),
                     }
                 };
                 await window.apxAuth.saveWorld(_activeWorldId, privateData, publicData)
@@ -1505,18 +1520,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── Tab switching ────────────────────────────────────────────
     window.showWorldTab = function(tab) {
-        ['session','map','npcs','locations','notes','players'].forEach(t => {
+        ['session','map','npcs','locations','notes','othermaps','players'].forEach(t => {
             let panel = document.getElementById(`wPanel${t.charAt(0).toUpperCase()}${t.slice(1)}`);
             if (panel) { panel.classList.toggle('hidden', t!==tab); panel.classList.toggle('flex', t===tab && panel.style.display!=='block'); }
             let btn = document.getElementById(`wTab${t.charAt(0).toUpperCase()}${t.slice(1)}`);
             if (btn) btn.className = `px-3 py-1.5 rounded text-xs font-bold ${t===tab?'bg-amber-700 text-white':'bg-slate-700 text-slate-300'}`;
         });
-        if (tab==='session')   { renderSessionList(); }
-        if (tab==='npcs')      { window.renderNpcList(); }
-        if (tab==='locations') { window.renderLocationList(); }
-        if (tab==='notes')     { window.renderNoteList(); }
-        if (tab==='map')       { initMap(); }
-        if (tab==='players')   { window.renderPlayersList(); }
+        if (tab==='session')    { renderSessionList(); }
+        if (tab==='npcs')       { window.renderNpcList(); }
+        if (tab==='locations')  { window.renderLocationList(); }
+        if (tab==='notes')      { window.renderNoteList(); }
+        if (tab==='map')        { initMap(); }
+        if (tab==='othermaps')  { window.renderOtherMapsList(); }
+        if (tab==='players')    { window.renderPlayersList(); }
     };
     window.showCampaignTab = window.showWorldTab; // alias for old refs
 
@@ -1837,6 +1853,345 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // ── Players tab ───────────────────────────────────────────────
+    // ── Other Maps system ─────────────────────────────────────────
+    let _omImageCache = {};   // { mapId: base64 } — session cache
+    let _omFloatingZ  = 1200; // z-index counter for map windows (above stat blocks)
+    let _omTokenZ     = 1400; // z-index counter for token info windows
+
+    window.renderOtherMapsList = function() {
+        let el = document.getElementById('otherMapsList'); if (!el) return;
+        let maps = _wNotes.otherMaps || [];
+        if (!maps.length) { el.innerHTML = '<div class="text-slate-600 text-sm text-center py-6">No other maps yet — add one above.</div>'; return; }
+        el.innerHTML = maps.map(m => `<div class="bg-slate-900 border border-slate-700 rounded p-3">
+            <div class="flex items-center justify-between gap-2">
+                <div class="text-xs font-bold text-slate-200">${m.name}</div>
+                <div class="flex items-center gap-2" onclick="event.stopPropagation()">
+                    ${revealBadge('othermap', m.id, !!m.revealed)}
+                    <button onclick="window.openOtherMapWindow('${m.id}')" class="px-2 py-0.5 rounded bg-indigo-800 hover:bg-indigo-700 text-white text-[10px] font-bold">Open</button>
+                    <button onclick="window.deleteOtherMapEntry('${m.id}')" class="text-[9px] text-red-500 hover:text-red-400 font-bold">Delete</button>
+                </div>
+            </div>
+            <div class="text-[10px] text-slate-500 mt-1">${(m.tokens||[]).length} area token(s)</div>
+        </div>`).join('');
+    };
+
+    // Extend toggleReveal to handle 'othermap' type
+    let _origToggleReveal = window.toggleReveal;
+    window.toggleReveal = function(type, id, val) {
+        if (type === 'othermap') {
+            let m = (_wNotes.otherMaps||[]).find(x=>x.id===id);
+            if (m) { m.revealed = val; saveWorldNotes(); window.renderOtherMapsList(); }
+            return;
+        }
+        _origToggleReveal(type, id, val);
+    };
+
+    window.addOtherMap = function() {
+        let name = prompt('Map name (e.g. "Tavern Ground Floor", "Dungeon Level 1"):');
+        if (!name || !name.trim()) return;
+        let id = 'omap_' + Date.now();
+        if (!_wNotes.otherMaps) _wNotes.otherMaps = [];
+        _wNotes.otherMaps.push({ id, name: name.trim(), revealed: false, tokens: [] });
+        saveWorldNotes();
+        window.renderOtherMapsList();
+    };
+
+    window.deleteOtherMapEntry = async function(mapId) {
+        if (!confirm('Delete this map and all its area tokens?')) return;
+        _wNotes.otherMaps = (_wNotes.otherMaps||[]).filter(m=>m.id!==mapId);
+        delete _omImageCache[mapId];
+        saveWorldNotes();
+        window.renderOtherMapsList();
+        // Remove floating window if open
+        document.getElementById('omWin_'+mapId)?.remove();
+        // Delete image from Firestore
+        if (window.apxAuth?.enabled && _activeWorldId) {
+            await window.apxAuth.deleteOtherMapImage(_activeWorldId, mapId).catch(()=>{});
+        }
+    };
+
+    // ── Floating map window ───────────────────────────────────────
+    window.openOtherMapWindow = function(mapId) {
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId); if (!map) return;
+        let winId = 'omWin_'+mapId;
+        let existing = document.getElementById(winId);
+        if (existing) { _omFloatingZ++; existing.style.zIndex=_omFloatingZ; return; }
+
+        _omFloatingZ++;
+        let offset = document.querySelectorAll('[id^="omWin_"]').length * 30;
+        let win = document.createElement('div');
+        win.id = winId;
+        win.style.cssText = `position:fixed;left:${170+offset}px;top:${90+offset}px;width:730px;height:540px;
+            background:#0f172a;border:1px solid #334155;border-radius:0.75rem;z-index:${_omFloatingZ};
+            display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.85);
+            min-width:380px;min-height:300px;resize:both;overflow:hidden;`;
+
+        win.innerHTML = `
+            <div id="${winId}_hdr" style="cursor:grab;user-select:none;background:#1e293b;padding:0.5rem 0.75rem;
+                border-bottom:1px solid #334155;border-radius:0.75rem 0.75rem 0 0;
+                display:flex;align-items:center;gap:0.5rem;flex-shrink:0;">
+                <span style="font-size:0.75rem;font-weight:700;color:#e2e8f0;flex:1;">${map.name}</span>
+                <button onclick="document.getElementById('${winId}_fileInput').click()"
+                    style="background:#1d4ed8;border:none;color:#fff;font-size:0.65rem;font-weight:700;padding:0.25rem 0.6rem;border-radius:0.25rem;cursor:pointer;">Upload Image</button>
+                <button onclick="document.getElementById('${winId}').remove()"
+                    style="background:none;border:none;color:#94a3b8;font-size:1.1rem;font-weight:700;cursor:pointer;line-height:1;padding:0 0.2rem;">✕</button>
+            </div>
+            <input type="file" id="${winId}_fileInput" accept="image/*" style="display:none"
+                onchange="window._omHandleUpload('${mapId}','${winId}',this)">
+            <div id="${winId}_area" style="flex:1;position:relative;overflow:hidden;cursor:crosshair;">
+                <div style="position:absolute;top:0.5rem;left:0.5rem;z-index:10;display:flex;gap:0.25rem;align-items:center;">
+                    <button onclick="window.omZoom('${winId}',1.25)" style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;font-size:0.7rem;font-weight:700;padding:0.2rem 0.5rem;border-radius:0.25rem;cursor:pointer;">+</button>
+                    <button onclick="window.omZoom('${winId}',0.8)"  style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;font-size:0.7rem;font-weight:700;padding:0.2rem 0.5rem;border-radius:0.25rem;cursor:pointer;">−</button>
+                    <button onclick="window.omReset('${winId}')"     style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;padding:0.2rem 0.5rem;border-radius:0.25rem;cursor:pointer;">Reset</button>
+                    <span style="font-size:0.6rem;color:#475569;margin-left:0.25rem;">Click map to place token</span>
+                </div>
+                <div id="${winId}_vp" style="position:absolute;transform-origin:0 0;will-change:transform;">
+                    <img id="${winId}_img" src="" alt="" style="display:none;max-width:none;user-select:none;pointer-events:none;-webkit-user-drag:none;">
+                    <div id="${winId}_tok" style="position:absolute;top:0;left:0;pointer-events:none;"></div>
+                </div>
+                <div id="${winId}_empty" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+                    <div style="text-align:center;color:#475569;font-size:0.75rem;">Upload an image to get started</div>
+                </div>
+            </div>`;
+
+        document.getElementById('floatingWindowContainer').appendChild(win);
+        win._scale=1; win._offX=0; win._offY=0; win._dragging=false; win._didDrag=false;
+        win._dragSX=0; win._dragSY=0; win._dragOX=0; win._dragOY=0;
+
+        // Bring to front on any click
+        win.addEventListener('mousedown', () => { _omFloatingZ++; win.style.zIndex=_omFloatingZ; });
+
+        // Window drag (header)
+        let hdr = document.getElementById(winId+'_hdr');
+        let wDrag=false, wOX=0, wOY=0;
+        hdr.addEventListener('mousedown', e => {
+            if (e.target.tagName==='BUTTON') return;
+            wDrag=true; let r=win.getBoundingClientRect(); wOX=e.clientX-r.left; wOY=e.clientY-r.top; e.preventDefault();
+        });
+        let wMM = e=>{ if(!wDrag)return; win.style.left=Math.max(0,Math.min(window.innerWidth-60,e.clientX-wOX))+'px'; win.style.top=Math.max(0,Math.min(window.innerHeight-40,e.clientY-wOY))+'px'; };
+        let wMU = ()=>{ wDrag=false; };
+        document.addEventListener('mousemove', wMM);
+        document.addEventListener('mouseup', wMU);
+        win._winDragCleanup = ()=>{ document.removeEventListener('mousemove',wMM); document.removeEventListener('mouseup',wMU); };
+
+        // Map pan/zoom
+        let area = document.getElementById(winId+'_area');
+        area.addEventListener('mousedown', e => {
+            if (e.button!==0||e.target.tagName==='BUTTON') return;
+            win._dragging=true; win._didDrag=false;
+            win._dragSX=e.clientX; win._dragSY=e.clientY; win._dragOX=win._offX; win._dragOY=win._offY;
+            area.style.cursor='grabbing'; e.preventDefault();
+        });
+        area.addEventListener('mousemove', e => {
+            if (!win._dragging) return;
+            let dx=e.clientX-win._dragSX, dy=e.clientY-win._dragSY;
+            if (Math.abs(dx)+Math.abs(dy)>4) win._didDrag=true;
+            win._offX=win._dragOX+dx; win._offY=win._dragOY+dy;
+            _omTransform(winId, win);
+        });
+        area.addEventListener('mouseup', e => {
+            if (!win._dragging) return;
+            win._dragging=false; area.style.cursor='crosshair';
+            if (!win._didDrag) _omClick(mapId, winId, win, e);
+        });
+        area.addEventListener('mouseleave', () => { win._dragging=false; area.style.cursor='crosshair'; });
+        area.addEventListener('wheel', e => {
+            e.preventDefault();
+            let r=area.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top;
+            let mapX=(mx-win._offX)/win._scale, mapY=(my-win._offY)/win._scale;
+            win._scale=Math.max(0.05,Math.min(10,win._scale*(e.deltaY<0?1.1:0.9)));
+            win._offX=mx-mapX*win._scale; win._offY=my-mapY*win._scale;
+            _omTransform(winId, win);
+        }, {passive:false});
+
+        _omLoadImage(mapId, winId, win);
+    };
+
+    function _omTransform(winId, win) {
+        let vp=document.getElementById(winId+'_vp');
+        if (vp) vp.style.transform=`translate(${win._offX}px,${win._offY}px) scale(${win._scale})`;
+        _omRenderTok(winId, win);
+    }
+
+    window.omZoom = function(winId, factor) {
+        let win=document.getElementById(winId); if(!win) return;
+        let area=document.getElementById(winId+'_area');
+        if (area) {
+            let r=area.getBoundingClientRect(), cx=r.width/2, cy=r.height/2;
+            let mx=(cx-win._offX)/win._scale, my=(cy-win._offY)/win._scale;
+            win._scale=Math.max(0.05,Math.min(10,win._scale*factor));
+            win._offX=cx-mx*win._scale; win._offY=cy-my*win._scale;
+        } else { win._scale=Math.max(0.05,Math.min(10,win._scale*factor)); }
+        _omTransform(winId, win);
+    };
+
+    window.omReset = function(winId) {
+        let win=document.getElementById(winId); if(!win) return;
+        let img=document.getElementById(winId+'_img'), area=document.getElementById(winId+'_area');
+        if (img&&img.naturalWidth&&area) {
+            let cw=area.clientWidth, ch=area.clientHeight, iw=img.naturalWidth, ih=img.naturalHeight;
+            win._scale=Math.min(cw/iw,ch/ih,1);
+            win._offX=(cw-iw*win._scale)/2; win._offY=(ch-ih*win._scale)/2;
+        } else { win._scale=1; win._offX=0; win._offY=0; }
+        _omTransform(winId, win);
+    };
+
+    function _omRenderTok(winId, win) {
+        let layer=document.getElementById(winId+'_tok'); if(!layer) return;
+        let img=document.getElementById(winId+'_img'); if(!img||!img.naturalWidth) return;
+        let mapId=winId.replace('omWin_','');
+        let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return;
+        let iw=img.naturalWidth, ih=img.naturalHeight;
+        layer.style.width=iw+'px'; layer.style.height=ih+'px';
+        let ps=Math.max(0.5,Math.min(2.5,1/win._scale));
+        layer.innerHTML=(map.tokens||[]).map(t=>`
+            <div style="position:absolute;left:${t.x*iw}px;top:${t.y*ih}px;
+                transform:translate(-50%,-50%) scale(${ps});transform-origin:50% 50%;
+                pointer-events:auto;cursor:pointer;will-change:transform;"
+                onclick="event.stopPropagation();window.openTokenInfoWin('${mapId}','${t.id}','${winId}',false)">
+                <div style="width:26px;height:26px;background:#dc2626;border:2.5px solid #fff;border-radius:50%;
+                    display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#fff;
+                    box-shadow:0 2px 6px rgba(0,0,0,.65);"
+                    onmouseenter="this.style.transform='scale(1.2)'" onmouseleave="this.style.transform=''">${t.letter}</div>
+            </div>`).join('');
+    }
+
+    function _omClick(mapId, winId, win, e) {
+        let img=document.getElementById(winId+'_img'); if(!img||!img.naturalWidth) return;
+        let area=document.getElementById(winId+'_area'); if(!area) return;
+        let r=area.getBoundingClientRect();
+        let x=((e.clientX-r.left)-win._offX)/win._scale/img.naturalWidth;
+        let y=((e.clientY-r.top)-win._offY)/win._scale/img.naturalHeight;
+        if(x<0||x>1||y<0||y>1) return;
+        let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return;
+        let used=(map.tokens||[]).map(t=>t.letter);
+        let letter='A';
+        for(let i=0;i<26;i++){let l=String.fromCharCode(65+i); if(!used.includes(l)){letter=l;break;}}
+        let tok={id:'tok_'+Date.now(),letter,x,y,name:'',description:''};
+        if(!map.tokens)map.tokens=[];
+        map.tokens.push(tok);
+        saveWorldNotes();
+        window.renderOtherMapsList();
+        _omTransform(winId, win);
+        window.openTokenInfoWin(mapId, tok.id, winId, false);
+    }
+
+    async function _omLoadImage(mapId, winId, win) {
+        let cached=_omImageCache[mapId];
+        if(cached) { _omShowImg(winId, win, cached); return; }
+        if(!window.apxAuth?.enabled||!_activeWorldId) return;
+        try {
+            let data=await window.apxAuth.loadOtherMapImage(_activeWorldId, mapId);
+            if(data){ _omImageCache[mapId]=data; _omShowImg(winId, win, data); }
+        } catch(e){ console.warn('Other map load:', e.message); }
+    }
+
+    function _omShowImg(winId, win, src) {
+        let img=document.getElementById(winId+'_img'); if(!img) return;
+        let empty=document.getElementById(winId+'_empty');
+        img.src=src; img.style.display='block';
+        if(empty) empty.style.display='none';
+        img.onload=()=>{ window.omReset(winId); };
+        if(img.complete&&img.naturalWidth) window.omReset(winId);
+    }
+
+    window._omHandleUpload = async function(mapId, winId, input) {
+        if(!input.files[0]) return;
+        let file=input.files[0]; input.value='';
+        let reader=new FileReader();
+        reader.onload=async e=>{
+            let dataUrl=e.target.result;
+            _omImageCache[mapId]=dataUrl;
+            _omShowImg(winId, document.getElementById(winId), dataUrl);
+            if(window.apxAuth?.enabled&&_activeWorldId) {
+                try {
+                    let compressed=await _compressForFirestore(dataUrl);
+                    await window.apxAuth.saveOtherMapImage(_activeWorldId, mapId, compressed);
+                    _omImageCache[mapId]=compressed;
+                } catch(err){ console.warn('Other map save:', err.message); }
+            }
+        };
+        reader.readAsDataURL(file);
+    };
+
+    // ── Token info floating window ────────────────────────────────
+    window.openTokenInfoWin = function(mapId, tokenId, parentWinId, readOnly) {
+        let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+        let tok=map?.tokens?.find(t=>t.id===tokenId); if(!tok) return;
+        let winId='omTok_'+tokenId;
+        let existing=document.getElementById(winId);
+        if(existing){ _omTokenZ++; existing.style.zIndex=_omTokenZ; return; }
+        _omTokenZ++;
+        let pWin=document.getElementById(parentWinId);
+        let pr=pWin?pWin.getBoundingClientRect():{left:200,top:100,width:730};
+        let lx=Math.min(pr.left+pr.width+8, window.innerWidth-310);
+        let win=document.createElement('div');
+        win.id=winId;
+        win.style.cssText=`position:fixed;left:${lx}px;top:${pr.top}px;width:290px;
+            background:#1e293b;border:1px solid #6366f1;border-radius:0.5rem;
+            z-index:${_omTokenZ};box-shadow:0 10px 40px rgba(0,0,0,.8);`;
+        win.innerHTML=`
+            <div id="${winId}_hdr" style="cursor:grab;user-select:none;background:#312e81;padding:0.5rem 0.75rem;
+                border-bottom:1px solid #4f46e5;border-radius:0.5rem 0.5rem 0 0;display:flex;align-items:center;gap:0.5rem;">
+                <div style="width:24px;height:24px;background:#dc2626;border:2px solid #fff;border-radius:50%;
+                    display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#fff;flex-shrink:0;">${tok.letter}</div>
+                <span style="font-size:0.75rem;font-weight:700;color:#e2e8f0;flex:1;">Area ${tok.letter}</span>
+                <button onclick="document.getElementById('${winId}').remove()"
+                    style="background:none;border:none;color:#94a3b8;font-size:1.1rem;cursor:pointer;line-height:1;padding:0 0.2rem;">✕</button>
+            </div>
+            <div style="padding:0.75rem;display:flex;flex-direction:column;gap:0.5rem;">
+                <div>
+                    <label style="display:block;font-size:0.65rem;color:#94a3b8;font-weight:700;text-transform:uppercase;margin-bottom:0.2rem;">Name / Label</label>
+                    ${readOnly
+                        ? `<div style="font-size:0.75rem;font-weight:700;color:#e2e8f0;">${tok.name||'—'}</div>`
+                        : `<input id="${winId}_name" type="text" value="${(tok.name||'').replace(/"/g,'&quot;')}" placeholder="Bar Counter, Storage Room…"
+                            style="background:#0f172a;border:1px solid #334155;color:#e2e8f0;font-size:0.75rem;font-weight:700;border-radius:0.25rem;padding:0.35rem 0.5rem;width:100%;box-sizing:border-box;">`
+                    }
+                </div>
+                <div>
+                    <label style="display:block;font-size:0.65rem;color:#94a3b8;font-weight:700;text-transform:uppercase;margin-bottom:0.2rem;">Description</label>
+                    ${readOnly
+                        ? `<div style="font-size:0.7rem;color:#cbd5e1;">${tok.description||'—'}</div>`
+                        : `<textarea id="${winId}_desc" rows="4" placeholder="What is this location? What's notable here?"
+                            style="background:#0f172a;border:1px solid #334155;color:#e2e8f0;font-size:0.7rem;border-radius:0.25rem;padding:0.35rem 0.5rem;width:100%;box-sizing:border-box;resize:vertical;">${tok.description||''}</textarea>`
+                    }
+                </div>
+                ${!readOnly?`<div style="display:flex;gap:0.5rem;">
+                    <button onclick="window._saveToken('${mapId}','${tokenId}','${winId}','${parentWinId}')"
+                        style="flex:1;background:#4f46e5;border:none;color:#fff;font-size:0.7rem;font-weight:700;padding:0.4rem;border-radius:0.25rem;cursor:pointer;">Save</button>
+                    <button onclick="window._deleteToken('${mapId}','${tokenId}','${parentWinId}','${winId}')"
+                        style="background:#7f1d1d;border:1px solid #991b1b;color:#fca5a5;font-size:0.7rem;font-weight:700;padding:0.4rem 0.6rem;border-radius:0.25rem;cursor:pointer;">Delete</button>
+                </div>`:''}
+            </div>`;
+
+        document.getElementById('floatingWindowContainer').appendChild(win);
+        win.addEventListener('mousedown', ()=>{ _omTokenZ++; win.style.zIndex=_omTokenZ; });
+        let hdr=document.getElementById(winId+'_hdr'), wDrag=false, wOX=0, wOY=0;
+        hdr.addEventListener('mousedown', e=>{ if(e.target.tagName==='BUTTON')return; wDrag=true; let r=win.getBoundingClientRect(); wOX=e.clientX-r.left; wOY=e.clientY-r.top; e.preventDefault(); });
+        let mm=e=>{ if(!wDrag)return; win.style.left=Math.max(0,Math.min(window.innerWidth-60,e.clientX-wOX))+'px'; win.style.top=Math.max(0,Math.min(window.innerHeight-40,e.clientY-wOY))+'px'; };
+        document.addEventListener('mousemove', mm); document.addEventListener('mouseup', ()=>wDrag=false);
+    };
+
+    window._saveToken = function(mapId, tokenId, winId, parentWinId) {
+        let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+        let tok=map?.tokens?.find(t=>t.id===tokenId); if(!tok) return;
+        tok.name=document.getElementById(winId+'_name')?.value||'';
+        tok.description=document.getElementById(winId+'_desc')?.value||'';
+        saveWorldNotes();
+        document.getElementById(winId)?.remove();
+        let pWin=document.getElementById(parentWinId);
+        if(pWin) _omRenderTok(parentWinId, pWin);
+    };
+
+    window._deleteToken = function(mapId, tokenId, parentWinId, tokenWinId) {
+        let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return;
+        map.tokens=(map.tokens||[]).filter(t=>t.id!==tokenId);
+        saveWorldNotes(); window.renderOtherMapsList();
+        document.getElementById(tokenWinId)?.remove();
+        let pWin=document.getElementById(parentWinId);
+        if(pWin) _omRenderTok(parentWinId, pWin);
+    };
+
     window.renderPlayersList = async function() {
         let el = document.getElementById('playersList');
         if (!el) return;
