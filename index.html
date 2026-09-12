@@ -174,6 +174,7 @@
             <div class="max-w-sm mx-auto auth-card flex items-center justify-between">
                 <span class="text-sm" style="color: var(--c-text-muted, #94a3b8);">
                     Signed in as <span id="displayEmail" class="font-bold" style="color: var(--c-indigo-lt, #a5b4fc);"></span>
+                    <button onclick="window.changeDisplayName()" class="ml-2 text-xs text-slate-500 hover:text-slate-300 underline">✏ Change name</button>
                 </span>
                 <button onclick="doSignOut()" class="text-xs ml-4 transition" style="color: var(--c-text-muted, #64748b);">Sign Out</button>
             </div>
@@ -199,7 +200,7 @@
             </button>
         </div>
         <div class="text-center">
-            <span id="landingVersion" class="text-[10px]" style="color:var(--c-text-dimmer,#334155);">APX System Tools v2026.9.12.0613</span>
+            <span id="landingVersion" class="text-[10px]" style="color:var(--c-text-dimmer,#334155);">APX System Tools v2026.9.12.0631</span>
         </div>
 
         <!-- Delete account (shown only when signed in) -->
@@ -323,9 +324,19 @@
         if (!window.FIREBASE_ENABLED) { setError('Firebase not configured. Add your credentials to firebase-config.js.'); return; }
         try {
             let provider = new firebase.auth.GoogleAuthProvider();
-            await firebase.auth().signInWithPopup(provider);
+            let cred = await firebase.auth().signInWithPopup(provider);
+            // First-time Google sign-in: let the user set a preferred display name.
+            // (Google provides a name automatically, but they may want a different one.)
+            let isNew = cred.additionalUserInfo?.isNewUser;
+            if (isNew) {
+                let suggested = cred.user.displayName || '';
+                let chosen = prompt('Set a display name for APX TTRPG (you can change this later):', suggested);
+                if (chosen && chosen !== suggested) {
+                    await cred.user.updateProfile({ displayName: chosen }).catch(()=>{});
+                }
+            }
         } catch(e) {
-            if (e.code === 'auth/popup-closed-by-user') return; // user cancelled
+            if (e.code === 'auth/popup-closed-by-user') return;
             setError(friendlyAuthError(e));
         }
     }
@@ -383,7 +394,19 @@
         document.getElementById('dStep2').style.display = 'block';
     }
     function dCheck3() { document.getElementById('dStep2').style.display = 'none'; document.getElementById('dStep3').style.display = 'block'; }
-    async function doDeleteAccount() {
+    window.changeDisplayName = async function() {
+        let user = firebase.auth().currentUser;
+        if (!user) return;
+        let current = user.displayName || '';
+        let newName = prompt('Set display name:', current);
+        if (!newName || newName === current) return;
+        try {
+            await user.updateProfile({ displayName: newName });
+            document.getElementById('displayEmail').innerText = newName;
+        } catch(e) { alert('Could not update name: ' + e.message); }
+    };
+
+        async function doDeleteAccount() {
         let errEl = document.getElementById('dError');
         try {
             let user = window.apxAuth.user;
