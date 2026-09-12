@@ -2636,6 +2636,16 @@
     window._playerWorldData = null;
     window._playerWorldsData = {};
 
+    window.showPlayerWorldTab = function(tab) {
+        ['locations','npcs','notes','map'].forEach(t => {
+            let p = document.getElementById(`pwPanel${t.charAt(0).toUpperCase()}${t.slice(1)}`);
+            if (p) p.classList.toggle('hidden', t !== tab);
+            let b = document.getElementById(`pwTab${t.charAt(0).toUpperCase()}${t.slice(1)}`);
+            if (b) b.className = `px-3 py-1.5 rounded text-xs font-bold ${t===tab?'bg-emerald-700 text-white':'bg-slate-700 text-slate-300'}`;
+        });
+        if (tab === 'map') renderPlayerMap();
+    };
+
 
     // ── Player Map — identical implementation to GM map ──────────────────
     // State variables (mirror of _mapScale / _mapOffX / _mapOffY in GMTools)
