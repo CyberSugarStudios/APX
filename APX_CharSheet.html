@@ -3309,6 +3309,7 @@
         _pwOmRenderTok(winId, win);
     }
     function _pwOmShowImg(winId, win, map, src) {
+        let mapId = winId.replace('pwOmWin_',''); // derive from winId — passed down to onload closure
         let img=document.getElementById(winId+'_img'); if(!img) return;
         let e=document.getElementById(winId+'_empty');
         img.src=src; img.style.display='block'; if(e) e.style.display='none';
