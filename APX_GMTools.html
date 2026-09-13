@@ -1154,11 +1154,21 @@ document.addEventListener('DOMContentLoaded', () => {
                         <button onclick="window.mapZoom(0.8)" class="px-2 py-1.5 rounded bg-slate-700 text-white text-xs font-bold">&#8722;</button>
                         <button onclick="window.mapResetView()" class="px-2 py-1.5 rounded bg-slate-700 text-slate-400 text-xs">Reset</button>
                         <button id="fogToggleBtn" onclick="window.toggleFogMode('worldmap')" class="px-2 py-1.5 rounded bg-slate-700 text-slate-400 text-xs font-bold">🌫 Fog</button>
+                        <div id="fogControls" style="display:none;align-items:center;gap:0.4rem;">
+                            <span class="text-[10px] text-slate-400">Size:</span>
+                            <input type="range" id="fogBrushSlider" min="5" max="150" value="40" step="5"
+                                oninput="window._fogBrushSize=+this.value;document.getElementById('fogBrushVal').textContent=this.value+'px';"
+                                style="width:80px;accent-color:#f59e0b;">
+                            <span id="fogBrushVal" class="text-[10px] text-slate-300 w-8">40px</span>
+                            <button onclick="window._fogClearAll()" class="px-2 py-1 rounded text-[10px] font-bold" style="background:#7f1d1d;color:#fca5a5;border:1px solid #991b1b;">Clear All</button>
+                            <span class="text-[10px] text-slate-500">Shift=Erase</span>
+                        </div>
                         <span id="mapHint" class="text-[10px] text-slate-500 flex-1">Click map to pin a Location. Drag to pan.</span>
                     </div>
                     <div id="mapContainer" class="flex-1 overflow-hidden rounded border border-slate-700 relative bg-slate-950 select-none" style="min-height:540px; cursor:crosshair;"
-                         onmousedown="window.mapStartDrag(event)" onmousemove="window.mapDrag(event)" onmouseup="window.mapEndDrag(event)" onmouseleave="window.mapEndDrag(event)"
+                         onmousedown="window.mapStartDrag(event)" onmousemove="window.mapDrag(event)" onmouseup="window.mapEndDrag(event)" onmouseleave="window.mapEndDragLeave(event)"
                          onwheel="window.mapScroll(event)">
+                        <div id="fogCursor" style="position:absolute;border-radius:50%;border:2px solid rgba(255,255,255,0.85);pointer-events:none;display:none;box-shadow:0 0 0 1px rgba(0,0,0,0.5);transform:translate(-50%,-50%);z-index:50;"></div>
                         <div id="mapViewport" style="position:absolute; transform-origin:0 0; will-change:transform;">
                             <img id="mapImage" src="" alt="" style="display:none; max-width:none; user-select:none; pointer-events:none; display:block;">
                             <canvas id="mapFogCanvas" style="position:absolute;top:0;left:0;pointer-events:none;opacity:0.45;"></canvas>
@@ -2489,6 +2499,18 @@ document.addEventListener('DOMContentLoaded', () => {
             _mapImg.src = src;
             _mapImg.style.display = 'block';
             document.getElementById('mapEmptyState').style.display = 'none';
+            _mapImg.onload = function() {
+                window.mapResetView();
+                // Fog canvas must be sized to match the image — do it here where naturalWidth is ready
+                let fc = document.getElementById('mapFogCanvas');
+                if (fc) {
+                    if (fc.width !== _mapImg.naturalWidth) {
+                        fc.width  = _mapImg.naturalWidth;
+                        fc.height = _mapImg.naturalHeight;
+                    }
+                    _fogLoad('worldmap');
+                }
+            };
         }
 
         // 1. In-session cache or legacy local base64 — instant display
@@ -2505,12 +2527,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (dataUrl && _mapImg) {
                         _showMapImg(dataUrl);
                         _wNotes.worldMapDataUrl = dataUrl;
-                        // Fog canvas: initialize to match image dimensions and load saved fog
-                        let fc = document.getElementById('mapFogCanvas');
-                        if (fc && _mapImg.naturalWidth) {
-                            _fogInitCanvas('worldmap', _mapImg.naturalWidth, _mapImg.naturalHeight);
-                            _fogLoad('worldmap');
-                        }
                         // Background-sync to public path so players can load it.
                         // This is idempotent — runs silently every time the Map tab
                         // is first opened so even maps uploaded before this patch
@@ -2620,7 +2636,11 @@ document.addEventListener('DOMContentLoaded', () => {
             _mapImg.src = dataUrl;
             _mapImg.style.display = 'block';
             document.getElementById('mapEmptyState').style.display = 'none';
-            _mapImg.onload = function() { window.mapResetView(); };
+            _mapImg.onload = function() {
+                window.mapResetView();
+                let fc = document.getElementById('mapFogCanvas');
+                if (fc) { fc.width = _mapImg.naturalWidth; fc.height = _mapImg.naturalHeight; }
+            };
 
             if (window.apxAuth?.enabled && _activeWorldId) {
                 // ── Firebase path ─────────────────────────────────────────
@@ -2694,7 +2714,12 @@ document.addEventListener('DOMContentLoaded', () => {
             applyMapTransform();
         }
     };
-    window.mapResetView = function() {
+    window.mapEndDragLeave = function(e) {
+        _fogPainting = false;
+        _mapDragging = false;
+        let cursor = document.getElementById('fogCursor');
+        if (cursor) cursor.style.display = 'none';
+    };
         // Fit the full image in view, centered
         let container = document.getElementById('mapContainer');
         let img = document.getElementById('mapImage');
@@ -2714,6 +2739,12 @@ document.addEventListener('DOMContentLoaded', () => {
         zoomAtPoint(e.deltaY < 0 ? 1.1 : 0.9, e.clientX, e.clientY);
     };
     window.mapStartDrag = function(e) {
+        if (_fogMode === 'worldmap') { // fog mode owns mouse events
+            if (e.button !== 0) return;
+            _fogPainting = true; _fogErase = e.shiftKey;
+            _fogPaint(e, 'worldmap');
+            e.preventDefault(); return;
+        }
         if (e.button !== 0) return;
         _mapDragging = true; _mapDidDrag = false;
         _mapDragSX = e.clientX; _mapDragSY = e.clientY;
@@ -2721,6 +2752,12 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
     };
     window.mapDrag = function(e) {
+        // Move fog cursor reticle
+        if (_fogMode === 'worldmap') {
+            _fogMoveCursor(e, 'worldmap');
+            if (_fogPainting) { _fogErase = e.shiftKey; _fogPaint(e, 'worldmap'); }
+            return;
+        }
         if (!_mapDragging) return;
         let dx = e.clientX - _mapDragSX, dy = e.clientY - _mapDragSY;
         if (Math.abs(dx)+Math.abs(dy) > 4) _mapDidDrag = true;
@@ -2728,6 +2765,10 @@ document.addEventListener('DOMContentLoaded', () => {
         applyMapTransform();
     };
     window.mapEndDrag = function(e) {
+        if (_fogMode === 'worldmap') {
+            if (_fogPainting) { _fogPainting = false; _fogSave('worldmap'); }
+            return;
+        }
         if (!_mapDragging) return;
         _mapDragging = false;
         if (!_mapDidDrag && _mapImg && _mapImg.src && _mapImg.src.length > 10) {
@@ -2839,14 +2880,15 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // ── Fog of War ───────────────────────────────────────────────
-    // A canvas overlay on the world map (and other maps via _omFog*).
-    // GM sees fog at 45% opacity; players see it at 100% (solid black).
-    // Fog canvas lives inside the viewport so it pans/zooms with the map.
-    let _fogMode = false;          // 'worldmap' | 'omap_ID' | false
-    let _fogPainting = false;      // is the brush currently down?
-    let _fogBrushSize = 40;        // radius in map-image pixels
-    let _fogErase = false;         // shift held = erase mode
-    let _fogCache = {};            // { mapId: base64png } — session cache
+    // Brush size is in SCREEN pixels; converted to image pixels (÷ scale) when painting.
+    // GM sees fog at 45% opacity (canvas opacity:0.45 in CSS); players at 100%.
+    let _fogMode = false;      // 'worldmap' | 'omap_ID' | false
+    let _fogPainting = false;
+    let _fogBrushSize = 40;    // screen-pixel radius of the brush
+    let _fogErase = false;
+    let _fogCache = {};        // { mapId: base64png }
+
+    window._fogBrushSize = _fogBrushSize; // keep in sync with slider
 
     function _fogCanvas(mapId) {
         return mapId === 'worldmap'
@@ -2856,80 +2898,95 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.toggleFogMode = function(mapId) {
         let btn = document.getElementById('fogToggleBtn');
+        let controls = document.getElementById('fogControls');
         let hint = document.getElementById('mapHint');
+        let cursor = document.getElementById('fogCursor');
+        let container = mapId==='worldmap'
+            ? document.getElementById('mapContainer')
+            : document.getElementById('omWin_'+mapId+'_area');
+
         if (_fogMode === mapId) {
-            // Exit fog mode
-            _fogMode = false;
-            let fc = _fogCanvas(mapId); if (fc) fc.style.pointerEvents = 'none';
-            if (btn) { btn.className = 'px-2 py-1.5 rounded bg-slate-700 text-slate-400 text-xs font-bold'; }
-            if (hint) hint.textContent = 'Click map to pin a Location. Drag to pan.';
-            let container = mapId==='worldmap' ? document.getElementById('mapContainer') : document.getElementById('omWin_'+mapId+'_area');
+            _fogMode = false; _fogPainting = false;
+            if (btn)      { btn.style.background=''; btn.style.color=''; }
+            if (controls) controls.style.display = 'none';
+            if (hint)     hint.textContent = 'Click map to pin a Location. Drag to pan.';
+            if (cursor)   cursor.style.display = 'none';
             if (container) container.style.cursor = 'crosshair';
         } else {
-            // Enter fog mode
             _fogMode = mapId;
-            let fc = _fogCanvas(mapId); if (fc) fc.style.pointerEvents = 'auto';
-            if (btn) { btn.className = 'px-2 py-1.5 rounded bg-amber-700 text-white text-xs font-bold'; }
-            if (hint) hint.textContent = 'Drag to paint fog. Hold Shift to erase. Click 🌫 Fog again to exit.';
-            let container = mapId==='worldmap' ? document.getElementById('mapContainer') : document.getElementById('omWin_'+mapId+'_area');
-            if (container) container.style.cursor = 'crosshair';
+            if (btn)      { btn.style.background='#b45309'; btn.style.color='#fff'; }
+            if (controls) controls.style.display = 'flex';
+            if (hint)     hint.textContent = '';
+            if (container) container.style.cursor = 'none';
         }
     };
 
-    function _fogInitCanvas(mapId, imgNatWidth, imgNatHeight) {
-        let fc = _fogCanvas(mapId); if (!fc) return;
-        if (fc.width !== imgNatWidth || fc.height !== imgNatHeight) {
-            // Preserve existing fog when resizing
-            let existing = fc._fogLoaded ? fc.toDataURL() : null;
-            fc.width  = imgNatWidth;
-            fc.height = imgNatHeight;
-            if (existing) {
-                let img = new Image(); img.onload = () => { fc.getContext('2d').drawImage(img, 0, 0); }; img.src = existing;
-            } else if (_fogCache[mapId]) {
-                _fogLoadOntoCanvas(mapId, _fogCache[mapId]);
-            }
-        }
-    }
-
-    function _fogLoadOntoCanvas(mapId, base64png) {
-        let fc = _fogCanvas(mapId); if (!fc) return;
-        let img = new Image();
-        img.onload = () => {
-            let ctx = fc.getContext('2d');
-            ctx.clearRect(0, 0, fc.width, fc.height);
-            ctx.drawImage(img, 0, 0, fc.width, fc.height);
-            fc._fogLoaded = true;
-        };
-        img.src = base64png;
+    function _fogMoveCursor(e, mapId) {
+        let cursor = document.getElementById('fogCursor'); if (!cursor) return;
+        let container = mapId==='worldmap'
+            ? document.getElementById('mapContainer')
+            : document.getElementById('omWin_'+mapId+'_area');
+        if (!container) return;
+        let r = container.getBoundingClientRect();
+        let size = (_fogBrushSize||40) * 2;
+        cursor.style.left   = (e.clientX - r.left) + 'px';
+        cursor.style.top    = (e.clientY - r.top)  + 'px';
+        cursor.style.width  = size + 'px';
+        cursor.style.height = size + 'px';
+        cursor.style.display = 'block';
+        cursor.style.borderColor = _fogErase ? 'rgba(255,100,100,0.9)' : 'rgba(255,255,255,0.85)';
     }
 
     function _fogPaint(e, mapId) {
-        let fc = _fogCanvas(mapId); if (!fc||!fc.width) return;
-        let container = mapId==='worldmap' ? document.getElementById('mapContainer') : document.getElementById('omWin_'+mapId+'_area');
+        _fogBrushSize = window._fogBrushSize || _fogBrushSize; // keep in sync with slider
+        let fc = _fogCanvas(mapId); if (!fc || !fc.width) return;
+        let container = mapId==='worldmap'
+            ? document.getElementById('mapContainer')
+            : document.getElementById('omWin_'+mapId+'_area');
         if (!container) return;
-        let scale  = mapId==='worldmap' ? _mapScale : (document.getElementById('omWin_'+mapId)?._scale||1);
-        let offX   = mapId==='worldmap' ? _mapOffX  : (document.getElementById('omWin_'+mapId)?._offX||0);
-        let offY   = mapId==='worldmap' ? _mapOffY  : (document.getElementById('omWin_'+mapId)?._offY||0);
+        let scale  = mapId==='worldmap' ? _mapScale  : (document.getElementById('omWin_'+mapId)?._scale||1);
+        let offX   = mapId==='worldmap' ? _mapOffX   : (document.getElementById('omWin_'+mapId)?._offX||0);
+        let offY   = mapId==='worldmap' ? _mapOffY   : (document.getElementById('omWin_'+mapId)?._offY||0);
         let rect   = container.getBoundingClientRect();
+        // Convert from screen coordinates to image canvas coordinates
         let cx = (e.clientX - rect.left - offX) / scale;
         let cy = (e.clientY - rect.top  - offY) / scale;
+        // Brush radius: screen pixels ÷ scale = image pixels
+        let brushR = (_fogBrushSize||40) / scale;
         let ctx = fc.getContext('2d');
         ctx.globalCompositeOperation = _fogErase ? 'destination-out' : 'source-over';
-        ctx.fillStyle = 'rgba(0,0,0,0.9)';
+        ctx.fillStyle = 'rgba(0,0,0,1)';
         ctx.beginPath();
-        ctx.arc(cx, cy, _fogBrushSize, 0, Math.PI*2);
+        ctx.arc(cx, cy, brushR, 0, Math.PI * 2);
         ctx.fill();
         ctx.globalCompositeOperation = 'source-over';
     }
 
+    window._fogClearAll = async function() {
+        if (!_fogMode) return;
+        let fc = _fogCanvas(_fogMode); if (!fc||!fc.width) return;
+        fc.getContext('2d').clearRect(0, 0, fc.width, fc.height);
+        delete _fogCache[_fogMode];
+        await _fogSave(_fogMode);
+    };
+
+    function _fogLoadOntoCanvas(mapId, base64png) {
+        let fc = _fogCanvas(mapId); if (!fc||!fc.width) return;
+        let img = new Image();
+        img.onload = () => {
+            fc.getContext('2d').clearRect(0,0,fc.width,fc.height);
+            fc.getContext('2d').drawImage(img, 0, 0, fc.width, fc.height);
+        };
+        img.src = base64png;
+    }
+
     async function _fogSave(mapId) {
         let fc = _fogCanvas(mapId); if (!fc||!fc.width) return;
-        // Downscale to max 512px to keep file size reasonable
         let maxSide = 512;
-        let scaleF  = Math.min(maxSide/fc.width, maxSide/fc.height, 1);
+        let sf  = Math.min(maxSide/fc.width, maxSide/fc.height, 1);
         let tmp = document.createElement('canvas');
-        tmp.width  = Math.round(fc.width*scaleF);
-        tmp.height = Math.round(fc.height*scaleF);
+        tmp.width  = Math.round(fc.width*sf);
+        tmp.height = Math.round(fc.height*sf);
         tmp.getContext('2d').drawImage(fc, 0, 0, tmp.width, tmp.height);
         let data = tmp.toDataURL('image/png');
         _fogCache[mapId] = data;
@@ -2947,70 +3004,31 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch(e) { console.warn('Fog load:', e.message); }
     }
 
-    // Attach fog painting events to the world map container
-    (function() {
-        let mapContainer = document.getElementById('mapContainer');
-        if (!mapContainer) return;
-        mapContainer.addEventListener('mousedown', e => {
-            if (_fogMode !== 'worldmap') return;
-            _fogPainting = true; _fogErase = e.shiftKey;
-            _fogPaint(e, 'worldmap'); e.stopPropagation();
+    // Attach fog events to Other Map windows
+    function _omAttachFogEvents(mapId, winId, win) {
+        let area = document.getElementById(winId+'_area'); if (!area||area._fogEvtAttached) return;
+        area._fogEvtAttached = true;
+        area.addEventListener('mousemove', e => {
+            if (_fogMode !== mapId) return;
+            _fogMoveCursor(e, mapId);
+            if (_fogPainting) { _fogErase=e.shiftKey; _fogPaint(e, mapId); }
+        });
+        area.addEventListener('mousedown', e => {
+            if (_fogMode !== mapId || e.button!==0) return;
+            _fogPainting=true; _fogErase=e.shiftKey; _fogPaint(e, mapId); e.stopPropagation();
         }, true);
-        mapContainer.addEventListener('mousemove', e => {
-            if (!_fogPainting||_fogMode!=='worldmap') return;
-            _fogErase = e.shiftKey; _fogPaint(e, 'worldmap');
+        area.addEventListener('mouseup', async e => {
+            if (!_fogPainting||_fogMode!==mapId) return;
+            _fogPainting=false; await _fogSave(mapId);
         }, true);
-        mapContainer.addEventListener('mouseup', async e => {
-            if (!_fogPainting||_fogMode!=='worldmap') return;
-            _fogPainting = false;
-            await _fogSave('worldmap');
-        }, true);
-        mapContainer.addEventListener('mouseleave', () => { _fogPainting = false; });
-    })();
-
-    // ── Modal open hook ──────────────────────────────────────────
-    let _origOpenModal2 = window.openModal;
-    if (_origOpenModal2) {
-        window.openModal = function(id) {
-            _origOpenModal2(id);
-            if (id === 'gmWorldModal') {
-                if (!_worldModalLoaded) {
-                    _worldModalLoaded = true;
-                    (async () => {
-                        if (window.apxAuth?.enabled) {
-                            let worlds = await window.apxAuth.loadWorlds().catch(()=>[]);
-                            let db = window._apxDb;
-                            if (db) {
-                                for (let w of worlds) {
-                                    if (w.inviteCode) {
-                                        try {
-                                            let pub = await db.collection('worldCodes').doc(w.inviteCode).get();
-                                            if (pub.exists) { w.publicNotes = pub.data().publicNotes || {}; w.races = pub.data().races || []; }
-                                        } catch(e) {}
-                                    }
-                                }
-                            }
-                            _gmWorlds = worlds;
-                        } else {
-                            _gmWorlds = JSON.parse(localStorage.getItem('apxLocalWorlds')||'[]');
-                        }
-                        if (_gmWorlds.length) {
-                            _activeWorldId = _gmWorlds[0].worldId||_gmWorlds[0].id;
-                            renderWorldSelector();
-                            selectGmWorld(_activeWorldId);
-                        } else {
-                            renderWorldSelector();
-                        }
-                    })();
-                } else {
-                    renderWorldSelector();
-                    if (_activeWorldId) selectGmWorld(_activeWorldId);
-                }
-            }
-        };
+        area.addEventListener('mouseleave', ()=>{ _fogPainting=false; let c=document.getElementById('fogCursor'); if(c)c.style.display='none'; });
     }
 
-    // ── World Select ──────────────────────────────────────────────
+    // ── Modal open hook ──────────────────────────────────────────
+
+
+
+    // ── Modal open hook ──────────────────────────────────────────
     window.renderWorldSelectList = function() {
         let el = document.getElementById('worldSelectList'); if (!el) return;
         if (!_gmWorlds.length) {
