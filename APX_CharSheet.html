@@ -3315,8 +3315,11 @@
         img.onload=()=>{
             window.pwOmReset(winId); _pwOmRenderTok(winId, win, map);
             // Load fog for this other map (solid black for players)
-            if (saved?.gmUid && world?.worldId) {
-                window.apxAuth?.loadFogDataForPlayer?.(saved.gmUid, world.worldId, mapId)
+            let _world = window._playerWorldData;
+            let _worldId = _world?.worldId;
+            let _saved = _getWorlds().find(w => w.worldId === _worldId) || _getPrimaryWorld();
+            if (_saved?.gmUid && _worldId) {
+                window.apxAuth?.loadFogDataForPlayer?.(_saved.gmUid, _worldId, mapId)
                     .then(fog => { if (fog) _pwLoadFog(winId+'_fog', fog, img); }).catch(()=>{});
             }
         };

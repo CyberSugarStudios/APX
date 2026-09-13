@@ -2720,7 +2720,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let cursor = document.getElementById('fogCursor');
         if (cursor) cursor.style.display = 'none';
     };
-        // Fit the full image in view, centered
+    window.mapResetView = function() {
         let container = document.getElementById('mapContainer');
         let img = document.getElementById('mapImage');
         if (container && img && img.naturalWidth) {
