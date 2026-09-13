@@ -1505,7 +1505,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         notes:     w.publicNotes.notes,
                         otherMaps: (_wNotes.otherMaps||[])
                             .filter(m=>m.revealed)
-                            .map(m=>({ id:m.id, name:m.name, tokens:(m.tokens||[]).map(t=>({id:t.id,letter:t.letter,x:t.x,y:t.y})) })),
+                            .map(m=>({ id:m.id, name:m.name,
+                                tokens:(m.tokens||[]).filter(t=>t.revealed).map(t=>({id:t.id,letter:t.letter,x:t.x,y:t.y}))
+                            })),
                     }
                 };
                 await window.apxAuth.saveWorld(_activeWorldId, privateData, publicData)
@@ -1992,9 +1994,8 @@ document.addEventListener('DOMContentLoaded', () => {
         area.addEventListener('mouseup', e => {
             if (!win._dragging) return;
             win._dragging=false; area.style.cursor='crosshair';
-            // Only place a new token if the click started AND ended on the bare map,
-            // not on an existing token circle (those have their own onclick handler).
-            let wasOnToken = win._clickTarget && win._clickTarget.closest?.('[data-token-id]');
+            // Skip place-token if the click started on an existing token circle
+            let wasOnToken = win._clickTarget?.closest?.('[data-om-token]');
             if (!win._didDrag && !wasOnToken) _omClick(mapId, winId, win, e);
         });
         area.addEventListener('mouseleave', () => { win._dragging=false; area.style.cursor='crosshair'; });
@@ -2047,12 +2048,13 @@ document.addEventListener('DOMContentLoaded', () => {
         let iw=img.naturalWidth, ih=img.naturalHeight;
         layer.style.width=iw+'px'; layer.style.height=ih+'px';
         let ps=Math.max(0.5,Math.min(2.5,1/win._scale));
+        // Green = revealed to players, Red = hidden from players
         layer.innerHTML=(map.tokens||[]).map(t=>`
-            <div style="position:absolute;left:${t.x*iw}px;top:${t.y*ih}px;
+            <div data-om-token="${t.id}" style="position:absolute;left:${t.x*iw}px;top:${t.y*ih}px;
                 transform:translate(-50%,-50%) scale(${ps});transform-origin:50% 50%;
                 pointer-events:auto;cursor:pointer;will-change:transform;"
                 onclick="event.stopPropagation();window.openTokenInfoWin('${mapId}','${t.id}','${winId}',false)">
-                <div style="width:26px;height:26px;background:#dc2626;border:2.5px solid #fff;border-radius:50%;
+                <div style="width:26px;height:26px;background:${t.revealed?'#16a34a':'#dc2626'};border:2.5px solid #fff;border-radius:50%;
                     display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#fff;
                     box-shadow:0 2px 6px rgba(0,0,0,.65);"
                     onmouseenter="this.style.transform='scale(1.2)'" onmouseleave="this.style.transform=''">${t.letter}</div>
@@ -2070,7 +2072,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let used=(map.tokens||[]).map(t=>t.letter);
         let letter='A';
         for(let i=0;i<26;i++){let l=String.fromCharCode(65+i); if(!used.includes(l)){letter=l;break;}}
-        let tok={id:'tok_'+Date.now(),letter,x,y,name:'',description:''};
+        let tok={id:'tok_'+Date.now(),letter,x,y,name:'',description:'',revealed:false};
         if(!map.tokens)map.tokens=[];
         map.tokens.push(tok);
         saveWorldNotes();
@@ -2159,6 +2161,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             style="background:#0f172a;border:1px solid #334155;color:#e2e8f0;font-size:0.7rem;border-radius:0.25rem;padding:0.35rem 0.5rem;width:100%;box-sizing:border-box;resize:vertical;">${tok.description||''}</textarea>`
                     }
                 </div>
+                ${!readOnly?`<label style="display:flex;align-items:center;gap:0.4rem;font-size:0.7rem;cursor:pointer;">
+                    <input type="checkbox" id="${winId}_revealed" ${tok.revealed?'checked':''} style="width:14px;height:14px;">
+                    <span style="color:${tok.revealed?'#4ade80':'#94a3b8'};">Revealed to players</span>
+                </label>`:''}
                 ${!readOnly?`<div style="display:flex;gap:0.5rem;">
                     <button onclick="window._saveToken('${mapId}','${tokenId}','${winId}','${parentWinId}')"
                         style="flex:1;background:#4f46e5;border:none;color:#fff;font-size:0.7rem;font-weight:700;padding:0.4rem;border-radius:0.25rem;cursor:pointer;">Save</button>
@@ -2180,7 +2186,9 @@ document.addEventListener('DOMContentLoaded', () => {
         let tok=map?.tokens?.find(t=>t.id===tokenId); if(!tok) return;
         tok.name=document.getElementById(winId+'_name')?.value||'';
         tok.description=document.getElementById(winId+'_desc')?.value||'';
+        tok.revealed=!!(document.getElementById(winId+'_revealed')?.checked);
         saveWorldNotes();
+        window.renderOtherMapsList();
         document.getElementById(winId)?.remove();
         let pWin=document.getElementById(parentWinId);
         if(pWin) _omRenderTok(parentWinId, pWin);

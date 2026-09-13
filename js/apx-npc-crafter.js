@@ -1046,7 +1046,16 @@ window.companionStatBlock = function() {
         // +1 AP, +1 die step -- shown as a second linked row, same as the
         // player's own weapon table already does.
         if (w.category !== 'ranged' && w.weightClass === 'medium') {
-            let twoHDice = nextDieTier(w.dmg) || w.dmg;
+            // 2-Handed rule: damage steps up ONE DIE SIZE (d8→d10, d10→d12, etc.),
+            // NOT via the Weapon Forge's WEAPON_DMG_TIERS table (which maps 2d8→3d10).
+            // "Increase the damage by one die step" means the die type increases, count stays.
+            const dieTypeStep = { 'd4':'d6','d6':'d8','d8':'d10','d10':'d12','d12':'d12' };
+            function ncStepUpDie(dmg) {
+                let m = dmg.match(/^(\d+)(d\d+)$/);
+                if (!m) return dmg;
+                return m[1] + (dieTypeStep[m[2]] || m[2]);
+            }
+            let twoHDice = ncStepUpDie(w.dmg);
             let twoHDmgMod = companionWeaponDamageModifier(w, mods, true);
             let twoHDmgText = twoHDmgMod !== 0 ? `${twoHDice} ${twoHDmgMod >= 0 ? '+' : ''}${twoHDmgMod}` : twoHDice;
             let twoHAtkInfo = companionWeaponAttackBonus(c, w, mods, true);
