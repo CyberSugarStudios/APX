@@ -3337,6 +3337,8 @@
         if(img&&img.naturalWidth&&area){ let cw=area.clientWidth, ch=area.clientHeight, iw=img.naturalWidth, ih=img.naturalHeight; win._scale=Math.min(cw/iw,ch/ih,1); win._offX=(cw-iw*win._scale)/2; win._offY=(ch-ih*win._scale)/2; } else { win._scale=1; win._offX=0; win._offY=0; }
         _pwOmTransform(winId, win);
     };
+
+    async function renderPlayerMap() {
         let world  = window._playerWorldData;
         let img    = document.getElementById('pwMapImage');
         let emptyEl= document.getElementById('pwMapEmpty');
