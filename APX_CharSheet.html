@@ -2148,6 +2148,7 @@
                      onwheel="window.pwMapScroll(event)">
                     <div id="pwMapViewport" style="position:absolute; transform-origin:0 0; will-change:transform;">
                         <img id="pwMapImage" src="" alt="" style="display:none; max-width:none; user-select:none; pointer-events:none;">
+                        <canvas id="pwFogCanvas" style="position:absolute;top:0;left:0;pointer-events:none;opacity:1;"></canvas>
                         <div id="pwMapPins" style="position:absolute; top:0; left:0; pointer-events:none;"></div>
                     </div>
                     <div id="pwMapEmpty" class="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -3167,6 +3168,9 @@
             let pinBtn = l.pinX!=null
                 ? `<button onclick="window.pwZoomToPin('${l.id}')" class="text-[9px] px-1.5 py-0.5 rounded font-bold" style="background:#0f172a;border:1px solid #334155;color:#94a3b8;">View on Map</button>`
                 : '';
+            let mapBtn = l.linkedOtherMapId
+                ? `<button onclick="window.openPlayerOtherMapWindow('${l.linkedOtherMapId}')" class="text-[9px] px-1.5 py-0.5 rounded font-bold" style="background:#312e81;border:1px solid #4f46e5;color:#c7d2fe;">Open Map</button>`
+                : '';
             let subHtml = subNotes.length ? `<div class="mt-2 space-y-1">${subNotes.map(sn=>`
                 <div class="bg-slate-950 rounded px-2 py-1 border border-slate-800">
                     <div class="text-[10px] font-bold text-slate-300">${sn.title||'Note'}</div>
@@ -3175,7 +3179,7 @@
             return `<div class="bg-slate-900 border border-slate-700 rounded p-3">
                 <div class="flex items-start justify-between gap-2">
                     <div class="text-xs font-bold text-emerald-300">${l.name||'Location'}</div>
-                    ${pinBtn}
+                    <div class="flex gap-1">${pinBtn}${mapBtn}</div>
                 </div>
                 ${l.description?`<div class="text-[10px] text-slate-400 mt-1">${l.description}</div>`:''}
                 ${subHtml}
@@ -3263,6 +3267,7 @@
                 </div>
                 <div id="${winId}_vp" style="position:absolute;transform-origin:0 0;will-change:transform;">
                     <img id="${winId}_img" src="" alt="" style="display:none;max-width:none;user-select:none;pointer-events:none;">
+                    <canvas id="${winId}_fog" style="position:absolute;top:0;left:0;pointer-events:none;opacity:1;"></canvas>
                     <div id="${winId}_tok" style="position:absolute;top:0;left:0;pointer-events:none;"></div>
                 </div>
                 <div id="${winId}_empty" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
@@ -3307,7 +3312,14 @@
         let img=document.getElementById(winId+'_img'); if(!img) return;
         let e=document.getElementById(winId+'_empty');
         img.src=src; img.style.display='block'; if(e) e.style.display='none';
-        img.onload=()=>{ window.pwOmReset(winId); _pwOmRenderTok(winId, win, map); };
+        img.onload=()=>{
+            window.pwOmReset(winId); _pwOmRenderTok(winId, win, map);
+            // Load fog for this other map (solid black for players)
+            if (saved?.gmUid && world?.worldId) {
+                window.apxAuth?.loadFogDataForPlayer?.(saved.gmUid, world.worldId, mapId)
+                    .then(fog => { if (fog) _pwLoadFog(winId+'_fog', fog, img); }).catch(()=>{});
+            }
+        };
         win._map=map;
     }
     function _pwOmRenderTok(winId, win, map) {
@@ -3379,10 +3391,26 @@
             img.src = mapSrc;
             img.style.display = 'block';
             if (emptyEl) emptyEl.style.display = 'none';
-            img.onload = () => { window.pwMapResetView(); };
-            // If already loaded (cached), reset and render pins immediately
+            img.onload = () => {
+                window.pwMapResetView();
+                // Load fog (solid black overlay for players)
+                let saved = _getWorlds().find(w => w.worldId === world?.worldId) || _getPrimaryWorld();
+                if (saved?.gmUid && world?.worldId && window.apxAuth?.enabled) {
+                    window.apxAuth.loadFogDataForPlayer(saved.gmUid, world.worldId, 'worldmap')
+                        .then(fog => { if (fog) _pwLoadFog('pwFogCanvas', fog, img); }).catch(()=>{});
+                }
+            };
             if (img.complete && img.naturalWidth) { window.pwMapResetView(); }
         }
+    }
+
+    // Load fog PNG onto a player-side canvas (solid black, opacity:1)
+    function _pwLoadFog(canvasId, base64png, refImg) {
+        let fc = document.getElementById(canvasId); if (!fc) return;
+        if (refImg) { fc.width = refImg.naturalWidth; fc.height = refImg.naturalHeight; }
+        let fimg = new Image();
+        fimg.onload = () => { let ctx=fc.getContext('2d'); ctx.clearRect(0,0,fc.width,fc.height); ctx.drawImage(fimg,0,0,fc.width,fc.height); };
+        fimg.src = base64png;
     }
 
     window.pwJoinWorld = async function() {

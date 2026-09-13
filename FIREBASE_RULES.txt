@@ -27,6 +27,11 @@ service cloud.firestore {
       allow read: if request.auth != null;
     }
 
+    // Fog of War data — players read the GM's fog to render it on their maps
+    match /users/{userId}/worlds/{worldId}/fogData/{mapId} {
+      allow read: if request.auth != null;
+    }
+
     // ── World invite codes ───────────────────────────────────────────────────
     match /worldCodes/{inviteCode} {
       allow read:   if request.auth != null;

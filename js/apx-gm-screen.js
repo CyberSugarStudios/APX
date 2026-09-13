@@ -1131,7 +1131,11 @@ window.openFloatingStatBlockRaw = function(winId, title, bodyHtml) {
     win.innerHTML = `
         <div class="floating-stat-window-header">
             <span class="text-sm font-black text-white">${title}</span>
-            <button class="text-slate-400 hover:text-white font-bold text-lg leading-none px-1" onclick="window.closeFloatingStatBlock('${winId}')">&times;</button>
+            <div style="display:flex;align-items:center;gap:0.35rem;">
+                <button style="font-size:9px;font-weight:700;padding:2px 6px;background:#1d4ed8;color:#fff;border:none;border-radius:3px;cursor:pointer;"
+                    onclick="window._floatAddToInit('${winId}')">+ Initiative</button>
+                <button class="text-slate-400 hover:text-white font-bold text-lg leading-none px-1" onclick="window.closeFloatingStatBlock('${winId}')">&times;</button>
+            </div>
         </div>
         <div class="floating-stat-window-body">${bodyHtml}</div>
     `;

@@ -1091,6 +1091,22 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
     </div>
 
+    <!-- ── World Select — opens on sign-in so GM picks a world before anything else ── -->
+    <div class="modal-overlay" id="worldSelectModal" style="z-index:1050;">
+        <div class="modal-content" style="max-width:420px; width:95vw;">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
+                <h3 class="text-base font-bold text-amber-400">Select World</h3>
+                <button onclick="window.openWorldMgr()" class="px-3 py-1.5 rounded bg-emerald-800 hover:bg-emerald-700 text-white text-xs font-bold">+ New World</button>
+            </div>
+            <div id="worldSelectList" class="space-y-2 max-h-80 overflow-y-auto min-h-[60px]">
+                <div class="text-slate-500 text-xs text-center py-6">Loading worlds…</div>
+            </div>
+            <div class="mt-4 pt-3 border-t border-slate-700 text-center">
+                <button onclick="window.closeModal('worldSelectModal')" class="text-xs text-slate-500 hover:text-slate-300 underline">Continue without a world</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="gmWorldModal">
         <div class="modal-content" style="max-width:1100px; width:95vw; max-height:96vh; display:flex; flex-direction:column;">
             <div class="flex justify-between items-center mb-3 border-b border-slate-600 pb-2 flex-shrink-0">
@@ -1137,13 +1153,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         <button onclick="window.mapZoom(1.25)" class="px-2 py-1.5 rounded bg-slate-700 text-white text-xs font-bold">+</button>
                         <button onclick="window.mapZoom(0.8)" class="px-2 py-1.5 rounded bg-slate-700 text-white text-xs font-bold">&#8722;</button>
                         <button onclick="window.mapResetView()" class="px-2 py-1.5 rounded bg-slate-700 text-slate-400 text-xs">Reset</button>
-                        <span class="text-[10px] text-slate-500 flex-1">Click map to pin a Location. Drag to pan.</span>
+                        <button id="fogToggleBtn" onclick="window.toggleFogMode('worldmap')" class="px-2 py-1.5 rounded bg-slate-700 text-slate-400 text-xs font-bold">🌫 Fog</button>
+                        <span id="mapHint" class="text-[10px] text-slate-500 flex-1">Click map to pin a Location. Drag to pan.</span>
                     </div>
                     <div id="mapContainer" class="flex-1 overflow-hidden rounded border border-slate-700 relative bg-slate-950 select-none" style="min-height:540px; cursor:crosshair;"
                          onmousedown="window.mapStartDrag(event)" onmousemove="window.mapDrag(event)" onmouseup="window.mapEndDrag(event)" onmouseleave="window.mapEndDrag(event)"
                          onwheel="window.mapScroll(event)">
                         <div id="mapViewport" style="position:absolute; transform-origin:0 0; will-change:transform;">
                             <img id="mapImage" src="" alt="" style="display:none; max-width:none; user-select:none; pointer-events:none; display:block;">
+                            <canvas id="mapFogCanvas" style="position:absolute;top:0;left:0;pointer-events:none;opacity:0.45;"></canvas>
                             <div id="mapPinsLayer" style="position:absolute; top:0; left:0; pointer-events:none;"></div>
                         </div>
                         <div id="mapEmptyState" class="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -1477,7 +1495,8 @@ document.addEventListener('DOMContentLoaded', () => {
             w.publicNotes = {
                 locations: (_wNotes.locations||[])
                     .filter(l => l.revealed)
-                    .map(l => ({ ...l, notes: (l.notes||[]).filter(n => n.revealed) })),
+                    .map(l => ({ ...l, notes: (l.notes||[]).filter(n => n.revealed),
+                        linkedOtherMapId: l.linkedOtherMapId||null })),
                 npcs: (_wNotes.npcs||[])
                     .filter(n => n.revealed)
                     .map(n => ({ ...n, notes: (n.notes||[]).filter(sn => sn.revealed) })),
@@ -1793,6 +1812,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>` : '<div id="nfPinInfo" class="text-[10px] text-slate-500 self-end pb-1">Click map to pin</div>'}
                 <label class="flex items-center gap-2 text-xs cursor-pointer self-end pb-1"><input type="checkbox" id="nfRevealed" ${n.revealed?'checked':''} class="w-4 h-4"> <span class="text-slate-300">Revealed to players</span></label>
             </div>
+            <div><label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Link to Other Map (optional)</label>
+            <select id="nfLinkedMap" class="bg-slate-900 text-xs w-full">
+                <option value="">— No linked map —</option>
+                ${(_wNotes.otherMaps||[]).map(m=>`<option value="${m.id}" ${n.linkedOtherMapId===m.id?'selected':''}>${m.name}</option>`).join('')}
+            </select></div>
             ${subNotesSection()}`,
         note: (n={}) => `
             <div><label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Note Title</label>
@@ -1829,7 +1853,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let note = existing || { id: type+'_'+Date.now() };
         if (type==='session')  { note.title=g('nfTitle')?.value||''; note.date=g('nfDate')?.value||''; note.content=g('nfContent')?.value||''; }
         if (type==='npc')      { note.name=g('nfName')?.value||''; note.role=g('nfRole')?.value||''; note.description=g('nfContent')?.value||''; note.revealed=!!(g('nfRevealed')?.checked); note.notes=_editingSubNotes.map(({_open,...sn})=>sn); }
-        if (type==='location') { note.name=g('nfName')?.value||''; note.description=g('nfContent')?.value||''; note.pinColor=g('nfPinColor')?.value||'#ef4444'; note.revealed=!!(g('nfRevealed')?.checked); note.notes=_editingSubNotes.map(({_open,...sn})=>sn); }
+        if (type==='location') { note.name=g('nfName')?.value||''; note.description=g('nfContent')?.value||''; note.pinColor=g('nfPinColor')?.value||'#ef4444'; note.revealed=!!(g('nfRevealed')?.checked); note.linkedOtherMapId=g('nfLinkedMap')?.value||null; note.notes=_editingSubNotes.map(({_open,...sn})=>sn); }
         if (type==='note')     { note.title=g('nfTitle')?.value||''; note.content=g('nfContent')?.value||''; note.revealed=!!(g('nfRevealed')?.checked); }
 
         if (!existing) arr.push(note);
@@ -1945,10 +1969,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button onclick="window.omZoom('${winId}',1.25)" style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;font-size:0.7rem;font-weight:700;padding:0.2rem 0.5rem;border-radius:0.25rem;cursor:pointer;">+</button>
                     <button onclick="window.omZoom('${winId}',0.8)"  style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;font-size:0.7rem;font-weight:700;padding:0.2rem 0.5rem;border-radius:0.25rem;cursor:pointer;">−</button>
                     <button onclick="window.omReset('${winId}')"     style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;padding:0.2rem 0.5rem;border-radius:0.25rem;cursor:pointer;">Reset</button>
+                    <button id="${winId}_fogBtn" onclick="window.toggleFogMode('${mapId}')" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;font-weight:700;padding:0.2rem 0.5rem;border-radius:0.25rem;cursor:pointer;">🌫 Fog</button>
                     <span style="font-size:0.6rem;color:#475569;margin-left:0.25rem;">Click map to place token</span>
                 </div>
                 <div id="${winId}_vp" style="position:absolute;transform-origin:0 0;will-change:transform;">
                     <img id="${winId}_img" src="" alt="" style="display:none;max-width:none;user-select:none;pointer-events:none;-webkit-user-drag:none;">
+                    <canvas id="${winId}_fog" style="position:absolute;top:0;left:0;pointer-events:none;opacity:0.45;"></canvas>
                     <div id="${winId}_tok" style="position:absolute;top:0;left:0;pointer-events:none;"></div>
                 </div>
                 <div id="${winId}_empty" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
@@ -2096,8 +2122,34 @@ document.addEventListener('DOMContentLoaded', () => {
         let empty=document.getElementById(winId+'_empty');
         img.src=src; img.style.display='block';
         if(empty) empty.style.display='none';
-        img.onload=()=>{ window.omReset(winId); };
+        img.onload=()=>{
+            window.omReset(winId);
+            // Init fog canvas for this map
+            let mapId = winId.replace('omWin_','');
+            let fc = document.getElementById(winId+'_fog');
+            if (fc) { _fogInitCanvas(mapId, img.naturalWidth, img.naturalHeight); _fogLoad(mapId); }
+            // Attach fog painting events to this map's area
+            _omAttachFogEvents(mapId, winId, win);
+        };
         if(img.complete&&img.naturalWidth) window.omReset(winId);
+    }
+
+    function _omAttachFogEvents(mapId, winId, win) {
+        let area = document.getElementById(winId+'_area'); if (!area||area._fogEvtAttached) return;
+        area._fogEvtAttached = true;
+        area.addEventListener('mousedown', e => {
+            if (_fogMode !== mapId) return;
+            _fogPainting = true; _fogErase = e.shiftKey; _fogPaint(e, mapId); e.stopPropagation();
+        }, true);
+        area.addEventListener('mousemove', e => {
+            if (!_fogPainting||_fogMode!==mapId) return;
+            _fogErase=e.shiftKey; _fogPaint(e, mapId);
+        }, true);
+        area.addEventListener('mouseup', async e => {
+            if (!_fogPainting||_fogMode!==mapId) return;
+            _fogPainting=false; await _fogSave(mapId);
+        }, true);
+        area.addEventListener('mouseleave', ()=>{ _fogPainting=false; });
     }
 
     window._omHandleUpload = async function(mapId, winId, input) {
@@ -2165,6 +2217,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     <input type="checkbox" id="${winId}_revealed" ${tok.revealed?'checked':''} style="width:14px;height:14px;">
                     <span style="color:${tok.revealed?'#4ade80':'#94a3b8'};">Revealed to players</span>
                 </label>`:''}
+                <div>
+                    <div style="font-size:0.65rem;color:#94a3b8;font-weight:700;text-transform:uppercase;margin-bottom:0.25rem;">Linked NPC Stat Blocks</div>
+                    <div id="${winId}_npcLinks" style="display:flex;flex-direction:column;gap:0.2rem;margin-bottom:0.25rem;">
+                        ${(tok.linkedNpcs||[]).map(nid=>{let nn=(window.gmNpcs||[]).find(x=>x.id===nid);return nn?`<div style="display:flex;align-items:center;gap:0.3rem;"><button onclick="window.openFloatingNpcStatBlockById('${nid}')" style="flex:1;text-align:left;background:#312e81;border:1px solid #4f46e5;color:#c7d2fe;font-size:0.65rem;font-weight:700;padding:0.2rem 0.4rem;border-radius:0.25rem;cursor:pointer;">${nn.npc?.name||'NPC'}</button><button onclick="window._unlinkTokenNpc('${mapId}','${tokenId}','${nid}','${winId}')" style="background:none;border:none;color:#64748b;cursor:pointer;">✕</button></div>`:''}).join('')}
+                    </div>
+                    ${!readOnly?`<select id="${winId}_npcPicker" style="background:#0f172a;border:1px solid #334155;color:#e2e8f0;font-size:0.65rem;border-radius:0.25rem;padding:0.2rem 0.35rem;width:100%;box-sizing:border-box;"><option value="">— Link NPC stat block —</option>${(window.gmNpcs||[]).filter(nn=>!(tok.linkedNpcs||[]).includes(nn.id)).map(nn=>`<option value="${nn.id}">${nn.npc?.name||nn.id}</option>`).join('')}</select>
+                    <button onclick="window._linkTokenNpc('${mapId}','${tokenId}','${winId}')" style="width:100%;background:#1e3a5f;border:1px solid #334155;color:#93c5fd;font-size:0.65rem;font-weight:700;padding:0.2rem;border-radius:0.25rem;cursor:pointer;margin-top:0.15rem;">+ Link</button>`:''}
+                </div>
                 ${!readOnly?`<div style="display:flex;gap:0.5rem;">
                     <button onclick="window._saveToken('${mapId}','${tokenId}','${winId}','${parentWinId}')"
                         style="flex:1;background:#4f46e5;border:none;color:#fff;font-size:0.7rem;font-weight:700;padding:0.4rem;border-radius:0.25rem;cursor:pointer;">Save</button>
@@ -2181,12 +2241,32 @@ document.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('mousemove', mm); document.addEventListener('mouseup', ()=>wDrag=false);
     };
 
+    window._linkTokenNpc = function(mapId, tokenId, winId) {
+        let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+        let tok=map?.tokens?.find(t=>t.id===tokenId); if(!tok) return;
+        let sel=document.getElementById(winId+'_npcPicker'); if(!sel||!sel.value) return;
+        tok.linkedNpcs=tok.linkedNpcs||[];
+        if(!tok.linkedNpcs.includes(sel.value)) tok.linkedNpcs.push(sel.value);
+        saveWorldNotes();
+        window.openTokenInfoWin(mapId, tokenId, 'omWin_'+mapId, false);
+        document.getElementById(winId)?.remove();
+    };
+    window._unlinkTokenNpc = function(mapId, tokenId, npcId, winId) {
+        let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+        let tok=map?.tokens?.find(t=>t.id===tokenId); if(!tok) return;
+        tok.linkedNpcs=(tok.linkedNpcs||[]).filter(id=>id!==npcId);
+        saveWorldNotes();
+        window.openTokenInfoWin(mapId, tokenId, 'omWin_'+mapId, false);
+        document.getElementById(winId)?.remove();
+    };
+
     window._saveToken = function(mapId, tokenId, winId, parentWinId) {
         let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId);
         let tok=map?.tokens?.find(t=>t.id===tokenId); if(!tok) return;
         tok.name=document.getElementById(winId+'_name')?.value||'';
         tok.description=document.getElementById(winId+'_desc')?.value||'';
         tok.revealed=!!(document.getElementById(winId+'_revealed')?.checked);
+        tok.linkedNpcs=tok.linkedNpcs||[];
         saveWorldNotes();
         window.renderOtherMapsList();
         document.getElementById(winId)?.remove();
@@ -2425,6 +2505,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (dataUrl && _mapImg) {
                         _showMapImg(dataUrl);
                         _wNotes.worldMapDataUrl = dataUrl;
+                        // Fog canvas: initialize to match image dimensions and load saved fog
+                        let fc = document.getElementById('mapFogCanvas');
+                        if (fc && _mapImg.naturalWidth) {
+                            _fogInitCanvas('worldmap', _mapImg.naturalWidth, _mapImg.naturalHeight);
+                            _fogLoad('worldmap');
+                        }
                         // Background-sync to public path so players can load it.
                         // This is idempotent — runs silently every time the Map tab
                         // is first opened so even maps uploaded before this patch
@@ -2752,6 +2838,136 @@ document.addEventListener('DOMContentLoaded', () => {
         applyMapTransform();
     };
 
+    // ── Fog of War ───────────────────────────────────────────────
+    // A canvas overlay on the world map (and other maps via _omFog*).
+    // GM sees fog at 45% opacity; players see it at 100% (solid black).
+    // Fog canvas lives inside the viewport so it pans/zooms with the map.
+    let _fogMode = false;          // 'worldmap' | 'omap_ID' | false
+    let _fogPainting = false;      // is the brush currently down?
+    let _fogBrushSize = 40;        // radius in map-image pixels
+    let _fogErase = false;         // shift held = erase mode
+    let _fogCache = {};            // { mapId: base64png } — session cache
+
+    function _fogCanvas(mapId) {
+        return mapId === 'worldmap'
+            ? document.getElementById('mapFogCanvas')
+            : document.getElementById('omWin_'+mapId+'_fog');
+    }
+
+    window.toggleFogMode = function(mapId) {
+        let btn = document.getElementById('fogToggleBtn');
+        let hint = document.getElementById('mapHint');
+        if (_fogMode === mapId) {
+            // Exit fog mode
+            _fogMode = false;
+            let fc = _fogCanvas(mapId); if (fc) fc.style.pointerEvents = 'none';
+            if (btn) { btn.className = 'px-2 py-1.5 rounded bg-slate-700 text-slate-400 text-xs font-bold'; }
+            if (hint) hint.textContent = 'Click map to pin a Location. Drag to pan.';
+            let container = mapId==='worldmap' ? document.getElementById('mapContainer') : document.getElementById('omWin_'+mapId+'_area');
+            if (container) container.style.cursor = 'crosshair';
+        } else {
+            // Enter fog mode
+            _fogMode = mapId;
+            let fc = _fogCanvas(mapId); if (fc) fc.style.pointerEvents = 'auto';
+            if (btn) { btn.className = 'px-2 py-1.5 rounded bg-amber-700 text-white text-xs font-bold'; }
+            if (hint) hint.textContent = 'Drag to paint fog. Hold Shift to erase. Click 🌫 Fog again to exit.';
+            let container = mapId==='worldmap' ? document.getElementById('mapContainer') : document.getElementById('omWin_'+mapId+'_area');
+            if (container) container.style.cursor = 'crosshair';
+        }
+    };
+
+    function _fogInitCanvas(mapId, imgNatWidth, imgNatHeight) {
+        let fc = _fogCanvas(mapId); if (!fc) return;
+        if (fc.width !== imgNatWidth || fc.height !== imgNatHeight) {
+            // Preserve existing fog when resizing
+            let existing = fc._fogLoaded ? fc.toDataURL() : null;
+            fc.width  = imgNatWidth;
+            fc.height = imgNatHeight;
+            if (existing) {
+                let img = new Image(); img.onload = () => { fc.getContext('2d').drawImage(img, 0, 0); }; img.src = existing;
+            } else if (_fogCache[mapId]) {
+                _fogLoadOntoCanvas(mapId, _fogCache[mapId]);
+            }
+        }
+    }
+
+    function _fogLoadOntoCanvas(mapId, base64png) {
+        let fc = _fogCanvas(mapId); if (!fc) return;
+        let img = new Image();
+        img.onload = () => {
+            let ctx = fc.getContext('2d');
+            ctx.clearRect(0, 0, fc.width, fc.height);
+            ctx.drawImage(img, 0, 0, fc.width, fc.height);
+            fc._fogLoaded = true;
+        };
+        img.src = base64png;
+    }
+
+    function _fogPaint(e, mapId) {
+        let fc = _fogCanvas(mapId); if (!fc||!fc.width) return;
+        let container = mapId==='worldmap' ? document.getElementById('mapContainer') : document.getElementById('omWin_'+mapId+'_area');
+        if (!container) return;
+        let scale  = mapId==='worldmap' ? _mapScale : (document.getElementById('omWin_'+mapId)?._scale||1);
+        let offX   = mapId==='worldmap' ? _mapOffX  : (document.getElementById('omWin_'+mapId)?._offX||0);
+        let offY   = mapId==='worldmap' ? _mapOffY  : (document.getElementById('omWin_'+mapId)?._offY||0);
+        let rect   = container.getBoundingClientRect();
+        let cx = (e.clientX - rect.left - offX) / scale;
+        let cy = (e.clientY - rect.top  - offY) / scale;
+        let ctx = fc.getContext('2d');
+        ctx.globalCompositeOperation = _fogErase ? 'destination-out' : 'source-over';
+        ctx.fillStyle = 'rgba(0,0,0,0.9)';
+        ctx.beginPath();
+        ctx.arc(cx, cy, _fogBrushSize, 0, Math.PI*2);
+        ctx.fill();
+        ctx.globalCompositeOperation = 'source-over';
+    }
+
+    async function _fogSave(mapId) {
+        let fc = _fogCanvas(mapId); if (!fc||!fc.width) return;
+        // Downscale to max 512px to keep file size reasonable
+        let maxSide = 512;
+        let scaleF  = Math.min(maxSide/fc.width, maxSide/fc.height, 1);
+        let tmp = document.createElement('canvas');
+        tmp.width  = Math.round(fc.width*scaleF);
+        tmp.height = Math.round(fc.height*scaleF);
+        tmp.getContext('2d').drawImage(fc, 0, 0, tmp.width, tmp.height);
+        let data = tmp.toDataURL('image/png');
+        _fogCache[mapId] = data;
+        if (window.apxAuth?.enabled && _activeWorldId) {
+            await window.apxAuth.saveFogData(_activeWorldId, mapId, data).catch(e=>console.warn('Fog save:',e.message));
+        }
+    }
+
+    async function _fogLoad(mapId) {
+        if (_fogCache[mapId]) { _fogLoadOntoCanvas(mapId, _fogCache[mapId]); return; }
+        if (!window.apxAuth?.enabled||!_activeWorldId) return;
+        try {
+            let data = await window.apxAuth.loadFogData(_activeWorldId, mapId);
+            if (data) { _fogCache[mapId]=data; _fogLoadOntoCanvas(mapId, data); }
+        } catch(e) { console.warn('Fog load:', e.message); }
+    }
+
+    // Attach fog painting events to the world map container
+    (function() {
+        let mapContainer = document.getElementById('mapContainer');
+        if (!mapContainer) return;
+        mapContainer.addEventListener('mousedown', e => {
+            if (_fogMode !== 'worldmap') return;
+            _fogPainting = true; _fogErase = e.shiftKey;
+            _fogPaint(e, 'worldmap'); e.stopPropagation();
+        }, true);
+        mapContainer.addEventListener('mousemove', e => {
+            if (!_fogPainting||_fogMode!=='worldmap') return;
+            _fogErase = e.shiftKey; _fogPaint(e, 'worldmap');
+        }, true);
+        mapContainer.addEventListener('mouseup', async e => {
+            if (!_fogPainting||_fogMode!=='worldmap') return;
+            _fogPainting = false;
+            await _fogSave('worldmap');
+        }, true);
+        mapContainer.addEventListener('mouseleave', () => { _fogPainting = false; });
+    })();
+
     // ── Modal open hook ──────────────────────────────────────────
     let _origOpenModal2 = window.openModal;
     if (_origOpenModal2) {
@@ -2794,9 +3010,33 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
+    // ── World Select ──────────────────────────────────────────────
+    window.renderWorldSelectList = function() {
+        let el = document.getElementById('worldSelectList'); if (!el) return;
+        if (!_gmWorlds.length) {
+            el.innerHTML = '<div class="text-slate-500 text-sm text-center py-6">No worlds yet.<br><span class="text-[10px]">Click "+ New World" to create your first world.</span></div>';
+            return;
+        }
+        el.innerHTML = _gmWorlds.map(w => `<div class="flex items-center justify-between bg-slate-900 rounded p-3 border border-slate-700">
+            <div>
+                <div class="text-sm font-bold text-slate-200">${w.name}</div>
+                ${w.inviteCode?`<div class="text-[10px] text-slate-500">${w.inviteCode}</div>`:''}
+            </div>
+            <button onclick="window.selectWorldFromPicker('${w.worldId||w.id}')"
+                class="px-3 py-1.5 rounded bg-amber-700 hover:bg-amber-600 text-white text-xs font-bold">Open</button>
+        </div>`).join('');
+    };
+    window.selectWorldFromPicker = function(worldId) {
+        selectGmWorld(worldId);
+        window.closeModal('worldSelectModal');
+    };
+    // Open the World Management popup (for creating/editing worlds) and close the picker
+    window.openWorldMgr = function() {
+        window.closeModal('worldSelectModal');
+        window.openModal('gmWorldModal');
+    };
+
     // ── GM Tools auth bar ─────────────────────────────────────────────────
-    // Pre-load worlds on sign-in so the World popup opens instantly, but do NOT
-    // auto-select — the World popup opens automatically and the GM picks manually.
     document.addEventListener('DOMContentLoaded', () => {
         if (window.FIREBASE_ENABLED && window.apxAuth) {
             window.apxAuth.onAuthChange(async user => {
@@ -2813,10 +3053,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (window.apxAuth.enabled) {
                         try {
                             let worlds = await window.apxAuth.loadWorlds().catch(()=>[]);
-                            _gmWorlds = worlds;       // pre-populate so popup renders instantly
-                            _worldModalLoaded = true; // skip double-load when popup opens
-                            // Open the World popup immediately — GM must select or create a world
-                            window.openModal('gmWorldModal');
+                            _gmWorlds = worlds;
+                            _worldModalLoaded = true;
+                            window.renderWorldSelectList();
+                            window.openModal('worldSelectModal');
                         } catch(e) { console.warn('World pre-load:', e.message); }
                     }
                 }

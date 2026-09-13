@@ -38,7 +38,10 @@
             saveOtherMapImage: () => Promise.resolve(),
             loadOtherMapImage: () => Promise.resolve(null),
             loadOtherMapImageForPlayer: () => Promise.resolve(null),
-            deleteOtherMapImage: () => Promise.resolve() };
+            deleteOtherMapImage: () => Promise.resolve(),
+            saveFogData: () => Promise.resolve(),
+            loadFogData: () => Promise.resolve(null),
+            loadFogDataForPlayer: () => Promise.resolve(null) };
         return;
     }
 
@@ -294,7 +297,33 @@
             .collection('otherMaps').doc(mapId).delete().catch(()=>{});
     }
 
-    async function savePublicWorldMap(inviteCode, base64DataUrl) {
+    // --- Fog of War data storage ------------------------------------
+    // Path: users/{uid}/worlds/{worldId}/fogData/{mapId}
+    // mapId = 'worldmap' for the world map, or the other-map's ID.
+    // Firestore rule allows any auth user to READ (for player loading).
+    async function saveFogData(worldId, mapId, base64Png) {
+        let user = currentUser(); if (!user) return;
+        await db.collection('users').doc(user.uid)
+            .collection('worlds').doc(worldId)
+            .collection('fogData').doc(mapId)
+            .set({ fogData: base64Png, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    }
+    async function loadFogData(worldId, mapId) {
+        let user = currentUser(); if (!user) return null;
+        let snap = await db.collection('users').doc(user.uid)
+            .collection('worlds').doc(worldId)
+            .collection('fogData').doc(mapId).get();
+        return snap.exists ? (snap.data().fogData || null) : null;
+    }
+    async function loadFogDataForPlayer(gmUid, worldId, mapId) {
+        if (!gmUid || !worldId || !mapId) return null;
+        let snap = await db.collection('users').doc(gmUid)
+            .collection('worlds').doc(worldId)
+            .collection('fogData').doc(mapId).get();
+        return snap.exists ? (snap.data().fogData || null) : null;
+    }
+
+        async function savePublicWorldMap(inviteCode, base64DataUrl) {
         if (!inviteCode) return;
         await db.collection('worldCodes').doc(inviteCode)
             .collection('mapImage').doc('data')
@@ -506,6 +535,7 @@
         saveWorldMapFirestore, loadWorldMapFirestore, deleteWorldMapFirestore,
         savePublicWorldMap, loadPublicWorldMap, loadWorldMapForPlayer, setGmHpOverride,
         saveOtherMapImage, loadOtherMapImage, loadOtherMapImageForPlayer, deleteOtherMapImage,
+        saveFogData, loadFogData, loadFogDataForPlayer,
         listenWorldPlayers, listenPublicWorldNotes, kickWorldPlayer,
         scheduleAutoSave, setActiveCharId,
         renderAuthBar,
