@@ -1182,6 +1182,20 @@ window.openFloatingNpcStatBlockById = function(gmNpcId) {
     window.openFloatingStatBlockRaw(winId, entry.npc?.name || 'NPC', window.buildStatBlockHtml(sb, false));
 };
 
+// Add the NPC from any floating stat block window to the initiative tracker.
+// winId format: 'npc_{gmNpcId}' — set by openFloatingNpcStatBlockById.
+window._floatAddToInit = function(winId) {
+    if (!winId.startsWith('npc_')) {
+        // Window opened from the initiative tracker — NPC is already tracked.
+        alert('This NPC is already in the initiative tracker.');
+        return;
+    }
+    let npcId  = winId.slice(4);
+    let npcIdx = (window.gmNpcs||[]).findIndex(n => n.id === npcId);
+    if (npcIdx < 0) { alert('NPC not found in roster.'); return; }
+    window.addToInitiative(npcIdx, 'npc');
+};
+
 // Shared by the builder's own detail popup (editable HP) and the GM
 // Screen's read-only floating stat-block windows -- one source of truth
 // for this markup instead of two copies drifting apart.

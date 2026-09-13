@@ -2134,11 +2134,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if(empty) empty.style.display='none';
         img.onload=()=>{
             window.omReset(winId);
-            // Init fog canvas for this map
+            // Initialize fog canvas to match image dimensions
             let mapId = winId.replace('omWin_','');
             let fc = document.getElementById(winId+'_fog');
-            if (fc) { _fogInitCanvas(mapId, img.naturalWidth, img.naturalHeight); _fogLoad(mapId); }
-            // Attach fog painting events to this map's area
+            if (fc) {
+                fc.width  = img.naturalWidth;
+                fc.height = img.naturalHeight;
+                _fogLoad(mapId);
+            }
             _omAttachFogEvents(mapId, winId, win);
         };
         if(img.complete&&img.naturalWidth) window.omReset(winId);
@@ -2230,9 +2233,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div>
                     <div style="font-size:0.65rem;color:#94a3b8;font-weight:700;text-transform:uppercase;margin-bottom:0.25rem;">Linked NPC Stat Blocks</div>
                     <div id="${winId}_npcLinks" style="display:flex;flex-direction:column;gap:0.2rem;margin-bottom:0.25rem;">
-                        ${(tok.linkedNpcs||[]).map(nid=>{let nn=(window.gmNpcs||[]).find(x=>x.id===nid);return nn?`<div style="display:flex;align-items:center;gap:0.3rem;"><button onclick="window.openFloatingNpcStatBlockById('${nid}')" style="flex:1;text-align:left;background:#312e81;border:1px solid #4f46e5;color:#c7d2fe;font-size:0.65rem;font-weight:700;padding:0.2rem 0.4rem;border-radius:0.25rem;cursor:pointer;">${nn.npc?.name||'NPC'}</button><button onclick="window._unlinkTokenNpc('${mapId}','${tokenId}','${nid}','${winId}')" style="background:none;border:none;color:#64748b;cursor:pointer;">✕</button></div>`:''}).join('')}
+                        ${(tok.linkedNpcs||[]).map(nid=>{let nn=(_wNotes.npcs||[]).find(x=>x.id===nid);if(!wn)return '';let sbBtn=wn.statBlockId?`<button onclick="event.stopPropagation();window.openFloatingNpcStatBlockById('${wn.statBlockId}')" style="font-size:0.6rem;padding:0.1rem 0.3rem;background:#312e81;border:1px solid #4f46e5;color:#c7d2fe;border-radius:0.2rem;cursor:pointer;">Stat Block</button>`:'';return `<div style="display:flex;align-items:center;gap:0.3rem;"><button onclick="window.openTokenNpcInfo('${mapId}','${tokenId}','${nid}','${winId}')" style="flex:1;text-align:left;background:#1e3a5f;border:1px solid #2563eb;color:#93c5fd;font-size:0.65rem;font-weight:700;padding:0.2rem 0.4rem;border-radius:0.25rem;cursor:pointer;">${wn.name||'NPC'}</button>${sbBtn" style="flex:1;text-align:left;background:#312e81;border:1px solid #4f46e5;color:#c7d2fe;font-size:0.65rem;font-weight:700;padding:0.2rem 0.4rem;border-radius:0.25rem;cursor:pointer;">${nn.npc?.name||'NPC'}</button><button onclick="window._unlinkTokenNpc('${mapId}','${tokenId}','${nid}','${winId}')" style="background:none;border:none;color:#64748b;cursor:pointer;">✕</button></div>`:''}).join('')}
                     </div>
-                    ${!readOnly?`<select id="${winId}_npcPicker" style="background:#0f172a;border:1px solid #334155;color:#e2e8f0;font-size:0.65rem;border-radius:0.25rem;padding:0.2rem 0.35rem;width:100%;box-sizing:border-box;"><option value="">— Link NPC stat block —</option>${(window.gmNpcs||[]).filter(nn=>!(tok.linkedNpcs||[]).includes(nn.id)).map(nn=>`<option value="${nn.id}">${nn.npc?.name||nn.id}</option>`).join('')}</select>
+                    ${!readOnly?`<select id="${winId}_npcPicker" style="background:#0f172a;border:1px solid #334155;color:#e2e8f0;font-size:0.65rem;border-radius:0.25rem;padding:0.2rem 0.35rem;width:100%;box-sizing:border-box;"><option value="">— Link World NPC —</option>${(_wNotes.npcs||[]).filter(wn=>!(tok.linkedNpcs||[]).includes(wn.id)).map(wn=>`<option value="${wn.id}">${wn.name||"Unnamed"}${wn.role?" — "+wn.role:""}</option>`).join('')}</select>
                     <button onclick="window._linkTokenNpc('${mapId}','${tokenId}','${winId}')" style="width:100%;background:#1e3a5f;border:1px solid #334155;color:#93c5fd;font-size:0.65rem;font-weight:700;padding:0.2rem;border-radius:0.25rem;cursor:pointer;margin-top:0.15rem;">+ Link</button>`:''}
                 </div>
                 ${!readOnly?`<div style="display:flex;gap:0.5rem;">
@@ -2268,6 +2271,33 @@ document.addEventListener('DOMContentLoaded', () => {
         saveWorldNotes();
         window.openTokenInfoWin(mapId, tokenId, 'omWin_'+mapId, false);
         document.getElementById(winId)?.remove();
+    };
+
+    // Show a small info popup for a world NPC linked to an area token
+    window.openTokenNpcInfo = function(mapId, tokenId, npcId, parentWinId) {
+        let wn = (_wNotes.npcs||[]).find(n=>n.id===npcId); if(!wn) return;
+        let winId = 'tnpcInfo_'+npcId;
+        document.getElementById(winId)?.remove();
+        _omTokenZ++;
+        let win = document.createElement('div');
+        win.id = winId;
+        win.style.cssText = `position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:260px;
+            background:#1e293b;border:1px solid #334155;border-radius:0.5rem;z-index:${_omTokenZ};
+            box-shadow:0 10px 40px rgba(0,0,0,.8);`;
+        let sbBtn = wn.statBlockId
+            ? `<button onclick="window.openFloatingNpcStatBlockById('${wn.statBlockId}')" style="width:100%;background:#312e81;border:1px solid #4f46e5;color:#c7d2fe;font-size:0.7rem;font-weight:700;padding:0.35rem;border-radius:0.25rem;cursor:pointer;margin-top:0.5rem;">View Stat Block</button>`
+            : '';
+        win.innerHTML = `<div style="background:#1e293b;padding:0.75rem;border-bottom:1px solid #334155;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:0.8rem;font-weight:700;color:#e2e8f0;">${wn.name||'NPC'}</span>
+            <button onclick="document.getElementById('${winId}').remove()" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:1rem;">&#x2715;</button>
+        </div>
+        <div style="padding:0.75rem;">
+            ${wn.role?`<div style="font-size:0.65rem;color:#94a3b8;margin-bottom:0.4rem;">${wn.role}</div>`:''}
+            ${wn.description?`<div style="font-size:0.7rem;color:#cbd5e1;">${wn.description}</div>`:''}
+            ${sbBtn}
+        </div>`;
+        document.getElementById('floatingWindowContainer').appendChild(win);
+        win.addEventListener('mousedown', ()=>{ _omTokenZ++; win.style.zIndex=_omTokenZ; });
     };
 
     window._saveToken = function(mapId, tokenId, winId, parentWinId) {
@@ -2852,10 +2882,11 @@ document.addEventListener('DOMContentLoaded', () => {
                          transform:translate(-50%,-100%) scale(${pinScale}); transform-origin:50% 100%;
                          pointer-events:auto; cursor:pointer; will-change:transform;"
                      onmousedown="event.stopPropagation()"
-                     onclick="window.openNoteModal('location','${l.id}')" title="${l.name||'Location'}">
+                     onclick="${l.linkedOtherMapId ? `window.openOtherMapWindow('${l.linkedOtherMapId}')` : `window.openNoteModal('location','${l.id}')`}"
+                     title="${l.name||'Location'}${l.linkedOtherMapId?' — click to open linked map':''}">
                 <div style="background:${c}; color:${textColor}; font-size:11px; font-weight:700; padding:2px 6px;
                             border-radius:3px; white-space:nowrap; box-shadow:0 1px 4px rgba(0,0,0,.6);
-                            min-width:12px; min-height:14px; text-shadow: none;">${l.name||'?'}</div>
+                            min-width:12px; min-height:14px; text-shadow: none; display:flex; align-items:center; gap:2px;">${l.name||'?'}${l.linkedOtherMapId?'<span style="font-size:9px;opacity:0.8;">🗺</span>':''}</div>
                 <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid ${c};margin:0 auto;"></div>
             </div>`;
         }).join('');
@@ -2922,12 +2953,25 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     function _fogMoveCursor(e, mapId) {
-        let cursor = document.getElementById('fogCursor'); if (!cursor) return;
-        let container = mapId==='worldmap'
+        // For world map: use the fixed fogCursor div inside mapContainer.
+        // For other maps: create/find a cursor div inside the map window's area.
+        let cursorId = mapId === 'worldmap' ? 'fogCursor' : 'omWin_'+mapId+'_fogCursorDiv';
+        let cursor   = document.getElementById(cursorId);
+        if (!cursor && mapId !== 'worldmap') {
+            let area = document.getElementById('omWin_'+mapId+'_area');
+            if (area) {
+                cursor = document.createElement('div');
+                cursor.id = cursorId;
+                cursor.style.cssText = 'position:absolute;border-radius:50%;border:2px solid rgba(255,255,255,0.85);pointer-events:none;display:none;box-shadow:0 0 0 1px rgba(0,0,0,0.5);transform:translate(-50%,-50%);z-index:50;';
+                area.appendChild(cursor);
+            }
+        }
+        if (!cursor) return;
+        let container = mapId === 'worldmap'
             ? document.getElementById('mapContainer')
             : document.getElementById('omWin_'+mapId+'_area');
         if (!container) return;
-        let r = container.getBoundingClientRect();
+        let r    = container.getBoundingClientRect();
         let size = (_fogBrushSize||40) * 2;
         cursor.style.left   = (e.clientX - r.left) + 'px';
         cursor.style.top    = (e.clientY - r.top)  + 'px';
@@ -3008,10 +3052,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function _omAttachFogEvents(mapId, winId, win) {
         let area = document.getElementById(winId+'_area'); if (!area||area._fogEvtAttached) return;
         area._fogEvtAttached = true;
+        area.style.cursor = 'none'; // will be set properly by toggleFogMode
         area.addEventListener('mousemove', e => {
             if (_fogMode !== mapId) return;
+            _fogErase = e.shiftKey;
             _fogMoveCursor(e, mapId);
-            if (_fogPainting) { _fogErase=e.shiftKey; _fogPaint(e, mapId); }
+            if (_fogPainting) _fogPaint(e, mapId);
         });
         area.addEventListener('mousedown', e => {
             if (_fogMode !== mapId || e.button!==0) return;
@@ -3021,7 +3067,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!_fogPainting||_fogMode!==mapId) return;
             _fogPainting=false; await _fogSave(mapId);
         }, true);
-        area.addEventListener('mouseleave', ()=>{ _fogPainting=false; let c=document.getElementById('fogCursor'); if(c)c.style.display='none'; });
+        area.addEventListener('mouseleave', ()=>{
+            _fogPainting=false;
+            let c = document.getElementById('omWin_'+mapId+'_fogCursorDiv');
+            if (c) c.style.display='none';
+        });
     }
 
     // ── Modal open hook ──────────────────────────────────────────
