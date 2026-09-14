@@ -3061,19 +3061,12 @@
             let textColor = lum > 0.55 ? '#111111' : '#ffffff';
             let hasMap = l.linkedOtherMapId && revealedMapIds.has(l.linkedOtherMapId);
             let clickAct = hasMap
-                ? \`window.openPlayerOtherMapWindow('\${l.linkedOtherMapId}')\`
-                : \`window.pwZoomToPin('\${l.id}')\`;
-            return \`<div style="position:absolute;left:\${l.pinX*imgW}px;top:\${l.pinY*imgH}px;
-                         transform:translate(-50%,-100%) scale(\${pinScale});transform-origin:50% 100%;
-                         pointer-events:auto;cursor:pointer;will-change:transform;"
-                         onclick="\${clickAct}">
-                <div style="background:\${col};color:\${textColor};font-size:11px;font-weight:700;padding:2px 6px;
-                            border-radius:3px;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.6);
-                            min-width:12px;min-height:14px;display:flex;align-items:center;gap:2px;">
-                    \${l.name||'?'}\${hasMap?'<span style="font-size:9px;">🗺</span>':''}
-                </div>
-                <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid \${col};margin:0 auto;"></div>
-            </div>\`;
+                ? "window.openPlayerOtherMapWindow('" + l.linkedOtherMapId + "')"
+                : "window.pwZoomToPin('" + l.id + "')";
+            let mapIcon = hasMap ? '<span style="font-size:9px;">🗺</span>' : '';
+            return '<div style="position:absolute;left:' + (l.pinX*imgW) + 'px;top:' + (l.pinY*imgH) + 'px;transform:translate(-50%,-100%) scale(' + pinScale + ');transform-origin:50% 100%;pointer-events:auto;cursor:pointer;will-change:transform;" onclick="' + clickAct + '">'
+                + '<div style="background:' + col + ';color:' + textColor + ';font-size:11px;font-weight:700;padding:2px 6px;border-radius:3px;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.6);min-width:12px;min-height:14px;display:flex;align-items:center;gap:2px;">' + (l.name||'?') + mapIcon + '</div>'
+                + '<div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid ' + col + ';margin:0 auto;"></div></div>';
         }).join('');
     }
 
