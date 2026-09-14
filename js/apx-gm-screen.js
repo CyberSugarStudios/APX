@@ -1024,7 +1024,7 @@ window.renderInitiativeTracker = function() {
 // to show for them.
 // ------------------------------------------------------------------
 window.gmFloatingWindows = {}; // entryId -> DOM element
-let gmFloatingZTop = 200;
+window.apxFloatingZTop = window.apxFloatingZTop || 2000;
 
 window.openFloatingStatBlock = function(entryId) {
     let entry = window.gmInitiative.find(e => e.id === entryId);
@@ -1032,8 +1032,8 @@ window.openFloatingStatBlock = function(entryId) {
 
     // Already open -- just bring it to front instead of spawning a duplicate.
     if (window.gmFloatingWindows[entryId]) {
-        gmFloatingZTop++;
-        window.gmFloatingWindows[entryId].style.zIndex = gmFloatingZTop;
+        window.apxFloatingZTop++;
+        window.gmFloatingWindows[entryId].style.zIndex = window.apxFloatingZTop;
         return;
     }
 
@@ -1056,8 +1056,8 @@ window.openFloatingStatBlock = function(entryId) {
     win.className = 'floating-stat-window';
     win.style.left = `${120 + Object.keys(window.gmFloatingWindows).length * 24}px`;
     win.style.top = `${100 + Object.keys(window.gmFloatingWindows).length * 24}px`;
-    gmFloatingZTop++;
-    win.style.zIndex = gmFloatingZTop;
+    window.apxFloatingZTop++;
+    win.style.zIndex = window.apxFloatingZTop;
     win.innerHTML = `
         <div class="floating-stat-window-header">
             <span class="text-sm font-black text-white">${entry.name}</span>
@@ -1069,8 +1069,8 @@ window.openFloatingStatBlock = function(entryId) {
     window.gmFloatingWindows[entryId] = win;
 
     win.addEventListener('mousedown', () => {
-        gmFloatingZTop++;
-        win.style.zIndex = gmFloatingZTop;
+        window.apxFloatingZTop++;
+        win.style.zIndex = window.apxFloatingZTop;
     });
 
     let header = win.querySelector('.floating-stat-window-header');
@@ -1118,16 +1118,16 @@ window.closeAllFloatingStatBlocks = function() {
 // stat blocks so they open in the same draggable panel as initiative entries.
 window.openFloatingStatBlockRaw = function(winId, title, bodyHtml) {
     if (window.gmFloatingWindows[winId]) {
-        gmFloatingZTop++;
-        window.gmFloatingWindows[winId].style.zIndex = gmFloatingZTop;
+        window.apxFloatingZTop++;
+        window.gmFloatingWindows[winId].style.zIndex = window.apxFloatingZTop;
         return;
     }
     let win = document.createElement('div');
     win.className = 'floating-stat-window';
     win.style.left = `${120 + Object.keys(window.gmFloatingWindows).length * 24}px`;
     win.style.top  = `${100 + Object.keys(window.gmFloatingWindows).length * 24}px`;
-    gmFloatingZTop++;
-    win.style.zIndex = gmFloatingZTop;
+    window.apxFloatingZTop++;
+    win.style.zIndex = window.apxFloatingZTop;
     win.innerHTML = `
         <div class="floating-stat-window-header">
             <span class="text-sm font-black text-white">${title}</span>
@@ -1144,7 +1144,7 @@ window.openFloatingStatBlockRaw = function(winId, title, bodyHtml) {
     else container.appendChild(win);
     window.gmFloatingWindows[winId] = win;
 
-    win.addEventListener('mousedown', () => { gmFloatingZTop++; win.style.zIndex = gmFloatingZTop; });
+    win.addEventListener('mousedown', () => { window.apxFloatingZTop++; win.style.zIndex = window.apxFloatingZTop; });
     let header = win.querySelector('.floating-stat-window-header');
     let dragging = false, offsetX = 0, offsetY = 0;
     function onMouseDown(e) {

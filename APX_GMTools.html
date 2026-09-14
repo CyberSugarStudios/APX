@@ -1727,7 +1727,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </label>
                 </div>
             </div>
-            ${sn.content?`<div class="text-[10px] text-slate-400 mt-1 line-clamp-2">${sn.content}</div>`:''}
+            ${sn.content?`<div class="text-[10px] text-slate-400 mt-1" style="white-space:pre-wrap;">${sn.content}</div>`:''}
         </div>`).join('');
 
         el.innerHTML = (standaloneHtml + subHtml) || emptyState('No notes yet');
@@ -1894,10 +1894,14 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // ── Players tab ───────────────────────────────────────────────
+    // ── Shared floating-window z-index ────────────────────────────
+    // Single counter used by ALL floating windows (GM stat blocks, token info,
+    // Other Map windows, player map windows) so clicking any window brings it
+    // above all others regardless of type.
+    window.apxFloatingZTop = window.apxFloatingZTop || 2000;
+
     // ── Other Maps system ─────────────────────────────────────────
     let _omImageCache = {};   // { mapId: base64 } — session cache
-    let _omFloatingZ  = 1200; // z-index counter for map windows (above stat blocks)
-    let _omTokenZ     = 1400; // z-index counter for token info windows
 
     window.renderOtherMapsList = function() {
         let el = document.getElementById('otherMapsList'); if (!el) return;
@@ -1956,14 +1960,21 @@ document.addEventListener('DOMContentLoaded', () => {
         let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId); if (!map) return;
         let winId = 'omWin_'+mapId;
         let existing = document.getElementById(winId);
-        if (existing) { _omFloatingZ++; existing.style.zIndex=_omFloatingZ; return; }
+        if (existing) {
+            window.apxFloatingZTop++;
+            existing.style.zIndex = window.apxFloatingZTop;
+            // Ensure cursor is correct — fog mode may have left it as 'none'
+            let ea = document.getElementById(winId+'_area');
+            if (ea && _fogMode !== mapId) ea.style.cursor = 'crosshair';
+            return;
+        }
 
-        _omFloatingZ++;
+        window.apxFloatingZTop++;
         let offset = document.querySelectorAll('[id^="omWin_"]').length * 30;
         let win = document.createElement('div');
         win.id = winId;
         win.style.cssText = `position:fixed;left:${170+offset}px;top:${90+offset}px;width:730px;height:540px;
-            background:#0f172a;border:1px solid #334155;border-radius:0.75rem;z-index:${_omFloatingZ};
+            background:#0f172a;border:1px solid #334155;border-radius:0.75rem;z-index:${window.apxFloatingZTop};
             display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.85);
             min-width:380px;min-height:300px;resize:both;overflow:hidden;`;
 
@@ -2005,7 +2016,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => { win._justOpened = false; }, 350);
 
         // Bring to front on any click
-        win.addEventListener('mousedown', () => { _omFloatingZ++; win.style.zIndex=_omFloatingZ; });
+        win.addEventListener('mousedown', () => { window.apxFloatingZTop++; win.style.zIndex=window.apxFloatingZTop; });
 
         // Window drag (header)
         let hdr = document.getElementById(winId+'_hdr');
@@ -2216,7 +2227,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <button onclick="window._unlinkTokenNpc('${mapId}','${tokenId}','${nid}','${winId}')"
                     style="background:none;border:none;color:#64748b;cursor:pointer;">&#x2715;</button>
             </div>`;
-        }).join('') || '<div style="font-size:0.65rem;color:#475569;">No NPCs linked yet</div>';
+        }).join('');
     }
     function _buildTokenNpcPicker(tok, mapId, tokenId, winId) {
         if (!tok || tok.linkedNpcs?.length >= (_wNotes.npcs||[]).length) return '';
@@ -2232,8 +2243,8 @@ document.addEventListener('DOMContentLoaded', () => {
         let tok=map?.tokens?.find(t=>t.id===tokenId); if(!tok) return;
         let winId='omTok_'+tokenId;
         let existing=document.getElementById(winId);
-        if(existing){ _omTokenZ++; existing.style.zIndex=_omTokenZ; return; }
-        _omTokenZ++;
+        if(existing){ window.apxFloatingZTop++; existing.style.zIndex=window.apxFloatingZTop; return; }
+        window.apxFloatingZTop++;
         let pWin=document.getElementById(parentWinId);
         let pr=pWin?pWin.getBoundingClientRect():{left:200,top:100,width:730};
         let lx=Math.min(pr.left+pr.width+8, window.innerWidth-310);
@@ -2241,7 +2252,7 @@ document.addEventListener('DOMContentLoaded', () => {
         win.id=winId;
         win.style.cssText=`position:fixed;left:${lx}px;top:${pr.top}px;width:290px;
             background:#1e293b;border:1px solid #6366f1;border-radius:0.5rem;
-            z-index:${_omTokenZ};box-shadow:0 10px 40px rgba(0,0,0,.8);`;
+            z-index:${window.apxFloatingZTop};box-shadow:0 10px 40px rgba(0,0,0,.8);`;
         win.innerHTML=`
             <div id="${winId}_hdr" style="cursor:grab;user-select:none;background:#312e81;padding:0.5rem 0.75rem;
                 border-bottom:1px solid #4f46e5;border-radius:0.5rem 0.5rem 0 0;display:flex;align-items:center;gap:0.5rem;">
@@ -2274,11 +2285,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     <input type="checkbox" id="${winId}_revealed" ${tok.revealed?'checked':''} style="width:14px;height:14px;">
                     <span style="color:${tok.revealed?'#4ade80':'#94a3b8'};">Revealed to players</span>
                 </label>`:''}
-                <div>
-                    <div style="font-size:0.65rem;color:#94a3b8;font-weight:700;text-transform:uppercase;margin-bottom:0.25rem;">Linked NPC Stat Blocks</div>
+                ${(tok.linkedNpcs&&tok.linkedNpcs.length>0)||!readOnly?`<div>
+                    ${tok.linkedNpcs&&tok.linkedNpcs.length>0?'<div style="font-size:0.65rem;color:#94a3b8;font-weight:700;text-transform:uppercase;margin-bottom:0.25rem;">Linked NPCs</div>':''}
                     <div id="${winId}_npcLinks">${_buildTokenNpcLinks(tok, mapId, tokenId, winId)}</div>
                     ${!readOnly?_buildTokenNpcPicker(tok, mapId, tokenId, winId):""}
-                </div>
+                </div>`:''}
                 ${!readOnly?`<div style="display:flex;gap:0.5rem;">
                     <button onclick="window._saveToken('${mapId}','${tokenId}','${winId}','${parentWinId}')"
                         style="flex:1;background:#4f46e5;border:none;color:#fff;font-size:0.7rem;font-weight:700;padding:0.4rem;border-radius:0.25rem;cursor:pointer;">Save</button>
@@ -2288,7 +2299,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>`;
 
         document.getElementById('floatingWindowContainer').appendChild(win);
-        win.addEventListener('mousedown', ()=>{ _omTokenZ++; win.style.zIndex=_omTokenZ; });
+        win.addEventListener('mousedown', ()=>{ window.apxFloatingZTop++; win.style.zIndex=window.apxFloatingZTop; });
         let hdr=document.getElementById(winId+'_hdr'), wDrag=false, wOX=0, wOY=0;
         hdr.addEventListener('mousedown', e=>{ if(e.target.tagName==='BUTTON')return; wDrag=true; let r=win.getBoundingClientRect(); wOX=e.clientX-r.left; wOY=e.clientY-r.top; e.preventDefault(); });
         let mm=e=>{ if(!wDrag)return; win.style.left=Math.max(0,Math.min(window.innerWidth-60,e.clientX-wOX))+'px'; win.style.top=Math.max(0,Math.min(window.innerHeight-40,e.clientY-wOY))+'px'; };
@@ -2347,11 +2358,11 @@ document.addEventListener('DOMContentLoaded', () => {
         let wn = (_wNotes.npcs||[]).find(n=>n.id===npcId); if(!wn) return;
         let winId = 'tnpcInfo_'+npcId;
         document.getElementById(winId)?.remove();
-        _omTokenZ++;
+        window.apxFloatingZTop++;
         let win = document.createElement('div');
         win.id = winId;
         win.style.cssText = `position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:260px;
-            background:#1e293b;border:1px solid #334155;border-radius:0.5rem;z-index:${_omTokenZ};
+            background:#1e293b;border:1px solid #334155;border-radius:0.5rem;z-index:${window.apxFloatingZTop};
             box-shadow:0 10px 40px rgba(0,0,0,.8);`;
         let sbBtn = wn.statBlockId
             ? `<button onclick="window.openFloatingNpcStatBlockById('${wn.statBlockId}')" style="width:100%;background:#312e81;border:1px solid #4f46e5;color:#c7d2fe;font-size:0.7rem;font-weight:700;padding:0.35rem;border-radius:0.25rem;cursor:pointer;margin-top:0.5rem;">View Stat Block</button>`
@@ -2366,7 +2377,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ${sbBtn}
         </div>`;
         document.getElementById('floatingWindowContainer').appendChild(win);
-        win.addEventListener('mousedown', ()=>{ _omTokenZ++; win.style.zIndex=_omTokenZ; });
+        win.addEventListener('mousedown', ()=>{ window.apxFloatingZTop++; win.style.zIndex=window.apxFloatingZTop; });
     };
 
     window._saveToken = function(mapId, tokenId, winId, parentWinId) {
@@ -2870,6 +2881,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (!_mapDragging) return;
         _mapDragging = false;
+        // Ensure cursor stays crosshair after any click (pin clicks open Other Maps which may affect cursor)
+        let mc = document.getElementById('mapContainer');
+        if (mc) mc.style.cursor = 'crosshair';
         if (!_mapDidDrag && _mapImg && _mapImg.src && _mapImg.src.length > 10) {
             let container = document.getElementById('mapContainer');
             let rect = container.getBoundingClientRect();
@@ -3024,6 +3038,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (controls && mapId === 'worldmap') controls.style.display = 'flex';
             if (hint)     hint.textContent = '';
             if (container) container.style.cursor = 'none';
+        }
+        // Re-render tokens so pointer-events toggles with fog mode
+        if (mapId !== 'worldmap') {
+            let winId = 'omWin_'+mapId;
+            let win   = document.getElementById(winId);
+            if (win) _omRenderTok(winId, win);
         }
     };
 
