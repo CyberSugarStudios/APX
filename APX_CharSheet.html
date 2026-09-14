@@ -3097,6 +3097,13 @@
     })(window.openModal);
 
     function renderPlayerWorld() {
+        // Remember which tab is active before re-rendering (real-time updates should not reset it)
+        let currentTab = null;
+        ['locations','npcs','notes','othermaps','map'].forEach(t => {
+            let p = document.getElementById(`pwPanel${t.charAt(0).toUpperCase()}${t.slice(1)}`);
+            if (p && !p.classList.contains('hidden')) currentTab = t;
+        });
+
         let isSignedIn = !!(window.apxAuth?.enabled && window.apxAuth?.user);
         let worlds = _getWorlds();
 
@@ -3217,6 +3224,8 @@
 
         // Other Maps panel — just list them; actual viewing is via floating window
         renderPlayerOtherMaps();
+        // Restore the tab that was active before this re-render (real-time updates shouldn't reset it)
+        if (currentTab) window.showPlayerWorldTab(currentTab);
     }
 
     function renderPlayerOtherMaps() {
@@ -3275,7 +3284,8 @@
                 </div>
             </div>`;
 
-        document.getElementById('playerWorldModal').appendChild(win);
+        // Append to body (not inside the World modal) so it stays open when modal closes
+        document.body.appendChild(win);
         win._scale=1; win._offX=0; win._offY=0; win._dragging=false; win._didDrag=false;
         win._dragSX=0; win._dragSY=0; win._dragOX=0; win._dragOY=0;
 

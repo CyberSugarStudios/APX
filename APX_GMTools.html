@@ -1522,7 +1522,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         notes:         w.notesV2.notes         || [],
                         otherMaps:     (w.notesV2.otherMaps||[]).map(m=>({
                             id:m.id, name:m.name, revealed:!!m.revealed,
-                            tokens:(m.tokens||[]).map(t=>({id:t.id,letter:t.letter,x:t.x,y:t.y,name:t.name||'',description:t.description||''}))
+                            tokens:(m.tokens||[]).map(t=>({id:t.id,letter:t.letter,x:t.x,y:t.y,name:t.name||'',description:t.description||'',revealed:!!t.revealed,linkedNpcs:t.linkedNpcs||[]}))
                         })),
                         worldMapSaved: w.notesV2.worldMapSaved || false,
                     }
@@ -2000,6 +2000,9 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('floatingWindowContainer').appendChild(win);
         win._scale=1; win._offX=0; win._offY=0; win._dragging=false; win._didDrag=false;
         win._dragSX=0; win._dragSY=0; win._dragOX=0; win._dragOY=0;
+        // Brief guard to prevent the click that opened this window from also placing a token
+        win._justOpened = true;
+        setTimeout(() => { win._justOpened = false; }, 350);
 
         // Bring to front on any click
         win.addEventListener('mousedown', () => { _omFloatingZ++; win.style.zIndex=_omFloatingZ; });
@@ -2089,20 +2092,27 @@ document.addEventListener('DOMContentLoaded', () => {
         let iw=img.naturalWidth, ih=img.naturalHeight;
         layer.style.width=iw+'px'; layer.style.height=ih+'px';
         let ps=Math.max(0.5,Math.min(2.5,1/win._scale));
-        // Green = revealed to players, Red = hidden from players
+        let fogActive = (_fogMode === mapId);
+        // In fog mode, tokens are non-interactive so you can paint fog over them
+        let tokPE = fogActive ? 'none' : 'auto';
         layer.innerHTML=(map.tokens||[]).map(t=>`
             <div data-om-token="${t.id}" style="position:absolute;left:${t.x*iw}px;top:${t.y*ih}px;
                 transform:translate(-50%,-50%) scale(${ps});transform-origin:50% 50%;
-                pointer-events:auto;cursor:pointer;will-change:transform;"
-                onclick="event.stopPropagation();window.openTokenInfoWin('${mapId}','${t.id}','${winId}',false)">
+                pointer-events:${tokPE};cursor:${fogActive?'default':'pointer'};will-change:transform;"
+                onclick="event.stopPropagation();window.openTokenInfoWin('${mapId}','${t.id}','${winId}',true)">
                 <div style="width:26px;height:26px;background:${t.revealed?'#16a34a':'#dc2626'};border:2.5px solid #fff;border-radius:50%;
                     display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#fff;
                     box-shadow:0 2px 6px rgba(0,0,0,.65);"
-                    onmouseenter="this.style.transform='scale(1.2)'" onmouseleave="this.style.transform=''">${t.letter}</div>
+                    onmouseenter="if(!${fogActive}) this.style.transform='scale(1.2)'" onmouseleave="this.style.transform=''">${t.letter}</div>
             </div>`).join('');
     }
 
     function _omClick(mapId, winId, win, e) {
+        // Don't place a token if the window just opened (prevents accidental tokens
+        // when the click that opened this window also fires on the area)
+        if (win._justOpened) return;
+        // Don't place a token if fog mode is active for this map
+        if (_fogMode === mapId) return;
         let img=document.getElementById(winId+'_img'); if(!img||!img.naturalWidth) return;
         let area=document.getElementById(winId+'_area'); if(!area) return;
         let r=area.getBoundingClientRect();
@@ -2216,6 +2226,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── Token info floating window ────────────────────────────────
     window.openTokenInfoWin = function(mapId, tokenId, parentWinId, readOnly) {
+        // Default to read-only (info view). New tokens pass false to open in edit mode.
+        if (readOnly === undefined) readOnly = true;
         let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId);
         let tok=map?.tokens?.find(t=>t.id===tokenId); if(!tok) return;
         let winId='omTok_'+tokenId;
@@ -2236,6 +2248,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div style="width:24px;height:24px;background:#dc2626;border:2px solid #fff;border-radius:50%;
                     display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#fff;flex-shrink:0;">${tok.letter}</div>
                 <span style="font-size:0.75rem;font-weight:700;color:#e2e8f0;flex:1;">Area ${tok.letter}</span>
+                ${readOnly?`<button onclick="document.getElementById('${winId}').remove();window.openTokenInfoWin('${mapId}','${tokenId}','${parentWinId}',false)"
+                    style="font-size:0.65rem;font-weight:700;padding:0.2rem 0.5rem;background:#1e3a5f;border:1px solid #2563eb;color:#93c5fd;border-radius:0.25rem;cursor:pointer;">Edit</button>`:''}
                 <button onclick="document.getElementById('${winId}').remove()"
                     style="background:none;border:none;color:#94a3b8;font-size:1.1rem;cursor:pointer;line-height:1;padding:0 0.2rem;">✕</button>
             </div>
@@ -2983,25 +2997,31 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     window.toggleFogMode = function(mapId) {
-        let btn = document.getElementById('fogToggleBtn');
+        // btn and controls are only in the world map toolbar
+        let btn      = mapId === 'worldmap' ? document.getElementById('fogToggleBtn') : document.getElementById('omWin_'+mapId+'_fogBtn');
         let controls = document.getElementById('fogControls');
-        let hint = document.getElementById('mapHint');
-        let cursor = document.getElementById('fogCursor');
-        let container = mapId==='worldmap'
+        let hint     = document.getElementById('mapHint');
+        // Cursor element differs per map
+        let cursorEl = mapId === 'worldmap'
+            ? document.getElementById('fogCursor')
+            : document.getElementById('omWin_'+mapId+'_fogCursorDiv');
+        let container = mapId === 'worldmap'
             ? document.getElementById('mapContainer')
             : document.getElementById('omWin_'+mapId+'_area');
 
         if (_fogMode === mapId) {
+            // EXIT fog mode
             _fogMode = false; _fogPainting = false;
             if (btn)      { btn.style.background=''; btn.style.color=''; }
             if (controls) controls.style.display = 'none';
             if (hint)     hint.textContent = 'Click map to pin a Location. Drag to pan.';
-            if (cursor)   cursor.style.display = 'none';
+            if (cursorEl) { cursorEl.style.display = 'none'; }
             if (container) container.style.cursor = 'crosshair';
         } else {
+            // ENTER fog mode
             _fogMode = mapId;
             if (btn)      { btn.style.background='#b45309'; btn.style.color='#fff'; }
-            if (controls) controls.style.display = 'flex';
+            if (controls && mapId === 'worldmap') controls.style.display = 'flex';
             if (hint)     hint.textContent = '';
             if (container) container.style.cursor = 'none';
         }
