@@ -1181,9 +1181,10 @@ window.openFloatingNpcStatBlockById = function(gmNpcId, npcDisplayName) {
     }
     if (!window.openFloatingStatBlockRaw) return;
     let sb = ncStatBlockFor(gmNpcId);
-    let sbName = entry.npc?.name || 'NPC';
-    let title  = (npcDisplayName && npcDisplayName !== sbName)
-        ? npcDisplayName + ' (' + sbName + ')'
+    let sbName    = entry.npc?.name || 'NPC';
+    let firstName = npcDisplayName ? npcDisplayName.split(' ')[0] : sbName;
+    let title     = (npcDisplayName && sbName !== npcDisplayName)
+        ? firstName + ' (' + sbName + ')'
         : sbName;
     window.openFloatingStatBlockRaw(winId, title, window.buildStatBlockHtml(sb, false));
 };
