@@ -1,3 +1,4 @@
+// APX npc-crafter v2026.9.14 build 1789437470
 // ============================================================
 // APX Character Sheet — NPC Crafter (Loyal Companion + GM NPC Builder)
 // Chapter 15's Threat Point system. Two independent uses share this same
