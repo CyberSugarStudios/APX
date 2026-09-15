@@ -2118,7 +2118,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
         if (!map) return;
         let overlay = document.createElement('div');
-        overlay.style.cssText = 'position:fixed;inset:0;z-index:1600;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;`;
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:1600;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;';
         overlay.innerHTML = `<div style="background:#1e293b;border:1px solid #475569;border-radius:0.75rem;padding:1.5rem;max-width:340px;width:90vw;">
             <div style="font-size:0.8rem;font-weight:700;color:#f8fafc;margin-bottom:0.5rem;">Delete "${map.name}"?</div>
             <div style="font-size:0.7rem;color:#94a3b8;margin-bottom:1.25rem;">This will delete the map and all its area tokens permanently.</div>
@@ -2784,7 +2784,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (existing) existing.remove();
         let overlay = document.createElement('div');
         overlay.id = 'gmKickOverlay';
-        overlay.style.cssText = 'position:fixed;inset:0;z-index:1600;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;`;
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:1600;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;';
         overlay.innerHTML = `<div style="background:#1e293b;border:1px solid #475569;border-radius:0.75rem;padding:1.5rem;max-width:320px;width:90vw;">
             <div style="font-size:0.8rem;font-weight:700;color:#f8fafc;margin-bottom:0.5rem;">Kick <span style="color:#fbbf24;">${displayName}</span>?</div>
             <div style="font-size:0.7rem;color:#94a3b8;margin-bottom:1.25rem;">Do you want to ban this player from rejoining?</div>
