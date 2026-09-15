@@ -1642,7 +1642,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let linked = n.statBlockId ? window.gmNpcs?.find(g=>g.id===n.statBlockId) : null;
                 let statBadge = linked
                     ? `<span class="flex gap-1">
-                           <button onclick="event.stopPropagation();window.openFloatingNpcStatBlockById('${n.statBlockId}','${(n.name||'').replace(/\'/g,"\\\'")}'" class="text-[9px] bg-indigo-900/50 border border-indigo-700/50 text-indigo-300 px-1.5 py-0.5 rounded font-bold hover:bg-indigo-900">View Stat Block</button>
+                           <button onclick="event.stopPropagation();window._viewWorldNpcSb('${n.id}','${n.statBlockId}')" class="text-[9px] bg-indigo-900/50 border border-indigo-700/50 text-indigo-300 px-1.5 py-0.5 rounded font-bold hover:bg-indigo-900">View Stat Block</button>
                            <button onclick="event.stopPropagation();window.openGmNpcBuilder('${n.statBlockId}')" class="text-[9px] bg-slate-800 border border-slate-700 text-slate-400 px-1.5 py-0.5 rounded font-bold hover:border-slate-500">Edit</button>
                        </span>`
                     : `<button onclick="event.stopPropagation();window.openNpcStatBlockPicker('${n.id}')" class="text-[9px] bg-slate-800 border border-slate-600 text-slate-400 px-1.5 py-0.5 rounded font-bold hover:border-slate-400">Link Stat Block</button>`;
@@ -2230,13 +2230,20 @@ document.addEventListener('DOMContentLoaded', () => {
         // Map pan/zoom
         let area = document.getElementById(winId+'_area');
         area.addEventListener('mousedown', e => {
-            if (e.button!==0||e.target.tagName==='BUTTON') return;
+            // Allow Ctrl+click and Middle-click to pan even in fog mode
+            let isPanOverride = e.button === 1 || (e.button === 0 && e.ctrlKey);
+            if (e.button !== 0 && !isPanOverride) return;
+            if (e.target.tagName === 'BUTTON') return;
+            if (_fogMode === mapId && !isPanOverride) return; // fog capture handles it
+            e.preventDefault();
             win._dragging=true; win._didDrag=false; win._clickTarget=e.target;
             win._dragSX=e.clientX; win._dragSY=e.clientY; win._dragOX=win._offX; win._dragOY=win._offY;
-            area.style.cursor='grabbing'; e.preventDefault();
+            area.style.cursor='grabbing';
         });
         area.addEventListener('mousemove', e => {
             if (!win._dragging) return;
+            // Show crosshair cursor during pan override (not hidden fog cursor)
+            if (_fogMode === mapId) area.style.cursor = 'crosshair';
             let dx=e.clientX-win._dragSX, dy=e.clientY-win._dragSY;
             if (Math.abs(dx)+Math.abs(dy)>4) win._didDrag=true;
             win._offX=win._dragOX+dx; win._offY=win._dragOY+dy;
@@ -2244,7 +2251,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         area.addEventListener('mouseup', e => {
             if (!win._dragging) return;
-            win._dragging=false; area.style.cursor='crosshair';
+            win._dragging=false;
+            // Restore correct cursor: none in fog mode, crosshair otherwise
+            area.style.cursor = (_fogMode === mapId) ? 'none' : 'crosshair';
             // Skip place-token if the click started on an existing token circle
             let wasOnToken = win._clickTarget?.closest?.('[data-om-token]');
             if (!win._didDrag && !wasOnToken) _omClick(mapId, winId, win, e);
@@ -2407,6 +2416,13 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
 
+    // Helper used by onclick attributes to open a world NPC's stat block
+    // (avoids complex string escaping inside HTML attribute values)
+    window._viewWorldNpcSb = function(worldNpcId, gmNpcId) {
+        let wn = (_wNotes?.npcs||[]).find(n=>n.id===worldNpcId);
+        window.openFloatingNpcStatBlockById(gmNpcId, wn?.name||'');
+    };
+
     // ── Token NPC link helpers ────────────────────────────────────
     // Separated from the template literal to avoid nested backtick issues.
     function _buildTokenNpcLinks(tok, mapId, tokenId, winId) {
@@ -2414,7 +2430,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let wn = (_wNotes.npcs||[]).find(x => x.id === nid);
             if (!wn) return '';
             let sbBtn = wn.statBlockId
-                ? `<button onclick="event.stopPropagation();window.openFloatingNpcStatBlockById('${wn.statBlockId}','${(wn.name||'NPC').replace(/'/g,"\\'")}')" style="font-size:0.6rem;padding:0.1rem 0.3rem;background:#312e81;border:1px solid #4f46e5;color:#c7d2fe;border-radius:0.2rem;cursor:pointer;">Stat Block</button>`
+                ? `<button onclick="event.stopPropagation();window._viewWorldNpcSb('${nid}','${wn.statBlockId}')" style="font-size:0.6rem;padding:0.1rem 0.3rem;background:#312e81;border:1px solid #4f46e5;color:#c7d2fe;border-radius:0.2rem;cursor:pointer;">Stat Block</button>`
                 : '';
             return `<div style="display:flex;align-items:center;gap:0.3rem;margin-bottom:0.15rem;">
                 <button onclick="window.openTokenNpcInfo('${mapId}','${tokenId}','${nid}','${winId}')"
@@ -2739,10 +2755,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         saveWorldNotes();
         window.renderOtherMapsList();
-        // Refresh Notes tab in-place so new/updated sub-notes appear
         let _np = document.getElementById('wPanelNotes');
         if (_np && !_np.classList.contains('hidden')) window.renderNoteList();
         document.getElementById(winId)?.remove();
+        // Reopen in read-only mode so user sees saved state without the window closing
+        window.openTokenInfoWin(mapId, tokenId, parentWinId, true);
         let pWin=document.getElementById(parentWinId);
         if(pWin) _omRenderTok(parentWinId, pWin);
     };
@@ -3514,12 +3531,22 @@ document.addEventListener('DOMContentLoaded', () => {
         // NOTE: cursor is managed solely by toggleFogMode — never set it here
         area.addEventListener('mousemove', e => {
             if (_fogMode !== mapId) return;
-            _fogErase = e.shiftKey;
-            _fogMoveCursor(e, mapId);
-            if (_fogPainting) _fogPaint(e, mapId);
+            let isPanHeld = e.ctrlKey || e.buttons === 4;
+            if (isPanHeld) {
+                // Pan override — hide fog cursor, show crosshair
+                let cur = document.getElementById('omWin_'+mapId+'_fogCursorDiv');
+                if (cur) cur.style.display = 'none';
+                area.style.cursor = 'crosshair';
+            } else if (!win._dragging) {
+                area.style.cursor = 'none';
+                _fogErase = e.shiftKey;
+                _fogMoveCursor(e, mapId);
+                if (_fogPainting) _fogPaint(e, mapId);
+            }
         });
         area.addEventListener('mousedown', e => {
-            if (_fogMode !== mapId || e.button!==0) return;
+            let isPanOverride = e.button === 1 || (e.button === 0 && e.ctrlKey);
+            if (_fogMode !== mapId || isPanOverride || e.button !== 0) return;
             _fogPainting=true; _fogErase=e.shiftKey; _fogPaint(e, mapId); e.stopPropagation();
         }, true);
         area.addEventListener('mouseup', async e => {

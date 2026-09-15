@@ -884,7 +884,7 @@ window.renderGmNpcList = function() {
                     ${tagBadges ? `<div class="flex flex-wrap gap-1 mt-1">${tagBadges}</div>` : ''}
                 </div>
                 <div class="flex gap-1 flex-wrap justify-end">
-                    <button onclick="window.openStatBlockWorldTags('${entry.id}')" class="text-[10px] text-amber-400 hover:text-amber-300 font-bold px-2 py-1" title="Assign to Worlds">🏷</button>
+                    <button onclick="window.openStatBlockWorldTags('${entry.id}')" class="text-[10px] text-amber-400 hover:text-amber-300 font-bold px-2 py-1 border border-amber-800/40 rounded" title="Assign to Worlds">World</button>
                     <button onclick="window.openGmNpcBuilder('${entry.id}')" class="text-[10px] text-purple-400 hover:text-purple-300 font-bold px-2 py-1">Edit</button>
                     <button onclick="window.exportGmNpc('${entry.id}')" class="text-[10px] text-slate-400 hover:text-slate-300 font-bold px-2 py-1">Export</button>
                     <button onclick="window.deleteGmNpc('${entry.id}')" class="text-[10px] text-red-400 hover:text-red-300 font-bold px-2 py-1">Delete</button>
