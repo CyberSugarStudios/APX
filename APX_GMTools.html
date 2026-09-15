@@ -1504,8 +1504,11 @@ document.addEventListener('DOMContentLoaded', () => {
             w.publicNotes = {
                 locations: (_wNotes.locations||[])
                     .filter(l => l.revealed)
-                    .map(l => ({ ...l, notes: (l.notes||[]).filter(n => n.revealed),
-                        linkedOtherMapId: l.linkedOtherMapId||null })),
+                    .map(l => {
+                        let ids = l.linkedOtherMapIds||[];
+                        if (!ids.length && l.linkedOtherMapId) ids=[l.linkedOtherMapId];
+                        return { ...l, notes: (l.notes||[]).filter(n => n.revealed), linkedOtherMapIds: ids };
+                    }),
                 npcs: (_wNotes.npcs||[])
                     .filter(n => n.revealed)
                     .map(n => ({ ...n, notes: (n.notes||[]).filter(sn => sn.revealed) })),
@@ -1521,7 +1524,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         notes:         w.notesV2.notes         || [],
                         otherMaps:     (w.notesV2.otherMaps||[]).map(m=>({
                             id:m.id, name:m.name, revealed:!!m.revealed,
-                            tokens:(m.tokens||[]).map(t=>({id:t.id,letter:t.letter,x:t.x,y:t.y,name:t.name||'',description:t.description||'',revealed:!!t.revealed,linkedNpcs:t.linkedNpcs||[],linkedOtherMapId:t.linkedOtherMapId||null}))
+                            tokens:(m.tokens||[]).map(t=>{
+                                // Migrate single linkedOtherMapId → array
+                                let mapIds = t.linkedOtherMapIds||[];
+                                if (!mapIds.length && t.linkedOtherMapId) mapIds=[t.linkedOtherMapId];
+                                return {id:t.id,letter:t.letter,x:t.x,y:t.y,name:t.name||'',description:t.description||'',
+                                    revealed:!!t.revealed,linkedNpcs:t.linkedNpcs||[],linkedOtherMapIds:mapIds,subnotes:t.subnotes||[]};
+                            })
                         })),
                         worldMapSaved: w.notesV2.worldMapSaved || false,
                     }
@@ -1534,7 +1543,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         otherMaps: (_wNotes.otherMaps||[])
                             .filter(m=>m.revealed)
                             .map(m=>({ id:m.id, name:m.name,
-                                tokens:(m.tokens||[]).filter(t=>t.revealed).map(t=>({id:t.id,letter:t.letter,x:t.x,y:t.y}))
+                                tokens:(m.tokens||[]).filter(t=>t.revealed).map(t=>{
+                                let mapIds = t.linkedOtherMapIds||[];
+                                if (!mapIds.length && t.linkedOtherMapId) mapIds=[t.linkedOtherMapId];
+                                return {id:t.id,letter:t.letter,x:t.x,y:t.y,name:t.name||'',description:t.description||'',linkedOtherMapIds:mapIds,subnotes:(t.subnotes||[]).filter(s=>s.revealed)};
+                            })
                             })),
                     }
                 };
@@ -1826,11 +1839,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>` : '<div id="nfPinInfo" class="text-[10px] text-slate-500 self-end pb-1">Click map to pin</div>'}
                 <label class="flex items-center gap-2 text-xs cursor-pointer self-end pb-1"><input type="checkbox" id="nfRevealed" ${n.revealed?'checked':''} class="w-4 h-4"> <span class="text-slate-300">Revealed to players</span></label>
             </div>
-            <div><label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Link to Other Map (optional)</label>
-            <select id="nfLinkedMap" class="bg-slate-900 text-xs w-full">
-                <option value="">— No linked map —</option>
-                ${(_wNotes.otherMaps||[]).map(m=>`<option value="${m.id}" ${n.linkedOtherMapId===m.id?'selected':''}>${m.name}</option>`).join('')}
-            </select></div>
+            <div><label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Linked Maps</label>
+            <div id="nfLinkedMapsDisplay" class="space-y-1 mb-1">
+                ${(()=>{
+                    let ids = n.linkedOtherMapIds||[];
+                    if (!ids.length && n.linkedOtherMapId) ids=[n.linkedOtherMapId];
+                    return ids.map(mid=>{let m=(_wNotes.otherMaps||[]).find(x=>x.id===mid);return m?`<div class="flex items-center gap-1"><button onclick="window.openOtherMapWindow('${m.id}')" class="flex-1 text-left text-[9px] font-bold px-2 py-0.5 rounded" style="background:#0f172a;border:1px solid #2563eb;color:#93c5fd;">🗺 ${m.name}</button><button onclick="window._unlinkLocMap('${m.id}')" style="background:none;border:none;color:#64748b;cursor:pointer;">✕</button></div>`:'';}).join('');
+                })()}
+            </div>
+            <button onclick="window.openLocMapPicker()" class="w-full text-[10px] font-bold px-2 py-1 rounded" style="background:#1e3a5f;border:1px solid #2563eb;color:#93c5fd;">🗺 Link Maps…</button>
+            </div>
             ${subNotesSection()}`,
         note: (n={}) => `
             <div><label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Note Title</label>
@@ -1847,6 +1865,12 @@ document.addEventListener('DOMContentLoaded', () => {
         let arrKey = type==='session'?'session':type==='npc'?'npcs':type==='location'?'locations':'notes';
         let existing = id ? (_wNotes[arrKey]||[]).find(n=>n.id===id) : null;
         _editingSubNotes = (existing?.notes||[]).map(sn=>({...sn, _open:false}));
+        // Populate linked map IDs array for the location modal picker
+        if (type === 'location') {
+            let ids = existing?.linkedOtherMapIds||[];
+            if (!ids.length && existing?.linkedOtherMapId) ids = [existing.linkedOtherMapId];
+            window._locLinkedMapIds = [...ids];
+        }
         let titles = { session:'Session Note', npc:'NPC', location:'Location', note:'Note' };
         document.getElementById('noteDetailTitle').innerText = (id?'Edit ':'Add ')+titles[type];
         document.getElementById('noteDetailDeleteBtn').classList.toggle('hidden', !id);
@@ -1867,7 +1891,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let note = existing || { id: type+'_'+Date.now() };
         if (type==='session')  { note.title=g('nfTitle')?.value||''; note.date=g('nfDate')?.value||''; note.content=g('nfContent')?.value||''; }
         if (type==='npc')      { note.name=g('nfName')?.value||''; note.role=g('nfRole')?.value||''; note.description=g('nfContent')?.value||''; note.revealed=!!(g('nfRevealed')?.checked); note.notes=_editingSubNotes.map(({_open,...sn})=>sn); }
-        if (type==='location') { note.name=g('nfName')?.value||''; note.description=g('nfContent')?.value||''; note.pinColor=g('nfPinColor')?.value||'#ef4444'; note.revealed=!!(g('nfRevealed')?.checked); note.linkedOtherMapId=g('nfLinkedMap')?.value||null; note.notes=_editingSubNotes.map(({_open,...sn})=>sn); }
+        if (type==='location') { note.name=g('nfName')?.value||''; note.description=g('nfContent')?.value||''; note.pinColor=g('nfPinColor')?.value||'#ef4444'; note.revealed=!!(g('nfRevealed')?.checked); note.linkedOtherMapIds=window._locLinkedMapIds||[]; if(!note.linkedOtherMapIds.length&&note.linkedOtherMapId) note.linkedOtherMapIds=[note.linkedOtherMapId]; note.notes=_editingSubNotes.map(({_open,...sn})=>sn); }
         if (type==='note')     { note.title=g('nfTitle')?.value||''; note.content=g('nfContent')?.value||''; note.revealed=!!(g('nfRevealed')?.checked); }
 
         if (!existing) arr.push(note);
@@ -1882,6 +1906,51 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── Location info floating window ─────────────────────────────
     // Opened by clicking a pin on the world map or a location card.
     // Shows name, description, sub-notes, linked map button, and an Edit button.
+    window.openLocMapPicker = function() {
+        let existing = document.getElementById('locMapPickerOverlay'); if(existing) existing.remove();
+        let ids = window._locLinkedMapIds||[];
+        let overlay = document.createElement('div');
+        overlay.id = 'locMapPickerOverlay';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;';
+        let maps = _wNotes.otherMaps||[];
+        overlay.innerHTML = `<div style="background:#1e293b;border:1px solid #475569;border-radius:0.75rem;padding:1.25rem;min-width:280px;max-width:360px;max-height:70vh;display:flex;flex-direction:column;gap:0.35rem;">
+            <div style="font-size:0.8rem;font-weight:700;color:#f8fafc;margin-bottom:0.25rem;">Link Other Maps to Location</div>
+            <div id="locMapPickerList" style="overflow-y:auto;display:flex;flex-direction:column;gap:0.3rem;max-height:50vh;">
+                ${maps.map(m=>{
+                    let linked = ids.includes(m.id);
+                    return `<div style="display:flex;align-items:center;gap:0.4rem;">
+                        <button onclick="window._toggleLocMapLink('${m.id}');this.style.borderColor=window._locLinkedMapIds.includes('${m.id}')?'#2563eb':'#334155';this.style.color=window._locLinkedMapIds.includes('${m.id}')?'#93c5fd':'#e2e8f0';this.nextElementSibling.textContent=window._locLinkedMapIds.includes('${m.id}')?'Linked':'–';"
+                            style="flex:1;text-align:left;background:#0f172a;border:1px solid ${linked?'#2563eb':'#334155'};color:${linked?'#93c5fd':'#e2e8f0'};font-size:0.75rem;font-weight:700;padding:0.4rem 0.6rem;border-radius:0.375rem;cursor:pointer;">${m.name}</button>
+                        <span style="font-size:0.65rem;color:${linked?'#4ade80':'#64748b'};min-width:40px;">${linked?'Linked':'–'}</span>
+                    </div>`;
+                }).join('')}
+            </div>
+            <div style="display:flex;gap:0.4rem;margin-top:0.25rem;">
+                <button onclick="window.openWorldMgr()" style="flex:1;background:#059669;border:none;color:#fff;font-size:0.7rem;font-weight:700;padding:0.4rem;border-radius:0.375rem;cursor:pointer;">+ New Map</button>
+                <button onclick="document.getElementById('locMapPickerOverlay').remove();document.getElementById('nfLinkedMapsDisplay').innerHTML=window._buildLocMapDisplay();" style="background:#334155;border:none;color:#94a3b8;font-size:0.7rem;font-weight:700;padding:0.4rem 0.75rem;border-radius:0.375rem;cursor:pointer;">Done</button>
+            </div>
+        </div>`;
+        document.body.appendChild(overlay);
+    };
+    window._toggleLocMapLink = function(mapId) {
+        window._locLinkedMapIds = window._locLinkedMapIds||[];
+        if (window._locLinkedMapIds.includes(mapId)) {
+            window._locLinkedMapIds = window._locLinkedMapIds.filter(id=>id!==mapId);
+        } else {
+            window._locLinkedMapIds.push(mapId);
+        }
+    };
+    window._unlinkLocMap = function(mapId) {
+        window._locLinkedMapIds = (window._locLinkedMapIds||[]).filter(id=>id!==mapId);
+        document.getElementById('nfLinkedMapsDisplay').innerHTML = window._buildLocMapDisplay();
+    };
+    window._buildLocMapDisplay = function() {
+        return (window._locLinkedMapIds||[]).map(mid=>{
+            let m=(_wNotes.otherMaps||[]).find(x=>x.id===mid);
+            return m?`<div class="flex items-center gap-1"><button onclick="window.openOtherMapWindow('${m.id}')" class="flex-1 text-left text-[9px] font-bold px-2 py-0.5 rounded" style="background:#0f172a;border:1px solid #2563eb;color:#93c5fd;">🗺 ${m.name}</button><button onclick="window._unlinkLocMap('${m.id}')" style="background:none;border:none;color:#64748b;cursor:pointer;">✕</button></div>`:'';
+        }).join('');
+    };
+
     window.openLocationInfoWin = function(locationId) {
         let loc = (_wNotes.locations||[]).find(l => l.id === locationId);
         if (!loc) return;
@@ -1922,7 +1991,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('floatingWindowContainer').appendChild(win);
         win.addEventListener('mousedown', ()=>{ window.apxFloatingZTop++; win.style.zIndex=window.apxFloatingZTop; });
         let hdr=document.getElementById(winId+'_hdr'), wDrag=false, wOX=0, wOY=0;
-        hdr.addEventListener('mousedown', e=>{ if(e.target.tagName==='BUTTON')return; wDrag=true; let r=win.getBoundingClientRect(); wOX=e.clientX-r.left; wOY=e.clientY-r.top; e.preventDefault(); });
+        hdr.addEventListener('mousedown', e=>{ if(e.target.tagName==='BUTTON'||e.target.tagName==='INPUT')return; wDrag=true; let r=win.getBoundingClientRect(); wOX=e.clientX-r.left; wOY=e.clientY-r.top; e.preventDefault(); });
         document.addEventListener('mousemove', e=>{ if(!wDrag)return; win.style.left=Math.max(0,e.clientX-wOX)+'px'; win.style.top=Math.max(0,e.clientY-wOY)+'px'; win.style.right='auto'; });
         document.addEventListener('mouseup', ()=>wDrag=false);
     };
@@ -2132,7 +2201,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let hdr = document.getElementById(winId+'_hdr');
         let wDrag=false, wOX=0, wOY=0;
         hdr.addEventListener('mousedown', e => {
-            if (e.target.tagName==='BUTTON') return;
+            if (e.target.tagName==='BUTTON' || e.target.tagName==='INPUT') return;
             wDrag=true; let r=win.getBoundingClientRect(); wOX=e.clientX-r.left; wOY=e.clientY-r.top; e.preventDefault();
         });
         let wMM = e=>{ if(!wDrag)return; win.style.left=Math.max(0,Math.min(window.innerWidth-60,e.clientX-wOX))+'px'; win.style.top=Math.max(0,Math.min(window.innerHeight-40,e.clientY-wOY))+'px'; };
@@ -2244,7 +2313,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let used=(map.tokens||[]).map(t=>t.letter);
         let letter='A';
         for(let i=0;i<26;i++){let l=String.fromCharCode(65+i); if(!used.includes(l)){letter=l;break;}}
-        let tok={id:'tok_'+Date.now(),letter,x,y,name:'',description:'',revealed:false,linkedNpcs:[],linkedOtherMapId:null};
+        let tok={id:'tok_'+Date.now(),letter,x,y,name:'',description:'',revealed:false,linkedNpcs:[],linkedOtherMapIds:[],subnotes:[]};
         if(!map.tokens)map.tokens=[];
         map.tokens.push(tok);
         saveWorldNotes();
@@ -2345,6 +2414,129 @@ document.addEventListener('DOMContentLoaded', () => {
             style="width:100%;background:#1e3a5f;border:1px solid #334155;color:#93c5fd;font-size:0.65rem;font-weight:700;padding:0.3rem;border-radius:0.25rem;cursor:pointer;margin-top:0.15rem;">+ Link NPC…</button>`;
     }
 
+    function _buildTokenMapLinks(tok, mapId, tokenId, winId, readOnly) {
+        let mapIds = tok.linkedOtherMapIds || [];
+        if (!mapIds.length && tok.linkedOtherMapId) mapIds = [tok.linkedOtherMapId];
+        if (!mapIds.length) return readOnly ? '' : '';
+        return mapIds.map(mid => {
+            let m = (_wNotes.otherMaps||[]).find(x=>x.id===mid); if(!m) return '';
+            return `<div style="display:flex;align-items:center;gap:0.25rem;margin-bottom:0.15rem;">
+                <button onclick="window.openOtherMapWindow('${m.id}')"
+                    style="flex:1;text-align:left;background:#0f172a;border:1px solid #2563eb;color:#93c5fd;font-size:0.65rem;font-weight:700;padding:0.25rem 0.4rem;border-radius:0.25rem;cursor:pointer;">🗺 ${m.name}</button>
+                ${!readOnly?`<button onclick="window._unlinkTokenMap('${mapId}','${tokenId}','${mid}','${winId}')" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:0.9rem;">✕</button>`:''}
+            </div>`;
+        }).join('');
+    }
+
+    function _buildTokenSubnotes(tok, winId, readOnly) {
+        let sns = tok.subnotes || [];
+        if (!sns.length && readOnly) return '';
+        return sns.map((sn, idx) => `<div style="background:#0f172a;border:1px solid #1e293b;border-radius:0.3rem;padding:0.4rem;margin-bottom:0.2rem;">
+            ${!readOnly
+                ? `<div style="display:flex;gap:0.25rem;margin-bottom:0.2rem;">
+                    <input type="text" value="${(sn.title||'').replace(/"/g,'&quot;')}" placeholder="Sub-note title…"
+                        onchange="window._updateTokenSubnote('${winId}',${idx},'title',this.value)"
+                        style="flex:1;background:#1e293b;border:1px solid #334155;color:#e2e8f0;font-size:0.65rem;border-radius:0.2rem;padding:0.2rem 0.35rem;">
+                    <label style="display:flex;align-items:center;gap:0.2rem;font-size:0.6rem;color:#94a3b8;white-space:nowrap;">
+                        <input type="checkbox" ${sn.revealed?'checked':''} onchange="window._updateTokenSubnote('${winId}',${idx},'revealed',this.checked)"> Show
+                    </label>
+                    <button onclick="window._deleteTokenSubnote('${winId}',${idx})" style="background:none;border:none;color:#64748b;cursor:pointer;">✕</button>
+                </div>
+                <textarea rows="2" placeholder="Content…" onchange="window._updateTokenSubnote('${winId}',${idx},'content',this.value)"
+                    style="width:100%;background:#1e293b;border:1px solid #334155;color:#e2e8f0;font-size:0.65rem;border-radius:0.2rem;padding:0.2rem 0.35rem;resize:vertical;box-sizing:border-box;">${sn.content||''}</textarea>`
+                : `${sn.title?`<div style="font-size:0.65rem;font-weight:700;color:#e2e8f0;">${sn.title}</div>`:''}
+                   ${sn.content?`<div style="font-size:0.6rem;color:#94a3b8;white-space:pre-wrap;">${sn.content}</div>`:''}`
+            }
+        </div>`).join('');
+    }
+
+    window.openMapPickerForToken = function(mapId, tokenId, winId) {
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+        let tok = map?.tokens?.find(t=>t.id===tokenId); if(!tok) return;
+        let mapIds = tok.linkedOtherMapIds || [];
+        if (!mapIds.length && tok.linkedOtherMapId) mapIds = [tok.linkedOtherMapId];
+        let existing = document.getElementById('omMapPickerOverlay'); if(existing) existing.remove();
+        let overlay = document.createElement('div');
+        overlay.id = 'omMapPickerOverlay';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:1700;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;';
+        let maps = (_wNotes.otherMaps||[]).filter(m=>m.id!==mapId);
+        overlay.innerHTML = `<div style="background:#1e293b;border:1px solid #475569;border-radius:0.75rem;padding:1.25rem;min-width:280px;max-width:360px;max-height:70vh;display:flex;flex-direction:column;gap:0.35rem;">
+            <div style="font-size:0.8rem;font-weight:700;color:#f8fafc;margin-bottom:0.25rem;">Link Other Maps</div>
+            <div style="overflow-y:auto;display:flex;flex-direction:column;gap:0.3rem;max-height:50vh;">
+                ${maps.length ? maps.map(m=>{
+                    let linked = mapIds.includes(m.id);
+                    return `<div style="display:flex;align-items:center;gap:0.4rem;">
+                        <button onclick="window._toggleTokenMapLink('${mapId}','${tokenId}','${m.id}','${winId}');this.parentElement.querySelector('.lbl').textContent=window._getToggleLbl('${mapId}','${tokenId}','${m.id}');"
+                            style="flex:1;text-align:left;background:#0f172a;border:1px solid ${linked?'#2563eb':'#334155'};color:${linked?'#93c5fd':'#e2e8f0'};font-size:0.75rem;font-weight:700;padding:0.4rem 0.6rem;border-radius:0.375rem;cursor:pointer;">${m.name}</button>
+                        <span class="lbl" style="font-size:0.65rem;color:${linked?'#4ade80':'#64748b'};min-width:40px;">${linked?'Linked':'–'}</span>
+                    </div>`;
+                }).join('') : '<div style="color:#475569;font-size:0.7rem;">No other maps exist yet.</div>'}
+            </div>
+            <div style="display:flex;gap:0.4rem;margin-top:0.25rem;">
+                <button onclick="window._addAndLinkNewMap('${mapId}','${tokenId}','${winId}')"
+                    style="flex:1;background:#059669;border:none;color:#fff;font-size:0.7rem;font-weight:700;padding:0.4rem;border-radius:0.375rem;cursor:pointer;">+ New Map</button>
+                <button onclick="document.getElementById('omMapPickerOverlay').remove()"
+                    style="background:#334155;border:none;color:#94a3b8;font-size:0.7rem;font-weight:700;padding:0.4rem 0.75rem;border-radius:0.375rem;cursor:pointer;">Done</button>
+            </div>
+        </div>`;
+        document.body.appendChild(overlay);
+    };
+
+    window._getToggleLbl = function(mapId, tokenId, linkedId) {
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+        let tok = map?.tokens?.find(t=>t.id===tokenId); if(!tok) return '–';
+        let ids = tok.linkedOtherMapIds||[];
+        return ids.includes(linkedId) ? 'Linked' : '–';
+    };
+    window._toggleTokenMapLink = function(mapId, tokenId, linkedId, winId) {
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+        let tok = map?.tokens?.find(t=>t.id===tokenId); if(!tok) return;
+        tok.linkedOtherMapIds = tok.linkedOtherMapIds || [];
+        if (tok.linkedOtherMapIds.includes(linkedId)) {
+            tok.linkedOtherMapIds = tok.linkedOtherMapIds.filter(id=>id!==linkedId);
+        } else {
+            tok.linkedOtherMapIds.push(linkedId);
+        }
+        saveWorldNotes();
+        let el = document.getElementById(winId+'_linkedMaps');
+        if (el) el.innerHTML = _buildTokenMapLinks(tok, mapId, tokenId, winId, false);
+    };
+    window._unlinkTokenMap = function(mapId, tokenId, linkedId, winId) {
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+        let tok = map?.tokens?.find(t=>t.id===tokenId); if(!tok) return;
+        tok.linkedOtherMapIds = (tok.linkedOtherMapIds||[]).filter(id=>id!==linkedId);
+        saveWorldNotes();
+        let el = document.getElementById(winId+'_linkedMaps');
+        if (el) el.innerHTML = _buildTokenMapLinks(tok, mapId, tokenId, winId, false);
+    };
+    window._addAndLinkNewMap = function(parentMapId, tokenId, winId) {
+        document.getElementById('omMapPickerOverlay')?.remove();
+        // Open add-map dialog; on creation, auto-link to this token
+        window._pendingLinkToken = { mapId: parentMapId, tokenId, winId };
+        window.addOtherMap();
+    };
+    window._updateTokenSubnote = function(winId, idx, field, val) {
+        // Subnote is edited live; saved when Save button is pressed
+        window['_tokenSnBuf'] = window['_tokenSnBuf'] || {};
+        window['_tokenSnBuf'][winId] = window['_tokenSnBuf'][winId] || {};
+        window['_tokenSnBuf'][winId][idx] = window['_tokenSnBuf'][winId][idx] || {};
+        window['_tokenSnBuf'][winId][idx][field] = field==='revealed' ? !!val : val;
+    };
+    window.addTokenSubnote = function(mapId, tokenId, winId) {
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+        let tok = map?.tokens?.find(t=>t.id===tokenId); if(!tok) return;
+        tok.subnotes = tok.subnotes||[];
+        tok.subnotes.push({id:'tsn_'+Date.now(), title:'', content:'', revealed:false});
+        let el = document.getElementById(winId+'_subnotes');
+        if (el) el.innerHTML = _buildTokenSubnotes(tok, winId, false);
+    };
+    window._deleteTokenSubnote = function(winId, idx) {
+        // Mark for removal on save
+        let el = document.getElementById(winId+'_subnotes');
+        let rows = el?.querySelectorAll(':scope > div');
+        if (rows && rows[idx]) rows[idx].remove();
+    };
+
     // ── Token info floating window ────────────────────────────────
     window.openTokenInfoWin = function(mapId, tokenId, parentWinId, readOnly) {
         // Default to read-only (info view). New tokens pass false to open in edit mode.
@@ -2400,11 +2592,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div id="${winId}_npcLinks">${_buildTokenNpcLinks(tok, mapId, tokenId, winId)}</div>
                     ${!readOnly?_buildTokenNpcPicker(tok, mapId, tokenId, winId):""}
                 </div>`:''}
-                ${(()=>{ let lm=tok.linkedOtherMapId?(_wNotes.otherMaps||[]).find(m=>m.id===tok.linkedOtherMapId):null; return lm?`<button onclick="window.openOtherMapWindow('${lm.id}')" style="width:100%;text-align:left;background:#0f172a;border:1px solid #2563eb;color:#93c5fd;font-size:0.65rem;font-weight:700;padding:0.3rem 0.5rem;border-radius:0.25rem;cursor:pointer;margin-bottom:0.15rem;">🗺 ${lm.name}</button>`:''; })()}
-                ${!readOnly?`<select id="${winId}_linkedMap" style="background:#0f172a;border:1px solid #334155;color:#e2e8f0;font-size:0.65rem;border-radius:0.25rem;padding:0.2rem 0.35rem;width:100%;box-sizing:border-box;margin-bottom:0.25rem;">
-                    <option value="">— Link Other Map —</option>
-                    ${(_wNotes.otherMaps||[]).filter(m=>m.id!==mapId).map(m=>`<option value="${m.id}" ${tok.linkedOtherMapId===m.id?'selected':''}>${m.name}</option>`).join('')}
-                </select>`:''}
+                <div id="${winId}_linkedMaps" style="margin-bottom:0.25rem;">${_buildTokenMapLinks(tok, mapId, tokenId, winId, readOnly)}</div>
+                ${!readOnly?`<button onclick="window.openMapPickerForToken('${mapId}','${tokenId}','${winId}')"
+                    style="width:100%;background:#1e3a5f;border:1px solid #2563eb;color:#93c5fd;font-size:0.65rem;font-weight:700;padding:0.25rem;border-radius:0.25rem;cursor:pointer;margin-bottom:0.25rem;">🗺 Link Maps…</button>`:''}
+                <div id="${winId}_subnotes" style="margin-bottom:0.15rem;">${_buildTokenSubnotes(tok, winId, readOnly)}</div>
+                ${!readOnly?`<button onclick="window.addTokenSubnote('${mapId}','${tokenId}','${winId}')"
+                    style="width:100%;background:#1e293b;border:1px solid #334155;color:#64748b;font-size:0.65rem;font-weight:700;padding:0.2rem;border-radius:0.25rem;cursor:pointer;margin-bottom:0.25rem;">+ Add Sub-note</button>`:''}
                 ${!readOnly?`<div style="display:flex;gap:0.5rem;">
                     <button onclick="window._saveToken('${mapId}','${tokenId}','${winId}','${parentWinId}')"
                         style="flex:1;background:#4f46e5;border:none;color:#fff;font-size:0.7rem;font-weight:700;padding:0.4rem;border-radius:0.25rem;cursor:pointer;">Save</button>
@@ -2416,7 +2609,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('floatingWindowContainer').appendChild(win);
         win.addEventListener('mousedown', ()=>{ window.apxFloatingZTop++; win.style.zIndex=window.apxFloatingZTop; });
         let hdr=document.getElementById(winId+'_hdr'), wDrag=false, wOX=0, wOY=0;
-        hdr.addEventListener('mousedown', e=>{ if(e.target.tagName==='BUTTON')return; wDrag=true; let r=win.getBoundingClientRect(); wOX=e.clientX-r.left; wOY=e.clientY-r.top; e.preventDefault(); });
+        hdr.addEventListener('mousedown', e=>{ if(e.target.tagName==='BUTTON'||e.target.tagName==='INPUT')return; wDrag=true; let r=win.getBoundingClientRect(); wOX=e.clientX-r.left; wOY=e.clientY-r.top; e.preventDefault(); });
         let mm=e=>{ if(!wDrag)return; win.style.left=Math.max(0,Math.min(window.innerWidth-60,e.clientX-wOX))+'px'; win.style.top=Math.max(0,Math.min(window.innerHeight-40,e.clientY-wOY))+'px'; };
         document.addEventListener('mousemove', mm); document.addEventListener('mouseup', ()=>wDrag=false);
     };
@@ -2502,7 +2695,27 @@ document.addEventListener('DOMContentLoaded', () => {
         tok.description=document.getElementById(winId+'_desc')?.value||'';
         tok.revealed=!!(document.getElementById(winId+'_revealed')?.checked);
         tok.linkedNpcs=tok.linkedNpcs||[];
-        tok.linkedOtherMapId=document.getElementById(winId+'_linkedMap')?.value||null;
+        // Collect subnotes from DOM inputs
+        let snContainer = document.getElementById(winId+'_subnotes');
+        if (snContainer) {
+            let rows = snContainer.querySelectorAll(':scope > div');
+            let newSns = [];
+            rows.forEach((row, idx) => {
+                let titleEl = row.querySelector('input[type="text"]');
+                let contentEl = row.querySelector('textarea');
+                let revealedEl = row.querySelector('input[type="checkbox"]');
+                if (titleEl || contentEl) {
+                    let existing = (tok.subnotes||[])[idx] || {id:'tsn_'+Date.now()+'_'+idx};
+                    newSns.push({
+                        id: existing.id,
+                        title: titleEl?.value || existing.title || '',
+                        content: contentEl?.value || existing.content || '',
+                        revealed: revealedEl ? !!revealedEl.checked : !!existing.revealed
+                    });
+                }
+            });
+            tok.subnotes = newSns;
+        }
         saveWorldNotes();
         window.renderOtherMapsList();
         document.getElementById(winId)?.remove();

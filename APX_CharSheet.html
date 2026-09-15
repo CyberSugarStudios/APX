@@ -3346,15 +3346,66 @@
         let iw=img.naturalWidth, ih=img.naturalHeight;
         layer.style.width=iw+'px'; layer.style.height=ih+'px';
         let ps=Math.max(0.5,Math.min(2.5,1/win._scale));
-        layer.innerHTML=(m.tokens||[]).map(t=>`
-            <div style="position:absolute;left:${t.x*iw}px;top:${t.y*ih}px;
+        let world = window._playerWorldData;
+        let revealedMapIds = new Set((world?.notesV2?.otherMaps||[]).map(x=>x.id));
+        layer.innerHTML=(m.tokens||[]).map(t=>{
+            let hasInfo = !!(t.name||t.description||(t.subnotes&&t.subnotes.length));
+            let hasLinkedMap = (t.linkedOtherMapIds||[]).some(mid=>revealedMapIds.has(mid));
+            let clickable = hasInfo || hasLinkedMap;
+            let onclick = clickable
+                ? `onclick="event.stopPropagation();window.openPlayerTokenInfo('${m.id}','${t.id}')" style="cursor:pointer;"`
+                : `style="cursor:default;"`;
+            return `<div style="position:absolute;left:${t.x*iw}px;top:${t.y*ih}px;
                 transform:translate(-50%,-50%) scale(${ps});transform-origin:50% 50%;
-                pointer-events:none;will-change:transform;">
-                <div style="width:26px;height:26px;background:#dc2626;border:2.5px solid #fff;border-radius:50%;
+                pointer-events:${clickable?'auto':'none'};will-change:transform;">
+                <div ${clickable?onclick:''} style="width:26px;height:26px;background:#dc2626;border:2.5px solid #fff;border-radius:50%;
                     display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#fff;
                     box-shadow:0 2px 6px rgba(0,0,0,.65);">${t.letter}</div>
-            </div>`).join('');
+            </div>`;
+        }).join('');
+        win._curMap = m; win._revealedMapIds = revealedMapIds;
     }
+
+    // Player floating info popup for a revealed area token
+    window.openPlayerTokenInfo = function(mapId, tokenId) {
+        let world = window._playerWorldData;
+        let om = (world?.notesV2?.otherMaps||[]).find(m=>m.id===mapId);
+        let tok = om?.tokens?.find(t=>t.id===tokenId); if(!tok) return;
+        let revealedMapIds = new Set((world?.notesV2?.otherMaps||[]).map(m=>m.id));
+        let winId = 'ptokInfo_'+tokenId;
+        document.getElementById(winId)?.remove();
+        window.apxFloatingZTop = (window.apxFloatingZTop||2000)+1;
+        let win = document.createElement('div');
+        win.id = winId;
+        win.style.cssText = `position:fixed;right:20px;top:120px;width:280px;max-height:60vh;
+            background:#1e293b;border:1px solid #334155;border-radius:0.5rem;z-index:${window.apxFloatingZTop};
+            box-shadow:0 10px 40px rgba(0,0,0,.85);display:flex;flex-direction:column;`;
+        let linkedMapBtns = (tok.linkedOtherMapIds||[])
+            .filter(mid=>revealedMapIds.has(mid))
+            .map(mid=>{
+                let lm = (world?.notesV2?.otherMaps||[]).find(m=>m.id===mid);
+                return lm ? `<button onclick="window.openPlayerOtherMapWindow('${lm.id}')"
+                    style="width:100%;text-align:left;background:#0f172a;border:1px solid #2563eb;color:#93c5fd;
+                    font-size:0.7rem;font-weight:700;padding:0.35rem 0.5rem;border-radius:0.25rem;cursor:pointer;margin-bottom:0.2rem;">🗺 ${lm.name}</button>` : '';
+            }).join('');
+        let snHtml = (tok.subnotes||[]).map(sn=>`<div style="background:#0f172a;border:1px solid #1e293b;border-radius:0.3rem;padding:0.35rem;margin-top:0.2rem;">
+            ${sn.title?`<div style="font-size:0.65rem;font-weight:700;color:#e2e8f0;">${sn.title}</div>`:''}
+            ${sn.content?`<div style="font-size:0.6rem;color:#94a3b8;white-space:pre-wrap;">${sn.content}</div>`:''}
+        </div>`).join('');
+        win.innerHTML = `<div style="background:#1e3a5f;padding:0.5rem 0.65rem;border-radius:0.5rem 0.5rem 0 0;
+            display:flex;align-items:center;gap:0.4rem;">
+            <div style="width:20px;height:20px;background:#dc2626;border:2px solid #fff;border-radius:50%;
+                display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;color:#fff;">${tok.letter}</div>
+            <span style="font-size:0.75rem;font-weight:700;color:#e2e8f0;flex:1;">${tok.name||'Area '+tok.letter}</span>
+            <button onclick="document.getElementById('${winId}').remove()" style="background:none;border:none;color:#94a3b8;font-size:1rem;cursor:pointer;">✕</button>
+        </div>
+        <div style="padding:0.65rem;overflow-y:auto;flex:1;">
+            ${tok.description?`<div style="font-size:0.7rem;color:#cbd5e1;white-space:pre-wrap;margin-bottom:0.4rem;">${tok.description}</div>`:''}
+            ${linkedMapBtns}${snHtml}
+        </div>`;
+        document.body.appendChild(win);
+        win.addEventListener('mousedown',()=>{ window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; win.style.zIndex=window.apxFloatingZTop; });
+    };
     window.pwOmZoom = function(winId, factor) {
         let win=document.getElementById(winId); if(!win) return;
         let area=document.getElementById(winId+'_area'); if(area){ let r=area.getBoundingClientRect(), cx=r.width/2, cy=r.height/2, mx=(cx-win._offX)/win._scale, my=(cy-win._offY)/win._scale; win._scale=Math.max(0.05,Math.min(10,win._scale*factor)); win._offX=cx-mx*win._scale; win._offY=cy-my*win._scale; } else { win._scale=Math.max(0.05,Math.min(10,win._scale*factor)); }
