@@ -1174,7 +1174,8 @@ window.openFloatingNpcStatBlockById = function(gmNpcId, npcDisplayName) {
     if (!entry) return;
     let winId = 'npc_' + gmNpcId;
     if (window.gmFloatingWindows && window.gmFloatingWindows[winId]) {
-        window.gmFloatingWindows[winId].style.zIndex = ++(window.apxFloatingZTop || 2000);
+        window.apxFloatingZTop = (window.apxFloatingZTop || 2000) + 1;
+        window.gmFloatingWindows[winId].style.zIndex = window.apxFloatingZTop;
         return;
     }
     if (!window.openFloatingStatBlockRaw) return;
