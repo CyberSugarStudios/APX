@@ -1928,7 +1928,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let ids = window._locLinkedMapIds||[];
         let overlay = document.createElement('div');
         overlay.id = 'locMapPickerOverlay';
-        overlay.style.cssText = `position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;`;
+        overlay.style.cssText = `position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;`;
         let maps = _wNotes.otherMaps||[];
         overlay.innerHTML = `<div style="background:#1e293b;border:1px solid #475569;border-radius:0.75rem;padding:1.25rem;min-width:280px;max-width:360px;max-height:70vh;display:flex;flex-direction:column;gap:0.35rem;">
             <div style="font-size:0.8rem;font-weight:700;color:#f8fafc;margin-bottom:0.25rem;">Link Other Maps to Location</div>
@@ -2079,7 +2079,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (existing) existing.remove();
         let overlay = document.createElement('div');
         overlay.id = 'addOtherMapOverlay';
-        overlay.style.cssText = `position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;`;
+        overlay.style.cssText = `position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;`;
         overlay.innerHTML = `<div style="background:#1e293b;border:1px solid #475569;border-radius:0.75rem;padding:1.5rem;max-width:380px;width:90vw;">
             <div style="font-size:0.875rem;font-weight:700;color:#f8fafc;margin-bottom:0.25rem;">Add Other Map</div>
             <div style="font-size:0.7rem;color:#94a3b8;margin-bottom:1rem;">Name this map, then upload an image.</div>
@@ -2475,7 +2475,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let existing = document.getElementById('omMapPickerOverlay'); if(existing) existing.remove();
         let overlay = document.createElement('div');
         overlay.id = 'omMapPickerOverlay';
-        overlay.style.cssText = `position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;`;
+        overlay.style.cssText = `position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;`;
         let maps = (_wNotes.otherMaps||[]).filter(m=>m.id!==mapId);
         overlay.innerHTML = `<div style="background:#1e293b;border:1px solid #475569;border-radius:0.75rem;padding:1.25rem;min-width:280px;max-width:360px;max-height:70vh;display:flex;flex-direction:column;gap:0.35rem;">
             <div style="font-size:0.8rem;font-weight:700;color:#f8fafc;margin-bottom:0.25rem;">Link Other Maps</div>
@@ -2544,7 +2544,10 @@ document.addEventListener('DOMContentLoaded', () => {
         let tok = map?.tokens?.find(t=>t.id===tokenId); if(!tok) return;
         tok.subnotes = tok.subnotes||[];
         tok.subnotes.push({id:'tsn_'+Date.now(), title:'', content:'', revealed:false});
-        saveWorldNotes(); // persist immediately so Notes tab shows it
+        saveWorldNotes();
+        // Refresh Notes tab if it's open so sub-notes appear immediately
+        let notesPanel = document.getElementById('wPanelNotes');
+        if (notesPanel && !notesPanel.classList.contains('hidden')) window.renderNoteList();
         let el = document.getElementById(winId+'_subnotes');
         if (el) el.innerHTML = _buildTokenSubnotes(tok, winId, false);
     };
@@ -2664,7 +2667,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!available.length) { alert('All world NPCs are already linked.'); return; }
         let overlay = document.createElement('div');
         overlay.id = 'omNpcPickerOverlay';
-        overlay.style.cssText = `position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;`;
+        overlay.style.cssText = `position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;`;
         overlay.innerHTML = `<div style="background:#1e293b;border:1px solid #475569;border-radius:0.75rem;padding:1.25rem;min-width:280px;max-width:360px;max-height:70vh;display:flex;flex-direction:column;gap:0.5rem;">
             <div style="font-size:0.8rem;font-weight:700;color:#f8fafc;margin-bottom:0.25rem;">Link World NPC</div>
             <div style="overflow-y:auto;display:flex;flex-direction:column;gap:0.35rem;max-height:50vh;">
@@ -2736,6 +2739,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         saveWorldNotes();
         window.renderOtherMapsList();
+        // Refresh Notes tab in-place so new/updated sub-notes appear
+        let _np = document.getElementById('wPanelNotes');
+        if (_np && !_np.classList.contains('hidden')) window.renderNoteList();
         document.getElementById(winId)?.remove();
         let pWin=document.getElementById(parentWinId);
         if(pWin) _omRenderTok(parentWinId, pWin);
@@ -3533,6 +3539,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── Modal open hook ──────────────────────────────────────────
     window.renderWorldSelectList = function() {
+        window._gmWorlds = _gmWorlds; // keep in sync for apx-npc-crafter.js
         let el = document.getElementById('worldSelectList'); if (!el) return;
         if (!_gmWorlds.length) {
             el.innerHTML = '<div class="text-slate-500 text-sm text-center py-6">No worlds yet.<br><span class="text-[10px]">Click "+ New World" to create your first world.</span></div>';
@@ -3575,6 +3582,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         try {
                             let worlds = await window.apxAuth.loadWorlds().catch(()=>[]);
                             _gmWorlds = worlds;
+                            window._gmWorlds = _gmWorlds; // exported for apx-npc-crafter.js
                             _worldModalLoaded = true;
                             window.renderWorldSelectList();
                             window.openModal('worldSelectModal');

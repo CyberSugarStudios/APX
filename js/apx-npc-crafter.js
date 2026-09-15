@@ -1232,19 +1232,22 @@ window.openCompanionDetail = function() {
 window.openFloatingNpcStatBlockById = function(gmNpcId, npcDisplayName) {
     let entry = (window.gmNpcs || []).find(n => n.id === gmNpcId);
     if (!entry) return;
+    let sbName    = entry.npc?.name || 'NPC';
+    let firstName = npcDisplayName ? npcDisplayName.split(' ')[0] : sbName;
+    let title     = (npcDisplayName && sbName !== npcDisplayName)
+        ? firstName + ' (' + sbName + ')'
+        : sbName;
     let winId = 'npc_' + gmNpcId;
     if (window.gmFloatingWindows && window.gmFloatingWindows[winId]) {
+        // Update title in case a different world NPC with the same stat block is being viewed
+        let hdr = window.gmFloatingWindows[winId].querySelector('.floating-stat-window-header span');
+        if (hdr) hdr.textContent = title;
         window.apxFloatingZTop = (window.apxFloatingZTop || 2000) + 1;
         window.gmFloatingWindows[winId].style.zIndex = window.apxFloatingZTop;
         return;
     }
     if (!window.openFloatingStatBlockRaw) return;
     let sb = ncStatBlockFor(gmNpcId);
-    let sbName    = entry.npc?.name || 'NPC';
-    let firstName = npcDisplayName ? npcDisplayName.split(' ')[0] : sbName;
-    let title     = (npcDisplayName && sbName !== npcDisplayName)
-        ? firstName + ' (' + sbName + ')'
-        : sbName;
     window.openFloatingStatBlockRaw(winId, title, window.buildStatBlockHtml(sb, false));
 };
 
