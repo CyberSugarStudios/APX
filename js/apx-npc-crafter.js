@@ -1169,17 +1169,21 @@ window.openCompanionDetail = function() {
 
 // Allow opening any NPC stat block as a floating window by gmNpc ID.
 // Used from the World Notes NPC list and the NPC roster.
-window.openFloatingNpcStatBlockById = function(gmNpcId) {
+window.openFloatingNpcStatBlockById = function(gmNpcId, npcDisplayName) {
     let entry = (window.gmNpcs || []).find(n => n.id === gmNpcId);
     if (!entry) return;
     let winId = 'npc_' + gmNpcId;
     if (window.gmFloatingWindows && window.gmFloatingWindows[winId]) {
-        window.gmFloatingWindows[winId].style.zIndex = ++window.gmFloatingZTop;
+        window.gmFloatingWindows[winId].style.zIndex = ++(window.apxFloatingZTop || 2000);
         return;
     }
     if (!window.openFloatingStatBlockRaw) return;
     let sb = ncStatBlockFor(gmNpcId);
-    window.openFloatingStatBlockRaw(winId, entry.npc?.name || 'NPC', window.buildStatBlockHtml(sb, false));
+    let sbName = entry.npc?.name || 'NPC';
+    let title  = (npcDisplayName && npcDisplayName !== sbName)
+        ? npcDisplayName + ' (' + sbName + ')'
+        : sbName;
+    window.openFloatingStatBlockRaw(winId, title, window.buildStatBlockHtml(sb, false));
 };
 
 // Add the NPC from any floating stat block window to the initiative tracker.
@@ -1237,7 +1241,7 @@ function buildStatBlockHtml(sb, editable) {
         </div>` : ''}
         <div class="bg-slate-900 border border-emerald-800/50 rounded p-2 mb-2">
             <div class="text-[10px] font-black text-emerald-400 uppercase mb-1">Trained Skills</div>
-            ${sb.trainedSkills.length ? sb.trainedSkills.map(s => `<div class="text-xs text-slate-200">${s.name} (${s.total >= 0 ? '+' : ''}${s.total})</div>`).join('') : '<div class="text-[10px] text-slate-600">No skills trained</div>'}
+            <div class="grid grid-cols-2 gap-x-3">${sb.trainedSkills.length ? sb.trainedSkills.map(s => `<div class="text-xs text-slate-200">${s.name} (${s.total >= 0 ? '+' : ''}${s.total})</div>`).join('') : '<div class="text-[10px] text-slate-600 col-span-2">No skills trained</div>'}</div>
         </div>
         <div class="grid grid-cols-2 gap-2">
             <div class="bg-slate-900 border border-slate-700 rounded p-2">
@@ -1302,7 +1306,7 @@ function powerCardHtml(p) {
                 <div><span class="text-slate-500">R/A:</span> ${p.rng}</div>
                 <div><span class="text-slate-500">D/H:</span> ${p.dmg}</div>
             </div>
-            <div class="text-[9px] text-slate-500 leading-tight">${p.desc}</div>
+            <div class="text-[9px] text-slate-500 leading-tight" style="white-space:pre-wrap;">${p.desc}</div>
         </div>
     `;
 }

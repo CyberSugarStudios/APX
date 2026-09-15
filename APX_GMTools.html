@@ -869,7 +869,7 @@
         </div>
     </div>
 
-<div class="modal-overlay" id="powerCrafterModal">
+<div class="modal-overlay" id="powerCrafterModal" style="z-index:1500;">
         <div class="modal-content max-w-[850px]">
             <div class="flex justify-between items-center mb-1 border-b border-purple-600 pb-2">
                 <h3 class="text-xl font-black text-white">The Power Crafter</h3>
@@ -1130,10 +1130,10 @@ document.addEventListener('DOMContentLoaded', () => {
             <div id="gmWorldContent" class="hidden flex-1 flex flex-col overflow-hidden min-h-0">
                 <div class="flex gap-1.5 mb-3 flex-shrink-0 flex-wrap">
                     <button onclick="window.showWorldTab('session')"   id="wTabSession"   class="px-3 py-1.5 rounded text-xs font-bold bg-amber-700 text-white">Session Notes</button>
-                    <button onclick="window.showWorldTab('map')"       id="wTabMap"       class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">World Map</button>
                     <button onclick="window.showWorldTab('npcs')"      id="wTabNpcs"      class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">NPCs</button>
                     <button onclick="window.showWorldTab('locations')" id="wTabLocations" class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Locations</button>
                     <button onclick="window.showWorldTab('notes')"     id="wTabNotes"     class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Notes</button>
+                    <button onclick="window.showWorldTab('map')"       id="wTabMap"       class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">World Map</button>
                     <button onclick="window.showWorldTab('othermaps')" id="wTabOthermaps" class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Other Maps</button>
                     <button onclick="window.showWorldTab('players')"   id="wTabPlayers"   class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Players</button>
                 </div>
@@ -1978,23 +1978,79 @@ document.addEventListener('DOMContentLoaded', () => {
         _origToggleReveal(type, id, val);
     };
 
+    // Clear fog for an Other Map
+    window._fogClearAllOmap = async function(mapId) {
+        let fc = document.getElementById('omWin_'+mapId+'_fog');
+        if (!fc||!fc.width) return;
+        fc.getContext('2d').clearRect(0,0,fc.width,fc.height);
+        delete _fogCache[(_activeWorldId||'?')+':'+mapId];
+        await _fogSave(mapId);
+    };
+
+    // Add a new Other Map — custom styled modal, no browser prompt()
     window.addOtherMap = function() {
-        let name = prompt('Map name (e.g. "Tavern Ground Floor", "Dungeon Level 1"):');
-        if (!name || !name.trim()) return;
+        let existing = document.getElementById('addOtherMapOverlay');
+        if (existing) existing.remove();
+        let overlay = document.createElement('div');
+        overlay.id = 'addOtherMapOverlay';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:1600;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;';
+        overlay.innerHTML = `<div style="background:#1e293b;border:1px solid #475569;border-radius:0.75rem;padding:1.5rem;max-width:380px;width:90vw;">
+            <div style="font-size:0.875rem;font-weight:700;color:#f8fafc;margin-bottom:0.25rem;">Add Other Map</div>
+            <div style="font-size:0.7rem;color:#94a3b8;margin-bottom:1rem;">Name this map, then upload an image.</div>
+            <input id="addOtherMapName" type="text" placeholder="e.g. Tavern Ground Floor, Dungeon Level 1…"
+                style="background:#0f172a;border:1px solid #334155;color:#e2e8f0;font-size:0.8rem;border-radius:0.375rem;padding:0.5rem 0.75rem;width:100%;box-sizing:border-box;margin-bottom:0.75rem;"
+                onkeydown="if(event.key==='Enter')window._confirmAddOtherMap()">
+            <div style="display:flex;gap:0.5rem;">
+                <button onclick="window._confirmAddOtherMap()"
+                    style="flex:1;background:#059669;border:none;color:#fff;font-size:0.75rem;font-weight:700;padding:0.5rem;border-radius:0.375rem;cursor:pointer;">Create & Upload Image</button>
+                <button onclick="document.getElementById('addOtherMapOverlay').remove()"
+                    style="background:#334155;border:none;color:#94a3b8;font-size:0.75rem;font-weight:700;padding:0.5rem 0.75rem;border-radius:0.375rem;cursor:pointer;">Cancel</button>
+            </div>
+        </div>`;
+        document.body.appendChild(overlay);
+        setTimeout(() => document.getElementById('addOtherMapName')?.focus(), 50);
+    };
+
+    window._confirmAddOtherMap = function() {
+        let name = document.getElementById('addOtherMapName')?.value?.trim();
+        if (!name) return;
+        document.getElementById('addOtherMapOverlay')?.remove();
         let id = 'omap_' + Date.now();
         if (!_wNotes.otherMaps) _wNotes.otherMaps = [];
-        _wNotes.otherMaps.push({ id, name: name.trim(), revealed: false, tokens: [] });
+        _wNotes.otherMaps.push({ id, name, revealed: false, tokens: [] });
         saveWorldNotes();
         window.renderOtherMapsList();
+        // Auto-open the map window and immediately trigger file upload
+        window.openOtherMapWindow(id);
+        setTimeout(() => {
+            let fileInput = document.getElementById('omWin_'+id+'_fileInput');
+            if (fileInput) fileInput.click();
+        }, 150);
     };
 
     window.deleteOtherMapEntry = async function(mapId) {
-        if (!confirm('Delete this map and all its area tokens?')) return;
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+        if (!map) return;
+        let overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:1600;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;';
+        overlay.innerHTML = `<div style="background:#1e293b;border:1px solid #475569;border-radius:0.75rem;padding:1.5rem;max-width:340px;width:90vw;">
+            <div style="font-size:0.8rem;font-weight:700;color:#f8fafc;margin-bottom:0.5rem;">Delete "${map.name}"?</div>
+            <div style="font-size:0.7rem;color:#94a3b8;margin-bottom:1.25rem;">This will delete the map and all its area tokens permanently.</div>
+            <div style="display:flex;gap:0.5rem;">
+                <button onclick="window._doDeleteOtherMap('${mapId}');this.closest('[style]').remove()"
+                    style="flex:1;background:#7f1d1d;border:1px solid #991b1b;color:#fca5a5;font-size:0.75rem;font-weight:700;padding:0.5rem;border-radius:0.375rem;cursor:pointer;">Delete</button>
+                <button onclick="this.closest('[style]').remove()"
+                    style="background:#334155;border:none;color:#94a3b8;font-size:0.75rem;font-weight:700;padding:0.5rem 0.75rem;border-radius:0.375rem;cursor:pointer;">Cancel</button>
+            </div>
+        </div>`;
+        document.body.appendChild(overlay);
+    };
+    window._doDeleteOtherMap = async function(mapId) {
         _wNotes.otherMaps = (_wNotes.otherMaps||[]).filter(m=>m.id!==mapId);
+        delete _fogCache[(_activeWorldId||'?')+':'+mapId];
         delete _omImageCache[mapId];
         saveWorldNotes();
         window.renderOtherMapsList();
-        // Remove floating window if open
         document.getElementById('omWin_'+mapId)?.remove();
         // Delete image from Firestore
         if (window.apxAuth?.enabled && _activeWorldId) {
@@ -2026,25 +2082,32 @@ document.addEventListener('DOMContentLoaded', () => {
             min-width:380px;min-height:300px;resize:both;overflow:hidden;`;
 
         win.innerHTML = `
-            <div id="${winId}_hdr" style="cursor:grab;user-select:none;background:#1e293b;padding:0.5rem 0.75rem;
+            <div id="${winId}_hdr" style="cursor:grab;user-select:none;background:#1e293b;padding:0.4rem 0.6rem;
                 border-bottom:1px solid #334155;border-radius:0.75rem 0.75rem 0 0;
-                display:flex;align-items:center;gap:0.5rem;flex-shrink:0;">
-                <span style="font-size:0.75rem;font-weight:700;color:#e2e8f0;flex:1;">${map.name}</span>
+                display:flex;align-items:center;gap:0.35rem;flex-shrink:0;flex-wrap:wrap;">
+                <span style="font-size:0.75rem;font-weight:700;color:#e2e8f0;flex:1;min-width:80px;">${map.name}</span>
+                <!-- Pan/Zoom controls -->
+                <button onclick="window.omZoom('${winId}',1.25)" style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;">+</button>
+                <button onclick="window.omZoom('${winId}',0.8)"  style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;">−</button>
+                <button onclick="window.omReset('${winId}')"     style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;">Reset</button>
+                <!-- Fog controls live in the header so they never accidentally paint -->
+                <button id="${winId}_fogBtn" onclick="window.toggleFogMode('${mapId}')" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;">🌫 Fog</button>
+                <div id="${winId}_fogControls" style="display:none;align-items:center;gap:0.25rem;">
+                    <span style="font-size:0.6rem;color:#94a3b8;">Size:</span>
+                    <input type="range" id="${winId}_fogSlider" min="5" max="150" value="40" step="5"
+                        oninput="window._fogBrushSize=+this.value; document.getElementById('${winId}_fogVal').textContent=this.value+'px';"
+                        style="width:60px;accent-color:#f59e0b;">
+                    <span id="${winId}_fogVal" style="font-size:0.6rem;color:#e2e8f0;min-width:28px;">40px</span>
+                    <button onclick="window._fogClearAllOmap('${mapId}')" style="font-size:0.6rem;padding:0.1rem 0.35rem;background:#7f1d1d;border:1px solid #991b1b;color:#fca5a5;border-radius:0.2rem;cursor:pointer;">Clear</button>
+                </div>
                 <button onclick="document.getElementById('${winId}_fileInput').click()"
-                    style="background:#1d4ed8;border:none;color:#fff;font-size:0.65rem;font-weight:700;padding:0.25rem 0.6rem;border-radius:0.25rem;cursor:pointer;">Upload Image</button>
+                    style="background:#1d4ed8;border:none;color:#fff;font-size:0.65rem;font-weight:700;padding:0.15rem 0.5rem;border-radius:0.2rem;cursor:pointer;">Upload Image</button>
                 <button onclick="document.getElementById('${winId}').remove()"
-                    style="background:none;border:none;color:#94a3b8;font-size:1.1rem;font-weight:700;cursor:pointer;line-height:1;padding:0 0.2rem;">✕</button>
+                    style="background:none;border:none;color:#94a3b8;font-size:1.1rem;font-weight:700;cursor:pointer;line-height:1;padding:0 0.15rem;">✕</button>
             </div>
             <input type="file" id="${winId}_fileInput" accept="image/*" style="display:none"
                 onchange="window._omHandleUpload('${mapId}','${winId}',this)">
             <div id="${winId}_area" style="flex:1;position:relative;overflow:hidden;cursor:crosshair;user-select:none;-webkit-user-select:none;">
-                <div style="position:absolute;top:0.5rem;left:0.5rem;z-index:10;display:flex;gap:0.25rem;align-items:center;">
-                    <button onclick="window.omZoom('${winId}',1.25)" style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;font-size:0.7rem;font-weight:700;padding:0.2rem 0.5rem;border-radius:0.25rem;cursor:pointer;">+</button>
-                    <button onclick="window.omZoom('${winId}',0.8)"  style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;font-size:0.7rem;font-weight:700;padding:0.2rem 0.5rem;border-radius:0.25rem;cursor:pointer;">−</button>
-                    <button onclick="window.omReset('${winId}')"     style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;padding:0.2rem 0.5rem;border-radius:0.25rem;cursor:pointer;">Reset</button>
-                    <button id="${winId}_fogBtn" onclick="window.toggleFogMode('${mapId}')" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;font-weight:700;padding:0.2rem 0.5rem;border-radius:0.25rem;cursor:pointer;">🌫 Fog</button>
-                    <span style="font-size:0.6rem;color:#475569;margin-left:0.25rem;">Click map to place token</span>
-                </div>
                 <div id="${winId}_vp" style="position:absolute;transform-origin:0 0;will-change:transform;user-select:none;">
                     <img id="${winId}_img" src="" alt="" style="display:none;max-width:none;user-select:none;pointer-events:none;-webkit-user-drag:none;" draggable="false" ondragstart="return false">
                     <canvas id="${winId}_fog" style="position:absolute;top:0;left:0;pointer-events:none;opacity:0.45;"></canvas>
@@ -2265,7 +2328,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let wn = (_wNotes.npcs||[]).find(x => x.id === nid);
             if (!wn) return '';
             let sbBtn = wn.statBlockId
-                ? `<button onclick="event.stopPropagation();window.openFloatingNpcStatBlockById('${wn.statBlockId}')" style="font-size:0.6rem;padding:0.1rem 0.3rem;background:#312e81;border:1px solid #4f46e5;color:#c7d2fe;border-radius:0.2rem;cursor:pointer;">Stat Block</button>`
+                ? `<button onclick="event.stopPropagation();window.openFloatingNpcStatBlockById('${wn.statBlockId}','${(wn.name||'NPC').replace(/'/g,"\\'")}')" style="font-size:0.6rem;padding:0.1rem 0.3rem;background:#312e81;border:1px solid #4f46e5;color:#c7d2fe;border-radius:0.2rem;cursor:pointer;">Stat Block</button>`
                 : '';
             return `<div style="display:flex;align-items:center;gap:0.3rem;margin-bottom:0.15rem;">
                 <button onclick="window.openTokenNpcInfo('${mapId}','${tokenId}','${nid}','${winId}')"
@@ -2902,21 +2965,22 @@ document.addEventListener('DOMContentLoaded', () => {
         zoomAtPoint(e.deltaY < 0 ? 1.1 : 0.9, e.clientX, e.clientY);
     };
     window.mapStartDrag = function(e) {
-        if (_fogMode === 'worldmap') { // fog mode owns mouse events
+        // Middle-click or Ctrl+click always pans regardless of fog mode
+        let isPanOverride = e.button === 1 || (e.button === 0 && e.ctrlKey);
+        if (_fogMode === 'worldmap' && !isPanOverride) {
             if (e.button !== 0) return;
             _fogPainting = true; _fogErase = e.shiftKey;
             _fogPaint(e, 'worldmap');
             e.preventDefault(); return;
         }
-        if (e.button !== 0) return;
+        if (e.button !== 0 && !isPanOverride) return;
         _mapDragging = true; _mapDidDrag = false;
         _mapDragSX = e.clientX; _mapDragSY = e.clientY;
         _mapDragOX = _mapOffX; _mapDragOY = _mapOffY;
         e.preventDefault();
     };
     window.mapDrag = function(e) {
-        // Move fog cursor reticle
-        if (_fogMode === 'worldmap') {
+        if (_fogMode === 'worldmap' && !e.ctrlKey && e.buttons !== 4) {
             _fogMoveCursor(e, 'worldmap');
             if (_fogPainting) { _fogErase = e.shiftKey; _fogPaint(e, 'worldmap'); }
             return;
@@ -2928,15 +2992,14 @@ document.addEventListener('DOMContentLoaded', () => {
         applyMapTransform();
     };
     window.mapEndDrag = function(e) {
-        if (_fogMode === 'worldmap') {
+        if (_fogMode === 'worldmap' && !e.ctrlKey && e.button !== 1) {
             if (_fogPainting) { _fogPainting = false; _fogSave('worldmap'); }
             return;
         }
         if (!_mapDragging) return;
         _mapDragging = false;
-        // Ensure cursor stays crosshair after any click (pin clicks open Other Maps which may affect cursor)
         let mc = document.getElementById('mapContainer');
-        if (mc) mc.style.cursor = 'crosshair';
+        if (mc) mc.style.cursor = _fogMode === 'worldmap' ? 'none' : 'crosshair';
         if (!_mapDidDrag && _mapImg && _mapImg.src && _mapImg.src.length > 10) {
             let container = document.getElementById('mapContainer');
             let rect = container.getBoundingClientRect();
@@ -3064,35 +3127,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     window.toggleFogMode = function(mapId) {
-        // btn and controls are only in the world map toolbar
         let btn      = mapId === 'worldmap' ? document.getElementById('fogToggleBtn') : document.getElementById('omWin_'+mapId+'_fogBtn');
-        let controls = document.getElementById('fogControls');
+        let controls = mapId === 'worldmap' ? document.getElementById('fogControls') : document.getElementById('omWin_'+mapId+'_fogControls');
         let hint     = document.getElementById('mapHint');
-        // Cursor element differs per map
-        let cursorEl = mapId === 'worldmap'
-            ? document.getElementById('fogCursor')
-            : document.getElementById('omWin_'+mapId+'_fogCursorDiv');
-        let container = mapId === 'worldmap'
-            ? document.getElementById('mapContainer')
-            : document.getElementById('omWin_'+mapId+'_area');
+        let cursorEl = mapId === 'worldmap' ? document.getElementById('fogCursor') : document.getElementById('omWin_'+mapId+'_fogCursorDiv');
+        let container= mapId === 'worldmap' ? document.getElementById('mapContainer') : document.getElementById('omWin_'+mapId+'_area');
 
         if (_fogMode === mapId) {
-            // EXIT fog mode
             _fogMode = false; _fogPainting = false;
-            if (btn)      { btn.style.background=''; btn.style.color=''; }
-            if (controls) controls.style.display = 'none';
-            if (hint)     hint.textContent = 'Click map to pin a Location. Drag to pan.';
-            if (cursorEl) { cursorEl.style.display = 'none'; }
+            if (btn)       { btn.style.background=''; btn.style.color=''; }
+            if (controls)  controls.style.display = 'none';
+            if (hint)      hint.textContent = 'Click map to pin a Location. Drag to pan.';
+            if (cursorEl)  cursorEl.style.display = 'none';
             if (container) container.style.cursor = 'crosshair';
         } else {
-            // ENTER fog mode
             _fogMode = mapId;
-            if (btn)      { btn.style.background='#b45309'; btn.style.color='#fff'; }
-            if (controls && mapId === 'worldmap') controls.style.display = 'flex';
-            if (hint)     hint.textContent = '';
+            if (btn)       { btn.style.background='#b45309'; btn.style.color='#fff'; }
+            if (controls)  controls.style.display = 'flex';
+            if (hint)      hint.textContent = '';
             if (container) container.style.cursor = 'none';
         }
-        // Re-render tokens so pointer-events toggles with fog mode
+        // Sync brush size from the correct slider (per-window for other maps)
+        let slider = document.getElementById(mapId === 'worldmap' ? 'fogBrushSlider' : 'omWin_'+mapId+'_fogSlider');
+        if (slider) { _fogBrushSize = +slider.value; window._fogBrushSize = _fogBrushSize; }
         if (mapId !== 'worldmap') {
             let winId = 'omWin_'+mapId;
             let win   = document.getElementById(winId);

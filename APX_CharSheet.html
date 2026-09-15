@@ -3072,21 +3072,23 @@
 
     // Zoom to a specific pin — identical to GM's zoomToLocationPin
     window.pwZoomToPin = function(locationId) {
-        window.showPlayerWorldTab('map');
         let world = window._playerWorldData;
         let loc   = (world?.notesV2?.locations||[]).find(l => l.id === locationId);
-        if (!loc || loc.pinX == null) return;
+        if (!loc || loc.pinX == null) return; // no pin — do nothing, no flash
+        // Switch to map tab only if not already there
+        let mapPanel = document.getElementById('pwPanelMap');
+        if (mapPanel && mapPanel.classList.contains('hidden')) {
+            window.showPlayerWorldTab('map');
+        }
         let img       = document.getElementById('pwMapImage');
         let container = document.getElementById('pwMapContainer');
-        if (!img || !container) return;
-        let iw = img.naturalWidth || 800, ih = img.naturalHeight || 600;
+        if (!img || !container || !img.naturalWidth) { renderPlayerMap(); return; }
+        let iw = img.naturalWidth, ih = img.naturalHeight;
         let cw = container.clientWidth, ch = container.clientHeight;
         _pwScale = 2;
         _pwOffX = cw/2 - loc.pinX * iw * _pwScale;
         _pwOffY = ch/2 - loc.pinY * ih * _pwScale;
         applyPwTransform();
-        // Ensure map is loaded
-        if (!img.src || img.style.display === 'none') renderPlayerMap();
     };
 
 
@@ -3403,19 +3405,36 @@
         }
 
         if (mapSrc) {
+            // Keep image hidden until fog is applied — prevents players seeing the unfogged map
             img.src = mapSrc;
-            img.style.display = 'block';
+            img.style.display = 'none';   // hidden until fog loads
             if (emptyEl) emptyEl.style.display = 'none';
             img.onload = () => {
-                window.pwMapResetView();
-                // Load fog (solid black overlay for players)
                 let saved = _getWorlds().find(w => w.worldId === world?.worldId) || _getPrimaryWorld();
                 if (saved?.gmUid && world?.worldId && window.apxAuth?.enabled) {
                     window.apxAuth.loadFogDataForPlayer(saved.gmUid, world.worldId, 'worldmap')
-                        .then(fog => { if (fog) _pwLoadFog('pwFogCanvas', fog, img); }).catch(()=>{});
+                        .then(fog => {
+                            if (fog) {
+                                _pwLoadFog('pwFogCanvas', fog, img);
+                                // Only show the map AFTER fog canvas is painted
+                                setTimeout(() => {
+                                    img.style.display = 'block';
+                                    window.pwMapResetView();
+                                }, 60);  // brief delay for fog canvas draw to complete
+                            } else {
+                                // No fog — safe to show immediately
+                                img.style.display = 'block';
+                                window.pwMapResetView();
+                            }
+                        }).catch(()=>{
+                            img.style.display = 'block';
+                            window.pwMapResetView();
+                        });
+                } else {
+                    img.style.display = 'block';
+                    window.pwMapResetView();
                 }
             };
-            if (img.complete && img.naturalWidth) { window.pwMapResetView(); }
         }
     }
 
