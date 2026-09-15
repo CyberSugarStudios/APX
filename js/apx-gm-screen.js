@@ -1028,9 +1028,8 @@ window.apxFloatingZTop = window.apxFloatingZTop || 2000;
 
 window.openFloatingStatBlock = function(entryId) {
     let entry = window.gmInitiative.find(e => e.id === entryId);
-    if (!entry || entry.faction === 'player') return; // players don't have a floating stat block (their full sheet lives in the Party column)
+    if (!entry || entry.faction === 'player') return;
 
-    // Already open -- just bring it to front instead of spawning a duplicate.
     if (window.gmFloatingWindows[entryId]) {
         window.apxFloatingZTop++;
         window.gmFloatingWindows[entryId].style.zIndex = window.apxFloatingZTop;
@@ -1038,8 +1037,20 @@ window.openFloatingStatBlock = function(entryId) {
     }
 
     let bodyHtml;
+    // Build display title: "First Name (Stat Block Name)" or just stat block name
+    let sbName  = entry.name || 'NPC';
+    let dispName = entry.name || 'NPC';
     if (entry.sourceNpcId && window.gmNpcs.some(n => n.id === entry.sourceNpcId)) {
-        let sb = ncStatBlockFor(entry.sourceNpcId);
+        let sb   = ncStatBlockFor(entry.sourceNpcId);
+        let gmNpc = window.gmNpcs.find(n => n.id === entry.sourceNpcId);
+        sbName   = gmNpc?.npc?.name || sbName;
+        // If the initiative entry name differs from the stat block name, show "First Name (Stat Block)"
+        if (entry.name && entry.name !== sbName) {
+            let firstName = entry.name.split(' ')[0];
+            dispName = firstName + ' (' + sbName + ')';
+        } else {
+            dispName = sbName;
+        }
         bodyHtml = window.buildStatBlockHtml(sb, false);
     } else {
         bodyHtml = `
@@ -1060,7 +1071,7 @@ window.openFloatingStatBlock = function(entryId) {
     win.style.zIndex = window.apxFloatingZTop;
     win.innerHTML = `
         <div class="floating-stat-window-header">
-            <span class="text-sm font-black text-white">${entry.name}</span>
+            <span class="text-sm font-black text-white">${dispName}</span>
             <button class="text-slate-400 hover:text-white font-bold text-lg leading-none px-1" onclick="window.closeFloatingStatBlock('${entryId}')">&times;</button>
         </div>
         <div class="floating-stat-window-body">${bodyHtml}</div>

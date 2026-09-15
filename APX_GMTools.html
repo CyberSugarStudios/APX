@@ -1642,7 +1642,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let linked = n.statBlockId ? window.gmNpcs?.find(g=>g.id===n.statBlockId) : null;
                 let statBadge = linked
                     ? `<span class="flex gap-1">
-                           <button onclick="event.stopPropagation();window.openFloatingNpcStatBlockById('${n.statBlockId}')" class="text-[9px] bg-indigo-900/50 border border-indigo-700/50 text-indigo-300 px-1.5 py-0.5 rounded font-bold hover:bg-indigo-900">View Stat Block</button>
+                           <button onclick="event.stopPropagation();window.openFloatingNpcStatBlockById('${n.statBlockId}','${(n.name||'').replace(/\'/g,"\\\'")}'" class="text-[9px] bg-indigo-900/50 border border-indigo-700/50 text-indigo-300 px-1.5 py-0.5 rounded font-bold hover:bg-indigo-900">View Stat Block</button>
                            <button onclick="event.stopPropagation();window.openGmNpcBuilder('${n.statBlockId}')" class="text-[9px] bg-slate-800 border border-slate-700 text-slate-400 px-1.5 py-0.5 rounded font-bold hover:border-slate-500">Edit</button>
                        </span>`
                     : `<button onclick="event.stopPropagation();window.openNpcStatBlockPicker('${n.id}')" class="text-[9px] bg-slate-800 border border-slate-600 text-slate-400 px-1.5 py-0.5 rounded font-bold hover:border-slate-400">Link Stat Block</button>`;
@@ -1756,6 +1756,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Toggle reveal for a sub-note embedded inside a location or npc
     window.toggleSubNoteReveal = function(parentType, parentId, noteId, val) {
+        // Handle area circle token subnotes
+        if (parentType === 'area') {
+            (_wNotes.otherMaps||[]).forEach(m => {
+                let tok = (m.tokens||[]).find(t=>t.id===parentId);
+                if (tok) { let sn=(tok.subnotes||[]).find(s=>s.id===noteId); if(sn) sn.revealed=!!val; }
+            });
+            saveWorldNotes(); window.renderNoteList(); return;
+        }
         let arr = parentType==='location' ? (_wNotes.locations||[]) : (_wNotes.npcs||[]);
         let parent = arr.find(x=>x.id===parentId);
         if (!parent) return;
@@ -1920,7 +1928,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let ids = window._locLinkedMapIds||[];
         let overlay = document.createElement('div');
         overlay.id = 'locMapPickerOverlay';
-        overlay.style.cssText = `position:fixed;inset:0;z-index:${(window.apxFloatingZTop||2000)+100};background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;`;
+        overlay.style.cssText = `position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;`;
         let maps = _wNotes.otherMaps||[];
         overlay.innerHTML = `<div style="background:#1e293b;border:1px solid #475569;border-radius:0.75rem;padding:1.25rem;min-width:280px;max-width:360px;max-height:70vh;display:flex;flex-direction:column;gap:0.35rem;">
             <div style="font-size:0.8rem;font-weight:700;color:#f8fafc;margin-bottom:0.25rem;">Link Other Maps to Location</div>
@@ -2071,7 +2079,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (existing) existing.remove();
         let overlay = document.createElement('div');
         overlay.id = 'addOtherMapOverlay';
-        overlay.style.cssText = `position:fixed;inset:0;z-index:${(window.apxFloatingZTop||2000)+100};background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;`;
+        overlay.style.cssText = `position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;`;
         overlay.innerHTML = `<div style="background:#1e293b;border:1px solid #475569;border-radius:0.75rem;padding:1.5rem;max-width:380px;width:90vw;">
             <div style="font-size:0.875rem;font-weight:700;color:#f8fafc;margin-bottom:0.25rem;">Add Other Map</div>
             <div style="font-size:0.7rem;color:#94a3b8;margin-bottom:1rem;">Name this map, then upload an image.</div>
@@ -2467,7 +2475,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let existing = document.getElementById('omMapPickerOverlay'); if(existing) existing.remove();
         let overlay = document.createElement('div');
         overlay.id = 'omMapPickerOverlay';
-        overlay.style.cssText = `position:fixed;inset:0;z-index:${(window.apxFloatingZTop||2000)+100};background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;`;
+        overlay.style.cssText = `position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;`;
         let maps = (_wNotes.otherMaps||[]).filter(m=>m.id!==mapId);
         overlay.innerHTML = `<div style="background:#1e293b;border:1px solid #475569;border-radius:0.75rem;padding:1.25rem;min-width:280px;max-width:360px;max-height:70vh;display:flex;flex-direction:column;gap:0.35rem;">
             <div style="font-size:0.8rem;font-weight:700;color:#f8fafc;margin-bottom:0.25rem;">Link Other Maps</div>
@@ -2536,6 +2544,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let tok = map?.tokens?.find(t=>t.id===tokenId); if(!tok) return;
         tok.subnotes = tok.subnotes||[];
         tok.subnotes.push({id:'tsn_'+Date.now(), title:'', content:'', revealed:false});
+        saveWorldNotes(); // persist immediately so Notes tab shows it
         let el = document.getElementById(winId+'_subnotes');
         if (el) el.innerHTML = _buildTokenSubnotes(tok, winId, false);
     };
@@ -2655,7 +2664,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!available.length) { alert('All world NPCs are already linked.'); return; }
         let overlay = document.createElement('div');
         overlay.id = 'omNpcPickerOverlay';
-        overlay.style.cssText = `position:fixed;inset:0;z-index:${(window.apxFloatingZTop||2000)+100};background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;`;
+        overlay.style.cssText = `position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;`;
         overlay.innerHTML = `<div style="background:#1e293b;border:1px solid #475569;border-radius:0.75rem;padding:1.25rem;min-width:280px;max-width:360px;max-height:70vh;display:flex;flex-direction:column;gap:0.5rem;">
             <div style="font-size:0.8rem;font-weight:700;color:#f8fafc;margin-bottom:0.25rem;">Link World NPC</div>
             <div style="overflow-y:auto;display:flex;flex-direction:column;gap:0.35rem;max-height:50vh;">
@@ -2682,7 +2691,7 @@ document.addEventListener('DOMContentLoaded', () => {
             background:#1e293b;border:1px solid #334155;border-radius:0.5rem;z-index:${window.apxFloatingZTop};
             box-shadow:0 10px 40px rgba(0,0,0,.8);`;
         let sbBtn = wn.statBlockId
-            ? `<button onclick="window.openFloatingNpcStatBlockById('${wn.statBlockId}')" style="width:100%;background:#312e81;border:1px solid #4f46e5;color:#c7d2fe;font-size:0.7rem;font-weight:700;padding:0.35rem;border-radius:0.25rem;cursor:pointer;margin-top:0.5rem;">View Stat Block</button>`
+            ? `<button onclick="window.openFloatingNpcStatBlockById('${wn.statBlockId}','${(wn.name||'').replace(/\'/g,"\\\'")}'" style="width:100%;background:#312e81;border:1px solid #4f46e5;color:#c7d2fe;font-size:0.7rem;font-weight:700;padding:0.35rem;border-radius:0.25rem;cursor:pointer;margin-top:0.5rem;">View Stat Block</button>`
             : '';
         win.innerHTML = `<div style="background:#1e293b;padding:0.75rem;border-bottom:1px solid #334155;display:flex;justify-content:space-between;align-items:center;">
             <span style="font-size:0.8rem;font-weight:700;color:#e2e8f0;">${wn.name||'NPC'}</span>
@@ -3218,6 +3227,11 @@ document.addEventListener('DOMContentLoaded', () => {
             _fogMoveCursor(e, 'worldmap');
             if (_fogPainting) { _fogErase = e.shiftKey; _fogPaint(e, 'worldmap'); }
             return;
+        }
+        if (_fogMode === 'worldmap' && isPanHeld) {
+            // Panning while in fog mode — hide the reticle circle so it doesn't freeze
+            let fc = document.getElementById('fogCursor');
+            if (fc) fc.style.display = 'none';
         }
         if (!_mapDragging) return;
         let dx = e.clientX - _mapDragSX, dy = e.clientY - _mapDragSY;

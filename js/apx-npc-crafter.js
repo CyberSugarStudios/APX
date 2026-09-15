@@ -872,13 +872,19 @@ window.renderGmNpcList = function() {
     }
     body.innerHTML = filtered.map(entry => {
         let tierInfo = npcTierForTP(entry.npc.gmTpBudget || 0);
+        let tags = entry.worldTags || [];
+        let tagBadges = tags.length
+            ? tags.map(t=>`<span style="font-size:0.55rem;background:#1e3a5f;border:1px solid #2563eb;color:#93c5fd;border-radius:9999px;padding:0.05rem 0.3rem;">${t}</span>`).join('')
+            : '';
         return `
-            <div class="flex items-center justify-between bg-slate-900 border border-slate-700 rounded p-2">
+            <div class="flex items-start justify-between bg-slate-900 border border-slate-700 rounded p-2">
                 <div>
                     <div class="text-sm font-bold text-purple-300">${entry.npc.name || 'Unnamed NPC'}</div>
                     <div class="text-[10px] text-slate-500">Tier ${tierInfo.tier} &middot; ${entry.npc.gmTpBudget || 0} TP budget</div>
+                    ${tagBadges ? `<div class="flex flex-wrap gap-1 mt-1">${tagBadges}</div>` : ''}
                 </div>
-                <div class="flex gap-1">
+                <div class="flex gap-1 flex-wrap justify-end">
+                    <button onclick="window.openStatBlockWorldTags('${entry.id}')" class="text-[10px] text-amber-400 hover:text-amber-300 font-bold px-2 py-1" title="Assign to Worlds">🏷</button>
                     <button onclick="window.openGmNpcBuilder('${entry.id}')" class="text-[10px] text-purple-400 hover:text-purple-300 font-bold px-2 py-1">Edit</button>
                     <button onclick="window.exportGmNpc('${entry.id}')" class="text-[10px] text-slate-400 hover:text-slate-300 font-bold px-2 py-1">Export</button>
                     <button onclick="window.deleteGmNpc('${entry.id}')" class="text-[10px] text-red-400 hover:text-red-300 font-bold px-2 py-1">Delete</button>
@@ -886,6 +892,59 @@ window.renderGmNpcList = function() {
             </div>
         `;
     }).join('');
+};
+
+window.openStatBlockWorldTags = function(npcId) {
+    let entry = window.gmNpcs.find(n => n.id === npcId);
+    if (!entry) return;
+    entry.worldTags = entry.worldTags || [];
+    let existing = document.getElementById('statBlockWorldTagOverlay');
+    if (existing) existing.remove();
+    // Build world list from _gmWorlds (accessible via window)
+    let worlds = window._gmWorlds || [];
+    let overlay = document.createElement('div');
+    overlay.id = 'statBlockWorldTagOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;';
+    overlay.innerHTML = `<div style="background:#1e293b;border:1px solid #475569;border-radius:0.75rem;padding:1.5rem;max-width:380px;width:90vw;max-height:70vh;display:flex;flex-direction:column;gap:0.5rem;">
+        <div style="font-size:0.875rem;font-weight:700;color:#f8fafc;">Assign "${entry.npc.name}" to Worlds</div>
+        <div style="font-size:0.7rem;color:#94a3b8;margin-bottom:0.25rem;">Tagged stat blocks appear highlighted in those worlds.</div>
+        <div style="overflow-y:auto;display:flex;flex-direction:column;gap:0.35rem;max-height:40vh;">
+            ${worlds.length
+                ? worlds.map(w => {
+                    let wName = w.name||'Unnamed';
+                    let checked = (entry.worldTags||[]).includes(wName);
+                    return `<label style="display:flex;align-items:center;gap:0.75rem;background:#0f172a;border:1px solid #334155;border-radius:0.375rem;padding:0.5rem 0.75rem;cursor:pointer;">
+                        <input type="checkbox" ${checked?'checked':''} data-world="${wName}" style="width:16px;height:16px;accent-color:#f59e0b;">
+                        <div>
+                            <div style="font-size:0.8rem;font-weight:700;color:#e2e8f0;">${wName}</div>
+                            <div style="font-size:0.65rem;color:#64748b;">${w.inviteCode||''}</div>
+                        </div>
+                    </label>`;
+                }).join('')
+                : '<div style="color:#475569;font-size:0.7rem;text-align:center;padding:1rem;">No worlds yet. Create a world first.</div>'
+            }
+        </div>
+        <div style="display:flex;gap:0.5rem;margin-top:0.25rem;">
+            <button onclick="window._saveStatBlockWorldTags('${npcId}')"
+                style="flex:1;background:#b45309;border:none;color:#fff;font-size:0.75rem;font-weight:700;padding:0.5rem;border-radius:0.375rem;cursor:pointer;">Save</button>
+            <button onclick="document.getElementById('statBlockWorldTagOverlay').remove()"
+                style="background:#334155;border:none;color:#94a3b8;font-size:0.75rem;font-weight:700;padding:0.5rem 0.75rem;border-radius:0.375rem;cursor:pointer;">Cancel</button>
+        </div>
+    </div>`;
+    document.body.appendChild(overlay);
+};
+
+window._saveStatBlockWorldTags = async function(npcId) {
+    let entry = window.gmNpcs.find(n => n.id === npcId);
+    if (!entry) return;
+    let checks = document.querySelectorAll('#statBlockWorldTagOverlay input[type="checkbox"]');
+    entry.worldTags = [];
+    checks.forEach(cb => { if (cb.checked) entry.worldTags.push(cb.dataset.world); });
+    document.getElementById('statBlockWorldTagOverlay')?.remove();
+    window.renderGmNpcList();
+    if (window.apxAuth?.enabled) {
+        await window.apxAuth.saveGmNpcs(window.gmNpcs||[]).catch(()=>{});
+    }
 };
 
 window.deleteGmNpc = function(id) {
