@@ -324,9 +324,19 @@
         if (!window.FIREBASE_ENABLED) { setError('Firebase not configured. Add your credentials to firebase-config.js.'); return; }
         try {
             let provider = new firebase.auth.GoogleAuthProvider();
-            let cred = await firebase.auth().signInWithPopup(provider);
-            // First-time Google sign-in: let the user set a preferred display name.
-            // (Google provides a name automatically, but they may want a different one.)
+            // signInWithRedirect avoids COOP browser policy that blocks signInWithPopup
+            await firebase.auth().signInWithRedirect(provider);
+        } catch(e) {
+            setError(friendlyAuthError(e));
+        }
+    }
+
+    // Handle the redirect result when page reloads after Google sign-in
+    (async function handleGoogleRedirect() {
+        if (!window.FIREBASE_ENABLED) return;
+        try {
+            let cred = await firebase.auth().getRedirectResult();
+            if (!cred || !cred.user) return;
             let isNew = cred.additionalUserInfo?.isNewUser;
             if (isNew) {
                 let suggested = cred.user.displayName || '';
@@ -336,10 +346,9 @@
                 }
             }
         } catch(e) {
-            if (e.code === 'auth/popup-closed-by-user') return;
-            setError(friendlyAuthError(e));
+            if (e.code !== 'auth/no-auth-event') console.warn('Redirect result:', e.message);
         }
-    }
+    })();
     async function doSignOut() { await window.apxAuth.signOut(); }
     async function doForgotPassword() {
         let email = document.getElementById('siEmail').value.trim();
