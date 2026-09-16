@@ -1237,7 +1237,10 @@ window.openFloatingNpcStatBlockById = function(gmNpcId, npcDisplayName) {
     let title     = (npcDisplayName && sbName !== npcDisplayName)
         ? firstName + ' (' + sbName + ')'
         : sbName;
-    let winId = 'npc_' + gmNpcId;
+    // Include first name in winId so two world NPCs sharing the same stat block
+    // each get their own floating window (Bildrath=npc_id_Bildrath, Commoner2=npc_id_Commoner2)
+    let safeFirst = firstName.replace(/[^a-zA-Z0-9]/g,'').slice(0,15);
+    let winId = 'npc_' + gmNpcId + (npcDisplayName && firstName !== sbName ? '_' + safeFirst : '');
     if (window.gmFloatingWindows && window.gmFloatingWindows[winId]) {
         // Update title in case a different world NPC with the same stat block is being viewed
         let hdr = window.gmFloatingWindows[winId].querySelector('.floating-stat-window-header span');

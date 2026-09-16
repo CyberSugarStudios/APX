@@ -1114,7 +1114,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <h3 class="text-lg font-bold text-amber-400 shrink-0">World</h3>
                     <div id="gmActiveWorldBadge" class="hidden text-[10px] font-bold text-emerald-400 bg-emerald-900/30 border border-emerald-700/40 rounded px-2 py-0.5 whitespace-nowrap shrink-0 max-w-[180px] truncate"></div>
                     <button onclick="window.openModal('worldSelectModal'); window.renderWorldSelectList();" class="px-3 py-1.5 rounded bg-slate-600 hover:bg-slate-500 text-white text-xs font-bold whitespace-nowrap shrink-0">⬡ Load World</button>
-                    <button onclick="window.openWorldMgr()" class="px-3 py-1.5 rounded bg-amber-800 hover:bg-amber-700 text-white text-xs font-bold whitespace-nowrap shrink-0">+ New World</button>
+                    <button onclick="window.createGmWorld()" class="px-3 py-1.5 rounded bg-amber-800 hover:bg-amber-700 text-white text-xs font-bold whitespace-nowrap shrink-0">+ New World</button>
                     <button onclick="window.deleteCurrentWorld()" class="px-2 py-1.5 rounded bg-red-900/40 hover:bg-red-900 text-red-400 text-xs font-bold whitespace-nowrap shrink-0">Delete</button>
                 </div>
                 <button onclick="window.closeModal('gmWorldModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Close</button>
@@ -1735,7 +1735,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>`).join('');
 
         let subHtml = subNotes.map(sn=>`<div class="bg-slate-900 border border-slate-600 rounded p-3 cursor-pointer hover:border-slate-400"
-            onclick="window.openNoteModal('${sn._parentType}','${sn._parentId}')">
+            onclick="window._clickSubnoteRow('${sn._parentType}','${sn._parentId}')">
             <div class="flex items-start justify-between gap-2">
                 <div class="min-w-0">
                     <div class="text-[9px] text-slate-500 mb-0.5">${sn._parentType==='location'?'📍':sn._parentType==='area'?'🔴':'👤'} <span class="text-slate-400">${sn._parentName}</span></div>
@@ -2416,8 +2416,27 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
 
+    // Routes subnote row clicks from the Notes tab to the right handler
+    window._clickSubnoteRow = function(parentType, parentId) {
+        if (parentType === 'area') {
+            window._openAreaSnParent(parentId);
+        } else {
+            window.openNoteModal(parentType, parentId);
+        }
+    };
+
+    // Open the parent token info window when an area subnote is clicked from the Notes tab
+    window._openAreaSnParent = function(tokenId) {
+        let found = null;
+        (_wNotes.otherMaps||[]).forEach(m => {
+            (m.tokens||[]).forEach(t => {
+                if (t.id === tokenId) found = { mapId: m.id, tokenId, parentWinId: 'omWin_'+m.id };
+            });
+        });
+        if (found) window.openTokenInfoWin(found.mapId, found.tokenId, found.parentWinId, false);
+    };
+
     // Helper used by onclick attributes to open a world NPC's stat block
-    // (avoids complex string escaping inside HTML attribute values)
     window._viewWorldNpcSb = function(worldNpcId, gmNpcId) {
         let wn = (_wNotes?.npcs||[]).find(n=>n.id===worldNpcId);
         window.openFloatingNpcStatBlockById(gmNpcId, wn?.name||'');
@@ -2461,7 +2480,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }).join('');
     }
 
-    function _buildTokenSubnotes(tok, winId, readOnly) {
+    function _buildTokenSubnotes(tok, winId, readOnly, mapId, tokenId) {
         let sns = tok.subnotes || [];
         if (!sns.length && readOnly) return '';
         return sns.map((sn, idx) => `<div style="background:#0f172a;border:1px solid #1e293b;border-radius:0.3rem;padding:0.4rem;margin-bottom:0.2rem;">
@@ -2473,7 +2492,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <label style="display:flex;align-items:center;gap:0.2rem;font-size:0.6rem;color:#94a3b8;white-space:nowrap;">
                         <input type="checkbox" ${sn.revealed?'checked':''} onchange="window._updateTokenSubnote('${winId}',${idx},'revealed',this.checked)"> Show
                     </label>
-                    <button onclick="window._deleteTokenSubnote('${winId}',${idx})" style="background:none;border:none;color:#64748b;cursor:pointer;">✕</button>
+                    <button onclick="window._deleteTokenSubnote('${winId}',${idx},'${mapId}','${tokenId}')" style="background:none;border:none;color:#64748b;cursor:pointer;">✕</button>
                 </div>
                 <textarea rows="2" placeholder="Content…" onchange="window._updateTokenSubnote('${winId}',${idx},'content',this.value)"
                     style="width:100%;background:#1e293b;border:1px solid #334155;color:#e2e8f0;font-size:0.65rem;border-radius:0.2rem;padding:0.2rem 0.35rem;resize:vertical;box-sizing:border-box;">${sn.content||''}</textarea>`
@@ -2567,11 +2586,16 @@ document.addEventListener('DOMContentLoaded', () => {
         let el = document.getElementById(winId+'_subnotes');
         if (el) el.innerHTML = _buildTokenSubnotes(tok, winId, false);
     };
-    window._deleteTokenSubnote = function(winId, idx) {
-        // Mark for removal on save
+    window._deleteTokenSubnote = function(winId, idx, mapId, tokenId) {
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+        let tok = map?.tokens?.find(t=>t.id===tokenId); if(!tok) return;
+        tok.subnotes = (tok.subnotes||[]);
+        tok.subnotes.splice(idx, 1);
+        saveWorldNotes();
         let el = document.getElementById(winId+'_subnotes');
-        let rows = el?.querySelectorAll(':scope > div');
-        if (rows && rows[idx]) rows[idx].remove();
+        if (el) el.innerHTML = _buildTokenSubnotes(tok, winId, false, mapId, tokenId);
+        let _np = document.getElementById('wPanelNotes');
+        if (_np && !_np.classList.contains('hidden')) window.renderNoteList();
     };
 
     // ── Token info floating window ────────────────────────────────
@@ -2632,7 +2656,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div id="${winId}_linkedMaps" style="margin-bottom:0.25rem;">${_buildTokenMapLinks(tok, mapId, tokenId, winId, readOnly)}</div>
                 ${!readOnly?`<button onclick="window.openMapPickerForToken('${mapId}','${tokenId}','${winId}')"
                     style="width:100%;background:#1e3a5f;border:1px solid #2563eb;color:#93c5fd;font-size:0.65rem;font-weight:700;padding:0.25rem;border-radius:0.25rem;cursor:pointer;margin-bottom:0.25rem;">🗺 Link Maps…</button>`:''}
-                <div id="${winId}_subnotes" style="margin-bottom:0.15rem;">${_buildTokenSubnotes(tok, winId, readOnly)}</div>
+                <div id="${winId}_subnotes" style="margin-bottom:0.15rem;">${_buildTokenSubnotes(tok, winId, readOnly, mapId, tokenId)}</div>
                 ${!readOnly?`<button onclick="window.addTokenSubnote('${mapId}','${tokenId}','${winId}')"
                     style="width:100%;background:#1e293b;border:1px solid #334155;color:#64748b;font-size:0.65rem;font-weight:700;padding:0.2rem;border-radius:0.25rem;cursor:pointer;margin-bottom:0.25rem;">+ Add Sub-note</button>`:''}
                 ${!readOnly?`<div style="display:flex;gap:0.5rem;">
