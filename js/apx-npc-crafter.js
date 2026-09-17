@@ -531,7 +531,8 @@ function companionWeaponDamageModifier(w, mods, twoHanded) {
     }
     let attr = companionWeaponBestAttr(w, mods, twoHanded);
     let attrMod = mods[attr] || 0;
-    let mult = (w.weightClass === 'heavy' || twoHanded) ? 2 : 1;
+    // Only HEAVY weapons double the attribute — medium wielded 2H only gets a die step, not double stat
+    let mult = (w.weightClass === 'heavy') ? 2 : 1;
     return (attrMod * mult) + aimBonus;
 }
 
@@ -825,6 +826,10 @@ window.closeNpcCrafter = function() {
 
 window.finishGmNpc = function() {
     let c = ncActiveCompanion();
+    // Reset currentHp so it recalculates to the new maxHp on next use.
+    // Without this, editing an NPC (e.g. changing CON) leaves currentHp
+    // clamped to the OLD max (e.g. 10/15 instead of 15/15).
+    c.currentHp = null;
     window.closeModal('npcCrafterModal');
     window.renderGmNpcList();
     // Auto-save GM NPCs to Firestore
@@ -1258,12 +1263,20 @@ window.openFloatingNpcStatBlockById = function(gmNpcId, npcDisplayName) {
 // winId format: 'npc_{gmNpcId}' — set by openFloatingNpcStatBlockById.
 window._floatAddToInit = function(winId) {
     if (!winId.startsWith('npc_')) {
-        // Window opened from the initiative tracker — NPC is already tracked.
         alert('This NPC is already in the initiative tracker.');
         return;
     }
-    let npcId  = winId.slice(4);
-    let npcIdx = (window.gmNpcs||[]).findIndex(n => n.id === npcId);
+    // winId is 'npc_{gmNpcId}' or 'npc_{gmNpcId}_{SafeFirstName}'
+    // Try the full remainder first, then strip name suffixes until we find a match.
+    let remainder = winId.slice(4);
+    let npcIdx = (window.gmNpcs||[]).findIndex(n => n.id === remainder);
+    if (npcIdx < 0) {
+        let parts = remainder.split('_');
+        for (let len = parts.length - 1; len >= 1 && npcIdx < 0; len--) {
+            let candidate = parts.slice(0, len).join('_');
+            npcIdx = (window.gmNpcs||[]).findIndex(n => n.id === candidate);
+        }
+    }
     if (npcIdx < 0) { alert('NPC not found in roster.'); return; }
     window.addToInitiative(npcIdx, 'npc');
 };

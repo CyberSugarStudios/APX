@@ -154,9 +154,22 @@ window.renderArmorForge = function() {
         `;
     }).join('');
 
+    // Determine armor weight class based on total weight
+    let armorWtClass = totals.wt <= 15 ? 'Light' : totals.wt <= 30 ? 'Medium' : 'Heavy';
+    let armorWtColor = totals.wt <= 15 ? '#4ade80' : totals.wt <= 30 ? '#f59e0b' : '#f87171';
+    let agiRuleText = totals.wt <= 15
+        ? '✓ Light Armor — Full AGI bonus to AC'
+        : totals.wt <= 30
+            ? '⚠ Medium Armor — AGI bonus to AC capped at +2'
+            : '✗ Heavy Armor — No AGI bonus to AC';
+
     let html = `
-        <div class="text-[10px] text-slate-500 mb-3">Base Armor is always included: 10 lbs, +1 AC / +1 DR / +1 ER, 50 Currency.</div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 sm:grid-flow-col sm:grid-rows-5 gap-1.5 max-h-[45vh] overflow-y-auto pr-1">${rows}</div>
+        <div class="text-[10px] text-slate-500 mb-2">Base Armor is always included: 10 lbs, +1 AC / +1 DR / +1 ER, 50 Currency.</div>
+        <div class="flex items-center gap-2 mb-3 bg-slate-900 border border-slate-700 rounded px-3 py-2">
+            <span style="font-size:0.75rem;font-weight:900;color:${armorWtColor};">${armorWtClass} Armor (${totals.wt} lbs)</span>
+            <span style="font-size:0.65rem;color:#94a3b8;">${agiRuleText}</span>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 sm:grid-flow-col sm:grid-rows-5 gap-1.5 max-h-[40vh] overflow-y-auto pr-1">${rows}</div>
 
         <div class="grid grid-cols-4 gap-2 mt-4 bg-slate-900 border border-slate-700 rounded-lg p-3">
             <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">Weight</div><div class="text-lg font-black text-white">${totals.wt}</div></div>

@@ -418,7 +418,7 @@
             <div class="col-span-2 lg:col-span-3">
                 <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Character Name</label>
                 <div class="flex items-center gap-2">
-                    <div id="charPortraitWrap" style="flex-shrink:0;width:38px;height:38px;border-radius:50%;overflow:hidden;border:2px solid var(--c-border,#334155);background:#0f172a;cursor:pointer;display:flex;align-items:center;justify-content:center;" onclick="document.getElementById('charPortraitInput').click()" title="Upload portrait">
+                    <div id="charPortraitWrap" style="flex-shrink:0;width:38px;height:38px;border-radius:50%;overflow:hidden;border:2px solid var(--c-border,#334155);background:#0f172a;cursor:pointer;display:flex;align-items:center;justify-content:center;" onclick="window.openCharPortraitWindow()" title="Character portrait">
                         <img id="charPortraitImg" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none;">
                         <span id="charPortraitIcon" style="font-size:18px;opacity:0.4;">👤</span>
                     </div>
@@ -443,8 +443,8 @@
             </div>
 
             <div class="col-span-2 lg:col-span-2">
-                <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Languages</label>
-                <input type="text" id="languages" onchange="window.updateState('languages', this.value)" placeholder="Common..." class="bg-slate-900 text-xs h-[38px]">
+                <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Character Age</label>
+                <input type="text" id="charAge" onchange="window.updateState('charAge', this.value)" placeholder="e.g. 28" class="bg-slate-900 text-xs h-[38px]">
             </div>
 
             <div class="col-span-2 lg:col-span-3 flex flex-col justify-end">
@@ -550,7 +550,7 @@
                 
                 <div class="grid grid-cols-3 gap-2 mb-3">
                     <div class="bg-slate-900 p-2 rounded border border-slate-700 text-center">
-                        <div class="text-[10px] text-slate-500 uppercase font-bold" id="acLabel" data-tip="10 + AGI modifier (or LUC if higher, with Lucky) + equipped Armor + Shield + other bonuses">Total AC</div>
+                        <div class="text-[10px] text-slate-500 uppercase font-bold" id="acLabel" data-tip="10 + AGI modifier (or LUC if higher, with Fortunate Fighter perk) + equipped Armor + Shield + other bonuses">Total AC</div>
                         <div class="text-3xl font-black text-white mt-1" id="dispAc">10</div>
                         <div class="text-[9px] text-slate-500 mt-1" id="dispAcCalc">10+0(AGI)+0</div>
                     </div>
@@ -2861,7 +2861,35 @@
         window.renderSidebarCharList();
     }
     // Fires whenever the GM reveals content, adds pins, etc.
-    // ── Character Portrait ────────────────────────────────────────
+    // ── Character Portrait ────────────────────────────────────
+    // Clicking the portrait circle opens a floating window showing the image.
+    // The window has an "Upload Image" button for changing it.
+    window.openCharPortraitWindow = function() {
+        let existing = document.getElementById('charPortraitFloatWin');
+        if (existing) { window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; existing.style.zIndex=window.apxFloatingZTop; return; }
+        window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1;
+        let src = window.state?.charPortrait||'';
+        let name = window.state?.name||'Character';
+        let win = document.createElement('div');
+        win.id = 'charPortraitFloatWin';
+        win.style.cssText = `position:fixed;right:20px;top:80px;width:240px;background:#0f172a;border:1px solid #334155;border-radius:0.75rem;z-index:${window.apxFloatingZTop};box-shadow:0 10px 40px rgba(0,0,0,.85);overflow:hidden;`;
+        win.innerHTML = `<div id="charPortraitFloatHdr" style="cursor:grab;user-select:none;background:#1e293b;padding:0.5rem 0.75rem;display:flex;align-items:center;gap:0.5rem;">
+            <span style="font-size:0.75rem;font-weight:700;color:#e2e8f0;flex:1;">${name}</span>
+            <button onclick="document.getElementById('charPortraitInput').click()" style="font-size:0.65rem;font-weight:700;padding:0.2rem 0.5rem;background:#1d4ed8;border:none;color:#fff;border-radius:0.25rem;cursor:pointer;">Upload Image</button>
+            <button onclick="document.getElementById('charPortraitFloatWin').remove()" style="background:none;border:none;color:#94a3b8;font-size:1rem;cursor:pointer;line-height:1;">✕</button>
+        </div>
+        <div style="width:240px;height:240px;background:#0f172a;display:flex;align-items:center;justify-content:center;">
+            ${src ? `<img src="${src}" style="width:100%;height:100%;object-fit:cover;">` : `<span style="font-size:64px;opacity:0.2;">👤</span>`}
+        </div>`;
+        document.body.appendChild(win);
+        win.addEventListener('mousedown', ()=>{ window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; win.style.zIndex=window.apxFloatingZTop; });
+        let hdr=document.getElementById('charPortraitFloatHdr'), wDrag=false, wOX=0, wOY=0;
+        hdr.addEventListener('mousedown', e=>{ if(e.target.tagName==='BUTTON')return; wDrag=true; let r=win.getBoundingClientRect(); wOX=e.clientX-r.left; wOY=e.clientY-r.top; e.preventDefault(); });
+        document.addEventListener('mousemove', e=>{ if(!wDrag)return; win.style.right='auto'; win.style.left=Math.max(0,e.clientX-wOX)+'px'; win.style.top=Math.max(0,e.clientY-wOY)+'px'; });
+        document.addEventListener('mouseup', ()=>wDrag=false);
+    };
+
+────
     // Stored as compressed base64 in window.state.charPortrait.
     // Existing characters without this field simply show the default icon.
     window.uploadCharPortrait = async function(input) {
@@ -2893,6 +2921,13 @@
     };
 
     window.renderCharPortrait = function() {
+        // Also refresh the floating portrait window if it's open
+        let floatWin = document.getElementById('charPortraitFloatWin');
+        if (floatWin) {
+            let src = window.state?.charPortrait||'';
+            let imgArea = floatWin.querySelector('div:last-child');
+            if (imgArea) imgArea.innerHTML = src ? `<img src="${src}" style="width:100%;height:100%;object-fit:cover;">` : `<span style="font-size:64px;opacity:0.2;">👤</span>`;
+        }
         let src = window.state?.charPortrait || '';
         let img  = document.getElementById('charPortraitImg');
         let icon = document.getElementById('charPortraitIcon');
@@ -3259,12 +3294,17 @@
                     ${sn.content?`<div class="text-[9px] text-slate-400" style="white-space:pre-wrap;">${sn.content}</div>`:''}
                 </div>`).join('')}</div>` : '';
             return `<div class="bg-slate-900 border border-slate-700 rounded p-3">
-                <div class="flex items-baseline gap-2">
-                    <div class="text-xs font-bold text-indigo-300">${n.name||'NPC'}</div>
-                    ${n.role?`<div class="text-[10px] text-slate-500">${n.role}</div>`:''}
+                <div class="flex items-start gap-2">
+                    ${n.portrait?`<img src="${n.portrait}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid #334155;flex-shrink:0;">`:''}
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-baseline gap-2">
+                            <div class="text-xs font-bold text-indigo-300">${n.name||'NPC'}</div>
+                            ${n.role?`<div class="text-[10px] text-slate-500">${n.role}</div>`:''}
+                        </div>
+                        ${n.description?`<div class="text-[10px] text-slate-400 mt-1">${n.description}</div>`:''}
+                        ${subHtml}
+                    </div>
                 </div>
-                ${n.description?`<div class="text-[10px] text-slate-400 mt-1">${n.description}</div>`:''}
-                ${subHtml}
             </div>`;
         }).join('') : '<div class="text-slate-600 text-sm text-center py-6">No NPCs shared yet</div>';
 

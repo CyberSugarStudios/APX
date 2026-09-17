@@ -24,7 +24,16 @@
             document.getElementById('origCommonLanguage').value = window.state.origin.commonLanguage || "";
             renderOrigCompsGrid();
             document.getElementById('origFeature').value = window.state.origin.feature || "";
-            document.getElementById('origWealth').value = "0"; 
+            document.getElementById('origWealth').value = "0";
+            // Lock if already applied (non-destructive: existing chars keep what they paid)
+            let ws = document.getElementById('origWealth');
+            if (ws && window.state.origin.wealthApplied) {
+                ws.disabled = true;
+                ws.title = 'Starting wealth already applied';
+            } else if (ws) {
+                ws.disabled = false;
+                ws.title = '';
+            }
             window.jumpToOrigStep(1);
         }
 
@@ -137,24 +146,37 @@
                 window.state.currency += wealthVal;
                 window.state.origin.wealthApplied = true;
             }
+            // Lock the dropdown once wealth has been applied
+            if (window.state.origin.wealthApplied && wealthSelect) {
+                wealthSelect.disabled = true;
+                wealthSelect.title = 'Starting wealth already applied';
+            }
 
-            // Auto-fill the languages field with the common language + any extra
-            // languages the player chose in the Competencies grid.
+            // Migrate languages → charNote (non-destructive: only if charNotes doesn't already have a Languages note)
             let commonLang = window.state.origin.commonLanguage || '';
             let extraLangs = (window.state.origin.comps || [])
                 .filter(c => c.type === 'language' && c.value)
                 .map(c => c.value);
             let allLangs = commonLang ? [commonLang, ...extraLangs] : extraLangs;
             if (allLangs.length) {
-                let langInput = document.getElementById('languages');
-                if (langInput) {
-                    let current = (langInput.value || '').split(',').map(s => s.trim()).filter(Boolean);
-                    allLangs.forEach(lang => {
-                        if (!current.some(c => c.toLowerCase() === lang.toLowerCase())) current.push(lang);
+                let langStr = allLangs.join(', ');
+                if (!window.state.charNotes) window.state.charNotes = [];
+                let existing = window.state.charNotes.find(n => n.title === 'Languages');
+                if (!existing) {
+                    window.state.charNotes.push({
+                        id: 'cn_lang_' + Date.now(),
+                        title: 'Languages',
+                        session: '',
+                        date: new Date().toISOString().slice(0,10),
+                        content: langStr
                     });
-                    langInput.value = current.join(', ');
-                    window.updateState('languages', langInput.value);
+                } else {
+                    // Append any new languages not already listed
+                    let existingLangs = existing.content.split(',').map(s=>s.trim().toLowerCase());
+                    let newLangs = allLangs.filter(l => !existingLangs.includes(l.toLowerCase()));
+                    if (newLangs.length) existing.content += ', ' + newLangs.join(', ');
                 }
+                if (typeof window.renderCharNotes === 'function') window.renderCharNotes();
             }
 
             window.closeModal('originModal');

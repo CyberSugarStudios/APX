@@ -486,7 +486,15 @@
             }
             window.state.lastKnownMaxRestDice = calc.maxRestDice;
             document.getElementById('dispWt').innerText = (calc.scores.CON * 2) + calc.wtBoost;
-            document.getElementById('dispMaxLuck').innerText = Math.max(1, calc.mods.LUC);
+            let newMaxLuck = Math.max(1, calc.mods.LUC);
+            document.getElementById('dispMaxLuck').innerText = newMaxLuck;
+            // Auto-adjust current luckPts when LUC changes (same pattern as restDice)
+            if (window.state.lastKnownMaxLuck !== undefined && newMaxLuck !== window.state.lastKnownMaxLuck) {
+                window.state.luckPts = Math.max(0, Math.min(newMaxLuck, (window.state.luckPts || 0) + (newMaxLuck - window.state.lastKnownMaxLuck)));
+                let lpEl = document.getElementById('luckPtsInput');
+                if (lpEl) lpEl.value = window.state.luckPts;
+            }
+            window.state.lastKnownMaxLuck = newMaxLuck;
 
             renderAttributesAndSkills();
             renderWeapons();
@@ -859,7 +867,7 @@
                 return agiMod + heavyStrBonus + (calc.bonusRangedDmg || 0) + aimBonus;
             }
 
-            let attr = attrOverride || w.attr;
+            let attr = attrOverride || (w.weightClass === 'heavy' ? 'STR' : w.attr);
             let attrMod = calc.mods[attr] || 0;
             let mult = (w.weightClass === 'heavy') ? 2 : 1;
             return (attrMod * mult) + (calc.bonusMeleeDmg || 0);
@@ -916,7 +924,7 @@
                     <td class="px-1 py-2">
                         ${(w.isUnarmed || w.isAncestry)
                             ? `<div class="text-xs font-bold text-slate-300 p-1 h-7 flex items-center" data-tip="Innate weapon names are set when the trait is purchased, in the Ancestry screen.">${w.name}</div>`
-                            : `<input type="text" value="${w.name}" onchange="window.updateWeaponName(${idx}, this.value)" placeholder="Weapon Name" class="bg-slate-900 border-slate-700 text-xs font-bold w-full h-7">`}
+                            : `<input type="text" value="${(w.name||'').replace(/"/g,'&quot;')}" onchange="window.updateWeaponName(${idx}, this.value)" placeholder="Weapon Name" class="bg-slate-900 border-slate-700 text-xs font-bold w-full h-7">`}
                         ${forgedWeaponBadge(w)}
                         ${w.forged ? `<button onclick="window.openWeaponForge(${idx})" class="text-[9px] text-orange-400 hover:text-orange-300 font-bold mt-0.5">Return to Forge</button>` : ''}
                         ${w.category === 'melee' && w.weightClass === 'medium' ? '<div class="text-[9px] text-slate-500 mt-0.5">1-Handed (2H row below)</div>' : ''}

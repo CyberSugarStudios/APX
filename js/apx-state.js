@@ -383,6 +383,24 @@ window.APX_VERSION = 'v2026.9.12.1515';
             document.getElementById('luckPtsInput').value = window.state.luckPts;
             let woundsEl = document.getElementById('woundsInput');
             if (woundsEl) woundsEl.value = window.state.wounds;
+            let charAgeEl = document.getElementById('charAge');
+            if (charAgeEl) charAgeEl.value = window.state.charAge || '';
+            // Non-destructive migration: if this character has old-style languages text,
+            // auto-create a "Languages" note and clear the old field so data isn't lost.
+            if (window.state.languages && window.state.languages.trim()) {
+                let alreadyMigrated = (window.state.charNotes||[]).some(n=>n.title==='Languages');
+                if (!alreadyMigrated) {
+                    if (!window.state.charNotes) window.state.charNotes = [];
+                    window.state.charNotes.push({
+                        id: 'cn_lang_' + Date.now(),
+                        title: 'Languages',
+                        session: '',
+                        date: new Date().toISOString().slice(0,10),
+                        content: window.state.languages.trim()
+                    });
+                }
+                delete window.state.languages; // remove old field
+            }
             if (typeof window.renderCharNotes === 'function') window.renderCharNotes();
             if (typeof window.renderCharPortrait === 'function') window.renderCharPortrait();
             window.syncInitStatCheckboxes();

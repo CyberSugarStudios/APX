@@ -344,7 +344,10 @@
             window.askPayOrGrant(g.name, g.cost, (paid) => {
                 let existing = window.state.items.find(i => i.name === g.name && i.wt === g.wt && i.val === g.cost && !i.isConsumable);
                 if (existing) existing.ct += 1;
-                else window.state.items.push({ name: g.name, wt: g.wt, ct: 1, val: g.cost, desc: g.desc });
+                else {
+                    let defaultCt = g.cat === 'Ammo' ? 20 : 1;
+                    window.state.items.push({ name: g.name, wt: g.wt, ct: defaultCt, val: g.cost, desc: g.desc });
+                }
                 if (paid) window.state.currency = (window.state.currency || 0) - g.cost;
                 window.recalculateMath();
             });

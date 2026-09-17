@@ -257,6 +257,7 @@
             restDice: 5,
             luckPts: 1,
             wounds: "",
+            charAge: "",          // Character age (replaced the Languages text field)
             charPortrait: "",     // base64 portrait; empty = show default icon (safe for existing users)
             charNotes: [], // [{id, title, session, date, content}] — personal character notes
             conditions: [], // array of active condition ids from CONDITIONS
