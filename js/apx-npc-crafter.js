@@ -1278,7 +1278,13 @@ window._floatAddToInit = function(winId) {
         }
     }
     if (npcIdx < 0) { alert('NPC not found in roster.'); return; }
-    window.addToInitiative(npcIdx, 'npc');
+    // Extract the display name from the window title if available (format: "Name (Stat Block)")
+    let winEl = document.getElementById(winId);
+    let titleEl = winEl?.querySelector('.floating-stat-window-header span');
+    let rawTitle = titleEl?.textContent || '';
+    // "Bildrath (Human Commoner)" → "Bildrath"  |  "Human Commoner" → use stat block name
+    let displayName = rawTitle.includes('(') ? rawTitle.split('(')[0].trim() : '';
+    window.addToInitiative(npcIdx, 'npc', undefined, displayName || undefined);
 };
 
 // Shared by the builder's own detail popup (editable HP) and the GM

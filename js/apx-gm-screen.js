@@ -506,7 +506,7 @@ window.toggleInLair = function(checked) {
     window.recomputeLairTraitNotes();
 };
 
-window.addToInitiative = function(sourceIdx, sourceType, faction) {
+window.addToInitiative = function(sourceIdx, sourceType, faction, displayName) {
     let entry;
     if (sourceType === 'party') {
         let p = window.gmParty[sourceIdx];
@@ -519,7 +519,9 @@ window.addToInitiative = function(sourceIdx, sourceType, faction) {
         let n = window.gmNpcs[sourceIdx];
         let sb = ncStatBlockFor(n.id);
         let resolvedFaction = faction || nextAddFaction();
-        entry = { id: crypto.randomUUID(), name: sb.name, baseInitiative: sb.initiative, surprised: false, currentHp: sb.currentHp, maxHp: sb.maxHp, tempHp: 0, ap: sb.ap, ac: sb.ac, dr: sb.dr, er: sb.er, faction: resolvedFaction, bleedOutTurns: null, tpValue: window.npcXpForTier(npcTierForTP(n.npc.gmTpBudget || 0).tier), sourceNpcId: n.id, hasLairActions: !!n.npc.lairActions, lairTraitNote: null, powerUsage: {} };
+        // Use displayName (world NPC name) if provided, otherwise fall back to stat block name
+        let entryName = displayName || sb.name;
+        entry = { id: crypto.randomUUID(), name: entryName, baseInitiative: sb.initiative, surprised: false, currentHp: sb.currentHp, maxHp: sb.maxHp, tempHp: 0, ap: sb.ap, ac: sb.ac, dr: sb.dr, er: sb.er, faction: resolvedFaction, bleedOutTurns: null, tpValue: window.npcXpForTier(npcTierForTP(n.npc.gmTpBudget || 0).tier), sourceNpcId: n.id, hasLairActions: !!n.npc.lairActions, lairTraitNote: null, powerUsage: {} };
         // Limited-use powers (Charges or Recharge) get their own tracked
         // usage on the initiative entry itself, independent of the NPC's
         // own saved data -- so two copies of the same monster in the same
@@ -623,6 +625,7 @@ window.renderSavedNpcPickerList = function() {
                 <div class="text-[9px] text-slate-500">Tier ${r.tier} &middot; Init ${r.sb.initiative} &middot; AP ${r.sb.ap} &middot; HP ${r.sb.maxHp}</div>
             </div>
             <div class="flex gap-1 items-center">
+                <input type="text" class="saved-npc-display-name bg-slate-800 border border-slate-600 text-[10px] text-slate-200 rounded px-1.5 py-1 w-24" placeholder="Name (optional)" title="Override the stat block name for this token">
                 <select class="saved-npc-faction bg-slate-800 border-slate-600 text-[10px]">
                     <option value="enemy">Enemy</option>
                     <option value="ally">Ally</option>
@@ -636,7 +639,9 @@ window.renderSavedNpcPickerList = function() {
 
 window.addSavedNpcFromPicker = function(npcIdx, btnEl) {
     let factionSel = btnEl.parentElement.querySelector('.saved-npc-faction');
-    window.addToInitiative(npcIdx, 'npc', factionSel.value);
+    let nameSel    = btnEl.parentElement.querySelector('.saved-npc-display-name');
+    let displayName = nameSel?.value?.trim() || undefined;
+    window.addToInitiative(npcIdx, 'npc', factionSel.value, displayName);
 };
 
 window.removeFromInitiative = function(id) {

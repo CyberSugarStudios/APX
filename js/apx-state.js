@@ -371,7 +371,12 @@ window.APX_VERSION = 'v2026.9.12.1515';
 
         window.syncDOM = function() {
             document.getElementById('charName').value = window.state.name;
-            document.getElementById('languages').value = window.state.languages;
+            // 'languages' field was removed in v2026.9.17 and replaced with 'charAge'
+            // Guard both so old and new layouts work without crashing
+            let langEl = document.getElementById('languages');
+            if (langEl) langEl.value = window.state.languages || '';
+            let ageEl = document.getElementById('charAge');
+            if (ageEl) ageEl.value = window.state.charAge || '';
             document.getElementById('currency').value = window.state.currency;
             document.getElementById('craftMatWeightToggle').checked = window.state.craftingMatWeightEnabled;
             document.getElementById('unspentXp').value = window.state.unspentXp;

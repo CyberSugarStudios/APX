@@ -2226,8 +2226,7 @@
     <script src="js/firebase-config.js"></script>
     <script src="js/apx-firebase.js"></script>
     <script>
-    // ── Sidebar: folders, worlds, meatball menus ─────────────────
-    window._sidebarChars = [];
+    // ── Sidebar: folders, worlds, meatball menus ─────────────    window._sidebarChars = [];
     window._sidebarFolders = []; // [{ id, name }]
     let _activeMeatball = null;  // currently open meatball menu element
 
@@ -2334,8 +2333,7 @@
         e.stopPropagation();
     };
 
-    // ── Folder actions ───────────────────────────────────────────
-    window.openFolderManager = function() {
+    // ── Folder actions ───────────────────────────────────────    window.openFolderManager = function() {
         window._renamingFolderId = null;
         document.getElementById('folderNameInput').value = '';
         let h3 = document.querySelector('#folderManagerModal h3');
@@ -2568,8 +2566,7 @@
         }
     });
 
-    // ── Character Lobby ──────────────────────────────────────────
-    // Shown on page load; hides once a character is chosen or created.
+    // ── Character Lobby ──────────────────────────────────────    // Shown on page load; hides once a character is chosen or created.
     async function renderLobby(user) {
         let list = document.getElementById('lobbyCharacterList');
         let accountLine = document.getElementById('lobbyAccountLine');
@@ -2675,8 +2672,7 @@
         }
         document.getElementById('characterLobby').style.display = 'none';
     };
-    // ── Multi-World State ────────────────────────────────────────
-    // Supports multiple worlds. Each entry: { code, gmUid, worldId, worldName, folderId }
+    // ── Multi-World State ────────────────────────────────────    // Supports multiple worlds. Each entry: { code, gmUid, worldId, worldName, folderId }
     // Backward compat: migrates old single apxConnectedWorld on first load.
     function _getWorlds() {
         let arr = JSON.parse(localStorage.getItem('apxConnectedWorlds')||'null');
@@ -2774,8 +2770,7 @@
         await _doJoinWorld(code, document.getElementById('lobbyWorldCodeError'));
     };
 
-    // ── World character picker ────────────────────────────────────
-    // Shown when a player joins a world and needs to pick a character for it.
+    // ── World character picker ────────────────────────────────    // Shown when a player joins a world and needs to pick a character for it.
     // Includes ALL characters not already in this world folder — even those
     // in other worlds — so the player can move their character here.
     function showWorldCharPicker(worldName, folderId, worldCode) {
@@ -2861,8 +2856,7 @@
         window.renderSidebarCharList();
     }
     // Fires whenever the GM reveals content, adds pins, etc.
-    // ── Character Portrait ────────────────────────────────────
-    // Clicking the portrait circle opens a floating window showing the image.
+    // ── Character Portrait ────────────────────────────────    // Clicking the portrait circle opens a floating window showing the image.
     // The window has an "Upload Image" button for changing it.
     window.openCharPortraitWindow = function() {
         let existing = document.getElementById('charPortraitFloatWin');
@@ -2889,7 +2883,6 @@
         document.addEventListener('mouseup', ()=>wDrag=false);
     };
 
-────
     // Stored as compressed base64 in window.state.charPortrait.
     // Existing characters without this field simply show the default icon.
     window.uploadCharPortrait = async function(input) {
@@ -3024,8 +3017,7 @@
         });
     }
 
-    // ── Player World View ────────────────────────────────────────
-    window._playerWorldData = null;
+    // ── Player World View ────────────────────────────────────    window._playerWorldData = null;
     window._playerWorldsData = {};
 
     window.showPlayerWorldTab = function(tab) {
@@ -3047,8 +3039,7 @@
     };
 
 
-    // ── Player Map — identical implementation to GM map ──────────────────
-    // State variables (mirror of _mapScale / _mapOffX / _mapOffY in GMTools)
+    // ── Player Map — identical implementation to GM map ──────────────    // State variables (mirror of _mapScale / _mapOffX / _mapOffY in GMTools)
     let _pwScale = 1, _pwOffX = 0, _pwOffY = 0;
     let _pwDragging = false, _pwDidDrag = false;
     let _pwDragSX = 0, _pwDragSY = 0, _pwDragOX = 0, _pwDragOY = 0;
@@ -3623,8 +3614,7 @@
         }
     };
 
-    // ── GM→Player HP sync listener ────────────────────────────────
-    // When the GM applies damage/healing in the initiative tracker, they write
+    // ── GM→Player HP sync listener ────────────────────────────    // When the GM applies damage/healing in the initiative tracker, they write
     // { _gmHp: { hp, at } } to worldCodes/{code}/players/{uid}.
     // This listener picks that up and updates the player's sheet immediately.
     let _lastGmHpAt = 0;
@@ -3672,8 +3662,7 @@
         if (typeof window.syncDOM === 'function') window.syncDOM();
     };
 
-    // ── Sidebar account section ──────────────────────────────────
-    function updateSidebarAccount(user) {
+    // ── Sidebar account section ──────────────────────────────    function updateSidebarAccount(user) {
         let section = document.getElementById('sidebarAccountSection');
         let emailEl = document.getElementById('sidebarAccountEmail');
         let worldBtn = document.getElementById('playerWorldBtn');
@@ -3690,8 +3679,7 @@
         }
     }
 
-    // ── Auto-save ────────────────────────────────────────────────
-    let _autoSaveTimer = null;
+    // ── Auto-save ────────────────────────────────────────────    let _autoSaveTimer = null;
     function scheduleAutoSave() {
         if (!window.apxAuth || !window.apxAuth.enabled) return;
         if (!window._activeCloudCharId || !window.state) return;
@@ -3723,8 +3711,7 @@
         };
     }
 
-    // ── Delete Account ───────────────────────────────────────────
-    window.openDeleteAccountModal = function() {
+    // ── Delete Account ───────────────────────────────────────    window.openDeleteAccountModal = function() {
         document.getElementById('acctDeleteInput').value = '';
         document.getElementById('deleteStep1').classList.remove('hidden');
         document.getElementById('deleteStep2').classList.add('hidden');
@@ -3793,8 +3780,7 @@
         }
     };
 
-    // ── Auth ready ───────────────────────────────────────────────
-    window.onApxAuthReady = async function(user) {
+    // ── Auth ready ───────────────────────────────────────────    window.onApxAuthReady = async function(user) {
         updateSidebarAccount(user);
         patchRecalc();
 

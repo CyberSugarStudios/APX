@@ -1652,14 +1652,79 @@ document.addEventListener('DOMContentLoaded', () => {
                     : `<button onclick="event.stopPropagation();window.openNpcStatBlockPicker('${n.id}')" class="text-[9px] bg-slate-800 border border-slate-600 text-slate-400 px-1.5 py-0.5 rounded font-bold hover:border-slate-400">Link Stat Block</button>`;
                 let notesCount = (n.notes||[]).length;
                 let portraitHtml = n.portrait
-                    ? `<img src="${n.portrait}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid #334155;flex-shrink:0;cursor:pointer;" onclick="event.stopPropagation();window.uploadNpcPortrait('${n.id}')" title="Click to change portrait">`
+                    ? `<img src="${n.portrait}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid #334155;flex-shrink:0;cursor:pointer;" onclick="event.stopPropagation();window.openNpcPortraitWin('${n.id}')" title="View portrait - click to view image">`
                     : `<div style="width:36px;height:36px;border-radius:50%;background:#0f172a;border:2px dashed #334155;display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;flex-shrink:0;" onclick="event.stopPropagation();window.uploadNpcPortrait('${n.id}')" title="Upload portrait">👤</div>`;
-                return `<div class="bg-slate-900 border border-slate-700 rounded p-3 cursor-pointer hover:border-slate-500" onclick="window.openNoteModal('npc','${n.id}')"><div class="flex items-start gap-2">${portraitHtml}<div class="flex-1 min-w-0"><div class="flex items-start justify-between gap-2"><div class="min-w-0"><div class="text-xs font-bold text-slate-200 truncate">${n.name||'Unnamed NPC'}</div>${n.role?`<div class="text-[10px] text-slate-500 mt-0.5">${n.role}</div>`:''}</div><div class="flex items-center gap-2 shrink-0" onclick="event.stopPropagation()">${revealBadge('npc', n.id, !!n.revealed)}${statBadge}</div></div>${n.description?`<div class="text-[10px] text-slate-400 mt-1.5 line-clamp-2">${n.description}</div>`:''}${notesCount?`<div class="text-[9px] text-slate-500 mt-1">${notesCount} sub-note${notesCount>1?'s':''}</div>`:''}</div></div></div>`;
+                return `<div class="bg-slate-900 border border-slate-700 rounded p-3 cursor-pointer hover:border-slate-500" onclick="window.openNpcInfoWin('${n.id}')"><div class="flex items-start gap-2">${portraitHtml}<div class="flex-1 min-w-0"><div class="flex items-start justify-between gap-2"><div class="min-w-0"><div class="text-xs font-bold text-slate-200 truncate">${n.name||'Unnamed NPC'}</div>${n.role?`<div class="text-[10px] text-slate-500 mt-0.5">${n.role}</div>`:''}</div><div class="flex items-center gap-2 shrink-0" onclick="event.stopPropagation()">${revealBadge('npc', n.id, !!n.revealed)}${statBadge}</div></div>${n.description?`<div class="text-[10px] text-slate-400 mt-1.5 line-clamp-2">${n.description}</div>`:''}${notesCount?`<div class="text-[9px] text-slate-500 mt-1">${notesCount} sub-note${notesCount>1?'s':''}</div>`:''}</div></div></div>`;
               }).join('')
             : '<div class="text-center py-8 text-slate-600 text-sm">No NPCs yet</div>';
     };
 
-    window.uploadNpcPortrait = function(npcId) {
+    // NPC floating info window — shows portrait, description, sub-notes, with Edit button
+    window.openNpcInfoWin = function(npcId) {
+        let n = (_wNotes.npcs||[]).find(x=>x.id===npcId); if(!n) return;
+        let winId = 'npcInfo_'+npcId;
+        let existing = document.getElementById(winId);
+        if (existing) { window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; existing.style.zIndex=window.apxFloatingZTop; return; }
+        window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1;
+        let snHtml = (n.notes||[]).map(sn=>`<div style="background:#0f172a;border:1px solid #1e293b;border-radius:0.3rem;padding:0.35rem;margin-top:0.2rem;">
+            ${sn.title?`<div style="font-size:0.65rem;font-weight:700;color:#e2e8f0;">${sn.title}</div>`:''}
+            ${sn.content?`<div style="font-size:0.6rem;color:#94a3b8;white-space:pre-wrap;">${sn.content}</div>`:''}</div>`).join('');
+        let portraitBlock = n.portrait
+            ? `<img src="${n.portrait}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid #334155;cursor:pointer;flex-shrink:0;" onclick="window.openNpcPortraitWin('${npcId}')" title="View portrait">`
+            : '';
+        let win = document.createElement('div');
+        win.id=winId;
+        win.style.cssText=`position:fixed;right:20px;top:100px;width:300px;max-height:70vh;background:#1e293b;border:1px solid #334155;border-radius:0.75rem;z-index:${window.apxFloatingZTop};box-shadow:0 10px 40px rgba(0,0,0,.85);display:flex;flex-direction:column;`;
+        win.innerHTML=`<div id="${winId}_hdr" style="cursor:grab;user-select:none;background:#312e81;padding:0.6rem 0.75rem;border-radius:0.75rem 0.75rem 0 0;display:flex;align-items:center;gap:0.5rem;flex-shrink:0;">
+            <span style="font-size:0.8rem;font-weight:700;color:#e2e8f0;flex:1;">${n.name||'NPC'}</span>
+            <button onclick="window.openNoteModal('npc','${npcId}')" style="font-size:0.65rem;font-weight:700;padding:0.2rem 0.5rem;background:#4f46e5;border:1px solid #6366f1;color:#e0e7ff;border-radius:0.25rem;cursor:pointer;">Edit</button>
+            <button onclick="document.getElementById('${winId}').remove()" style="background:none;border:none;color:#94a3b8;font-size:1rem;cursor:pointer;line-height:1;">✕</button>
+        </div>
+        <div style="padding:0.75rem;overflow-y:auto;flex:1;">
+            ${portraitBlock ? `<div style="display:flex;gap:0.75rem;margin-bottom:0.5rem;">${portraitBlock}<div style="flex:1;">${n.role?`<div style="font-size:0.7rem;color:#818cf8;margin-bottom:0.2rem;">${n.role}</div>`:''}${n.description?`<div style="font-size:0.7rem;color:#cbd5e1;white-space:pre-wrap;">${n.description}</div>`:''}</div></div>` : `${n.role?`<div style="font-size:0.7rem;color:#818cf8;margin-bottom:0.25rem;">${n.role}</div>`:''}${n.description?`<div style="font-size:0.7rem;color:#cbd5e1;white-space:pre-wrap;margin-bottom:0.4rem;">${n.description}</div>`:''}`}
+            ${!portraitBlock&&n.portrait?'':snHtml}
+            ${portraitBlock?snHtml:''}
+        </div>`;
+        document.getElementById('floatingWindowContainer').appendChild(win);
+        win.addEventListener('mousedown',()=>{ window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; win.style.zIndex=window.apxFloatingZTop; });
+        let hdr=document.getElementById(winId+'_hdr'), wDrag=false, wOX=0, wOY=0;
+        hdr.addEventListener('mousedown',e=>{ if(e.target.tagName==='BUTTON')return; wDrag=true; let r=win.getBoundingClientRect(); wOX=e.clientX-r.left; wOY=e.clientY-r.top; e.preventDefault(); });
+        document.addEventListener('mousemove',e=>{ if(!wDrag)return; win.style.right='auto'; win.style.left=Math.max(0,e.clientX-wOX)+'px'; win.style.top=Math.max(0,e.clientY-wOY)+'px'; });
+        document.addEventListener('mouseup',()=>wDrag=false);
+    };
+    // Refresh NPC info window after edit
+    window._refreshNpcInfoWin = function(npcId) {
+        let existing = document.getElementById('npcInfo_'+npcId);
+        if (existing) { existing.remove(); window.openNpcInfoWin(npcId); }
+    };
+
+    // NPC portrait viewer floating window with Upload button
+    window.openNpcPortraitWin = function(npcId) {
+        let n = (_wNotes.npcs||[]).find(x=>x.id===npcId); if(!n) return;
+        let winId = 'npcPortrait_'+npcId;
+        let existing = document.getElementById(winId);
+        if (existing) { window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; existing.style.zIndex=window.apxFloatingZTop; return; }
+        window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1;
+        let win = document.createElement('div');
+        win.id=winId;
+        win.style.cssText=`position:fixed;right:20px;top:80px;width:240px;background:#0f172a;border:1px solid #334155;border-radius:0.75rem;z-index:${window.apxFloatingZTop};box-shadow:0 10px 40px rgba(0,0,0,.85);overflow:hidden;`;
+        win.innerHTML=`<div id="${winId}_hdr" style="cursor:grab;user-select:none;background:#1e293b;padding:0.5rem 0.75rem;display:flex;align-items:center;gap:0.5rem;">
+            <span style="font-size:0.75rem;font-weight:700;color:#e2e8f0;flex:1;">${n.name||'NPC'}</span>
+            <button onclick="window.uploadNpcPortrait('${npcId}',true)" style="font-size:0.65rem;font-weight:700;padding:0.2rem 0.5rem;background:#1d4ed8;border:none;color:#fff;border-radius:0.25rem;cursor:pointer;">Upload Image</button>
+            <button onclick="document.getElementById('${winId}').remove()" style="background:none;border:none;color:#94a3b8;font-size:1rem;cursor:pointer;">✕</button>
+        </div>
+        <div id="${winId}_img" style="width:240px;height:240px;background:#0f172a;display:flex;align-items:center;justify-content:center;">
+            ${n.portrait?`<img src="${n.portrait}" style="width:100%;height:100%;object-fit:cover;">`:`<span style="font-size:64px;opacity:0.2;">👤</span>`}
+        </div>`;
+        document.getElementById('floatingWindowContainer').appendChild(win);
+        win.addEventListener('mousedown',()=>{ window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; win.style.zIndex=window.apxFloatingZTop; });
+        let hdr=document.getElementById(winId+'_hdr'), wDrag=false, wOX=0, wOY=0;
+        hdr.addEventListener('mousedown',e=>{ if(e.target.tagName==='BUTTON')return; wDrag=true; let r=win.getBoundingClientRect(); wOX=e.clientX-r.left; wOY=e.clientY-r.top; e.preventDefault(); });
+        document.addEventListener('mousemove',e=>{ if(!wDrag)return; win.style.right='auto'; win.style.left=Math.max(0,e.clientX-wOX)+'px'; win.style.top=Math.max(0,e.clientY-wOY)+'px'; });
+        document.addEventListener('mouseup',()=>wDrag=false);
+    };
+
+    window.uploadNpcPortrait = function(npcId, fromPortraitWin) {
         let inp = document.createElement('input'); inp.type='file'; inp.accept='image/*';
         inp.onchange = e => {
             let file=e.target.files[0]; if(!file) return;
@@ -1667,6 +1732,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 let compressed=await new Promise(res=>{let img=new Image();img.onload=()=>{let ms=192,sc=Math.min(ms/img.width,ms/img.height,1),cv=document.createElement('canvas');cv.width=Math.round(img.width*sc);cv.height=Math.round(img.height*sc);cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);res(cv.toDataURL('image/jpeg',0.75));};img.src=ev.target.result;});
                 let npc=(_wNotes.npcs||[]).find(n=>n.id===npcId); if(!npc) return;
                 npc.portrait=compressed; saveWorldNotes(); window.renderNpcList();
+                // Refresh portrait window if open
+                let pw = document.getElementById('npcPortrait_'+npcId);
+                if (pw) { let ia=pw.querySelector('#npcPortrait_'+npcId+'_img'); if(ia) ia.innerHTML=`<img src="${compressed}" style="width:100%;height:100%;object-fit:cover;">`; }
+                // Refresh info window if open
+                window._refreshNpcInfoWin(npcId);
             }; r.readAsDataURL(file);
         }; inp.click();
     };
@@ -1926,7 +1996,7 @@ document.addEventListener('DOMContentLoaded', () => {
         saveWorldNotes();
         window.closeModal('noteDetailModal');
         if (type==='session')   window.renderSessionList();
-        if (type==='npc')       { window.renderNpcList(); window.renderNoteList(); }
+        if (type==='npc')       { window.renderNpcList(); window.renderNoteList(); if (id) window._refreshNpcInfoWin?.(id); }
         if (type==='location')  { window.renderLocationList(); renderMapPins(); window.renderNoteList(); }
         if (type==='note')      window.renderNoteList();
     };
