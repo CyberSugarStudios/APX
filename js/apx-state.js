@@ -384,6 +384,7 @@ window.APX_VERSION = 'v2026.9.12.1515';
             let woundsEl = document.getElementById('woundsInput');
             if (woundsEl) woundsEl.value = window.state.wounds;
             if (typeof window.renderCharNotes === 'function') window.renderCharNotes();
+            if (typeof window.renderCharPortrait === 'function') window.renderCharPortrait();
             window.syncInitStatCheckboxes();
             document.getElementById('powerAttr').value = window.state.powerAttr;
             
