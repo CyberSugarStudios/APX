@@ -2226,7 +2226,8 @@
     <script src="js/firebase-config.js"></script>
     <script src="js/apx-firebase.js"></script>
     <script>
-    // ── Sidebar: folders, worlds, meatball menus ─────────────    window._sidebarChars = [];
+    // ── Sidebar: folders, worlds, meatball menus ─────────────
+    window._sidebarChars = [];
     window._sidebarFolders = []; // [{ id, name }]
     let _activeMeatball = null;  // currently open meatball menu element
 
@@ -2333,7 +2334,8 @@
         e.stopPropagation();
     };
 
-    // ── Folder actions ───────────────────────────────────────    window.openFolderManager = function() {
+    // ── Folder actions ───────────────────────────────────────
+    window.openFolderManager = function() {
         window._renamingFolderId = null;
         document.getElementById('folderNameInput').value = '';
         let h3 = document.querySelector('#folderManagerModal h3');
@@ -3017,7 +3019,8 @@
         });
     }
 
-    // ── Player World View ────────────────────────────────────    window._playerWorldData = null;
+    // ── Player World View ────────────────────────────────────
+    window._playerWorldData = null;
     window._playerWorldsData = {};
 
     window.showPlayerWorldTab = function(tab) {
@@ -3662,7 +3665,8 @@
         if (typeof window.syncDOM === 'function') window.syncDOM();
     };
 
-    // ── Sidebar account section ──────────────────────────────    function updateSidebarAccount(user) {
+    // ── Sidebar account section ──────────────────────────────
+    function updateSidebarAccount(user) {
         let section = document.getElementById('sidebarAccountSection');
         let emailEl = document.getElementById('sidebarAccountEmail');
         let worldBtn = document.getElementById('playerWorldBtn');
@@ -3679,7 +3683,8 @@
         }
     }
 
-    // ── Auto-save ────────────────────────────────────────────    let _autoSaveTimer = null;
+    // ── Auto-save ────────────────────────────────────────────
+    let _autoSaveTimer = null;
     function scheduleAutoSave() {
         if (!window.apxAuth || !window.apxAuth.enabled) return;
         if (!window._activeCloudCharId || !window.state) return;
@@ -3711,7 +3716,8 @@
         };
     }
 
-    // ── Delete Account ───────────────────────────────────────    window.openDeleteAccountModal = function() {
+    // ── Delete Account ───────────────────────────────────────
+    window.openDeleteAccountModal = function() {
         document.getElementById('acctDeleteInput').value = '';
         document.getElementById('deleteStep1').classList.remove('hidden');
         document.getElementById('deleteStep2').classList.add('hidden');
@@ -3780,7 +3786,8 @@
         }
     };
 
-    // ── Auth ready ───────────────────────────────────────────    window.onApxAuthReady = async function(user) {
+    // ── Auth ready ───────────────────────────────────────────
+    window.onApxAuthReady = async function(user) {
         updateSidebarAccount(user);
         patchRecalc();
 
