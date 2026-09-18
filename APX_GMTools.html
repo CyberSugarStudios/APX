@@ -2260,6 +2260,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <button onclick="window.omReset('${winId}')"     style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;">Reset</button>
                 <!-- Fog controls live in the header so they never accidentally paint -->
                 <button id="${winId}_fogBtn" onclick="window.toggleFogMode('${mapId}')" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;">🌫 Fog</button>
+                <button id="${winId}_specialBtn" onclick="window.toggleSpecialMarkerMode('${mapId}','${winId}')" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;" title="Place a special marker (secret door, trap, etc.)">✦ Special</button>
                 <div id="${winId}_fogControls" style="display:none;align-items:center;gap:0.25rem;">
                     <span style="font-size:0.6rem;color:#94a3b8;">Size:</span>
                     <input type="range" id="${winId}_fogSlider" min="5" max="150" value="40" step="5"
@@ -2391,10 +2392,23 @@ document.addEventListener('DOMContentLoaded', () => {
         layer.style.width=iw+'px'; layer.style.height=ih+'px';
         let ps=Math.max(0.5,Math.min(2.5,1/win._scale));
         let fogActive = (_fogMode === mapId);
-        // In fog mode, tokens are non-interactive so you can paint fog over them
         let tokPE = fogActive ? 'none' : 'auto';
-        layer.innerHTML=(map.tokens||[]).map(t=>`
-            <div data-om-token="${t.id}" style="position:absolute;left:${t.x*iw}px;top:${t.y*ih}px;
+        layer.innerHTML=(map.tokens||[]).map(t=>{
+            let isSpecial = t.type === 'special';
+            if (isSpecial) {
+                // Special markers: just the character, no circle, purple/amber color
+                return `<div data-om-token="${t.id}" style="position:absolute;left:${t.x*iw}px;top:${t.y*ih}px;
+                    transform:translate(-50%,-50%) scale(${ps});transform-origin:50% 50%;
+                    pointer-events:${tokPE};cursor:${fogActive?'default':'pointer'};will-change:transform;"
+                    onclick="event.stopPropagation();window.openTokenInfoWin('${mapId}','${t.id}','${winId}',true)">
+                    <div style="font-size:15px;font-weight:900;color:${t.revealed?'#fbbf24':'#a78bfa'};
+                        text-shadow:0 0 4px rgba(0,0,0,1),0 0 8px rgba(0,0,0,0.8);
+                        user-select:none;line-height:1;"
+                        onmouseenter="if(!${fogActive}) this.style.transform='scale(1.3)'" onmouseleave="this.style.transform=''">${t.letter}</div>
+                </div>`;
+            }
+            // Standard area circle
+            return `<div data-om-token="${t.id}" style="position:absolute;left:${t.x*iw}px;top:${t.y*ih}px;
                 transform:translate(-50%,-50%) scale(${ps});transform-origin:50% 50%;
                 pointer-events:${tokPE};cursor:${fogActive?'default':'pointer'};will-change:transform;"
                 onclick="event.stopPropagation();window.openTokenInfoWin('${mapId}','${t.id}','${winId}',true)">
@@ -2402,7 +2416,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#fff;
                     box-shadow:0 2px 6px rgba(0,0,0,.65);"
                     onmouseenter="if(!${fogActive}) this.style.transform='scale(1.2)'" onmouseleave="this.style.transform=''">${t.letter}</div>
-            </div>`).join('');
+            </div>`;
+        }).join('');
     }
 
     function _omClick(mapId, winId, win, e) {
@@ -2418,10 +2433,17 @@ document.addEventListener('DOMContentLoaded', () => {
         let y=((e.clientY-r.top)-win._offY)/win._scale/img.naturalHeight;
         if(x<0||x>1||y<0||y>1) return;
         let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return;
-        let used=(map.tokens||[]).map(t=>t.letter);
-        let letter='A';
-        for(let i=0;i<26;i++){let l=String.fromCharCode(65+i); if(!used.includes(l)){letter=l;break;}}
-        let tok={id:'tok_'+Date.now(),letter,x,y,name:'',description:'',revealed:false,linkedNpcs:[],linkedOtherMapIds:[],subnotes:[]};
+
+        // If Special Marker mode is on, prompt for a single character instead of auto-assigning
+        if (_omSpecialMode === mapId) {
+            _omShowCharPicker(x, y, mapId, winId, win, e);
+            return;
+        }
+
+        // Auto-assign next label: A-Z, then AA, AB...AZ, BA, BB... (base-26 sequence)
+        let used = new Set((map.tokens||[]).filter(t=>t.type!=='special').map(t=>t.letter));
+        let letter = _omNextLabel(used);
+        let tok={id:'tok_'+Date.now(),type:'area',letter,x,y,name:'',description:'',revealed:false,linkedNpcs:[],linkedOtherMapIds:[],subnotes:[]};
         if(!map.tokens)map.tokens=[];
         map.tokens.push(tok);
         saveWorldNotes();
@@ -2680,7 +2702,84 @@ document.addEventListener('DOMContentLoaded', () => {
         if (_np && !_np.classList.contains('hidden')) window.renderNoteList();
     };
 
-    // ── Token info floating window ────────────────────────────────
+    // ── Area token label sequence: A-Z then AA, AB...AZ, BA, BB... ──────────
+    function _omLabelToNum(s) {
+        let n = 0;
+        for (let i = 0; i < s.length; i++) n = n * 26 + (s.charCodeAt(i) - 64);
+        return n;
+    }
+    function _omNumToLabel(n) {
+        let s = '';
+        while (n > 0) { let r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); }
+        return s || 'A';
+    }
+    function _omNextLabel(usedSet) {
+        let n = 1;
+        while (usedSet.has(_omNumToLabel(n))) n++;
+        return _omNumToLabel(n);
+    }
+
+    // ── Special Marker mode ───────────────────────────────────────
+    let _omSpecialMode = null; // mapId when active
+
+    window.toggleSpecialMarkerMode = function(mapId, winId) {
+        let btn = document.getElementById(winId+'_specialBtn');
+        if (_omSpecialMode === mapId) {
+            _omSpecialMode = null;
+            if (btn) { btn.style.background=''; btn.style.color=''; }
+            let area = document.getElementById(winId+'_area');
+            if (area) area.style.cursor = (_fogMode === mapId) ? 'none' : 'crosshair';
+        } else {
+            _omSpecialMode = mapId;
+            if (btn) { btn.style.background='#7c3aed'; btn.style.color='#fff'; }
+            let area = document.getElementById(winId+'_area');
+            if (area) area.style.cursor = 'cell';
+        }
+    };
+
+    function _omShowCharPicker(x, y, mapId, winId, win, e) {
+        let existing = document.getElementById('omCharPicker'); if (existing) existing.remove();
+        let picker = document.createElement('div');
+        picker.id = 'omCharPicker';
+        picker.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;z-index:2147483647;
+            background:#1e293b;border:1px solid #7c3aed;border-radius:0.5rem;padding:0.75rem;
+            display:flex;flex-direction:column;gap:0.4rem;box-shadow:0 8px 24px rgba(0,0,0,.8);min-width:160px;`;
+        picker.innerHTML = `<div style="font-size:0.7rem;font-weight:700;color:#c4b5fd;">Special Marker</div>
+            <input id="omCharInput" maxlength="1" placeholder="Type one character..."
+                style="background:#0f172a;border:1px solid #4c1d95;color:#e2e8f0;font-size:1.2rem;font-weight:900;
+                text-align:center;width:100%;border-radius:0.25rem;padding:0.35rem;box-sizing:border-box;letter-spacing:0.1em;text-transform:uppercase;">
+            <div style="display:flex;gap:0.4rem;">
+                <button id="omCharConfirm" style="flex:1;background:#7c3aed;border:none;color:#fff;font-size:0.7rem;font-weight:700;padding:0.3rem;border-radius:0.25rem;cursor:pointer;">Place</button>
+                <button onclick="document.getElementById('omCharPicker').remove()" style="background:#334155;border:none;color:#94a3b8;font-size:0.7rem;font-weight:700;padding:0.3rem 0.5rem;border-radius:0.25rem;cursor:pointer;">Cancel</button>
+            </div>`;
+        document.body.appendChild(picker);
+        let input = document.getElementById('omCharInput');
+        input.focus();
+        // Force uppercase on input
+        input.addEventListener('input', () => { input.value = input.value.toUpperCase().slice(0, 1); });
+        let confirmFn = () => {
+            let ch = input.value.trim().toUpperCase();
+            if (!ch) return;
+            picker.remove();
+            let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return;
+            let tok = {id:'tok_'+Date.now(), type:'special', letter:ch, x, y,
+                name:'', description:'', revealed:false, linkedNpcs:[], linkedOtherMapIds:[], subnotes:[]};
+            if(!map.tokens) map.tokens=[];
+            map.tokens.push(tok);
+            saveWorldNotes();
+            window.renderOtherMapsList();
+            _omTransform(winId, win);
+            window.openTokenInfoWin(mapId, tok.id, winId, false);
+        };
+        document.getElementById('omCharConfirm').addEventListener('click', confirmFn);
+        input.addEventListener('keydown', e => { if (e.key==='Enter') confirmFn(); if (e.key==='Escape') picker.remove(); });
+        // Close picker if clicking outside
+        setTimeout(() => document.addEventListener('mousedown', function closePicker(ev) {
+            if (!picker.contains(ev.target)) { picker.remove(); document.removeEventListener('mousedown', closePicker); }
+        }), 100);
+    }
+
+    // ── Area token label sequence: helpers end ────────────────────
     window.openTokenInfoWin = function(mapId, tokenId, parentWinId, readOnly) {
         // Default to read-only (info view). New tokens pass false to open in edit mode.
         if (readOnly === undefined) readOnly = true;
@@ -2703,7 +2802,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 border-bottom:1px solid #4f46e5;border-radius:0.5rem 0.5rem 0 0;display:flex;align-items:center;gap:0.5rem;">
                 <div style="width:24px;height:24px;background:#dc2626;border:2px solid #fff;border-radius:50%;
                     display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#fff;flex-shrink:0;">${tok.letter}</div>
-                <span style="font-size:0.75rem;font-weight:700;color:#e2e8f0;flex:1;">Area ${tok.letter}</span>
+                <span style="font-size:0.75rem;font-weight:700;color:#e2e8f0;flex:1;">${tok.type==='special'?`✦ Marker ${tok.letter}`:`Area ${tok.letter}`}</span>
                 ${readOnly?`<button onclick="document.getElementById('${winId}').remove();window.openTokenInfoWin('${mapId}','${tokenId}','${parentWinId}',false)"
                     style="font-size:0.65rem;font-weight:700;padding:0.2rem 0.5rem;background:#1e3a5f;border:1px solid #2563eb;color:#93c5fd;border-radius:0.25rem;cursor:pointer;">Edit</button>`:''}
                 <button onclick="document.getElementById('${winId}').remove()"

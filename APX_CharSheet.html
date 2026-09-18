@@ -3448,12 +3448,19 @@
         let world = window._playerWorldData;
         let revealedMapIds = new Set((world?.notesV2?.otherMaps||[]).map(x=>x.id));
         layer.innerHTML=(m.tokens||[]).map(t=>{
+            let isSpecial = t.type === 'special';
             let hasInfo = !!(t.name||t.description||(t.subnotes&&t.subnotes.length));
             let hasLinkedMap = (t.linkedOtherMapIds||[]).some(mid=>revealedMapIds.has(mid));
             let clickable = hasInfo || hasLinkedMap;
-            let clickHandler = clickable
-                ? `onclick="event.stopPropagation();window.openPlayerTokenInfo('${m.id}','${t.id}')"`
-                : '';
+            let clickHandler = clickable ? `onclick="event.stopPropagation();window.openPlayerTokenInfo('${m.id}','${t.id}')"` : '';
+            if (isSpecial) {
+                return `<div style="position:absolute;left:${t.x*iw}px;top:${t.y*ih}px;
+                    transform:translate(-50%,-50%) scale(${ps});transform-origin:50% 50%;
+                    pointer-events:${clickable?'auto':'none'};will-change:transform;">
+                    <div ${clickHandler} style="font-size:15px;font-weight:900;color:#fbbf24;
+                        text-shadow:0 0 4px rgba(0,0,0,1);user-select:none;line-height:1;${clickable?'cursor:pointer;':''}">${t.letter}</div>
+                </div>`;
+            }
             return `<div style="position:absolute;left:${t.x*iw}px;top:${t.y*ih}px;
                 transform:translate(-50%,-50%) scale(${ps});transform-origin:50% 50%;
                 pointer-events:${clickable?'auto':'none'};will-change:transform;">
