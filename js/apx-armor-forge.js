@@ -154,20 +154,31 @@ window.renderArmorForge = function() {
         `;
     }).join('');
 
-    // Determine armor weight class based on total weight
-    let armorWtClass = totals.wt <= 15 ? 'Light' : totals.wt <= 30 ? 'Medium' : 'Heavy';
-    let armorWtColor = totals.wt <= 15 ? '#4ade80' : totals.wt <= 30 ? '#f59e0b' : '#f87171';
-    let agiRuleText = totals.wt <= 15
-        ? '✓ Light Armor — Full AGI bonus to AC'
-        : totals.wt <= 30
-            ? '⚠ Medium Armor — AGI bonus to AC capped at +2'
-            : '✗ Heavy Armor — No AGI bonus to AC';
+    // Include equipped shield and helmet so the weight class shown matches the AC calculation
+    let totalWt = totals.wt;
+    let eqShield = (target === 'gm') ? window._ncGetCompanion?.()?.equippedShield : window.state?.equippedShield;
+    let eqHelmet = (target === 'gm') ? window._ncGetCompanion?.()?.equippedHelmet : window.state?.equippedHelmet;
+    if (eqShield?.wt) totalWt += eqShield.wt;
+    if (eqHelmet?.wt) totalWt += eqHelmet.wt;
+
+    // Correct thresholds (match engine): Light ≤30, Medium 31-70, Heavy >70
+    let armorWtClass = totalWt === 0 ? 'Unarmored' : totalWt <= 30 ? 'Lightly Armored' : totalWt <= 70 ? 'Moderately Armored' : 'Heavily Armored';
+    let armorWtColor = totalWt <= 30 ? '#4ade80' : totalWt <= 70 ? '#f59e0b' : '#f87171';
+    let agiRuleText = totalWt === 0
+        ? '✓ Unarmored — Full AGI bonus to AC'
+        : totalWt <= 30
+            ? '✓ Lightly Armored (≤30 lbs) — Full AGI bonus to AC'
+            : totalWt <= 70
+                ? '⚠ Moderately Armored (31-70 lbs) — AGI bonus to AC capped at +2'
+                : '✗ Heavily Armored (>70 lbs) — No AGI bonus to AC';
+    let shieldNote = eqShield ? `<span style="font-size:0.6rem;color:#64748b;margin-left:0.5rem;">(incl. ${eqShield.name} +${eqShield.wt}lb${eqHelmet?', '+eqHelmet.name+' +'+eqHelmet.wt+'lb':''})</span>` : (eqHelmet ? `<span style="font-size:0.6rem;color:#64748b;margin-left:0.5rem;">(incl. ${eqHelmet.name} +${eqHelmet.wt}lb)</span>` : '');
 
     let html = `
         <div class="text-[10px] text-slate-500 mb-2">Base Armor is always included: 10 lbs, +1 AC / +1 DR / +1 ER, 50 Currency.</div>
         <div class="flex items-center gap-2 mb-3 bg-slate-900 border border-slate-700 rounded px-3 py-2">
-            <span style="font-size:0.75rem;font-weight:900;color:${armorWtColor};">${armorWtClass} Armor (${totals.wt} lbs)</span>
-            <span style="font-size:0.65rem;color:#94a3b8;">${agiRuleText}</span>
+            <span style="font-size:0.75rem;font-weight:900;color:${armorWtColor};">${armorWtClass} (${totalWt} lbs${eqShield||eqHelmet?' total':''})</span>
+            ${shieldNote}
+            <span style="font-size:0.65rem;color:#94a3b8;margin-left:auto;">${agiRuleText}</span>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 sm:grid-flow-col sm:grid-rows-5 gap-1.5 max-h-[40vh] overflow-y-auto pr-1">${rows}</div>
 

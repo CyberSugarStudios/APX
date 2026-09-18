@@ -860,11 +860,11 @@
             }
 
             if (cat === 'ranged') {
-                // Ranged damage: AGI (or LUC if player selected it) + STR for heavy
+                // Ranged damage: AGI (or LUC if player selected it); heavy ranged doubles AGI
                 let atkAttr = w.attr === 'LUC' ? 'LUC' : 'AGI';
                 let agiMod = calc.mods[atkAttr] || 0;
-                let heavyStrBonus = (w.weightClass === 'heavy') ? (calc.mods.STR || 0) : 0;
-                return agiMod + heavyStrBonus + (calc.bonusRangedDmg || 0) + aimBonus;
+                let mult = (w.weightClass === 'heavy') ? 2 : 1;
+                return (agiMod * mult) + (calc.bonusRangedDmg || 0) + aimBonus;
             }
 
             let attr = attrOverride || (w.weightClass === 'heavy' ? 'STR' : w.attr);

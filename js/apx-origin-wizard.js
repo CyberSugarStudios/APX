@@ -25,15 +25,15 @@
             renderOrigCompsGrid();
             document.getElementById('origFeature').value = window.state.origin.feature || "";
             document.getElementById('origWealth').value = "0";
-            // Lock if already applied (non-destructive: existing chars keep what they paid)
-            let ws = document.getElementById('origWealth');
-            if (ws && window.state.origin.wealthApplied) {
-                ws.disabled = true;
-                ws.title = 'Starting wealth already applied';
-            } else if (ws) {
-                ws.disabled = false;
-                ws.title = '';
-            }
+            // Lock radios if wealth already applied
+            setTimeout(() => {
+                let radios = document.querySelectorAll('.orig-wealth-option input[type="radio"]');
+                radios.forEach(r => {
+                    r.disabled = !!window.state.origin.wealthApplied;
+                    r.closest('label').style.opacity = window.state.origin.wealthApplied ? '0.5' : '';
+                    r.closest('label').style.cursor = window.state.origin.wealthApplied ? 'not-allowed' : 'pointer';
+                });
+            }, 50);
             window.jumpToOrigStep(1);
         }
 
@@ -139,17 +139,23 @@
             window.state.origin.name = document.getElementById('origName').value || "Unknown Origin";
             window.state.origin.feature = document.getElementById('origFeature').value;
 
-            let wealthSelect = document.getElementById('origWealth');
-            let wealthVal = parseInt(wealthSelect.value) || 0;
+            let wealthRadio = document.querySelector('input[name="origWealth"]:checked');
+            let wealthVal = parseInt(wealthRadio?.value || '0') || 0;
 
             if (!window.state.origin.wealthApplied && wealthVal > 0) {
                 window.state.currency += wealthVal;
                 window.state.origin.wealthApplied = true;
             }
-            // Lock the dropdown once wealth has been applied
-            if (window.state.origin.wealthApplied && wealthSelect) {
-                wealthSelect.disabled = true;
-                wealthSelect.title = 'Starting wealth already applied';
+            if (wealthVal === 0 && !window.state.origin.wealthApplied) {
+                window.state.origin.wealthApplied = true; // "None" counts as applied
+            }
+            // Lock all radio buttons once wealth is applied
+            if (window.state.origin.wealthApplied) {
+                document.querySelectorAll('.orig-wealth-option input[type="radio"]').forEach(r => {
+                    r.disabled = true;
+                    r.closest('label').style.opacity = '0.5';
+                    r.closest('label').style.cursor = 'not-allowed';
+                });
             }
 
             // Migrate languages → charNote (non-destructive: only if charNotes doesn't already have a Languages note)

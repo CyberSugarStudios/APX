@@ -1681,9 +1681,8 @@ document.addEventListener('DOMContentLoaded', () => {
             <button onclick="document.getElementById('${winId}').remove()" style="background:none;border:none;color:#94a3b8;font-size:1rem;cursor:pointer;line-height:1;">✕</button>
         </div>
         <div style="padding:0.75rem;overflow-y:auto;flex:1;">
-            ${portraitBlock ? `<div style="display:flex;gap:0.75rem;margin-bottom:0.5rem;">${portraitBlock}<div style="flex:1;">${n.role?`<div style="font-size:0.7rem;color:#818cf8;margin-bottom:0.2rem;">${n.role}</div>`:''}${n.description?`<div style="font-size:0.7rem;color:#cbd5e1;white-space:pre-wrap;">${n.description}</div>`:''}</div></div>` : `${n.role?`<div style="font-size:0.7rem;color:#818cf8;margin-bottom:0.25rem;">${n.role}</div>`:''}${n.description?`<div style="font-size:0.7rem;color:#cbd5e1;white-space:pre-wrap;margin-bottom:0.4rem;">${n.description}</div>`:''}`}
-            ${!portraitBlock&&n.portrait?'':snHtml}
-            ${portraitBlock?snHtml:''}
+            ${portraitBlock ? `<div style="display:flex;gap:0.75rem;margin-bottom:0.5rem;">${portraitBlock}<div style="flex:1;min-width:0;">${n.role?`<div style="font-size:0.7rem;color:#818cf8;margin-bottom:0.2rem;">${n.role}</div>`:''}${n.description?`<div style="font-size:0.7rem;color:#cbd5e1;white-space:pre-wrap;">${n.description}</div>`:''}</div></div>` : `${n.role?`<div style="font-size:0.7rem;color:#818cf8;margin-bottom:0.25rem;">${n.role}</div>`:''}${n.description?`<div style="font-size:0.7rem;color:#cbd5e1;white-space:pre-wrap;margin-bottom:0.4rem;">${n.description}</div>`:''}`}
+            ${snHtml}
         </div>`;
         document.getElementById('floatingWindowContainer').appendChild(win);
         win.addEventListener('mousedown',()=>{ window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; win.style.zIndex=window.apxFloatingZTop; });

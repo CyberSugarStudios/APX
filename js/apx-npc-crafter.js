@@ -526,8 +526,8 @@ function companionWeaponDamageModifier(w, mods, twoHanded) {
     }
     if (w.category === 'ranged') {
         let agiMod = mods.AGI || 0;
-        let heavyStrBonus = (w.weightClass === 'heavy') ? (mods.STR || 0) : 0;
-        return agiMod + heavyStrBonus + aimBonus;
+        let mult = (w.weightClass === 'heavy') ? 2 : 1;
+        return (agiMod * mult) + aimBonus;
     }
     let attr = companionWeaponBestAttr(w, mods, twoHanded);
     let attrMod = mods[attr] || 0;
@@ -1279,8 +1279,8 @@ window._floatAddToInit = function(winId) {
     }
     if (npcIdx < 0) { alert('NPC not found in roster.'); return; }
     // Extract the display name from the window title if available (format: "Name (Stat Block)")
-    let winEl = document.getElementById(winId);
-    let titleEl = winEl?.querySelector('.floating-stat-window-header span');
+    let winEl = window.gmFloatingWindows?.[winId];
+    let titleEl = winEl?.querySelector?.('.floating-stat-window-header span');
     let rawTitle = titleEl?.textContent || '';
     // "Bildrath (Human Commoner)" → "Bildrath"  |  "Human Commoner" → use stat block name
     let displayName = rawTitle.includes('(') ? rawTitle.split('(')[0].trim() : '';

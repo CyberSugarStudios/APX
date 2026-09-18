@@ -343,10 +343,13 @@
             if (!g) return;
             window.askPayOrGrant(g.name, g.cost, (paid) => {
                 let existing = window.state.items.find(i => i.name === g.name && i.wt === g.wt && i.val === g.cost && !i.isConsumable);
-                if (existing) existing.ct += 1;
-                else {
+                if (existing) {
+                    existing.ct += (g.cat === 'Ammo' ? 20 : 1);
+                } else {
                     let defaultCt = g.cat === 'Ammo' ? 20 : 1;
-                    window.state.items.push({ name: g.name, wt: g.wt, ct: defaultCt, val: g.cost, desc: g.desc });
+                    // Ammo: wt in data is STACK weight (20 rounds). Store per-round weight so ct×wt = correct total.
+                    let itemWt = g.cat === 'Ammo' ? g.wt / 20 : g.wt;
+                    window.state.items.push({ name: g.name, wt: itemWt, ct: defaultCt, val: g.cost, desc: g.desc });
                 }
                 if (paid) window.state.currency = (window.state.currency || 0) - g.cost;
                 window.recalculateMath();
