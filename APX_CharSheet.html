@@ -2966,7 +2966,7 @@
             ? filtered.map(n => `<div class="bg-slate-900 border border-slate-700 rounded p-2.5 cursor-pointer hover:border-slate-500 transition" onclick="window.openCharNoteModal('${n.id}')">
                 <div class="flex items-baseline justify-between gap-2">
                     <div class="text-xs font-bold text-slate-200 truncate">${n.title||'Untitled'}</div>
-                    <div class="text-[9px] text-slate-500 shrink-0">${[n.session,n.date].filter(Boolean).join(' · ')}</div>
+                    <div class="text-[9px] text-slate-500 shrink-0">${[n.session != null && n.session !== '' ? `Session ${n.session}` : null, n.date].filter(x=>x!=null).join(' · ')}</div>
                 </div>
                 ${n.content?`<div class="text-[10px] text-slate-400 mt-1 line-clamp-2">${n.content}</div>`:''}</div>`).join('')
             : '<div class="text-slate-600 text-xs text-center py-4">No notes yet</div>';
@@ -2977,7 +2977,7 @@
         let existing = id ? (window.state?.charNotes||[]).find(n=>n.id===id) : null;
         document.getElementById('charNoteModalTitle').textContent = id ? 'Edit Note' : 'Add Note';
         document.getElementById('cnTitle').value   = existing?.title   || '';
-        document.getElementById('cnSession').value = existing?.session || '';
+        document.getElementById('cnSession').value = existing?.session != null && existing.session !== '' ? existing.session : '';
         document.getElementById('cnDate').value    = existing?.date    || new Date().toISOString().slice(0,10);
         document.getElementById('cnContent').value = existing?.content || '';
         document.getElementById('charNoteDeleteBtn').classList.toggle('hidden', !id);
@@ -2989,7 +2989,8 @@
         let existing = _charNoteEditId ? window.state.charNotes.find(n=>n.id===_charNoteEditId) : null;
         let note = existing || { id: 'cn_'+Date.now() };
         note.title   = document.getElementById('cnTitle')?.value   || '';
-        note.session = document.getElementById('cnSession')?.value || '';
+        let rawSession = document.getElementById('cnSession')?.value || '';
+        note.session = rawSession !== '' && !isNaN(rawSession) ? Number(rawSession) : rawSession;
         note.date    = document.getElementById('cnDate')?.value    || '';
         note.content = document.getElementById('cnContent')?.value || '';
         if (!existing) window.state.charNotes.push(note);

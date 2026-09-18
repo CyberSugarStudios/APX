@@ -154,12 +154,15 @@ window.renderArmorForge = function() {
         `;
     }).join('');
 
-    // Include equipped shield and helmet so the weight class shown matches the AC calculation
+    // Include equipped shield and helmet only if they are genuinely equipped (have a name)
     let totalWt = totals.wt;
     let eqShield = (armorForgeTarget === 'gm') ? window._ncGetCompanion?.()?.equippedShield : (armorForgeTarget === 'companion' ? window.state?.companion?.equippedShield : window.state?.equippedShield);
     let eqHelmet = (armorForgeTarget === 'gm') ? window._ncGetCompanion?.()?.equippedHelmet : (armorForgeTarget === 'companion' ? window.state?.companion?.equippedHelmet : window.state?.equippedHelmet);
-    if (eqShield?.wt) totalWt += eqShield.wt;
-    if (eqHelmet?.wt) totalWt += eqHelmet.wt;
+    // Only count shield/helmet if they are actually equipped (have a name, not just a default empty object)
+    if (eqShield?.name && eqShield.wt) totalWt += eqShield.wt;
+    else eqShield = null;
+    if (eqHelmet?.name && eqHelmet.wt) totalWt += eqHelmet.wt;
+    else eqHelmet = null;
 
     // Correct thresholds (match engine): Light ≤30, Medium 31-70, Heavy >70
     let armorWtClass = totalWt === 0 ? 'Unarmored' : totalWt <= 30 ? 'Lightly Armored' : totalWt <= 70 ? 'Moderately Armored' : 'Heavily Armored';
