@@ -172,7 +172,7 @@
                     window.state.charNotes.push({
                         id: 'cn_lang_' + Date.now(),
                         title: 'Languages',
-                        session: '',
+                        session: 0,
                         date: new Date().toISOString().slice(0,10),
                         content: langStr
                     });

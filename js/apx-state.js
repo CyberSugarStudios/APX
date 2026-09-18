@@ -399,7 +399,7 @@ window.APX_VERSION = 'v2026.9.12.1515';
                     window.state.charNotes.push({
                         id: 'cn_lang_' + Date.now(),
                         title: 'Languages',
-                        session: '',
+                        session: 0,
                         date: new Date().toISOString().slice(0,10),
                         content: window.state.languages.trim()
                     });

@@ -156,8 +156,8 @@ window.renderArmorForge = function() {
 
     // Include equipped shield and helmet so the weight class shown matches the AC calculation
     let totalWt = totals.wt;
-    let eqShield = (target === 'gm') ? window._ncGetCompanion?.()?.equippedShield : window.state?.equippedShield;
-    let eqHelmet = (target === 'gm') ? window._ncGetCompanion?.()?.equippedHelmet : window.state?.equippedHelmet;
+    let eqShield = (armorForgeTarget === 'gm') ? window._ncGetCompanion?.()?.equippedShield : (armorForgeTarget === 'companion' ? window.state?.companion?.equippedShield : window.state?.equippedShield);
+    let eqHelmet = (armorForgeTarget === 'gm') ? window._ncGetCompanion?.()?.equippedHelmet : (armorForgeTarget === 'companion' ? window.state?.companion?.equippedHelmet : window.state?.equippedHelmet);
     if (eqShield?.wt) totalWt += eqShield.wt;
     if (eqHelmet?.wt) totalWt += eqHelmet.wt;
 

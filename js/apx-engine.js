@@ -372,16 +372,18 @@
 
             calc.ac += allowedAgi + armorAc;
             document.getElementById('dispAc').innerText = calc.ac;
-            // Update AC label tooltip to reflect Defensive perk formula
+            // Update AC label tooltip dynamically
             {
-                let acLabel = document.querySelector('[data-tip*="Total AC"], div[data-tip*="10 + AGI"]');
-                if (!acLabel) acLabel = document.querySelector('div[data-tip*="AGI modifier"]');
+                let acLabel = document.getElementById('acLabel') || document.querySelector('div[data-tip*="AGI modifier"]');
                 if (acLabel) {
                     let defRank = window.state.perks['con_defensive'] || 0;
+                    let ffRank  = window.state.perks['luc_fortunatefighter'] || 0;
                     if (defRank >= 1 && armorWt === 0) {
-                        acLabel.setAttribute('data-tip', `Unarmored with Defensive perk: 10 + AGI mod + CON mod. Equipping any armor or shield removes the CON bonus and reverts to the standard formula.`);
+                        acLabel.setAttribute('data-tip', 'Unarmored with Defensive perk: 10 + AGI mod + CON mod. Equipping armor/shield removes the CON bonus.');
+                    } else if (ffRank >= 1) {
+                        acLabel.setAttribute('data-tip', '10 + AGI modifier (Fortunate Fighter: use LUC instead if higher) + Armor + Shield + bonuses');
                     } else {
-                        acLabel.setAttribute('data-tip', `10 + AGI modifier (or LUC if higher, with Lucky) + equipped Armor + Shield + other bonuses`);
+                        acLabel.setAttribute('data-tip', '10 + AGI modifier + Armor + Shield + other bonuses');
                     }
                 }
             }
@@ -934,38 +936,28 @@
                     <td class="px-1 py-2 w-14">
                         ${cat === 'ranged'
                             ? (() => {
-                                // Ranged always uses AGI for the attack roll.
-                                // With FF rank 3+ and untrained, LUC can substitute.
                                 let ffRank = window.state.perks['luc_fortunatefighter'] || 0;
                                 let isTrained = weaponIsTrained(w);
-                                let isHeavyR = w.weightClass === 'heavy';
                                 if (ffRank >= 3 && !isTrained) {
-                                    // Light/medium ranged: AGI or LUC
-                                    // Heavy ranged: AGI+STR or LUC+STR (STR always adds to heavy ranged damage)
-                                    let suffix = isHeavyR ? '+STR' : '';
-                                    let opts = [{ val:'AGI', label:`AGI${suffix}` }, { val:'LUC', label:`LUC${suffix}` }];
-                                    return `<select onchange="window.updateWeaponAttr(${idx}, this.value)" class="bg-slate-900 border-slate-700 text-[10px] font-bold p-1 h-7 w-20" title="Fortunate Fighter: use LUC instead of AGI for untrained ranged attacks">
+                                    let opts = [{ val:'AGI', label:'AGI' }, { val:'LUC', label:'LUC' }];
+                                    return `<select onchange="window.updateWeaponAttr(${idx}, this.value)" class="bg-slate-900 border-slate-700 text-[10px] font-bold p-1 h-7 w-20" title="Fortunate Fighter: use LUC instead of AGI for untrained ranged">
                                         ${opts.map(o=>`<option value="${o.val}" ${w.attr===o.val?'selected':''}>${o.label}</option>`).join('')}
                                     </select>`;
                                 }
-                                // Standard: AGI only (show +STR note for heavy)
-                                return `<div class="text-[10px] font-bold text-slate-300 p-1 h-7 flex items-center justify-center" title="Ranged attack and damage rolls always use AGI${isHeavyR?'; Heavy ranged also adds STR to damage':''}">AGI${isHeavyR?'+STR':''}</div>`;
+                                return `<div class="text-[10px] font-bold text-slate-300 p-1 h-7 flex items-center justify-center" title="Ranged attacks use AGI${w.weightClass==='heavy'?' (2× AGI to damage)':''}">AGI</div>`;
                               })()
                             : (() => {
-                                // Custom weapons can use any attribute (player defined).
-                                // Forged/standard melee: only STR and AGI per book rules.
-                                // Fortunate Fighter rank 3+ adds LUC on untrained weapons only.
                                 let isTrained = weaponIsTrained(w);
                                 if (w.isCustom) {
-                                    // All attributes available for custom weapons
                                     return `<select onchange="window.updateWeaponAttr(${idx}, this.value)" class="bg-slate-900 border-slate-700 text-[10px] font-bold p-1 h-7 w-14">
                                         ${ATTRIBUTES.map(a => `<option value="${a}" ${a===w.attr?'selected':''}>${a}</option>`).join('')}
                                     </select>`;
                                 }
                                 let ffRank = window.state.perks['luc_fortunatefighter'] || 0;
-                                let meleeAttrs = ['STR', 'AGI'];
+                                // Heavy melee: STR only. Light/medium: STR or AGI.
+                                let meleeAttrs = w.weightClass === 'heavy' ? ['STR'] : ['STR', 'AGI'];
                                 if (ffRank >= 3 && !isTrained) meleeAttrs.push('LUC');
-                                if (!meleeAttrs.includes(w.attr)) { w.attr = 'STR'; }
+                                if (!meleeAttrs.includes(w.attr)) w.attr = 'STR';
                                 return `<select onchange="window.updateWeaponAttr(${idx}, this.value)" class="bg-slate-900 border-slate-700 text-[10px] font-bold p-1 h-7 w-14">
                                     ${meleeAttrs.map(a => `<option value="${a}" ${a===w.attr?'selected':''}>${a}</option>`).join('')}
                                 </select>`;
