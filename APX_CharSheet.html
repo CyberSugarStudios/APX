@@ -3167,9 +3167,6 @@
         _worldNotesUnsub = window.apxAuth.listenPublicWorldNotes(inviteCode, data => {
             let world = window._playerWorldData;
             if (!world) return;
-            // Preserve the cached map — it's stored separately from publicNotes and
-            // won't change as a result of this update. The listener is already scoped
-            // to this specific world's inviteCode, so the cached map is always correct.
             let cachedMap = world.notesV2?.worldMapDataUrl;
             world.notesV2 = {
                 locations: data.publicNotes?.locations || [],
@@ -3181,6 +3178,21 @@
             // Re-render the modal if it's currently open
             let modal = document.getElementById('playerWorldModal');
             if (modal?.classList.contains('active')) renderPlayerWorld();
+            // Push updates to ALL open floating Other Map windows in real time
+            // regardless of whether the modal is open — this is what makes area circles,
+            // special markers, and battle tokens live for players mid-session.
+            (world.notesV2.otherMaps||[]).forEach(m => {
+                let winId = 'pwOmWin_'+m.id;
+                let winEl = document.getElementById(winId);
+                if (!winEl) return;
+                // Re-render area circles / special markers
+                _pwOmRenderTok(winId, winEl, m);
+                // Re-render battle tokens and grid
+                if (m.battleMapEnabled) {
+                    _pwBtDrawGrid(winId, m);
+                    _pwBtRenderTokens(winId, winEl, m);
+                }
+            });
         });
     }
 
@@ -3548,7 +3560,7 @@
                 border-bottom:1px solid #334155;border-radius:0.75rem 0.75rem 0 0;
                 display:flex;align-items:center;gap:0.5rem;flex-shrink:0;">
                 <span style="font-size:0.75rem;font-weight:700;color:#e2e8f0;flex:1;">${map.name}</span>
-                <button onclick="document.getElementById('${winId}').remove()"
+                <button onclick="let _w=document.getElementById('${winId}'); if(_w?._fogUnsub) _w._fogUnsub(); _w?.remove()"
                     style="background:none;border:none;color:#94a3b8;font-size:1.1rem;cursor:pointer;line-height:1;">✕</button>
             </div>
             <div id="${winId}_area" style="flex:1;position:relative;overflow:hidden;cursor:grab;">
@@ -3613,13 +3625,16 @@
             // Draw battle grid if this is a battle map
             if (map?.battleMapEnabled) _pwBtDrawGrid(winId, map);
             _pwBtRenderTokens(winId, win, map);
-            // Load fog for this other map (solid black for players)
+            // Start real-time fog listener — fires immediately with current fog, then on every GM update
             let _world = window._playerWorldData;
             let _worldId = _world?.worldId;
             let _saved = _getWorlds().find(w => w.worldId === _worldId) || _getPrimaryWorld();
-            if (_saved?.gmUid && _worldId) {
-                window.apxAuth?.loadFogDataForPlayer?.(_saved.gmUid, _worldId, mapId)
-                    .then(fog => { if (fog) _pwLoadFog(winId+'_fog', fog, img); }).catch(()=>{});
+            if (_saved?.gmUid && _worldId && window.apxAuth?.listenFogDataForPlayer) {
+                if (win._fogUnsub) win._fogUnsub(); // clean up any previous listener
+                win._fogUnsub = window.apxAuth.listenFogDataForPlayer(
+                    _saved.gmUid, _worldId, mapId,
+                    fog => { if (fog) _pwLoadFog(winId+'_fog', fog, img); }
+                );
             }
         };
         win._map=map;
@@ -3908,27 +3923,32 @@
             img.onload = () => {
                 let saved = _getWorlds().find(w => w.worldId === world?.worldId) || _getPrimaryWorld();
                 if (saved?.gmUid && world?.worldId && window.apxAuth?.enabled) {
-                    window.apxAuth.loadFogDataForPlayer(saved.gmUid, world.worldId, 'worldmap')
-                        .then(fog => {
+                    // Use real-time listener so fog updates the moment GM paints
+                    if (window._pwWorldFogUnsub) { window._pwWorldFogUnsub(); window._pwWorldFogUnsub = null; }
+                    let firstLoad = true;
+                    window._pwWorldFogUnsub = window.apxAuth.listenFogDataForPlayer
+                        ? window.apxAuth.listenFogDataForPlayer(saved.gmUid, world.worldId, 'worldmap', fog => {
                             if (fog) {
                                 _pwLoadFog('pwFogCanvas', fog, img);
-                                // Only show the map AFTER fog canvas is painted
-                                setTimeout(() => {
-                                    img.style.display = 'block';
-                                    window.pwMapResetView();
-                                }, 60);  // brief delay for fog canvas draw to complete
+                                if (firstLoad) {
+                                    firstLoad = false;
+                                    setTimeout(() => { img.style.display = 'block'; window.pwMapResetView(); }, 60);
+                                }
                             } else {
-                                // No fog — safe to show immediately
-                                img.style.display = 'block';
-                                window.pwMapResetView();
+                                if (firstLoad) { firstLoad = false; img.style.display = 'block'; window.pwMapResetView(); }
                             }
-                        }).catch(()=>{
-                            img.style.display = 'block';
-                            window.pwMapResetView();
-                        });
+                          })
+                        : null;
+                    // Fallback: one-time load if listener not available
+                    if (!window._pwWorldFogUnsub) {
+                        window.apxAuth.loadFogDataForPlayer(saved.gmUid, world.worldId, 'worldmap')
+                            .then(fog => {
+                                if (fog) { _pwLoadFog('pwFogCanvas', fog, img); setTimeout(()=>{img.style.display='block';window.pwMapResetView();},60); }
+                                else { img.style.display='block'; window.pwMapResetView(); }
+                            }).catch(()=>{ img.style.display='block'; window.pwMapResetView(); });
+                    }
                 } else {
-                    img.style.display = 'block';
-                    window.pwMapResetView();
+                    img.style.display = 'block'; window.pwMapResetView();
                 }
             };
         }

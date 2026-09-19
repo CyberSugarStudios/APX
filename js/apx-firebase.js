@@ -336,6 +336,19 @@
         return snap.exists ? (snap.data().fogData || null) : null;
     }
 
+    // Real-time fog listener — fires whenever GM saves new fog state for a map.
+    // Returns an unsubscribe function; call it when the Other Map window closes.
+    function listenFogDataForPlayer(gmUid, worldId, mapId, callback) {
+        if (!gmUid || !worldId || !mapId) return () => {};
+        return db.collection('users').doc(gmUid)
+            .collection('worlds').doc(worldId)
+            .collection('fogData').doc(mapId)
+            .onSnapshot(
+                snap => callback(snap.exists ? (snap.data().fogData || null) : null),
+                err  => console.warn('Fog listener:', err.message)
+            );
+    }
+
         async function savePublicWorldMap(inviteCode, base64DataUrl) {
         if (!inviteCode) return;
         await db.collection('worldCodes').doc(inviteCode)
@@ -548,7 +561,7 @@
         saveWorldMapFirestore, loadWorldMapFirestore, deleteWorldMapFirestore,
         savePublicWorldMap, loadPublicWorldMap, loadWorldMapForPlayer, setGmHpOverride, updatePlayerBattlePos,
         saveOtherMapImage, loadOtherMapImage, loadOtherMapImageForPlayer, deleteOtherMapImage,
-        saveFogData, loadFogData, loadFogDataForPlayer,
+        saveFogData, loadFogData, loadFogDataForPlayer, listenFogDataForPlayer,
         listenWorldPlayers, listenPublicWorldNotes, kickWorldPlayer,
         scheduleAutoSave, setActiveCharId,
         renderAuthBar,
