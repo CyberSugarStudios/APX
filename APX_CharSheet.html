@@ -3193,6 +3193,27 @@
         };
     })(window.openModal);
 
+
+    // ── Markdown-lite formatter (mirrors GMTools) ─────────────────
+    function _fmtText(raw) {
+        if (!raw) return '';
+        let lines = raw.split('\n');
+        let out = [];
+        let inList = false;
+        for (let line of lines) {
+            let bullet = line.match(/^\s*[-*]\s+(.*)/);
+            if (bullet) {
+                if (!inList) { out.push('<ul style="margin:0.2rem 0 0.2rem 1rem;padding:0;list-style:disc;">'); inList=true; }
+                out.push(`<li style="margin:0.05rem 0;font-size:inherit;color:inherit;">${bullet[1]}</li>`);
+            } else {
+                if (inList) { out.push('</ul>'); inList=false; }
+                out.push(line === '' ? '<div style="height:0.3rem;"></div>' : `<span>${line}</span><br>`);
+            }
+        }
+        if (inList) out.push('</ul>');
+        return out.join('').replace(/<br>$/, '');
+    }
+
     function renderPlayerWorld() {
         // Remember which tab is active before re-rendering (real-time updates should not reset it)
         let currentTab = null;
@@ -3308,7 +3329,7 @@
                             <div class="text-xs font-bold text-indigo-300">${n.name||'NPC'}</div>
                             ${n.role?`<div class="text-[10px] text-slate-500">${n.role}</div>`:''}
                         </div>
-                        ${n.description?`<div class="text-[10px] text-slate-400 mt-1">${n.description}</div>`:''}
+                        ${n.description?`<div class="text-[10px] text-slate-400 mt-1">${_fmtText(n.description)}</div>`:''}
                         ${subHtml}
                     </div>
                 </div>
@@ -3517,7 +3538,7 @@
             }).join('');
         let snHtml = (tok.subnotes||[]).map(sn=>`<div style="background:#0f172a;border:1px solid #1e293b;border-radius:0.3rem;padding:0.35rem;margin-top:0.2rem;">
             ${sn.title?`<div style="font-size:0.65rem;font-weight:700;color:#e2e8f0;">${sn.title}</div>`:''}
-            ${sn.content?`<div style="font-size:0.6rem;color:#94a3b8;white-space:pre-wrap;">${sn.content}</div>`:''}
+            ${sn.content?`<div style="font-size:0.6rem;color:#94a3b8;">${_fmtText(sn.content)}</div>`:''}
         </div>`).join('');
         win.innerHTML = `<div id="${winId}_hdr" style="background:#1e3a5f;padding:0.5rem 0.65rem;border-radius:0.5rem 0.5rem 0 0;
             display:flex;align-items:center;gap:0.4rem;cursor:grab;user-select:none;">
@@ -3527,7 +3548,7 @@
             <button onclick="document.getElementById('${winId}').remove()" style="background:none;border:none;color:#94a3b8;font-size:1rem;cursor:pointer;">✕</button>
         </div>
         <div style="padding:0.65rem;overflow-y:auto;flex:1;">
-            ${tok.description?`<div style="font-size:0.7rem;color:#cbd5e1;white-space:pre-wrap;margin-bottom:0.4rem;">${tok.description}</div>`:''}
+            ${tok.description?`<div style="font-size:0.7rem;color:#cbd5e1;margin-bottom:0.4rem;">${_fmtText(tok.description)}</div>`:''}
             ${linkedMapBtns}${snHtml}
         </div>`;
         document.body.appendChild(win);
