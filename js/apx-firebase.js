@@ -256,6 +256,19 @@
         return snap.exists ? (snap.data().imageData || null) : null;
     }
 
+    // --- updatePlayerBattlePos: player writes battle token position to their world record ---
+    // Path: worldCodes/{inviteCode}/players/{uid} { battlePositions: { mapId: { tokenId: {gridX,gridY} } } }
+    // Small targeted write → GM's party listener picks it up in < 500ms.
+    async function updatePlayerBattlePos(inviteCode, mapId, tokenId, gridX, gridY) {
+        let user = currentUser(); if (!user || !inviteCode) return;
+        let field = `battlePositions.${mapId}.${tokenId}`;
+        let update = {};
+        update[field] = { gridX, gridY, at: firebase.firestore.FieldValue.serverTimestamp() };
+        await db.collection('worldCodes').doc(inviteCode)
+            .collection('players').doc(user.uid)
+            .set(update, { merge: true });
+    }
+
     // --- setGmHpOverride: GM writes an HP value that the player's charsheet listens for ---
     // Stored in worldCodes/{inviteCode}/players/{uid} as { _gmHp: { hp, at } }.
     // The player never writes this field — only the GM does — so there's no sync loop.
@@ -533,7 +546,7 @@
         createWorld, loadWorlds, saveWorld, saveWorldRaces, saveRacesToAllWorlds, deleteWorld, joinWorldByCode,
         loadWorldPlayers,
         saveWorldMapFirestore, loadWorldMapFirestore, deleteWorldMapFirestore,
-        savePublicWorldMap, loadPublicWorldMap, loadWorldMapForPlayer, setGmHpOverride,
+        savePublicWorldMap, loadPublicWorldMap, loadWorldMapForPlayer, setGmHpOverride, updatePlayerBattlePos,
         saveOtherMapImage, loadOtherMapImage, loadOtherMapImageForPlayer, deleteOtherMapImage,
         saveFogData, loadFogData, loadFogDataForPlayer,
         listenWorldPlayers, listenPublicWorldNotes, kickWorldPlayer,

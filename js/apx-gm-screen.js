@@ -310,6 +310,8 @@ function startPartyListener(inviteCode) {
         let changed = false;
         players.forEach(p => {
             let state = p.charState || p.state;
+            // Fast-path: player wrote battlePositions directly to their world record
+            if (p.battlePositions) _applyPlayerBattlePositions(p.uid, p.battlePositions);
             if (!state) return;
             // Update the party panel
             let entry = window.gmParty.find(x => x.fileName === p.uid);

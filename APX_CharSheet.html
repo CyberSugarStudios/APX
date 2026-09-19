@@ -3751,10 +3751,10 @@
             let diam = Math.max(12, g.cellSize*(sm<=1?sm*0.85:sm*0.9));
             let defColor = t.type==='player' ? '#1d4ed8' : '#d97706';
             let bg  = t.color || defColor;
-            // Portrait: NPC uses world NPC portrait; player uses their charPortrait from party
+            // Portrait: own token uses local state; other players' tokens use partyMap
             let portrait = t.type==='player'
-                ? (partyMap[t.playerUid||''] || '')
-                : '';  // NPC portraits not sent to players (privacy)
+                ? (isMe ? (window.state?.charPortrait || '') : (partyMap[t.playerUid||''] || ''))
+                : '';  // NPC portraits not sent to players
             let icon = (t.name||'?')[0].toUpperCase();
             // Is this MY token? — match by UID first, fall back to name
             let isMe = t.type==='player' && ((myUid && t.playerUid === myUid) || (!myUid && t.name === myName));
@@ -3794,20 +3794,34 @@
             let mx=(e.clientX-rect.left)/sc, my=(e.clientY-rect.top)/sc;
             let gx=Math.floor((mx-(g.offsetX%g.cellSize))/g.cellSize);
             let gy=Math.floor((my-(g.offsetY%g.cellSize))/g.cellSize);
-            el.style.left=((g.offsetX%g.cellSize)+gx*g.cellSize+g.cellSize/2)+'px';
-            el.style.top =((g.offsetY%g.cellSize)+gy*g.cellSize+g.cellSize/2)+'px';
+            let px=(g.offsetX%g.cellSize)+(gx+0.5)*g.cellSize;
+            let py=(g.offsetY%g.cellSize)+(gy+0.5)*g.cellSize;
+            el.style.left=px+'px'; el.style.top=py+'px';
+            // Dim the token when hovering over fog to signal invalid drop
+            let underFog = _pwCellUnderFog(winId, gx, gy, g);
+            el.style.opacity = underFog ? '0.35' : '1';
+            el.style.filter  = underFog ? 'grayscale(1)' : '';
             el._pgx=gx; el._pgy=gy;
         }
         function onUp(){
             if(!dragging) return;
-            dragging=false; el.style.cursor='grab';
+            dragging=false; el.style.cursor='grab'; el.style.opacity='1'; el.style.filter='';
             if(el._pgx!==undefined){
-                tok.gridX=el._pgx; tok.gridY=el._pgy;
-                // Save player token position to charState for GM to see
+                // Fog restriction: snap to nearest revealed cell if drop target is fogged
+                let dest = _pwNearestOpenCell(winId, el._pgx, el._pgy, g);
+                tok.gridX=dest.gridX; tok.gridY=dest.gridY;
+                // Write position (fast path)
                 if(!window.state.battlePositions) window.state.battlePositions={};
                 if(!window.state.battlePositions[map.id]) window.state.battlePositions[map.id]={};
-                window.state.battlePositions[map.id][tok.id]={gridX:el._pgx,gridY:el._pgy};
-                if(typeof window.recalculateMath==='function') window.recalculateMath();
+                window.state.battlePositions[map.id][tok.id]={gridX:dest.gridX,gridY:dest.gridY};
+                let world = window._playerWorldData;
+                let inviteCode = world?.inviteCode;
+                if (inviteCode && window.apxAuth?.updatePlayerBattlePos) {
+                    window.apxAuth.updatePlayerBattlePos(inviteCode, map.id, tok.id, dest.gridX, dest.gridY).catch(()=>{});
+                } else if (typeof window.recalculateMath === 'function') {
+                    window.recalculateMath();
+                }
+                _pwBtRenderTokens(winId, win, map);
                 el._pgx=undefined;
             }
         }
@@ -3815,6 +3829,33 @@
         document.addEventListener('mouseup',onUp);
     }
     // ── End Player Battle Map ─────────────────────────────────────
+
+    // ── Fog-aware player token movement ──────────────────────────
+    // Samples the fog canvas at a grid cell center.
+    // Returns true if the cell is under fog (alpha > 50 = still covered).
+    function _pwCellUnderFog(winId, gridX, gridY, g) {
+        let canvas = document.getElementById(winId+'_fog');
+        if (!canvas || !canvas.width || !canvas.height) return false; // no fog loaded = all open
+        let px = Math.round((g.offsetX % g.cellSize) + (gridX + 0.5) * g.cellSize);
+        let py = Math.round((g.offsetY % g.cellSize) + (gridY + 0.5) * g.cellSize);
+        if (px < 0 || px >= canvas.width || py < 0 || py >= canvas.height) return true; // out of bounds
+        let ctx = canvas.getContext('2d');
+        return ctx.getImageData(px, py, 1, 1).data[3] > 50;
+    }
+    // Finds the nearest grid cell not under fog using a ring-by-ring spiral search.
+    function _pwNearestOpenCell(winId, gx, gy, g, maxR) {
+        if (!_pwCellUnderFog(winId, gx, gy, g)) return {gridX:gx, gridY:gy};
+        for (let r = 1; r <= (maxR||12); r++) {
+            for (let dx = -r; dx <= r; dx++) {
+                for (let dy = -r; dy <= r; dy++) {
+                    if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue; // ring only
+                    if (!_pwCellUnderFog(winId, gx+dx, gy+dy, g)) return {gridX:gx+dx, gridY:gy+dy};
+                }
+            }
+        }
+        return {gridX:gx, gridY:gy}; // couldn't find open cell — stay put
+    }
+    // ── End fog helpers ──────────────────────────────────────────
 
     window.pwOmReset = function(winId) {
         let win=document.getElementById(winId); if(!win) return;

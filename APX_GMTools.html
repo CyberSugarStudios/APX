@@ -1424,6 +1424,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (w) {
             document.getElementById('gmInviteCode').innerText = w.inviteCode || '';
             document.getElementById('gmCopiedMsg')?.classList.add('hidden');
+            // Auto-start the party listener so players who already joined appear immediately
+            if (w.inviteCode && typeof window.startPartyListener === 'function') {
+                window.startPartyListener(w.inviteCode);
+            }
             // Reset map state so the previous world's image never bleeds into this one
             _mapInitialized = false;
             if (_mapImg) {
@@ -2619,7 +2623,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if(empty) empty.style.display='none';
         img.onload=()=>{
             window.omReset(winId);
-            // Initialize fog canvas to match image dimensions
             let mapId = winId.replace('omWin_','');
             let fc = document.getElementById(winId+'_fog');
             if (fc) {
@@ -2628,6 +2631,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 _fogLoad(mapId);
             }
             _omAttachFogEvents(mapId, winId, win);
+            // Auto-draw battle grid and tokens if this map has battle mode enabled
+            let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+            if (map?.battleMapEnabled) {
+                _btDrawGrid(mapId, winId);
+                _btRenderTokens(mapId, winId);
+            }
         };
         if(img.complete&&img.naturalWidth) window.omReset(winId);
     }
@@ -3112,7 +3121,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if(el._pgx!==undefined){
                 let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId);
                 let tok=(map?.battleTokens||[]).find(t=>t.id===tokenId);
-                if(tok){tok.gridX=el._pgx;tok.gridY=el._pgy;saveWorldNotes();}
+                if(tok){tok.gridX=el._pgx;tok.gridY=el._pgy;
+                    // Save immediately for near-instant player updates — bypass debounce
+                    saveWorldNotes();
+                    // Also force immediate Firestore write without waiting for debounce
+                    if (typeof _doSaveWorldNotes === 'function') {
+                        clearTimeout(window._saveNotesTimer);
+                        _doSaveWorldNotes();
+                    }
+                }
                 el._pgx=undefined;
             }
         }
