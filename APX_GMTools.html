@@ -1524,6 +1524,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         notes:         w.notesV2.notes         || [],
                         otherMaps:     (w.notesV2.otherMaps||[]).map(m=>({
                             id:m.id, name:m.name, revealed:!!m.revealed,
+                            battleMapEnabled: !!m.battleMapEnabled,
+                            battleGrid: m.battleGrid||{cellSize:50,offsetX:0,offsetY:0},
+                            battleTokens: (m.battleTokens||[]),
                             tokens:(m.tokens||[]).map(t=>{
                                 // Migrate single linkedOtherMapId → array
                                 let mapIds = t.linkedOtherMapIds||[];
@@ -1543,6 +1546,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         otherMaps: (_wNotes.otherMaps||[])
                             .filter(m=>m.revealed)
                             .map(m=>({ id:m.id, name:m.name,
+                                battleMapEnabled: !!m.battleMapEnabled,
+                                battleGrid: m.battleGrid||{cellSize:50,offsetX:0,offsetY:0},
+                                battleTokens: (m.battleTokens||[]), // always sync for live movement
                                 tokens:(m.tokens||[]).filter(t=>t.revealed).map(t=>{
                                 let mapIds = t.linkedOtherMapIds||[];
                                 if (!mapIds.length && t.linkedOtherMapId) mapIds=[t.linkedOtherMapId];
@@ -2261,6 +2267,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 <!-- Fog controls live in the header so they never accidentally paint -->
                 <button id="${winId}_fogBtn" onclick="window.toggleFogMode('${mapId}')" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;">🌫 Fog</button>
                 <button id="${winId}_specialBtn" onclick="window.toggleSpecialMarkerMode('${mapId}','${winId}')" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;" title="Place a special marker (secret door, trap, etc.)">✦ Special</button>
+                <button id="${winId}_battleToggle" onclick="window.toggleBattleMap('${mapId}','${winId}')" style="background:${map.battleMapEnabled?'#065f46':'#1e293b'};border:1px solid ${map.battleMapEnabled?'#10b981':'#334155'};color:${map.battleMapEnabled?'#6ee7b7':'#94a3b8'};font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;" title="Toggle Battle Map (grid + tokens)">⚔ Battle</button>
+                <!-- Battle Map grid controls (shown only in battle mode) -->
+                <div id="${winId}_battleControls" style="display:${map.battleMapEnabled?'flex':'none'};align-items:center;gap:0.3rem;flex-wrap:nowrap;">
+                    <span style="font-size:0.6rem;color:#6ee7b7;white-space:nowrap;">Cell:</span>
+                    <input type="range" id="${winId}_cellSize" min="20" max="120" value="${(map.battleGrid||{}).cellSize||50}" step="2"
+                        oninput="window._btUpdateGrid('${mapId}','${winId}')"
+                        style="width:55px;accent-color:#10b981;">
+                    <span id="${winId}_cellVal" style="font-size:0.6rem;color:#e2e8f0;min-width:22px;">${(map.battleGrid||{}).cellSize||50}</span>
+                    <span style="font-size:0.6rem;color:#6ee7b7;">X:</span>
+                    <input type="number" id="${winId}_gridOX" value="${(map.battleGrid||{}).offsetX||0}" min="0" max="200" style="width:36px;background:#0f172a;border:1px solid #334155;color:#e2e8f0;font-size:0.6rem;border-radius:0.2rem;padding:0.1rem 0.2rem;text-align:center;" oninput="window._btUpdateGrid('${mapId}','${winId}')">
+                    <span style="font-size:0.6rem;color:#6ee7b7;">Y:</span>
+                    <input type="number" id="${winId}_gridOY" value="${(map.battleGrid||{}).offsetY||0}" min="0" max="200" style="width:36px;background:#0f172a;border:1px solid #334155;color:#e2e8f0;font-size:0.6rem;border-radius:0.2rem;padding:0.1rem 0.2rem;text-align:center;" oninput="window._btUpdateGrid('${mapId}','${winId}')">
+                    <button onclick="window.openBattleTokenPanel('${mapId}','${winId}')" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#065f46;border:1px solid #10b981;color:#6ee7b7;border-radius:0.2rem;cursor:pointer;white-space:nowrap;">+ Token</button>
+                </div>
                 <div id="${winId}_fogControls" style="display:none;align-items:center;gap:0.25rem;">
                     <span style="font-size:0.6rem;color:#94a3b8;">Size:</span>
                     <input type="range" id="${winId}_fogSlider" min="5" max="150" value="40" step="5"
@@ -2279,8 +2299,10 @@ document.addEventListener('DOMContentLoaded', () => {
             <div id="${winId}_area" style="flex:1;position:relative;overflow:hidden;cursor:crosshair;user-select:none;-webkit-user-select:none;">
                 <div id="${winId}_vp" style="position:absolute;transform-origin:0 0;will-change:transform;user-select:none;">
                     <img id="${winId}_img" src="" alt="" style="display:none;max-width:none;user-select:none;pointer-events:none;-webkit-user-drag:none;" draggable="false" ondragstart="return false">
-                    <canvas id="${winId}_fog" style="position:absolute;top:0;left:0;pointer-events:none;opacity:0.45;"></canvas>
-                    <div id="${winId}_tok" style="position:absolute;top:0;left:0;pointer-events:none;user-select:none;"></div>
+                    <canvas id="${winId}_grid" style="position:absolute;top:0;left:0;pointer-events:none;z-index:1;"></canvas>
+                    <div id="${winId}_tok" style="position:absolute;top:0;left:0;pointer-events:none;user-select:none;z-index:2;"></div>
+                    <canvas id="${winId}_fog" style="position:absolute;top:0;left:0;pointer-events:none;opacity:0.45;z-index:3;"></canvas>
+                    <div id="${winId}_btLayer" style="position:absolute;top:0;left:0;pointer-events:auto;user-select:none;z-index:6;"></div>
                 </div>
                 <div id="${winId}_empty" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
                     <div style="text-align:center;color:#475569;font-size:0.75rem;">Upload an image to get started</div>
@@ -2791,6 +2813,171 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ── Area token label sequence: helpers end ────────────────────
+    // ═══════════════════════════════════════════════════════════════
+    // ── BATTLE MAP SYSTEM ──────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════
+
+    window.toggleBattleMap = function(mapId, winId) {
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return;
+        map.battleMapEnabled = !map.battleMapEnabled;
+        if (!map.battleGrid)  map.battleGrid  = {cellSize:50,offsetX:0,offsetY:0};
+        if (!map.battleTokens) map.battleTokens = [];
+        saveWorldNotes();
+        let btn  = document.getElementById(winId+'_battleToggle');
+        if (btn) { btn.style.background=map.battleMapEnabled?'#065f46':'#1e293b'; btn.style.borderColor=map.battleMapEnabled?'#10b981':'#334155'; btn.style.color=map.battleMapEnabled?'#6ee7b7':'#94a3b8'; }
+        let ctrl = document.getElementById(winId+'_battleControls');
+        if (ctrl) ctrl.style.display = map.battleMapEnabled ? 'flex' : 'none';
+        _btDrawGrid(mapId, winId);
+        _btRenderTokens(mapId, winId);
+    };
+
+    window._btUpdateGrid = function(mapId, winId) {
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return;
+        let cs = parseInt(document.getElementById(winId+'_cellSize')?.value||50);
+        let ox = parseInt(document.getElementById(winId+'_gridOX')?.value||0);
+        let oy = parseInt(document.getElementById(winId+'_gridOY')?.value||0);
+        let valEl = document.getElementById(winId+'_cellVal');
+        if (valEl) valEl.textContent = cs;
+        map.battleGrid = {cellSize:cs, offsetX:ox, offsetY:oy};
+        saveWorldNotes();
+        _btDrawGrid(mapId, winId);
+        _btRenderTokens(mapId, winId);
+    };
+
+    function _btDrawGrid(mapId, winId) {
+        let canvas = document.getElementById(winId+'_grid');
+        let img    = document.getElementById(winId+'_img');
+        let map    = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+        if (!canvas || !img || !img.naturalWidth || !map?.battleMapEnabled) { if(canvas) canvas.width=0; return; }
+        let iw=img.naturalWidth, ih=img.naturalHeight;
+        canvas.width=iw; canvas.height=ih;
+        let ctx=canvas.getContext('2d');
+        ctx.clearRect(0,0,iw,ih);
+        let g=map.battleGrid||{cellSize:50,offsetX:0,offsetY:0};
+        ctx.strokeStyle='#ffffff'; ctx.lineWidth=1;
+        for(let x=g.offsetX%g.cellSize;x<iw;x+=g.cellSize){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,ih);ctx.stroke();}
+        for(let y=g.offsetY%g.cellSize;y<ih;y+=g.cellSize){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(iw,y);ctx.stroke();}
+    }
+
+    function _btPixelToGrid(px,py,g){return{gridX:Math.floor((px-(g.offsetX%g.cellSize))/g.cellSize),gridY:Math.floor((py-(g.offsetY%g.cellSize))/g.cellSize)};}
+    function _btGridToPixel(gx,gy,g){return{px:(g.offsetX%g.cellSize)+gx*g.cellSize+g.cellSize/2,py:(g.offsetY%g.cellSize)+gy*g.cellSize+g.cellSize/2};}
+
+    function _btRenderTokens(mapId, winId) {
+        let layer=document.getElementById(winId+'_btLayer');
+        let img  =document.getElementById(winId+'_img');
+        let map  =(_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+        if(!layer) return;
+        if(!img||!img.naturalWidth||!map?.battleMapEnabled||!(map.battleTokens||[]).length){layer.innerHTML='';return;}
+        let g=map.battleGrid||{cellSize:50,offsetX:0,offsetY:0};
+        let iw=img.naturalWidth, ih=img.naturalHeight;
+        layer.style.width=iw+'px'; layer.style.height=ih+'px';
+        let curInitId=window.gmInitiative?.[window._gmInitCurrentTurn??0]?.id||null;
+        let sz=Math.max(16,Math.min(g.cellSize*0.85,52));
+        layer.innerHTML=(map.battleTokens||[]).map(t=>{
+            let {px,py}=_btGridToPixel(t.gridX,t.gridY,g);
+            let isActive=t.initiativeId&&t.initiativeId===curInitId;
+            let icon=(t.name||'?')[0].toUpperCase();
+            let typeColor = t.type==='player'?'#4f46e5':'#dc2626';
+            let bg = t.color||typeColor;
+            return `<div data-bt="${t.id}" style="position:absolute;left:${px}px;top:${py}px;
+                width:${sz}px;height:${sz}px;transform:translate(-50%,-50%);
+                background:${bg};border:${isActive?3:2}px solid ${isActive?'#fbbf24':'rgba(255,255,255,0.9)'};
+                border-radius:50%;display:flex;align-items:center;justify-content:center;
+                font-size:${Math.round(sz*0.42)}px;font-weight:900;color:#fff;cursor:grab;
+                box-shadow:${isActive?'0 0 18px 4px #fbbf24,':''} 0 2px 8px rgba(0,0,0,0.7);
+                transition:box-shadow 0.15s;user-select:none;" title="${t.name} — right-click for options">${icon}</div>`;
+        }).join('');
+        let win=document.getElementById(winId);
+        (map.battleTokens||[]).forEach(t=>{
+            let el=layer.querySelector('[data-bt="'+t.id+'"]');
+            if(el) _btAttachDrag(mapId,winId,t.id,el,g,win);
+        });
+    }
+
+    function _btAttachDrag(mapId,winId,tokenId,el,g,win) {
+        let dragging=false;
+        el.addEventListener('mousedown',e=>{
+            if(e.button!==0) return;
+            e.stopPropagation(); e.preventDefault();
+            dragging=true; el.style.cursor='grabbing'; el.style.zIndex='99';
+        });
+        el.addEventListener('contextmenu',e=>{
+            e.stopPropagation(); e.preventDefault();
+            window._btShowTokenMenu(mapId,winId,tokenId,e);
+        });
+        function onMove(e){
+            if(!dragging) return;
+            let layer=document.getElementById(winId+'_btLayer'); if(!layer) return;
+            let rect=layer.getBoundingClientRect();
+            let sc=win._scale||1;
+            let mx=(e.clientX-rect.left)/sc, my=(e.clientY-rect.top)/sc;
+            let {gridX,gridY}=_btPixelToGrid(mx,my,g);
+            let {px,py}=_btGridToPixel(gridX,gridY,g);
+            el.style.left=px+'px'; el.style.top=py+'px';
+            el._pgx=gridX; el._pgy=gridY;
+        }
+        function onUp(){
+            if(!dragging) return;
+            dragging=false; el.style.cursor='grab'; el.style.zIndex='';
+            if(el._pgx!==undefined){
+                let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+                let tok=(map?.battleTokens||[]).find(t=>t.id===tokenId);
+                if(tok){tok.gridX=el._pgx;tok.gridY=el._pgy;saveWorldNotes();}
+                el._pgx=undefined;
+            }
+        }
+        document.addEventListener('mousemove',onMove);
+        document.addEventListener('mouseup',onUp);
+        el._btCleanup=()=>{document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);};
+    }
+
+    window._btShowTokenMenu = function(mapId, winId, tokenId, e) {
+        document.getElementById('btContextMenu')?.remove();
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+        let tok = (map?.battleTokens||[]).find(t=>t.id===tokenId); if(!tok) return;
+        let menu = document.createElement('div');
+        menu.id = 'btContextMenu';
+        menu.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;z-index:2147483647;background:#1e293b;border:1px solid #334155;border-radius:0.4rem;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.8);min-width:150px;`;
+        let initRows = (window.gmInitiative||[]).map(ei=>`<button onclick="window.linkBattleTokenToInit('${mapId}','${tokenId}','${ei.id}');document.getElementById('btContextMenu').remove()" style="width:100%;text-align:left;background:none;border-bottom:1px solid #1e293b;color:${tok.initiativeId===ei.id?'#fbbf24':'#e2e8f0'};font-size:0.65rem;padding:0.35rem 0.6rem;cursor:pointer;">${tok.initiativeId===ei.id?'✓ ':''} ${ei.name}</button>`).join('');
+        menu.innerHTML = `<div style="background:#1e3a5f;padding:0.35rem 0.6rem;font-size:0.65rem;font-weight:700;color:#93c5fd;">${tok.name} (${tok.type})</div>
+            ${initRows ? `<div style="padding:0.2rem 0.6rem;font-size:0.6rem;color:#64748b;border-bottom:1px solid #1e293b;">Link to Initiative</div>${initRows}` : ''}
+            <button onclick="window.removeBattleToken('${mapId}','${winId}','${tokenId}');document.getElementById('btContextMenu').remove()" style="width:100%;text-align:left;background:none;border:none;color:#f87171;font-size:0.65rem;padding:0.35rem 0.6rem;cursor:pointer;">🗑 Remove Token</button>`;
+        document.body.appendChild(menu);
+        setTimeout(()=>document.addEventListener('mousedown',function cls(ev){if(!menu.contains(ev.target)){menu.remove();document.removeEventListener('mousedown',cls);}},100));
+    };
+
+    window.openBattleTokenPanel = function(mapId, winId) {
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return;
+        let existing = document.getElementById('btPickerPanel');
+        if(existing){existing.remove();return;}
+        let panel = document.createElement('div');
+        panel.id = 'btPickerPanel';
+        panel.style.cssText = `position:fixed;right:20px;top:120px;width:220px;background:#1e293b;border:1px solid #10b981;border-radius:0.5rem;z-index:2147483647;box-shadow:0 10px 40px rgba(0,0,0,0.85);overflow:hidden;`;
+        let partyRows=(_wNotes.gmParty||window.gmParty||[]).map(p=>`<button onclick="window._btAddToken('${mapId}','${winId}','${(p.summary?.name||'Player').replace(/'/g,'')}','player','#4f46e5',null,'${p.fileName||''}')" style="width:100%;text-align:left;background:#0f172a;border:none;border-bottom:1px solid #1e293b;color:#a5b4fc;font-size:0.7rem;padding:0.4rem 0.6rem;cursor:pointer;">🧑 ${p.summary?.name||'Player'}</button>`).join('');
+        let npcRows=(_wNotes.npcs||[]).map(n=>`<button onclick="window._btAddToken('${mapId}','${winId}','${(n.name||'NPC').replace(/'/g,'')}','npc','#dc2626','${n.id}',null)" style="width:100%;text-align:left;background:#0f172a;border:none;border-bottom:1px solid #1e293b;color:#fca5a5;font-size:0.7rem;padding:0.4rem 0.6rem;cursor:pointer;">👹 ${n.name||'NPC'}</button>`).join('');
+        panel.innerHTML=`<div style="background:#065f46;padding:0.5rem 0.75rem;font-size:0.75rem;font-weight:700;color:#6ee7b7;display:flex;align-items:center;justify-content:space-between;">⚔ Add Token <button onclick="document.getElementById('btPickerPanel').remove()" style="background:none;border:none;color:#6ee7b7;font-size:1rem;cursor:pointer;">✕</button></div>
+            <div style="max-height:60vh;overflow-y:auto;">${partyRows||'<div style="padding:0.5rem;font-size:0.65rem;color:#475569;">No party members found</div>'}${npcRows||'<div style="padding:0.5rem;font-size:0.65rem;color:#475569;">No world NPCs</div>'}</div>`;
+        document.body.appendChild(panel);
+    };
+
+    window._btAddToken = function(mapId,winId,name,type,color,worldNpcId,playerUid) {
+        document.getElementById('btPickerPanel')?.remove();
+        let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return;
+        if(!map.battleTokens) map.battleTokens=[];
+        let g=map.battleGrid||{cellSize:50,offsetX:0,offsetY:0};
+        let img=document.getElementById(winId+'_img');
+        let cx=Math.round((img?.naturalWidth||400)/2), cy=Math.round((img?.naturalHeight||400)/2);
+        let {gridX,gridY}=_btPixelToGrid(cx,cy,g);
+        map.battleTokens.push({id:'bt_'+Date.now(),type,name,color,gridX,gridY,worldNpcId:worldNpcId||null,playerUid:playerUid||null,initiativeId:null});
+        saveWorldNotes();
+        _btRenderTokens(mapId,winId);
+    };
+
+    window.removeBattleToken   = function(mapId,winId,tokenId){ let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return; map.battleTokens=(map.battleTokens||[]).filter(t=>t.id!==tokenId); saveWorldNotes(); _btRenderTokens(mapId,winId); };
+    window.linkBattleTokenToInit = function(mapId,tokenId,initId){ let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); let tok=(map?.battleTokens||[]).find(t=>t.id===tokenId); if(tok){tok.initiativeId=initId;saveWorldNotes();} };
+    window._btRefreshAllOpenMaps = function(){ (_wNotes.otherMaps||[]).forEach(m=>{if(m.battleMapEnabled){let wid='omWin_'+m.id;if(document.getElementById(wid))_btRenderTokens(m.id,wid);}}); };
+
+    // ── END BATTLE MAP SYSTEM ──────────────────────────────────────
     window.openTokenInfoWin = function(mapId, tokenId, parentWinId, readOnly) {
         // Default to read-only (info view). New tokens pass false to open in edit mode.
         if (readOnly === undefined) readOnly = true;

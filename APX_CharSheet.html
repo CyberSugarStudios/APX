@@ -3328,6 +3328,14 @@
         renderPlayerOtherMaps();
         // Restore the tab that was active before this re-render (real-time updates shouldn't reset it)
         if (currentTab) window.showPlayerWorldTab(currentTab);
+        // Refresh any open player Other Map windows with updated battle tokens
+        (world?.notesV2?.otherMaps||[]).forEach(m=>{
+            if(m.battleMapEnabled) {
+                let winId='pwOmWin_'+m.id;
+                let winEl=document.getElementById(winId);
+                if(winEl) { _pwBtDrawGrid(winId,m); _pwBtRenderTokens(winId,winEl,m); }
+            }
+        });
     }
 
     function renderPlayerOtherMaps() {
@@ -3427,6 +3435,9 @@
         img.src=src; img.style.display='block'; if(e) e.style.display='none';
         img.onload=()=>{
             window.pwOmReset(winId); _pwOmRenderTok(winId, win, map);
+            // Draw battle grid if this is a battle map
+            if (map?.battleMapEnabled) _pwBtDrawGrid(winId, map);
+            _pwBtRenderTokens(winId, win, map);
             // Load fog for this other map (solid black for players)
             let _world = window._playerWorldData;
             let _worldId = _world?.worldId;
@@ -3469,8 +3480,18 @@
                     box-shadow:0 2px 6px rgba(0,0,0,.65);${clickable?'cursor:pointer;':''}">${t.letter}</div>
             </div>`;
         }).join('');
-        win._curMap = m; win._revealedMapIds = revealedMapIds;
-    }
+        // Add battle token layer and grid canvas to player Other Map window
+        if (map.battleMapEnabled) {
+            let btLayer = document.createElement('div');
+            btLayer.id = winId+'_btLayer';
+            btLayer.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;z-index:6;';
+            vp.appendChild(btLayer);
+            // Draw grid canvas
+            let gc = document.createElement('canvas');
+            gc.id = winId+'_grid';
+            gc.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;opacity:0.35;z-index:1;';
+            vp.insertBefore(gc, vp.firstChild);
+        }
 
     // Player floating info popup for a revealed area token
     window.openPlayerTokenInfo = function(mapId, tokenId) {
@@ -3521,6 +3542,88 @@
         let area=document.getElementById(winId+'_area'); if(area){ let r=area.getBoundingClientRect(), cx=r.width/2, cy=r.height/2, mx=(cx-win._offX)/win._scale, my=(cy-win._offY)/win._scale; win._scale=Math.max(0.05,Math.min(10,win._scale*factor)); win._offX=cx-mx*win._scale; win._offY=cy-my*win._scale; } else { win._scale=Math.max(0.05,Math.min(10,win._scale*factor)); }
         _pwOmTransform(winId, win);
     };
+    // ── Player-side Battle Map rendering ─────────────────────────
+    function _pwBtDrawGrid(winId, map) {
+        let canvas = document.getElementById(winId+'_grid');
+        let img    = document.getElementById(winId+'_img');
+        if (!canvas || !img || !img.naturalWidth) return;
+        let iw=img.naturalWidth, ih=img.naturalHeight;
+        canvas.width=iw; canvas.height=ih;
+        let ctx=canvas.getContext('2d');
+        ctx.clearRect(0,0,iw,ih);
+        let g=map?.battleGrid||{cellSize:50,offsetX:0,offsetY:0};
+        ctx.strokeStyle='#ffffff'; ctx.lineWidth=1;
+        for(let x=g.offsetX%g.cellSize;x<iw;x+=g.cellSize){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,ih);ctx.stroke();}
+        for(let y=g.offsetY%g.cellSize;y<ih;y+=g.cellSize){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(iw,y);ctx.stroke();}
+    }
+    function _pwBtRenderTokens(winId, win, map) {
+        let layer = document.getElementById(winId+'_btLayer');
+        let img   = document.getElementById(winId+'_img');
+        if (!layer || !img || !img.naturalWidth || !map?.battleMapEnabled) { if(layer) layer.innerHTML=''; return; }
+        let g  = map.battleGrid||{cellSize:50,offsetX:0,offsetY:0};
+        let iw = img.naturalWidth, ih = img.naturalHeight;
+        layer.style.width=iw+'px'; layer.style.height=ih+'px';
+        let sz = Math.max(16, Math.min(g.cellSize*0.85,52));
+        let myName = window.state?.name||'';
+        layer.innerHTML = (map.battleTokens||[]).map(t=>{
+            let px=(g.offsetX%g.cellSize)+t.gridX*g.cellSize+g.cellSize/2;
+            let py=(g.offsetY%g.cellSize)+t.gridY*g.cellSize+g.cellSize/2;
+            let icon=(t.name||'?')[0].toUpperCase();
+            let isMe = t.type==='player' && t.name === myName;
+            let bg = t.color||(t.type==='player'?'#4f46e5':'#dc2626');
+            return `<div data-pwbt="${t.id}" style="position:absolute;left:${px}px;top:${py}px;
+                width:${sz}px;height:${sz}px;transform:translate(-50%,-50%);
+                background:${bg};border:2px solid ${isMe?'#fbbf24':'rgba(255,255,255,0.9)'};
+                border-radius:50%;display:flex;align-items:center;justify-content:center;
+                font-size:${Math.round(sz*0.42)}px;font-weight:900;color:#fff;
+                cursor:${isMe?'grab':'default'};user-select:none;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.7);" title="${t.name}">${icon}</div>`;
+        }).join('');
+        // Allow players to drag their own token
+        (map.battleTokens||[]).forEach(t=>{
+            if(t.type==='player' && t.name===myName) {
+                let el=layer.querySelector('[data-pwbt="'+t.id+'"]');
+                if(el) _pwBtAttachDrag(el, t, map, winId, win);
+            }
+        });
+    }
+    function _pwBtAttachDrag(el, tok, map, winId, win) {
+        let dragging=false;
+        let g=map.battleGrid||{cellSize:50,offsetX:0,offsetY:0};
+        el.addEventListener('mousedown',e=>{
+            if(e.button!==0) return;
+            e.stopPropagation(); e.preventDefault(); dragging=true; el.style.cursor='grabbing';
+        });
+        function onMove(e){
+            if(!dragging) return;
+            let layer=document.getElementById(winId+'_btLayer'); if(!layer) return;
+            let rect=layer.getBoundingClientRect();
+            let sc=win._scale||1;
+            let mx=(e.clientX-rect.left)/sc, my=(e.clientY-rect.top)/sc;
+            let gx=Math.floor((mx-(g.offsetX%g.cellSize))/g.cellSize);
+            let gy=Math.floor((my-(g.offsetY%g.cellSize))/g.cellSize);
+            el.style.left=((g.offsetX%g.cellSize)+gx*g.cellSize+g.cellSize/2)+'px';
+            el.style.top =((g.offsetY%g.cellSize)+gy*g.cellSize+g.cellSize/2)+'px';
+            el._pgx=gx; el._pgy=gy;
+        }
+        function onUp(){
+            if(!dragging) return;
+            dragging=false; el.style.cursor='grab';
+            if(el._pgx!==undefined){
+                tok.gridX=el._pgx; tok.gridY=el._pgy;
+                // Save player token position to charState for GM to see
+                if(!window.state.battlePositions) window.state.battlePositions={};
+                if(!window.state.battlePositions[map.id]) window.state.battlePositions[map.id]={};
+                window.state.battlePositions[map.id][tok.id]={gridX:el._pgx,gridY:el._pgy};
+                if(typeof window.recalculateMath==='function') window.recalculateMath();
+                el._pgx=undefined;
+            }
+        }
+        document.addEventListener('mousemove',onMove);
+        document.addEventListener('mouseup',onUp);
+    }
+    // ── End Player Battle Map ─────────────────────────────────────
+
     window.pwOmReset = function(winId) {
         let win=document.getElementById(winId); if(!win) return;
         let img=document.getElementById(winId+'_img'), area=document.getElementById(winId+'_area');

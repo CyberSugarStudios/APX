@@ -368,16 +368,16 @@
         // last 5 -> col 2) reads: AC/DR/ER/weight in one column, Stealth/
         // Athletics/Speed adjustments in the other.
         const ARMOR_MODS = [
-            { key: "acBonus",        label: "+1 AC",                          cost: 50,  wt: 10, field: "ac",         amt: 1,  max: 10 },
-            { key: "drBonus",        label: "+1 DR",                          cost: 30,  wt: 5,  field: "dr",         amt: 1,  max: 5 },
-            { key: "erBonus",        label: "+1 ER",                          cost: 30,  wt: 5,  field: "er",         amt: 1,  max: 5 },
-            { key: "wtReduction",    label: "Reduce armor weight by 1 lb",    cost: 15,  wt: -1, field: "wt",         amt: -1, max: null },
-            { key: "wtIncrease",     label: "Increase armor weight by 1 lb",  cost: -10, wt: 1,  field: "wt",         amt: 1,  max: null },
-            { key: "stealthBonus",   label: "+1 AGI (Stealth)",               cost: 25,  wt: 0,  field: "stealth",    amt: 1,  max: 2 },
-            { key: "stealthPenalty", label: "-1 AGI (Stealth)",               cost: -15, wt: 0,  field: "stealth",    amt: -1, max: null },
-            { key: "athleticsBonus", label: "+1 STR (Athletics)",             cost: 25,  wt: 0,  field: "athletics",  amt: 1,  max: 2 },
-            { key: "athleticsPenalty", label: "-1 STR (Athletics)",           cost: -15, wt: 0,  field: "athletics",  amt: -1, max: null },
-            { key: "speedPenalty",   label: "Speed reduced by 1 while worn",  cost: -50, wt: 0,  field: "speed",      amt: -1, max: null }
+            { key: "acBonus",          label: "+1 AC",                            cost: 50,  wt: 10, field: "ac",         amt: 1,  max: 10 },
+            { key: "drBonus",          label: "+1 DR",                            cost: 30,  wt: 5,  field: "dr",         amt: 1,  max: 5 },
+            { key: "erBonus",          label: "+1 ER",                            cost: 30,  wt: 5,  field: "er",         amt: 1,  max: 5 },
+            { key: "wtReduction",      label: "Reduce armor weight by 1 lb",      cost: 15,  wt: -1, field: "wt",         amt: -1, max: null },
+            { key: "wtIncrease",       label: "Increase armor weight by 1 lb",    cost: -10, wt: 1,  field: "wt",         amt: 1,  max: 20 },
+            { key: "stealthBonus",     label: "+1 AGI (Stealth)",                 cost: 35,  wt: 0,  field: "stealth",    amt: 1,  max: 2 },
+            { key: "stealthPenalty",   label: "-1 AGI (Stealth)",                 cost: -30, wt: 0,  field: "stealth",    amt: -1, max: 10 },
+            { key: "athleticsBonus",   label: "+1 STR (Athletics)",               cost: 35,  wt: 0,  field: "athletics",  amt: 1,  max: 2 },
+            { key: "athleticsPenalty", label: "-1 STR (Athletics)",               cost: -30, wt: 0,  field: "athletics",  amt: -1, max: 10 },
+            { key: "speedPenalty",     label: "Speed reduced by 1 while worn",    cost: -50, wt: 0,  field: "speed",      amt: -1, max: null }
         ];
 
         // ------------------------------------------------------------------
