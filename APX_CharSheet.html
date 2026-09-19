@@ -2876,64 +2876,209 @@
         let existing = document.getElementById('charPortraitFloatWin');
         if (existing) { window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; existing.style.zIndex=window.apxFloatingZTop; return; }
         window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1;
+
+        // Read theme vars
+        let cs  = getComputedStyle(document.documentElement);
+        let bg  = cs.getPropertyValue('--c-surface').trim()  || '#1e293b';
+        let bg2 = cs.getPropertyValue('--c-surface2').trim() || '#0f172a';
+        let bdr = cs.getPropertyValue('--c-border').trim()   || '#334155';
+        let txt = cs.getPropertyValue('--c-text').trim()     || '#e2e8f0';
+        let em  = cs.getPropertyValue('--c-emerald').trim()  || '#059669';
+
+        // Position near the portrait button (left of screen)
+        let wrap = document.getElementById('charPortraitWrap');
+        let wRect = wrap ? wrap.getBoundingClientRect() : { left: 60, bottom: 80 };
+        let initW = 280, initH = 320;
+        let initLeft = Math.max(8, wRect.left - 10);
+        let initTop  = Math.min(wRect.bottom + 8, window.innerHeight - initH - 8);
+
         let src  = window.state?.charPortrait||'';
         let name = window.state?.name||'Character';
-        // Read active theme variables from the root element for live theming
-        let cs   = getComputedStyle(document.documentElement);
-        let bg   = cs.getPropertyValue('--c-surface').trim()   || '#1e293b';
-        let bg2  = cs.getPropertyValue('--c-surface2').trim()  || '#0f172a';
-        let bdr  = cs.getPropertyValue('--c-border').trim()    || '#334155';
-        let txt  = cs.getPropertyValue('--c-text').trim()      || '#e2e8f0';
-        let em   = cs.getPropertyValue('--c-emerald').trim()   || '#059669';
-        let win  = document.createElement('div');
+
+        let win = document.createElement('div');
         win.id = 'charPortraitFloatWin';
-        win.style.cssText = `position:fixed;right:20px;top:80px;width:280px;background:${bg};border:1px solid ${bdr};border-radius:0.75rem;z-index:${window.apxFloatingZTop};box-shadow:0 10px 40px rgba(0,0,0,.85);overflow:hidden;`;
-        win.innerHTML = `<div id="charPortraitFloatHdr" style="cursor:grab;user-select:none;background:${bg2};padding:0.5rem 0.75rem;border-bottom:1px solid ${bdr};display:flex;align-items:center;gap:0.5rem;">
+        win._w = initW; win._h = initH; win._isFullscreen = false;
+        win.style.cssText = `position:fixed;left:${initLeft}px;top:${initTop}px;width:${initW}px;
+            background:${bg};border:1px solid ${bdr};border-radius:0.75rem;
+            z-index:${window.apxFloatingZTop};box-shadow:0 10px 40px rgba(0,0,0,.85);
+            overflow:hidden;display:flex;flex-direction:column;min-width:180px;min-height:220px;`;
+
+        win.innerHTML = `
+        <div id="cpfHdr" style="cursor:grab;user-select:none;background:${bg2};padding:0.5rem 0.65rem;
+            border-bottom:1px solid ${bdr};display:flex;align-items:center;gap:0.4rem;flex-shrink:0;">
             <span style="font-size:0.75rem;font-weight:700;color:${txt};flex:1;">${name}</span>
-            <button onclick="document.getElementById('charPortraitInput').click()" style="font-size:0.65rem;font-weight:700;padding:0.2rem 0.5rem;background:${em};border:none;color:#fff;border-radius:0.25rem;cursor:pointer;">Upload Image</button>
-            <button onclick="document.getElementById('charPortraitFloatWin').remove()" style="background:none;border:none;color:${txt};opacity:0.5;font-size:1rem;cursor:pointer;line-height:1;">✕</button>
+            <button onclick="window._cpfToggleFullscreen()" title="Fullscreen"
+                style="background:none;border:1px solid ${bdr};color:${txt};font-size:0.7rem;width:22px;height:22px;border-radius:0.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;">⛶</button>
+            <button onclick="document.getElementById('charPortraitInput').click()"
+                style="font-size:0.65rem;font-weight:700;padding:0.2rem 0.5rem;background:${em};border:none;color:#fff;border-radius:0.25rem;cursor:pointer;">Upload</button>
+            <button onclick="document.getElementById('charPortraitFloatWin').remove()"
+                style="background:none;border:none;color:${txt};opacity:0.5;font-size:1rem;cursor:pointer;line-height:1;">✕</button>
         </div>
-        <div id="charPortraitFloatImg" style="width:280px;height:280px;background:${bg2};display:flex;align-items:center;justify-content:center;">
-            ${src ? `<img src="${src}" style="width:100%;height:100%;object-fit:cover;">` : `<span style="font-size:80px;opacity:0.2;">👤</span>`}
+        <div id="charPortraitFloatImg" style="flex:1;background:${bg2};display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;">
+            ${src
+                ? `<img src="${src}" style="width:100%;height:100%;object-fit:cover;">`
+                : `<span style="font-size:80px;opacity:0.15;">👤</span>`}
+        </div>
+        <!-- Resize handle -->
+        <div id="cpfResizeHandle" style="position:absolute;bottom:0;right:0;width:18px;height:18px;cursor:se-resize;
+            display:flex;align-items:flex-end;justify-content:flex-end;padding:3px;">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="${bdr}">
+                <path d="M9 1L1 9M9 5L5 9M9 9L9 9"/>
+                <line x1="9" y1="1" x2="1" y2="9" stroke="${bdr}" stroke-width="1.5"/>
+                <line x1="9" y1="5" x2="5" y2="9" stroke="${bdr}" stroke-width="1.5"/>
+            </svg>
         </div>`;
+
         document.body.appendChild(win);
         win.addEventListener('mousedown', ()=>{ window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; win.style.zIndex=window.apxFloatingZTop; });
-        let hdr=document.getElementById('charPortraitFloatHdr'), wDrag=false, wOX=0, wOY=0;
-        hdr.addEventListener('mousedown', e=>{ if(e.target.tagName==='BUTTON')return; wDrag=true; let r=win.getBoundingClientRect(); wOX=e.clientX-r.left; wOY=e.clientY-r.top; e.preventDefault(); });
-        document.addEventListener('mousemove', e=>{ if(!wDrag)return; win.style.right='auto'; win.style.left=Math.max(0,e.clientX-wOX)+'px'; win.style.top=Math.max(0,e.clientY-wOY)+'px'; });
-        document.addEventListener('mouseup', ()=>wDrag=false);
+
+        // Header drag
+        let hdr=document.getElementById('cpfHdr'), wDrag=false, wOX=0, wOY=0;
+        hdr.addEventListener('mousedown', e=>{ if(e.target.tagName==='BUTTON'||e.target.tagName==='SVG'||e.target.tagName==='LINE') return; wDrag=true; let r=win.getBoundingClientRect(); wOX=e.clientX-r.left; wOY=e.clientY-r.top; e.preventDefault(); });
+        document.addEventListener('mousemove', e=>{ if(!wDrag)return; win.style.left=Math.max(0,e.clientX-wOX)+'px'; win.style.top=Math.max(0,e.clientY-wOY)+'px'; });
+        document.addEventListener('mouseup', ()=>{ wDrag=false; });
+
+        // Resize handle
+        let rh=document.getElementById('cpfResizeHandle'), rDrag=false, rSX=0, rSY=0, rW0=0, rH0=0;
+        rh.addEventListener('mousedown', e=>{ rDrag=true; rSX=e.clientX; rSY=e.clientY; rW0=win.offsetWidth; rH0=win.offsetHeight; e.stopPropagation(); e.preventDefault(); });
+        document.addEventListener('mousemove', e=>{ if(!rDrag)return; let nw=Math.max(180,rW0+e.clientX-rSX), nh=Math.max(220,rH0+e.clientY-rSY); win.style.width=nw+'px'; win.style.height=nh+'px'; win._w=nw; win._h=nh; });
+        document.addEventListener('mouseup', ()=>{ rDrag=false; });
+
+        // Fullscreen toggle
+        window._cpfToggleFullscreen = function() {
+            let w = document.getElementById('charPortraitFloatWin'); if(!w) return;
+            if(w._isFullscreen){
+                w.style.cssText=`position:fixed;left:${initLeft}px;top:${initTop}px;width:${w._w}px;height:${w._h}px;
+                    background:${bg};border:1px solid ${bdr};border-radius:0.75rem;z-index:${w.style.zIndex};
+                    box-shadow:0 10px 40px rgba(0,0,0,.85);overflow:hidden;display:flex;flex-direction:column;min-width:180px;min-height:220px;`;
+                w._isFullscreen=false;
+            } else {
+                w.style.cssText=`position:fixed;inset:0;border-radius:0;background:${bg};border:none;
+                    z-index:${w.style.zIndex};overflow:hidden;display:flex;flex-direction:column;`;
+                w._isFullscreen=true;
+            }
+        };
     };
 
-    // Stored as compressed base64 in window.state.charPortrait.
-    // Existing characters without this field simply show the default icon.
+    // Portrait upload: show crop preview with circle overlay before saving
     window.uploadCharPortrait = async function(input) {
         if (!input.files[0]) return;
         let file = input.files[0];
         input.value = '';
         let reader = new FileReader();
-        reader.onload = async e => {
-            let dataUrl = e.target.result;
-            // Compress intelligently: scale down only if larger than 512×512
-            // (larger than the old 256 cap, since the window is now 280px)
-            let compressed = await new Promise(res => {
-                let img = new Image();
-                img.onload = () => {
-                    let maxSide = 512;
-                    let scale = Math.min(maxSide / img.width, maxSide / img.height, 1);
-                    let c = document.createElement('canvas');
-                    c.width  = Math.round(img.width  * scale);
-                    c.height = Math.round(img.height * scale);
-                    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-                    // Use 0.82 quality — good balance of clarity vs file size at 512px
-                    res(c.toDataURL('image/jpeg', 0.82));
-                };
-                img.src = dataUrl;
-            });
-            window.state.charPortrait = compressed;
-            window.renderCharPortrait();
-            if (typeof window.recalculateMath === 'function') window.recalculateMath();
+        reader.onload = async ev => {
+            let dataUrl = ev.target.result;
+            window._cpfShowCropUI(dataUrl);
         };
         reader.readAsDataURL(file);
+    };
+
+    window._cpfShowCropUI = function(dataUrl) {
+        let existing = document.getElementById('cpfCropOverlay'); if(existing) existing.remove();
+        let cs  = getComputedStyle(document.documentElement);
+        let bg  = cs.getPropertyValue('--c-surface').trim()  || '#1e293b';
+        let bg2 = cs.getPropertyValue('--c-surface2').trim() || '#0f172a';
+        let bdr = cs.getPropertyValue('--c-border').trim()   || '#334155';
+        let txt = cs.getPropertyValue('--c-text').trim()     || '#e2e8f0';
+        let em  = cs.getPropertyValue('--c-emerald').trim()  || '#059669';
+
+        let CROP_W = 320, CROP_H = 320, RADIUS = 148;
+        let overlay = document.createElement('div');
+        overlay.id = 'cpfCropOverlay';
+        overlay.style.cssText = `position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.7);
+            display:flex;align-items:center;justify-content:center;`;
+        overlay.innerHTML = `<div style="background:${bg};border:1px solid ${bdr};border-radius:0.75rem;
+            padding:0;overflow:hidden;width:${CROP_W}px;box-shadow:0 20px 60px rgba(0,0,0,.9);">
+            <div style="padding:0.6rem 0.75rem;background:${bg2};border-bottom:1px solid ${bdr};display:flex;align-items:center;gap:0.5rem;">
+                <span style="font-size:0.75rem;font-weight:700;color:${txt};flex:1;">Adjust Portrait</span>
+                <span style="font-size:0.6rem;color:${txt};opacity:0.6;">Drag image · Scroll to zoom</span>
+            </div>
+            <!-- Crop stage -->
+            <div id="cpfCropStage" style="position:relative;width:${CROP_W}px;height:${CROP_H}px;background:#111;overflow:hidden;cursor:grab;">
+                <img id="cpfCropImg" src="${dataUrl}" draggable="false"
+                    style="position:absolute;transform-origin:0 0;user-select:none;pointer-events:none;max-width:none;">
+                <!-- SVG circle mask: dark outside, clear inside -->
+                <svg style="position:absolute;inset:0;pointer-events:none;" width="${CROP_W}" height="${CROP_H}">
+                    <defs>
+                        <mask id="circleMask">
+                            <rect width="${CROP_W}" height="${CROP_H}" fill="white"/>
+                            <circle cx="${CROP_W/2}" cy="${CROP_H/2}" r="${RADIUS}" fill="black"/>
+                        </mask>
+                    </defs>
+                    <rect width="${CROP_W}" height="${CROP_H}" fill="rgba(0,0,0,0.65)" mask="url(#circleMask)"/>
+                    <circle cx="${CROP_W/2}" cy="${CROP_H/2}" r="${RADIUS}" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="2"/>
+                </svg>
+            </div>
+            <!-- Zoom slider -->
+            <div style="padding:0.5rem 0.75rem;background:${bg2};border-top:1px solid ${bdr};display:flex;align-items:center;gap:0.5rem;">
+                <span style="font-size:0.65rem;color:${txt};opacity:0.7;">🔍</span>
+                <input type="range" id="cpfZoom" min="0.1" max="5" step="0.05" value="1"
+                    style="flex:1;accent-color:${em};"
+                    oninput="window._cpfZoom(+this.value)">
+                <span style="font-size:0.65rem;color:${txt};opacity:0.7;">🔎</span>
+                <button onclick="window._cpfCancelCrop()" style="padding:0.3rem 0.65rem;background:none;border:1px solid ${bdr};color:${txt};border-radius:0.25rem;font-size:0.7rem;cursor:pointer;font-weight:700;">Cancel</button>
+                <button onclick="window._cpfConfirmCrop(${CROP_W},${CROP_H},${RADIUS})" style="padding:0.3rem 0.75rem;background:${em};border:none;color:#fff;border-radius:0.25rem;font-size:0.7rem;font-weight:700;cursor:pointer;">Save Portrait</button>
+            </div>
+        </div>`;
+        document.body.appendChild(overlay);
+
+        // Set up crop state
+        let img = document.getElementById('cpfCropImg');
+        let stage = document.getElementById('cpfCropStage');
+        let cropState = { x: 0, y: 0, scale: 1, dragging: false, lastX: 0, lastY: 0 };
+        window._cpfCropState = cropState;
+        window._cpfCropImg   = img;
+        window._cpfCropW     = CROP_W;
+        window._cpfCropH     = CROP_H;
+
+        img.onload = () => {
+            // Start: fit image to fill the circle, centered
+            let fit = Math.max(CROP_W / img.naturalWidth, CROP_H / img.naturalHeight);
+            fit = Math.max(fit, (RADIUS * 2) / Math.min(img.naturalWidth, img.naturalHeight));
+            cropState.scale = fit;
+            cropState.x = (CROP_W - img.naturalWidth * fit) / 2;
+            cropState.y = (CROP_H - img.naturalHeight * fit) / 2;
+            window._cpfApplyCropTransform();
+            document.getElementById('cpfZoom').value = fit;
+        };
+
+        stage.addEventListener('mousedown', e=>{ cropState.dragging=true; cropState.lastX=e.clientX; cropState.lastY=e.clientY; stage.style.cursor='grabbing'; e.preventDefault(); });
+        stage.addEventListener('touchstart', e=>{ cropState.dragging=true; cropState.lastX=e.touches[0].clientX; cropState.lastY=e.touches[0].clientY; e.preventDefault(); },{passive:false});
+        document.addEventListener('mousemove', e=>{ if(!cropState.dragging)return; cropState.x+=e.clientX-cropState.lastX; cropState.y+=e.clientY-cropState.lastY; cropState.lastX=e.clientX; cropState.lastY=e.clientY; window._cpfApplyCropTransform(); });
+        document.addEventListener('touchmove', e=>{ if(!cropState.dragging)return; cropState.x+=e.touches[0].clientX-cropState.lastX; cropState.y+=e.touches[0].clientY-cropState.lastY; cropState.lastX=e.touches[0].clientX; cropState.lastY=e.touches[0].clientY; window._cpfApplyCropTransform(); },{passive:false});
+        document.addEventListener('mouseup', ()=>{ cropState.dragging=false; stage.style.cursor='grab'; });
+        document.addEventListener('touchend',()=>{ cropState.dragging=false; });
+        stage.addEventListener('wheel', e=>{ e.preventDefault(); let delta=e.deltaY<0?0.08:-0.08; let ns=Math.max(0.1,Math.min(10,cropState.scale+delta)); let ratio=ns/cropState.scale; cropState.x=(cropState.x-CROP_W/2)*ratio+CROP_W/2; cropState.y=(cropState.y-CROP_H/2)*ratio+CROP_H/2; cropState.scale=ns; window._cpfApplyCropTransform(); document.getElementById('cpfZoom').value=ns; },{passive:false});
+    };
+
+    window._cpfApplyCropTransform = function() {
+        let img = window._cpfCropImg; let cs = window._cpfCropState;
+        if (img && cs) img.style.transform = `translate(${cs.x}px,${cs.y}px) scale(${cs.scale})`;
+    };
+    window._cpfZoom = function(val) {
+        let cs=window._cpfCropState, img=window._cpfCropImg; if(!cs||!img) return;
+        let ratio=val/cs.scale;
+        let W=window._cpfCropW||320, H=window._cpfCropH||320;
+        cs.x=(cs.x-W/2)*ratio+W/2; cs.y=(cs.y-H/2)*ratio+H/2;
+        cs.scale=val; window._cpfApplyCropTransform();
+    };
+    window._cpfCancelCrop = function() { document.getElementById('cpfCropOverlay')?.remove(); };
+    window._cpfConfirmCrop = function(W, H, R) {
+        let img = window._cpfCropImg; let cs = window._cpfCropState;
+        if (!img || !cs) return;
+        // Render the cropped circle to a 512×512 canvas
+        let OUT = 512;
+        let c = document.createElement('canvas'); c.width=OUT; c.height=OUT;
+        let ctx = c.getContext('2d');
+        ctx.beginPath(); ctx.arc(OUT/2, OUT/2, OUT/2, 0, Math.PI*2); ctx.clip();
+        let scale = cs.scale * (OUT / W);
+        let ox = cs.x * (OUT / W), oy = cs.y * (OUT / H);
+        ctx.drawImage(img, ox, oy, img.naturalWidth * scale, img.naturalHeight * scale);
+        let dataUrl = c.toDataURL('image/jpeg', 0.85);
+        window.state.charPortrait = dataUrl;
+        document.getElementById('cpfCropOverlay')?.remove();
+        window.renderCharPortrait();
+        if (typeof window.recalculateMath === 'function') window.recalculateMath();
     };
 
     window.renderCharPortrait = function() {
