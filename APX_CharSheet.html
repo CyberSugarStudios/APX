@@ -2877,7 +2877,6 @@
         if (existing) { window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; existing.style.zIndex=window.apxFloatingZTop; return; }
         window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1;
 
-        // Read theme vars
         let cs  = getComputedStyle(document.documentElement);
         let bg  = cs.getPropertyValue('--c-surface').trim()  || '#1e293b';
         let bg2 = cs.getPropertyValue('--c-surface2').trim() || '#0f172a';
@@ -2885,15 +2884,87 @@
         let txt = cs.getPropertyValue('--c-text').trim()     || '#e2e8f0';
         let em  = cs.getPropertyValue('--c-emerald').trim()  || '#059669';
 
-        // Position near the portrait button (left of screen)
         let wrap = document.getElementById('charPortraitWrap');
         let wRect = wrap ? wrap.getBoundingClientRect() : { left: 60, bottom: 80 };
-        let initW = 280, initH = 320;
+        let initW = 280;
         let initLeft = Math.max(8, wRect.left - 10);
-        let initTop  = Math.min(wRect.bottom + 8, window.innerHeight - initH - 8);
+        let initTop  = Math.min(wRect.bottom + 8, window.innerHeight - initW - 60);
 
-        let src  = window.state?.charPortrait||'';
-        let name = window.state?.name||'Character';
+        // Show full image in popup; fall back to circular crop if no full image saved yet
+        let src  = window.state?.charPortraitFull || window.state?.charPortrait || '';
+        let name = window.state?.name || 'Character';
+
+        let win = document.createElement('div');
+        win.id = 'charPortraitFloatWin';
+        win._sz = initW; win._isFullscreen = false;
+        win.style.cssText = `position:fixed;left:${initLeft}px;top:${initTop}px;width:${initW}px;
+            background:${bg};border:1px solid ${bdr};border-radius:0.75rem;
+            z-index:${window.apxFloatingZTop};box-shadow:0 10px 40px rgba(0,0,0,.85);
+            overflow:hidden;display:flex;flex-direction:column;min-width:160px;`;
+
+        win.innerHTML = `
+        <div id="cpfHdr" style="cursor:grab;user-select:none;background:${bg2};padding:0.5rem 0.65rem;
+            border-bottom:1px solid ${bdr};display:flex;align-items:center;gap:0.4rem;flex-shrink:0;">
+            <span style="font-size:0.75rem;font-weight:700;color:${txt};flex:1;">${name}</span>
+            <button onclick="window._cpfToggleFullscreen()" title="Fullscreen"
+                style="background:none;border:1px solid ${bdr};color:${txt};font-size:0.7rem;width:22px;height:22px;border-radius:0.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;">⛶</button>
+            <button onclick="document.getElementById('charPortraitInput').click()"
+                style="font-size:0.65rem;font-weight:700;padding:0.2rem 0.5rem;background:${em};border:none;color:#fff;border-radius:0.25rem;cursor:pointer;">Upload</button>
+            <button onclick="document.getElementById('charPortraitFloatWin').remove()"
+                style="background:none;border:none;color:${txt};opacity:0.5;font-size:1rem;cursor:pointer;line-height:1;">✕</button>
+        </div>
+        <div id="charPortraitFloatImg" style="width:${initW}px;height:${initW}px;background:${bg2};
+            display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">
+            ${src ? `<img src="${src}" style="width:100%;height:100%;object-fit:cover;">` : `<span style="font-size:80px;opacity:0.15;">👤</span>`}
+        </div>
+        <div id="cpfResizeHandle" style="position:absolute;bottom:0;right:0;width:18px;height:18px;cursor:se-resize;
+            display:flex;align-items:flex-end;justify-content:flex-end;padding:3px;opacity:0.5;">
+            <svg width="10" height="10"><line x1="9" y1="1" x2="1" y2="9" stroke="${bdr}" stroke-width="1.5"/>
+            <line x1="9" y1="5" x2="5" y2="9" stroke="${bdr}" stroke-width="1.5"/></svg>
+        </div>`;
+
+        document.body.appendChild(win);
+        win.addEventListener('mousedown', ()=>{ window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; win.style.zIndex=window.apxFloatingZTop; });
+
+        // Header drag
+        let hdr=document.getElementById('cpfHdr'), wDrag=false, wOX=0, wOY=0;
+        hdr.addEventListener('mousedown', e=>{ if(e.target.tagName==='BUTTON') return; wDrag=true; let r=win.getBoundingClientRect(); wOX=e.clientX-r.left; wOY=e.clientY-r.top; e.preventDefault(); });
+        document.addEventListener('mousemove', e=>{ if(!wDrag)return; win.style.left=Math.max(0,e.clientX-wOX)+'px'; win.style.top=Math.max(0,e.clientY-wOY)+'px'; });
+        document.addEventListener('mouseup', ()=>{ wDrag=false; });
+
+        // Fixed-ratio resize: height always equals width (square)
+        let rh=document.getElementById('cpfResizeHandle'), rDrag=false, rSX=0, rSW=0;
+        rh.addEventListener('mousedown', e=>{ rDrag=true; rSX=e.clientX; rSW=win.offsetWidth; e.stopPropagation(); e.preventDefault(); });
+        document.addEventListener('mousemove', e=>{
+            if(!rDrag)return;
+            let ns=Math.max(160, rSW + e.clientX - rSX);
+            win._sz = ns;
+            win.style.width = ns+'px';
+            let imgArea = document.getElementById('charPortraitFloatImg');
+            if (imgArea) { imgArea.style.width=ns+'px'; imgArea.style.height=ns+'px'; }
+        });
+        document.addEventListener('mouseup', ()=>{ rDrag=false; });
+
+        // Fullscreen toggle
+        window._cpfToggleFullscreen = function() {
+            let w=document.getElementById('charPortraitFloatWin'); if(!w) return;
+            let imgArea=document.getElementById('charPortraitFloatImg');
+            if(w._isFullscreen){
+                let sz=w._sz||280;
+                w.style.cssText=`position:fixed;left:${initLeft}px;top:${initTop}px;width:${sz}px;
+                    background:${bg};border:1px solid ${bdr};border-radius:0.75rem;z-index:${w.style.zIndex};
+                    box-shadow:0 10px 40px rgba(0,0,0,.85);overflow:hidden;display:flex;flex-direction:column;min-width:160px;`;
+                if(imgArea){imgArea.style.width=sz+'px';imgArea.style.height=sz+'px';}
+                w._isFullscreen=false;
+            } else {
+                let vs=Math.min(window.innerWidth,window.innerHeight)-60;
+                w.style.cssText=`position:fixed;inset:0;border-radius:0;background:${bg};border:none;
+                    z-index:${w.style.zIndex};overflow:hidden;display:flex;flex-direction:column;`;
+                if(imgArea){imgArea.style.width='100%';imgArea.style.height='100%';imgArea.style.flex='1';}
+                w._isFullscreen=true;
+            }
+        };
+    };
 
         let win = document.createElement('div');
         win.id = 'charPortraitFloatWin';
@@ -2937,28 +3008,6 @@
         hdr.addEventListener('mousedown', e=>{ if(e.target.tagName==='BUTTON'||e.target.tagName==='SVG'||e.target.tagName==='LINE') return; wDrag=true; let r=win.getBoundingClientRect(); wOX=e.clientX-r.left; wOY=e.clientY-r.top; e.preventDefault(); });
         document.addEventListener('mousemove', e=>{ if(!wDrag)return; win.style.left=Math.max(0,e.clientX-wOX)+'px'; win.style.top=Math.max(0,e.clientY-wOY)+'px'; });
         document.addEventListener('mouseup', ()=>{ wDrag=false; });
-
-        // Resize handle
-        let rh=document.getElementById('cpfResizeHandle'), rDrag=false, rSX=0, rSY=0, rW0=0, rH0=0;
-        rh.addEventListener('mousedown', e=>{ rDrag=true; rSX=e.clientX; rSY=e.clientY; rW0=win.offsetWidth; rH0=win.offsetHeight; e.stopPropagation(); e.preventDefault(); });
-        document.addEventListener('mousemove', e=>{ if(!rDrag)return; let nw=Math.max(180,rW0+e.clientX-rSX), nh=Math.max(220,rH0+e.clientY-rSY); win.style.width=nw+'px'; win.style.height=nh+'px'; win._w=nw; win._h=nh; });
-        document.addEventListener('mouseup', ()=>{ rDrag=false; });
-
-        // Fullscreen toggle
-        window._cpfToggleFullscreen = function() {
-            let w = document.getElementById('charPortraitFloatWin'); if(!w) return;
-            if(w._isFullscreen){
-                w.style.cssText=`position:fixed;left:${initLeft}px;top:${initTop}px;width:${w._w}px;height:${w._h}px;
-                    background:${bg};border:1px solid ${bdr};border-radius:0.75rem;z-index:${w.style.zIndex};
-                    box-shadow:0 10px 40px rgba(0,0,0,.85);overflow:hidden;display:flex;flex-direction:column;min-width:180px;min-height:220px;`;
-                w._isFullscreen=false;
-            } else {
-                w.style.cssText=`position:fixed;inset:0;border-radius:0;background:${bg};border:none;
-                    z-index:${w.style.zIndex};overflow:hidden;display:flex;flex-direction:column;`;
-                w._isFullscreen=true;
-            }
-        };
-    };
 
     // Portrait upload: show crop preview with circle overlay before saving
     window.uploadCharPortrait = async function(input) {
@@ -3066,7 +3115,7 @@
     window._cpfConfirmCrop = function(W, H, R) {
         let img = window._cpfCropImg; let cs = window._cpfCropState;
         if (!img || !cs) return;
-        // Render the cropped circle to a 512×512 canvas
+        // Circular crop saved to charPortrait — used only for the small token circle
         let OUT = 512;
         let c = document.createElement('canvas'); c.width=OUT; c.height=OUT;
         let ctx = c.getContext('2d');
@@ -3074,8 +3123,17 @@
         let scale = cs.scale * (OUT / W);
         let ox = cs.x * (OUT / W), oy = cs.y * (OUT / H);
         ctx.drawImage(img, ox, oy, img.naturalWidth * scale, img.naturalHeight * scale);
-        let dataUrl = c.toDataURL('image/jpeg', 0.85);
-        window.state.charPortrait = dataUrl;
+        window.state.charPortrait = c.toDataURL('image/jpeg', 0.85);
+
+        // Full image (not clipped) saved to charPortraitFull — shown in the portrait popup
+        let fc = document.createElement('canvas');
+        let maxFull = 1024;
+        let fscale = Math.min(maxFull / img.naturalWidth, maxFull / img.naturalHeight, 1);
+        fc.width = Math.round(img.naturalWidth * fscale);
+        fc.height = Math.round(img.naturalHeight * fscale);
+        fc.getContext('2d').drawImage(img, 0, 0, fc.width, fc.height);
+        window.state.charPortraitFull = fc.toDataURL('image/jpeg', 0.85);
+
         document.getElementById('cpfCropOverlay')?.remove();
         window.renderCharPortrait();
         if (typeof window.recalculateMath === 'function') window.recalculateMath();
@@ -3085,9 +3143,12 @@
         // Also refresh the floating portrait window if it's open
         let floatWin = document.getElementById('charPortraitFloatWin');
         if (floatWin) {
-            let src = window.state?.charPortrait||'';
+            // Popup shows the full uncropped image
+            let fullSrc = window.state?.charPortraitFull || window.state?.charPortrait || '';
             let imgArea = document.getElementById('charPortraitFloatImg');
-            if (imgArea) imgArea.innerHTML = src ? `<img src="${src}" style="width:100%;height:100%;object-fit:cover;">` : `<span style="font-size:80px;opacity:0.2;">👤</span>`;
+            if (imgArea) imgArea.innerHTML = fullSrc
+                ? `<img src="${fullSrc}" style="width:100%;height:100%;object-fit:cover;">`
+                : `<span style="font-size:80px;opacity:0.15;">👤</span>`;
         }
         let src = window.state?.charPortrait || '';
         let img  = document.getElementById('charPortraitImg');
