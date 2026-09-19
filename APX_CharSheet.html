@@ -3501,18 +3501,8 @@
                     box-shadow:0 2px 6px rgba(0,0,0,.65);${clickable?'cursor:pointer;':''}">${t.letter}</div>
             </div>`;
         }).join('');
-        // Add battle token layer and grid canvas to player Other Map window
-        if (map.battleMapEnabled) {
-            let btLayer = document.createElement('div');
-            btLayer.id = winId+'_btLayer';
-            btLayer.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;z-index:6;';
-            vp.appendChild(btLayer);
-            // Draw grid canvas
-            let gc = document.createElement('canvas');
-            gc.id = winId+'_grid';
-            gc.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;opacity:0.35;z-index:1;';
-            vp.insertBefore(gc, vp.firstChild);
-        }
+        win._curMap = m; win._revealedMapIds = revealedMapIds;
+    }
 
     // Player floating info popup for a revealed area token
     window.openPlayerTokenInfo = function(mapId, tokenId) {
