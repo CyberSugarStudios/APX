@@ -2682,13 +2682,24 @@ document.addEventListener('DOMContentLoaded', () => {
         let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
         let tok = map?.tokens?.find(t=>t.id===tokenId); if(!tok) return;
         tok.subnotes = tok.subnotes||[];
+        // Flush unsaved textarea edits from existing rows before rebuilding
+        let el = document.getElementById(winId+'_subnotes');
+        if (el) {
+            el.querySelectorAll(':scope > div').forEach((row, idx) => {
+                if (idx >= tok.subnotes.length) return;
+                let ti = row.querySelector('input[type="text"]');
+                let ta = row.querySelector('textarea');
+                let cb = row.querySelector('input[type="checkbox"]');
+                if (ti) tok.subnotes[idx].title   = ti.value;
+                if (ta) tok.subnotes[idx].content  = ta.value;
+                if (cb) tok.subnotes[idx].revealed = cb.checked;
+            });
+        }
         tok.subnotes.push({id:'tsn_'+Date.now(), title:'', content:'', revealed:false});
         saveWorldNotes();
-        // Refresh Notes tab if it's open so sub-notes appear immediately
         let notesPanel = document.getElementById('wPanelNotes');
         if (notesPanel && !notesPanel.classList.contains('hidden')) window.renderNoteList();
-        let el = document.getElementById(winId+'_subnotes');
-        if (el) el.innerHTML = _buildTokenSubnotes(tok, winId, false);
+        if (el) el.innerHTML = _buildTokenSubnotes(tok, winId, false, mapId, tokenId);
     };
     window._deleteTokenSubnote = function(winId, idx, mapId, tokenId) {
         let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
@@ -2794,9 +2805,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let lx=Math.min(pr.left+pr.width+8, window.innerWidth-310);
         let win=document.createElement('div');
         win.id=winId;
-        win.style.cssText=`position:fixed;left:${lx}px;top:${pr.top}px;width:290px;
-            background:#1e293b;border:1px solid #6366f1;border-radius:0.5rem;
-            z-index:${window.apxFloatingZTop};box-shadow:0 10px 40px rgba(0,0,0,.8);`;
+        win.style.cssText=`position:fixed;left:${lx}px;top:${pr.top}px;width:300px;max-height:75vh;background:#1e293b;border:1px solid #6366f1;border-radius:0.5rem;z-index:${window.apxFloatingZTop};box-shadow:0 10px 40px rgba(0,0,0,.8);display:flex;flex-direction:column;overflow:hidden;`;
         win.innerHTML=`
             <div id="${winId}_hdr" style="cursor:grab;user-select:none;background:#312e81;padding:0.5rem 0.75rem;
                 border-bottom:1px solid #4f46e5;border-radius:0.5rem 0.5rem 0 0;display:flex;align-items:center;gap:0.5rem;">
@@ -2808,7 +2817,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <button onclick="document.getElementById('${winId}').remove()"
                     style="background:none;border:none;color:#94a3b8;font-size:1.1rem;cursor:pointer;line-height:1;padding:0 0.2rem;">✕</button>
             </div>
-            <div style="padding:0.75rem;display:flex;flex-direction:column;gap:0.5rem;">
+            <div style="padding:0.75rem;display:flex;flex-direction:column;gap:0.5rem;overflow-y:auto;flex:1;">
                 <div>
                     <label style="display:block;font-size:0.65rem;color:#94a3b8;font-weight:700;text-transform:uppercase;margin-bottom:0.2rem;">Name / Label</label>
                     ${readOnly
