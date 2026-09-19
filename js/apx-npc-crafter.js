@@ -1278,13 +1278,26 @@ window._floatAddToInit = function(winId) {
         }
     }
     if (npcIdx < 0) { alert('NPC not found in roster.'); return; }
-    // Extract the display name from the window title if available (format: "Name (Stat Block)")
     let winEl = window.gmFloatingWindows?.[winId];
     let titleEl = winEl?.querySelector?.('.floating-stat-window-header span');
     let rawTitle = titleEl?.textContent || '';
-    // "Bildrath (Human Commoner)" → "Bildrath"  |  "Human Commoner" → use stat block name
     let displayName = rawTitle.includes('(') ? rawTitle.split('(')[0].trim() : '';
-    window.addToInitiative(npcIdx, 'npc', undefined, displayName || undefined);
+    let dn = displayName || 'NPC';
+    // Show faction picker: Enemy / Neutral / Ally
+    let fe = document.getElementById('btFactionPick'); if(fe) fe.remove();
+    let fo = document.createElement('div');
+    fo.id = 'btFactionPick';
+    fo.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;';
+    fo.innerHTML = `<div style="background:#1e293b;border:1px solid #334155;border-radius:0.75rem;padding:1.25rem;min-width:220px;text-align:center;">
+        <div style="font-size:0.8rem;font-weight:700;color:#f8fafc;margin-bottom:0.75rem;">Add ${dn} to Initiative</div>
+        <div style="display:flex;gap:0.5rem;">
+            <button onclick="window.addToInitiative(${npcIdx},'npc','enemy','${dn}');document.getElementById('btFactionPick').remove()" style="flex:1;background:#7f1d1d;border:1px solid #991b1b;color:#fca5a5;font-size:0.75rem;font-weight:700;padding:0.5rem;border-radius:0.375rem;cursor:pointer;">⚔ Enemy</button>
+            <button onclick="window.addToInitiative(${npcIdx},'npc','neutral','${dn}');document.getElementById('btFactionPick').remove()" style="flex:1;background:#78350f;border:1px solid #92400e;color:#fde68a;font-size:0.75rem;font-weight:700;padding:0.5rem;border-radius:0.375rem;cursor:pointer;">◈ Neutral</button>
+            <button onclick="window.addToInitiative(${npcIdx},'npc','ally','${dn}');document.getElementById('btFactionPick').remove()" style="flex:1;background:#064e3b;border:1px solid #065f46;color:#6ee7b7;font-size:0.75rem;font-weight:700;padding:0.5rem;border-radius:0.375rem;cursor:pointer;">🤝 Ally</button>
+        </div>
+        <button onclick="document.getElementById('btFactionPick').remove()" style="margin-top:0.5rem;background:none;border:none;color:#64748b;font-size:0.7rem;cursor:pointer;">Cancel</button>
+    </div>`;
+    document.body.appendChild(fo);
 };
 
 // Shared by the builder's own detail popup (editable HP) and the GM

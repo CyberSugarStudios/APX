@@ -2271,14 +2271,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 <!-- Battle Map grid controls (shown only in battle mode) -->
                 <div id="${winId}_battleControls" style="display:${map.battleMapEnabled?'flex':'none'};align-items:center;gap:0.3rem;flex-wrap:nowrap;">
                     <span style="font-size:0.6rem;color:#6ee7b7;white-space:nowrap;">Cell:</span>
-                    <input type="range" id="${winId}_cellSize" min="20" max="120" value="${(map.battleGrid||{}).cellSize||50}" step="2"
+                    <input type="number" id="${winId}_cellSize" min="5" max="400" value="${(map.battleGrid||{}).cellSize||50}" step="0.5"
                         oninput="window._btUpdateGrid('${mapId}','${winId}')"
-                        style="width:55px;accent-color:#10b981;">
-                    <span id="${winId}_cellVal" style="font-size:0.6rem;color:#e2e8f0;min-width:22px;">${(map.battleGrid||{}).cellSize||50}</span>
+                        style="width:52px;background:#0f172a;border:1px solid #334155;color:#e2e8f0;font-size:0.6rem;border-radius:0.2rem;padding:0.1rem 0.2rem;text-align:center;">
                     <span style="font-size:0.6rem;color:#6ee7b7;">X:</span>
-                    <input type="number" id="${winId}_gridOX" value="${(map.battleGrid||{}).offsetX||0}" min="0" max="200" style="width:36px;background:#0f172a;border:1px solid #334155;color:#e2e8f0;font-size:0.6rem;border-radius:0.2rem;padding:0.1rem 0.2rem;text-align:center;" oninput="window._btUpdateGrid('${mapId}','${winId}')">
+                    <input type="number" id="${winId}_gridOX" value="${(map.battleGrid||{}).offsetX||0}" min="0" max="400" step="0.5" style="width:36px;background:#0f172a;border:1px solid #334155;color:#e2e8f0;font-size:0.6rem;border-radius:0.2rem;padding:0.1rem 0.2rem;text-align:center;" oninput="window._btUpdateGrid('${mapId}','${winId}')">
                     <span style="font-size:0.6rem;color:#6ee7b7;">Y:</span>
-                    <input type="number" id="${winId}_gridOY" value="${(map.battleGrid||{}).offsetY||0}" min="0" max="200" style="width:36px;background:#0f172a;border:1px solid #334155;color:#e2e8f0;font-size:0.6rem;border-radius:0.2rem;padding:0.1rem 0.2rem;text-align:center;" oninput="window._btUpdateGrid('${mapId}','${winId}')">
+                    <input type="number" id="${winId}_gridOY" value="${(map.battleGrid||{}).offsetY||0}" min="0" max="400" step="0.5" style="width:36px;background:#0f172a;border:1px solid #334155;color:#e2e8f0;font-size:0.6rem;border-radius:0.2rem;padding:0.1rem 0.2rem;text-align:center;" oninput="window._btUpdateGrid('${mapId}','${winId}')">
                     <button onclick="window.openBattleTokenPanel('${mapId}','${winId}')" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#065f46;border:1px solid #10b981;color:#6ee7b7;border-radius:0.2rem;cursor:pointer;white-space:nowrap;">+ Token</button>
                 </div>
                 <div id="${winId}_fogControls" style="display:none;align-items:center;gap:0.25rem;">
@@ -2577,10 +2576,16 @@ document.addEventListener('DOMContentLoaded', () => {
             let sbBtn = wn.statBlockId
                 ? `<button onclick="event.stopPropagation();window._viewWorldNpcSb('${nid}','${wn.statBlockId}')" style="font-size:0.6rem;padding:0.1rem 0.3rem;background:#312e81;border:1px solid #4f46e5;color:#c7d2fe;border-radius:0.2rem;cursor:pointer;">Stat Block</button>`
                 : '';
+            // Battle map button — only show if a battle map window is open
+            let btMapId = (_wNotes.otherMaps||[]).find(m=>m.battleMapEnabled && document.getElementById('omWin_'+m.id))?.id;
+            let btBtn = btMapId
+                ? `<button onclick="event.stopPropagation();window._btAddToken('${btMapId}','omWin_${btMapId}','${(wn.name||'NPC').replace(/'/g,'')}','npc','#b91c1c','${nid}',null)" style="font-size:0.6rem;padding:0.1rem 0.3rem;background:#065f46;border:1px solid #10b981;color:#6ee7b7;border-radius:0.2rem;cursor:pointer;">+⚔</button>`
+                : '';
             return `<div style="display:flex;align-items:center;gap:0.3rem;margin-bottom:0.15rem;">
                 <button onclick="window.openTokenNpcInfo('${mapId}','${tokenId}','${nid}','${winId}')"
                     style="flex:1;text-align:left;background:#1e3a5f;border:1px solid #2563eb;color:#93c5fd;font-size:0.65rem;font-weight:700;padding:0.2rem 0.4rem;border-radius:0.25rem;cursor:pointer;">${wn.name||'NPC'}</button>
                 ${sbBtn}
+                ${btBtn}
                 <button onclick="window._unlinkTokenNpc('${mapId}','${tokenId}','${nid}','${winId}')"
                     style="background:none;border:none;color:#64748b;cursor:pointer;">&#x2715;</button>
             </div>`;
@@ -2833,11 +2838,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window._btUpdateGrid = function(mapId, winId) {
         let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return;
-        let cs = parseInt(document.getElementById(winId+'_cellSize')?.value||50);
-        let ox = parseInt(document.getElementById(winId+'_gridOX')?.value||0);
-        let oy = parseInt(document.getElementById(winId+'_gridOY')?.value||0);
-        let valEl = document.getElementById(winId+'_cellVal');
-        if (valEl) valEl.textContent = cs;
+        let cs = parseFloat(document.getElementById(winId+'_cellSize')?.value||50) || 50;
+        let ox = parseFloat(document.getElementById(winId+'_gridOX')?.value||0) || 0;
+        let oy = parseFloat(document.getElementById(winId+'_gridOY')?.value||0) || 0;
         map.battleGrid = {cellSize:cs, offsetX:ox, offsetY:oy};
         saveWorldNotes();
         _btDrawGrid(mapId, winId);
@@ -2859,38 +2862,61 @@ document.addEventListener('DOMContentLoaded', () => {
         for(let y=g.offsetY%g.cellSize;y<ih;y+=g.cellSize){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(iw,y);ctx.stroke();}
     }
 
-    function _btPixelToGrid(px,py,g){return{gridX:Math.floor((px-(g.offsetX%g.cellSize))/g.cellSize),gridY:Math.floor((py-(g.offsetY%g.cellSize))/g.cellSize)};}
-    function _btGridToPixel(gx,gy,g){return{px:(g.offsetX%g.cellSize)+gx*g.cellSize+g.cellSize/2,py:(g.offsetY%g.cellSize)+gy*g.cellSize+g.cellSize/2};}
+    const BT_SIZES = {tiny:0.5, small:0.75, medium:1, large:2, huge:3, gargantuan:4};
+    const BT_SIZE_LIST = ['tiny','small','medium','large','huge','gargantuan'];
+
+    function _btPixelToGrid(px, py, g) {
+        return {
+            gridX: Math.floor((px - (g.offsetX % g.cellSize)) / g.cellSize),
+            gridY: Math.floor((py - (g.offsetY % g.cellSize)) / g.cellSize)
+        };
+    }
+    function _btTokenCenter(gridX, gridY, sm, g) {
+        let offset = sm <= 1 ? 0.5 : sm / 2;
+        return {
+            px: (g.offsetX % g.cellSize) + (gridX + offset) * g.cellSize,
+            py: (g.offsetY % g.cellSize) + (gridY + offset) * g.cellSize
+        };
+    }
 
     function _btRenderTokens(mapId, winId) {
-        let layer=document.getElementById(winId+'_btLayer');
-        let img  =document.getElementById(winId+'_img');
-        let map  =(_wNotes.otherMaps||[]).find(m=>m.id===mapId);
-        if(!layer) return;
-        if(!img||!img.naturalWidth||!map?.battleMapEnabled||!(map.battleTokens||[]).length){layer.innerHTML='';return;}
-        let g=map.battleGrid||{cellSize:50,offsetX:0,offsetY:0};
-        let iw=img.naturalWidth, ih=img.naturalHeight;
+        let layer = document.getElementById(winId+'_btLayer');
+        let img   = document.getElementById(winId+'_img');
+        let map   = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+        if (!layer) return;
+        if (!img||!img.naturalWidth||!map?.battleMapEnabled||!(map.battleTokens||[]).length) { layer.innerHTML=''; return; }
+        let g   = map.battleGrid||{cellSize:50,offsetX:0,offsetY:0};
+        let iw = img.naturalWidth, ih = img.naturalHeight;
         layer.style.width=iw+'px'; layer.style.height=ih+'px';
-        let curInitId=window.gmInitiative?.[window._gmInitCurrentTurn??0]?.id||null;
-        let sz=Math.max(16,Math.min(g.cellSize*0.85,52));
-        layer.innerHTML=(map.battleTokens||[]).map(t=>{
-            let {px,py}=_btGridToPixel(t.gridX,t.gridY,g);
-            let isActive=t.initiativeId&&t.initiativeId===curInitId;
-            let icon=(t.name||'?')[0].toUpperCase();
-            let typeColor = t.type==='player'?'#4f46e5':'#dc2626';
-            let bg = t.color||typeColor;
+        let curInitId = window.gmInitiative?.[window._gmInitCurrentTurn??0]?.id || null;
+
+        layer.innerHTML = (map.battleTokens||[]).map(t => {
+            let sm  = BT_SIZES[t.size||'medium'] || 1;
+            let {px, py} = _btTokenCenter(t.gridX, t.gridY, sm, g);
+            let diam = Math.max(12, g.cellSize * (sm <= 1 ? sm * 0.85 : sm * 0.9));
+            let isActive = t.initiativeId && t.initiativeId === curInitId;
+            let defColor = t.type==='player' ? '#6d28d9' : '#b91c1c';
+            let bg = t.color || defColor;
+            let icon = (t.name||'?')[0].toUpperCase();
+            let fontSize = Math.round(diam * 0.42);
+            // World NPC portrait
+            let worldNpc = t.worldNpcId ? (_wNotes.npcs||[]).find(n=>n.id===t.worldNpcId) : null;
+            let portrait = worldNpc?.portrait || null;
+            let innerHtml = portrait
+                ? `<img src="${portrait}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;pointer-events:none;">`
+                : `<span style="font-size:${fontSize}px;font-weight:900;color:#fff;pointer-events:none;">${icon}</span>`;
             return `<div data-bt="${t.id}" style="position:absolute;left:${px}px;top:${py}px;
-                width:${sz}px;height:${sz}px;transform:translate(-50%,-50%);
-                background:${bg};border:${isActive?3:2}px solid ${isActive?'#fbbf24':'rgba(255,255,255,0.9)'};
-                border-radius:50%;display:flex;align-items:center;justify-content:center;
-                font-size:${Math.round(sz*0.42)}px;font-weight:900;color:#fff;cursor:grab;
-                box-shadow:${isActive?'0 0 18px 4px #fbbf24,':''} 0 2px 8px rgba(0,0,0,0.7);
-                transition:box-shadow 0.15s;user-select:none;" title="${t.name} — right-click for options">${icon}</div>`;
+                width:${diam}px;height:${diam}px;transform:translate(-50%,-50%);
+                background:${portrait?'transparent':bg};border:${isActive?3:2}px solid ${isActive?'#fbbf24':'rgba(255,255,255,0.9)'};
+                border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;
+                box-shadow:${isActive?'0 0 20px 5px rgba(251,191,36,.8),':''} 0 2px 8px rgba(0,0,0,0.8);
+                cursor:grab;user-select:none;transition:box-shadow 0.15s;" title="${t.name} (${t.size||'medium'})">${innerHtml}</div>`;
         }).join('');
-        let win=document.getElementById(winId);
-        (map.battleTokens||[]).forEach(t=>{
-            let el=layer.querySelector('[data-bt="'+t.id+'"]');
-            if(el) _btAttachDrag(mapId,winId,t.id,el,g,win);
+
+        let win = document.getElementById(winId);
+        (map.battleTokens||[]).forEach(t => {
+            let el = layer.querySelector(`[data-bt="${t.id}"]`);
+            if (el) _btAttachDrag(mapId, winId, t.id, el, g, win);
         });
     }
 
@@ -2912,7 +2938,11 @@ document.addEventListener('DOMContentLoaded', () => {
             let sc=win._scale||1;
             let mx=(e.clientX-rect.left)/sc, my=(e.clientY-rect.top)/sc;
             let {gridX,gridY}=_btPixelToGrid(mx,my,g);
-            let {px,py}=_btGridToPixel(gridX,gridY,g);
+            // Look up token size for correct snapping
+            let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+            let tok=(map?.battleTokens||[]).find(t=>t.id===tokenId);
+            let sm=BT_SIZES[tok?.size||'medium']||1;
+            let {px,py}=_btTokenCenter(gridX,gridY,sm,g);
             el.style.left=px+'px'; el.style.top=py+'px';
             el._pgx=gridX; el._pgy=gridY;
         }
@@ -2935,15 +2965,43 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('btContextMenu')?.remove();
         let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
         let tok = (map?.battleTokens||[]).find(t=>t.id===tokenId); if(!tok) return;
+        let curSizeIdx = BT_SIZE_LIST.indexOf(tok.size||'medium');
+        let canShrink = curSizeIdx > 0;
+        let canGrow   = curSizeIdx < BT_SIZE_LIST.length - 1;
         let menu = document.createElement('div');
         menu.id = 'btContextMenu';
-        menu.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;z-index:2147483647;background:#1e293b;border:1px solid #334155;border-radius:0.4rem;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.8);min-width:150px;`;
-        let initRows = (window.gmInitiative||[]).map(ei=>`<button onclick="window.linkBattleTokenToInit('${mapId}','${tokenId}','${ei.id}');document.getElementById('btContextMenu').remove()" style="width:100%;text-align:left;background:none;border-bottom:1px solid #1e293b;color:${tok.initiativeId===ei.id?'#fbbf24':'#e2e8f0'};font-size:0.65rem;padding:0.35rem 0.6rem;cursor:pointer;">${tok.initiativeId===ei.id?'✓ ':''} ${ei.name}</button>`).join('');
-        menu.innerHTML = `<div style="background:#1e3a5f;padding:0.35rem 0.6rem;font-size:0.65rem;font-weight:700;color:#93c5fd;">${tok.name} (${tok.type})</div>
-            ${initRows ? `<div style="padding:0.2rem 0.6rem;font-size:0.6rem;color:#64748b;border-bottom:1px solid #1e293b;">Link to Initiative</div>${initRows}` : ''}
-            <button onclick="window.removeBattleToken('${mapId}','${winId}','${tokenId}');document.getElementById('btContextMenu').remove()" style="width:100%;text-align:left;background:none;border:none;color:#f87171;font-size:0.65rem;padding:0.35rem 0.6rem;cursor:pointer;">🗑 Remove Token</button>`;
+        menu.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;z-index:2147483647;background:#1e293b;border:1px solid #334155;border-radius:0.4rem;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.9);min-width:180px;`;
+        // Initiative rows
+        let npcIdx = tok.worldNpcId ? (window.gmNpcs||[]).findIndex(g=>g.id===(_wNotes.npcs||[]).find(n=>n.id===tok.worldNpcId)?.statBlockId) : -1;
+        let initRows = npcIdx >= 0 ? `
+            <div style="padding:0.2rem 0.6rem;font-size:0.6rem;color:#64748b;border-bottom:1px solid #1e293b;">Add to Initiative as…</div>
+            <button onclick="window.addToInitiative(${npcIdx},'npc','enemy',undefined);document.getElementById('btContextMenu').remove()" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid #1e293b;color:#fca5a5;font-size:0.65rem;padding:0.3rem 0.6rem;cursor:pointer;">⚔ Enemy</button>
+            <button onclick="window.addToInitiative(${npcIdx},'npc','neutral',undefined);document.getElementById('btContextMenu').remove()" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid #1e293b;color:#fde68a;font-size:0.65rem;padding:0.3rem 0.6rem;cursor:pointer;">◈ Neutral</button>
+            <button onclick="window.addToInitiative(${npcIdx},'npc','ally',undefined);document.getElementById('btContextMenu').remove()" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid #1e293b;color:#6ee7b7;font-size:0.65rem;padding:0.3rem 0.6rem;cursor:pointer;">🤝 Ally</button>` : '';
+        // Link to initiative entry
+        let initEntries = (window.gmInitiative||[]).map(ei=>`<button onclick="window.linkBattleTokenToInit('${mapId}','${tokenId}','${ei.id}');document.getElementById('btContextMenu').remove()" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid #1e293b;color:${tok.initiativeId===ei.id?'#fbbf24':'#e2e8f0'};font-size:0.6rem;padding:0.25rem 0.6rem;cursor:pointer;">${tok.initiativeId===ei.id?'✓ ':''} ${ei.name}</button>`).join('');
+        menu.innerHTML = `<div style="background:#1e3a5f;padding:0.3rem 0.6rem;font-size:0.65rem;font-weight:700;color:#93c5fd;">
+            ${tok.name} <span style="font-size:0.55rem;color:#64748b;">(${tok.size||'medium'})</span>
+        </div>
+        ${initRows}
+        ${initEntries ? `<div style="padding:0.2rem 0.6rem;font-size:0.6rem;color:#64748b;border-bottom:1px solid #1e293b;">Highlight this turn for…</div>${initEntries}` : ''}
+        <div style="display:flex;border-bottom:1px solid #1e293b;">
+            <button ${!canShrink?'disabled':''} onclick="window._btResizeToken('${mapId}','${winId}','${tokenId}',-1);document.getElementById('btContextMenu').remove()" style="flex:1;background:none;border:none;color:${canShrink?'#c4b5fd':'#334155'};font-size:0.65rem;padding:0.3rem;cursor:${canShrink?'pointer':'not-allowed'};">⬡ Squeeze</button>
+            <button ${!canGrow?'disabled':''} onclick="window._btResizeToken('${mapId}','${winId}','${tokenId}',1);document.getElementById('btContextMenu').remove()" style="flex:1;background:none;border:none;color:${canGrow?'#c4b5fd':'#334155'};font-size:0.65rem;padding:0.3rem;cursor:${canGrow?'pointer':'not-allowed'};">⬡ Grow</button>
+        </div>
+        <button onclick="window.removeBattleToken('${mapId}','${winId}','${tokenId}');document.getElementById('btContextMenu').remove()" style="width:100%;text-align:left;background:none;border:none;color:#f87171;font-size:0.65rem;padding:0.35rem 0.6rem;cursor:pointer;">🗑 Remove Token</button>`;
         document.body.appendChild(menu);
         setTimeout(()=>document.addEventListener('mousedown',function cls(ev){if(!menu.contains(ev.target)){menu.remove();document.removeEventListener('mousedown',cls);}},100));
+    };
+
+    window._btResizeToken = function(mapId, winId, tokenId, dir) {
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+        let tok = (map?.battleTokens||[]).find(t=>t.id===tokenId); if(!tok) return;
+        let idx = BT_SIZE_LIST.indexOf(tok.size||'medium');
+        let newIdx = Math.max(0, Math.min(BT_SIZE_LIST.length-1, idx+dir));
+        tok.size = BT_SIZE_LIST[newIdx];
+        saveWorldNotes();
+        _btRenderTokens(mapId, winId);
     };
 
     window.openBattleTokenPanel = function(mapId, winId) {
@@ -2968,9 +3026,19 @@ document.addEventListener('DOMContentLoaded', () => {
         let img=document.getElementById(winId+'_img');
         let cx=Math.round((img?.naturalWidth||400)/2), cy=Math.round((img?.naturalHeight||400)/2);
         let {gridX,gridY}=_btPixelToGrid(cx,cy,g);
-        map.battleTokens.push({id:'bt_'+Date.now(),type,name,color,gridX,gridY,worldNpcId:worldNpcId||null,playerUid:playerUid||null,initiativeId:null});
-        saveWorldNotes();
-        _btRenderTokens(mapId,winId);
+        // Infer size from linked stat block
+        let size = 'medium';
+        if (worldNpcId) {
+            let wn = (_wNotes.npcs||[]).find(n=>n.id===worldNpcId);
+            if (wn?.statBlockId) {
+                let gmNpc = (window.gmNpcs||[]).find(g=>g.id===wn.statBlockId);
+                let sb = gmNpc?.npc;
+                if (sb?.size) size = sb.size.toLowerCase();
+            }
+        }
+        map.battleTokens.push({id:'bt_'+Date.now(),type,name,color,size,gridX,gridY,
+            worldNpcId:worldNpcId||null,playerUid:playerUid||null,initiativeId:null});
+        saveWorldNotes(); _btRenderTokens(mapId,winId);
     };
 
     window.removeBattleToken   = function(mapId,winId,tokenId){ let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return; map.battleTokens=(map.battleTokens||[]).filter(t=>t.id!==tokenId); saveWorldNotes(); _btRenderTokens(mapId,winId); };
