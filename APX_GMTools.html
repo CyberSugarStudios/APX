@@ -1531,7 +1531,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 // Migrate single linkedOtherMapId → array
                                 let mapIds = t.linkedOtherMapIds||[];
                                 if (!mapIds.length && t.linkedOtherMapId) mapIds=[t.linkedOtherMapId];
-                                return {id:t.id,letter:t.letter,x:t.x,y:t.y,name:t.name||'',description:t.description||'',
+                                return {id:t.id,type:t.type||'area',letter:t.letter,x:t.x,y:t.y,name:t.name||'',description:t.description||'',
                                     revealed:!!t.revealed,linkedNpcs:t.linkedNpcs||[],linkedOtherMapIds:mapIds,subnotes:t.subnotes||[]};
                             })
                         })),
@@ -1552,7 +1552,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 tokens:(m.tokens||[]).filter(t=>t.revealed).map(t=>{
                                 let mapIds = t.linkedOtherMapIds||[];
                                 if (!mapIds.length && t.linkedOtherMapId) mapIds=[t.linkedOtherMapId];
-                                return {id:t.id,letter:t.letter,x:t.x,y:t.y,name:t.name||'',description:t.description||'',linkedOtherMapIds:mapIds,subnotes:(t.subnotes||[]).filter(s=>s.revealed)};
+                                return {id:t.id,type:t.type||'area',letter:t.letter,x:t.x,y:t.y,name:t.name||'',description:t.description||'',linkedOtherMapIds:mapIds,subnotes:(t.subnotes||[]).filter(s=>s.revealed)};
                             })
                             })),
                     }
@@ -2301,6 +2301,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div id="${winId}_grid" style="position:absolute;top:0;left:0;pointer-events:none;opacity:0.35;z-index:1;"></div>
                     <div id="${winId}_tok" style="position:absolute;top:0;left:0;pointer-events:none;user-select:none;z-index:2;"></div>
                     <canvas id="${winId}_fog" style="position:absolute;top:0;left:0;pointer-events:none;opacity:0.45;z-index:3;"></canvas>
+                    <!-- Battle tokens live in their own layer so _omRenderTok rebuilds never wipe them.
+                         Container is pointer-events:none; each token div gets explicit pointer-events:auto. -->
+                    <div id="${winId}_btLayer" style="position:absolute;top:0;left:0;pointer-events:none;user-select:none;z-index:5;"></div>
                 </div>
                 <div id="${winId}_empty" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
                     <div style="text-align:center;color:#475569;font-size:0.75rem;">Upload an image to get started</div>
@@ -2892,16 +2895,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function _btRenderTokens(mapId, winId) {
-        // Battle tokens render INTO the shared tok layer (same as area circles)
-        // so both types are interactive without z-index conflicts.
-        let layer = document.getElementById(winId+'_tok');
+        // Battle tokens live in their OWN separate div (winId_btLayer) so that _omRenderTok
+        // can rebuild the area circle layer (winId_tok) without wiping them.
+        // Container has pointer-events:none; each token div gets explicit pointer-events:auto
+        // per the CSS spec — descendants with an explicit value receive events even when parent is none.
+        let layer = document.getElementById(winId+'_btLayer');
         let img   = document.getElementById(winId+'_img');
         let map   = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
-        if (!layer || !img || !img.naturalWidth) return;
-        // Remove only previously rendered battle tokens; leave area circles alone
-        layer.querySelectorAll('[data-bt]').forEach(el=>el.remove());
-        if (!map?.battleMapEnabled || !(map.battleTokens||[]).length) return;
+        if (!layer) return;
+        layer.innerHTML = '';
+        if (!img||!img.naturalWidth||!map?.battleMapEnabled||!(map.battleTokens||[]).length) return;
         let g   = map.battleGrid||{cellSize:50,offsetX:0,offsetY:0};
+        let iw  = img.naturalWidth, ih = img.naturalHeight;
+        layer.style.width = iw+'px'; layer.style.height = ih+'px';
         let curInitId = window.gmInitiative?.[window._gmInitCurrentTurn??0]?.id || null;
         let win = document.getElementById(winId);
         (map.battleTokens||[]).forEach(t=>{
@@ -2916,14 +2922,15 @@ document.addEventListener('DOMContentLoaded', () => {
             let portrait = worldNpc?.portrait||null;
             let el=document.createElement('div');
             el.setAttribute('data-bt',t.id);
+            // pointer-events:auto is EXPLICIT so it works even though the container has pointer-events:none
             el.style.cssText=`position:absolute;left:${px}px;top:${py}px;width:${diam}px;height:${diam}px;
                 transform:translate(-50%,-50%);background:${portrait?'transparent':bg};
                 border:${isActive?3:2}px solid ${isActive?'#fbbf24':isHidden?'rgba(255,255,255,0.3)':'rgba(255,255,255,0.9)'};
                 border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;
                 box-shadow:${isActive?'0 0 20px 5px rgba(251,191,36,.8),':''} 0 2px 8px rgba(0,0,0,0.8);
-                cursor:grab;user-select:none;pointer-events:auto;z-index:4;
+                cursor:grab;user-select:none;pointer-events:auto;
                 opacity:${isHidden?0.45:1};transition:box-shadow 0.15s;`;
-            el.title=`${t.name} (${t.size||'medium'})${isHidden?' [Hidden — players cannot see]':''}`;
+            el.title=`${t.name} (${t.size||'medium'})${isHidden?' [Hidden]':''}`;
             if(portrait){
                 let img2=document.createElement('img');
                 img2.src=portrait; img2.style.cssText='width:100%;height:100%;object-fit:cover;border-radius:50%;pointer-events:none;';
@@ -2953,7 +2960,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         function onMove(e){
             if(!dragging) return;
-            let layer=document.getElementById(winId+'_tok'); if(!layer) return;
+            let layer=document.getElementById(winId+'_btLayer'); if(!layer) return;
             let rect=layer.getBoundingClientRect();
             let sc=win._scale||1;
             let mx=(e.clientX-rect.left)/sc, my=(e.clientY-rect.top)/sc;
