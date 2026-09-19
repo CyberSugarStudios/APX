@@ -1658,7 +1658,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     : `<button onclick="event.stopPropagation();window.openNpcStatBlockPicker('${n.id}')" class="text-[9px] bg-slate-800 border border-slate-600 text-slate-400 px-1.5 py-0.5 rounded font-bold hover:border-slate-400">Link Stat Block</button>`;
                 let notesCount = (n.notes||[]).length;
                 let portraitHtml = n.portrait
-                    ? `<img src="${n.portrait}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid #334155;flex-shrink:0;cursor:pointer;" onclick="event.stopPropagation();window.openNpcPortraitWin('${n.id}')" title="View portrait - click to view image">`
+                    ? `<img src="${n.portrait}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid #334155;flex-shrink:0;cursor:pointer;" onclick="event.stopPropagation();window.openNpcPortraitWin('${n.id}',this)" title="View portrait">`
                     : `<div style="width:36px;height:36px;border-radius:50%;background:#0f172a;border:2px dashed #334155;display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;flex-shrink:0;" onclick="event.stopPropagation();window.uploadNpcPortrait('${n.id}')" title="Upload portrait">👤</div>`;
                 return `<div class="bg-slate-900 border border-slate-700 rounded p-3 cursor-pointer hover:border-slate-500" onclick="window.openNpcInfoWin('${n.id}')"><div class="flex items-start gap-2">${portraitHtml}<div class="flex-1 min-w-0"><div class="flex items-start justify-between gap-2"><div class="min-w-0"><div class="text-xs font-bold text-slate-200 truncate">${n.name||'Unnamed NPC'}</div>${n.role?`<div class="text-[10px] text-slate-500 mt-0.5">${n.role}</div>`:''}</div><div class="flex items-center gap-2 shrink-0" onclick="event.stopPropagation()">${revealBadge('npc', n.id, !!n.revealed)}${statBadge}</div></div>${n.description?`<div class="text-[10px] text-slate-400 mt-1.5 line-clamp-2">${n.description}</div>`:''}${notesCount?`<div class="text-[9px] text-slate-500 mt-1">${notesCount} sub-note${notesCount>1?'s':''}</div>`:''}</div></div></div>`;
               }).join('')
@@ -1676,7 +1676,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ${sn.title?`<div style="font-size:0.65rem;font-weight:700;color:#e2e8f0;">${sn.title}</div>`:''}
             ${sn.content?`<div style="font-size:0.6rem;color:#94a3b8;">${_fmtText(sn.content)}</div>`:''}</div>`).join('');
         let portraitBlock = n.portrait
-            ? `<img src="${n.portrait}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid #334155;cursor:pointer;flex-shrink:0;" onclick="window.openNpcPortraitWin('${npcId}')" title="View portrait">`
+            ? `<img src="${n.portrait}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid #334155;cursor:pointer;flex-shrink:0;" onclick="window.openNpcPortraitWin('${npcId}',this)" title="View portrait">`
             : '';
         let win = document.createElement('div');
         win.id=winId;
@@ -1703,47 +1703,149 @@ document.addEventListener('DOMContentLoaded', () => {
         if (existing) { existing.remove(); window.openNpcInfoWin(npcId); }
     };
 
-    // NPC portrait viewer floating window with Upload button
-    window.openNpcPortraitWin = function(npcId) {
+    // NPC portrait viewer — themed, fixed-ratio resize, opens near the clicked element
+    window.openNpcPortraitWin = function(npcId, triggerEl) {
         let n = (_wNotes.npcs||[]).find(x=>x.id===npcId); if(!n) return;
         let winId = 'npcPortrait_'+npcId;
         let existing = document.getElementById(winId);
         if (existing) { window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; existing.style.zIndex=window.apxFloatingZTop; return; }
         window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1;
+
+        // Position near trigger element if available
+        let tRect = triggerEl ? triggerEl.getBoundingClientRect() : { left: 200, bottom: 200 };
+        let initSz = 260;
+        let initLeft = Math.max(8, tRect.left - 10);
+        let initTop  = Math.min(tRect.bottom + 8, window.innerHeight - initSz - 60);
+
+        // Full image for popup, circular crop stored separately
+        let src = n.portraitFull || n.portrait || '';
+
         let win = document.createElement('div');
-        win.id=winId;
-        win.style.cssText=`position:fixed;right:20px;top:80px;width:240px;background:#0f172a;border:1px solid #334155;border-radius:0.75rem;z-index:${window.apxFloatingZTop};box-shadow:0 10px 40px rgba(0,0,0,.85);overflow:hidden;`;
-        win.innerHTML=`<div id="${winId}_hdr" style="cursor:grab;user-select:none;background:#1e293b;padding:0.5rem 0.75rem;display:flex;align-items:center;gap:0.5rem;">
+        win.id = winId; win._sz = initSz;
+        win.style.cssText = `position:fixed;left:${initLeft}px;top:${initTop}px;width:${initSz}px;
+            background:#1e293b;border:1px solid #334155;border-radius:0.75rem;
+            z-index:${window.apxFloatingZTop};box-shadow:0 10px 40px rgba(0,0,0,.85);
+            overflow:hidden;display:flex;flex-direction:column;min-width:160px;`;
+        win.innerHTML = `
+        <div id="${winId}_hdr" style="cursor:grab;user-select:none;background:#0f172a;padding:0.5rem 0.65rem;
+            border-bottom:1px solid #334155;display:flex;align-items:center;gap:0.4rem;flex-shrink:0;">
             <span style="font-size:0.75rem;font-weight:700;color:#e2e8f0;flex:1;">${n.name||'NPC'}</span>
-            <button onclick="window.uploadNpcPortrait('${npcId}',true)" style="font-size:0.65rem;font-weight:700;padding:0.2rem 0.5rem;background:#1d4ed8;border:none;color:#fff;border-radius:0.25rem;cursor:pointer;">Upload Image</button>
-            <button onclick="document.getElementById('${winId}').remove()" style="background:none;border:none;color:#94a3b8;font-size:1rem;cursor:pointer;">✕</button>
+            <button onclick="window.uploadNpcPortrait('${npcId}')"
+                style="font-size:0.65rem;font-weight:700;padding:0.2rem 0.5rem;background:#059669;border:none;color:#fff;border-radius:0.25rem;cursor:pointer;">Upload</button>
+            <button onclick="document.getElementById('${winId}').remove()"
+                style="background:none;border:none;color:#94a3b8;opacity:0.5;font-size:1rem;cursor:pointer;line-height:1;">✕</button>
         </div>
-        <div id="${winId}_img" style="width:240px;height:240px;background:#0f172a;display:flex;align-items:center;justify-content:center;">
-            ${n.portrait?`<img src="${n.portrait}" style="width:100%;height:100%;object-fit:cover;">`:`<span style="font-size:64px;opacity:0.2;">👤</span>`}
+        <div id="${winId}_img" style="width:${initSz}px;height:${initSz}px;background:#0f172a;
+            display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">
+            ${src ? `<img src="${src}" style="width:100%;height:100%;object-fit:cover;">` : `<span style="font-size:64px;opacity:0.15;">👤</span>`}
+        </div>
+        <div id="${winId}_resize" style="position:absolute;bottom:0;right:0;width:18px;height:18px;
+            cursor:se-resize;display:flex;align-items:flex-end;justify-content:flex-end;padding:3px;opacity:0.5;">
+            <svg width="10" height="10"><line x1="9" y1="1" x2="1" y2="9" stroke="#334155" stroke-width="1.5"/>
+            <line x1="9" y1="5" x2="5" y2="9" stroke="#334155" stroke-width="1.5"/></svg>
         </div>`;
         document.getElementById('floatingWindowContainer').appendChild(win);
-        win.addEventListener('mousedown',()=>{ window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; win.style.zIndex=window.apxFloatingZTop; });
+        win.addEventListener('mousedown', ()=>{ window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; win.style.zIndex=window.apxFloatingZTop; });
+
+        // Header drag
         let hdr=document.getElementById(winId+'_hdr'), wDrag=false, wOX=0, wOY=0;
-        hdr.addEventListener('mousedown',e=>{ if(e.target.tagName==='BUTTON')return; wDrag=true; let r=win.getBoundingClientRect(); wOX=e.clientX-r.left; wOY=e.clientY-r.top; e.preventDefault(); });
-        document.addEventListener('mousemove',e=>{ if(!wDrag)return; win.style.right='auto'; win.style.left=Math.max(0,e.clientX-wOX)+'px'; win.style.top=Math.max(0,e.clientY-wOY)+'px'; });
-        document.addEventListener('mouseup',()=>wDrag=false);
+        hdr.addEventListener('mousedown', e=>{ if(e.target.tagName==='BUTTON') return; wDrag=true; let r=win.getBoundingClientRect(); wOX=e.clientX-r.left; wOY=e.clientY-r.top; e.preventDefault(); });
+        document.addEventListener('mousemove', e=>{ if(!wDrag)return; win.style.right='auto'; win.style.left=Math.max(0,e.clientX-wOX)+'px'; win.style.top=Math.max(0,e.clientY-wOY)+'px'; });
+        document.addEventListener('mouseup', ()=>{ wDrag=false; });
+
+        // Fixed-ratio resize (square)
+        let rh=document.getElementById(winId+'_resize'), rDrag=false, rSX=0, rSW=0;
+        rh.addEventListener('mousedown', e=>{ rDrag=true; rSX=e.clientX; rSW=win.offsetWidth; e.stopPropagation(); e.preventDefault(); });
+        document.addEventListener('mousemove', e=>{
+            if(!rDrag) return;
+            let ns = Math.max(160, rSW + e.clientX - rSX);
+            win._sz = ns; win.style.width = ns+'px';
+            let ia = document.getElementById(winId+'_img');
+            if (ia) { ia.style.width=ns+'px'; ia.style.height=ns+'px'; }
+        });
+        document.addEventListener('mouseup', ()=>{ rDrag=false; });
     };
 
-    window.uploadNpcPortrait = function(npcId, fromPortraitWin) {
+    // NPC portrait upload with circle-crop preview
+    window.uploadNpcPortrait = function(npcId) {
         let inp = document.createElement('input'); inp.type='file'; inp.accept='image/*';
         inp.onchange = e => {
-            let file=e.target.files[0]; if(!file) return;
-            let r=new FileReader(); r.onload=async ev=>{
-                let compressed=await new Promise(res=>{let img=new Image();img.onload=()=>{let ms=192,sc=Math.min(ms/img.width,ms/img.height,1),cv=document.createElement('canvas');cv.width=Math.round(img.width*sc);cv.height=Math.round(img.height*sc);cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);res(cv.toDataURL('image/jpeg',0.75));};img.src=ev.target.result;});
-                let npc=(_wNotes.npcs||[]).find(n=>n.id===npcId); if(!npc) return;
-                npc.portrait=compressed; saveWorldNotes(); window.renderNpcList();
-                // Refresh portrait window if open
-                let pw = document.getElementById('npcPortrait_'+npcId);
-                if (pw) { let ia=pw.querySelector('#npcPortrait_'+npcId+'_img'); if(ia) ia.innerHTML=`<img src="${compressed}" style="width:100%;height:100%;object-fit:cover;">`; }
-                // Refresh info window if open
-                window._refreshNpcInfoWin(npcId);
-            }; r.readAsDataURL(file);
-        }; inp.click();
+            let file = e.target.files[0]; if(!file) return;
+            let r = new FileReader();
+            r.onload = ev => window._npcCropUI(ev.target.result, npcId);
+            r.readAsDataURL(file);
+        };
+        inp.click();
+    };
+
+    window._npcCropUI = function(dataUrl, npcId) {
+        document.getElementById('npcCropOverlay')?.remove();
+        let CROP_W=320, CROP_H=320, RADIUS=148;
+        let overlay = document.createElement('div');
+        overlay.id = 'npcCropOverlay';
+        overlay.style.cssText = `position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;`;
+        overlay.innerHTML = `<div style="background:#1e293b;border:1px solid #334155;border-radius:0.75rem;overflow:hidden;width:${CROP_W}px;box-shadow:0 20px 60px rgba(0,0,0,.9);">
+            <div style="padding:0.6rem 0.75rem;background:#0f172a;border-bottom:1px solid #334155;display:flex;align-items:center;gap:0.5rem;">
+                <span style="font-size:0.75rem;font-weight:700;color:#e2e8f0;flex:1;">Adjust NPC Portrait</span>
+                <span style="font-size:0.6rem;color:#94a3b8;">Drag · Scroll to zoom</span>
+            </div>
+            <div id="npcCropStage" style="position:relative;width:${CROP_W}px;height:${CROP_H}px;background:#111;overflow:hidden;cursor:grab;">
+                <img id="npcCropImg" src="${dataUrl}" draggable="false" style="position:absolute;transform-origin:0 0;user-select:none;pointer-events:none;max-width:none;">
+                <svg style="position:absolute;inset:0;pointer-events:none;" width="${CROP_W}" height="${CROP_H}">
+                    <defs><mask id="npcCircleMask"><rect width="${CROP_W}" height="${CROP_H}" fill="white"/><circle cx="${CROP_W/2}" cy="${CROP_H/2}" r="${RADIUS}" fill="black"/></mask></defs>
+                    <rect width="${CROP_W}" height="${CROP_H}" fill="rgba(0,0,0,0.65)" mask="url(#npcCircleMask)"/>
+                    <circle cx="${CROP_W/2}" cy="${CROP_H/2}" r="${RADIUS}" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="2"/>
+                </svg>
+            </div>
+            <div style="padding:0.5rem 0.75rem;background:#0f172a;border-top:1px solid #334155;display:flex;align-items:center;gap:0.5rem;">
+                <span style="font-size:0.65rem;color:#94a3b8;">🔍</span>
+                <input type="range" id="npcCropZoom" min="0.1" max="5" step="0.05" value="1" style="flex:1;accent-color:#059669;"
+                    oninput="window._npcCropZoom(+this.value)">
+                <span style="font-size:0.65rem;color:#94a3b8;">🔎</span>
+                <button onclick="document.getElementById('npcCropOverlay').remove()" style="padding:0.3rem 0.65rem;background:none;border:1px solid #334155;color:#e2e8f0;border-radius:0.25rem;font-size:0.7rem;cursor:pointer;font-weight:700;">Cancel</button>
+                <button onclick="window._npcCropConfirm('${npcId}',${CROP_W},${CROP_H},${RADIUS})" style="padding:0.3rem 0.75rem;background:#059669;border:none;color:#fff;border-radius:0.25rem;font-size:0.7rem;font-weight:700;cursor:pointer;">Save</button>
+            </div>
+        </div>`;
+        document.body.appendChild(overlay);
+
+        let img=document.getElementById('npcCropImg'), stage=document.getElementById('npcCropStage');
+        let cs={x:0,y:0,scale:1,dragging:false,lastX:0,lastY:0};
+        window._npcCropState=cs; window._npcCropImg=img;
+
+        img.onload=()=>{
+            let fit=Math.max(CROP_W/img.naturalWidth, CROP_H/img.naturalHeight, (RADIUS*2)/Math.min(img.naturalWidth,img.naturalHeight));
+            cs.scale=fit; cs.x=(CROP_W-img.naturalWidth*fit)/2; cs.y=(CROP_H-img.naturalHeight*fit)/2;
+            window._npcApplyCrop(); document.getElementById('npcCropZoom').value=fit;
+        };
+        stage.addEventListener('mousedown',e=>{cs.dragging=true;cs.lastX=e.clientX;cs.lastY=e.clientY;stage.style.cursor='grabbing';e.preventDefault();});
+        document.addEventListener('mousemove',e=>{if(!cs.dragging)return;cs.x+=e.clientX-cs.lastX;cs.y+=e.clientY-cs.lastY;cs.lastX=e.clientX;cs.lastY=e.clientY;window._npcApplyCrop();});
+        document.addEventListener('mouseup',()=>{cs.dragging=false;stage.style.cursor='grab';});
+        stage.addEventListener('wheel',e=>{e.preventDefault();let d=e.deltaY<0?0.08:-0.08,ns=Math.max(0.1,Math.min(10,cs.scale+d)),rt=ns/cs.scale;cs.x=(cs.x-CROP_W/2)*rt+CROP_W/2;cs.y=(cs.y-CROP_H/2)*rt+CROP_H/2;cs.scale=ns;window._npcApplyCrop();document.getElementById('npcCropZoom').value=ns;},{passive:false});
+    };
+    window._npcApplyCrop=function(){let img=window._npcCropImg,cs=window._npcCropState;if(img&&cs)img.style.transform=`translate(${cs.x}px,${cs.y}px) scale(${cs.scale})`;};
+    window._npcCropZoom=function(v){let cs=window._npcCropState,img=window._npcCropImg;if(!cs||!img)return;let rt=v/cs.scale;cs.x=(cs.x-160)*rt+160;cs.y=(cs.y-160)*rt+160;cs.scale=v;window._npcApplyCrop();};
+    window._npcCropConfirm=function(npcId,W,H,R){
+        let img=window._npcCropImg,cs=window._npcCropState; if(!img||!cs) return;
+        // Circular crop → n.portrait (used for token circle in roster/info views)
+        let OUT=512,c=document.createElement('canvas');c.width=OUT;c.height=OUT;
+        let ctx=c.getContext('2d');ctx.beginPath();ctx.arc(OUT/2,OUT/2,OUT/2,0,Math.PI*2);ctx.clip();
+        let sc=cs.scale*(OUT/W),ox=cs.x*(OUT/W),oy=cs.y*(OUT/H);
+        ctx.drawImage(img,ox,oy,img.naturalWidth*sc,img.naturalHeight*sc);
+        let circleData=c.toDataURL('image/jpeg',0.85);
+        // Full image → n.portraitFull (used in the popup window)
+        let fc=document.createElement('canvas');
+        let ms=1024,fsc=Math.min(ms/img.naturalWidth,ms/img.naturalHeight,1);
+        fc.width=Math.round(img.naturalWidth*fsc);fc.height=Math.round(img.naturalHeight*fsc);
+        fc.getContext('2d').drawImage(img,0,0,fc.width,fc.height);
+        let fullData=fc.toDataURL('image/jpeg',0.85);
+        let npc=(_wNotes.npcs||[]).find(n=>n.id===npcId); if(!npc) return;
+        npc.portrait=circleData; npc.portraitFull=fullData;
+        saveWorldNotes(); window.renderNpcList();
+        document.getElementById('npcCropOverlay')?.remove();
+        // Refresh portrait window if open
+        let pw=document.getElementById('npcPortrait_'+npcId);
+        if(pw){let ia=document.getElementById('npcPortrait_'+npcId+'_img');if(ia)ia.innerHTML=`<img src="${fullData}" style="width:100%;height:100%;object-fit:cover;">`;}
+        window._refreshNpcInfoWin(npcId);
     };
 
     // Also include portrait in publicNotes when NPC is revealed to players

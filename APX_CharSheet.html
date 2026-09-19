@@ -2906,8 +2906,6 @@
         <div id="cpfHdr" style="cursor:grab;user-select:none;background:${bg2};padding:0.5rem 0.65rem;
             border-bottom:1px solid ${bdr};display:flex;align-items:center;gap:0.4rem;flex-shrink:0;">
             <span style="font-size:0.75rem;font-weight:700;color:${txt};flex:1;">${name}</span>
-            <button onclick="window._cpfToggleFullscreen()" title="Fullscreen"
-                style="background:none;border:1px solid ${bdr};color:${txt};font-size:0.7rem;width:22px;height:22px;border-radius:0.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;">⛶</button>
             <button onclick="document.getElementById('charPortraitInput').click()"
                 style="font-size:0.65rem;font-weight:700;padding:0.2rem 0.5rem;background:${em};border:none;color:#fff;border-radius:0.25rem;cursor:pointer;">Upload</button>
             <button onclick="document.getElementById('charPortraitFloatWin').remove()"
@@ -2945,25 +2943,6 @@
         });
         document.addEventListener('mouseup', ()=>{ rDrag=false; });
 
-        // Fullscreen toggle
-        window._cpfToggleFullscreen = function() {
-            let w=document.getElementById('charPortraitFloatWin'); if(!w) return;
-            let imgArea=document.getElementById('charPortraitFloatImg');
-            if(w._isFullscreen){
-                let sz=w._sz||280;
-                w.style.cssText=`position:fixed;left:${initLeft}px;top:${initTop}px;width:${sz}px;
-                    background:${bg};border:1px solid ${bdr};border-radius:0.75rem;z-index:${w.style.zIndex};
-                    box-shadow:0 10px 40px rgba(0,0,0,.85);overflow:hidden;display:flex;flex-direction:column;min-width:160px;`;
-                if(imgArea){imgArea.style.width=sz+'px';imgArea.style.height=sz+'px';}
-                w._isFullscreen=false;
-            } else {
-                let vs=Math.min(window.innerWidth,window.innerHeight)-60;
-                w.style.cssText=`position:fixed;inset:0;border-radius:0;background:${bg};border:none;
-                    z-index:${w.style.zIndex};overflow:hidden;display:flex;flex-direction:column;`;
-                if(imgArea){imgArea.style.width='100%';imgArea.style.height='100%';imgArea.style.flex='1';}
-                w._isFullscreen=true;
-            }
-        };
     }
 
     window.uploadCharPortrait = async function(input) {
