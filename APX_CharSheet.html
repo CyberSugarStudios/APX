@@ -3050,28 +3050,30 @@
     window._cpfConfirmCrop = function(W, H, R) {
         let img = window._cpfCropImg; let cs = window._cpfCropState;
         if (!img || !cs) return;
-        // Circular crop saved to charPortrait — used only for the small token circle
-        let OUT = 512;
+        // Circular crop → charPortrait (token circle beside name): 256×256 is plenty for a 52px display
+        let OUT = 256;
         let c = document.createElement('canvas'); c.width=OUT; c.height=OUT;
         let ctx = c.getContext('2d');
         ctx.beginPath(); ctx.arc(OUT/2, OUT/2, OUT/2, 0, Math.PI*2); ctx.clip();
         let scale = cs.scale * (OUT / W);
         let ox = cs.x * (OUT / W), oy = cs.y * (OUT / H);
         ctx.drawImage(img, ox, oy, img.naturalWidth * scale, img.naturalHeight * scale);
-        window.state.charPortrait = c.toDataURL('image/jpeg', 0.85);
+        window.state.charPortrait = c.toDataURL('image/jpeg', 0.80);
 
-        // Full image (not clipped) saved to charPortraitFull — shown in the portrait popup
+        // Full image → charPortraitFull (popup window): cap at 512px to keep writes manageable
         let fc = document.createElement('canvas');
-        let maxFull = 1024;
+        let maxFull = 512;
         let fscale = Math.min(maxFull / img.naturalWidth, maxFull / img.naturalHeight, 1);
         fc.width = Math.round(img.naturalWidth * fscale);
         fc.height = Math.round(img.naturalHeight * fscale);
         fc.getContext('2d').drawImage(img, 0, 0, fc.width, fc.height);
-        window.state.charPortraitFull = fc.toDataURL('image/jpeg', 0.85);
+        window.state.charPortraitFull = fc.toDataURL('image/jpeg', 0.78);
 
         document.getElementById('cpfCropOverlay')?.remove();
         window.renderCharPortrait();
-        if (typeof window.recalculateMath === 'function') window.recalculateMath();
+        // Trigger a single save without the full recalculate cycle to avoid rapid writes
+        if (typeof window.scheduleSave === 'function') window.scheduleSave();
+        else if (typeof window.recalculateMath === 'function') window.recalculateMath();
     };
 
     window.renderCharPortrait = function() {

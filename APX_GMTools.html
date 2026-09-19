@@ -1564,7 +1564,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     w.notesV2.worldMapDataUrl = _mapImg.src;
                 localStorage.setItem('apxLocalWorlds', JSON.stringify(_gmWorlds));
             }
-        }, 50); // reduced so explicit saves take effect before page refresh
+        }, 400); // debounce — balances token/marker update visibility for players vs write frequency
     }
 
     // Immediate save — clears pending debounce then fires at 0ms
@@ -1826,18 +1826,18 @@ document.addEventListener('DOMContentLoaded', () => {
     window._npcCropZoom=function(v){let cs=window._npcCropState,img=window._npcCropImg;if(!cs||!img)return;let rt=v/cs.scale;cs.x=(cs.x-160)*rt+160;cs.y=(cs.y-160)*rt+160;cs.scale=v;window._npcApplyCrop();};
     window._npcCropConfirm=function(npcId,W,H,R){
         let img=window._npcCropImg,cs=window._npcCropState; if(!img||!cs) return;
-        // Circular crop → n.portrait (used for token circle in roster/info views)
-        let OUT=512,c=document.createElement('canvas');c.width=OUT;c.height=OUT;
+        // Circular crop → n.portrait (token circle): 192px is plenty for a 36px roster display
+        let OUT=192,c=document.createElement('canvas');c.width=OUT;c.height=OUT;
         let ctx=c.getContext('2d');ctx.beginPath();ctx.arc(OUT/2,OUT/2,OUT/2,0,Math.PI*2);ctx.clip();
         let sc=cs.scale*(OUT/W),ox=cs.x*(OUT/W),oy=cs.y*(OUT/H);
         ctx.drawImage(img,ox,oy,img.naturalWidth*sc,img.naturalHeight*sc);
-        let circleData=c.toDataURL('image/jpeg',0.85);
-        // Full image → n.portraitFull (used in the popup window)
+        let circleData=c.toDataURL('image/jpeg',0.78);
+        // Full image → n.portraitFull (popup): cap at 400px — NPCs can appear many per world doc
         let fc=document.createElement('canvas');
-        let ms=1024,fsc=Math.min(ms/img.naturalWidth,ms/img.naturalHeight,1);
+        let ms=400,fsc=Math.min(ms/img.naturalWidth,ms/img.naturalHeight,1);
         fc.width=Math.round(img.naturalWidth*fsc);fc.height=Math.round(img.naturalHeight*fsc);
         fc.getContext('2d').drawImage(img,0,0,fc.width,fc.height);
-        let fullData=fc.toDataURL('image/jpeg',0.85);
+        let fullData=fc.toDataURL('image/jpeg',0.75);
         let npc=(_wNotes.npcs||[]).find(n=>n.id===npcId); if(!npc) return;
         npc.portrait=circleData; npc.portraitFull=fullData;
         saveWorldNotes(); window.renderNpcList();
