@@ -2301,7 +2301,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <canvas id="${winId}_grid" style="position:absolute;top:0;left:0;pointer-events:none;z-index:1;"></canvas>
                     <div id="${winId}_tok" style="position:absolute;top:0;left:0;pointer-events:none;user-select:none;z-index:2;"></div>
                     <canvas id="${winId}_fog" style="position:absolute;top:0;left:0;pointer-events:none;opacity:0.45;z-index:3;"></canvas>
-                    <div id="${winId}_btLayer" style="position:absolute;top:0;left:0;pointer-events:auto;user-select:none;z-index:6;"></div>
+                    <div id="${winId}_btLayer" style="position:absolute;top:0;left:0;pointer-events:none;user-select:none;z-index:6;"></div>
                 </div>
                 <div id="${winId}_empty" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
                     <div style="text-align:center;color:#475569;font-size:0.75rem;">Upload an image to get started</div>
@@ -2579,7 +2579,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Battle map button — only show if a battle map window is open
             let btMapId = (_wNotes.otherMaps||[]).find(m=>m.battleMapEnabled && document.getElementById('omWin_'+m.id))?.id;
             let btBtn = btMapId
-                ? `<button onclick="event.stopPropagation();window._btAddToken('${btMapId}','omWin_${btMapId}','${(wn.name||'NPC').replace(/'/g,'')}','npc','#b91c1c','${nid}',null)" style="font-size:0.6rem;padding:0.1rem 0.3rem;background:#065f46;border:1px solid #10b981;color:#6ee7b7;border-radius:0.2rem;cursor:pointer;">+⚔</button>`
+                ? `<button onclick="event.stopPropagation();window._btAddToken('${btMapId}','omWin_${btMapId}','${(wn.name||'NPC').replace(/'/g,'')}','npc','#d97706','${nid}',null)" style="font-size:0.6rem;padding:0.1rem 0.3rem;background:#065f46;border:1px solid #10b981;color:#6ee7b7;border-radius:0.2rem;cursor:pointer;">+⚔</button>`
                 : '';
             return `<div style="display:flex;align-items:center;gap:0.3rem;margin-bottom:0.15rem;">
                 <button onclick="window.openTokenNpcInfo('${mapId}','${tokenId}','${nid}','${winId}')"
@@ -2895,7 +2895,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let {px, py} = _btTokenCenter(t.gridX, t.gridY, sm, g);
             let diam = Math.max(12, g.cellSize * (sm <= 1 ? sm * 0.85 : sm * 0.9));
             let isActive = t.initiativeId && t.initiativeId === curInitId;
-            let defColor = t.type==='player' ? '#6d28d9' : '#b91c1c';
+            let defColor = t.type==='player' ? '#1d4ed8' : '#d97706';
             let bg = t.color || defColor;
             let icon = (t.name||'?')[0].toUpperCase();
             let fontSize = Math.round(diam * 0.42);
@@ -3012,7 +3012,7 @@ document.addEventListener('DOMContentLoaded', () => {
         panel.id = 'btPickerPanel';
         panel.style.cssText = `position:fixed;right:20px;top:120px;width:220px;background:#1e293b;border:1px solid #10b981;border-radius:0.5rem;z-index:2147483647;box-shadow:0 10px 40px rgba(0,0,0,0.85);overflow:hidden;`;
         let partyRows=(_wNotes.gmParty||window.gmParty||[]).map(p=>`<button onclick="window._btAddToken('${mapId}','${winId}','${(p.summary?.name||'Player').replace(/'/g,'')}','player','#4f46e5',null,'${p.fileName||''}')" style="width:100%;text-align:left;background:#0f172a;border:none;border-bottom:1px solid #1e293b;color:#a5b4fc;font-size:0.7rem;padding:0.4rem 0.6rem;cursor:pointer;">🧑 ${p.summary?.name||'Player'}</button>`).join('');
-        let npcRows=(_wNotes.npcs||[]).map(n=>`<button onclick="window._btAddToken('${mapId}','${winId}','${(n.name||'NPC').replace(/'/g,'')}','npc','#dc2626','${n.id}',null)" style="width:100%;text-align:left;background:#0f172a;border:none;border-bottom:1px solid #1e293b;color:#fca5a5;font-size:0.7rem;padding:0.4rem 0.6rem;cursor:pointer;">👹 ${n.name||'NPC'}</button>`).join('');
+        let npcRows=(_wNotes.npcs||[]).map(n=>`<button onclick="window._btAddToken('${mapId}','${winId}','${(n.name||'NPC').replace(/'/g,'')}','npc','#d97706','${n.id}',null)" style="width:100%;text-align:left;background:#0f172a;border:none;border-bottom:1px solid #1e293b;color:#fde68a;font-size:0.7rem;padding:0.4rem 0.6rem;cursor:pointer;">👹 ${n.name||'NPC'}</button>`).join('');
         panel.innerHTML=`<div style="background:#065f46;padding:0.5rem 0.75rem;font-size:0.75rem;font-weight:700;color:#6ee7b7;display:flex;align-items:center;justify-content:space-between;">⚔ Add Token <button onclick="document.getElementById('btPickerPanel').remove()" style="background:none;border:none;color:#6ee7b7;font-size:1rem;cursor:pointer;">✕</button></div>
             <div style="max-height:60vh;overflow-y:auto;">${partyRows||'<div style="padding:0.5rem;font-size:0.65rem;color:#475569;">No party members found</div>'}${npcRows||'<div style="padding:0.5rem;font-size:0.65rem;color:#475569;">No world NPCs</div>'}</div>`;
         document.body.appendChild(panel);
