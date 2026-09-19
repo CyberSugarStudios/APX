@@ -2268,7 +2268,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <button id="${winId}_fogBtn" onclick="window.toggleFogMode('${mapId}')" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;">🌫 Fog</button>
                 <button id="${winId}_specialBtn" onclick="window.toggleSpecialMarkerMode('${mapId}','${winId}')" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;" title="Place a special marker (secret door, trap, etc.)">✦ Special</button>
                 <button id="${winId}_battleToggle" onclick="window.toggleBattleMap('${mapId}','${winId}')" style="background:${map.battleMapEnabled?'#065f46':'#1e293b'};border:1px solid ${map.battleMapEnabled?'#10b981':'#334155'};color:${map.battleMapEnabled?'#6ee7b7':'#94a3b8'};font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;" title="Toggle Battle Map (grid + tokens)">⚔ Battle</button>
-                <!-- Battle Map grid controls (shown only in battle mode) -->
+                <!-- Battle Map grid controls (shown by default when battle mode active) -->
                 <div id="${winId}_battleControls" style="display:${map.battleMapEnabled?'flex':'none'};align-items:center;gap:0.3rem;flex-wrap:nowrap;">
                     <span style="font-size:0.6rem;color:#6ee7b7;white-space:nowrap;">Cell:</span>
                     <input type="number" id="${winId}_cellSize" min="5" max="400" value="${(map.battleGrid||{}).cellSize||50}" step="0.5"
@@ -2298,10 +2298,9 @@ document.addEventListener('DOMContentLoaded', () => {
             <div id="${winId}_area" style="flex:1;position:relative;overflow:hidden;cursor:crosshair;user-select:none;-webkit-user-select:none;">
                 <div id="${winId}_vp" style="position:absolute;transform-origin:0 0;will-change:transform;user-select:none;">
                     <img id="${winId}_img" src="" alt="" style="display:none;max-width:none;user-select:none;pointer-events:none;-webkit-user-drag:none;" draggable="false" ondragstart="return false">
-                    <canvas id="${winId}_grid" style="position:absolute;top:0;left:0;pointer-events:none;z-index:1;"></canvas>
+                <div id="${winId}_grid" style="position:absolute;top:0;left:0;pointer-events:none;opacity:0.35;z-index:1;"></div>
                     <div id="${winId}_tok" style="position:absolute;top:0;left:0;pointer-events:none;user-select:none;z-index:2;"></div>
                     <canvas id="${winId}_fog" style="position:absolute;top:0;left:0;pointer-events:none;opacity:0.45;z-index:3;"></canvas>
-                    <div id="${winId}_btLayer" style="position:absolute;top:0;left:0;pointer-events:none;user-select:none;z-index:6;"></div>
                 </div>
                 <div id="${winId}_empty" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
                     <div style="text-align:center;color:#475569;font-size:0.75rem;">Upload an image to get started</div>
@@ -2824,14 +2823,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.toggleBattleMap = function(mapId, winId) {
         let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return;
-        map.battleMapEnabled = !map.battleMapEnabled;
-        if (!map.battleGrid)  map.battleGrid  = {cellSize:50,offsetX:0,offsetY:0};
-        if (!map.battleTokens) map.battleTokens = [];
-        saveWorldNotes();
-        let btn  = document.getElementById(winId+'_battleToggle');
-        if (btn) { btn.style.background=map.battleMapEnabled?'#065f46':'#1e293b'; btn.style.borderColor=map.battleMapEnabled?'#10b981':'#334155'; btn.style.color=map.battleMapEnabled?'#6ee7b7':'#94a3b8'; }
+        if (!map.battleMapEnabled) {
+            // First time: enable and save
+            map.battleMapEnabled = true;
+            if (!map.battleGrid)   map.battleGrid   = {cellSize:50,offsetX:0,offsetY:0};
+            if (!map.battleTokens) map.battleTokens = [];
+            saveWorldNotes();
+        }
+        // Toggle the controls panel visibility (the battle state itself never turns off here)
         let ctrl = document.getElementById(winId+'_battleControls');
-        if (ctrl) ctrl.style.display = map.battleMapEnabled ? 'flex' : 'none';
+        if (ctrl) ctrl.style.display = ctrl.style.display === 'none' ? 'flex' : 'none';
+        let btn = document.getElementById(winId+'_battleToggle');
+        if (btn) { btn.style.background='#065f46'; btn.style.borderColor='#10b981'; btn.style.color='#6ee7b7'; }
         _btDrawGrid(mapId, winId);
         _btRenderTokens(mapId, winId);
     };
@@ -2848,9 +2851,18 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     function _btDrawGrid(mapId, winId) {
+        // grid is rendered as an absolutely-positioned canvas reusing the winId_grid element
         let canvas = document.getElementById(winId+'_grid');
         let img    = document.getElementById(winId+'_img');
         let map    = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+        // Ensure it's a canvas (the HTML has a div; upgrade it once)
+        if (canvas && canvas.tagName !== 'CANVAS') {
+            let c2 = document.createElement('canvas');
+            c2.id = winId+'_grid';
+            c2.style.cssText = canvas.style.cssText;
+            canvas.replaceWith(c2);
+            canvas = c2;
+        }
         if (!canvas || !img || !img.naturalWidth || !map?.battleMapEnabled) { if(canvas) canvas.width=0; return; }
         let iw=img.naturalWidth, ih=img.naturalHeight;
         canvas.width=iw; canvas.height=ih;
@@ -2880,45 +2892,53 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function _btRenderTokens(mapId, winId) {
-        let layer = document.getElementById(winId+'_btLayer');
+        // Battle tokens render INTO the shared tok layer (same as area circles)
+        // so both types are interactive without z-index conflicts.
+        let layer = document.getElementById(winId+'_tok');
         let img   = document.getElementById(winId+'_img');
         let map   = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
-        if (!layer) return;
-        if (!img||!img.naturalWidth||!map?.battleMapEnabled||!(map.battleTokens||[]).length) { layer.innerHTML=''; return; }
+        if (!layer || !img || !img.naturalWidth) return;
+        // Remove only previously rendered battle tokens; leave area circles alone
+        layer.querySelectorAll('[data-bt]').forEach(el=>el.remove());
+        if (!map?.battleMapEnabled || !(map.battleTokens||[]).length) return;
         let g   = map.battleGrid||{cellSize:50,offsetX:0,offsetY:0};
-        let iw = img.naturalWidth, ih = img.naturalHeight;
-        layer.style.width=iw+'px'; layer.style.height=ih+'px';
         let curInitId = window.gmInitiative?.[window._gmInitCurrentTurn??0]?.id || null;
-
-        layer.innerHTML = (map.battleTokens||[]).map(t => {
-            let sm  = BT_SIZES[t.size||'medium'] || 1;
-            let {px, py} = _btTokenCenter(t.gridX, t.gridY, sm, g);
-            let diam = Math.max(12, g.cellSize * (sm <= 1 ? sm * 0.85 : sm * 0.9));
-            let isActive = t.initiativeId && t.initiativeId === curInitId;
-            let defColor = t.type==='player' ? '#1d4ed8' : '#d97706';
-            let bg = t.color || defColor;
-            let icon = (t.name||'?')[0].toUpperCase();
-            let fontSize = Math.round(diam * 0.42);
-            // World NPC portrait
-            let worldNpc = t.worldNpcId ? (_wNotes.npcs||[]).find(n=>n.id===t.worldNpcId) : null;
-            let portrait = worldNpc?.portrait || null;
-            let innerHtml = portrait
-                ? `<img src="${portrait}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;pointer-events:none;">`
-                : `<span style="font-size:${fontSize}px;font-weight:900;color:#fff;pointer-events:none;">${icon}</span>`;
-            return `<div data-bt="${t.id}" style="position:absolute;left:${px}px;top:${py}px;
-                width:${diam}px;height:${diam}px;transform:translate(-50%,-50%);
-                background:${portrait?'transparent':bg};border:${isActive?3:2}px solid ${isActive?'#fbbf24':'rgba(255,255,255,0.9)'};
+        let win = document.getElementById(winId);
+        (map.battleTokens||[]).forEach(t=>{
+            let sm  = BT_SIZES[t.size||'medium']||1;
+            let {px,py} = _btTokenCenter(t.gridX,t.gridY,sm,g);
+            let diam = Math.max(12, g.cellSize*(sm<=1?sm*0.85:sm*0.9));
+            let isActive = t.initiativeId && t.initiativeId===curInitId;
+            let isHidden = t.revealed===false;
+            let defColor = t.type==='player'?'#1d4ed8':'#d97706';
+            let bg = t.color||defColor;
+            let worldNpc = t.worldNpcId?(_wNotes.npcs||[]).find(n=>n.id===t.worldNpcId):null;
+            let portrait = worldNpc?.portrait||null;
+            let el=document.createElement('div');
+            el.setAttribute('data-bt',t.id);
+            el.style.cssText=`position:absolute;left:${px}px;top:${py}px;width:${diam}px;height:${diam}px;
+                transform:translate(-50%,-50%);background:${portrait?'transparent':bg};
+                border:${isActive?3:2}px solid ${isActive?'#fbbf24':isHidden?'rgba(255,255,255,0.3)':'rgba(255,255,255,0.9)'};
                 border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;
                 box-shadow:${isActive?'0 0 20px 5px rgba(251,191,36,.8),':''} 0 2px 8px rgba(0,0,0,0.8);
-                cursor:grab;user-select:none;transition:box-shadow 0.15s;" title="${t.name} (${t.size||'medium'})">${innerHtml}</div>`;
-        }).join('');
-
-        let win = document.getElementById(winId);
-        (map.battleTokens||[]).forEach(t => {
-            let el = layer.querySelector(`[data-bt="${t.id}"]`);
-            if (el) _btAttachDrag(mapId, winId, t.id, el, g, win);
+                cursor:grab;user-select:none;pointer-events:auto;z-index:4;
+                opacity:${isHidden?0.45:1};transition:box-shadow 0.15s;`;
+            el.title=`${t.name} (${t.size||'medium'})${isHidden?' [Hidden — players cannot see]':''}`;
+            if(portrait){
+                let img2=document.createElement('img');
+                img2.src=portrait; img2.style.cssText='width:100%;height:100%;object-fit:cover;border-radius:50%;pointer-events:none;';
+                el.appendChild(img2);
+            } else {
+                let sp=document.createElement('span');
+                sp.style.cssText=`font-size:${Math.round(diam*0.42)}px;font-weight:900;color:#fff;pointer-events:none;`;
+                sp.textContent=(t.name||'?')[0].toUpperCase();
+                el.appendChild(sp);
+            }
+            layer.appendChild(el);
+            _btAttachDrag(mapId,winId,t.id,el,g,win);
         });
     }
+
 
     function _btAttachDrag(mapId,winId,tokenId,el,g,win) {
         let dragging=false;
@@ -2933,7 +2953,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         function onMove(e){
             if(!dragging) return;
-            let layer=document.getElementById(winId+'_btLayer'); if(!layer) return;
+            let layer=document.getElementById(winId+'_tok'); if(!layer) return;
             let rect=layer.getBoundingClientRect();
             let sc=win._scale||1;
             let mx=(e.clientX-rect.left)/sc, my=(e.clientY-rect.top)/sc;
@@ -2965,6 +2985,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('btContextMenu')?.remove();
         let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
         let tok = (map?.battleTokens||[]).find(t=>t.id===tokenId); if(!tok) return;
+        let isHidden = tok.revealed === false;
         let curSizeIdx = BT_SIZE_LIST.indexOf(tok.size||'medium');
         let canShrink = curSizeIdx > 0;
         let canGrow   = curSizeIdx < BT_SIZE_LIST.length - 1;
@@ -2983,7 +3004,7 @@ document.addEventListener('DOMContentLoaded', () => {
         menu.innerHTML = `<div style="background:#1e3a5f;padding:0.3rem 0.6rem;font-size:0.65rem;font-weight:700;color:#93c5fd;">
             ${tok.name} <span style="font-size:0.55rem;color:#64748b;">(${tok.size||'medium'})</span>
         </div>
-        ${initRows}
+        <button onclick="window._btToggleReveal('${mapId}','${winId}','${tokenId}');document.getElementById('btContextMenu').remove()" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid #1e293b;color:${isHidden?'#6ee7b7':'#94a3b8'};font-size:0.65rem;padding:0.35rem 0.6rem;cursor:pointer;">${isHidden?'👁 Reveal to Players':'🙈 Hide from Players'}</button>
         ${initEntries ? `<div style="padding:0.2rem 0.6rem;font-size:0.6rem;color:#64748b;border-bottom:1px solid #1e293b;">Highlight this turn for…</div>${initEntries}` : ''}
         <div style="display:flex;border-bottom:1px solid #1e293b;">
             <button ${!canShrink?'disabled':''} onclick="window._btResizeToken('${mapId}','${winId}','${tokenId}',-1);document.getElementById('btContextMenu').remove()" style="flex:1;background:none;border:none;color:${canShrink?'#c4b5fd':'#334155'};font-size:0.65rem;padding:0.3rem;cursor:${canShrink?'pointer':'not-allowed'};">⬡ Squeeze</button>
@@ -3037,12 +3058,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         map.battleTokens.push({id:'bt_'+Date.now(),type,name,color,size,gridX,gridY,
-            worldNpcId:worldNpcId||null,playerUid:playerUid||null,initiativeId:null});
+            worldNpcId:worldNpcId||null,playerUid:playerUid||null,initiativeId:null,revealed:false});
         saveWorldNotes(); _btRenderTokens(mapId,winId);
     };
 
     window.removeBattleToken   = function(mapId,winId,tokenId){ let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return; map.battleTokens=(map.battleTokens||[]).filter(t=>t.id!==tokenId); saveWorldNotes(); _btRenderTokens(mapId,winId); };
     window.linkBattleTokenToInit = function(mapId,tokenId,initId){ let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); let tok=(map?.battleTokens||[]).find(t=>t.id===tokenId); if(tok){tok.initiativeId=initId;saveWorldNotes();} };
+    window._btToggleReveal = function(mapId,winId,tokenId){ let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); let tok=(map?.battleTokens||[]).find(t=>t.id===tokenId); if(!tok) return; tok.revealed=tok.revealed===false?true:false; saveWorldNotes(); _btRenderTokens(mapId,winId); };
     window._btRefreshAllOpenMaps = function(){ (_wNotes.otherMaps||[]).forEach(m=>{if(m.battleMapEnabled){let wid='omWin_'+m.id;if(document.getElementById(wid))_btRenderTokens(m.id,wid);}}); };
 
     // ── END BATTLE MAP SYSTEM ──────────────────────────────────────
