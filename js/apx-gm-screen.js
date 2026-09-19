@@ -316,9 +316,14 @@ function startPartyListener(inviteCode) {
             if (entry) {
                 entry.state   = state;
                 entry.summary = computeCharSummary(state);
+                entry.summary.charPortrait = state.charPortrait || null;
                 changed = true;
+                // Apply any battle token positions the player moved
+                if (state.battlePositions) _applyPlayerBattlePositions(p.uid, state.battlePositions);
             } else {
-                window.gmParty.push({ fileName: p.uid, state, summary: computeCharSummary(state) });
+                let summ = computeCharSummary(state);
+                summ.charPortrait = state.charPortrait || null;
+                window.gmParty.push({ fileName: p.uid, state, summary: summ });
                 changed = true;
             }
             // Also update any matching initiative tracker entry's HP/TempHP so the
@@ -343,6 +348,27 @@ function startPartyListener(inviteCode) {
     });
 }
 window.startPartyListener = startPartyListener;
+
+// Apply battle token positions sent by a player (saved in their charState.battlePositions)
+// Called whenever the party listener fires with new player state.
+function _applyPlayerBattlePositions(playerUid, battlePositions) {
+    if (!window._wNotes || !battlePositions) return;
+    let dirty = false;
+    Object.entries(battlePositions).forEach(([mapId, positions]) => {
+        let map = (window._wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return;
+        Object.entries(positions).forEach(([tokenId, pos]) => {
+            let tok = (map.battleTokens||[]).find(t=>t.id===tokenId); if(!tok) return;
+            if (tok.playerUid !== playerUid) return; // only apply positions for their own token
+            if (tok.gridX !== pos.gridX || tok.gridY !== pos.gridY) {
+                tok.gridX=pos.gridX; tok.gridY=pos.gridY; dirty=true;
+            }
+        });
+    });
+    if (dirty) {
+        if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
+        if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
+    }
+}
 
 function statBadge(label, value, colorClass) {
     return `<div class="text-center bg-slate-900 rounded border border-slate-700 py-1"><div class="text-[8px] text-slate-500 uppercase font-bold">${label}</div><div class="text-sm font-black ${colorClass || 'text-white'}">${value}</div></div>`;

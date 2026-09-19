@@ -3046,7 +3046,13 @@ document.addEventListener('DOMContentLoaded', () => {
             let defColor = t.type==='player'?'#1d4ed8':'#d97706';
             let bg = t.color||defColor;
             let worldNpc = t.worldNpcId?(_wNotes.npcs||[]).find(n=>n.id===t.worldNpcId):null;
-            let portrait = worldNpc?.portrait||null;
+            let portrait = null;
+            if (t.type==='npc' && worldNpc?.portrait) {
+                portrait = worldNpc.portrait;
+            } else if (t.type==='player' && t.playerUid) {
+                let pm=(window.gmParty||[]).find(p=>p.fileName===t.playerUid||p.summary?.playerUid===t.playerUid);
+                portrait = pm?.summary?.charPortrait || pm?.state?.charPortrait || null;
+            }
             let el=document.createElement('div');
             el.setAttribute('data-bt',t.id);
             // pointer-events:auto is EXPLICIT so it works even though the container has pointer-events:none
