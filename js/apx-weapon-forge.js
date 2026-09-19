@@ -49,7 +49,12 @@ window.weaponForgeCalcTotals = function(draftOverride) {
     for (let i = 1; i <= d.critTier; i++) { critCumCost += WEAPON_CRIT_TIERS[i].cost; critCumWt += WEAPON_CRIT_TIERS[i].wt; }
 
     let rangeCost = isRanged ? WEAPON_RANGE_TIERS[d.rangeTier].cost : 0;
-    let propsCost = WEAPON_PROPERTIES.reduce((s, p) => s + (d.properties[p.key] ? p.cost : 0), 0);
+    let propsCost = WEAPON_PROPERTIES.reduce((s, p) => {
+        let val = weaponForgeDraft.properties[p.key];
+        // Boolean properties: cost once if true. Numeric properties: cost × count.
+        let count = (typeof val === 'number') ? val : (val ? 1 : 0);
+        return s + count * p.cost;
+    }, 0);
     let elementalCost = d.elemental ? WEAPON_ELEMENTAL_COST : 0;
 
     let totalWeight = baseWt + wc.wtChange + dmgCumWt + critCumWt;
@@ -209,10 +214,19 @@ window.toggleWeaponElemental = function(checked) {
     renderWeaponForgeSummary();
 };
 
+window.stepWeaponProperty = function(key, delta) {
+    let p = WEAPON_PROPERTIES.find(x => x.key === key); if (!p || !p.max) return;
+    if (!p.reqCheck(weaponForgeCtx())) return;
+    let cur = Math.max(0, Number(weaponForgeDraft.properties[key]) || 0);
+    weaponForgeDraft.properties[key] = Math.max(0, Math.min(p.max, cur + delta));
+    renderWeaponForgeStep3();
+    renderWeaponForgeSummary();
+};
+
 window.toggleWeaponProperty = function(key, checked) {
     if (checked) {
         let propDef = WEAPON_PROPERTIES.find(p => p.key === key);
-        if (propDef && !propDef.reqCheck(weaponForgeCtx())) return; // prerequisite not met, refuse
+        if (propDef && !propDef.reqCheck(weaponForgeCtx())) return;
     }
     weaponForgeDraft.properties[key] = checked;
     renderWeaponForgeStep3();
@@ -311,6 +325,23 @@ function renderWeaponForgeStep3() {
     let ctx = weaponForgeCtx();
     let propsHtml = WEAPON_PROPERTIES.map(p => {
         let meetsReq = p.reqCheck(ctx);
+        // Reach (and any future p.max > 1 property) uses a stepper; others use checkbox
+        if (p.max && p.max > 1) {
+            let count = Math.min(p.max, Math.max(0, Number(weaponForgeDraft.properties[p.key]) || 0));
+            return `
+            <div class="flex items-start gap-2 bg-slate-900 border border-slate-700 rounded p-2 ${!meetsReq ? 'opacity-50' : ''}">
+                <div class="flex items-center gap-1 mt-0.5">
+                    <button onclick="window.stepWeaponProperty('${p.key}',-1)" ${count <= 0 || !meetsReq ? 'disabled' : ''} class="w-5 h-5 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold ${count <= 0 || !meetsReq ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}">−</button>
+                    <span class="text-xs font-bold text-slate-200 w-4 text-center">${count}</span>
+                    <button onclick="window.stepWeaponProperty('${p.key}',1)" ${count >= p.max || !meetsReq ? 'disabled' : ''} class="w-5 h-5 rounded bg-amber-700 hover:bg-amber-600 text-white text-xs font-bold ${count >= p.max || !meetsReq ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}">+</button>
+                </div>
+                <div class="flex-1">
+                    <div class="text-[11px] font-bold text-slate-200">${p.name} <span class="text-yellow-500">[${p.cost} Cu each, max ${p.max}]</span></div>
+                    <div class="text-[9px] text-slate-500 leading-tight">${p.desc}</div>
+                    ${!meetsReq ? `<div class="text-[9px] text-red-400 font-bold">Requires: ${p.reqLabel}</div>` : ''}
+                </div>
+            </div>`;
+        }
         let checked = !!weaponForgeDraft.properties[p.key];
         return `
             <label class="flex items-start gap-2 bg-slate-900 border border-slate-700 rounded p-2 ${!meetsReq ? 'opacity-50' : 'cursor-pointer'}">
@@ -367,8 +398,11 @@ function weaponForgeComponentDeltas() {
         deltas.rangeTier = { direction: costDiff > 0 ? 'up' : 'down', costPortion: Math.abs(costDiff), units: 1 };
     }
     WEAPON_PROPERTIES.forEach(p => {
-        if (!!d.properties[p.key] !== !!orig.properties[p.key]) {
-            deltas['prop_' + p.key] = { direction: d.properties[p.key] ? 'up' : 'down', costPortion: p.cost, units: 1 };
+        let dVal  = typeof d.properties[p.key]    === 'number' ? d.properties[p.key]    : (d.properties[p.key]    ? 1 : 0);
+        let oVal  = typeof orig.properties[p.key] === 'number' ? orig.properties[p.key] : (orig.properties[p.key] ? 1 : 0);
+        let diff  = dVal - oVal;
+        if (diff !== 0) {
+            deltas['prop_' + p.key] = { direction: diff > 0 ? 'up' : 'down', costPortion: p.cost * Math.abs(diff), units: 1 };
         }
     });
     if (!!d.elemental !== !!orig.elemental) {

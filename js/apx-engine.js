@@ -743,12 +743,25 @@
             return null;
         }
 
-        function forgedWeaponBadge(w) {
+        function forgedWeaponBadge(w, exclude2HOnlyProps) {
             if (!w.forged) return '';
             let bits = [w.elemental || w.dmgType, `x${w.critMult}`];
             let rng = effectiveWeaponRange(w);
             if (rng) bits.push(rng + ' sq');
-            let props = WEAPON_PROPERTIES.filter(p => w.properties && w.properties[p.key]).map(p => p.name);
+            let props = WEAPON_PROPERTIES.filter(p => {
+                if (!w.properties) return false;
+                let val = w.properties[p.key];
+                if (!val && val !== 0) return false;
+                let count = (typeof val === 'number') ? val : (val ? 1 : 0);
+                if (!count) return false;
+                // On medium melee, reach only applies to the 2H row — suppress on 1H badge
+                if (exclude2HOnlyProps && p.key === 'reach' && w.weightClass === 'medium') return false;
+                return true;
+            }).map(p => {
+                let val = w.properties[p.key];
+                let count = (typeof val === 'number') ? val : 1;
+                return count > 1 ? `${p.name} ${count}` : p.name;
+            });
             if (props.length) bits.push(props.join(', '));
             return `<div class="text-[9px] text-orange-400/80 leading-tight mt-0.5">${bits.join(' &middot; ')}</div>`;
         }
@@ -927,7 +940,7 @@
                         ${(w.isUnarmed || w.isAncestry)
                             ? `<div class="text-xs font-bold text-slate-300 p-1 h-7 flex items-center" data-tip="Innate weapon names are set when the trait is purchased, in the Ancestry screen.">${w.name}</div>`
                             : `<input type="text" value="${(w.name||'').replace(/"/g,'&quot;')}" onchange="window.updateWeaponName(${idx}, this.value)" placeholder="Weapon Name" class="bg-slate-900 border-slate-700 text-xs font-bold w-full h-7">`}
-                        ${forgedWeaponBadge(w)}
+                        ${forgedWeaponBadge(w, w.weightClass === 'medium')}
                         ${w.forged ? `<button onclick="window.openWeaponForge(${idx})" class="text-[9px] text-orange-400 hover:text-orange-300 font-bold mt-0.5">Return to Forge</button>` : ''}
                         ${w.category === 'melee' && w.weightClass === 'medium' ? '<div class="text-[9px] text-slate-500 mt-0.5">1-Handed (2H row below)</div>' : ''}
                         ${cat === 'ranged' && opts.editable ? `<label class="flex items-center gap-1 mt-0.5 cursor-pointer"><input type="checkbox" ${w.aimed ? 'checked' : ''} onchange="window.toggleWeaponAim(${idx}, this.checked)" class="w-3 h-3"><span class="text-[9px] ${w.aimed ? 'text-amber-400 font-bold' : 'text-slate-500'}">Aimed (+PER)</span></label>` : ''}
@@ -996,7 +1009,10 @@
                 html += renderWeaponRow(w, idx, { attr: w.attr, dice: w.dmg, ap: w.ap, editable: true });
                 if (isMediumMelee && couldGoTwoHanded) {
                     let twoHDice = nextDieTier(w.dmg) || w.dmg;
-                    html += renderWeaponRow(w, idx, { label: '↳ 2-Handed (STR, +1 AP, +1 die step)', attr: 'STR', dice: twoHDice, ap: 4, editable: false });
+                    let reachVal = w.properties?.reach;
+                    let reachCount = reachVal ? (typeof reachVal === 'number' ? reachVal : 1) : 0;
+                    let twoHLabel = '↳ 2-Handed (STR, +1 AP, +1 die step)' + (reachCount ? `, Reach ${reachCount} sq` : '');
+                    html += renderWeaponRow(w, idx, { label: twoHLabel, attr: 'STR', dice: twoHDice, ap: 4, editable: false });
                 }
                 if (isMediumRanged && w.aimed && !w.twoHanded && couldGoTwoHanded) {
                     w.twoHanded = true;
