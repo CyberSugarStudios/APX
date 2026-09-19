@@ -24,7 +24,7 @@
             document.getElementById('origCommonLanguage').value = window.state.origin.commonLanguage || "";
             renderOrigCompsGrid();
             document.getElementById('origFeature').value = window.state.origin.feature || "";
-            document.getElementById('origWealth').value = "0";
+            document.getElementById('origWealthNone').checked = false;
             // Lock radios if wealth already applied
             setTimeout(() => {
                 let radios = document.querySelectorAll('.orig-wealth-option input[type="radio"]');

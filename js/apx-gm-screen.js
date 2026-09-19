@@ -351,24 +351,12 @@ function startPartyListener(inviteCode) {
 }
 window.startPartyListener = startPartyListener;
 
-// Apply battle token positions sent by a player (saved in their charState.battlePositions)
-// Called whenever the party listener fires with new player state.
+// Apply battle token positions sent by a player (saved in their world player record).
+// Delegates to window._gmApplyPlayerBattlePos which is defined inside APX_GMTools.html
+// and has closure access to _wNotes (a local var not exposed on window directly).
 function _applyPlayerBattlePositions(playerUid, battlePositions) {
-    if (!window._wNotes || !battlePositions) return;
-    let dirty = false;
-    Object.entries(battlePositions).forEach(([mapId, positions]) => {
-        let map = (window._wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return;
-        Object.entries(positions).forEach(([tokenId, pos]) => {
-            let tok = (map.battleTokens||[]).find(t=>t.id===tokenId); if(!tok) return;
-            if (tok.playerUid !== playerUid) return; // only apply positions for their own token
-            if (tok.gridX !== pos.gridX || tok.gridY !== pos.gridY) {
-                tok.gridX=pos.gridX; tok.gridY=pos.gridY; dirty=true;
-            }
-        });
-    });
-    if (dirty) {
-        if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
-        if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
+    if (typeof window._gmApplyPlayerBattlePos === 'function') {
+        window._gmApplyPlayerBattlePos(playerUid, battlePositions);
     }
 }
 

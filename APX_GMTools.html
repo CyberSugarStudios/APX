@@ -3224,6 +3224,27 @@ document.addEventListener('DOMContentLoaded', () => {
     window._btToggleReveal = function(mapId,winId,tokenId){ let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); let tok=(map?.battleTokens||[]).find(t=>t.id===tokenId); if(!tok) return; tok.revealed=tok.revealed===false?true:false; saveWorldNotes(); _btRenderTokens(mapId,winId); };
     window._btRefreshAllOpenMaps = function(){ (_wNotes.otherMaps||[]).forEach(m=>{if(m.battleMapEnabled){let wid='omWin_'+m.id;if(document.getElementById(wid))_btRenderTokens(m.id,wid);}}); };
 
+    // Called by apx-gm-screen.js party listener when a player writes their battle position.
+    // Must live here (not in gm-screen.js) because _wNotes is a closure variable in GMTools.
+    window._gmApplyPlayerBattlePos = function(playerUid, battlePositions) {
+        if (!battlePositions) return;
+        let dirty = false;
+        Object.entries(battlePositions).forEach(([mapId, positions]) => {
+            let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return;
+            Object.entries(positions).forEach(([tokenId, pos]) => {
+                let tok = (map.battleTokens||[]).find(t=>t.id===tokenId); if(!tok) return;
+                if (tok.playerUid !== playerUid) return; // only the owner can move their token
+                if (tok.gridX !== pos.gridX || tok.gridY !== pos.gridY) {
+                    tok.gridX = pos.gridX; tok.gridY = pos.gridY; dirty = true;
+                }
+            });
+        });
+        if (dirty) {
+            saveWorldNotes();
+            window._btRefreshAllOpenMaps();
+        }
+    };
+
     // ── END BATTLE MAP SYSTEM ──────────────────────────────────────
     window.openTokenInfoWin = function(mapId, tokenId, parentWinId, readOnly) {
         // Default to read-only (info view). New tokens pass false to open in edit mode.
