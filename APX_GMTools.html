@@ -1764,7 +1764,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>`;
                 document.getElementById('floatingWindowContainer').appendChild(win);
         _loadFullPortrait(winId);
-        win.addEventListenerown', ()=>{ window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; win.style.zIndex=window.apxFloatingZTop; });
+        win.addEventListener('mousedown', ()=>{ window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; win.style.zIndex=window.apxFloatingZTop; });
 
         // Header drag
         let hdr=document.getElementById(winId+'_hdr'), wDrag=false, wOX=0, wOY=0;
