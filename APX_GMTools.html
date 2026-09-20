@@ -1722,7 +1722,21 @@ document.addEventListener('DOMContentLoaded', () => {
         let initTop  = Math.min(tRect.bottom + 8, window.innerHeight - initSz - 60);
 
         // Full image for popup, circular crop stored separately
-        let src = n.portraitFull || n.portrait || '';
+        // Load from subcollection if available, start with thumbnail inline
+        let src = n.portrait || '';
+        // Async: load full-res from subcollection after window opens
+        let _loadFullPortrait = (winId) => {
+            if (window.apxAuth?.enabled && _activeWorldId && n.hasPortrait && window.apxAuth.loadNpcPortrait) {
+                window.apxAuth.loadNpcPortrait(_activeWorldId, npcId)
+                    .then(data => {
+                        let fullSrc = data?.portraitFull || data?.portrait;
+                        if (fullSrc) {
+                            let ia = document.getElementById(winId+'_img');
+                            if (ia) ia.innerHTML = `<img src="${fullSrc}" style="width:100%;height:100%;object-fit:cover;">`;
+                        }
+                    }).catch(()=>{});
+            }
+        };
 
         let win = document.createElement('div');
         win.id = winId; win._sz = initSz;
@@ -1748,8 +1762,9 @@ document.addEventListener('DOMContentLoaded', () => {
             <svg width="10" height="10"><line x1="9" y1="1" x2="1" y2="9" stroke="#334155" stroke-width="1.5"/>
             <line x1="9" y1="5" x2="5" y2="9" stroke="#334155" stroke-width="1.5"/></svg>
         </div>`;
-        document.getElementById('floatingWindowContainer').appendChild(win);
-        win.addEventListener('mousedown', ()=>{ window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; win.style.zIndex=window.apxFloatingZTop; });
+                document.getElementById('floatingWindowContainer').appendChild(win);
+        _loadFullPortrait(winId);
+        win.addEventListenerown', ()=>{ window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; win.style.zIndex=window.apxFloatingZTop; });
 
         // Header drag
         let hdr=document.getElementById(winId+'_hdr'), wDrag=false, wOX=0, wOY=0;
@@ -1830,23 +1845,47 @@ document.addEventListener('DOMContentLoaded', () => {
     window._npcCropZoom=function(v){let cs=window._npcCropState,img=window._npcCropImg;if(!cs||!img)return;let rt=v/cs.scale;cs.x=(cs.x-160)*rt+160;cs.y=(cs.y-160)*rt+160;cs.scale=v;window._npcApplyCrop();};
     window._npcCropConfirm=function(npcId,W,H,R){
         let img=window._npcCropImg,cs=window._npcCropState; if(!img||!cs) return;
-        // Circular crop → n.portrait (token circle): 192px is plenty for a 36px roster display
-        let OUT=192,c=document.createElement('canvas');c.width=OUT;c.height=OUT;
-        let ctx=c.getContext('2d');ctx.beginPath();ctx.arc(OUT/2,OUT/2,OUT/2,0,Math.PI*2);ctx.clip();
-        let sc=cs.scale*(OUT/W),ox=cs.x*(OUT/W),oy=cs.y*(OUT/H);
+
+        // Circular crop → n.portrait (tiny thumbnail for roster/info circles)
+        // Keep this small (96×96) so it stays in world notes safely
+        let THUMB=96,c=document.createElement('canvas');c.width=THUMB;c.height=THUMB;
+        let ctx=c.getContext('2d');ctx.beginPath();ctx.arc(THUMB/2,THUMB/2,THUMB/2,0,Math.PI*2);ctx.clip();
+        let sc=cs.scale*(THUMB/W),ox=cs.x*(THUMB/W),oy=cs.y*(THUMB/H);
         ctx.drawImage(img,ox,oy,img.naturalWidth*sc,img.naturalHeight*sc);
-        let circleData=c.toDataURL('image/jpeg',0.78);
-        // Full image → n.portraitFull (popup): cap at 400px — NPCs can appear many per world doc
+        let thumbData=c.toDataURL('image/jpeg',0.72);
+
+        // Full-quality versions saved to a SEPARATE Firestore path (not in world notes)
+        // to avoid pushing the world document over Firestore's 1MB limit.
+        let OUT=256,c2=document.createElement('canvas');c2.width=OUT;c2.height=OUT;
+        let ctx2=c2.getContext('2d');ctx2.beginPath();ctx2.arc(OUT/2,OUT/2,OUT/2,0,Math.PI*2);ctx2.clip();
+        let sc2=cs.scale*(OUT/W),ox2=cs.x*(OUT/W),oy2=cs.y*(OUT/H);
+        ctx2.drawImage(img,ox2,oy2,img.naturalWidth*sc2,img.naturalHeight*sc2);
+        let circleData=c2.toDataURL('image/jpeg',0.82);
+
         let fc=document.createElement('canvas');
         let ms=400,fsc=Math.min(ms/img.naturalWidth,ms/img.naturalHeight,1);
         fc.width=Math.round(img.naturalWidth*fsc);fc.height=Math.round(img.naturalHeight*fsc);
         fc.getContext('2d').drawImage(img,0,0,fc.width,fc.height);
-        let fullData=fc.toDataURL('image/jpeg',0.75);
+        let fullData=fc.toDataURL('image/jpeg',0.80);
+
         let npc=(_wNotes.npcs||[]).find(n=>n.id===npcId); if(!npc) return;
-        npc.portrait=circleData; npc.portraitFull=fullData;
+        // Store only the thumbnail inline in world notes
+        npc.portrait = thumbData;
+        // Clear any old inline full image (don't store it in world notes)
+        delete npc.portraitFull;
+        // Mark that this NPC has an external portrait saved
+        npc.hasPortrait = true;
+
+        // Save full-res portraits to separate Firestore document
+        if (window.apxAuth?.enabled && _activeWorldId && window.apxAuth.saveNpcPortrait) {
+            window.apxAuth.saveNpcPortrait(_activeWorldId, npcId, circleData, fullData)
+                .catch(e => console.warn('NPC portrait save:', e.message));
+        }
+
         saveWorldNotes(); window.renderNpcList();
         document.getElementById('npcCropOverlay')?.remove();
-        // Refresh portrait window if open
+
+        // Refresh portrait window if open — load from subcollection for full quality
         let pw=document.getElementById('npcPortrait_'+npcId);
         if(pw){let ia=document.getElementById('npcPortrait_'+npcId+'_img');if(ia)ia.innerHTML=`<img src="${fullData}" style="width:100%;height:100%;object-fit:cover;">`;}
         window._refreshNpcInfoWin(npcId);

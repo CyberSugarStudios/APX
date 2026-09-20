@@ -279,7 +279,30 @@
             .set({ _gmHp: { hp, at: firebase.firestore.FieldValue.serverTimestamp() } }, { merge: true });
     }
 
-    // --- Other map images (GM private, one doc per map) ---------------------
+    // --- NPC portraits (stored separately to keep world doc under 1MB limit) ---
+    // Path: users/{uid}/worlds/{worldId}/npcPortraits/{npcId}
+    async function saveNpcPortrait(worldId, npcId, circleData, fullData) {
+        let user = currentUser(); if (!user) return;
+        await db.collection('users').doc(user.uid)
+            .collection('worlds').doc(worldId)
+            .collection('npcPortraits').doc(npcId)
+            .set({ portrait: circleData, portraitFull: fullData || circleData,
+                   updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    }
+    async function loadNpcPortrait(worldId, npcId) {
+        let user = currentUser(); if (!user) return null;
+        let snap = await db.collection('users').doc(user.uid)
+            .collection('worlds').doc(worldId)
+            .collection('npcPortraits').doc(npcId).get();
+        return snap.exists ? snap.data() : null;
+    }
+    // Players load NPC portraits via the GM's user path (publicly readable by auth users per rules)
+    async function loadNpcPortraitForPlayer(gmUid, worldId, npcId) {
+        let snap = await db.collection('users').doc(gmUid)
+            .collection('worlds').doc(worldId)
+            .collection('npcPortraits').doc(npcId).get();
+        return snap.exists ? snap.data() : null;
+    }
     // Path: users/{uid}/worlds/{worldId}/otherMaps/{mapId}
     // Firestore rule allows any auth user to READ (for player loading).
     async function saveOtherMapImage(worldId, mapId, base64DataUrl) {
@@ -559,6 +582,7 @@
         createWorld, loadWorlds, saveWorld, saveWorldRaces, saveRacesToAllWorlds, deleteWorld, joinWorldByCode,
         loadWorldPlayers,
         saveWorldMapFirestore, loadWorldMapFirestore, deleteWorldMapFirestore,
+        saveNpcPortrait, loadNpcPortrait, loadNpcPortraitForPlayer,
         savePublicWorldMap, loadPublicWorldMap, loadWorldMapForPlayer, setGmHpOverride, updatePlayerBattlePos,
         saveOtherMapImage, loadOtherMapImage, loadOtherMapImageForPlayer, deleteOtherMapImage,
         saveFogData, loadFogData, loadFogDataForPlayer, listenFogDataForPlayer,

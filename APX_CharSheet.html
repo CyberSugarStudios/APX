@@ -3175,24 +3175,9 @@
                 otherMaps: data.publicNotes?.otherMaps || [],
                 worldMapDataUrl: cachedMap
             };
-            // Re-render the modal if it's currently open
-            let modal = document.getElementById('playerWorldModal');
-            if (modal?.classList.contains('active')) renderPlayerWorld();
-            // Push updates to ALL open floating Other Map windows in real time
-            // regardless of whether the modal is open — this is what makes area circles,
-            // special markers, and battle tokens live for players mid-session.
-            (world.notesV2.otherMaps||[]).forEach(m => {
-                let winId = 'pwOmWin_'+m.id;
-                let winEl = document.getElementById(winId);
-                if (!winEl) return;
-                // Re-render area circles / special markers
-                _pwOmRenderTok(winId, winEl, m);
-                // Re-render battle tokens and grid
-                if (m.battleMapEnabled) {
-                    _pwBtDrawGrid(winId, m);
-                    _pwBtRenderTokens(winId, winEl, m);
-                }
-            });
+            // Always re-render so floating Other Map windows (area circles, tokens, fog) update live.
+            // renderPlayerWorld is cheap when the modal is closed — it rebuilds hidden panels.
+            renderPlayerWorld();
         });
     }
 
@@ -3513,12 +3498,17 @@
         renderPlayerOtherMaps();
         // Restore the tab that was active before this re-render (real-time updates shouldn't reset it)
         if (currentTab) window.showPlayerWorldTab(currentTab);
-        // Refresh any open player Other Map windows with updated battle tokens
+        // Refresh ALL open player Other Map floating windows — area circles, special markers, battle tokens
         (world?.notesV2?.otherMaps||[]).forEach(m=>{
+            let winId='pwOmWin_'+m.id;
+            let winEl=document.getElementById(winId);
+            if (!winEl) return;
+            // Area circles and special markers
+            _pwOmRenderTok(winId, winEl, m);
+            // Battle grid and tokens
             if(m.battleMapEnabled) {
-                let winId='pwOmWin_'+m.id;
-                let winEl=document.getElementById(winId);
-                if(winEl) { _pwBtDrawGrid(winId,m); _pwBtRenderTokens(winId,winEl,m); }
+                _pwBtDrawGrid(winId, m);
+                _pwBtRenderTokens(winId, winEl, m);
             }
         });
     }
