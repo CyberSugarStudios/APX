@@ -1281,7 +1281,9 @@ window._floatAddToInit = function(winId) {
     let winEl = window.gmFloatingWindows?.[winId];
     let titleEl = winEl?.querySelector?.('.floating-stat-window-header span');
     let rawTitle = titleEl?.textContent || '';
-    let displayName = rawTitle.includes('(') ? rawTitle.split('(')[0].trim() : '';
+    // When the title has parens like "Bildrath (Merchant Villager)", the world NPC name is before the paren.
+    // When the title is just the name like "Parriwimple", use it directly — don't fall back to 'NPC'.
+    let displayName = rawTitle.includes('(') ? rawTitle.split('(')[0].trim() : rawTitle.trim();
     let dn = displayName || 'NPC';
     // Show faction picker: Enemy / Neutral / Ally
     let fe = document.getElementById('btFactionPick'); if(fe) fe.remove();

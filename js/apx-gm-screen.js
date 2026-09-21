@@ -678,11 +678,22 @@ window.addSavedNpcFromPicker = function(npcIdx, btnEl) {
 window.removeFromInitiative = function(id) {
     let idx = window.gmInitiative.findIndex(e => e.id === id);
     if (idx === -1) return;
+    let wasCurrent = (idx === window.gmCurrentTurnIdx) && window.gmCombatStarted;
     window.gmInitiative.splice(idx, 1);
     if (idx < window.gmCurrentTurnIdx) window.gmCurrentTurnIdx--;
-    else if (idx === window.gmCurrentTurnIdx) window.gmCurrentTurnIdx = window.gmInitiative.length ? window.gmCurrentTurnIdx % window.gmInitiative.length : 0;
+    else if (wasCurrent) {
+        // Advance to the next creature's turn immediately
+        if (window.gmInitiative.length) {
+            window.gmCurrentTurnIdx = window.gmCurrentTurnIdx % window.gmInitiative.length;
+        } else {
+            window.gmCurrentTurnIdx = 0;
+        }
+    }
     window.closeFloatingStatBlock(id);
     window.renderInitiativeTracker();
+    // Push updated turn highlight and cleared dead-state immediately
+    if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
+    if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
 };
 
 // Damage (a typed "-N") drains Temp HP first, with any leftover coming
@@ -768,6 +779,17 @@ window.updateInitiativeHp = function(id, value) {
         }
     }
     window.renderInitiativeTracker();
+    // Refresh token colours (dead/bleed-out) WITHOUT saving world notes.
+    if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
+    // Auto-end combat if all players are dead/bleeding out and combat is running
+    if (window.gmCombatStarted) {
+        let players = window.gmInitiative.filter(e => e.faction === 'player');
+        if (players.length > 0 && players.every(e => e.currentHp !== null && e.currentHp <= 0)) {
+            setTimeout(() => {
+                window.showConfirm('All players are down! End combat?', () => window.endCombat(), true);
+            }, 300);
+        }
+    }
 };
 
 window.toggleSurprised = function(id, checked) {
@@ -876,13 +898,26 @@ window.clearInitiative = function() {
 // non-player hit 0 -- the GM might still add more, or a Mythic Awakening
 // could bring one back -- so this is the only thing that actually ends it.
 window.endCombat = function() {
-    let playerCount = window.gmInitiative.filter(e => e.faction === 'player').length;
+    // Check for alive enemies to handle escaped/surrendered XP
+    let playerCount = window.gmInitiative.filter(e => e.faction === 'player' && (e.currentHp === null || e.currentHp > 0)).length;
     let totalXp = window.gmPendingXp;
     let perPlayer = playerCount > 0 ? Math.floor(totalXp / playerCount) : 0;
     let message = playerCount > 0
-        ? `Combat ended. ${totalXp} XP earned -- ${perPlayer} XP per player (${playerCount} players).`
-        : `Combat ended. ${totalXp} XP earned, but no players are currently in the tracker to split it.`;
+        ? `Combat ended. ${totalXp} XP earned — ${perPlayer} XP per player (${playerCount} players).`
+        : `Combat ended. ${totalXp} XP earned, but no surviving players to split it.`;
     window.showConfirm(message, () => {
+        // Distribute XP to each surviving player via their initiative entry
+        if (perPlayer > 0) {
+            let worlds = typeof _gmWorlds !== 'undefined' ? _gmWorlds : [];
+            let activeWorld = worlds.find(w => (w.worldId||w.id) === (typeof _activeWorldId !== 'undefined' ? _activeWorldId : null));
+            let inviteCode = activeWorld?.inviteCode;
+            window.gmInitiative.filter(e => e.faction === 'player' && e.playerUid && (e.currentHp === null || e.currentHp > 0)).forEach(e => {
+                if (inviteCode && window.apxAuth?.enabled && typeof window.apxAuth.addXpToPlayer === 'function') {
+                    window.apxAuth.addXpToPlayer(inviteCode, e.playerUid, perPlayer)
+                        .catch(err => console.warn('XP grant error:', err.message));
+                }
+            });
+        }
         window.gmInitiative = [];
         window.gmCurrentTurnIdx = 0;
         window.gmCombatStarted = false;
@@ -893,7 +928,6 @@ window.endCombat = function() {
         window.gmInLair = false;
         window.closeAllFloatingStatBlocks();
         window.renderInitiativeTracker();
-        // Push cleared state so gold highlights disappear on all maps
         if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
         if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
     }, true);
@@ -1078,6 +1112,16 @@ window.renderInitiativeTracker = function() {
                         <button onclick="window.stabilizeEntry('${e.id}')" class="ml-1 underline hover:text-red-300">Stabilize</button>
                     </div>
                 ` : ''}
+                ${(e.faction !== 'player' && e.sourceNpcId) ? (() => {
+                    // Show +Token button if this NPC doesn't have a battle token on any open map
+                    let hasToken = false;
+                    if (typeof _wNotes !== 'undefined') {
+                        (_wNotes.otherMaps||[]).forEach(m => {
+                            if ((m.battleTokens||[]).some(t=>t.initiativeId===e.id)) hasToken=true;
+                        });
+                    }
+                    return hasToken ? '' : `<button onclick="window._spawnTokenForInitEntry('${e.id}')" class="text-[9px] px-1.5 py-0.5 rounded font-bold mt-0.5" style="background:#065f46;border:1px solid #10b981;color:#6ee7b7;">+ Token</button>`;
+                })() : ''}
             </div>
         </div>
     `; }).join('');

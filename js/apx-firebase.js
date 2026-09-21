@@ -256,6 +256,14 @@
         return snap.exists ? (snap.data().imageData || null) : null;
     }
 
+    // addXpToPlayer: adds XP to a player's unspent XP via their world record
+    async function addXpToPlayer(inviteCode, playerUid, xp) {
+        if (!inviteCode || !playerUid || !xp) return;
+        await db.collection('worldCodes').doc(inviteCode)
+            .collection('players').doc(playerUid)
+            .set({ _xpGrant: { amount: xp, at: firebase.firestore.FieldValue.serverTimestamp() } }, { merge: true });
+    }
+
     // --- updatePlayerBattlePos: player writes battle token position to their world record ---
     // Path: worldCodes/{inviteCode}/players/{uid} { battlePositions: { mapId: { tokenId: {gridX,gridY} } } }
     // Small targeted write → GM's party listener picks it up in < 500ms.
@@ -583,7 +591,7 @@
         createWorld, loadWorlds, saveWorld, saveWorldRaces, saveRacesToAllWorlds, deleteWorld, joinWorldByCode,
         loadWorldPlayers,
         saveWorldMapFirestore, loadWorldMapFirestore, deleteWorldMapFirestore,
-        saveNpcPortrait, loadNpcPortrait, loadNpcPortraitForPlayer,
+        saveNpcPortrait, loadNpcPortrait, loadNpcPortraitForPlayer, addXpToPlayer,
         savePublicWorldMap, loadPublicWorldMap, loadWorldMapForPlayer, setGmHpOverride, updatePlayerBattlePos,
         saveOtherMapImage, loadOtherMapImage, loadOtherMapImageForPlayer, deleteOtherMapImage,
         saveFogData, loadFogData, loadFogDataForPlayer, listenFogDataForPlayer,

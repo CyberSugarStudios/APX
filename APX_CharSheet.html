@@ -4057,20 +4057,41 @@
                 if (!snap.exists) return;
                 let data = snap.data();
                 let gmHp = data._gmHp;
-                if (!gmHp) return;
-                let at = gmHp.at?.toMillis?.() || 0;
-                if (at <= _lastGmHpAt) return; // already applied or stale
-                _lastGmHpAt = at;
-                let hp = gmHp.hp;
-                if (hp !== undefined && hp !== window.state?.currentHp) {
-                    if (window.state) window.state.currentHp = hp;
-                    if (typeof window.recalculateMath === 'function') window.recalculateMath();
-                    // Brief toast so player notices the GM-applied change
-                    let toast = document.createElement('div');
-                    toast.textContent = `HP updated by GM: ${hp}`;
-                    toast.style.cssText = 'position:fixed;bottom:1.5rem;right:1.5rem;z-index:99999;background:#1e3a5f;color:#93c5fd;font-size:0.75rem;font-weight:700;padding:0.5rem 1rem;border-radius:0.5rem;border:1px solid #3b82f6;pointer-events:none;';
-                    document.body.appendChild(toast);
-                    setTimeout(() => toast.remove(), 3500);
+                if (gmHp) {
+                    let at = gmHp.at?.toMillis?.() || 0;
+                    if (at > _lastGmHpAt) {
+                        _lastGmHpAt = at;
+                        let hp = gmHp.hp;
+                        if (hp !== undefined && hp !== window.state?.currentHp) {
+                            if (window.state) window.state.currentHp = hp;
+                            if (typeof window.recalculateMath === 'function') window.recalculateMath();
+                            let toast = document.createElement('div');
+                            toast.textContent = `HP updated by GM: ${hp}`;
+                            toast.style.cssText = 'position:fixed;bottom:1.5rem;right:1.5rem;z-index:99999;background:#1e3a5f;color:#93c5fd;font-size:0.75rem;font-weight:700;padding:0.5rem 1rem;border-radius:0.5rem;border:1px solid #3b82f6;pointer-events:none;';
+                            document.body.appendChild(toast);
+                            setTimeout(() => toast.remove(), 3500);
+                        }
+                    }
+                }
+                // XP grant from end of combat
+                let xpGrant = data._xpGrant;
+                if (xpGrant?.amount && xpGrant.at) {
+                    let xpAt = xpGrant.at?.toMillis?.() || 0;
+                    if (!window._lastXpAt) window._lastXpAt = 0;
+                    if (xpAt > window._lastXpAt) {
+                        window._lastXpAt = xpAt;
+                        let gained = xpGrant.amount;
+                        if (window.state) {
+                            window.state.unspentXp = (window.state.unspentXp || 0) + gained;
+                            if (typeof window.recalculateMath === 'function') window.recalculateMath();
+                            if (typeof window.scheduleSave === 'function') window.scheduleSave();
+                        }
+                        let toast = document.createElement('div');
+                        toast.textContent = `+${gained} XP from combat!`;
+                        toast.style.cssText = 'position:fixed;bottom:4rem;right:1.5rem;z-index:99999;background:#064e3b;color:#6ee7b7;font-size:0.8rem;font-weight:900;padding:0.6rem 1.2rem;border-radius:0.5rem;border:1px solid #10b981;pointer-events:none;';
+                        document.body.appendChild(toast);
+                        setTimeout(() => toast.remove(), 5000);
+                    }
                 }
             }, err => console.warn('Player HP listener:', err.message));
     }
