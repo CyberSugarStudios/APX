@@ -944,47 +944,6 @@
                         ${w.forged ? `<button onclick="window.openWeaponForge(${idx})" class="text-[9px] text-orange-400 hover:text-orange-300 font-bold mt-0.5">Return to Forge</button>` : ''}
                         ${w.category === 'melee' && w.weightClass === 'medium' ? '<div class="text-[9px] text-slate-500 mt-0.5">1-Handed (2H row below)</div>' : ''}
                         ${cat === 'ranged' && opts.editable ? `<label class="flex items-center gap-1 mt-0.5 cursor-pointer"><input type="checkbox" ${w.aimed ? 'checked' : ''} onchange="window.toggleWeaponAim(${idx}, this.checked)" class="w-3 h-3"><span class="text-[9px] ${w.aimed ? 'text-amber-400 font-bold' : 'text-slate-500'}">Aimed (+PER)</span></label>` : ''}
-                        ${cat === 'ranged' && w.weightClass === 'medium' && opts.editable ? `<label class="flex items-center gap-1 mt-0.5 ${window.calcTotalHands() - window.calcHandsUsed(idx) >= 2 || w.twoHanded ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}" data-tip="Requires Medium Ammo. May be wielded one- or two-handed; two-handed doubles the Aim action's PER bonus, but needs a free second hand."><input type="checkbox" ${w.twoHanded ? 'checked' : ''} ${(window.calcTotalHands() - window.calcHandsUsed(idx) >= 2 || w.twoHanded) ? '' : 'disabled'} onchange="window.toggleWeaponTwoHanded(${idx}, this.checked)" class="w-3 h-3"><span class="text-[9px] ${w.twoHanded ? 'text-amber-400 font-bold' : 'text-slate-500'}">2-Handed (2x Aim PER)</span></label>` : ''}
-                    </td>
-                    <td class="px-1 py-2 w-14">
-                        ${cat === 'ranged'
-                            ? (() => {
-                                let ffRank = window.state.perks['luc_fortunatefighter'] || 0;
-                                let isTrained = weaponIsTrained(w);
-                                if (ffRank >= 3 && !isTrained) {
-                                    let opts = [{ val:'AGI', label:'AGI' }, { val:'LUC', label:'LUC' }];
-                                    return `<select onchange="window.updateWeaponAttr(${idx}, this.value)" class="bg-slate-900 border-slate-700 text-[10px] font-bold p-1 h-7 w-20" title="Fortunate Fighter: use LUC instead of AGI for untrained ranged">
-                                        ${opts.map(o=>`<option value="${o.val}" ${w.attr===o.val?'selected':''}>${o.label}</option>`).join('')}
-                                    </select>`;
-                                }
-                                return `<div class="text-[10px] font-bold text-slate-300 p-1 h-7 flex items-center justify-center" title="Ranged attacks use AGI${w.weightClass==='heavy'?' (2× AGI to damage)':''}">AGI</div>`;
-                              })()
-                            : (() => {
-                                let isTrained = weaponIsTrained(w);
-                                if (w.isCustom) {
-                                    return `<select onchange="window.updateWeaponAttr(${idx}, this.value)" class="bg-slate-900 border-slate-700 text-[10px] font-bold p-1 h-7 w-14">
-                                        ${ATTRIBUTES.map(a => `<option value="${a}" ${a===w.attr?'selected':''}>${a}</option>`).join('')}
-                                    </select>`;
-                                }
-                                let ffRank = window.state.perks['luc_fortunatefighter'] || 0;
-                                // Heavy melee: STR only. Light/medium: STR or AGI.
-                                let meleeAttrs = w.weightClass === 'heavy' ? ['STR'] : ['STR', 'AGI'];
-                                if (ffRank >= 3 && !isTrained) meleeAttrs.push('LUC');
-                                if (!meleeAttrs.includes(w.attr)) w.attr = 'STR';
-                                return `<select onchange="window.updateWeaponAttr(${idx}, this.value)" class="bg-slate-900 border-slate-700 text-[10px] font-bold p-1 h-7 w-14">
-                                    ${meleeAttrs.map(a => `<option value="${a}" ${a===w.attr?'selected':''}>${a}</option>`).join('')}
-                                </select>`;
-                            })()}
-                    </td>
-                    <td class="px-1 py-2 text-center"><input type="checkbox" ${weaponIsTrained(w) ? 'checked' : ''} ${w.isUnarmed || w.isAncestry || window.state.trainedWeaponTypes.includes(companionWeaponTypeLabel(w)) ? `disabled title="${(w.isUnarmed || w.isAncestry) ? 'All creatures are inherently trained in their innate weapons' : 'Trained via Weapon Type training'}"` : ''} onchange="window.updateWeaponTr(${idx}, this.checked)" class="w-4 h-4"></td>
-                    <td class="px-1 py-2 text-center">
-                        <div class="font-black text-emerald-400 text-sm bg-slate-900 rounded border border-slate-700 py-0.5">${atk >= 0 ? '+' + atk : atk}</div>
-                        ${disadvHtml}
-                    </td>
-                    <td class="px-1 py-2">
-                        ${w.isCustom
-                            ? `<div class="flex items-center gap-1"><input type="text" value="${w.dmg}" onchange="window.updateWeaponDmg(${idx}, this.value)" placeholder="1d6" class="bg-slate-900 border-slate-700 text-center text-xs font-bold h-7 w-14">${dmgMod !== 0 ? `<span class="text-xs font-bold text-slate-300">${dmgMod > 0 ? '+' : ''}${dmgMod}</span>` : ''}</div>`
-                            : `<div class="text-xs font-bold text-slate-300 text-center p-1 h-7 flex items-center justify-center" data-tip="This weapon's base damage is fixed. Use the + Weapon button to add a custom weapon with an editable damage die.">${dmgText}</div>`}
                     </td>
                     <td class="px-1 py-2"><div class="text-xs font-bold text-blue-400 text-center p-1 h-7 flex items-center justify-center" data-tip="AP cost is fixed by weapon category and weight class, not freely editable.">${opts.ap}</div></td>
                     <td class="px-1 py-2 text-center">
@@ -1014,10 +973,12 @@
                     let twoHLabel = '↳ 2-Handed (STR, +1 AP, +1 die step)' + (reachCount ? `, Reach ${reachCount} sq` : '');
                     html += renderWeaponRow(w, idx, { label: twoHLabel, attr: 'STR', dice: twoHDice, ap: 4, editable: false });
                 }
-                if (isMediumRanged && w.aimed && !w.twoHanded && couldGoTwoHanded) {
-                    w.twoHanded = true;
-                    html += renderWeaponRow(w, idx, { label: '↳ 2-Handed Aim (2x PER bonus)', attr: w.attr, dice: w.dmg, ap: w.ap, editable: false });
-                    w.twoHanded = false;
+                if (isMediumRanged && couldGoTwoHanded) {
+                    if (w.aimed && !w.twoHanded) { w.twoHanded = true; }
+                    if (!w.aimed && w.twoHanded) { w.twoHanded = false; }
+                    if (w.aimed) {
+                        html += renderWeaponRow(w, idx, { label: '↳ Aimed (AGI, 2-Handed, 2x PER bonus)', attr: 'AGI', dice: w.dmg, ap: w.ap, editable: false });
+                    }
                 }
                 // Notes row AFTER all 2H rows so it never covers the 2H preview
                 if (w.isCustom) {
