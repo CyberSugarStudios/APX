@@ -1678,6 +1678,10 @@ document.addEventListener('DOMContentLoaded', () => {
             ${sn.title?`<div style="font-size:0.65rem;font-weight:700;color:#e2e8f0;">${sn.title}</div>`:''}
             ${sn.content?`<div style="font-size:0.6rem;color:#94a3b8;">${_fmtText(sn.content)}</div>`:''}</div>`).join('');
         let portraitBlock = (n.portrait || n.hasPortrait) ? window._npcPortraitHtml(npcId, n, 80) : '';
+        // If portrait is loading async, kick off the load so it fills in
+        if (n.hasPortrait && !n.portrait) {
+            setTimeout(() => window._getNpcPortrait(npcId).then(d => { if(d) _applyNpcPortrait(npcId, d); }), 0);
+        }
         let win = document.createElement('div');
         win.id=winId;
         win.style.cssText=`position:fixed;right:20px;top:100px;width:300px;max-height:70vh;background:#1e293b;border:1px solid #334155;border-radius:0.75rem;z-index:${window.apxFloatingZTop};box-shadow:0 10px 40px rgba(0,0,0,.85);display:flex;flex-direction:column;`;
@@ -1718,10 +1722,11 @@ document.addEventListener('DOMContentLoaded', () => {
         let initTop  = Math.min(tRect.bottom + 8, window.innerHeight - initSz - 60);
 
         // Full image for popup, circular crop stored separately
-        // Start with thumbnail (in-memory or placeholder), load full res from subcollection
-        let src = n.portrait || '';
+        // Show placeholder immediately, load full uncropped image from cache/subcollection
+        let src = n.portrait || '';  // circle thumb as placeholder while loading
         let _loadFullPortrait = (winId) => {
             window._getNpcPortrait(npcId).then(data => {
+                // portraitFull = full uncropped; portrait = circle crop; show the best available
                 let fullSrc = data?.portraitFull || data?.portrait;
                 if (!fullSrc) return;
                 let ia = document.getElementById(winId+'_img');
@@ -1778,39 +1783,59 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // NPC portrait upload with circle-crop preview
     // ── NPC Portrait cache ───────────────────────────────────────
-    // Portraits are stored in a Firestore subcollection, not world notes.
-    // This cache holds in-memory base64 data keyed by npcId so each
-    // portrait is fetched at most once per session.
     window._npcPortraitCache = {};
 
     window._getNpcPortrait = async function(npcId) {
+        // 1. Return from cache if available
         if (window._npcPortraitCache[npcId]) return window._npcPortraitCache[npcId];
-        // Check in-memory _wNotes first (just uploaded this session)
+        // 2. Check in-memory _wNotes (just uploaded this session)
         let npc = (_wNotes.npcs||[]).find(n=>n.id===npcId);
-        if (npc?.portrait) { window._npcPortraitCache[npcId] = { portrait: npc.portrait, portraitFull: npc.portraitFull||npc.portrait }; return window._npcPortraitCache[npcId]; }
-        // Load from subcollection
-        if (!window.apxAuth?.enabled || !_activeWorldId) return null;
-        let data = await window.apxAuth.loadNpcPortrait?.(_activeWorldId, npcId).catch(()=>null);
-        if (data) { window._npcPortraitCache[npcId] = data; }
+        if (npc?.portrait) {
+            let cached = { portrait: npc.portrait, portraitFull: npc.portraitFull || npc.portrait };
+            window._npcPortraitCache[npcId] = cached;
+            return cached;
+        }
+        // 3. Fetch from Firestore subcollection
+        if (!window.apxAuth?.enabled || !_activeWorldId || !window.apxAuth.loadNpcPortrait) return null;
+        let data = await window.apxAuth.loadNpcPortrait(_activeWorldId, npcId).catch(()=>null);
+        if (data) {
+            window._npcPortraitCache[npcId] = data;
+            // Also update in-memory npc object so next render is instant
+            if (npc) { npc.portrait = data.portrait; npc.portraitFull = data.portraitFull; }
+        }
         return data || null;
     };
 
-    // Render an NPC portrait circle element; loads asynchronously and fills in when ready
+    // Update every portrait element for this npcId on the page
+    function _applyNpcPortrait(npcId, data) {
+        let src = data?.portrait;
+        if (!src) return;
+        // All portrait circles (roster, info windows, battle panels)
+        document.querySelectorAll(`[data-npcportrait="${npcId}"]`).forEach(el => {
+            el.innerHTML = `<img src="${src}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;pointer-events:none;">`;
+        });
+    }
+
+    // Returns an HTML string for an NPC portrait circle; kicks off async load if needed
     window._npcPortraitHtml = function(npcId, n, sizePx) {
         let sz = sizePx || 36;
-        let base = `width:${sz}px;height:${sz}px;border-radius:50%;object-fit:cover;border:2px solid #334155;flex-shrink:0;`;
-        let placeholder = `<div id="npcPic_${npcId}" style="${base}background:#0f172a;border:2px dashed #334155;display:flex;align-items:center;justify-content:center;font-size:${Math.round(sz*0.44)}px;cursor:pointer;flex-shrink:0;" onclick="event.stopPropagation();window.uploadNpcPortrait('${npcId}')" title="Upload portrait">👤</div>`;
-        if (!n?.hasPortrait && !n?.portrait) return placeholder;
-        // Return placeholder immediately, swap portrait in when loaded
-        setTimeout(() => {
-            window._getNpcPortrait(npcId).then(data => {
-                let src = data?.portrait || n?.portrait;
-                if (!src) return;
-                let el = document.getElementById('npcPic_'+npcId);
-                if (el) el.outerHTML = `<img id="npcPic_${npcId}" src="${src}" style="${base}cursor:pointer;" onclick="event.stopPropagation();window.openNpcPortraitWin('${npcId}',this)" title="View portrait">`;
-            });
-        }, 0);
-        return placeholder;
+        let style = `width:${sz}px;height:${sz}px;border-radius:50%;overflow:hidden;flex-shrink:0;`;
+        let inner;
+        // If portrait bytes already in memory/cache, show immediately
+        let cached = window._npcPortraitCache[npcId];
+        let src = (cached?.portrait) || (n?.portrait) || null;
+        if (src) {
+            inner = `<img src="${src}" style="width:100%;height:100%;object-fit:cover;">`;
+        } else {
+            inner = `<div onclick="event.stopPropagation();window.uploadNpcPortrait('${npcId}')" title="Upload portrait"
+                style="width:100%;height:100%;background:#0f172a;border:2px dashed #334155;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:${Math.round(sz*0.44)}px;cursor:pointer;">👤</div>`;
+            // Kick off async load if this NPC has a portrait saved
+            if (n?.hasPortrait && !cached) {
+                window._getNpcPortrait(npcId).then(data => { if(data) _applyNpcPortrait(npcId, data); });
+            }
+        }
+        return `<div data-npcportrait="${npcId}" style="${style}border:2px solid #334155;cursor:pointer;"
+            onclick="event.stopPropagation();${src?`window.openNpcPortraitWin('${npcId}',this)`:`window.uploadNpcPortrait('${npcId}')`}">${inner}</div>`;
     };
     // ── End NPC Portrait cache ────────────────────────────────────
 
@@ -1874,38 +1899,34 @@ document.addEventListener('DOMContentLoaded', () => {
     window._npcCropConfirm=function(npcId,W,H,R){
         let img=window._npcCropImg,cs=window._npcCropState; if(!img||!cs) return;
 
-        // Circular crop → n.portrait (tiny thumbnail for roster/info circles)
-        // Keep this small (96×96) so it stays in world notes safely
-        let THUMB=96,c=document.createElement('canvas');c.width=THUMB;c.height=THUMB;
-        let ctx=c.getContext('2d');ctx.beginPath();ctx.arc(THUMB/2,THUMB/2,THUMB/2,0,Math.PI*2);ctx.clip();
-        let sc=cs.scale*(THUMB/W),ox=cs.x*(THUMB/W),oy=cs.y*(THUMB/H);
-        ctx.drawImage(img,ox,oy,img.naturalWidth*sc,img.naturalHeight*sc);
-        let thumbData=c.toDataURL('image/jpeg',0.72);
+        // Circle crop for roster/tokens/info circles — 400×400 at high quality
+        let CIR=400, cc=document.createElement('canvas'); cc.width=CIR; cc.height=CIR;
+        let cctx=cc.getContext('2d');
+        cctx.beginPath(); cctx.arc(CIR/2,CIR/2,CIR/2,0,Math.PI*2); cctx.clip();
+        let sc=cs.scale*(CIR/W), ox=cs.x*(CIR/W), oy=cs.y*(CIR/H);
+        cctx.drawImage(img,ox,oy,img.naturalWidth*sc,img.naturalHeight*sc);
+        let circleData = cc.toDataURL('image/jpeg',0.90);
 
-        // Full-quality versions saved to a SEPARATE Firestore path (not in world notes)
-        // to avoid pushing the world document over Firestore's 1MB limit.
-        let OUT=256,c2=document.createElement('canvas');c2.width=OUT;c2.height=OUT;
-        let ctx2=c2.getContext('2d');ctx2.beginPath();ctx2.arc(OUT/2,OUT/2,OUT/2,0,Math.PI*2);ctx2.clip();
-        let sc2=cs.scale*(OUT/W),ox2=cs.x*(OUT/W),oy2=cs.y*(OUT/H);
-        ctx2.drawImage(img,ox2,oy2,img.naturalWidth*sc2,img.naturalHeight*sc2);
-        let circleData=c2.toDataURL('image/jpeg',0.82);
-
+        // Full uncropped image for the portrait popup viewer — 800×800 max at high quality
+        let ms=800, fsc=Math.min(ms/img.naturalWidth,ms/img.naturalHeight,1);
         let fc=document.createElement('canvas');
-        let ms=400,fsc=Math.min(ms/img.naturalWidth,ms/img.naturalHeight,1);
-        fc.width=Math.round(img.naturalWidth*fsc);fc.height=Math.round(img.naturalHeight*fsc);
+        fc.width=Math.round(img.naturalWidth*fsc); fc.height=Math.round(img.naturalHeight*fsc);
         fc.getContext('2d').drawImage(img,0,0,fc.width,fc.height);
-        let fullData=fc.toDataURL('image/jpeg',0.80);
+        let fullData = fc.toDataURL('image/jpeg',0.90);
 
         let npc=(_wNotes.npcs||[]).find(n=>n.id===npcId); if(!npc) return;
-        // Keep portrait in memory for this session (fast display, no round-trip)
-        // but DO NOT write bytes to the world notes doc — it would exceed Firestore's 1MB limit.
-        npc.portrait     = thumbData;    // in-memory only; stripped on save
-        npc.portraitFull = circleData;   // in-memory only
-        delete npc.portraitFull; // intentionally keep only the circle thumb in memory
-        npc.portrait     = thumbData;
-        npc.hasPortrait  = true;  // persisted flag — tells GM/players to load from subcollection
 
-        // Save full-res portraits to separate Firestore document
+        // Populate cache immediately so portrait shows without waiting for Firestore round-trip
+        window._npcPortraitCache = window._npcPortraitCache || {};
+        window._npcPortraitCache[npcId] = { portrait: circleData, portraitFull: fullData };
+
+        // Keep in-memory for this session; serialization strips these before writing to Firestore
+        npc.portrait     = circleData;
+        npc.portraitFull = fullData;
+        npc.hasPortrait  = true;  // persisted — tells GM/players to load from subcollection
+
+        // Save full-quality portraits to separate Firestore path (keeps world doc under 1MB)
+        // Path: users/{uid}/worlds/{worldId}/npcPortraits/{npcId}
         if (window.apxAuth?.enabled && _activeWorldId && window.apxAuth.saveNpcPortrait) {
             window.apxAuth.saveNpcPortrait(_activeWorldId, npcId, circleData, fullData)
                 .catch(e => console.warn('NPC portrait save:', e.message));
@@ -1914,7 +1935,7 @@ document.addEventListener('DOMContentLoaded', () => {
         saveWorldNotes(); window.renderNpcList();
         document.getElementById('npcCropOverlay')?.remove();
 
-        // Refresh portrait window if open — load from subcollection for full quality
+        // Refresh any open windows for this NPC
         let pw=document.getElementById('npcPortrait_'+npcId);
         if(pw){let ia=document.getElementById('npcPortrait_'+npcId+'_img');if(ia)ia.innerHTML=`<img src="${fullData}" style="width:100%;height:100%;object-fit:cover;">`;}
         window._refreshNpcInfoWin(npcId);
