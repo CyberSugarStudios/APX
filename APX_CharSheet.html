@@ -3762,6 +3762,7 @@
             let portrait = t.type==='player'
                 ? (isMe ? (window.state?.charPortrait || '') : (partyMap[t.playerUid||''] || ''))
                 : '';  // NPC portraits not sent to players
+            let icon = (t.name||'?')[0].toUpperCase();
             let innerHtml = portrait
                 ? `<img src="${portrait}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;pointer-events:none;">`
                 : `<span style="font-size:${Math.round(diam*0.42)}px;font-weight:900;color:#fff;pointer-events:none;">${icon}</span>`;
@@ -3843,8 +3844,7 @@
         let px = Math.round((g.offsetX % g.cellSize) + (gridX + 0.5) * g.cellSize);
         let py = Math.round((g.offsetY % g.cellSize) + (gridY + 0.5) * g.cellSize);
         if (px < 0 || px >= canvas.width || py < 0 || py >= canvas.height) return true; // out of bounds
-        let ctx = canvas.getContext('2d');
-        return ctx.getImageData(px, py, 1, 1).data[3] > 50;
+        let ctx = canvas.getContext('2d', { willReadFrequently: true });
     }
     // Finds the nearest grid cell not under fog using a ring-by-ring spiral search.
     function _pwNearestOpenCell(winId, gx, gy, g, maxR) {
