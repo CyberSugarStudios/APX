@@ -1515,7 +1515,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }),
                 npcs: (_wNotes.npcs||[])
                     .filter(n => n.revealed)
-                    .map(n => ({ ...n, notes: (n.notes||[]).filter(sn => sn.revealed), portrait: n.portrait||null })),
+                    .map(n => { let {portrait, portraitFull, ...nRest} = n; return {...nRest, notes:(n.notes||[]).filter(sn=>sn.revealed)}; }),
                 notes: (_wNotes.notes||[]).filter(n => n.revealed),
             };
 
@@ -1524,7 +1524,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     notesV2: {
                         session:       w.notesV2.session       || [],
                         locations:     w.notesV2.locations     || [],
-                        npcs:          w.notesV2.npcs          || [],
+                        npcs:          (w.notesV2.npcs||[]).map(n => { let {portrait, portraitFull, ...r} = n; return r; }),
                         notes:         w.notesV2.notes         || [],
                         otherMaps:     (w.notesV2.otherMaps||[]).map(m=>({
                             id:m.id, name:m.name, revealed:!!m.revealed,
@@ -1661,9 +1661,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ? `<span class="flex gap-1"><button onclick="event.stopPropagation();window._viewWorldNpcSb('${n.id}','${n.statBlockId}')" class="text-[9px] bg-indigo-900/50 border border-indigo-700/50 text-indigo-300 px-1.5 py-0.5 rounded font-bold hover:bg-indigo-900">View Stat Block</button><button onclick="event.stopPropagation();window.openGmNpcBuilder('${n.statBlockId}')" class="text-[9px] bg-slate-800 border border-slate-700 text-slate-400 px-1.5 py-0.5 rounded font-bold hover:border-slate-500">Edit</button></span>`
                     : `<button onclick="event.stopPropagation();window.openNpcStatBlockPicker('${n.id}')" class="text-[9px] bg-slate-800 border border-slate-600 text-slate-400 px-1.5 py-0.5 rounded font-bold hover:border-slate-400">Link Stat Block</button>`;
                 let notesCount = (n.notes||[]).length;
-                let portraitHtml = n.portrait
-                    ? `<img src="${n.portrait}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid #334155;flex-shrink:0;cursor:pointer;" onclick="event.stopPropagation();window.openNpcPortraitWin('${n.id}',this)" title="View portrait">`
-                    : `<div style="width:36px;height:36px;border-radius:50%;background:#0f172a;border:2px dashed #334155;display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;flex-shrink:0;" onclick="event.stopPropagation();window.uploadNpcPortrait('${n.id}')" title="Upload portrait">👤</div>`;
+                let portraitHtml = window._npcPortraitHtml(n.id, n, 36);
                 return `<div class="bg-slate-900 border border-slate-700 rounded p-3 cursor-pointer hover:border-slate-500" onclick="window.openNpcInfoWin('${n.id}')"><div class="flex items-start gap-2">${portraitHtml}<div class="flex-1 min-w-0"><div class="flex items-start justify-between gap-2"><div class="min-w-0"><div class="text-xs font-bold text-slate-200 truncate">${n.name||'Unnamed NPC'}</div>${n.role?`<div class="text-[10px] text-slate-500 mt-0.5">${n.role}</div>`:''}</div><div class="flex items-center gap-2 shrink-0" onclick="event.stopPropagation()">${revealBadge('npc', n.id, !!n.revealed)}${statBadge}</div></div>${n.description?`<div class="text-[10px] text-slate-400 mt-1.5 line-clamp-2">${n.description}</div>`:''}${notesCount?`<div class="text-[9px] text-slate-500 mt-1">${notesCount} sub-note${notesCount>1?'s':''}</div>`:''}</div></div></div>`;
               }).join('')
             : '<div class="text-center py-8 text-slate-600 text-sm">No NPCs yet</div>';
@@ -1679,9 +1677,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let snHtml = (n.notes||[]).map(sn=>`<div style="background:#0f172a;border:1px solid #1e293b;border-radius:0.3rem;padding:0.35rem;margin-top:0.2rem;">
             ${sn.title?`<div style="font-size:0.65rem;font-weight:700;color:#e2e8f0;">${sn.title}</div>`:''}
             ${sn.content?`<div style="font-size:0.6rem;color:#94a3b8;">${_fmtText(sn.content)}</div>`:''}</div>`).join('');
-        let portraitBlock = n.portrait
-            ? `<img src="${n.portrait}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid #334155;cursor:pointer;flex-shrink:0;" onclick="window.openNpcPortraitWin('${npcId}',this)" title="View portrait">`
-            : '';
+        let portraitBlock = (n.portrait || n.hasPortrait) ? window._npcPortraitHtml(npcId, n, 80) : '';
         let win = document.createElement('div');
         win.id=winId;
         win.style.cssText=`position:fixed;right:20px;top:100px;width:300px;max-height:70vh;background:#1e293b;border:1px solid #334155;border-radius:0.75rem;z-index:${window.apxFloatingZTop};box-shadow:0 10px 40px rgba(0,0,0,.85);display:flex;flex-direction:column;`;
@@ -1722,20 +1718,15 @@ document.addEventListener('DOMContentLoaded', () => {
         let initTop  = Math.min(tRect.bottom + 8, window.innerHeight - initSz - 60);
 
         // Full image for popup, circular crop stored separately
-        // Load from subcollection if available, start with thumbnail inline
+        // Start with thumbnail (in-memory or placeholder), load full res from subcollection
         let src = n.portrait || '';
-        // Async: load full-res from subcollection after window opens
         let _loadFullPortrait = (winId) => {
-            if (window.apxAuth?.enabled && _activeWorldId && n.hasPortrait && window.apxAuth.loadNpcPortrait) {
-                window.apxAuth.loadNpcPortrait(_activeWorldId, npcId)
-                    .then(data => {
-                        let fullSrc = data?.portraitFull || data?.portrait;
-                        if (fullSrc) {
-                            let ia = document.getElementById(winId+'_img');
-                            if (ia) ia.innerHTML = `<img src="${fullSrc}" style="width:100%;height:100%;object-fit:cover;">`;
-                        }
-                    }).catch(()=>{});
-            }
+            window._getNpcPortrait(npcId).then(data => {
+                let fullSrc = data?.portraitFull || data?.portrait;
+                if (!fullSrc) return;
+                let ia = document.getElementById(winId+'_img');
+                if (ia) ia.innerHTML = `<img src="${fullSrc}" style="width:100%;height:100%;object-fit:cover;">`;
+            });
         };
 
         let win = document.createElement('div');
@@ -1786,6 +1777,43 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // NPC portrait upload with circle-crop preview
+    // ── NPC Portrait cache ───────────────────────────────────────
+    // Portraits are stored in a Firestore subcollection, not world notes.
+    // This cache holds in-memory base64 data keyed by npcId so each
+    // portrait is fetched at most once per session.
+    window._npcPortraitCache = {};
+
+    window._getNpcPortrait = async function(npcId) {
+        if (window._npcPortraitCache[npcId]) return window._npcPortraitCache[npcId];
+        // Check in-memory _wNotes first (just uploaded this session)
+        let npc = (_wNotes.npcs||[]).find(n=>n.id===npcId);
+        if (npc?.portrait) { window._npcPortraitCache[npcId] = { portrait: npc.portrait, portraitFull: npc.portraitFull||npc.portrait }; return window._npcPortraitCache[npcId]; }
+        // Load from subcollection
+        if (!window.apxAuth?.enabled || !_activeWorldId) return null;
+        let data = await window.apxAuth.loadNpcPortrait?.(_activeWorldId, npcId).catch(()=>null);
+        if (data) { window._npcPortraitCache[npcId] = data; }
+        return data || null;
+    };
+
+    // Render an NPC portrait circle element; loads asynchronously and fills in when ready
+    window._npcPortraitHtml = function(npcId, n, sizePx) {
+        let sz = sizePx || 36;
+        let base = `width:${sz}px;height:${sz}px;border-radius:50%;object-fit:cover;border:2px solid #334155;flex-shrink:0;`;
+        let placeholder = `<div id="npcPic_${npcId}" style="${base}background:#0f172a;border:2px dashed #334155;display:flex;align-items:center;justify-content:center;font-size:${Math.round(sz*0.44)}px;cursor:pointer;flex-shrink:0;" onclick="event.stopPropagation();window.uploadNpcPortrait('${npcId}')" title="Upload portrait">👤</div>`;
+        if (!n?.hasPortrait && !n?.portrait) return placeholder;
+        // Return placeholder immediately, swap portrait in when loaded
+        setTimeout(() => {
+            window._getNpcPortrait(npcId).then(data => {
+                let src = data?.portrait || n?.portrait;
+                if (!src) return;
+                let el = document.getElementById('npcPic_'+npcId);
+                if (el) el.outerHTML = `<img id="npcPic_${npcId}" src="${src}" style="${base}cursor:pointer;" onclick="event.stopPropagation();window.openNpcPortraitWin('${npcId}',this)" title="View portrait">`;
+            });
+        }, 0);
+        return placeholder;
+    };
+    // ── End NPC Portrait cache ────────────────────────────────────
+
     window.uploadNpcPortrait = function(npcId) {
         let inp = document.createElement('input'); inp.type='file'; inp.accept='image/*';
         inp.onchange = e => {
@@ -1869,12 +1897,13 @@ document.addEventListener('DOMContentLoaded', () => {
         let fullData=fc.toDataURL('image/jpeg',0.80);
 
         let npc=(_wNotes.npcs||[]).find(n=>n.id===npcId); if(!npc) return;
-        // Store only the thumbnail inline in world notes
-        npc.portrait = thumbData;
-        // Clear any old inline full image (don't store it in world notes)
-        delete npc.portraitFull;
-        // Mark that this NPC has an external portrait saved
-        npc.hasPortrait = true;
+        // Keep portrait in memory for this session (fast display, no round-trip)
+        // but DO NOT write bytes to the world notes doc — it would exceed Firestore's 1MB limit.
+        npc.portrait     = thumbData;    // in-memory only; stripped on save
+        npc.portraitFull = circleData;   // in-memory only
+        delete npc.portraitFull; // intentionally keep only the circle thumb in memory
+        npc.portrait     = thumbData;
+        npc.hasPortrait  = true;  // persisted flag — tells GM/players to load from subcollection
 
         // Save full-res portraits to separate Firestore document
         if (window.apxAuth?.enabled && _activeWorldId && window.apxAuth.saveNpcPortrait) {
@@ -3095,9 +3124,16 @@ document.addEventListener('DOMContentLoaded', () => {
             let bg = t.color||defColor;
             let worldNpc = t.worldNpcId?(_wNotes.npcs||[]).find(n=>n.id===t.worldNpcId):null;
             let portrait = null;
-            if (t.type==='npc' && worldNpc?.portrait) {
-                portrait = worldNpc.portrait;
-            } else if (t.type==='player' && t.playerUid) {
+            if (t.type === 'npc' && worldNpc) {
+                // Use in-memory portrait if available, otherwise the cache will fill in asynchronously
+                portrait = worldNpc.portrait || window._npcPortraitCache[t.worldNpcId]?.portrait || null;
+                if (!portrait && (worldNpc.hasPortrait || worldNpc.portrait) && window._npcPortraitCache[t.worldNpcId] === undefined) {
+                    window._getNpcPortrait(t.worldNpcId).then(data => {
+                        if (data?.portrait) { window._npcPortraitCache[t.worldNpcId] = data; _btRenderTokens(mapId, winId); }
+                    });
+                    window._npcPortraitCache[t.worldNpcId] = null; // mark as loading
+                }
+            } else if (t.type === 'player' && t.playerUid) {
                 let pm=(window.gmParty||[]).find(p=>p.fileName===t.playerUid||p.summary?.playerUid===t.playerUid);
                 portrait = pm?.summary?.charPortrait || pm?.state?.charPortrait || null;
             }
