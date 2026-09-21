@@ -945,6 +945,37 @@
                         ${w.category === 'melee' && w.weightClass === 'medium' ? '<div class="text-[9px] text-slate-500 mt-0.5">1-Handed (2H row below)</div>' : ''}
                         ${cat === 'ranged' && opts.editable ? `<label class="flex items-center gap-1 mt-0.5 cursor-pointer"><input type="checkbox" ${w.aimed ? 'checked' : ''} onchange="window.toggleWeaponAim(${idx}, this.checked)" class="w-3 h-3"><span class="text-[9px] ${w.aimed ? 'text-amber-400 font-bold' : 'text-slate-500'}">Aimed (+PER)</span></label>` : ''}
                     </td>
+                    <td class="px-1 py-2 w-14">
+                        ${cat === 'ranged'
+                            ? (() => {
+                                let ffRank = window.state.perks['luc_fortunatefighter'] || 0;
+                                let isTrained = weaponIsTrained(w);
+                                let isHeavyR = w.weightClass === 'heavy';
+                                if (ffRank >= 3 && !isTrained) {
+                                    let suffix = isHeavyR ? '+STR' : '';
+                                    let atkOpts = [{ val:'AGI', label:`AGI${suffix}` }, { val:'LUC', label:`LUC${suffix}` }];
+                                    return `<select onchange="window.updateWeaponAttr(${idx}, this.value)" class="bg-slate-900 border-slate-700 text-[10px] font-bold p-1 h-7 w-20" title="Fortunate Fighter: use LUC instead of AGI for untrained ranged attacks">${atkOpts.map(o=>`<option value="${o.val}" ${w.attr===o.val?'selected':''}>${o.label}</option>`).join('')}</select>`;
+                                }
+                                return `<div class="text-[10px] font-bold text-slate-300 p-1 h-7 flex items-center justify-center" title="Ranged attack and damage rolls always use AGI${isHeavyR?'; Heavy ranged also adds STR to damage':''}">AGI${isHeavyR?'+STR':''}</div>`;
+                              })()
+                            : (() => {
+                                let isTrained = weaponIsTrained(w);
+                                if (w.isCustom) {
+                                    return `<select onchange="window.updateWeaponAttr(${idx}, this.value)" class="bg-slate-900 border-slate-700 text-[10px] font-bold p-1 h-7 w-14">${ATTRIBUTES.map(a=>`<option value="${a}" ${a===w.attr?'selected':''}>${a}</option>`).join('')}</select>`;
+                                }
+                                let ffRank = window.state.perks['luc_fortunatefighter'] || 0;
+                                let meleeAttrs = ['STR','AGI'];
+                                if (ffRank >= 3 && !isTrained) meleeAttrs.push('LUC');
+                                if (!meleeAttrs.includes(w.attr)) { w.attr = 'STR'; }
+                                return `<select onchange="window.updateWeaponAttr(${idx}, this.value)" class="bg-slate-900 border-slate-700 text-[10px] font-bold p-1 h-7 w-14">${meleeAttrs.map(a=>`<option value="${a}" ${a===w.attr?'selected':''}>${a}</option>`).join('')}</select>`;
+                              })()}
+                    </td>
+                    <td class="px-1 py-2 text-center"><input type="checkbox" ${weaponIsTrained(w) ? 'checked' : ''} ${w.isUnarmed || w.isAncestry || window.state.trainedWeaponTypes.includes(companionWeaponTypeLabel(w)) ? `disabled title="${(w.isUnarmed || w.isAncestry) ? 'All creatures are inherently trained in their innate weapons' : 'Trained via Weapon Type training'}"` : ''} onchange="window.updateWeaponTr(${idx}, this.checked)" class="w-4 h-4"></td>
+                    <td class="px-1 py-2 text-center">
+                        <div class="font-black text-emerald-400 text-sm bg-slate-900 rounded border border-slate-700 py-0.5">${atk >= 0 ? '+' + atk : atk}</div>
+                        ${disadvHtml}
+                    </td>
+                    <td class="px-1 py-2 text-center text-[11px] text-slate-300 font-bold">${dmgText}</td>
                     <td class="px-1 py-2"><div class="text-xs font-bold text-blue-400 text-center p-1 h-7 flex items-center justify-center" data-tip="AP cost is fixed by weapon category and weight class, not freely editable.">${opts.ap}</div></td>
                     <td class="px-1 py-2 text-center">
                         ${!w.isUnarmed && !w.isAncestry ? `<button onclick="window.unequipWeapon(${idx})" class="text-[9px] text-cyan-400 hover:text-cyan-300 font-bold mr-1" title="Move to inventory">Unequip</button>` : ''}
