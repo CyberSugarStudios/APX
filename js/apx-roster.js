@@ -81,7 +81,7 @@
                 
                 let btn = document.getElementById('btnSaveRoster');
                 let oldText = btn.innerText;
-                btn.innerText = "✓ Saved!";
+                btn.innerText = "[ok] Saved!";
                 setTimeout(() => btn.innerText = oldText, 2000);
             } catch (err) {
                 console.error("Save to roster failed", err);

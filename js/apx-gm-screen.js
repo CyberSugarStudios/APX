@@ -778,6 +778,22 @@ window.toggleSurprised = function(id, checked) {
     window.renderInitiativeTracker();
 };
 
+window.adjustBleedOutTurns = function(id, delta) {
+    let entry = window.gmInitiative.find(e => e.id === id);
+    if (!entry || entry.bleedOutTurns === null || entry.bleedOutTurns === undefined) return;
+    entry.bleedOutTurns = Math.max(0, entry.bleedOutTurns + delta);
+    if (entry.bleedOutTurns === 0) {
+        let idx = window.gmInitiative.indexOf(entry);
+        let name = entry.name;
+        window.gmInitiative.splice(idx, 1);
+        if (window.gmCurrentTurnIdx >= window.gmInitiative.length) window.gmCurrentTurnIdx = Math.max(0, window.gmInitiative.length - 1);
+        window.showConfirm(`${name} has bled out and died.`, null, true);
+    }
+    window.renderInitiativeTracker();
+    if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
+    if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
+};
+
 window.openBleedOutModal = function(id) {
     let entry = window.gmInitiative.find(e => e.id === id);
     if (!entry) return;
@@ -1031,7 +1047,12 @@ window.renderInitiativeTracker = function() {
                     <input type="checkbox" ${e.surprised ? 'checked' : ''} onchange="window.toggleSurprised('${e.id}', this.checked)"> Surprised (-10)
                 </label>
                 ${e.bleedOutTurns !== null && e.bleedOutTurns !== undefined ? `
-                    <div class="text-[9px] text-red-400 font-bold">Bleeding Out: ${e.bleedOutTurns} turn${e.bleedOutTurns === 1 ? '' : 's'}
+                    <div class="text-[9px] text-red-400 font-bold flex items-center gap-1">
+                        Bleeding Out:
+                        <button onclick="window.adjustBleedOutTurns('${e.id}', -2)" class="px-1 bg-red-900 hover:bg-red-800 rounded text-white font-black leading-none" title="Crit hit: -2 turns">-2</button>
+                        <button onclick="window.adjustBleedOutTurns('${e.id}', -1)" class="px-1 bg-red-900 hover:bg-red-800 rounded text-white font-black leading-none" title="Hit: -1 turn">-1</button>
+                        <span class="text-red-300 font-black mx-0.5">${e.bleedOutTurns}</span>
+                        <button onclick="window.adjustBleedOutTurns('${e.id}', +1)" class="px-1 bg-slate-700 hover:bg-slate-600 rounded text-white font-black leading-none" title="+1 turn">+1</button>
                         <button onclick="window.stabilizeEntry('${e.id}')" class="ml-1 underline hover:text-red-300">Stabilize</button>
                     </div>
                 ` : ''}

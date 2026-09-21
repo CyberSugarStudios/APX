@@ -371,12 +371,12 @@
 
 
     <div class="hamburger-cluster">
-        <button class="hamburger-btn" onclick="window.toggleSidebar()">☰ Roster</button>
+        <button class="hamburger-btn" onclick="window.toggleSidebar()">= Roster</button>
         <button id="playerWorldBtn" class="hamburger-btn hidden" onclick="window.openModal('playerWorldModal')" style="font-size:0.875rem;">World</button>
     </div>    <div class="undo-redo-cluster">
         <button id="btnUndo" onclick="window.performUndo()" title="Undo (Ctrl+Z)" disabled>↶ Undo</button>
         <button id="btnRedo" onclick="window.performRedo()" title="Redo (Ctrl+Y)" disabled>↷ Redo</button>
-        <button onclick="window.openModal('settingsModal')" title="Settings">⚙</button>
+        <button onclick="window.openModal('settingsModal')" title="Settings">Settings</button>
     </div>
     <div id="sidebarOverlay" onclick="window.toggleSidebar()"></div>
     <div id="sidebar">
@@ -420,7 +420,7 @@
                 <div class="flex items-center gap-2">
                     <div id="charPortraitWrap" style="flex-shrink:0;width:52px;height:52px;border-radius:50%;overflow:hidden;border:2px solid var(--c-border,#334155);background:var(--c-surface2,#0f172a);cursor:pointer;display:flex;align-items:center;justify-content:center;" onclick="window.openCharPortraitWindow()" title="Character portrait">
                         <img id="charPortraitImg" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none;">
-                        <span id="charPortraitIcon" style="font-size:24px;opacity:0.4;">👤</span>
+                        <span id="charPortraitIcon" style="font-size:24px;opacity:0.4;"></span>
                     </div>
                     <input type="file" id="charPortraitInput" accept="image/*" style="display:none" onchange="window.uploadCharPortrait(this)">
                     <input type="text" id="charName" onchange="window.updateState('name', this.value)" placeholder="Hero Name" class="font-black text-lg text-white bg-slate-900 border-slate-600" style="flex:1;">
@@ -589,7 +589,7 @@
                 </div>
                 <div class="flex gap-2 mt-2">
                     <button onclick="window.openArmorForge()" class="flex-1 bg-orange-600/20 text-orange-400 hover:bg-orange-600/40 text-[10px] px-3 py-1.5 rounded border border-orange-700/50 transition font-black tracking-wider">
-                        🔨 OPEN ARMOR FORGE
+                         OPEN ARMOR FORGE
                     </button>
                     <button id="removeArmorBtn" onclick="window.removeEquippedArmor()" class="bg-red-600/20 text-red-400 hover:bg-red-600/40 text-[10px] px-3 py-1.5 rounded border border-red-700/50 transition font-black tracking-wider hidden">
                         Remove
@@ -651,7 +651,7 @@
                         <h2 class="section-title border-none mb-0 pb-0 text-orange-400">Weapons & Attacks</h2>
                         <div class="flex gap-2">
                             <button onclick="window.openWeaponForge()" class="bg-orange-600/20 text-orange-400 hover:bg-orange-600/40 text-xs px-3 py-1 rounded border border-orange-700/50 transition font-bold shadow">
-                                🔨 Forge Weapon
+                                 Forge Weapon
                             </button>
                             <button onclick="window.addWeapon()" class="bg-slate-700/50 text-slate-300 hover:bg-slate-700 text-xs px-3 py-1 rounded border border-slate-600 transition font-bold shadow">
                                 + Add Weapon
@@ -716,7 +716,7 @@
                     </div>
                     <div class="flex gap-2">
                         <button onclick="window.openPowerCrafter(false)" class="bg-purple-600/20 text-purple-400 hover:bg-purple-600/40 text-xs px-3 py-1 rounded border border-purple-700/50 transition font-bold">
-                            🔮 Power Crafter
+                             Power Crafter
                         </button>
                         <button onclick="window.openModal('powerModal')" class="bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/40 text-xs px-3 py-1 rounded border border-indigo-700/50 transition font-bold">
                             + Add Power
@@ -836,7 +836,7 @@
                                 <div><div class="text-xs font-bold text-slate-200">Wealthy / Funded</div><div class="text-[9px] text-slate-500">+600 Currency</div></div>
                             </label>
                         </div>
-                        <p class="text-[9px] text-slate-500 mb-3">⚠ Cannot be changed after saving origin. Currency is added immediately.</p>
+                        <p class="text-[9px] text-slate-500 mb-3">! Cannot be changed after saving origin. Currency is added immediately.</p>
 
                         <label class="block text-xs font-bold text-slate-300 mb-1">Origin Feature</label>
                         <p class="text-[9px] text-slate-500 mb-1">Describe your unique social access, specialized knowledge, or shelter.</p>
@@ -1091,8 +1091,8 @@
                 <div class="text-[10px] text-slate-500">Chapter 8: Adventuring Gear</div>
             </div>
             <div class="grid grid-cols-2 gap-2 mb-3">
-                <button onclick="window.closeModal('gearPickerModal'); window.openModal('itemModal');" class="px-3 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold transition">✏️ Add Custom Item</button>
-                <button onclick="window.closeModal('gearPickerModal'); window.openConsumableCrafter();" class="px-3 py-2 rounded bg-purple-600/20 border border-purple-700/50 text-purple-300 hover:bg-purple-600/40 text-xs font-bold transition">🧪 Add Consumable Item</button>
+                <button onclick="window.closeModal('gearPickerModal'); window.openModal('itemModal');" class="px-3 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold transition">Edit️ Add Custom Item</button>
+                <button onclick="window.closeModal('gearPickerModal'); window.openConsumableCrafter();" class="px-3 py-2 rounded bg-purple-600/20 border border-purple-700/50 text-purple-300 hover:bg-purple-600/40 text-xs font-bold transition"> Add Consumable Item</button>
             </div>
             <div id="gearPickerList" class="max-h-[50vh] overflow-y-auto pr-1 space-y-3"><!-- JS injected --></div>
             <div class="flex justify-end mt-3">
@@ -2090,7 +2090,7 @@
         <div class="modal-content" style="max-width:480px;width:95vw;">
             <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
                 <h3 id="charNoteModalTitle" class="text-sm font-bold" style="color:var(--c-indigo-lt,#a5b4fc);">Add Note</h3>
-                <button onclick="window.closeModal('charNoteModal')" class="text-slate-400 hover:text-white text-lg leading-none">✕</button>
+                <button onclick="window.closeModal('charNoteModal')" class="text-slate-400 hover:text-white text-lg leading-none">X</button>
             </div>
             <div class="space-y-3">
                 <div class="grid grid-cols-2 gap-3">
@@ -2140,7 +2140,7 @@
                     style="background:var(--c-surface2,#1e293b);border:1px solid var(--c-border,#334155);color:var(--c-text,#e2e8f0);border-radius:0.375rem;padding:0.4rem;"
                     onkeydown="if(event.key==='Enter')window.pwDoJoinAnother()">
                 <button onclick="window.pwDoJoinAnother()" class="px-3 py-1.5 rounded text-xs font-bold text-white" style="background:var(--c-indigo,#4f46e5);">Join</button>
-                <button onclick="window.pwHideJoinAnother()" class="px-2 py-1.5 rounded text-xs text-slate-400 bg-slate-800">✕</button>
+                <button onclick="window.pwHideJoinAnother()" class="px-2 py-1.5 rounded text-xs text-slate-400 bg-slate-800">X</button>
             </div>
             <div id="pwJoinAnotherError" class="hidden text-xs mb-2 flex-shrink-0" style="color:var(--c-red,#ef4444);min-height:1rem;"></div>
             <div class="flex gap-2 mb-3 flex-shrink-0">
@@ -2282,7 +2282,7 @@
         (window._sidebarFolders||[]).filter(f=>f.worldCode).forEach(f => {
             let chars = worldFolderGroups[f.id] || [];
             html += `<div class="flex items-center gap-1 px-1 pt-1 pb-0.5">
-                <span class="text-[9px] text-amber-400 uppercase font-black tracking-wider flex-1 truncate">🌍 ${f.worldName||f.name}</span>
+                <span class="text-[9px] text-amber-400 uppercase font-black tracking-wider flex-1 truncate"> ${f.worldName||f.name}</span>
                 <button onclick="window.deleteFolderConfirm('${f.id}')" class="text-[9px] text-slate-600 hover:text-red-500 px-0.5" title="Leave world">×</button>
             </div>`;
             if (chars.length) chars.forEach(c => html += charRow(c));
@@ -2294,7 +2294,7 @@
             let chars = folderGroups[f.id] || [];
             html += `<div class="flex items-center gap-1 px-1 pt-1 pb-0.5">
                 <span class="text-[9px] text-indigo-400 uppercase font-black tracking-wider flex-1 truncate">${f.name}</span>
-                <button onclick="window.renameFolder('${f.id}','${f.name.replace(/'/g,"\\'")}') " class="text-[9px] text-slate-600 hover:text-indigo-400 px-0.5" title="Rename folder">✏</button>
+                <button onclick="window.renameFolder('${f.id}','${f.name.replace(/'/g,"\\'")}') " class="text-[9px] text-slate-600 hover:text-indigo-400 px-0.5" title="Rename folder">Edit</button>
                 <button onclick="window.deleteFolderConfirm('${f.id}')" class="text-[9px] text-slate-600 hover:text-red-500 px-0.5" title="Delete folder">×</button>
             </div>`;
             if (chars.length) chars.forEach(c => html += charRow(c));
@@ -2416,7 +2416,7 @@
             // For world folders check occupancy (another char already in it)
             let occupant = isWorld ? (window._sidebarChars||[]).find(c => c.folderId===f.id && c.id!==charId) : null;
             let disabled  = occupant ? 'disabled' : '';
-            let badge     = isWorld  ? `<span class="text-[8px] font-black text-amber-400 bg-amber-900/30 border border-amber-700/40 rounded px-1 ml-1">🌍 World</span>` : '';
+            let badge     = isWorld  ? `<span class="text-[8px] font-black text-amber-400 bg-amber-900/30 border border-amber-700/40 rounded px-1 ml-1"> World</span>` : '';
             let sub       = occupant ? `<div class="text-[9px] text-red-400 font-normal mt-0.5">Occupied — ${occupant.name||'Unnamed'} is already here</div>` : '';
             let cls       = occupant
                 ? 'w-full text-left px-3 py-2 rounded bg-slate-950 border border-red-900/40 text-xs font-bold text-slate-500 cursor-not-allowed'
@@ -2909,11 +2909,11 @@
             <button onclick="document.getElementById('charPortraitInput').click()"
                 style="font-size:0.65rem;font-weight:700;padding:0.2rem 0.5rem;background:${em};border:none;color:#fff;border-radius:0.25rem;cursor:pointer;">Upload</button>
             <button onclick="document.getElementById('charPortraitFloatWin').remove()"
-                style="background:none;border:none;color:${txt};opacity:0.5;font-size:1rem;cursor:pointer;line-height:1;">✕</button>
+                style="background:none;border:none;color:${txt};opacity:0.5;font-size:1rem;cursor:pointer;line-height:1;">X</button>
         </div>
         <div id="charPortraitFloatImg" style="width:${initW}px;height:${initW}px;background:${bg2};
             display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">
-            ${src ? `<img src="${src}" style="width:100%;height:100%;object-fit:cover;">` : `<span style="font-size:80px;opacity:0.15;">👤</span>`}
+            ${src ? `<img src="${src}" style="width:100%;height:100%;object-fit:cover;">` : `<span style="font-size:80px;opacity:0.15;"></span>`}
         </div>
         <div id="cpfResizeHandle" style="position:absolute;bottom:0;right:0;width:18px;height:18px;cursor:se-resize;
             display:flex;align-items:flex-end;justify-content:flex-end;padding:3px;opacity:0.5;">
@@ -2995,11 +2995,11 @@
             </div>
             <!-- Zoom slider -->
             <div style="padding:0.5rem 0.75rem;background:${bg2};border-top:1px solid ${bdr};display:flex;align-items:center;gap:0.5rem;">
-                <span style="font-size:0.65rem;color:${txt};opacity:0.7;">🔍</span>
+                <span style="font-size:0.65rem;color:${txt};opacity:0.7;"></span>
                 <input type="range" id="cpfZoom" min="0.1" max="5" step="0.05" value="1"
                     style="flex:1;accent-color:${em};"
                     oninput="window._cpfZoom(+this.value)">
-                <span style="font-size:0.65rem;color:${txt};opacity:0.7;">🔎</span>
+                <span style="font-size:0.65rem;color:${txt};opacity:0.7;"></span>
                 <button onclick="window._cpfCancelCrop()" style="padding:0.3rem 0.65rem;background:none;border:1px solid ${bdr};color:${txt};border-radius:0.25rem;font-size:0.7rem;cursor:pointer;font-weight:700;">Cancel</button>
                 <button onclick="window._cpfConfirmCrop(${CROP_W},${CROP_H},${RADIUS})" style="padding:0.3rem 0.75rem;background:${em};border:none;color:#fff;border-radius:0.25rem;font-size:0.7rem;font-weight:700;cursor:pointer;">Save Portrait</button>
             </div>
@@ -3085,7 +3085,7 @@
             let imgArea = document.getElementById('charPortraitFloatImg');
             if (imgArea) imgArea.innerHTML = fullSrc
                 ? `<img src="${fullSrc}" style="width:100%;height:100%;object-fit:cover;">`
-                : `<span style="font-size:80px;opacity:0.15;">👤</span>`;
+                : `<span style="font-size:80px;opacity:0.15;"></span>`;
         }
         let src = window.state?.charPortrait || '';
         let img  = document.getElementById('charPortraitImg');
@@ -3306,7 +3306,7 @@
             let clickAct = hasMap
                 ? "window.openPlayerOtherMapWindow('" + l.linkedOtherMapId + "')"
                 : "window.pwZoomToPin('" + l.id + "')";
-            let mapIcon = hasMap ? '<span style="font-size:9px;">🗺</span>' : '';
+            let mapIcon = hasMap ? '<span style="font-size:9px;">[Map]</span>' : '';
             return '<div style="position:absolute;left:' + (l.pinX*imgW) + 'px;top:' + (l.pinY*imgH) + 'px;transform:translate(-50%,-100%) scale(' + pinScale + ');transform-origin:50% 100%;pointer-events:auto;cursor:pointer;will-change:transform;" onclick="' + clickAct + '">'
                 + '<div style="background:' + col + ';color:' + textColor + ';font-size:11px;font-weight:700;padding:2px 6px;border-radius:3px;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.6);min-width:12px;min-height:14px;display:flex;align-items:center;gap:2px;">' + (l.name||'?') + mapIcon + '</div>'
                 + '<div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid ' + col + ';margin:0 auto;"></div></div>';
@@ -3551,7 +3551,7 @@
                 display:flex;align-items:center;gap:0.5rem;flex-shrink:0;">
                 <span style="font-size:0.75rem;font-weight:700;color:#e2e8f0;flex:1;">${map.name}</span>
                 <button onclick="let _w=document.getElementById('${winId}'); if(_w?._fogUnsub) _w._fogUnsub(); _w?.remove()"
-                    style="background:none;border:none;color:#94a3b8;font-size:1.1rem;cursor:pointer;line-height:1;">✕</button>
+                    style="background:none;border:none;color:#94a3b8;font-size:1.1rem;cursor:pointer;line-height:1;">X</button>
             </div>
             <div id="${winId}_area" style="flex:1;position:relative;overflow:hidden;cursor:grab;">
                 <div style="position:absolute;top:0.5rem;left:0.5rem;z-index:10;display:flex;gap:0.25rem;">
@@ -3683,7 +3683,7 @@
                 let lm = (world?.notesV2?.otherMaps||[]).find(m=>m.id===mid);
                 return lm ? `<button onclick="window.openPlayerOtherMapWindow('${lm.id}')"
                     style="width:100%;text-align:left;background:#0f172a;border:1px solid #2563eb;color:#93c5fd;
-                    font-size:0.7rem;font-weight:700;padding:0.35rem 0.5rem;border-radius:0.25rem;cursor:pointer;margin-bottom:0.2rem;">🗺 ${lm.name}</button>` : '';
+                    font-size:0.7rem;font-weight:700;padding:0.35rem 0.5rem;border-radius:0.25rem;cursor:pointer;margin-bottom:0.2rem;">[Map] ${lm.name}</button>` : '';
             }).join('');
         let snHtml = (tok.subnotes||[]).map(sn=>`<div style="background:#0f172a;border:1px solid #1e293b;border-radius:0.3rem;padding:0.35rem;margin-top:0.2rem;">
             ${sn.title?`<div style="font-size:0.65rem;font-weight:700;color:#e2e8f0;">${sn.title}</div>`:''}
@@ -3694,7 +3694,7 @@
             <div style="width:20px;height:20px;background:#dc2626;border:2px solid #fff;border-radius:50%;
                 display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;color:#fff;">${tok.letter}</div>
             <span style="font-size:0.75rem;font-weight:700;color:#e2e8f0;flex:1;">${tok.name||'Area '+tok.letter}</span>
-            <button onclick="document.getElementById('${winId}').remove()" style="background:none;border:none;color:#94a3b8;font-size:1rem;cursor:pointer;">✕</button>
+            <button onclick="document.getElementById('${winId}').remove()" style="background:none;border:none;color:#94a3b8;font-size:1rem;cursor:pointer;">X</button>
         </div>
         <div style="padding:0.65rem;overflow-y:auto;flex:1;">
             ${tok.description?`<div style="font-size:0.7rem;color:#cbd5e1;margin-bottom:0.4rem;">${_fmtText(tok.description)}</div>`:''}
@@ -3997,7 +3997,7 @@
         let fc = document.getElementById(canvasId); if (!fc) return;
         if (refImg) { fc.width = refImg.naturalWidth; fc.height = refImg.naturalHeight; }
         let fimg = new Image();
-        fimg.onload = () => { let ctx=fc.getContext('2d'); ctx.clearRect(0,0,fc.width,fc.height); ctx.drawImage(fimg,0,0,fc.width,fc.height); };
+        fimg.onload = () => { let ctx=fc.getContext('2d',{willReadFrequently:true}); ctx.clearRect(0,0,fc.width,fc.height); ctx.drawImage(fimg,0,0,fc.width,fc.height); };
         fimg.src = base64png;
     }
 

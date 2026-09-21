@@ -371,7 +371,7 @@
                 <p class="text-xs text-slate-500">GM Screen -- party overview and initiative tracker.</p>
             </div>
             <div class="flex gap-2">
-                <button onclick="window.openModal('settingsModal')" title="Settings" class="px-3 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold shadow">⚙</button>
+                <button onclick="window.openModal('settingsModal')" title="Settings" class="px-3 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold shadow">Settings</button>
                 <button onclick="window.openLoadPartyModal()" class="px-3 py-2 rounded bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold shadow">Load Party</button>
                 <button onclick="window.openGmRaceRosterModal()" class="px-3 py-2 rounded bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-bold shadow">Race Templates</button>
                 <button onclick="window.openGmNpcRosterModal()" class="px-3 py-2 rounded bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold shadow">NPCs &amp; Enemies</button>
@@ -1153,7 +1153,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <button onclick="window.mapZoom(1.25)" class="px-2 py-1.5 rounded bg-slate-700 text-white text-xs font-bold">+</button>
                         <button onclick="window.mapZoom(0.8)" class="px-2 py-1.5 rounded bg-slate-700 text-white text-xs font-bold">&#8722;</button>
                         <button onclick="window.mapResetView()" class="px-2 py-1.5 rounded bg-slate-700 text-slate-400 text-xs">Reset</button>
-                        <button id="fogToggleBtn" onclick="window.toggleFogMode('worldmap')" class="px-2 py-1.5 rounded bg-slate-700 text-slate-400 text-xs font-bold">🌫 Fog</button>
+                        <button id="fogToggleBtn" onclick="window.toggleFogMode('worldmap')" class="px-2 py-1.5 rounded bg-slate-700 text-slate-400 text-xs font-bold">Fog Fog</button>
                         <div id="fogControls" style="display:none;align-items:center;gap:0.4rem;">
                             <span class="text-[10px] text-slate-400">Size:</span>
                             <input type="range" id="fogBrushSlider" min="5" max="150" value="40" step="5"
@@ -1418,7 +1418,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         let toolbar = document.getElementById('gmToolbarWorldName');
         if (toolbar) {
-            if (w?.name) { toolbar.textContent = '🌍 ' + w.name; toolbar.classList.remove('hidden'); }
+            if (w?.name) { toolbar.textContent = ' ' + w.name; toolbar.classList.remove('hidden'); }
             else toolbar.classList.add('hidden');
         }
         if (w) {
@@ -1551,7 +1551,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             .filter(m=>m.revealed)
                             .map(m=>{
                                 // Embed initiative sync data so players can colour tokens correctly in real time
-                                let curEntry = (window.gmInitiative||[])[(window._gmInitCurrentTurn??0)];
+                                let curEntry = (window.gmInitiative||[])[(window.gmCurrentTurnIdx??0)];
                                 let btTokens = (m.battleTokens||[]).map(t=>{
                                     let entry = t.initiativeId ? (window.gmInitiative||[]).find(e=>e.id===t.initiativeId) : null;
                                     let isBO = !!(entry && entry.currentHp !== null && entry.currentHp <= 0 && entry.faction==='player' && (entry.bleedOutTurns||0) > 0);
@@ -1729,7 +1729,7 @@ document.addEventListener('DOMContentLoaded', () => {
         win.innerHTML=`<div id="${winId}_hdr" style="cursor:grab;user-select:none;background:#312e81;padding:0.6rem 0.75rem;border-radius:0.75rem 0.75rem 0 0;display:flex;align-items:center;gap:0.5rem;flex-shrink:0;">
             <span style="font-size:0.8rem;font-weight:700;color:#e2e8f0;flex:1;">${n.name||'NPC'}</span>
             <button onclick="window.openNoteModal('npc','${npcId}')" style="font-size:0.65rem;font-weight:700;padding:0.2rem 0.5rem;background:#4f46e5;border:1px solid #6366f1;color:#e0e7ff;border-radius:0.25rem;cursor:pointer;">Edit</button>
-            <button onclick="document.getElementById('${winId}').remove()" style="background:none;border:none;color:#94a3b8;font-size:1rem;cursor:pointer;line-height:1;">✕</button>
+            <button onclick="document.getElementById('${winId}').remove()" style="background:none;border:none;color:#94a3b8;font-size:1rem;cursor:pointer;line-height:1;">X</button>
         </div>
         <div style="padding:0.75rem;overflow-y:auto;flex:1;">
             ${portraitBlock ? `<div style="display:flex;gap:0.75rem;margin-bottom:0.5rem;">${portraitBlock}<div style="flex:1;min-width:0;">${n.role?`<div style="font-size:0.7rem;color:#818cf8;margin-bottom:0.2rem;">${n.role}</div>`:''}${n.description?`<div style="font-size:0.7rem;color:#cbd5e1;">${_fmtText(n.description)}</div>`:''}</div></div>` : `${n.role?`<div style="font-size:0.7rem;color:#818cf8;margin-bottom:0.25rem;">${n.role}</div>`:''}${n.description?`<div style="font-size:0.7rem;color:#cbd5e1;white-space:pre-wrap;margin-bottom:0.4rem;">${n.description}</div>`:''}`}
@@ -1788,11 +1788,11 @@ document.addEventListener('DOMContentLoaded', () => {
             <button onclick="window.uploadNpcPortrait('${npcId}')"
                 style="font-size:0.65rem;font-weight:700;padding:0.2rem 0.5rem;background:#059669;border:none;color:#fff;border-radius:0.25rem;cursor:pointer;">Upload</button>
             <button onclick="document.getElementById('${winId}').remove()"
-                style="background:none;border:none;color:#94a3b8;opacity:0.5;font-size:1rem;cursor:pointer;line-height:1;">✕</button>
+                style="background:none;border:none;color:#94a3b8;opacity:0.5;font-size:1rem;cursor:pointer;line-height:1;">X</button>
         </div>
         <div id="${winId}_img" style="width:${initSz}px;height:${initSz}px;background:#0f172a;
             display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">
-            ${src ? `<img src="${src}" style="width:100%;height:100%;object-fit:cover;">` : `<span style="font-size:64px;opacity:0.15;">👤</span>`}
+            ${src ? `<img src="${src}" style="width:100%;height:100%;object-fit:cover;">` : `<span style="font-size:64px;opacity:0.15;"></span>`}
         </div>
         <div id="${winId}_resize" style="position:absolute;bottom:0;right:0;width:18px;height:18px;
             cursor:se-resize;display:flex;align-items:flex-end;justify-content:flex-end;padding:3px;opacity:0.5;">
@@ -1869,7 +1869,7 @@ document.addEventListener('DOMContentLoaded', () => {
             inner = `<img src="${src}" style="width:100%;height:100%;object-fit:cover;">`;
         } else {
             inner = `<div onclick="event.stopPropagation();window.uploadNpcPortrait('${npcId}')" title="Upload portrait"
-                style="width:100%;height:100%;background:#0f172a;border:2px dashed #334155;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:${Math.round(sz*0.44)}px;cursor:pointer;">👤</div>`;
+                style="width:100%;height:100%;background:#0f172a;border:2px dashed #334155;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:${Math.round(sz*0.44)}px;cursor:pointer;"></div>`;
             // Kick off async load if this NPC has a portrait saved
             if (n?.hasPortrait && !cached) {
                 window._getNpcPortrait(npcId).then(data => { if(data) _applyNpcPortrait(npcId, data); });
@@ -1911,10 +1911,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 </svg>
             </div>
             <div style="padding:0.5rem 0.75rem;background:#0f172a;border-top:1px solid #334155;display:flex;align-items:center;gap:0.5rem;">
-                <span style="font-size:0.65rem;color:#94a3b8;">🔍</span>
+                <span style="font-size:0.65rem;color:#94a3b8;"></span>
                 <input type="range" id="npcCropZoom" min="0.1" max="5" step="0.05" value="1" style="flex:1;accent-color:#059669;"
                     oninput="window._npcCropZoom(+this.value)">
-                <span style="font-size:0.65rem;color:#94a3b8;">🔎</span>
+                <span style="font-size:0.65rem;color:#94a3b8;"></span>
                 <button onclick="document.getElementById('npcCropOverlay').remove()" style="padding:0.3rem 0.65rem;background:none;border:1px solid #334155;color:#e2e8f0;border-radius:0.25rem;font-size:0.7rem;cursor:pointer;font-weight:700;">Cancel</button>
                 <button onclick="window._npcCropConfirm('${npcId}',${CROP_W},${CROP_H},${RADIUS})" style="padding:0.3rem 0.75rem;background:#059669;border:none;color:#fff;border-radius:0.25rem;font-size:0.7rem;font-weight:700;cursor:pointer;">Save</button>
             </div>
@@ -2060,7 +2060,7 @@ document.addEventListener('DOMContentLoaded', () => {
             onclick="window._clickSubnoteRow('${sn._parentType}','${sn._parentId}')">
             <div class="flex items-start justify-between gap-2">
                 <div class="min-w-0">
-                    <div class="text-[9px] text-slate-500 mb-0.5">${sn._parentType==='location'?'📍':sn._parentType==='area'?'🔴':'👤'} <span class="text-slate-400">${sn._parentName}</span></div>
+                    <div class="text-[9px] text-slate-500 mb-0.5">${sn._parentType==='location'?'[loc]':sn._parentType==='area'?'[area]':''} <span class="text-slate-400">${sn._parentName}</span></div>
                     <div class="text-xs font-bold text-slate-200 truncate">${sn.title||'Untitled Note'}</div>
                 </div>
                 <div onclick="event.stopPropagation()">
@@ -2120,7 +2120,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <div class="flex items-center gap-2 shrink-0">
                         <span class="text-[9px] ${sn.revealed?'text-emerald-400':'text-slate-600'}">${sn.revealed?'Revealed':'Hidden'}</span>
-                        <button onclick="event.stopPropagation();window._snDel('${sn.id}')" class="text-[9px] text-red-500 hover:text-red-400">✕</button>
+                        <button onclick="event.stopPropagation();window._snDel('${sn.id}')" class="text-[9px] text-red-500 hover:text-red-400">X</button>
                     </div>
                   </div>`
               ).join('')
@@ -2183,10 +2183,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${(()=>{
                     let ids = n.linkedOtherMapIds||[];
                     if (!ids.length && n.linkedOtherMapId) ids=[n.linkedOtherMapId];
-                    return ids.map(mid=>{let m=(_wNotes.otherMaps||[]).find(x=>x.id===mid);return m?`<div class="flex items-center gap-1"><button onclick="window.openOtherMapWindow('${m.id}')" class="flex-1 text-left text-[9px] font-bold px-2 py-0.5 rounded" style="background:#0f172a;border:1px solid #2563eb;color:#93c5fd;">🗺 ${m.name}</button><button onclick="window._unlinkLocMap('${m.id}')" style="background:none;border:none;color:#64748b;cursor:pointer;">✕</button></div>`:'';}).join('');
+                    return ids.map(mid=>{let m=(_wNotes.otherMaps||[]).find(x=>x.id===mid);return m?`<div class="flex items-center gap-1"><button onclick="window.openOtherMapWindow('${m.id}')" class="flex-1 text-left text-[9px] font-bold px-2 py-0.5 rounded" style="background:#0f172a;border:1px solid #2563eb;color:#93c5fd;">[Map] ${m.name}</button><button onclick="window._unlinkLocMap('${m.id}')" style="background:none;border:none;color:#64748b;cursor:pointer;">X</button></div>`:'';}).join('');
                 })()}
             </div>
-            <button onclick="window.openLocMapPicker()" class="w-full text-[10px] font-bold px-2 py-1 rounded" style="background:#1e3a5f;border:1px solid #2563eb;color:#93c5fd;">🗺 Link Maps…</button>
+            <button onclick="window.openLocMapPicker()" class="w-full text-[10px] font-bold px-2 py-1 rounded" style="background:#1e3a5f;border:1px solid #2563eb;color:#93c5fd;">[Map] Link Maps…</button>
             </div>
             ${subNotesSection()}`,
         note: (n={}) => `
@@ -2311,7 +2311,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window._buildLocMapDisplay = function() {
         return (window._locLinkedMapIds||[]).map(mid=>{
             let m=(_wNotes.otherMaps||[]).find(x=>x.id===mid);
-            return m?`<div class="flex items-center gap-1"><button onclick="window.openOtherMapWindow('${m.id}')" class="flex-1 text-left text-[9px] font-bold px-2 py-0.5 rounded" style="background:#0f172a;border:1px solid #2563eb;color:#93c5fd;">🗺 ${m.name}</button><button onclick="window._unlinkLocMap('${m.id}')" style="background:none;border:none;color:#64748b;cursor:pointer;">✕</button></div>`:'';
+            return m?`<div class="flex items-center gap-1"><button onclick="window.openOtherMapWindow('${m.id}')" class="flex-1 text-left text-[9px] font-bold px-2 py-0.5 rounded" style="background:#0f172a;border:1px solid #2563eb;color:#93c5fd;">[Map] ${m.name}</button><button onclick="window._unlinkLocMap('${m.id}')" style="background:none;border:none;color:#64748b;cursor:pointer;">X</button></div>`:'';
         }).join('');
     };
 
@@ -2327,7 +2327,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let linkedMapBtns = linkedMapIds.map(mid => {
             let lm = (_wNotes.otherMaps||[]).find(m=>m.id===mid);
             return lm ? `<button onclick="window.openOtherMapWindow('${lm.id}')"
-                style="display:block;width:100%;text-align:left;background:#0f172a;border:1px solid #2563eb;color:#93c5fd;font-size:0.7rem;font-weight:700;padding:0.4rem 0.6rem;border-radius:0.375rem;cursor:pointer;margin-bottom:0.3rem;">🗺 Open Linked Map: ${lm.name}</button>` : '';
+                style="display:block;width:100%;text-align:left;background:#0f172a;border:1px solid #2563eb;color:#93c5fd;font-size:0.7rem;font-weight:700;padding:0.4rem 0.6rem;border-radius:0.375rem;cursor:pointer;margin-bottom:0.3rem;">[Map] Open Linked Map: ${lm.name}</button>` : '';
         }).join('');
         let snHtml = (loc.notes||[]).map(sn=>`<div style="background:#0f172a;border:1px solid #1e293b;border-radius:0.3rem;padding:0.4rem;margin-top:0.25rem;">
             ${sn.title?`<div style="font-size:0.7rem;font-weight:700;color:#e2e8f0;">${sn.title}</div>`:''}
@@ -2347,7 +2347,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <button onclick="window.openNoteModal('location','${loc.id}')"
                     style="font-size:0.65rem;font-weight:700;padding:0.2rem 0.5rem;background:#1d4ed8;border:1px solid #2563eb;color:#bfdbfe;border-radius:0.25rem;cursor:pointer;">Edit</button>
                 <button onclick="document.getElementById('${winId}').remove()"
-                    style="background:none;border:none;color:#94a3b8;font-size:1rem;cursor:pointer;line-height:1;padding-left:0.25rem;">✕</button>
+                    style="background:none;border:none;color:#94a3b8;font-size:1rem;cursor:pointer;line-height:1;padding-left:0.25rem;">X</button>
             </div>
             <div style="padding:0.75rem;overflow-y:auto;flex:1;">
                 ${loc.description?`<div style="font-size:0.7rem;color:#cbd5e1;margin-bottom:0.5rem;">${_fmtText(loc.description)}</div>`:''}
@@ -2526,9 +2526,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 <button onclick="window.omZoom('${winId}',0.8)"  style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;">−</button>
                 <button onclick="window.omReset('${winId}')"     style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;">Reset</button>
                 <!-- Fog controls live in the header so they never accidentally paint -->
-                <button id="${winId}_fogBtn" onclick="window.toggleFogMode('${mapId}')" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;">🌫 Fog</button>
-                <button id="${winId}_specialBtn" onclick="window.toggleSpecialMarkerMode('${mapId}','${winId}')" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;" title="Place a special marker (secret door, trap, etc.)">✦ Special</button>
-                <button id="${winId}_battleToggle" onclick="window.toggleBattleMap('${mapId}','${winId}')" style="background:${map.battleMapEnabled?'#065f46':'#1e293b'};border:1px solid ${map.battleMapEnabled?'#10b981':'#334155'};color:${map.battleMapEnabled?'#6ee7b7':'#94a3b8'};font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;" title="Toggle Battle Map (grid + tokens)">⚔ Battle</button>
+                <button id="${winId}_fogBtn" onclick="window.toggleFogMode('${mapId}')" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;">Fog Fog</button>
+                <button id="${winId}_specialBtn" onclick="window.toggleSpecialMarkerMode('${mapId}','${winId}')" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;" title="Place a special marker (secret door, trap, etc.)">* Special</button>
+                <button id="${winId}_battleToggle" onclick="window.toggleBattleMap('${mapId}','${winId}')" style="background:${map.battleMapEnabled?'#065f46':'#1e293b'};border:1px solid ${map.battleMapEnabled?'#10b981':'#334155'};color:${map.battleMapEnabled?'#6ee7b7':'#94a3b8'};font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;" title="Toggle Battle Map (grid + tokens)">[Battle] Battle</button>
                 <!-- Battle Map grid controls (shown by default when battle mode active) -->
                 <div id="${winId}_battleControls" style="display:${map.battleMapEnabled?'flex':'none'};align-items:center;gap:0.3rem;flex-wrap:nowrap;">
                     <span style="font-size:0.6rem;color:#6ee7b7;white-space:nowrap;">Cell:</span>
@@ -2540,7 +2540,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span style="font-size:0.6rem;color:#6ee7b7;">Y:</span>
                     <input type="number" id="${winId}_gridOY" value="${(map.battleGrid||{}).offsetY||0}" min="0" max="400" step="0.5" style="width:36px;background:#0f172a;border:1px solid #334155;color:#e2e8f0;font-size:0.6rem;border-radius:0.2rem;padding:0.1rem 0.2rem;text-align:center;" oninput="window._btUpdateGrid('${mapId}','${winId}')">
                     <button onclick="window.openBattleTokenPanel('${mapId}','${winId}')" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#065f46;border:1px solid #10b981;color:#6ee7b7;border-radius:0.2rem;cursor:pointer;white-space:nowrap;">+ Token</button>
-                    <button onclick="window._btAddAllToInitiative('${mapId}')" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#1e3a5f;border:1px solid #3b82f6;color:#93c5fd;border-radius:0.2rem;cursor:pointer;white-space:nowrap;" title="Add all revealed tokens to initiative">⚔ All → Init</button>
+                    <button onclick="window._btAddAllToInitiative('${mapId}')" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#1e3a5f;border:1px solid #3b82f6;color:#93c5fd;border-radius:0.2rem;cursor:pointer;white-space:nowrap;" title="Add all revealed tokens to initiative">All to Init</button>
                 </div>
                 <div id="${winId}_fogControls" style="display:none;align-items:center;gap:0.25rem;">
                     <span style="font-size:0.6rem;color:#94a3b8;">Size:</span>
@@ -2553,7 +2553,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <button onclick="document.getElementById('${winId}_fileInput').click()"
                     style="background:#1d4ed8;border:none;color:#fff;font-size:0.65rem;font-weight:700;padding:0.15rem 0.5rem;border-radius:0.2rem;cursor:pointer;">Upload Image</button>
                 <button onclick="document.getElementById('${winId}').remove()"
-                    style="background:none;border:none;color:#94a3b8;font-size:1.1rem;font-weight:700;cursor:pointer;line-height:1;padding:0 0.15rem;">✕</button>
+                    style="background:none;border:none;color:#94a3b8;font-size:1.1rem;font-weight:700;cursor:pointer;line-height:1;padding:0 0.15rem;">X</button>
             </div>
             <input type="file" id="${winId}_fileInput" accept="image/*" style="display:none"
                 onchange="window._omHandleUpload('${mapId}','${winId}',this)">
@@ -2848,7 +2848,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Battle map button — only show if a battle map window is open
             let btMapId = (_wNotes.otherMaps||[]).find(m=>m.battleMapEnabled && document.getElementById('omWin_'+m.id))?.id;
             let btBtn = btMapId
-                ? `<button onclick="event.stopPropagation();window._btAddToken('${btMapId}','omWin_${btMapId}','${(wn.name||'NPC').replace(/'/g,'')}','npc','#d97706','${nid}',null)" style="font-size:0.6rem;padding:0.1rem 0.3rem;background:#065f46;border:1px solid #10b981;color:#6ee7b7;border-radius:0.2rem;cursor:pointer;">+⚔</button>`
+                ? `<button onclick="event.stopPropagation();window._btAddToken('${btMapId}','omWin_${btMapId}','${(wn.name||'NPC').replace(/'/g,'')}','npc','#d97706','${nid}',null)" style="font-size:0.6rem;padding:0.1rem 0.3rem;background:#065f46;border:1px solid #10b981;color:#6ee7b7;border-radius:0.2rem;cursor:pointer;">+[Battle]</button>`
                 : '';
             return `<div style="display:flex;align-items:center;gap:0.3rem;margin-bottom:0.15rem;">
                 <button onclick="window.openTokenNpcInfo('${mapId}','${tokenId}','${nid}','${winId}')"
@@ -2874,8 +2874,8 @@ document.addEventListener('DOMContentLoaded', () => {
             let m = (_wNotes.otherMaps||[]).find(x=>x.id===mid); if(!m) return '';
             return `<div style="display:flex;align-items:center;gap:0.25rem;margin-bottom:0.15rem;">
                 <button onclick="window.openOtherMapWindow('${m.id}')"
-                    style="flex:1;text-align:left;background:#0f172a;border:1px solid #2563eb;color:#93c5fd;font-size:0.65rem;font-weight:700;padding:0.25rem 0.4rem;border-radius:0.25rem;cursor:pointer;">🗺 ${m.name}</button>
-                ${!readOnly?`<button onclick="window._unlinkTokenMap('${mapId}','${tokenId}','${mid}','${winId}')" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:0.9rem;">✕</button>`:''}
+                    style="flex:1;text-align:left;background:#0f172a;border:1px solid #2563eb;color:#93c5fd;font-size:0.65rem;font-weight:700;padding:0.25rem 0.4rem;border-radius:0.25rem;cursor:pointer;">[Map] ${m.name}</button>
+                ${!readOnly?`<button onclick="window._unlinkTokenMap('${mapId}','${tokenId}','${mid}','${winId}')" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:0.9rem;">X</button>`:''}
             </div>`;
         }).join('');
     }
@@ -2892,7 +2892,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <label style="display:flex;align-items:center;gap:0.2rem;font-size:0.6rem;color:#94a3b8;white-space:nowrap;">
                         <input type="checkbox" ${sn.revealed?'checked':''} onchange="window._updateTokenSubnote('${winId}',${idx},'revealed',this.checked)"> Show
                     </label>
-                    <button onclick="window._deleteTokenSubnote('${winId}',${idx},'${mapId}','${tokenId}')" style="background:none;border:none;color:#64748b;cursor:pointer;">✕</button>
+                    <button onclick="window._deleteTokenSubnote('${winId}',${idx},'${mapId}','${tokenId}')" style="background:none;border:none;color:#64748b;cursor:pointer;">X</button>
                 </div>
                 <textarea rows="2" placeholder="Content…" onchange="window._updateTokenSubnote('${winId}',${idx},'content',this.value)"
                     style="width:100%;background:#1e293b;border:1px solid #334155;color:#e2e8f0;font-size:0.65rem;border-radius:0.2rem;padding:0.2rem 0.35rem;resize:vertical;box-sizing:border-box;">${sn.content||''}</textarea>`
@@ -3175,18 +3175,21 @@ document.addEventListener('DOMContentLoaded', () => {
         let g   = map.battleGrid||{cellSize:50,offsetX:0,offsetY:0};
         let iw  = img.naturalWidth, ih = img.naturalHeight;
         layer.style.width = iw+'px'; layer.style.height = ih+'px';
-        let curInitId = window.gmInitiative?.[window._gmInitCurrentTurn??0]?.id || null;
+        let curInitId = window.gmInitiative?.[window.gmCurrentTurnIdx??0]?.id || null;
         let win = document.getElementById(winId);
         (map.battleTokens||[]).forEach(t=>{
             let sm  = BT_SIZES[t.size||'medium']||1;
             let {px,py} = _btTokenCenter(t.gridX,t.gridY,sm,g);
             let diam = Math.max(12, g.cellSize*(sm<=1?sm*0.85:sm*0.9));
-            // Only highlight gold if BOTH IDs are truthy — undefined===undefined was wrongly making all tokens active
+            // Gold highlight only when BOTH IDs are truthy — gmCurrentTurnIdx not _gmInitCurrentTurn
             let isActive = !!(t.initiativeId && curInitId && t.initiativeId === curInitId);
             let linkedEntry = t.initiativeId ? (window.gmInitiative||[]).find(e=>e.id===t.initiativeId) : null;
-            let isBleedingOut = linkedEntry && linkedEntry.currentHp !== null && linkedEntry.currentHp <= 0
-                && linkedEntry.faction === 'player' && linkedEntry.bleedOutTurns > 0;
-            let isDead = linkedEntry && linkedEntry.currentHp !== null && linkedEntry.currentHp <= 0 && !isBleedingOut;
+            let entryHp   = linkedEntry ? linkedEntry.currentHp : null;
+            let isAtZeroHp = entryHp !== null && entryHp !== undefined && entryHp <= 0;
+            // Bleeding out: PLAYER faction, HP <= 0, bleedOutTurns set > 0
+            let isBleedingOut = !!(isAtZeroHp && linkedEntry?.faction === 'player' && (linkedEntry.bleedOutTurns||0) > 0);
+            // Dead: HP <= 0 AND not bleeding out (covers enemies at 0 HP, and players when bleedOutTurns hits 0)
+            let isDead = !!(isAtZeroHp && !isBleedingOut);
             let isHidden = t.revealed === false;
             let faction = linkedEntry?.faction || (t.type === 'player' ? 'player' : 'enemy');
             let factionBorder = {player:'#3b82f6', ally:'#22c55e', neutral:'#e2e8f0', enemy:'#ef4444'}[faction] || '#e2e8f0';
@@ -3311,21 +3314,21 @@ document.addEventListener('DOMContentLoaded', () => {
         let npcIdx = tok.worldNpcId ? (window.gmNpcs||[]).findIndex(g=>g.id===(_wNotes.npcs||[]).find(n=>n.id===tok.worldNpcId)?.statBlockId) : -1;
         let initRows = npcIdx >= 0 ? `
             <div style="padding:0.2rem 0.6rem;font-size:0.6rem;color:#64748b;border-bottom:1px solid #1e293b;">Add to Initiative as…</div>
-            <button onclick="window.addToInitiative(${npcIdx},'npc','enemy',undefined);document.getElementById('btContextMenu').remove()" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid #1e293b;color:#fca5a5;font-size:0.65rem;padding:0.3rem 0.6rem;cursor:pointer;">⚔ Enemy</button>
+            <button onclick="window.addToInitiative(${npcIdx},'npc','enemy',undefined);document.getElementById('btContextMenu').remove()" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid #1e293b;color:#fca5a5;font-size:0.65rem;padding:0.3rem 0.6rem;cursor:pointer;">Enemy</button>
             <button onclick="window.addToInitiative(${npcIdx},'npc','neutral',undefined);document.getElementById('btContextMenu').remove()" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid #1e293b;color:#fde68a;font-size:0.65rem;padding:0.3rem 0.6rem;cursor:pointer;">◈ Neutral</button>
-            <button onclick="window.addToInitiative(${npcIdx},'npc','ally',undefined);document.getElementById('btContextMenu').remove()" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid #1e293b;color:#6ee7b7;font-size:0.65rem;padding:0.3rem 0.6rem;cursor:pointer;">🤝 Ally</button>` : '';
+            <button onclick="window.addToInitiative(${npcIdx},'npc','ally',undefined);document.getElementById('btContextMenu').remove()" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid #1e293b;color:#6ee7b7;font-size:0.65rem;padding:0.3rem 0.6rem;cursor:pointer;">Ally</button>` : '';
         // Link to initiative entry
-        let initEntries = (window.gmInitiative||[]).map(ei=>`<button onclick="window.linkBattleTokenToInit('${mapId}','${tokenId}','${ei.id}');document.getElementById('btContextMenu').remove()" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid #1e293b;color:${tok.initiativeId===ei.id?'#fbbf24':'#e2e8f0'};font-size:0.6rem;padding:0.25rem 0.6rem;cursor:pointer;">${tok.initiativeId===ei.id?'✓ ':''} ${ei.name}</button>`).join('');
+        let initEntries = (window.gmInitiative||[]).map(ei=>`<button onclick="window.linkBattleTokenToInit('${mapId}','${tokenId}','${ei.id}');document.getElementById('btContextMenu').remove()" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid #1e293b;color:${tok.initiativeId===ei.id?'#fbbf24':'#e2e8f0'};font-size:0.6rem;padding:0.25rem 0.6rem;cursor:pointer;">${tok.initiativeId===ei.id?'* ':''} ${ei.name}</button>`).join('');
         menu.innerHTML = `<div style="background:#1e3a5f;padding:0.3rem 0.6rem;font-size:0.65rem;font-weight:700;color:#93c5fd;">
             ${tok.name} <span style="font-size:0.55rem;color:#64748b;">(${tok.size||'medium'})</span>
         </div>
-        <button onclick="window._btToggleReveal('${mapId}','${winId}','${tokenId}');document.getElementById('btContextMenu').remove()" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid #1e293b;color:${isHidden?'#6ee7b7':'#94a3b8'};font-size:0.65rem;padding:0.35rem 0.6rem;cursor:pointer;">${isHidden?'👁 Reveal to Players':'🙈 Hide from Players'}</button>
+        <button onclick="window._btToggleReveal('${mapId}','${winId}','${tokenId}');document.getElementById('btContextMenu').remove()" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid #1e293b;color:${isHidden?'#6ee7b7':'#94a3b8'};font-size:0.65rem;padding:0.35rem 0.6rem;cursor:pointer;">${isHidden?'Reveal to Players':'Hide from Players'}</button>
         ${initEntries ? `<div style="padding:0.2rem 0.6rem;font-size:0.6rem;color:#64748b;border-bottom:1px solid #1e293b;">Highlight this turn for…</div>${initEntries}` : ''}
         <div style="display:flex;border-bottom:1px solid #1e293b;">
             <button ${!canShrink?'disabled':''} onclick="window._btResizeToken('${mapId}','${winId}','${tokenId}',-1);document.getElementById('btContextMenu').remove()" style="flex:1;background:none;border:none;color:${canShrink?'#c4b5fd':'#334155'};font-size:0.65rem;padding:0.3rem;cursor:${canShrink?'pointer':'not-allowed'};">⬡ Squeeze</button>
             <button ${!canGrow?'disabled':''} onclick="window._btResizeToken('${mapId}','${winId}','${tokenId}',1);document.getElementById('btContextMenu').remove()" style="flex:1;background:none;border:none;color:${canGrow?'#c4b5fd':'#334155'};font-size:0.65rem;padding:0.3rem;cursor:${canGrow?'pointer':'not-allowed'};">⬡ Grow</button>
         </div>
-        <button onclick="window.removeBattleToken('${mapId}','${winId}','${tokenId}');document.getElementById('btContextMenu').remove()" style="width:100%;text-align:left;background:none;border:none;color:#f87171;font-size:0.65rem;padding:0.35rem 0.6rem;cursor:pointer;">🗑 Remove Token</button>`;
+        <button onclick="window.removeBattleToken('${mapId}','${winId}','${tokenId}');document.getElementById('btContextMenu').remove()" style="width:100%;text-align:left;background:none;border:none;color:#f87171;font-size:0.65rem;padding:0.35rem 0.6rem;cursor:pointer;">Remove Token</button>`;
         document.body.appendChild(menu);
         setTimeout(()=>document.addEventListener('mousedown',function cls(ev){if(!menu.contains(ev.target)){menu.remove();document.removeEventListener('mousedown',cls);}},100));
     };
@@ -3347,9 +3350,9 @@ document.addEventListener('DOMContentLoaded', () => {
         let panel = document.createElement('div');
         panel.id = 'btPickerPanel';
         panel.style.cssText = `position:fixed;right:20px;top:120px;width:220px;background:#1e293b;border:1px solid #10b981;border-radius:0.5rem;z-index:2147483647;box-shadow:0 10px 40px rgba(0,0,0,0.85);overflow:hidden;`;
-        let partyRows=(_wNotes.gmParty||window.gmParty||[]).map(p=>`<button onclick="window._btAddToken('${mapId}','${winId}','${(p.summary?.name||'Player').replace(/'/g,'')}','player','#4f46e5',null,'${p.fileName||''}')" style="width:100%;text-align:left;background:#0f172a;border:none;border-bottom:1px solid #1e293b;color:#a5b4fc;font-size:0.7rem;padding:0.4rem 0.6rem;cursor:pointer;">🧑 ${p.summary?.name||'Player'}</button>`).join('');
-        let npcRows=(_wNotes.npcs||[]).map(n=>`<button onclick="window._btAddToken('${mapId}','${winId}','${(n.name||'NPC').replace(/'/g,'')}','npc','#d97706','${n.id}',null)" style="width:100%;text-align:left;background:#0f172a;border:none;border-bottom:1px solid #1e293b;color:#fde68a;font-size:0.7rem;padding:0.4rem 0.6rem;cursor:pointer;">👹 ${n.name||'NPC'}</button>`).join('');
-        panel.innerHTML=`<div style="background:#065f46;padding:0.5rem 0.75rem;font-size:0.75rem;font-weight:700;color:#6ee7b7;display:flex;align-items:center;justify-content:space-between;">⚔ Add Token <button onclick="document.getElementById('btPickerPanel').remove()" style="background:none;border:none;color:#6ee7b7;font-size:1rem;cursor:pointer;">✕</button></div>
+        let partyRows=(_wNotes.gmParty||window.gmParty||[]).map(p=>`<button onclick="window._btAddToken('${mapId}','${winId}','${(p.summary?.name||'Player').replace(/'/g,'')}','player','#4f46e5',null,'${p.fileName||''}')" style="width:100%;text-align:left;background:#0f172a;border:none;border-bottom:1px solid #1e293b;color:#a5b4fc;font-size:0.7rem;padding:0.4rem 0.6rem;cursor:pointer;"> ${p.summary?.name||'Player'}</button>`).join('');
+        let npcRows=(_wNotes.npcs||[]).map(n=>`<button onclick="window._btAddToken('${mapId}','${winId}','${(n.name||'NPC').replace(/'/g,'')}','npc','#d97706','${n.id}',null)" style="width:100%;text-align:left;background:#0f172a;border:none;border-bottom:1px solid #1e293b;color:#fde68a;font-size:0.7rem;padding:0.4rem 0.6rem;cursor:pointer;"> ${n.name||'NPC'}</button>`).join('');
+        panel.innerHTML=`<div style="background:#065f46;padding:0.5rem 0.75rem;font-size:0.75rem;font-weight:700;color:#6ee7b7;display:flex;align-items:center;justify-content:space-between;">[Battle] Add Token <button onclick="document.getElementById('btPickerPanel').remove()" style="background:none;border:none;color:#6ee7b7;font-size:1rem;cursor:pointer;">X</button></div>
             <div style="max-height:60vh;overflow-y:auto;">${partyRows||'<div style="padding:0.5rem;font-size:0.65rem;color:#475569;">No party members found</div>'}${npcRows||'<div style="padding:0.5rem;font-size:0.65rem;color:#475569;">No world NPCs</div>'}</div>`;
         document.body.appendChild(panel);
     };
@@ -3383,70 +3386,74 @@ document.addEventListener('DOMContentLoaded', () => {
     window._btRefreshAllOpenMaps = function(){ (_wNotes.otherMaps||[]).forEach(m=>{if(m.battleMapEnabled){let wid='omWin_'+m.id;if(document.getElementById(wid))_btRenderTokens(m.id,wid);}}); };
 
     // Full player stat block popup — opened by double-clicking a player's battle token
+    // Full player stat block popup — opened by double-clicking a player's battle token
     window._btOpenPlayerSummary = function(playerName, playerUid) {
         let winId = 'playerSummary_'+playerUid;
         let existing = document.getElementById(winId);
         if (existing) { window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; existing.style.zIndex=window.apxFloatingZTop; return; }
         let p = (window.gmParty||[]).find(x=>x.fileName===playerUid);
-        let s = p?.summary; if (!s) { alert('Player data not yet loaded.'); return; }
+        let s = p?.summary; let st = p?.state;
+        if (!s) { alert('Player data not yet loaded.'); return; }
         window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1;
         let win = document.createElement('div');
         win.id=winId;
-        win.style.cssText=`position:fixed;right:20px;top:60px;width:340px;max-height:80vh;overflow-y:auto;background:#0f172a;border:1px solid #6366f1;border-radius:0.75rem;z-index:${window.apxFloatingZTop};box-shadow:0 10px 40px rgba(0,0,0,.9);`;
-        const row=(label,val,c='#e2e8f0')=>`<div style="display:flex;justify-content:space-between;padding:0.2rem 0;border-bottom:1px solid #1e293b;font-size:0.65rem;"><span style="color:#64748b;">${label}</span><span style="color:${c};font-weight:700;">${val??'—'}</span></div>`;
-        const sec=(t)=>`<div style="font-size:0.55rem;font-weight:900;text-transform:uppercase;color:#6366f1;margin:0.5rem 0 0.2rem;letter-spacing:0.08em;">${t}</div>`;
-        let attrs=['STR','AGI','CON','PER','INT','CHA','LUC'].map(a=>`<div style="text-align:center;"><div style="font-size:0.5rem;color:#64748b;">${a}</div><div style="font-size:0.85rem;font-weight:900;color:#e2e8f0;">${s.attrs?.[a]??'—'}</div></div>`).join('');
-        let weapons=(s.weapons||[]).map(w=>`<div style="font-size:0.6rem;padding:0.15rem 0;border-bottom:1px solid #1e293b;"><span style="color:#e2e8f0;font-weight:700;">${w.name}</span> <span style="color:#94a3b8;">${w.attr||''}</span> <span style="color:#6ee7b7;font-weight:900;">${w.atk>=0?'+':''}${w.atk}</span> <span style="color:#fde68a;">${w.dmg}</span> <span style="color:#93c5fd;">AP${w.ap}</span></div>`).join('')||'<div style="font-size:0.6rem;color:#475569;">None</div>';
-        let powers=(s.powers||[]).map(pw=>`<div style="font-size:0.6rem;padding:0.15rem 0;border-bottom:1px solid #1e293b;"><span style="color:#c4b5fd;font-weight:700;">${pw.name}</span>${pw.cost?`<span style="color:#94a3b8;margin-left:0.3rem;">${pw.cost}</span>`:''}${pw.slots?`<span style="color:#818cf8;margin-left:0.3rem;">[Slots: ${pw.slots}]</span>`:''}</div>`).join('')||'<div style="font-size:0.6rem;color:#475569;">None</div>';
-        let skills=(s.trainedSkills||[]).join(', ')||'—';
-        let langs=(s.languages||'—');
-        let portrait=s.charPortrait?`<img src="${s.charPortrait}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid #6366f1;flex-shrink:0;">`:'<div style="width:52px;height:52px;border-radius:50%;background:#1e293b;border:2px solid #334155;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.4rem;">👤</div>';
+        win.style.cssText=`position:fixed;right:20px;top:60px;width:340px;max-height:82vh;overflow-y:auto;background:#0f172a;border:1px solid #6366f1;border-radius:0.75rem;z-index:${window.apxFloatingZTop};box-shadow:0 10px 40px rgba(0,0,0,.9);font-family:inherit;`;
+
+        const hdr=(t)=>`<div style="font-size:0.52rem;font-weight:900;text-transform:uppercase;color:#6366f1;letter-spacing:0.07em;margin:0.5rem 0 0.2rem;border-bottom:1px solid #1e293b;padding-bottom:0.15rem;">${t}</div>`;
+
+        const ATTRS=['STR','AGI','CON','PER','INT','CHA','LUC'];
+        let attrGrid = `<table style="width:100%;border-collapse:collapse;font-size:0.6rem;margin-top:0.1rem;">
+            <tr>${ATTRS.map(a=>`<th style="text-align:center;color:#64748b;font-weight:600;padding:0.1rem 0.05rem;">${a}</th>`).join('')}</tr>
+            <tr>${ATTRS.map(a=>{let mod=s.mods?.[a]??0;return`<td style="text-align:center;font-weight:900;color:#e2e8f0;padding:0.15rem 0.05rem;">${mod+5}<span style="font-size:0.48rem;color:#94a3b8;"> (${mod>=0?'+':''}${mod})</span></td>`}).join('')}</tr>
+        </table>`;
+
+        let savesTable = `<table style="width:100%;border-collapse:collapse;font-size:0.6rem;margin-top:0.1rem;">
+            <tr>${ATTRS.map(a=>`<th style="text-align:center;color:#64748b;font-weight:600;padding:0.1rem 0.05rem;">${a}</th>`).join('')}</tr>
+            <tr>${ATTRS.map(a=>{let v=s.saves?.[a]??0;return`<td style="text-align:center;font-weight:900;color:${v>=0?'#a3e635':'#f87171'};padding:0.15rem 0.05rem;">${v>=0?'+':''}${v}</td>`}).join('')}</tr>
+        </table>`;
+
+        let skillsList = (s.trainedSkills||[]).length
+            ? (s.trainedSkills||[]).map(sk=>`${sk.name} (${sk.total>=0?'+':''}${sk.total})`).join(', ')
+            : 'None';
+
+        let languages = st?.languages || '—';
+        let envSection = (s.envLines||[]).length ? hdr('Resistances & Energy')+(s.envLines||[]).map(l=>`<div style="font-size:0.6rem;padding:0.15rem 0;">${l}</div>`).join('') : '';
+
+        let portrait = st?.charPortrait
+            ? `<img src="${st.charPortrait}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid #6366f1;flex-shrink:0;">`
+            : `<div style="width:52px;height:52px;border-radius:50%;background:#1e293b;border:2px solid #334155;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1rem;color:#475569;">PC</div>`;
+
         win.innerHTML=`
         <div id="${winId}_hdr" style="cursor:grab;user-select:none;background:#1e1b4b;padding:0.6rem 0.75rem;display:flex;align-items:center;gap:0.6rem;position:sticky;top:0;z-index:1;">
             ${portrait}
             <div style="flex:1;min-width:0;">
                 <div style="font-size:0.85rem;font-weight:900;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s.name||playerName}</div>
-                <div style="font-size:0.6rem;color:#818cf8;">${s.archetype||''} ${s.origin?'· '+s.origin:''}</div>
+                <div style="font-size:0.58rem;color:#818cf8;">${s.ancestryName||''}${st?.archetype?' · '+st.archetype:''}${st?.origin?' · '+st.origin:''}</div>
             </div>
-            <button onclick="document.getElementById('${winId}').remove()" style="background:none;border:none;color:#94a3b8;font-size:1.1rem;cursor:pointer;flex-shrink:0;">✕</button>
+            <button onclick="document.getElementById('${winId}').remove()" style="background:none;border:none;color:#94a3b8;font-size:1.1rem;cursor:pointer;flex-shrink:0;">X</button>
         </div>
         <div style="padding:0.5rem 0.75rem;">
-            <div style="display:flex;gap:0.4rem;margin-bottom:0.4rem;">
-                <div style="flex:1;background:#1e293b;border-radius:0.3rem;padding:0.3rem 0.4rem;font-size:0.65rem;">❤️ <span style="color:#f87171;font-weight:900;">${s.currentHp??'—'}/${s.maxHp??'—'}</span>${s.tempHp?`<span style="color:#fbbf24;font-size:0.55rem;"> +${s.tempHp}t</span>`:''}</div>
-                <div style="flex:1;background:#1e293b;border-radius:0.3rem;padding:0.3rem 0.4rem;font-size:0.65rem;">🛡 AC <span style="color:#93c5fd;font-weight:900;">${s.ac??'—'}</span></div>
-                <div style="flex:1;background:#1e293b;border-radius:0.3rem;padding:0.3rem 0.4rem;font-size:0.65rem;">⚡ AP <span style="color:#fde68a;font-weight:900;">${s.ap??'—'}</span></div>
-                <div style="flex:1;background:#1e293b;border-radius:0.3rem;padding:0.3rem 0.4rem;font-size:0.65rem;">🎲 Init <span style="color:#a3e635;font-weight:900;">${s.initiative??'—'}</span></div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.3rem;margin-bottom:0.35rem;">
+                <div style="background:#1e293b;border-radius:0.3rem;padding:0.3rem;text-align:center;"><div style="font-size:0.48rem;color:#64748b;">HP</div><div style="font-size:0.7rem;font-weight:900;color:#f87171;">${s.currentHp??'—'}/${s.maxHp??'—'}${s.tempHp?`<span style='font-size:0.48rem;color:#fbbf24'> +${s.tempHp}t</span>`:''}</div></div>
+                <div style="background:#1e293b;border-radius:0.3rem;padding:0.3rem;text-align:center;"><div style="font-size:0.48rem;color:#64748b;">AC</div><div style="font-size:0.7rem;font-weight:900;color:#93c5fd;">${s.ac??'—'}</div></div>
+                <div style="background:#1e293b;border-radius:0.3rem;padding:0.3rem;text-align:center;"><div style="font-size:0.48rem;color:#64748b;">AP</div><div style="font-size:0.7rem;font-weight:900;color:#fde68a;">${s.ap??'—'}</div></div>
+                <div style="background:#1e293b;border-radius:0.3rem;padding:0.3rem;text-align:center;"><div style="font-size:0.48rem;color:#64748b;">Init</div><div style="font-size:0.7rem;font-weight:900;color:#a3e635;">${s.initiative??'—'}</div></div>
             </div>
-            <div style="display:flex;gap:0.4rem;margin-bottom:0.5rem;">
-                <div style="flex:1;background:#1e293b;border-radius:0.3rem;padding:0.3rem 0.4rem;font-size:0.65rem;">DR <span style="color:#e2e8f0;font-weight:900;">${s.dr??'—'}</span></div>
-                <div style="flex:1;background:#1e293b;border-radius:0.3rem;padding:0.3rem 0.4rem;font-size:0.65rem;">ER <span style="color:#e2e8f0;font-weight:900;">${s.er??'—'}</span></div>
-                <div style="flex:1;background:#1e293b;border-radius:0.3rem;padding:0.3rem 0.4rem;font-size:0.65rem;">Spd <span style="color:#e2e8f0;font-weight:900;">${s.speed??'—'}</span></div>
-                <div style="flex:1;background:#1e293b;border-radius:0.3rem;padding:0.3rem 0.4rem;font-size:0.65rem;">Age <span style="color:#e2e8f0;font-weight:900;">${s.age??'—'}</span></div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.3rem;margin-bottom:0.35rem;">
+                <div style="background:#1e293b;border-radius:0.3rem;padding:0.3rem;text-align:center;"><div style="font-size:0.48rem;color:#64748b;">DR</div><div style="font-size:0.7rem;font-weight:900;color:#e2e8f0;">${s.dr??'—'}</div></div>
+                <div style="background:#1e293b;border-radius:0.3rem;padding:0.3rem;text-align:center;"><div style="font-size:0.48rem;color:#64748b;">ER</div><div style="font-size:0.7rem;font-weight:900;color:#e2e8f0;">${s.er??'—'}</div></div>
+                <div style="background:#1e293b;border-radius:0.3rem;padding:0.3rem;text-align:center;"><div style="font-size:0.48rem;color:#64748b;">Speed</div><div style="font-size:0.7rem;font-weight:900;color:#e2e8f0;">${s.speed??'—'} sq</div></div>
+                <div style="background:#1e293b;border-radius:0.3rem;padding:0.3rem;text-align:center;"><div style="font-size:0.48rem;color:#64748b;">Age</div><div style="font-size:0.7rem;font-weight:900;color:#e2e8f0;">${st?.age??'—'}</div></div>
             </div>
-            <div style="display:flex;justify-content:space-between;background:#1e293b;border-radius:0.3rem;padding:0.4rem 0.5rem;margin-bottom:0.5rem;">${attrs}</div>
-            ${sec('Saving Throws')}
-            ${['STR','AGI','CON','PER','INT','CHA','LUC'].map(a=>row(a+' Save', s.saves?.[a]!==undefined?(s.saves[a]>=0?'+':'')+s.saves[a]:'—')).join('')}
-            ${sec('Resistances & Conditions')}
-            ${row('Resistances', s.resistances||'—', '#6ee7b7')}
-            ${row('Vulnerabilities', s.vulnerabilities||'—', '#f87171')}
-            ${row('Conditions', (s.conditions||[]).join(', ')||'None', '#fde68a')}
-            ${sec('Speeds')}
-            ${row('Walk', (s.speed??30)+' ft')}
-            ${s.swimSpeed?row('Swim', s.swimSpeed+' ft'):''}
-            ${s.climbSpeed?row('Climb', s.climbSpeed+' ft'):''}
-            ${s.flySpeed?row('Fly', s.flySpeed+' ft'):''}
-            ${sec('Weapons')}
-            ${weapons}
-            ${(s.powers||[]).length?sec('Powers')+''+powers:''}
-            ${sec('Trained Skills & Languages')}
-            ${row('Skills', skills, '#a3e635')}
-            ${row('Languages', langs, '#c4b5fd')}
-            ${s.powerSlots?sec('Power Slots')+(()=>{let ps=s.powerSlots; return [1,2,3,4,5].filter(l=>ps[l]>0).map(l=>row('Level '+l, (ps[l+'used']||0)+'/'+ps[l], ps[l+'used']>=ps[l]?'#f87171':'#6ee7b7')).join('');})():''}
-            ${s.companions?.length?sec('Companions')+s.companions.map(c=>row(c.name,'HP '+c.hp)).join(''):''}
+            ${hdr('Core Attributes')}${attrGrid}
+            ${hdr('Saving Throws')}${savesTable}
+            ${envSection}
+            ${hdr('Trained Skills')}<div style="font-size:0.62rem;color:#a3e635;padding:0.2rem 0;">${skillsList}</div>
+            ${hdr('Languages')}<div style="font-size:0.62rem;color:#c4b5fd;padding:0.2rem 0;">${languages}</div>
         </div>`;
         document.getElementById('floatingWindowContainer').appendChild(win);
-        let hdr=document.getElementById(winId+'_hdr'), wDrag=false, wOX=0, wOY=0;
-        hdr.addEventListener('mousedown',e=>{ if(e.target.tagName==='BUTTON')return; wDrag=true; let r=win.getBoundingClientRect(); wOX=e.clientX-r.left; wOY=e.clientY-r.top; e.preventDefault(); });
+        let hdrEl=document.getElementById(winId+'_hdr'), wDrag=false, wOX=0, wOY=0;
+        hdrEl.addEventListener('mousedown',e=>{ if(e.target.tagName==='BUTTON')return; wDrag=true; let r=win.getBoundingClientRect(); wOX=e.clientX-r.left; wOY=e.clientY-r.top; e.preventDefault(); });
         document.addEventListener('mousemove',e=>{ if(!wDrag)return; win.style.right='auto'; win.style.left=Math.max(0,e.clientX-wOX)+'px'; win.style.top=Math.max(0,e.clientY-wOY)+'px'; });
         document.addEventListener('mouseup',()=>wDrag=false);
     };
@@ -3499,10 +3506,8 @@ document.addEventListener('DOMContentLoaded', () => {
         saveWorldNotes(); // persist initiativeId links and updated names
         _btRenderTokens(mapId, 'omWin_'+mapId); // refresh token display with new names
 
-        // Close the world summary UI but leave maps and popups open
-        let worldPanel = document.getElementById('gmWorldPanel') || document.getElementById('gmWorldContent');
-        if (worldPanel) worldPanel.classList.add('hidden');
-        if (typeof window.showGmTab === 'function') window.showGmTab('initiative');
+        // Close just the world notes modal (same as pressing its Close button) — does NOT unload the world
+        window.closeModal('gmWorldModal');
     };
 
     // Called by apx-gm-screen.js party listener when a player writes their battle position.
@@ -3547,11 +3552,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 border-bottom:1px solid #4f46e5;border-radius:0.5rem 0.5rem 0 0;display:flex;align-items:center;gap:0.5rem;">
                 <div style="width:24px;height:24px;background:#dc2626;border:2px solid #fff;border-radius:50%;
                     display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#fff;flex-shrink:0;">${tok.letter}</div>
-                <span style="font-size:0.75rem;font-weight:700;color:#e2e8f0;flex:1;">${tok.type==='special'?`✦ Marker ${tok.letter}`:`Area ${tok.letter}`}</span>
+                <span style="font-size:0.75rem;font-weight:700;color:#e2e8f0;flex:1;">${tok.type==='special'?`* Marker ${tok.letter}`:`Area ${tok.letter}`}</span>
                 ${readOnly?`<button onclick="document.getElementById('${winId}').remove();window.openTokenInfoWin('${mapId}','${tokenId}','${parentWinId}',false)"
                     style="font-size:0.65rem;font-weight:700;padding:0.2rem 0.5rem;background:#1e3a5f;border:1px solid #2563eb;color:#93c5fd;border-radius:0.25rem;cursor:pointer;">Edit</button>`:''}
                 <button onclick="document.getElementById('${winId}').remove()"
-                    style="background:none;border:none;color:#94a3b8;font-size:1.1rem;cursor:pointer;line-height:1;padding:0 0.2rem;">✕</button>
+                    style="background:none;border:none;color:#94a3b8;font-size:1.1rem;cursor:pointer;line-height:1;padding:0 0.2rem;">X</button>
             </div>
             <div style="padding:0.75rem;display:flex;flex-direction:column;gap:0.5rem;overflow-y:auto;flex:1;">
                 <div>
@@ -3581,7 +3586,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>`:''}
                 <div id="${winId}_linkedMaps" style="margin-bottom:0.25rem;">${_buildTokenMapLinks(tok, mapId, tokenId, winId, readOnly)}</div>
                 ${!readOnly?`<button onclick="window.openMapPickerForToken('${mapId}','${tokenId}','${winId}')"
-                    style="width:100%;background:#1e3a5f;border:1px solid #2563eb;color:#93c5fd;font-size:0.65rem;font-weight:700;padding:0.25rem;border-radius:0.25rem;cursor:pointer;margin-bottom:0.25rem;">🗺 Link Maps…</button>`:''}
+                    style="width:100%;background:#1e3a5f;border:1px solid #2563eb;color:#93c5fd;font-size:0.65rem;font-weight:700;padding:0.25rem;border-radius:0.25rem;cursor:pointer;margin-bottom:0.25rem;">[Map] Link Maps…</button>`:''}
                 <div id="${winId}_subnotes" style="margin-bottom:0.15rem;">${_buildTokenSubnotes(tok, winId, readOnly, mapId, tokenId)}</div>
                 ${!readOnly?`<button onclick="window.addTokenSubnote('${mapId}','${tokenId}','${winId}')"
                     style="width:100%;background:#1e293b;border:1px solid #334155;color:#64748b;font-size:0.65rem;font-weight:700;padding:0.2rem;border-radius:0.25rem;cursor:pointer;margin-bottom:0.25rem;">+ Add Sub-note</button>`:''}
@@ -4314,7 +4319,7 @@ document.addEventListener('DOMContentLoaded', () => {
                      title="${l.name||'Location'}${l.linkedOtherMapId?' — click to open linked map':''}">
                 <div style="background:${c}; color:${textColor}; font-size:11px; font-weight:700; padding:2px 6px;
                             border-radius:3px; white-space:nowrap; box-shadow:0 1px 4px rgba(0,0,0,.6);
-                            min-width:12px; min-height:14px; text-shadow: none; display:flex; align-items:center; gap:2px;">${l.name||'?'}${l.linkedOtherMapId?'<span style="font-size:9px;opacity:0.8;">🗺</span>':''}</div>
+                            min-width:12px; min-height:14px; text-shadow: none; display:flex; align-items:center; gap:2px;">${l.name||'?'}${l.linkedOtherMapId?'<span style="font-size:9px;opacity:0.8;">[Map]</span>':''}</div>
                 <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid ${c};margin:0 auto;"></div>
             </div>`;
         }).join('');
@@ -4560,7 +4565,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     let display = user.displayName || user.email;
                     bar.innerHTML = `<span style="color:var(--c-text-muted,#94a3b8);font-size:10px;">${display}</span>
                         <span style="color:var(--c-text-dimmer,#475569);font-size:10px;"> | </span>
-                        <button onclick="window.gmEditDisplayName()" style="font-size:10px;color:var(--c-text-muted,#94a3b8);background:none;border:none;cursor:pointer;">✏ Name</button>
+                        <button onclick="window.gmEditDisplayName()" style="font-size:10px;color:var(--c-text-muted,#94a3b8);background:none;border:none;cursor:pointer;">Edit Name</button>
                         <span style="color:var(--c-text-dimmer,#475569);font-size:10px;"> | </span>
                         <button onclick="window.apxAuth.signOut().then(()=>location.href='index.html')" style="font-size:10px;color:var(--c-text-muted,#94a3b8);background:none;border:none;cursor:pointer;">Sign Out</button>`;
 

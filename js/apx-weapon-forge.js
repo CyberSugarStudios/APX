@@ -627,7 +627,7 @@ window.renderWeaponCraftBody = function() {
         <div class="mt-4 bg-slate-900 border border-orange-800/50 rounded-lg p-3">
             <div class="text-[10px] text-slate-500 uppercase font-bold mb-1 text-center">Your Craft Check</div>
             <div class="text-center text-xs text-slate-400 mb-2">${m.craftAttr} (Craft) bonus: <span class="font-bold text-white">${craftBonus >= 0 ? '+' : ''}${craftBonus}</span> vs DC <span class="font-bold text-white">${m.dc}</span></div>
-            <button onclick="window.weaponForgeRollForMe()" class="w-full bg-indigo-600/20 border border-indigo-700/50 text-indigo-300 hover:bg-indigo-600/40 text-xs font-bold py-2 rounded transition mb-3">🎲 Roll For Me</button>
+            <button onclick="window.weaponForgeRollForMe()" class="w-full bg-indigo-600/20 border border-indigo-700/50 text-indigo-300 hover:bg-indigo-600/40 text-xs font-bold py-2 rounded transition mb-3">[dice] Roll For Me</button>
             <div class="text-[10px] text-slate-500 uppercase font-bold mb-1 text-center">Or Enter Your Own Roll's Outcome</div>
             <div class="grid grid-cols-3 gap-2">
                 <button onclick="window.weaponForgeApplyOutcome('success')" ${!canAfford ? 'disabled' : ''} class="px-2 py-2 rounded ${!canAfford ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-500 text-white'} text-xs font-bold transition">Success</button>

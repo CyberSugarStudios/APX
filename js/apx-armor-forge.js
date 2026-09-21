@@ -168,12 +168,12 @@ window.renderArmorForge = function() {
     let armorWtClass = totalWt === 0 ? 'Unarmored' : totalWt <= 30 ? 'Lightly Armored' : totalWt <= 70 ? 'Moderately Armored' : 'Heavily Armored';
     let armorWtColor = totalWt <= 30 ? '#4ade80' : totalWt <= 70 ? '#f59e0b' : '#f87171';
     let agiRuleText = totalWt === 0
-        ? '✓ Unarmored — Full AGI bonus to AC'
+        ? '[ok] Unarmored — Full AGI bonus to AC'
         : totalWt <= 30
-            ? '✓ Lightly Armored (≤30 lbs) — Full AGI bonus to AC'
+            ? '[ok] Lightly Armored (≤30 lbs) — Full AGI bonus to AC'
             : totalWt <= 70
-                ? '⚠ Moderately Armored (31-70 lbs) — AGI bonus to AC capped at +2'
-                : '✗ Heavily Armored (>70 lbs) — No AGI bonus to AC';
+                ? '! Moderately Armored (31-70 lbs) — AGI bonus to AC capped at +2'
+                : 'X Heavily Armored (>70 lbs) — No AGI bonus to AC';
     let shieldNote = eqShield ? `<span style="font-size:0.6rem;color:#64748b;margin-left:0.5rem;">(incl. ${eqShield.name} +${eqShield.wt}lb${eqHelmet?', '+eqHelmet.name+' +'+eqHelmet.wt+'lb':''})</span>` : (eqHelmet ? `<span style="font-size:0.6rem;color:#64748b;margin-left:0.5rem;">(incl. ${eqHelmet.name} +${eqHelmet.wt}lb)</span>` : '');
 
     let html = `
@@ -387,7 +387,7 @@ window.renderArmorCraftBody = function() {
         <div class="mt-4 bg-slate-900 border border-orange-800/50 rounded-lg p-3">
             <div class="text-[10px] text-slate-500 uppercase font-bold mb-1 text-center">Your Craft Check</div>
             <div class="text-center text-xs text-slate-400 mb-2">${m.craftAttr} (Craft) bonus: <span class="font-bold text-white">${craftBonus >= 0 ? '+' : ''}${craftBonus}</span> vs DC <span class="font-bold text-white">${m.dc}</span></div>
-            <button onclick="window.armorForgeRollForMe()" class="w-full bg-indigo-600/20 border border-indigo-700/50 text-indigo-300 hover:bg-indigo-600/40 text-xs font-bold py-2 rounded transition mb-3">🎲 Roll For Me</button>
+            <button onclick="window.armorForgeRollForMe()" class="w-full bg-indigo-600/20 border border-indigo-700/50 text-indigo-300 hover:bg-indigo-600/40 text-xs font-bold py-2 rounded transition mb-3">[dice] Roll For Me</button>
             <div class="text-[10px] text-slate-500 uppercase font-bold mb-1 text-center">Or Enter Your Own Roll's Outcome</div>
             <div class="grid grid-cols-3 gap-2">
                 <button onclick="window.armorForgeApplyOutcome('success')" ${!canAfford ? 'disabled' : ''} class="px-2 py-2 rounded ${!canAfford ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-500 text-white'} text-xs font-bold transition">Success</button>
