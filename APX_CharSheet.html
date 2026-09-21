@@ -3874,6 +3874,7 @@
         let py = Math.round((g.offsetY % g.cellSize) + (gridY + 0.5) * g.cellSize);
         if (px < 0 || px >= canvas.width || py < 0 || py >= canvas.height) return true; // out of bounds
         let ctx = canvas.getContext('2d', { willReadFrequently: true });
+        return ctx.getImageData(px, py, 1, 1).data[3] > 50;
     }
     // Finds the nearest grid cell not under fog using a ring-by-ring spiral search.
     function _pwNearestOpenCell(winId, gx, gy, g, maxR) {
