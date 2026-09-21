@@ -426,7 +426,8 @@
             let inviteCode = worldDoc.exists ? worldDoc.data().inviteCode : null;
             if (inviteCode) await db.collection('worldCodes').doc(inviteCode).set({
                 ...publicData,
-                gmUid: user.uid  // always include gmUid so update rule passes on older docs
+                gmUid: user.uid,
+                worldId   // players need this to load portraits from users/{gmUid}/worlds/{worldId}/npcPortraits
             }, { merge: true });
         }
     }
