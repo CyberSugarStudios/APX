@@ -3611,10 +3611,12 @@
         let e=document.getElementById(winId+'_empty');
         img.src=src; img.style.display='block'; if(e) e.style.display='none';
         img.onload=()=>{
-            window.pwOmReset(winId); _pwOmRenderTok(winId, win, map);
-            // Draw battle grid if this is a battle map
-            if (map?.battleMapEnabled) _pwBtDrawGrid(winId, map);
-            _pwBtRenderTokens(winId, win, map);
+            // Always refresh map from current world state — the closure's `map` may be stale
+            // if the Firestore listener hadn't fired yet when the window was opened.
+            let freshMap = (window._playerWorldData?.notesV2?.otherMaps||[]).find(m=>m.id===mapId) || map;
+            window.pwOmReset(winId); _pwOmRenderTok(winId, win, freshMap);
+            if (freshMap?.battleMapEnabled) _pwBtDrawGrid(winId, freshMap);
+            _pwBtRenderTokens(winId, win, freshMap);
             // Start real-time fog listener — fires immediately with current fog, then on every GM update
             let _world = window._playerWorldData;
             let _worldId = _world?.worldId;
@@ -3786,19 +3788,20 @@
             let diam = Math.max(12, g.cellSize*(sm<=1?sm*0.85:sm*0.9));
             let isMe = t.type==='player' && ((myUid && t.playerUid === myUid) || (!myUid && t.name === myName));
             let icon = (t.name||'?')[0].toUpperCase();
-            // Active turn: gold; only when both IDs truthy
+            // Active turn: gold; only when both IDs truthy — own token is NOT always gold
             let isActive = !!(t.initiativeId && pwCurInitId && t.initiativeId === pwCurInitId);
-            // Dead/bleed-out from token flags written by GM's world notes publish
+            // Dead/bleed-out from flags written by GM into public notes on each save
+            // Players bleed out (red) first, then die (greyscale). NPCs/enemies go straight to greyscale at 0 HP.
             let isBleedingOut = !!(t._bleedingOut);
-            let isDead = !!(t._dead);
-            // Faction-based border (from token data; player always blue)
+            let isDead        = !!(t._dead);
+            // Faction-based default borders — own token is blue (player faction), not gold
             let faction = t._faction || (t.type==='player' ? 'player' : 'enemy');
             let factionBorder = {player:'#3b82f6', ally:'#22c55e', neutral:'#e2e8f0', enemy:'#ef4444'}[faction] || '#e2e8f0';
-            let borderColor = isActive?'#fbbf24' : isDead?'#7f1d1d' : isBleedingOut?'#f97316' : isMe?'#fbbf24' : factionBorder;
+            let borderColor = isActive?'#fbbf24' : isDead?'rgba(80,80,80,0.8)' : isBleedingOut?'#f97316' : factionBorder;
             let defColor = t.type==='player' ? '#1d4ed8' : '#d97706';
-            let bg = isDead?'#1a0000' : isBleedingOut?'#450a0a' : (t.color||defColor);
-            let filterStyle = isDead?'grayscale(1)' : isBleedingOut?'saturate(0.3)' : 'none';
-            let glowStyle = isActive||isMe?'0 0 12px 3px rgba(251,191,36,.5),' : isDead?'0 0 14px 4px rgba(239,68,68,.6),' : isBleedingOut?'0 0 14px 4px rgba(249,115,22,.5),' : '';
+            let bg = isDead?'#1a1a1a' : isBleedingOut?'#450a0a' : (t.color||defColor);
+            let filterStyle = isDead?'grayscale(1)' : isBleedingOut?'saturate(0.5)' : 'none';
+            let glowStyle = isActive?'0 0 12px 3px rgba(251,191,36,.7),' : isDead?'' : isBleedingOut?'0 0 14px 4px rgba(249,115,22,.6),' : '';
             // Portrait
             let portrait = '';
             if (t.type === 'player') {

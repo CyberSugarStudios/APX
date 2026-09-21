@@ -3213,8 +3213,8 @@ document.addEventListener('DOMContentLoaded', () => {
             let el=document.createElement('div');
             el.setAttribute('data-bt',t.id);
             // pointer-events:auto is EXPLICIT so it works even though the container has pointer-events:none
-            let borderColor = isActive?'#fbbf24': isDead?'#7f1d1d': isBleedingOut?'#f97316': isHidden?'rgba(255,255,255,0.25)': factionBorder;
-            let glowStyle = isActive?'0 0 20px 5px rgba(251,191,36,.8),' : isDead?'0 0 14px 4px rgba(239,68,68,.7),' : isBleedingOut?'0 0 14px 4px rgba(249,115,22,.7),' : '';
+            let borderColor = isActive?'#fbbf24': isDead?'rgba(80,80,80,0.8)': isBleedingOut?'#f97316': isHidden?'rgba(255,255,255,0.25)': factionBorder;
+            let glowStyle = isActive?'0 0 20px 5px rgba(251,191,36,.8),' : isDead?'' : isBleedingOut?'0 0 14px 4px rgba(249,115,22,.7),' : '';
             let filterStyle = isDead?'grayscale(1)' : isBleedingOut?'saturate(0.4)' : 'none';
             el.style.cssText=`position:absolute;left:${px}px;top:${py}px;width:${diam}px;height:${diam}px;
                 transform:translate(-50%,-50%);background:${portrait?'transparent':bg};
@@ -3390,70 +3390,105 @@ document.addEventListener('DOMContentLoaded', () => {
     window._btOpenPlayerSummary = function(playerName, playerUid) {
         let winId = 'playerSummary_'+playerUid;
         let existing = document.getElementById(winId);
-        if (existing) { window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; existing.style.zIndex=window.apxFloatingZTop; return; }
+        if (existing) {
+            window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1;
+            existing.style.zIndex=window.apxFloatingZTop;
+            return;
+        }
         let p = (window.gmParty||[]).find(x=>x.fileName===playerUid);
         let s = p?.summary; let st = p?.state;
         if (!s) { alert('Player data not yet loaded.'); return; }
         window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1;
         let win = document.createElement('div');
-        win.id=winId;
+        win.id = winId;
         win.style.cssText=`position:fixed;right:20px;top:60px;width:340px;max-height:82vh;overflow-y:auto;background:#0f172a;border:1px solid #6366f1;border-radius:0.75rem;z-index:${window.apxFloatingZTop};box-shadow:0 10px 40px rgba(0,0,0,.9);font-family:inherit;`;
 
         const hdr=(t)=>`<div style="font-size:0.52rem;font-weight:900;text-transform:uppercase;color:#6366f1;letter-spacing:0.07em;margin:0.5rem 0 0.2rem;border-bottom:1px solid #1e293b;padding-bottom:0.15rem;">${t}</div>`;
-
         const ATTRS=['STR','AGI','CON','PER','INT','CHA','LUC'];
+
+        // Attributes: score = mod + 5
         let attrGrid = `<table style="width:100%;border-collapse:collapse;font-size:0.6rem;margin-top:0.1rem;">
             <tr>${ATTRS.map(a=>`<th style="text-align:center;color:#64748b;font-weight:600;padding:0.1rem 0.05rem;">${a}</th>`).join('')}</tr>
             <tr>${ATTRS.map(a=>{let mod=s.mods?.[a]??0;return`<td style="text-align:center;font-weight:900;color:#e2e8f0;padding:0.15rem 0.05rem;">${mod+5}<span style="font-size:0.48rem;color:#94a3b8;"> (${mod>=0?'+':''}${mod})</span></td>`}).join('')}</tr>
         </table>`;
 
+        // Saving throws
         let savesTable = `<table style="width:100%;border-collapse:collapse;font-size:0.6rem;margin-top:0.1rem;">
             <tr>${ATTRS.map(a=>`<th style="text-align:center;color:#64748b;font-weight:600;padding:0.1rem 0.05rem;">${a}</th>`).join('')}</tr>
             <tr>${ATTRS.map(a=>{let v=s.saves?.[a]??0;return`<td style="text-align:center;font-weight:900;color:${v>=0?'#a3e635':'#f87171'};padding:0.15rem 0.05rem;">${v>=0?'+':''}${v}</td>`}).join('')}</tr>
         </table>`;
 
+        // Skills — each is {name, total}
         let skillsList = (s.trainedSkills||[]).length
             ? (s.trainedSkills||[]).map(sk=>`${sk.name} (${sk.total>=0?'+':''}${sk.total})`).join(', ')
             : 'None';
 
-        let languages = st?.languages || '—';
-        let envSection = (s.envLines||[]).length ? hdr('Resistances & Energy')+(s.envLines||[]).map(l=>`<div style="font-size:0.6rem;padding:0.15rem 0;">${l}</div>`).join('') : '';
+        // Languages — stored in a charNote titled 'Languages'
+        let langNote = (st?.charNotes||[]).find(n=>n.title==='Languages');
+        let languages = langNote?.content || st?.languages || '—';
 
+        // Wound threshold: CON score x2 (from engine: calc.scores.CON * 2)
+        let conScore = (s.mods?.CON ?? 0) + 5;
+        let woundThresh = conScore * 2;
+
+        // Energy resistances
+        let envSection = (s.envLines||[]).length ? hdr('Resistances & Energy')+(s.envLines||[]).map(l=>`<div style="font-size:0.6rem;padding:0.1rem 0;">${l}</div>`).join('') : '';
+
+        // Portrait
         let portrait = st?.charPortrait
             ? `<img src="${st.charPortrait}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid #6366f1;flex-shrink:0;">`
-            : `<div style="width:52px;height:52px;border-radius:50%;background:#1e293b;border:2px solid #334155;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1rem;color:#475569;">PC</div>`;
+            : `<div style="width:52px;height:52px;border-radius:50%;background:#1e293b;border:2px solid #334155;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:0.8rem;color:#475569;font-weight:900;">PC</div>`;
+
+        // Ancestry name is a string in s.ancestryName — never use st.ancestry directly
+        let subtitle = s.ancestryName || '';
 
         win.innerHTML=`
         <div id="${winId}_hdr" style="cursor:grab;user-select:none;background:#1e1b4b;padding:0.6rem 0.75rem;display:flex;align-items:center;gap:0.6rem;position:sticky;top:0;z-index:1;">
             ${portrait}
             <div style="flex:1;min-width:0;">
                 <div style="font-size:0.85rem;font-weight:900;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s.name||playerName}</div>
-                <div style="font-size:0.58rem;color:#818cf8;">${s.ancestryName||''}${st?.archetype?' · '+st.archetype:''}${st?.origin?' · '+st.origin:''}</div>
+                <div style="font-size:0.58rem;color:#818cf8;">${subtitle}</div>
             </div>
             <button onclick="document.getElementById('${winId}').remove()" style="background:none;border:none;color:#94a3b8;font-size:1.1rem;cursor:pointer;flex-shrink:0;">X</button>
         </div>
         <div style="padding:0.5rem 0.75rem;">
-            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.3rem;margin-bottom:0.35rem;">
-                <div style="background:#1e293b;border-radius:0.3rem;padding:0.3rem;text-align:center;"><div style="font-size:0.48rem;color:#64748b;">HP</div><div style="font-size:0.7rem;font-weight:900;color:#f87171;">${s.currentHp??'—'}/${s.maxHp??'—'}${s.tempHp?`<span style='font-size:0.48rem;color:#fbbf24'> +${s.tempHp}t</span>`:''}</div></div>
-                <div style="background:#1e293b;border-radius:0.3rem;padding:0.3rem;text-align:center;"><div style="font-size:0.48rem;color:#64748b;">AC</div><div style="font-size:0.7rem;font-weight:900;color:#93c5fd;">${s.ac??'—'}</div></div>
-                <div style="background:#1e293b;border-radius:0.3rem;padding:0.3rem;text-align:center;"><div style="font-size:0.48rem;color:#64748b;">AP</div><div style="font-size:0.7rem;font-weight:900;color:#fde68a;">${s.ap??'—'}</div></div>
-                <div style="background:#1e293b;border-radius:0.3rem;padding:0.3rem;text-align:center;"><div style="font-size:0.48rem;color:#64748b;">Init</div><div style="font-size:0.7rem;font-weight:900;color:#a3e635;">${s.initiative??'—'}</div></div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.3rem;margin-bottom:0.3rem;">
+                <div style="background:#1e293b;border-radius:0.3rem;padding:0.3rem;text-align:center;"><div style="font-size:0.45rem;color:#64748b;">HP</div><div style="font-size:0.7rem;font-weight:900;color:#f87171;">${s.currentHp??'—'}/${s.maxHp??'—'}${s.tempHp?`<span style='font-size:0.45rem;color:#fbbf24'> +${s.tempHp}t</span>`:''}</div></div>
+                <div style="background:#1e293b;border-radius:0.3rem;padding:0.3rem;text-align:center;"><div style="font-size:0.45rem;color:#64748b;">AC</div><div style="font-size:0.7rem;font-weight:900;color:#93c5fd;">${s.ac??'—'}</div></div>
+                <div style="background:#1e293b;border-radius:0.3rem;padding:0.3rem;text-align:center;"><div style="font-size:0.45rem;color:#64748b;">AP</div><div style="font-size:0.7rem;font-weight:900;color:#fde68a;">${s.ap??'—'}</div></div>
+                <div style="background:#1e293b;border-radius:0.3rem;padding:0.3rem;text-align:center;"><div style="font-size:0.45rem;color:#64748b;">Init</div><div style="font-size:0.7rem;font-weight:900;color:#a3e635;">${s.initiative??'—'}</div></div>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.3rem;margin-bottom:0.35rem;">
-                <div style="background:#1e293b;border-radius:0.3rem;padding:0.3rem;text-align:center;"><div style="font-size:0.48rem;color:#64748b;">DR</div><div style="font-size:0.7rem;font-weight:900;color:#e2e8f0;">${s.dr??'—'}</div></div>
-                <div style="background:#1e293b;border-radius:0.3rem;padding:0.3rem;text-align:center;"><div style="font-size:0.48rem;color:#64748b;">ER</div><div style="font-size:0.7rem;font-weight:900;color:#e2e8f0;">${s.er??'—'}</div></div>
-                <div style="background:#1e293b;border-radius:0.3rem;padding:0.3rem;text-align:center;"><div style="font-size:0.48rem;color:#64748b;">Speed</div><div style="font-size:0.7rem;font-weight:900;color:#e2e8f0;">${s.speed??'—'} sq</div></div>
-                <div style="background:#1e293b;border-radius:0.3rem;padding:0.3rem;text-align:center;"><div style="font-size:0.48rem;color:#64748b;">Age</div><div style="font-size:0.7rem;font-weight:900;color:#e2e8f0;">${st?.age??'—'}</div></div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.3rem;margin-bottom:0.3rem;">
+                <div style="background:#1e293b;border-radius:0.3rem;padding:0.3rem;text-align:center;"><div style="font-size:0.45rem;color:#64748b;">DR</div><div style="font-size:0.7rem;font-weight:900;color:#e2e8f0;">${s.dr??'—'}</div></div>
+                <div style="background:#1e293b;border-radius:0.3rem;padding:0.3rem;text-align:center;"><div style="font-size:0.45rem;color:#64748b;">ER</div><div style="font-size:0.7rem;font-weight:900;color:#e2e8f0;">${s.er??'—'}</div></div>
+                <div style="background:#1e293b;border-radius:0.3rem;padding:0.3rem;text-align:center;"><div style="font-size:0.45rem;color:#64748b;">Speed</div><div style="font-size:0.7rem;font-weight:900;color:#e2e8f0;">${s.speed??'—'} sq</div></div>
+                <div style="background:#1e293b;border-radius:0.3rem;padding:0.3rem;text-align:center;"><div style="font-size:0.45rem;color:#64748b;">Age</div><div style="font-size:0.7rem;font-weight:900;color:#e2e8f0;">${st?.charAge||'—'}</div></div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.3rem;margin-bottom:0.35rem;">
+                <div style="background:#1e293b;border-radius:0.3rem;padding:0.3rem;text-align:center;"><div style="font-size:0.45rem;color:#64748b;">Wound Thresh</div><div style="font-size:0.7rem;font-weight:900;color:#f87171;">${woundThresh}</div></div>
+                <div style="background:#1e293b;border-radius:0.3rem;padding:0.3rem;text-align:center;"><div style="font-size:0.45rem;color:#64748b;">Fatigue</div><div style="font-size:0.7rem;font-weight:900;color:${(s.fatigue||0)>0?'#f87171':'#e2e8f0'}">${s.fatigue??0}</div></div>
+                <div style="background:#1e293b;border-radius:0.3rem;padding:0.3rem;text-align:center;"><div style="font-size:0.45rem;color:#64748b;">Luck Pts</div><div style="font-size:0.7rem;font-weight:900;color:#fbbf24;">${s.luckPts??0}</div></div>
             </div>
             ${hdr('Core Attributes')}${attrGrid}
             ${hdr('Saving Throws')}${savesTable}
             ${envSection}
-            ${hdr('Trained Skills')}<div style="font-size:0.62rem;color:#a3e635;padding:0.2rem 0;">${skillsList}</div>
-            ${hdr('Languages')}<div style="font-size:0.62rem;color:#c4b5fd;padding:0.2rem 0;">${languages}</div>
+            ${hdr('Trained Skills')}<div style="font-size:0.62rem;color:#a3e635;padding:0.15rem 0;">${skillsList}</div>
+            ${hdr('Languages')}<div style="font-size:0.62rem;color:#c4b5fd;padding:0.15rem 0;">${languages}</div>
         </div>`;
+
         document.getElementById('floatingWindowContainer').appendChild(win);
+
+        // Bring to top when clicked (like all other floating windows)
+        win.addEventListener('mousedown', ()=>{
+            window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1;
+            win.style.zIndex=window.apxFloatingZTop;
+        });
+
         let hdrEl=document.getElementById(winId+'_hdr'), wDrag=false, wOX=0, wOY=0;
-        hdrEl.addEventListener('mousedown',e=>{ if(e.target.tagName==='BUTTON')return; wDrag=true; let r=win.getBoundingClientRect(); wOX=e.clientX-r.left; wOY=e.clientY-r.top; e.preventDefault(); });
+        hdrEl.addEventListener('mousedown',e=>{
+            if(e.target.tagName==='BUTTON') return;
+            wDrag=true; let r=win.getBoundingClientRect(); wOX=e.clientX-r.left; wOY=e.clientY-r.top; e.preventDefault();
+        });
         document.addEventListener('mousemove',e=>{ if(!wDrag)return; win.style.right='auto'; win.style.left=Math.max(0,e.clientX-wOX)+'px'; win.style.top=Math.max(0,e.clientY-wOY)+'px'; });
         document.addEventListener('mouseup',()=>wDrag=false);
     };

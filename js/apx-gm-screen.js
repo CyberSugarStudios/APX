@@ -889,6 +889,8 @@ window.startCombat = function() {
     window.gmRoundNumber = 1;
     window.gmTurnNumber = 1;
     window.renderInitiativeTracker();
+    if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
+    if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
 };
 
 window.nextInitiativeTurn = function() {
