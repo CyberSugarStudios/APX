@@ -3141,9 +3141,11 @@ document.addEventListener('DOMContentLoaded', () => {
             let {px,py} = _btTokenCenter(t.gridX,t.gridY,sm,g);
             let diam = Math.max(12, g.cellSize*(sm<=1?sm*0.85:sm*0.9));
             let isActive = t.initiativeId && t.initiativeId===curInitId;
+            let linkedEntry = t.initiativeId ? (window.gmInitiative||[]).find(e=>e.id===t.initiativeId) : null;
+            let isDead = linkedEntry && linkedEntry.currentHp !== null && linkedEntry.currentHp !== undefined && linkedEntry.currentHp <= 0;
             let isHidden = t.revealed===false;
             let defColor = t.type==='player'?'#1d4ed8':'#d97706';
-            let bg = t.color||defColor;
+            let bg = isDead ? '#7f1d1d' : (t.color||defColor);
             let worldNpc = t.worldNpcId?(_wNotes.npcs||[]).find(n=>n.id===t.worldNpcId):null;
             let portrait = null;
             if (t.type === 'npc' && worldNpc) {
@@ -3164,18 +3166,19 @@ document.addEventListener('DOMContentLoaded', () => {
             // pointer-events:auto is EXPLICIT so it works even though the container has pointer-events:none
             el.style.cssText=`position:absolute;left:${px}px;top:${py}px;width:${diam}px;height:${diam}px;
                 transform:translate(-50%,-50%);background:${portrait?'transparent':bg};
-                border:${isActive?3:2}px solid ${isActive?'#fbbf24':isHidden?'rgba(255,255,255,0.3)':'rgba(255,255,255,0.9)'};
+                border:${isActive?3:2}px solid ${isActive?'#fbbf24':isDead?'#ef4444':isHidden?'rgba(255,255,255,0.3)':'rgba(255,255,255,0.9)'};
                 border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;
-                box-shadow:${isActive?'0 0 20px 5px rgba(251,191,36,.8),':''} 0 2px 8px rgba(0,0,0,0.8);
+                box-shadow:${isActive?'0 0 20px 5px rgba(251,191,36,.8),':''}${isDead?'0 0 12px 3px rgba(239,68,68,.6),':''} 0 2px 8px rgba(0,0,0,0.8);
                 cursor:grab;user-select:none;pointer-events:auto;
-                opacity:${isHidden?0.45:1};transition:box-shadow 0.15s;`;
+                opacity:${isHidden?0.45:isDead?0.75:1};transition:box-shadow 0.15s;filter:${isDead?'grayscale(0.6)':'none'};`;
             el.title=`${t.name} (${t.size||'medium'})${isHidden?' [Hidden]':''} — dbl-click for stat block`;
             // Double-click opens linked stat block (NPC) or player summary
             el.addEventListener('dblclick', e => {
                 e.stopPropagation();
                 if (t.type === 'npc' && t.worldNpcId) {
                     let wn = (_wNotes.npcs||[]).find(n=>n.id===t.worldNpcId);
-                    if (wn?.statBlockId) window.openFloatingNpcStatBlockById(t.worldNpcId, wn.statBlockId);
+                    // openFloatingNpcStatBlockById(gmNpcId, displayName) — gmNpcId = the stat block's ID
+                    if (wn?.statBlockId) window.openFloatingNpcStatBlockById(wn.statBlockId, t.name || wn.name);
                 } else if (t.type === 'player' && t.playerUid) {
                     window._btOpenPlayerSummary(t.name, t.playerUid);
                 }
@@ -3369,31 +3372,54 @@ document.addEventListener('DOMContentLoaded', () => {
     // Add ALL revealed battle tokens to initiative at once, then close the world summary panel
     window._btAddAllToInitiative = function(mapId) {
         let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return;
-        let added = 0;
-        (map.battleTokens||[]).forEach(t => {
-            if (t.revealed === false) return; // skip hidden tokens
+        let revealed = (map.battleTokens||[]).filter(t => t.revealed !== false);
+
+        // Count base names among tokens to be added so we can number duplicates
+        // e.g. three "Ghoul" tokens become "Ghoul #1", "Ghoul #2", "Ghoul #3"
+        let nameCount = {};
+        let nameIdx   = {};
+        revealed.forEach(t => { let k = t.name||'Token'; nameCount[k] = (nameCount[k]||0)+1; });
+
+        let anyAdded = false;
+        revealed.forEach(t => {
+            // Skip if this token already has a linked (living) initiative entry
+            if (t.initiativeId && (window.gmInitiative||[]).find(e=>e.id===t.initiativeId)) return;
+
+            let baseName = t.name||'Token';
+            // Only append number suffix when there are multiple tokens with this name
+            nameIdx[baseName] = (nameIdx[baseName]||0) + 1;
+            let entryName = nameCount[baseName] > 1 ? `${baseName} #${nameIdx[baseName]}` : baseName;
+
+            let entry;
             if (t.type === 'npc' && t.worldNpcId) {
                 let wn = (_wNotes.npcs||[]).find(n=>n.id===t.worldNpcId);
                 if (!wn?.statBlockId) return;
                 let npcIdx = (window.gmNpcs||[]).findIndex(g=>g.id===wn.statBlockId);
                 if (npcIdx < 0) return;
-                // Avoid adding duplicates (check by name)
-                if (window.gmInitiative?.some(e=>e.name===t.name && e.sourceNpcId===wn.statBlockId)) return;
-                window.addToInitiative(npcIdx, 'npc', 'enemy', t.name);
-                added++;
+                entry = window.addToInitiative(npcIdx, 'npc', 'enemy', entryName);
             } else if (t.type === 'player' && t.playerUid) {
                 let partyIdx = (window.gmParty||[]).findIndex(p=>p.fileName===t.playerUid);
                 if (partyIdx < 0) return;
-                if (window.gmInitiative?.some(e=>e.playerUid===t.playerUid)) return; // already in
-                window.addToInitiative(partyIdx, 'party');
-                added++;
+                entry = window.addToInitiative(partyIdx, 'party');
+            }
+
+            // Bidirectional link: token → entry
+            if (entry?.id) {
+                t.initiativeId = entry.id;
+                // Also update the token's display name to match the numbered entry
+                if (nameCount[baseName] > 1) t.name = entryName;
+                anyAdded = true;
             }
         });
-        if (added === 0) { alert('No new tokens to add (all are already in initiative or hidden).'); return; }
+
+        if (!anyAdded) { alert('No new tokens to add — all revealed tokens already have initiative entries.'); return; }
+
+        saveWorldNotes(); // persist initiativeId links and updated names
+        _btRenderTokens(mapId, 'omWin_'+mapId); // refresh token display with new names
+
         // Close the world summary UI but leave maps and popups open
-        let worldPanel = document.getElementById('gmWorldPanel') || document.getElementById('playerWorldModal');
+        let worldPanel = document.getElementById('gmWorldPanel') || document.getElementById('gmWorldContent');
         if (worldPanel) worldPanel.classList.add('hidden');
-        // Switch to the initiative tab if available
         if (typeof window.showGmTab === 'function') window.showGmTab('initiative');
     };
 

@@ -554,7 +554,8 @@ window.addToInitiative = function(sourceIdx, sourceType, faction, displayName) {
         return;
     }
     insertInitiativeEntry(entry);
-    window.recomputeLairTraitNotes(); // no-op unless gmInLair is already on and a shared trait exists
+    window.recomputeLairTraitNotes();
+    return entry; // returned so battle map can link token.initiativeId = entry.id
 };
 
 // Deliberately does NOT clear the form afterward -- a GM adding a group
@@ -893,6 +894,8 @@ window.nextInitiativeTurn = function() {
         }
     }
     window.renderInitiativeTracker();
+    // Refresh battle map token colours — dead tokens turn red
+    if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
 };
 
 window.prevInitiativeTurn = function() {
