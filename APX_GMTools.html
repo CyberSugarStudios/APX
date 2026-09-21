@@ -1554,13 +1554,44 @@ document.addEventListener('DOMContentLoaded', () => {
                                 let curEntry = (window.gmInitiative||[])[(window._gmInitCurrentTurn??0)];
                                 let btTokens = (m.battleTokens||[]).map(t=>{
                                     let entry = t.initiativeId ? (window.gmInitiative||[]).find(e=>e.id===t.initiativeId) : null;
-                                    let isBO = entry && entry.currentHp !== null && entry.currentHp <= 0 && entry.faction==='player' && (entry.bleedOutTurns||0) > 0;
-                                    return {...t, _dead: !!(entry && entry.currentHp !== null && entry.currentHp <= 0 && !isBO), _bleedingOut: isBO, _faction: entry?.faction||null };
+                                    let isBO = !!(entry && entry.currentHp !== null && entry.currentHp <= 0 && entry.faction==='player' && (entry.bleedOutTurns||0) > 0);
+                                    // Explicitly list every field — never spread t directly, undefined values break Firestore
+                                    return {
+                                        id:           t.id            || '',
+                                        type:         t.type          || 'npc',
+                                        name:         t.name          || '',
+                                        color:        t.color         || null,
+                                        size:         t.size          || 'medium',
+                                        gridX:        t.gridX         ?? 0,
+                                        gridY:        t.gridY         ?? 0,
+                                        worldNpcId:   t.worldNpcId    || null,
+                                        playerUid:    t.playerUid     || null,
+                                        initiativeId: t.initiativeId  || null,
+                                        revealed:     t.revealed      !== false,
+                                        _dead:        !!(entry && entry.currentHp !== null && entry.currentHp <= 0 && !isBO),
+                                        _bleedingOut: isBO,
+                                        _faction:     entry?.faction  || null
+                                    };
                                 });
                                 let tokens = (m.tokens||[]).filter(t=>t.revealed).map(t=>{
                                     let mapIds = t.linkedOtherMapIds||[];
                                     if (!mapIds.length && t.linkedOtherMapId) mapIds=[t.linkedOtherMapId];
-                                    return {id:t.id,type:t.type||'area',letter:t.letter,x:t.x,y:t.y,name:t.name||'',description:t.description||'',linkedOtherMapIds:mapIds,subnotes:(t.subnotes||[]).filter(s=>s.revealed)};
+                                    return {
+                                        id:               t.id            || '',
+                                        type:             t.type          || 'area',
+                                        letter:           t.letter        || '',
+                                        x:                t.x             ?? 0,
+                                        y:                t.y             ?? 0,
+                                        name:             t.name          || '',
+                                        description:      t.description   || '',
+                                        linkedOtherMapIds: mapIds,
+                                        subnotes:         (t.subnotes||[]).filter(s=>s.revealed).map(s=>({
+                                            id:       s.id      || '',
+                                            title:    s.title   || '',
+                                            content:  s.content || '',
+                                            revealed: true
+                                        }))
+                                    };
                                 });
                                 return { id:m.id, name:m.name,
                                     battleMapEnabled:!!m.battleMapEnabled,
