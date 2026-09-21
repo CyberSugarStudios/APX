@@ -3768,21 +3768,39 @@
                 }).catch(() => { window._pwNpcPortraitCache[npcId] = ''; });
         }
 
-        let revealed = (map.battleTokens||[]).filter(t => t.revealed !== false);
+        let g = map.battleGrid||{cellSize:50,offsetX:0,offsetY:0};
+        // Only show tokens that are revealed AND not behind fog
+        let revealed = (map.battleTokens||[]).filter(t => {
+            if (t.revealed === false) return false;
+            if (_pwCellUnderFog(winId, t.gridX, t.gridY, g)) return false;
+            return true;
+        });
         let sz = Math.max(16, Math.min(g.cellSize * 0.85, 52));
 
+        // Sync active turn and dead/bleed-out states from world notes initiative data
+        let pwCurInitId = map._currentInitId || null; // GM writes this to publicNotes map object
         layer.innerHTML = revealed.map(t => {
             let sm  = ({tiny:0.5,small:0.75,medium:1,large:2,huge:3,gargantuan:4})[t.size||'medium']||1;
             let off = sm <= 1 ? 0.5 : sm/2;
             let px  = (g.offsetX % g.cellSize) + (t.gridX + off) * g.cellSize;
             let py  = (g.offsetY % g.cellSize) + (t.gridY + off) * g.cellSize;
             let diam = Math.max(12, g.cellSize*(sm<=1?sm*0.85:sm*0.9));
-            let defColor = t.type==='player' ? '#1d4ed8' : '#d97706';
-            let bg  = t.color || defColor;
-            // Own-token check must come BEFORE portrait (portrait references isMe)
             let isMe = t.type==='player' && ((myUid && t.playerUid === myUid) || (!myUid && t.name === myName));
             let icon = (t.name||'?')[0].toUpperCase();
-            // Portrait: player from state/partyMap; NPC from subcollection cache
+            // Active turn: gold; only when both IDs truthy
+            let isActive = !!(t.initiativeId && pwCurInitId && t.initiativeId === pwCurInitId);
+            // Dead/bleed-out from token flags written by GM's world notes publish
+            let isBleedingOut = !!(t._bleedingOut);
+            let isDead = !!(t._dead);
+            // Faction-based border (from token data; player always blue)
+            let faction = t._faction || (t.type==='player' ? 'player' : 'enemy');
+            let factionBorder = {player:'#3b82f6', ally:'#22c55e', neutral:'#e2e8f0', enemy:'#ef4444'}[faction] || '#e2e8f0';
+            let borderColor = isActive?'#fbbf24' : isDead?'#7f1d1d' : isBleedingOut?'#f97316' : isMe?'#fbbf24' : factionBorder;
+            let defColor = t.type==='player' ? '#1d4ed8' : '#d97706';
+            let bg = isDead?'#1a0000' : isBleedingOut?'#450a0a' : (t.color||defColor);
+            let filterStyle = isDead?'grayscale(1)' : isBleedingOut?'saturate(0.3)' : 'none';
+            let glowStyle = isActive||isMe?'0 0 12px 3px rgba(251,191,36,.5),' : isDead?'0 0 14px 4px rgba(239,68,68,.6),' : isBleedingOut?'0 0 14px 4px rgba(249,115,22,.5),' : '';
+            // Portrait
             let portrait = '';
             if (t.type === 'player') {
                 portrait = isMe ? (window.state?.charPortrait || '') : (partyMap[t.playerUid||''] || '');
@@ -3798,9 +3816,10 @@
                 style="position:absolute;left:${px}px;top:${py}px;
                 width:${diam}px;height:${diam}px;transform:translate(-50%,-50%);
                 background:${portrait?'transparent':bg};
-                border:2px solid ${isMe?'#fbbf24':'rgba(255,255,255,0.9)'};
+                border:${isActive||isMe?3:2}px solid ${borderColor};
                 border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;
-                box-shadow:${isMe?'0 0 12px 3px rgba(251,191,36,.5),':''} 0 2px 8px rgba(0,0,0,0.8);
+                box-shadow:${glowStyle} 0 2px 8px rgba(0,0,0,0.8);
+                opacity:${isDead?0.7:1};filter:${filterStyle};
                 cursor:${isMe?'grab':'default'};user-select:none;pointer-events:auto;" title="${t.name}">${innerHtml}</div>`;
         }).join('');
 

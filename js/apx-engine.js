@@ -921,7 +921,7 @@
                 return `
                     <tr class="bg-slate-800/30 border-b border-slate-700/50">
                         <td class="px-1 py-1 pl-4 text-[10px] text-slate-400 italic" colspan="1">${opts.label}</td>
-                        <td class="px-1 py-1 text-[10px] text-slate-400 text-center font-bold">STR</td>
+                        <td class="px-1 py-1 text-[10px] text-slate-400 text-center font-bold">${opts.attr||'STR'}</td>
                         <td class="px-1 py-1"></td>
                         <td class="px-1 py-1 text-center">
                             <div class="font-black text-emerald-400/80 text-xs bg-slate-900 rounded border border-slate-700 py-0.5">${atk >= 0 ? '+' + atk : atk}</div>
@@ -973,12 +973,12 @@
                     let twoHLabel = '↳ 2-Handed (STR, +1 AP, +1 die step)' + (reachCount ? `, Reach ${reachCount} sq` : '');
                     html += renderWeaponRow(w, idx, { label: twoHLabel, attr: 'STR', dice: twoHDice, ap: 4, editable: false });
                 }
-                if (isMediumRanged && couldGoTwoHanded) {
-                    if (w.aimed && !w.twoHanded) { w.twoHanded = true; }
-                    if (!w.aimed && w.twoHanded) { w.twoHanded = false; }
-                    if (w.aimed) {
-                        html += renderWeaponRow(w, idx, { label: '↳ Aimed (AGI, 2-Handed, 2x PER bonus)', attr: 'AGI', dice: w.dmg, ap: w.ap, editable: false });
-                    }
+                if (isMediumRanged && w.aimed) {
+                    // Temporarily enable twoHanded for the calc, then restore — do NOT mutate permanently
+                    let wasTwo = w.twoHanded;
+                    w.twoHanded = true;
+                    html += renderWeaponRow(w, idx, { label: '↳ Aimed (AGI, 2-Handed, 2× PER bonus)', attr: 'AGI', dice: w.dmg, ap: w.ap, editable: false });
+                    w.twoHanded = wasTwo;
                 }
                 // Notes row AFTER all 2H rows so it never covers the 2H preview
                 if (w.isCustom) {

@@ -894,8 +894,9 @@ window.nextInitiativeTurn = function() {
         }
     }
     window.renderInitiativeTracker();
-    // Refresh battle map token colours — dead tokens turn red
+    // Refresh battle map tokens and push current-turn data to players
     if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
+    if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
 };
 
 window.prevInitiativeTurn = function() {
@@ -907,6 +908,7 @@ window.prevInitiativeTurn = function() {
     }
     window.gmTurnNumber = Math.max(1, window.gmTurnNumber - 1);
     window.renderInitiativeTracker();
+    if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
 };
 
 // Limited-use Power bubbles on an NPC's initiative card -- only for

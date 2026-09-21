@@ -1549,16 +1549,26 @@ document.addEventListener('DOMContentLoaded', () => {
                         notes:     w.publicNotes.notes,
                         otherMaps: (_wNotes.otherMaps||[])
                             .filter(m=>m.revealed)
-                            .map(m=>({ id:m.id, name:m.name,
-                                battleMapEnabled: !!m.battleMapEnabled,
-                                battleGrid: m.battleGrid||{cellSize:50,offsetX:0,offsetY:0},
-                                battleTokens: (m.battleTokens||[]), // always sync for live movement
-                                tokens:(m.tokens||[]).filter(t=>t.revealed).map(t=>{
-                                let mapIds = t.linkedOtherMapIds||[];
-                                if (!mapIds.length && t.linkedOtherMapId) mapIds=[t.linkedOtherMapId];
-                                return {id:t.id,type:t.type||'area',letter:t.letter,x:t.x,y:t.y,name:t.name||'',description:t.description||'',linkedOtherMapIds:mapIds,subnotes:(t.subnotes||[]).filter(s=>s.revealed)};
-                            })
-                            })),
+                            .map(m=>{
+                                // Embed initiative sync data so players can colour tokens correctly in real time
+                                let curEntry = (window.gmInitiative||[])[(window._gmInitCurrentTurn??0)];
+                                let btTokens = (m.battleTokens||[]).map(t=>{
+                                    let entry = t.initiativeId ? (window.gmInitiative||[]).find(e=>e.id===t.initiativeId) : null;
+                                    let isBO = entry && entry.currentHp !== null && entry.currentHp <= 0 && entry.faction==='player' && (entry.bleedOutTurns||0) > 0;
+                                    return {...t, _dead: !!(entry && entry.currentHp !== null && entry.currentHp <= 0 && !isBO), _bleedingOut: isBO, _faction: entry?.faction||null };
+                                });
+                                let tokens = (m.tokens||[]).filter(t=>t.revealed).map(t=>{
+                                    let mapIds = t.linkedOtherMapIds||[];
+                                    if (!mapIds.length && t.linkedOtherMapId) mapIds=[t.linkedOtherMapId];
+                                    return {id:t.id,type:t.type||'area',letter:t.letter,x:t.x,y:t.y,name:t.name||'',description:t.description||'',linkedOtherMapIds:mapIds,subnotes:(t.subnotes||[]).filter(s=>s.revealed)};
+                                });
+                                return { id:m.id, name:m.name,
+                                    battleMapEnabled:!!m.battleMapEnabled,
+                                    battleGrid:m.battleGrid||{cellSize:50,offsetX:0,offsetY:0},
+                                    battleTokens: btTokens,
+                                    _currentInitId: curEntry?.id || null,
+                                    tokens };
+                            }),
                     }
                 };
                 await window.apxAuth.saveWorld(_activeWorldId, privateData, publicData)
@@ -3140,12 +3150,17 @@ document.addEventListener('DOMContentLoaded', () => {
             let sm  = BT_SIZES[t.size||'medium']||1;
             let {px,py} = _btTokenCenter(t.gridX,t.gridY,sm,g);
             let diam = Math.max(12, g.cellSize*(sm<=1?sm*0.85:sm*0.9));
-            let isActive = t.initiativeId && t.initiativeId===curInitId;
+            // Only highlight gold if BOTH IDs are truthy — undefined===undefined was wrongly making all tokens active
+            let isActive = !!(t.initiativeId && curInitId && t.initiativeId === curInitId);
             let linkedEntry = t.initiativeId ? (window.gmInitiative||[]).find(e=>e.id===t.initiativeId) : null;
-            let isDead = linkedEntry && linkedEntry.currentHp !== null && linkedEntry.currentHp !== undefined && linkedEntry.currentHp <= 0;
-            let isHidden = t.revealed===false;
-            let defColor = t.type==='player'?'#1d4ed8':'#d97706';
-            let bg = isDead ? '#7f1d1d' : (t.color||defColor);
+            let isBleedingOut = linkedEntry && linkedEntry.currentHp !== null && linkedEntry.currentHp <= 0
+                && linkedEntry.faction === 'player' && linkedEntry.bleedOutTurns > 0;
+            let isDead = linkedEntry && linkedEntry.currentHp !== null && linkedEntry.currentHp <= 0 && !isBleedingOut;
+            let isHidden = t.revealed === false;
+            let faction = linkedEntry?.faction || (t.type === 'player' ? 'player' : 'enemy');
+            let factionBorder = {player:'#3b82f6', ally:'#22c55e', neutral:'#e2e8f0', enemy:'#ef4444'}[faction] || '#e2e8f0';
+            let defColor = t.type==='player' ? '#1d4ed8' : '#d97706';
+            let bg = isDead ? '#1a0000' : isBleedingOut ? '#450a0a' : (t.color||defColor);
             let worldNpc = t.worldNpcId?(_wNotes.npcs||[]).find(n=>n.id===t.worldNpcId):null;
             let portrait = null;
             if (t.type === 'npc' && worldNpc) {
@@ -3164,13 +3179,16 @@ document.addEventListener('DOMContentLoaded', () => {
             let el=document.createElement('div');
             el.setAttribute('data-bt',t.id);
             // pointer-events:auto is EXPLICIT so it works even though the container has pointer-events:none
+            let borderColor = isActive?'#fbbf24': isDead?'#7f1d1d': isBleedingOut?'#f97316': isHidden?'rgba(255,255,255,0.25)': factionBorder;
+            let glowStyle = isActive?'0 0 20px 5px rgba(251,191,36,.8),' : isDead?'0 0 14px 4px rgba(239,68,68,.7),' : isBleedingOut?'0 0 14px 4px rgba(249,115,22,.7),' : '';
+            let filterStyle = isDead?'grayscale(1)' : isBleedingOut?'saturate(0.4)' : 'none';
             el.style.cssText=`position:absolute;left:${px}px;top:${py}px;width:${diam}px;height:${diam}px;
                 transform:translate(-50%,-50%);background:${portrait?'transparent':bg};
-                border:${isActive?3:2}px solid ${isActive?'#fbbf24':isDead?'#ef4444':isHidden?'rgba(255,255,255,0.3)':'rgba(255,255,255,0.9)'};
+                border:${isActive?3:2}px solid ${borderColor};
                 border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;
-                box-shadow:${isActive?'0 0 20px 5px rgba(251,191,36,.8),':''}${isDead?'0 0 12px 3px rgba(239,68,68,.6),':''} 0 2px 8px rgba(0,0,0,0.8);
+                box-shadow:${glowStyle} 0 2px 8px rgba(0,0,0,0.8);
                 cursor:grab;user-select:none;pointer-events:auto;
-                opacity:${isHidden?0.45:isDead?0.75:1};transition:box-shadow 0.15s;filter:${isDead?'grayscale(0.6)':'none'};`;
+                opacity:${isHidden?0.45:isDead?0.7:1};transition:box-shadow 0.15s;filter:${filterStyle};`;
             el.title=`${t.name} (${t.size||'medium'})${isHidden?' [Hidden]':''} — dbl-click for stat block`;
             // Double-click opens linked stat block (NPC) or player summary
             el.addEventListener('dblclick', e => {
@@ -3333,7 +3351,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window._btToggleReveal = function(mapId,winId,tokenId){ let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); let tok=(map?.battleTokens||[]).find(t=>t.id===tokenId); if(!tok) return; tok.revealed=tok.revealed===false?true:false; saveWorldNotes(); _btRenderTokens(mapId,winId); };
     window._btRefreshAllOpenMaps = function(){ (_wNotes.otherMaps||[]).forEach(m=>{if(m.battleMapEnabled){let wid='omWin_'+m.id;if(document.getElementById(wid))_btRenderTokens(m.id,wid);}}); };
 
-    // Player summary window — condensed stat view for GM when double-clicking a player token
+    // Full player stat block popup — opened by double-clicking a player's battle token
     window._btOpenPlayerSummary = function(playerName, playerUid) {
         let winId = 'playerSummary_'+playerUid;
         let existing = document.getElementById(winId);
@@ -3343,24 +3361,57 @@ document.addEventListener('DOMContentLoaded', () => {
         window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1;
         let win = document.createElement('div');
         win.id=winId;
-        win.style.cssText=`position:fixed;right:20px;top:80px;width:280px;background:#1e293b;border:1px solid #6366f1;border-radius:0.75rem;z-index:${window.apxFloatingZTop};box-shadow:0 10px 40px rgba(0,0,0,.85);overflow:hidden;`;
-        let attrs=['STR','AGI','CON','PER','INT','CHA','LUC'].map(a=>`<div style="text-align:center;"><div style="font-size:0.55rem;color:#64748b;">${a}</div><div style="font-size:0.75rem;font-weight:900;color:#e2e8f0;">${s.attrs?.[a]??'-'}</div></div>`).join('');
-        win.innerHTML=`<div id="${winId}_hdr" style="cursor:grab;user-select:none;background:#312e81;padding:0.5rem 0.75rem;display:flex;align-items:center;gap:0.5rem;">
-            <span style="font-size:0.8rem;font-weight:700;color:#e2e8f0;flex:1;">${s.name||playerName}</span>
-            <button onclick="document.getElementById('${winId}').remove()" style="background:none;border:none;color:#94a3b8;font-size:1rem;cursor:pointer;">✕</button>
+        win.style.cssText=`position:fixed;right:20px;top:60px;width:340px;max-height:80vh;overflow-y:auto;background:#0f172a;border:1px solid #6366f1;border-radius:0.75rem;z-index:${window.apxFloatingZTop};box-shadow:0 10px 40px rgba(0,0,0,.9);`;
+        const row=(label,val,c='#e2e8f0')=>`<div style="display:flex;justify-content:space-between;padding:0.2rem 0;border-bottom:1px solid #1e293b;font-size:0.65rem;"><span style="color:#64748b;">${label}</span><span style="color:${c};font-weight:700;">${val??'—'}</span></div>`;
+        const sec=(t)=>`<div style="font-size:0.55rem;font-weight:900;text-transform:uppercase;color:#6366f1;margin:0.5rem 0 0.2rem;letter-spacing:0.08em;">${t}</div>`;
+        let attrs=['STR','AGI','CON','PER','INT','CHA','LUC'].map(a=>`<div style="text-align:center;"><div style="font-size:0.5rem;color:#64748b;">${a}</div><div style="font-size:0.85rem;font-weight:900;color:#e2e8f0;">${s.attrs?.[a]??'—'}</div></div>`).join('');
+        let weapons=(s.weapons||[]).map(w=>`<div style="font-size:0.6rem;padding:0.15rem 0;border-bottom:1px solid #1e293b;"><span style="color:#e2e8f0;font-weight:700;">${w.name}</span> <span style="color:#94a3b8;">${w.attr||''}</span> <span style="color:#6ee7b7;font-weight:900;">${w.atk>=0?'+':''}${w.atk}</span> <span style="color:#fde68a;">${w.dmg}</span> <span style="color:#93c5fd;">AP${w.ap}</span></div>`).join('')||'<div style="font-size:0.6rem;color:#475569;">None</div>';
+        let powers=(s.powers||[]).map(pw=>`<div style="font-size:0.6rem;padding:0.15rem 0;border-bottom:1px solid #1e293b;"><span style="color:#c4b5fd;font-weight:700;">${pw.name}</span>${pw.cost?`<span style="color:#94a3b8;margin-left:0.3rem;">${pw.cost}</span>`:''}${pw.slots?`<span style="color:#818cf8;margin-left:0.3rem;">[Slots: ${pw.slots}]</span>`:''}</div>`).join('')||'<div style="font-size:0.6rem;color:#475569;">None</div>';
+        let skills=(s.trainedSkills||[]).join(', ')||'—';
+        let langs=(s.languages||'—');
+        let portrait=s.charPortrait?`<img src="${s.charPortrait}" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid #6366f1;flex-shrink:0;">`:'<div style="width:52px;height:52px;border-radius:50%;background:#1e293b;border:2px solid #334155;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.4rem;">👤</div>';
+        win.innerHTML=`
+        <div id="${winId}_hdr" style="cursor:grab;user-select:none;background:#1e1b4b;padding:0.6rem 0.75rem;display:flex;align-items:center;gap:0.6rem;position:sticky;top:0;z-index:1;">
+            ${portrait}
+            <div style="flex:1;min-width:0;">
+                <div style="font-size:0.85rem;font-weight:900;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s.name||playerName}</div>
+                <div style="font-size:0.6rem;color:#818cf8;">${s.archetype||''} ${s.origin?'· '+s.origin:''}</div>
+            </div>
+            <button onclick="document.getElementById('${winId}').remove()" style="background:none;border:none;color:#94a3b8;font-size:1.1rem;cursor:pointer;flex-shrink:0;">✕</button>
         </div>
-        <div style="padding:0.6rem 0.75rem;display:flex;flex-direction:column;gap:0.4rem;">
-            <div style="display:flex;gap:0.5rem;font-size:0.65rem;">
-                <div style="flex:1;background:#0f172a;border-radius:0.3rem;padding:0.3rem 0.4rem;">❤️ HP <span style="font-weight:900;color:#f87171;">${s.currentHp??'-'}/${s.maxHp??'-'}</span></div>
-                <div style="flex:1;background:#0f172a;border-radius:0.3rem;padding:0.3rem 0.4rem;">🛡 AC <span style="font-weight:900;color:#93c5fd;">${s.ac??'-'}</span></div>
-                <div style="flex:1;background:#0f172a;border-radius:0.3rem;padding:0.3rem 0.4rem;">⚡ AP <span style="font-weight:900;color:#fde68a;">${s.ap??'-'}</span></div>
+        <div style="padding:0.5rem 0.75rem;">
+            <div style="display:flex;gap:0.4rem;margin-bottom:0.4rem;">
+                <div style="flex:1;background:#1e293b;border-radius:0.3rem;padding:0.3rem 0.4rem;font-size:0.65rem;">❤️ <span style="color:#f87171;font-weight:900;">${s.currentHp??'—'}/${s.maxHp??'—'}</span>${s.tempHp?`<span style="color:#fbbf24;font-size:0.55rem;"> +${s.tempHp}t</span>`:''}</div>
+                <div style="flex:1;background:#1e293b;border-radius:0.3rem;padding:0.3rem 0.4rem;font-size:0.65rem;">🛡 AC <span style="color:#93c5fd;font-weight:900;">${s.ac??'—'}</span></div>
+                <div style="flex:1;background:#1e293b;border-radius:0.3rem;padding:0.3rem 0.4rem;font-size:0.65rem;">⚡ AP <span style="color:#fde68a;font-weight:900;">${s.ap??'—'}</span></div>
+                <div style="flex:1;background:#1e293b;border-radius:0.3rem;padding:0.3rem 0.4rem;font-size:0.65rem;">🎲 Init <span style="color:#a3e635;font-weight:900;">${s.initiative??'—'}</span></div>
             </div>
-            <div style="display:flex;gap:0.5rem;font-size:0.65rem;">
-                <div style="flex:1;background:#0f172a;border-radius:0.3rem;padding:0.3rem 0.4rem;">DR <span style="font-weight:900;color:#e2e8f0;">${s.dr??'-'}</span></div>
-                <div style="flex:1;background:#0f172a;border-radius:0.3rem;padding:0.3rem 0.4rem;">ER <span style="font-weight:900;color:#e2e8f0;">${s.er??'-'}</span></div>
-                <div style="flex:1;background:#0f172a;border-radius:0.3rem;padding:0.3rem 0.4rem;">Init <span style="font-weight:900;color:#e2e8f0;">${s.initiative??'-'}</span></div>
+            <div style="display:flex;gap:0.4rem;margin-bottom:0.5rem;">
+                <div style="flex:1;background:#1e293b;border-radius:0.3rem;padding:0.3rem 0.4rem;font-size:0.65rem;">DR <span style="color:#e2e8f0;font-weight:900;">${s.dr??'—'}</span></div>
+                <div style="flex:1;background:#1e293b;border-radius:0.3rem;padding:0.3rem 0.4rem;font-size:0.65rem;">ER <span style="color:#e2e8f0;font-weight:900;">${s.er??'—'}</span></div>
+                <div style="flex:1;background:#1e293b;border-radius:0.3rem;padding:0.3rem 0.4rem;font-size:0.65rem;">Spd <span style="color:#e2e8f0;font-weight:900;">${s.speed??'—'}</span></div>
+                <div style="flex:1;background:#1e293b;border-radius:0.3rem;padding:0.3rem 0.4rem;font-size:0.65rem;">Age <span style="color:#e2e8f0;font-weight:900;">${s.age??'—'}</span></div>
             </div>
-            <div style="display:flex;justify-content:space-between;background:#0f172a;border-radius:0.3rem;padding:0.35rem 0.5rem;">${attrs}</div>
+            <div style="display:flex;justify-content:space-between;background:#1e293b;border-radius:0.3rem;padding:0.4rem 0.5rem;margin-bottom:0.5rem;">${attrs}</div>
+            ${sec('Saving Throws')}
+            ${['STR','AGI','CON','PER','INT','CHA','LUC'].map(a=>row(a+' Save', s.saves?.[a]!==undefined?(s.saves[a]>=0?'+':'')+s.saves[a]:'—')).join('')}
+            ${sec('Resistances & Conditions')}
+            ${row('Resistances', s.resistances||'—', '#6ee7b7')}
+            ${row('Vulnerabilities', s.vulnerabilities||'—', '#f87171')}
+            ${row('Conditions', (s.conditions||[]).join(', ')||'None', '#fde68a')}
+            ${sec('Speeds')}
+            ${row('Walk', (s.speed??30)+' ft')}
+            ${s.swimSpeed?row('Swim', s.swimSpeed+' ft'):''}
+            ${s.climbSpeed?row('Climb', s.climbSpeed+' ft'):''}
+            ${s.flySpeed?row('Fly', s.flySpeed+' ft'):''}
+            ${sec('Weapons')}
+            ${weapons}
+            ${(s.powers||[]).length?sec('Powers')+''+powers:''}
+            ${sec('Trained Skills & Languages')}
+            ${row('Skills', skills, '#a3e635')}
+            ${row('Languages', langs, '#c4b5fd')}
+            ${s.powerSlots?sec('Power Slots')+(()=>{let ps=s.powerSlots; return [1,2,3,4,5].filter(l=>ps[l]>0).map(l=>row('Level '+l, (ps[l+'used']||0)+'/'+ps[l], ps[l+'used']>=ps[l]?'#f87171':'#6ee7b7')).join('');})():''}
+            ${s.companions?.length?sec('Companions')+s.companions.map(c=>row(c.name,'HP '+c.hp)).join(''):''}
         </div>`;
         document.getElementById('floatingWindowContainer').appendChild(win);
         let hdr=document.getElementById(winId+'_hdr'), wDrag=false, wOX=0, wOY=0;
