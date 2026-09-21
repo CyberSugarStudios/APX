@@ -3768,7 +3768,6 @@
                 }).catch(() => { window._pwNpcPortraitCache[npcId] = ''; });
         }
 
-        let g = map.battleGrid||{cellSize:50,offsetX:0,offsetY:0};
         // Only show tokens that are revealed AND not behind fog
         let revealed = (map.battleTokens||[]).filter(t => {
             if (t.revealed === false) return false;
