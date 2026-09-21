@@ -3781,10 +3781,6 @@
             let bg  = t.color || defColor;
             // Own-token check must come BEFORE portrait (portrait references isMe)
             let isMe = t.type==='player' && ((myUid && t.playerUid === myUid) || (!myUid && t.name === myName));
-            // Portrait: own token uses local state; other players' tokens use partyMap
-            let portrait = t.type==='player'
-                ? (isMe ? (window.state?.charPortrait || '') : (partyMap[t.playerUid||''] || ''))
-                : '';  // NPC portraits not sent to players
             let icon = (t.name||'?')[0].toUpperCase();
             // Portrait: player from state/partyMap; NPC from subcollection cache
             let portrait = '';
