@@ -1153,7 +1153,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <button onclick="window.mapZoom(1.25)" class="px-2 py-1.5 rounded bg-slate-700 text-white text-xs font-bold">+</button>
                         <button onclick="window.mapZoom(0.8)" class="px-2 py-1.5 rounded bg-slate-700 text-white text-xs font-bold">&#8722;</button>
                         <button onclick="window.mapResetView()" class="px-2 py-1.5 rounded bg-slate-700 text-slate-400 text-xs">Reset</button>
-                        <button id="fogToggleBtn" onclick="window.toggleFogMode('worldmap')" class="px-2 py-1.5 rounded bg-slate-700 text-slate-400 text-xs font-bold">Fog Fog</button>
+                        <button id="fogToggleBtn" onclick="window.toggleFogMode('worldmap')" class="px-2 py-1.5 rounded bg-slate-700 text-slate-400 text-xs font-bold">Fog</button>
                         <div id="fogControls" style="display:none;align-items:center;gap:0.4rem;">
                             <span class="text-[10px] text-slate-400">Size:</span>
                             <input type="range" id="fogBrushSlider" min="5" max="150" value="40" step="5"
@@ -2528,9 +2528,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 <!-- Fog controls live in the header so they never accidentally paint -->
                 <button id="${winId}_fogBtn" onclick="window.toggleFogMode('${mapId}')" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;">Fog Fog</button>
                 <button id="${winId}_specialBtn" onclick="window.toggleSpecialMarkerMode('${mapId}','${winId}')" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;" title="Place a special marker (secret door, trap, etc.)">* Special</button>
-                <button id="${winId}_battleToggle" onclick="window.toggleBattleMap('${mapId}','${winId}')" style="background:${map.battleMapEnabled?'#065f46':'#1e293b'};border:1px solid ${map.battleMapEnabled?'#10b981':'#334155'};color:${map.battleMapEnabled?'#6ee7b7':'#94a3b8'};font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;" title="Toggle Battle Map (grid + tokens)">[Battle] Battle</button>
-                <!-- Battle Map grid controls (shown by default when battle mode active) -->
-                <div id="${winId}_battleControls" style="display:${map.battleMapEnabled?'flex':'none'};align-items:center;gap:0.3rem;flex-wrap:nowrap;">
+                <button id="${winId}_battleToggle" onclick="window.toggleBattleMap('${mapId}','${winId}')" style="background:${map.battleMapEnabled?'#065f46':'#1e293b'};border:1px solid ${map.battleMapEnabled?'#10b981':'#334155'};color:${map.battleMapEnabled?'#6ee7b7':'#94a3b8'};font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;" title="Toggle Battle Map (grid + tokens)">Battle</button>
+                <!-- Battle Map: + Token and All to Init always visible when battle is on -->
+                ${map.battleMapEnabled ? `
+                <button onclick="window.openBattleTokenPanel('${mapId}','${winId}')" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#065f46;border:1px solid #10b981;color:#6ee7b7;border-radius:0.2rem;cursor:pointer;white-space:nowrap;">+ Token</button>
+                <button onclick="window._btAddAllToInitiative('${mapId}')" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#1e3a5f;border:1px solid #3b82f6;color:#93c5fd;border-radius:0.2rem;cursor:pointer;white-space:nowrap;" title="Add all revealed tokens to initiative">All to Init</button>
+                <button onclick="let s=document.getElementById('${winId}_battleControls'); s.style.display=s.style.display==='none'?'flex':'none';" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#1e293b;border:1px solid #334155;color:#94a3b8;border-radius:0.2rem;cursor:pointer;white-space:nowrap;">Grid</button>
+                ` : ''}
+                <!-- Grid settings: hidden by default, toggled by Grid button -->
+                <div id="${winId}_battleControls" style="display:none;align-items:center;gap:0.3rem;flex-wrap:nowrap;">
                     <span style="font-size:0.6rem;color:#6ee7b7;white-space:nowrap;">Cell:</span>
                     <input type="number" id="${winId}_cellSize" min="5" max="400" value="${(map.battleGrid||{}).cellSize||50}" step="0.5"
                         oninput="window._btUpdateGrid('${mapId}','${winId}')"
@@ -2539,8 +2545,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     <input type="number" id="${winId}_gridOX" value="${(map.battleGrid||{}).offsetX||0}" min="0" max="400" step="0.5" style="width:36px;background:#0f172a;border:1px solid #334155;color:#e2e8f0;font-size:0.6rem;border-radius:0.2rem;padding:0.1rem 0.2rem;text-align:center;" oninput="window._btUpdateGrid('${mapId}','${winId}')">
                     <span style="font-size:0.6rem;color:#6ee7b7;">Y:</span>
                     <input type="number" id="${winId}_gridOY" value="${(map.battleGrid||{}).offsetY||0}" min="0" max="400" step="0.5" style="width:36px;background:#0f172a;border:1px solid #334155;color:#e2e8f0;font-size:0.6rem;border-radius:0.2rem;padding:0.1rem 0.2rem;text-align:center;" oninput="window._btUpdateGrid('${mapId}','${winId}')">
-                    <button onclick="window.openBattleTokenPanel('${mapId}','${winId}')" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#065f46;border:1px solid #10b981;color:#6ee7b7;border-radius:0.2rem;cursor:pointer;white-space:nowrap;">+ Token</button>
-                    <button onclick="window._btAddAllToInitiative('${mapId}')" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#1e3a5f;border:1px solid #3b82f6;color:#93c5fd;border-radius:0.2rem;cursor:pointer;white-space:nowrap;" title="Add all revealed tokens to initiative">All to Init</button>
                 </div>
                 <div id="${winId}_fogControls" style="display:none;align-items:center;gap:0.25rem;">
                     <span style="font-size:0.6rem;color:#94a3b8;">Size:</span>
@@ -3215,12 +3219,14 @@ document.addEventListener('DOMContentLoaded', () => {
             // pointer-events:auto is EXPLICIT so it works even though the container has pointer-events:none
             let borderColor = isActive?'#fbbf24': isDead?'rgba(80,80,80,0.8)': isBleedingOut?'#f97316': isHidden?'rgba(255,255,255,0.25)': factionBorder;
             let glowStyle = isActive?'0 0 20px 5px rgba(251,191,36,.8),' : isDead?'' : isBleedingOut?'0 0 14px 4px rgba(249,115,22,.7),' : '';
+            let bleedInset = isBleedingOut ? '0 0 0 1000px rgba(220,38,38,0.5) inset,' : '';
+            let deadInset  = isDead        ? '0 0 0 1000px rgba(0,0,0,0.6) inset,' : '';
             let filterStyle = isDead?'grayscale(1)' : isBleedingOut?'saturate(0.4)' : 'none';
             el.style.cssText=`position:absolute;left:${px}px;top:${py}px;width:${diam}px;height:${diam}px;
                 transform:translate(-50%,-50%);background:${portrait?'transparent':bg};
                 border:${isActive?3:2}px solid ${borderColor};
                 border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;
-                box-shadow:${glowStyle} 0 2px 8px rgba(0,0,0,0.8);
+                box-shadow:${glowStyle}${bleedInset}${deadInset} 0 2px 8px rgba(0,0,0,0.8);
                 cursor:grab;user-select:none;pointer-events:auto;
                 opacity:${isHidden?0.45:isDead?0.7:1};transition:box-shadow 0.15s;filter:${filterStyle};`;
             el.title=`${t.name} (${t.size||'medium'})${isHidden?' [Hidden]':''} — dbl-click for stat block`;
@@ -3229,8 +3235,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.stopPropagation();
                 if (t.type === 'npc' && t.worldNpcId) {
                     let wn = (_wNotes.npcs||[]).find(n=>n.id===t.worldNpcId);
-                    // openFloatingNpcStatBlockById(gmNpcId, displayName) — gmNpcId = the stat block's ID
-                    if (wn?.statBlockId) window.openFloatingNpcStatBlockById(wn.statBlockId, t.name || wn.name);
+                    if (wn?.statBlockId) {
+                        // Store the clicked token so "Add to Initiative" from the stat block auto-links it
+                        window._pendingTokenInitLink = { mapId, tokenId: t.id };
+                        window.openFloatingNpcStatBlockById(wn.statBlockId, t.name || wn.name);
+                    }
                 } else if (t.type === 'player' && t.playerUid) {
                     window._btOpenPlayerSummary(t.name, t.playerUid);
                 }
@@ -3362,9 +3371,25 @@ document.addEventListener('DOMContentLoaded', () => {
         let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return;
         if(!map.battleTokens) map.battleTokens=[];
         let g=map.battleGrid||{cellSize:50,offsetX:0,offsetY:0};
+        // Place at center of where the GM is currently looking, not the image center
+        let win=document.getElementById(winId);
         let img=document.getElementById(winId+'_img');
-        let cx=Math.round((img?.naturalWidth||400)/2), cy=Math.round((img?.naturalHeight||400)/2);
-        let {gridX,gridY}=_btPixelToGrid(cx,cy,g);
+        let sc=win?._scale||1, ox=win?._offX||0, oy=win?._offY||0;
+        let vpW=(win?.clientWidth||640)/2, vpH=(win?.clientHeight||480)/2;
+        let imgX=(-ox/sc)+vpW/sc, imgY=(-oy/sc)+vpH/sc;
+        let {gridX,gridY}=_btPixelToGrid(Math.round(imgX),Math.round(imgY),g);
+        // Auto-numbering: strip any trailing " N" from name to get base
+        let baseName = name.replace(/ \d+$/, '');
+        let existing = (map.battleTokens||[]).filter(t => t.name.replace(/ \d+$/,'') === baseName);
+        let newName;
+        if (existing.length === 0) {
+            newName = baseName;
+        } else if (existing.length === 1 && !/ \d+$/.test(existing[0].name)) {
+            existing[0].name = baseName + ' 1';
+            newName = baseName + ' 2';
+        } else {
+            newName = baseName + ' ' + (existing.length + 1);
+        }
         // Infer size from linked stat block
         let size = 'medium';
         if (worldNpcId) {
@@ -3375,7 +3400,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (sb?.size) size = sb.size.toLowerCase();
             }
         }
-        map.battleTokens.push({id:'bt_'+Date.now(),type,name,color,size,gridX,gridY,
+        map.battleTokens.push({id:'bt_'+Date.now(),type,name:newName,color,size,gridX,gridY,
             worldNpcId:worldNpcId||null,playerUid:playerUid||null,initiativeId:null,revealed:false});
         saveWorldNotes(); _btRenderTokens(mapId,winId);
     };

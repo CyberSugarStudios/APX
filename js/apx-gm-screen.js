@@ -555,6 +555,20 @@ window.addToInitiative = function(sourceIdx, sourceType, faction, displayName) {
     }
     insertInitiativeEntry(entry);
     window.recomputeLairTraitNotes();
+
+    // If this initiative entry was triggered from a battle-map token dblclick, link them now
+    if (window._pendingTokenInitLink && entry?.id) {
+        let { mapId, tokenId } = window._pendingTokenInitLink;
+        window._pendingTokenInitLink = null;
+        let linkMap = (_wNotes?.otherMaps||[]).find(m=>m.id===mapId);
+        let linkTok = linkMap?.battleTokens?.find(t=>t.id===tokenId);
+        if (linkTok) {
+            linkTok.initiativeId = entry.id;
+            if (typeof saveWorldNotes === 'function') saveWorldNotes();
+            if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
+        }
+    }
+
     return entry; // returned so battle map can link token.initiativeId = entry.id
 };
 
@@ -849,6 +863,9 @@ window.clearInitiative = function() {
         window.gmInLair = false;
         window.closeAllFloatingStatBlocks();
         window.renderInitiativeTracker();
+        // Push cleared state to maps so gold highlights disappear on GM and player maps
+        if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
+        if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
     });
 };
 
@@ -876,6 +893,9 @@ window.endCombat = function() {
         window.gmInLair = false;
         window.closeAllFloatingStatBlocks();
         window.renderInitiativeTracker();
+        // Push cleared state so gold highlights disappear on all maps
+        if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
+        if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
     }, true);
 };
 
