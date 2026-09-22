@@ -41,7 +41,9 @@
             deleteOtherMapImage: () => Promise.resolve(),
             saveFogData: () => Promise.resolve(),
             loadFogData: () => Promise.resolve(null),
-            loadFogDataForPlayer: () => Promise.resolve(null) };
+            loadFogDataForPlayer: () => Promise.resolve(null),
+            writeBattlePosition: () => Promise.resolve(),
+            listenBattlePositions: () => (() => {}) };
         return;
     }
 
@@ -264,29 +266,56 @@
             .set({ _xpGrant: { amount: xp, at: firebase.firestore.FieldValue.serverTimestamp() } }, { merge: true });
     }
 
-    // gmSetPlayerBattlePos: GM overwrites a player's battle position record so the
-    // party listener doesn't revert a GM-placed token back to the player's last position.
-    async function gmSetPlayerBattlePos(inviteCode, playerUid, mapId, tokenId, gridX, gridY) {
-        if (!inviteCode || !playerUid) return;
-        let field = `battlePositions.${mapId}.${tokenId}`;
-        let update = {};
-        update[field] = { gridX, gridY, at: firebase.firestore.FieldValue.serverTimestamp() };
-        await db.collection('worldCodes').doc(inviteCode)
-            .collection('players').doc(playerUid)
-            .set(update, { merge: true });
+    // --- Battle-map PLAYER token positions --------------------------------
+    // Single source of truth for where a player's token is:
+    //   worldCodes/{inviteCode}/players/{playerUid}  →  battlePositions.{mapId}.{tokenId} = {gridX, gridY, by, at}
+    // The owning player AND the GM both write this exact field (rules allow both),
+    // and both listen to it, so the last move made by either side shows on every screen.
+    //
+    // NOTE: uses update() with a FieldPath. The old code used set({'a.b.c': v}, {merge:true}),
+    // which Firestore stores as ONE literal field literally named "battlePositions.map.tok" —
+    // nobody ever read that field, which is why moves stopped syncing.
+    async function writeBattlePosition(inviteCode, playerUid, mapId, tokenId, gridX, gridY) {
+        let user = currentUser();
+        if (!user || !inviteCode || !playerUid || !mapId || !tokenId) return;
+        let code = inviteCode.toUpperCase().trim();
+        let ref = db.collection('worldCodes').doc(code).collection('players').doc(playerUid);
+        let val = { gridX, gridY, by: user.uid, at: firebase.firestore.FieldValue.serverTimestamp() };
+        try {
+            await ref.update(new firebase.firestore.FieldPath('battlePositions', mapId, tokenId), val);
+        } catch (e) {
+            // Player's own doc missing (rare) → create it with a proper nested map.
+            // The GM never creates a player doc (would add a phantom party member).
+            if (e.code === 'not-found' && user.uid === playerUid) {
+                await ref.set({ uid: user.uid, battlePositions: { [mapId]: { [tokenId]: val } } }, { merge: true });
+            } else throw e;
+        }
     }
 
-    // --- updatePlayerBattlePos: player writes battle token position to their world record ---
-    // Path: worldCodes/{inviteCode}/players/{uid} { battlePositions: { mapId: { tokenId: {gridX,gridY} } } }
-    // Small targeted write → GM's party listener picks it up in < 500ms.
+    // Live listener on every player's battle positions in a world.
+    // callback([{ uid, battlePositions, charPortrait }])
+    function listenBattlePositions(inviteCode, callback) {
+        if (!inviteCode) return () => {};
+        return db.collection('worldCodes').doc(inviteCode.toUpperCase().trim())
+            .collection('players').onSnapshot(snap => {
+                callback(snap.docs.map(d => {
+                    let data = d.data() || {};
+                    return {
+                        uid: data.uid || d.id,
+                        battlePositions: data.battlePositions || {},
+                        charPortrait: data.charState?.charPortrait || ''
+                    };
+                }));
+            }, err => console.warn('Battle position listener:', err.message));
+    }
+
+    // Back-compat wrappers
+    async function gmSetPlayerBattlePos(inviteCode, playerUid, mapId, tokenId, gridX, gridY) {
+        return writeBattlePosition(inviteCode, playerUid, mapId, tokenId, gridX, gridY);
+    }
     async function updatePlayerBattlePos(inviteCode, mapId, tokenId, gridX, gridY) {
-        let user = currentUser(); if (!user || !inviteCode) return;
-        let field = `battlePositions.${mapId}.${tokenId}`;
-        let update = {};
-        update[field] = { gridX, gridY, at: firebase.firestore.FieldValue.serverTimestamp() };
-        await db.collection('worldCodes').doc(inviteCode)
-            .collection('players').doc(user.uid)
-            .set(update, { merge: true });
+        let user = currentUser(); if (!user) return;
+        return writeBattlePosition(inviteCode, user.uid, mapId, tokenId, gridX, gridY);
     }
 
     // --- setGmHpOverride: GM writes an HP value that the player's charsheet listens for ---
@@ -505,6 +534,7 @@
                 }, { merge: true }).catch(() => {});
         }
         return {
+            inviteCode: inviteCode.toUpperCase().trim(),
             gmUid: data.gmUid, worldId: data.worldId,
             worldName: data.worldName, name: data.worldName,
             races: data.races || [],
@@ -605,6 +635,7 @@
         saveWorldMapFirestore, loadWorldMapFirestore, deleteWorldMapFirestore,
         saveNpcPortrait, loadNpcPortrait, loadNpcPortraitForPlayer, addXpToPlayer, gmSetPlayerBattlePos,
         savePublicWorldMap, loadPublicWorldMap, loadWorldMapForPlayer, setGmHpOverride, updatePlayerBattlePos,
+        writeBattlePosition, listenBattlePositions,
         saveOtherMapImage, loadOtherMapImage, loadOtherMapImageForPlayer, deleteOtherMapImage,
         saveFogData, loadFogData, loadFogDataForPlayer, listenFogDataForPlayer,
         listenWorldPlayers, listenPublicWorldNotes, kickWorldPlayer,

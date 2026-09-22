@@ -310,8 +310,7 @@ function startPartyListener(inviteCode) {
         let changed = false;
         players.forEach(p => {
             let state = p.charState || p.state;
-            // Fast-path: player wrote battlePositions directly to their world record
-            if (p.battlePositions) _applyPlayerBattlePositions(p.uid, p.battlePositions);
+            // Battle token positions are handled by APXBattle's own listener (js/apx-battlemap.js)
             if (!state) return;
             // Update the party panel
             let entry = window.gmParty.find(x => x.fileName === p.uid);
@@ -320,8 +319,6 @@ function startPartyListener(inviteCode) {
                 entry.summary = computeCharSummary(state);
                 entry.summary.charPortrait = state.charPortrait || null;
                 changed = true;
-                // Apply any battle token positions the player moved
-                if (state.battlePositions) _applyPlayerBattlePositions(p.uid, state.battlePositions);
             } else {
                 let summ = computeCharSummary(state);
                 summ.charPortrait = state.charPortrait || null;
@@ -350,15 +347,6 @@ function startPartyListener(inviteCode) {
     });
 }
 window.startPartyListener = startPartyListener;
-
-// Apply battle token positions sent by a player (saved in their world player record).
-// Delegates to window._gmApplyPlayerBattlePos which is defined inside APX_GMTools.html
-// and has closure access to _wNotes (a local var not exposed on window directly).
-function _applyPlayerBattlePositions(playerUid, battlePositions) {
-    if (typeof window._gmApplyPlayerBattlePos === 'function') {
-        window._gmApplyPlayerBattlePos(playerUid, battlePositions);
-    }
-}
 
 function statBadge(label, value, colorClass) {
     return `<div class="text-center bg-slate-900 rounded border border-slate-700 py-1"><div class="text-[8px] text-slate-500 uppercase font-bold">${label}</div><div class="text-sm font-black ${colorClass || 'text-white'}">${value}</div></div>`;

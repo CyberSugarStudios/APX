@@ -1325,6 +1325,7 @@ document.addEventListener('DOMContentLoaded', () => {
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="js/firebase-config.js"></script>
     <script src="js/apx-firebase.js"></script>
+    <script src="js/apx-battlemap.js"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -1428,6 +1429,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (w.inviteCode && typeof window.startPartyListener === 'function') {
                 window.startPartyListener(w.inviteCode);
             }
+            // Live battle-map player token positions (shared authority with players)
+            if (w.inviteCode && window.APXBattle) window.APXBattle.start(w.inviteCode);
             // Reset map state so the previous world's image never bleeds into this one
             _mapInitialized = false;
             if (_mapImg) {
@@ -1510,9 +1513,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── Notes auto-save ──────────────────────────────────────────
     let _saveNotesTimer = null;
     window.saveCampaignNotes = function() {}; // compat no-op
+    // Debounced save (typing, toggles, etc.)
     function saveWorldNotes() {
         clearTimeout(_saveNotesTimer);
-        _saveNotesTimer = setTimeout(async () => {
+        _saveNotesTimer = setTimeout(_doSaveWorldNotes, 400);
+    }
+    // The actual save — also called directly (no debounce) after a token move
+    async function _doSaveWorldNotes() {
+        clearTimeout(_saveNotesTimer);
+        {
             let w = getActiveWorld();
             if (!w) return;
 
@@ -1546,7 +1555,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             id:m.id, name:m.name, revealed:!!m.revealed,
                             battleMapEnabled: !!m.battleMapEnabled,
                             battleGrid: m.battleGrid||{cellSize:50,offsetX:0,offsetY:0},
-                            battleTokens: (m.battleTokens||[]),
+                            battleTokens: (m.battleTokens||[]).map(t=>{
+                                // Persist the live position (player tokens: from the position authority)
+                                let {_gmMoveAtMs, ...rest} = t;
+                                let p = window.APXBattle ? window.APXBattle.posOf(m.id, t) : {gridX:t.gridX, gridY:t.gridY};
+                                return { ...rest, gridX: p.gridX, gridY: p.gridY };
+                            }),
                             tokens:(m.tokens||[]).map(t=>{
                                 // Migrate single linkedOtherMapId → array
                                 let mapIds = t.linkedOtherMapIds||[];
@@ -1571,13 +1585,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 let btTokens = (m.battleTokens||[]).map(t=>{
                                     let entry = t.initiativeId ? (window.gmInitiative||[]).find(e=>e.id===t.initiativeId) : null;
                                     let isBO = !!(entry && entry.currentHp !== null && entry.currentHp <= 0 && entry.faction==='player' && (entry.bleedOutTurns||0) > 0);
-                                    // For player tokens: use the position cache as authoritative source
-                                    // to prevent position drift when HP updates trigger party listener
-                                    let gridX = t.gridX ?? 0, gridY = t.gridY ?? 0;
-                                    if (t.type === 'player' && t.playerUid && window._gmPlayerPosCache?.[t.playerUid]) {
-                                        let cached = window._gmPlayerPosCache[t.playerUid]?.[m.id]?.[t.id];
-                                        if (cached) { gridX = cached.gridX ?? gridX; gridY = cached.gridY ?? gridY; }
-                                    }
+                                    // Live position — the SAME value the GM map is drawing
+                                    let {gridX, gridY} = window.APXBattle ? window.APXBattle.posOf(m.id, t) : {gridX:t.gridX??0, gridY:t.gridY??0};
                                     // _explicitDead is set on the token by _gmMarkTokenDead BEFORE removeFromInitiative
                                     // splices the entry, so we can still publish the dead state even after removal
                                     let isDead = t._explicitDead || !!(entry && entry.currentHp !== null && entry.currentHp <= 0 && !isBO);
@@ -1634,14 +1643,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     w.notesV2.worldMapDataUrl = _mapImg.src;
                 localStorage.setItem('apxLocalWorlds', JSON.stringify(_gmWorlds));
             }
-        }, 400); // debounce — balances token/marker update visibility for players vs write frequency
+        }
     }
 
-    // Immediate save — clears pending debounce then fires at 0ms
-    // Use this on explicit button presses so data persists before any page navigation
+    // Immediate save — no debounce. Used for token moves and explicit button presses.
     window.saveWorldNotesNow = function() {
-        clearTimeout(_saveNotesTimer);
-        saveWorldNotes(); // already at 50ms; just ensure any pending is cleared first
+        return _doSaveWorldNotes();
     };
 
     // ── Tab switching ────────────────────────────────────────────
@@ -2595,10 +2602,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div id="${winId}_grid" style="position:absolute;top:0;left:0;pointer-events:none;opacity:0.35;z-index:1;"></div>
                     <div id="${winId}_tok" style="position:absolute;top:0;left:0;pointer-events:none;user-select:none;z-index:2;"></div>
                     <canvas id="${winId}_fog" style="position:absolute;top:0;left:0;pointer-events:none;opacity:0.45;z-index:3;"></canvas>
-                    <!-- Battle tokens live in their own layer so _omRenderTok rebuilds never wipe them.
-                         Container is pointer-events:none; each token div gets explicit pointer-events:auto. -->
-                    <div id="${winId}_btLayer" style="position:absolute;top:0;left:0;pointer-events:none;user-select:none;z-index:5;"></div>
                 </div>
+                <!-- Battle tokens are drawn by APXBattle in a screen-space layer (${winId}_btScreen)
+                     OUTSIDE the scaled viewport, so they are always rendered at native resolution. -->
                 <div id="${winId}_empty" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
                     <div style="text-align:center;color:#475569;font-size:0.75rem;">Upload an image to get started</div>
                 </div>
@@ -2675,6 +2681,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let vp=document.getElementById(winId+'_vp');
         if (vp) vp.style.transform=`translate(${win._offX}px,${win._offY}px) scale(${win._scale})`;
         _omRenderTok(winId, win);
+        if (window.APXBattle) window.APXBattle.layout(winId);
     }
 
     window.omZoom = function(winId, factor) {
@@ -2828,14 +2835,19 @@ document.addEventListener('DOMContentLoaded', () => {
         let reader=new FileReader();
         reader.onload=async e=>{
             let dataUrl=e.target.result;
-            _omImageCache[mapId]=dataUrl;
-            _omShowImg(winId, document.getElementById(winId), dataUrl);
             if(window.apxAuth?.enabled&&_activeWorldId) {
+                // Compress FIRST and show the GM exactly the image players will load.
+                // Grid cells and token positions are in image pixels, so the GM and
+                // players must use the same image dimensions or tokens won't line up.
                 try {
                     let compressed=await _compressForFirestore(dataUrl);
-                    await window.apxAuth.saveOtherMapImage(_activeWorldId, mapId, compressed);
                     _omImageCache[mapId]=compressed;
-                } catch(err){ console.warn('Other map save:', err.message); }
+                    _omShowImg(winId, document.getElementById(winId), compressed);
+                    await window.apxAuth.saveOtherMapImage(_activeWorldId, mapId, compressed);
+                } catch(err){ console.warn('Other map save:', err.message); alert(err.message); }
+            } else {
+                _omImageCache[mapId]=dataUrl;
+                _omShowImg(winId, document.getElementById(winId), dataUrl);
             }
         };
         reader.readAsDataURL(file);
@@ -3185,185 +3197,122 @@ document.addEventListener('DOMContentLoaded', () => {
             gridY: Math.floor((py - (g.offsetY % g.cellSize)) / g.cellSize)
         };
     }
-    function _btTokenCenter(gridX, gridY, sm, g) {
-        let offset = sm <= 1 ? 0.5 : sm / 2;
-        return {
-            px: (g.offsetX % g.cellSize) + (gridX + offset) * g.cellSize,
-            py: (g.offsetY % g.cellSize) + (gridY + offset) * g.cellSize
-        };
+    // ── Battle token helpers (GM) ─────────────────────────────────
+    // Effective grid position — player tokens come from the live authority
+    function _btPos(mapId, t) { return window.APXBattle.posOf(mapId, t); }
+
+    // Can this token sit at gx,gy? (no SAME-size token on the same square(s))
+    function _btCanPlace(map, tokenId, gx, gy, sizeOverride) {
+        let tok = (map?.battleTokens||[]).find(t=>t.id===tokenId);
+        let size = sizeOverride || tok?.size || 'medium';
+        return !window.APXBattle.findBlocker(map?.battleTokens||[], {id:tokenId, size}, gx, gy, t=>_btPos(map.id, t));
+    }
+
+    // Commit a GM move. Player tokens also go to the player's position record
+    // (the authority both sides listen to), so the player's map updates at once.
+    function _btCommitMove(mapId, winId, tokenId, gx, gy) {
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId); if (!map) return;
+        let tok = (map.battleTokens||[]).find(t=>t.id===tokenId); if (!tok) return;
+        tok.gridX = gx; tok.gridY = gy;
+        if (tok.type === 'player' && tok.playerUid) {
+            window.APXBattle.move(getActiveWorld()?.inviteCode, tok.playerUid, mapId, tok.id, gx, gy);
+        }
+        window.saveWorldNotesNow();   // publish immediately — no debounce
+        _btRenderTokens(mapId, winId);
+    }
+
+    // Player token positions changed in Firestore (a player moved, or our own write confirmed)
+    function _gmOnPlayerPositions() {
+        let dirty = false;
+        (_wNotes.otherMaps||[]).forEach(m => (m.battleTokens||[]).forEach(t => {
+            if (t.type !== 'player' || !t.playerUid) return;
+            let p = _btPos(m.id, t);
+            if (p.gridX !== t.gridX || p.gridY !== t.gridY) { t.gridX = p.gridX; t.gridY = p.gridY; dirty = true; }
+        }));
+        window._btRefreshAllOpenMaps();
+        if (dirty) saveWorldNotes();  // keep private + public copies in step
+    }
+    if (window.APXBattle && !window._gmBattleHooked) {
+        window._gmBattleHooked = true;
+        window.APXBattle.onChange(_gmOnPlayerPositions);
     }
 
     function _btRenderTokens(mapId, winId) {
-        // Battle tokens live in their OWN separate div (winId_btLayer) so that _omRenderTok
-        // can rebuild the area circle layer (winId_tok) without wiping them.
-        // Container has pointer-events:none; each token div gets explicit pointer-events:auto
-        // per the CSS spec — descendants with an explicit value receive events even when parent is none.
-        let layer = document.getElementById(winId+'_btLayer');
-        let img   = document.getElementById(winId+'_img');
-        let map   = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
-        if (!layer) return;
-        layer.innerHTML = '';
-        if (!img||!img.naturalWidth||!map?.battleMapEnabled||!(map.battleTokens||[]).length) return;
-        let g   = map.battleGrid||{cellSize:50,offsetX:0,offsetY:0};
-        let iw  = img.naturalWidth, ih = img.naturalHeight;
-        layer.style.width = iw+'px'; layer.style.height = ih+'px';
+        let win  = document.getElementById(winId);
+        let area = document.getElementById(winId+'_area');
+        let img  = document.getElementById(winId+'_img');
+        let map  = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+        if (!win || !area || !window.APXBattle) return;
+        if (!img || !img.naturalWidth || !map?.battleMapEnabled) { window.APXBattle.clear(winId); return; }
+
         let curInitId = window.gmInitiative?.[window.gmCurrentTurnIdx??0]?.id || null;
-        let win = document.getElementById(winId);
-        (map.battleTokens||[]).forEach(t=>{
-            let sm  = BT_SIZES[t.size||'medium']||1;
-            let {px,py} = _btTokenCenter(t.gridX,t.gridY,sm,g);
-            let diam = Math.max(12, g.cellSize*(sm<=1?sm*0.85:sm*0.9));
-            // Gold highlight only when BOTH IDs are truthy — gmCurrentTurnIdx not _gmInitCurrentTurn
+        let interactive = (_fogMode !== mapId);   // fog painting mode: tokens must not eat clicks
+
+        let vms = (map.battleTokens||[]).map(t => {
+            let pos = _btPos(mapId, t);
             let isActive = !!(t.initiativeId && curInitId && t.initiativeId === curInitId);
             let linkedEntry = t.initiativeId ? (window.gmInitiative||[]).find(e=>e.id===t.initiativeId) : null;
-            let entryHp   = linkedEntry ? linkedEntry.currentHp : null;
+            let entryHp = linkedEntry ? linkedEntry.currentHp : null;
             let isAtZeroHp = entryHp !== null && entryHp !== undefined && entryHp <= 0;
             let isBleedingOut = !!(isAtZeroHp && linkedEntry?.faction === 'player' && (linkedEntry.bleedOutTurns||0) > 0);
-            // _explicitDead is set by _gmMarkTokenDead before the entry is spliced from gmInitiative
             let isDead = t._explicitDead || !!(isAtZeroHp && !isBleedingOut);
             let isHidden = t.revealed === false;
             let faction = linkedEntry?.faction || t.faction || (t.type === 'player' ? 'player' : 'enemy');
             let factionBorder = {player:'#3b82f6', ally:'#22c55e', neutral:'#e2e8f0', enemy:'#ef4444'}[faction] || '#e2e8f0';
             let defColor = t.type==='player' ? '#1d4ed8' : '#d97706';
-            let bg = isDead ? '#1a0000' : isBleedingOut ? '#450a0a' : (t.color||defColor);
-            let worldNpc = t.worldNpcId?(_wNotes.npcs||[]).find(n=>n.id===t.worldNpcId):null;
-            let portrait = null;
-            if (t.type === 'npc' && worldNpc) {
-                // Use in-memory portrait if available, otherwise the cache will fill in asynchronously
-                portrait = worldNpc.portrait || window._npcPortraitCache[t.worldNpcId]?.portrait || null;
-                if (!portrait && (worldNpc.hasPortrait || worldNpc.portrait) && window._npcPortraitCache[t.worldNpcId] === undefined) {
+
+            let portrait = '';
+            if (t.type === 'npc' && t.worldNpcId) {
+                let worldNpc = (_wNotes.npcs||[]).find(n=>n.id===t.worldNpcId);
+                // Full-quality 400px circle crop — the same image players load
+                portrait = window._npcPortraitCache[t.worldNpcId]?.portrait || worldNpc?.portrait || '';
+                if (!portrait && worldNpc && (worldNpc.hasPortrait || worldNpc.portrait) && window._npcPortraitCache[t.worldNpcId] === undefined) {
+                    window._npcPortraitCache[t.worldNpcId] = null; // loading
                     window._getNpcPortrait(t.worldNpcId).then(data => {
                         if (data?.portrait) { window._npcPortraitCache[t.worldNpcId] = data; _btRenderTokens(mapId, winId); }
                     });
-                    window._npcPortraitCache[t.worldNpcId] = null; // mark as loading
                 }
             } else if (t.type === 'player' && t.playerUid) {
-                let pm=(window.gmParty||[]).find(p=>p.fileName===t.playerUid||p.summary?.playerUid===t.playerUid);
-                portrait = pm?.summary?.charPortrait || pm?.state?.charPortrait || null;
+                let pm = (window.gmParty||[]).find(p=>p.fileName===t.playerUid||p.summary?.playerUid===t.playerUid);
+                portrait = pm?.state?.charPortrait || pm?.summary?.charPortrait || window.APXBattle.portraitOf(t.playerUid) || '';
             }
-            let el=document.createElement('div');
-            el.setAttribute('data-bt',t.id);
-            // pointer-events:auto is EXPLICIT so it works even though the container has pointer-events:none
-            let borderColor = isActive?'#fbbf24': isDead?'rgba(80,80,80,0.8)': isBleedingOut?'#f97316': isHidden?'rgba(255,255,255,0.25)': factionBorder;
-            let glowStyle = isActive?'0 0 20px 5px rgba(251,191,36,.8),' : isDead?'' : isBleedingOut?'0 0 14px 4px rgba(249,115,22,.7),' : '';
-            let bleedInset = isBleedingOut ? '0 0 0 1000px rgba(220,38,38,0.5) inset,' : '';
-            let deadInset  = isDead        ? '0 0 0 1000px rgba(0,0,0,0.6) inset,' : '';
-            let filterStyle = isDead?'grayscale(1)' : isBleedingOut?'saturate(0.4)' : 'none';
-            // Smaller tokens render ABOVE larger ones (z-index inversely proportional to size)
-            let sizeZ = Math.round(10 / (sm || 1));
-            el.style.cssText=`position:absolute;left:${px}px;top:${py}px;width:${diam}px;height:${diam}px;
-                transform:translate(-50%,-50%);background:${portrait?'transparent':bg};
-                border:${isActive?3:2}px solid ${borderColor};
-                border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;
-                box-shadow:${glowStyle}${bleedInset}${deadInset} 0 2px 8px rgba(0,0,0,0.8);
-                cursor:grab;user-select:none;pointer-events:auto;z-index:${sizeZ};
-                opacity:${isHidden?0.45:isDead?0.7:1};transition:box-shadow 0.15s;filter:${filterStyle};`;
-            el.title=`${t.name} (${t.size||'medium'})${isHidden?' [Hidden]':''} — dbl-click for stat block`;
-            // Double-click opens linked stat block (NPC) or player summary
-            el.addEventListener('dblclick', e => {
-                e.stopPropagation();
-                if (t.type === 'npc' && t.worldNpcId) {
-                    let wn = (_wNotes.npcs||[]).find(n=>n.id===t.worldNpcId);
+
+            return {
+                id: t.id, gridX: pos.gridX, gridY: pos.gridY, size: t.size || 'medium',
+                label: (t.name||'?')[0].toUpperCase(),
+                bg: isDead ? '#1a0000' : isBleedingOut ? '#450a0a' : (t.color||defColor),
+                borderColor: isActive?'#fbbf24' : isDead?'rgba(80,80,80,0.8)' : isBleedingOut?'#f97316' : isHidden?'rgba(255,255,255,0.25)' : factionBorder,
+                borderW: isActive ? 3 : 2,
+                glow: isActive ? 'rgba(251,191,36,.8)' : isBleedingOut ? 'rgba(249,115,22,.7)' : null,
+                tint: isBleedingOut ? 'rgba(220,38,38,0.45)' : isDead ? 'rgba(0,0,0,0.55)' : null,
+                opacity: isHidden ? 0.45 : isDead ? 0.7 : 1,
+                filter: isDead ? 'grayscale(1)' : isBleedingOut ? 'saturate(0.4)' : 'none',
+                portrait,
+                title: `${t.name} (${t.size||'medium'})${isHidden?' [Hidden]':''} — dbl-click for stat block, right-click for options`,
+                draggable: interactive, interactive,
+                type: t.type, worldNpcId: t.worldNpcId, playerUid: t.playerUid, name: t.name
+            };
+        });
+
+        window.APXBattle.render({
+            winId, win, area, grid: map.battleGrid, tokens: vms,
+            previewBlocked: (vm, gx, gy) => !_btCanPlace(map, vm.id, gx, gy),
+            // Occupied by a same-size token -> null -> token returns to its last spot
+            resolveDrop:    (vm, gx, gy) => _btCanPlace(map, vm.id, gx, gy) ? {gridX:gx, gridY:gy} : null,
+            onMove:         (vm, gx, gy) => _btCommitMove(mapId, winId, vm.id, gx, gy),
+            onContextMenu:  (vm, e) => window._btShowTokenMenu(mapId, winId, vm.id, e),
+            onDblClick:     (vm) => {
+                if (vm.type === 'npc' && vm.worldNpcId) {
+                    let wn = (_wNotes.npcs||[]).find(n=>n.id===vm.worldNpcId);
                     if (wn?.statBlockId) {
-                        // Store the clicked token so "Add to Initiative" from the stat block auto-links it
-                        window._pendingTokenInitLink = { mapId, tokenId: t.id };
-                        window.openFloatingNpcStatBlockById(wn.statBlockId, t.name || wn.name);
+                        window._pendingTokenInitLink = { mapId, tokenId: vm.id };
+                        window.openFloatingNpcStatBlockById(wn.statBlockId, vm.name || wn.name);
                     }
-                } else if (t.type === 'player' && t.playerUid) {
-                    window._btOpenPlayerSummary(t.name, t.playerUid);
+                } else if (vm.type === 'player' && vm.playerUid) {
+                    window._btOpenPlayerSummary(vm.name, vm.playerUid);
                 }
-            });            if(portrait){
-                let img2=document.createElement('img');
-                img2.src=portrait; img2.style.cssText='width:100%;height:100%;object-fit:cover;border-radius:50%;pointer-events:none;';
-                el.appendChild(img2);
-            } else {
-                let sp=document.createElement('span');
-                sp.style.cssText=`font-size:${Math.round(diam*0.42)}px;font-weight:900;color:#fff;pointer-events:none;`;
-                sp.textContent=(t.name||'?')[0].toUpperCase();
-                el.appendChild(sp);
             }
-            layer.appendChild(el);
-            _btAttachDrag(mapId,winId,t.id,el,g,win);
         });
-    }
-
-
-    function _btAttachDrag(mapId,winId,tokenId,el,g,win) {
-        let dragging=false;
-        el.addEventListener('mousedown',e=>{
-            if(e.button!==0) return;
-            e.stopPropagation(); e.preventDefault();
-            dragging=true; el.style.cursor='grabbing'; el.style.zIndex='99';
-        });
-        el.addEventListener('contextmenu',e=>{
-            e.stopPropagation(); e.preventDefault();
-            window._btShowTokenMenu(mapId,winId,tokenId,e);
-        });
-        function onMove(e){
-            if(!dragging) return;
-            let layer=document.getElementById(winId+'_btLayer'); if(!layer) return;
-            let rect=layer.getBoundingClientRect();
-            let sc=win._scale||1;
-            let mx=(e.clientX-rect.left)/sc, my=(e.clientY-rect.top)/sc;
-            let {gridX,gridY}=_btPixelToGrid(mx,my,g);
-            // Look up token size for correct snapping
-            let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId);
-            let tok=(map?.battleTokens||[]).find(t=>t.id===tokenId);
-            let sm=BT_SIZES[tok?.size||'medium']||1;
-            let {px,py}=_btTokenCenter(gridX,gridY,sm,g);
-            el.style.left=px+'px'; el.style.top=py+'px';
-            el._pgx=gridX; el._pgy=gridY;
-        }
-        function onUp(){
-            if(!dragging) return;
-            let tok2=(_wNotes.otherMaps||[]).find(m=>m.id===mapId)?.battleTokens?.find(t=>t.id===tokenId);
-            let sm2=BT_SIZES[tok2?.size||'medium']||1;
-            dragging=false; el.style.cursor='grab'; el.style.zIndex=String(Math.round(10/sm2));
-            if(el._pgx!==undefined){
-                let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId);
-                let tok=(map?.battleTokens||[]).find(t=>t.id===tokenId);
-                if(tok){
-                    let gx = el._pgx, gy = el._pgy;
-                    // Same-size collision: find a free cell if another same-size token occupies gx,gy
-                    let sm = ({tiny:0.5,small:0.75,medium:1,large:2,huge:3,gargantuan:4})[tok.size||'medium']||1;
-                    let conflict = (map.battleTokens||[]).find(other => {
-                        if (other.id === tokenId) return false;
-                        let osm = ({tiny:0.5,small:0.75,medium:1,large:2,huge:3,gargantuan:4})[other.size||'medium']||1;
-                        return osm === sm && other.gridX === gx && other.gridY === gy;
-                    });
-                    if (conflict) {
-                        // Find adjacent free cell (spiral outward)
-                        let found = false;
-                        for (let r = 1; r <= 5 && !found; r++) {
-                            for (let dx=-r; dx<=r && !found; dx++) {
-                                for (let dy=-r; dy<=r && !found; dy++) {
-                                    if (Math.abs(dx)!==r && Math.abs(dy)!==r) continue;
-                                    let nx=gx+dx, ny=gy+dy;
-                                    let occ = (map.battleTokens||[]).find(o=>o.id!==tokenId&&({tiny:0.5,small:0.75,medium:1,large:2,huge:3,gargantuan:4})[o.size||'medium']===sm&&o.gridX===nx&&o.gridY===ny);
-                                    if (!occ) { gx=nx; gy=ny; found=true; }
-                                }
-                            }
-                        }
-                    }
-                    tok.gridX=gx;tok.gridY=gy;
-                    // Timestamp-lock: record when GM moved this player token so _gmApplyPlayerBattlePos
-                    // can reject the player's stale old battlePositions when it fires next.
-                    if (tok.type === 'player') {
-                        tok._gmMoveAtMs = Date.now();
-                    }
-                    // Save immediately for near-instant player updates — bypass debounce
-                    saveWorldNotes();
-                    if (typeof _doSaveWorldNotes === 'function') {
-                        clearTimeout(window._saveNotesTimer);
-                        _doSaveWorldNotes();
-                    }
-                }
-                el._pgx=undefined;
-            }
-        }
-        document.addEventListener('mousemove',onMove);
-        document.addEventListener('mouseup',onUp);
-        el._btCleanup=()=>{document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);};
     }
 
     window._btShowTokenMenu = function(mapId, winId, tokenId, e) {
@@ -3434,7 +3383,13 @@ document.addEventListener('DOMContentLoaded', () => {
         let tok = (map?.battleTokens||[]).find(t=>t.id===tokenId); if(!tok) return;
         let idx = BT_SIZE_LIST.indexOf(tok.size||'medium');
         let newIdx = Math.max(0, Math.min(BT_SIZE_LIST.length-1, idx+dir));
-        tok.size = BT_SIZE_LIST[newIdx];
+        let newSize = BT_SIZE_LIST[newIdx];
+        let p = _btPos(mapId, tok);
+        if (!_btCanPlace(map, tok.id, p.gridX, p.gridY, newSize)) {
+            window.APXBattle.toast(document.getElementById(winId+'_area'), `Can't resize — another ${newSize} token is in the way`);
+            return;
+        }
+        tok.size = newSize;
         saveWorldNotes();
         _btRenderTokens(mapId, winId);
     };
@@ -3490,7 +3445,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (sb?.size) size = sb.size.toLowerCase();
             }
         }
-        map.battleTokens.push({id:'bt_'+Date.now(),type,name:newName,color,size,gridX,gridY,
+        // Never spawn on top of a same-size token — use the nearest open square
+        let free = window.APXBattle.findFreeCell(map.battleTokens, {id:null, size}, gridX, gridY, t=>_btPos(mapId,t));
+        if (free) { gridX = free.gridX; gridY = free.gridY; }
+        map.battleTokens.push({id:'bt_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),type,name:newName,color,size,gridX,gridY,
             worldNpcId:worldNpcId||null,playerUid:playerUid||null,initiativeId:null,revealed:false,
             faction:faction||null});
         saveWorldNotes(); _btRenderTokens(mapId,winId);
@@ -3705,38 +3663,9 @@ document.addEventListener('DOMContentLoaded', () => {
         window.closeModal('gmWorldModal');
     };
 
-    // Called by apx-gm-screen.js party listener when a player writes their battle position.
-    // Must live here (not in gm-screen.js) because _wNotes is a closure variable in GMTools.
-    window._gmApplyPlayerBattlePos = function(playerUid, battlePositions) {
-        if (!battlePositions) return;
-        if (!window._gmPlayerPosCache) window._gmPlayerPosCache = {};
-        window._gmPlayerPosCache[playerUid] = battlePositions;
-
-        let dirty = false;
-        Object.entries(battlePositions).forEach(([mapId, positions]) => {
-            let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return;
-            Object.entries(positions).forEach(([tokenId, pos]) => {
-                let tok = (map.battleTokens||[]).find(t=>t.id===tokenId); if(!tok) return;
-                if (tok.playerUid !== playerUid) return;
-                // If the GM moved this token more recently than the player's last recorded move,
-                // reject the stale player position so the GM's move is not reverted.
-                // pos.at is the server timestamp of the player's last updatePlayerBattlePos write.
-                let posAtMs = pos.at?.toMillis?.() || pos.at || 0;
-                if (tok._gmMoveAtMs && posAtMs < tok._gmMoveAtMs - 500) {
-                    return; // GM's move is newer — skip this stale player position
-                }
-                // Player made a new move after GM's — clear the lock
-                if (tok._gmMoveAtMs) delete tok._gmMoveAtMs;
-                if (tok.gridX !== pos.gridX || tok.gridY !== pos.gridY) {
-                    tok.gridX = pos.gridX; tok.gridY = pos.gridY; dirty = true;
-                }
-            });
-        });
-        if (dirty) {
-            saveWorldNotes();
-            window._btRefreshAllOpenMaps();
-        }
-    };
+    // Player token positions now arrive through APXBattle (see _gmOnPlayerPositions).
+    // Kept as a no-op so any old caller can't write stale positions.
+    window._gmApplyPlayerBattlePos = function() {};
 
     // Mark a battle token as explicitly dead BEFORE its initiative entry is removed
     window._gmMarkTokenDead = function(entryId) {
@@ -4605,6 +4534,8 @@ document.addEventListener('DOMContentLoaded', () => {
             let win   = document.getElementById(winId);
             if (win) _omRenderTok(winId, win);
         }
+        // Battle tokens ignore the mouse while fog painting, and come back after
+        window._btRefreshAllOpenMaps();
     };
 
     function _fogMoveCursor(e, mapId) {
