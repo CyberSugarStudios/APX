@@ -264,6 +264,18 @@
             .set({ _xpGrant: { amount: xp, at: firebase.firestore.FieldValue.serverTimestamp() } }, { merge: true });
     }
 
+    // gmSetPlayerBattlePos: GM overwrites a player's battle position record so the
+    // party listener doesn't revert a GM-placed token back to the player's last position.
+    async function gmSetPlayerBattlePos(inviteCode, playerUid, mapId, tokenId, gridX, gridY) {
+        if (!inviteCode || !playerUid) return;
+        let field = `battlePositions.${mapId}.${tokenId}`;
+        let update = {};
+        update[field] = { gridX, gridY, at: firebase.firestore.FieldValue.serverTimestamp() };
+        await db.collection('worldCodes').doc(inviteCode)
+            .collection('players').doc(playerUid)
+            .set(update, { merge: true });
+    }
+
     // --- updatePlayerBattlePos: player writes battle token position to their world record ---
     // Path: worldCodes/{inviteCode}/players/{uid} { battlePositions: { mapId: { tokenId: {gridX,gridY} } } }
     // Small targeted write → GM's party listener picks it up in < 500ms.
@@ -591,7 +603,7 @@
         createWorld, loadWorlds, saveWorld, saveWorldRaces, saveRacesToAllWorlds, deleteWorld, joinWorldByCode,
         loadWorldPlayers,
         saveWorldMapFirestore, loadWorldMapFirestore, deleteWorldMapFirestore,
-        saveNpcPortrait, loadNpcPortrait, loadNpcPortraitForPlayer, addXpToPlayer,
+        saveNpcPortrait, loadNpcPortrait, loadNpcPortraitForPlayer, addXpToPlayer, gmSetPlayerBattlePos,
         savePublicWorldMap, loadPublicWorldMap, loadWorldMapForPlayer, setGmHpOverride, updatePlayerBattlePos,
         saveOtherMapImage, loadOtherMapImage, loadOtherMapImageForPlayer, deleteOtherMapImage,
         saveFogData, loadFogData, loadFogDataForPlayer, listenFogDataForPlayer,

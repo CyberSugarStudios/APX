@@ -1459,6 +1459,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     revealed: false, notes: [], ...n
                 })),
             };
+            // Pre-populate NPC portrait cache from subcollection so portraits show at full
+            // quality immediately without waiting for a token to be moved.
+            window._npcPortraitCache = {};
+            (_wNotes.npcs||[]).filter(n=>n.hasPortrait).forEach(n=>{
+                if (!window.apxAuth?.enabled || !_activeWorldId) return;
+                window.apxAuth.loadNpcPortrait(_activeWorldId, n.id).then(data=>{
+                    if (data) {
+                        window._npcPortraitCache[n.id] = data;
+                        n.portrait = data.portrait; n.portraitFull = data.portraitFull;
+                        // Refresh any already-open portrait elements
+                        document.querySelectorAll(`[data-npcportrait="${n.id}"]`).forEach(el=>{
+                            if (data.portrait) el.innerHTML=`<img src="${data.portrait}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;pointer-events:none;">`;
+                        });
+                    }
+                }).catch(()=>{});
+            });
             window.showWorldTab('session');
         }
     }
@@ -3300,7 +3316,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         function onUp(){
             if(!dragging) return;
-            dragging=false; el.style.cursor='grab'; el.style.zIndex='';
+            let tok2=(_wNotes.otherMaps||[]).find(m=>m.id===mapId)?.battleTokens?.find(t=>t.id===tokenId);
+            let sm2=BT_SIZES[tok2?.size||'medium']||1;
+            dragging=false; el.style.cursor='grab'; el.style.zIndex=String(Math.round(10/sm2));
             if(el._pgx!==undefined){
                 let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId);
                 let tok=(map?.battleTokens||[]).find(t=>t.id===tokenId);
@@ -3328,6 +3346,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
                     tok.gridX=gx;tok.gridY=gy;
+                    // If this is a player token, update their Firestore battlePositions record.
+                    // This prevents the party listener from reverting the GM's move when it
+                    // next fires (from HP changes, XP grants, etc.) and reads the player's
+                    // stale old position.
+                    if (tok.type === 'player' && tok.playerUid && window.apxAuth?.gmSetPlayerBattlePos) {
+                        let worlds = typeof _gmWorlds !== 'undefined' ? _gmWorlds : [];
+                        let activeWorld = worlds.find(w=>(w.worldId||w.id)===(typeof _activeWorldId!=='undefined'?_activeWorldId:null));
+                        let ic = activeWorld?.inviteCode;
+                        if (ic) window.apxAuth.gmSetPlayerBattlePos(ic, tok.playerUid, mapId, tok.id, gx, gy).catch(()=>{});
+                    }
                     // Save immediately for near-instant player updates — bypass debounce
                     saveWorldNotes();
                     if (typeof _doSaveWorldNotes === 'function') {
@@ -3370,8 +3398,20 @@ document.addEventListener('DOMContentLoaded', () => {
             if(tk){
                 tk.faction=faction;
                 // Update color to match faction
-                let colors={enemy:'#d97706',neutral:'#64748b',ally:'#16a34a'};
-                if(!tk._customColor) tk.color=colors[faction]||tk.color;
+                let colors={enemy:'#d97706',neutral:'#64748b',ally:'#16a34a',player:'#1d4ed8'};
+                tk.color=colors[faction]||tk.color;
+                // Also update the linked initiative entry if one exists
+                if (tk.initiativeId) {
+                    let entry=(window.gmInitiative||[]).find(e=>e.id===tk.initiativeId);
+                    if (entry) {
+                        let oldFaction = entry.faction;
+                        entry.faction = faction;
+                        // If faction changed FROM enemy to something else, refund XP
+                        // If faction changed TO enemy, add XP
+                        // Pending XP is accumulated from defeated enemies
+                        if (typeof window.renderInitiativeTracker==='function') window.renderInitiativeTracker();
+                    }
+                }
                 saveWorldNotes();_btRenderTokens(mapId2,winId2);
             }
         };
