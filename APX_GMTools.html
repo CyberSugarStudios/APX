@@ -2385,7 +2385,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div style="padding:0.75rem;overflow-y:auto;flex:1;">
                 ${loc.description?`<div style="font-size:0.7rem;color:#cbd5e1;margin-bottom:0.5rem;">${_fmtText(loc.description)}</div>`:''}
                 ${linkedMapBtns}${snHtml}
-                ${!loc.description&&!linkedMap&&!snHtml?'<div style="font-size:0.65rem;color:#475569;">No details yet. Click Edit to add.</div>':''}
+                ${!loc.description&&!linkedMapBtns&&!snHtml?'<div style="font-size:0.65rem;color:#475569;">No details yet. Click Edit to add.</div>':''}
             </div>`;
         document.getElementById('floatingWindowContainer').appendChild(win);
         win.addEventListener('mousedown', ()=>{ window.apxFloatingZTop++; win.style.zIndex=window.apxFloatingZTop; });
