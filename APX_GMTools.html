@@ -1601,6 +1601,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         revealed:     t.revealed      !== false,
                                         _dead:        isDead,
                                         _bleedingOut: isBO,
+                                        _bleedTurns:  (isBO && entry?.bleedOutTurns != null) ? entry.bleedOutTurns : null,
                                         _faction:     t.faction || entry?.faction  || null
                                     };
                                 });
@@ -3295,6 +3296,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 tint: isBleedingOut ? 'rgba(220,38,38,0.45)' : isDead ? 'rgba(0,0,0,0.55)' : null,
                 opacity: isHidden ? 0.45 : isDead ? 0.7 : 1,
                 filter: isDead ? 'grayscale(1)' : isBleedingOut ? 'saturate(0.4)' : 'none',
+                badge: (isBleedingOut && linkedEntry?.bleedOutTurns != null) ? linkedEntry.bleedOutTurns : null,
                 portrait,
                 title: `${t.name} (${t.size||'medium'})${isHidden?' [Hidden]':''} — dbl-click for stat block, right-click for options`,
                 draggable: interactive, interactive,
@@ -3326,13 +3328,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── Token ↔ initiative linking (automatic — no manual picker needed) ──────
     function _btIsLiveEntry(id) { return !!id && (window.gmInitiative||[]).some(e=>e.id===id); }
 
-    // Called by addToInitiative when an entry is added from the tracker panel.
-    // Players: link every token owned by that player. NPCs: link the token with the
-    // same name, or the only unlinked token of that stat block if there's just one.
+    // Called by addToInitiative BEFORE the entry is inserted, when it was added from the
+    // tracker panel (not from a token). Players: link every token that player owns.
+    // NPCs: link one unlinked, living token of that creature — same name first, then any.
+    // The token takes the side chosen in the panel.
     window._btAutoLinkEntry = function(entry) {
         let cands = [];
-        (_wNotes.otherMaps||[]).forEach(m => (m.battleTokens||[]).forEach(t => {
-            if (_btIsLiveEntry(t.initiativeId)) return;
+        let openFirst = (_wNotes.otherMaps||[]).slice().sort((a,b) =>
+            (document.getElementById('omWin_'+b.id)?1:0) - (document.getElementById('omWin_'+a.id)?1:0));
+        openFirst.forEach(m => (m.battleTokens||[]).forEach(t => {
+            if (t._explicitDead || _btIsLiveEntry(t.initiativeId)) return;
             if (entry.faction === 'player' && entry.playerUid) {
                 if (t.type === 'player' && t.playerUid === entry.playerUid) cands.push(t);
             } else if (entry.sourceNpcId && t.type === 'npc' && t.worldNpcId) {
@@ -3340,33 +3345,49 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (wn?.statBlockId === entry.sourceNpcId) cands.push(t);
             }
         }));
+        if (!cands.length) return false;
         let pick = entry.faction === 'player' ? cands
-                 : (cands.filter(t => t.name === entry.name).slice(0,1).concat(cands.length === 1 ? cands : [])).slice(0,1);
-        if (!pick.length) return;
-        pick.forEach(t => { t.initiativeId = entry.id; t._explicitDead = false; });
-        saveWorldNotes();
-        window._btRefreshAllOpenMaps();
+                 : [cands.find(t => t.name === entry.name) || cands[0]];
+        pick.forEach(t => {
+            t.initiativeId = entry.id; t._explicitDead = false;
+            if (t.type !== 'player' && entry.faction) {
+                t.faction = entry.faction;
+                t.color = {enemy:'#d97706', neutral:'#64748b', ally:'#16a34a'}[entry.faction] || t.color;
+            }
+        });
+        return true;
     };
 
-    // Right-click → add this token to initiative, already linked
-    window._btMenuAddInit = function(mapId, winId, tokenId, faction) {
+    // Right-click → add this token to initiative, linked to it. Returns the entry.
+    window._btMenuAddInit = function(mapId, winId, tokenId, faction, quiet) {
         document.getElementById('btContextMenu')?.remove();
         let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
-        let tok = (map?.battleTokens||[]).find(t=>t.id===tokenId); if (!tok) return;
+        let tok = (map?.battleTokens||[]).find(t=>t.id===tokenId); if (!tok) return null;
+        let entry = null;
         if (tok.type === 'player') {
             let partyIdx = (window.gmParty||[]).findIndex(p=>p.fileName===tok.playerUid);
-            if (partyIdx < 0) { alert('That player isn\'t loaded in the party yet.'); return; }
+            if (partyIdx < 0) { if (!quiet) alert('That player isn\'t loaded in the party yet.'); return null; }
             window._pendingTokenInitLink = { mapId, tokenId };
-            window.addToInitiative(partyIdx, 'party');
+            entry = window.addToInitiative(partyIdx, 'party');
         } else {
             let wn = (_wNotes.npcs||[]).find(n=>n.id===tok.worldNpcId);
             let npcIdx = wn ? (window.gmNpcs||[]).findIndex(g=>g.id===wn.statBlockId) : -1;
-            if (npcIdx < 0) { alert('This token has no linked stat block.'); return; }
-            if (faction) window._btSetFaction(mapId, winId, tokenId, faction);
+            if (npcIdx < 0) { if (!quiet) alert('This token has no linked stat block.'); return null; }
+            if (faction && faction !== tok.faction) window._btSetFaction(mapId, winId, tokenId, faction);
             window._pendingTokenInitLink = { mapId, tokenId };
-            window.addToInitiative(npcIdx, 'npc', faction || tok.faction || 'enemy', tok.name);
+            entry = window.addToInitiative(npcIdx, 'npc', faction || tok.faction || 'enemy', tok.name);
         }
-        tok._explicitDead = false;
+        window._pendingTokenInitLink = null;
+        _btRenderTokens(mapId, winId);
+        return entry;
+    };
+
+    // Right-click → take it out of combat (not killed — token stays on the map, alive)
+    window._btMenuRemoveInit = function(mapId, winId, tokenId) {
+        document.getElementById('btContextMenu')?.remove();
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+        let tok = (map?.battleTokens||[]).find(t=>t.id===tokenId);
+        if (tok?.initiativeId) window.removeFromInitiative(tok.initiativeId);
         _btRenderTokens(mapId, winId);
     };
 
@@ -3376,7 +3397,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tk.faction = faction;
         tk.color = {enemy:'#d97706', neutral:'#64748b', ally:'#16a34a', player:'#1d4ed8'}[faction] || tk.color;
         let entry = tk.initiativeId ? (window.gmInitiative||[]).find(e=>e.id===tk.initiativeId) : null;
-        if (entry) { entry.faction = faction; if (typeof window.renderInitiativeTracker==='function') window.renderInitiativeTracker(); }
+        if (entry) { entry.faction = faction; if (typeof window.recomputeLairTraitNotes==='function') window.recomputeLairTraitNotes(); }
         saveWorldNotes(); _btRenderTokens(mapId, winId);
     };
 
@@ -3387,37 +3408,46 @@ document.addEventListener('DOMContentLoaded', () => {
         let tok = (map?.battleTokens||[]).find(t=>t.id===tokenId); if (!tok) return;
         let isHidden  = tok.revealed === false;
         let isPlayer  = tok.type === 'player';
-        let inInit    = _btIsLiveEntry(tok.initiativeId);
+        let isDead    = !!tok._explicitDead;
+        let initIdx   = tok.initiativeId ? (window.gmInitiative||[]).findIndex(x=>x.id===tok.initiativeId) : -1;
+        let initEntry = initIdx >= 0 ? window.gmInitiative[initIdx] : null;
         let sizeIdx   = BT_SIZE_LIST.indexOf(tok.size||'medium');
         let curFaction = tok.faction || (isPlayer ? 'player' : 'enemy');
         let wn = tok.worldNpcId ? (_wNotes.npcs||[]).find(n=>n.id===tok.worldNpcId) : null;
         let hasStatBlock = !!(wn?.statBlockId && (window.gmNpcs||[]).some(g=>g.id===wn.statBlockId));
         let a = `'${mapId}','${winId}','${tokenId}'`;
+        const close = `;document.getElementById('btContextMenu')?.remove()`;
+        const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
 
         const row  = 'display:flex;align-items:center;gap:2px;padding:2px 4px;border-top:1px solid #0f172a;';
         const lbl  = 'font-size:0.55rem;color:#64748b;width:34px;flex-shrink:0;';
-        const btn  = (label, onclick, color, active, disabled) =>
-            `<button ${disabled?'disabled':''} onclick="${disabled?'':onclick}" style="flex:1;background:${active?'#334155':'none'};border:none;border-radius:3px;color:${disabled?'#334155':color};font-size:0.6rem;font-weight:${active?800:600};padding:3px 2px;cursor:${disabled?'default':'pointer'};white-space:nowrap;">${label}</button>`;
+        const btn  = (label, onclick, color, active, disabled, title) =>
+            `<button ${disabled?'disabled':''} ${title?`title="${title}"`:''} onclick="${disabled?'':onclick}" style="flex:1;background:${active?'#334155':'none'};border:none;border-radius:3px;color:${disabled?'#334155':color};font-size:0.6rem;font-weight:${active?800:600};padding:3px 2px;cursor:${disabled?'default':'pointer'};white-space:nowrap;">${label}</button>`;
 
         let initRow = '';
-        if (inInit) {
-            initRow = `<div style="${row}"><span style="${lbl}">Init</span><span style="font-size:0.6rem;color:#6ee7b7;padding:3px 2px;">Linked ✓</span></div>`;
+        if (isDead) {
+            initRow = `<div style="${row}">${btn('✚ Revive', `window._btRevive(${a})`, '#86efac', false, false, 'Bring back to life — rejoins initiative at 1 HP if combat is running')}</div>`;
+        } else if (initEntry) {
+            // Debug-friendly: exactly which initiative entry, and its place in the order
+            initRow = `<div style="${row}"><span style="${lbl}">Init</span>
+                <span style="flex:1;font-size:0.58rem;color:#6ee7b7;padding:3px 2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="entry id ${initEntry.id}">✓ ${esc(initEntry.name)} <span style="color:#64748b;">· #${initIdx+1} · ${initEntry.faction}</span></span>
+                <button onclick="window._btMenuRemoveInit(${a})" title="Remove from combat (token stays alive)" style="background:none;border:none;color:#f87171;font-size:0.65rem;cursor:pointer;padding:0 3px;">✕</button></div>`;
         } else if (isPlayer) {
-            initRow = `<div style="${row}"><span style="${lbl}">Init</span>${btn('+ Add', `window._btMenuAddInit(${a})`, '#93c5fd')}</div>`;
+            initRow = `<div style="${row}"><span style="${lbl}">Init</span>${btn('+ Add to combat', `window._btMenuAddInit(${a})`, '#93c5fd')}</div>`;
         } else if (hasStatBlock) {
             initRow = `<div style="${row}"><span style="${lbl}">+ Init</span>${btn('Enemy', `window._btMenuAddInit(${a},'enemy')`, '#fca5a5')}${btn('Neutral', `window._btMenuAddInit(${a},'neutral')`, '#fde68a')}${btn('Ally', `window._btMenuAddInit(${a},'ally')`, '#6ee7b7')}</div>`;
         }
 
         let menu = document.createElement('div');
         menu.id = 'btContextMenu';
-        menu.style.cssText = `position:fixed;left:0;top:0;visibility:hidden;z-index:2147483647;background:#1e293b;border:1px solid #334155;border-radius:0.35rem;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.9);width:190px;`;
+        menu.style.cssText = `position:fixed;left:0;top:0;visibility:hidden;z-index:2147483647;background:#1e293b;border:1px solid #334155;border-radius:0.35rem;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.9);width:200px;`;
         menu.innerHTML = `
-            <div style="background:#1e3a5f;padding:3px 6px;font-size:0.62rem;font-weight:700;color:#93c5fd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${tok.name} <span style="font-size:0.52rem;color:#64748b;">${tok.size||'medium'}</span></div>
-            <div style="${row}">${btn(isHidden?'Reveal to Players':'Hide from Players', `window._btToggleReveal(${a});document.getElementById('btContextMenu').remove()`, isHidden?'#6ee7b7':'#94a3b8')}</div>
-            ${isPlayer ? '' : `<div style="${row}"><span style="${lbl}">Side</span>${btn('Enemy', `window._btSetFaction(${a},'enemy');document.getElementById('btContextMenu').remove()`, '#fca5a5', curFaction==='enemy')}${btn('Neutral', `window._btSetFaction(${a},'neutral');document.getElementById('btContextMenu').remove()`, '#fde68a', curFaction==='neutral')}${btn('Ally', `window._btSetFaction(${a},'ally');document.getElementById('btContextMenu').remove()`, '#6ee7b7', curFaction==='ally')}</div>`}
+            <div style="background:${isDead?'#3f1d1d':'#1e3a5f'};padding:3px 6px;font-size:0.62rem;font-weight:700;color:${isDead?'#fca5a5':'#93c5fd'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(tok.name)} <span style="font-size:0.52rem;color:#64748b;">${tok.size||'medium'}${isDead?' · dead':''}</span></div>
+            <div style="${row}">${btn(isHidden?'Reveal to Players':'Hide from Players', `window._btToggleReveal(${a})${close}`, isHidden?'#6ee7b7':'#94a3b8')}</div>
+            ${isPlayer ? '' : `<div style="${row}"><span style="${lbl}">Side</span>${btn('Enemy', `window._btSetFaction(${a},'enemy')${close}`, '#fca5a5', curFaction==='enemy')}${btn('Neutral', `window._btSetFaction(${a},'neutral')${close}`, '#fde68a', curFaction==='neutral')}${btn('Ally', `window._btSetFaction(${a},'ally')${close}`, '#6ee7b7', curFaction==='ally')}</div>`}
             ${initRow}
-            <div style="${row}"><span style="${lbl}">Size</span>${btn('−', `window._btResizeToken(${a},-1);document.getElementById('btContextMenu').remove()`, '#c4b5fd', false, sizeIdx<=0)}${btn('+', `window._btResizeToken(${a},1);document.getElementById('btContextMenu').remove()`, '#c4b5fd', false, sizeIdx>=BT_SIZE_LIST.length-1)}</div>
-            <div style="${row}">${btn('Remove Token', `window.removeBattleToken(${a});document.getElementById('btContextMenu').remove()`, '#f87171')}</div>`;
+            <div style="${row}"><span style="${lbl}">Size</span>${btn('−', `window._btResizeToken(${a},-1)${close}`, '#c4b5fd', false, sizeIdx<=0)}${btn('+', `window._btResizeToken(${a},1)${close}`, '#c4b5fd', false, sizeIdx>=BT_SIZE_LIST.length-1)}</div>
+            <div style="${row}">${btn('Remove Token', `window.removeBattleToken(${a})${close}`, '#f87171')}</div>`;
         document.body.appendChild(menu);
 
         // Keep fully on-screen: flip up/left when near the bottom/right edge
@@ -3463,96 +3493,146 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.appendChild(panel);
     };
 
+    // ── Creature numbering ─────────────────────────────────────────
+    // One rule everywhere (map tokens AND initiative):
+    //   one of a kind → "Monster"
+    //   two or more   → "Monster 1", "Monster 2", …
+    // Re-run after every add/remove, so adding a 2nd Monster turns the first into
+    // "Monster 1", and removing back down to one turns it back into "Monster".
+    // Existing numbers are kept stable (Monster 2 never silently becomes Monster 1).
+    function _escRe(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+    function _stripNum(n) { return String(n||'').replace(/\s+#?\d+$/, '').trim(); }
+    function _numberGroup(items, base, getName, setName, reserved) {
+        let total = items.length + (reserved ? reserved.size : 0);
+        if (total <= 1) { items.forEach(it => setName(it, base)); return; }
+        let re = new RegExp('^' + _escRe(base) + ' (\\d+)$');
+        let used = new Set(reserved || []), pending = [];
+        items.forEach(it => {
+            let m = String(getName(it)||'').match(re), n = m ? +m[1] : 0;
+            if (n > 0 && !used.has(n)) used.add(n); else pending.push(it);
+        });
+        let next = 1;
+        pending.forEach(it => { while (used.has(next)) next++; used.add(next); setName(it, base + ' ' + next); });
+    }
+    function _btBaseName(t) {
+        if (t.worldNpcId) { let wn = (_wNotes.npcs||[]).find(n=>n.id===t.worldNpcId); if (wn?.name) return wn.name.trim(); }
+        return t.baseName || _stripNum(t.name) || 'Token';
+    }
+    function _btGroupKey(t) {
+        return t.worldNpcId ? 'npc:' + t.worldNpcId : 'name:' + _btBaseName(t).toLowerCase();
+    }
+    window._gmRenumber = function() {
+        let init = window.gmInitiative || [];
+        let linkedEntryIds = new Set();
+        // 1. Tokens, per map (players keep their character names)
+        (_wNotes.otherMaps||[]).forEach(m => {
+            let groups = {};
+            (m.battleTokens||[]).forEach(t => { if (t.type === 'player') return; (groups[_btGroupKey(t)] = groups[_btGroupKey(t)] || []).push(t); });
+            Object.values(groups).forEach(g => _numberGroup(g, _btBaseName(g[0]), t=>t.name, (t,n)=>{ t.name = n; }));
+            // 2. Linked initiative entries always carry their token's name
+            (m.battleTokens||[]).forEach(t => {
+                if (t.type === 'player' || !t.initiativeId) return;
+                let e = init.find(x => x.id === t.initiativeId);
+                if (e) { e.name = t.name; linkedEntryIds.add(e.id); }
+            });
+        });
+        // 3. Initiative entries with no token (quick-adds, panel adds with no token on the map)
+        let groups = {};
+        init.forEach(e => {
+            if (e.faction === 'player' || linkedEntryIds.has(e.id)) return;
+            let base = e.baseName || _stripNum(e.name);
+            let key = (e.sourceNpcId || '') + '|' + base.toLowerCase();
+            (groups[key] = groups[key] || { base, items: [] }).items.push(e);
+        });
+        Object.values(groups).forEach(g => {
+            // don't reuse a number already shown on a linked token of the same creature
+            let reserved = new Set();
+            init.forEach(e => { if (!linkedEntryIds.has(e.id)) return;
+                let m = String(e.name).match(new RegExp('^' + _escRe(g.base) + ' (\\d+)$')); if (m) reserved.add(+m[1]);
+                else if (e.name === g.base) reserved.add(0); });
+            _numberGroup(g.items, g.base, e=>e.name, (e,n)=>{ e.name = n; }, reserved.size ? reserved : null);
+        });
+    };
+
+    // Returns the created token object
     window._btAddToken = function(mapId,winId,name,type,color,worldNpcId,playerUid,faction) {
         document.getElementById('btPickerPanel')?.remove();
-        let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return;
+        if (worldNpcId === 'null' || worldNpcId === '') worldNpcId = null;
+        let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return null;
         if(!map.battleTokens) map.battleTokens=[];
         let g=map.battleGrid||{cellSize:50,offsetX:0,offsetY:0};
         // Place at center of where the GM is currently looking, not the image center
         let win=document.getElementById(winId);
-        let img=document.getElementById(winId+'_img');
         let sc=win?._scale||1, ox=win?._offX||0, oy=win?._offY||0;
         let vpW=(win?.clientWidth||640)/2, vpH=(win?.clientHeight||480)/2;
         let imgX=(-ox/sc)+vpW/sc, imgY=(-oy/sc)+vpH/sc;
         let {gridX,gridY}=_btPixelToGrid(Math.round(imgX),Math.round(imgY),g);
-        // Auto-numbering: strip any trailing " N" from name to get base
-        let baseName = name.replace(/ \d+$/, '');
-        let existing = (map.battleTokens||[]).filter(t => t.name.replace(/ \d+$/,'') === baseName);
-        let newName;
-        if (existing.length === 0) {
-            newName = baseName;
-        } else if (existing.length === 1 && !/ \d+$/.test(existing[0].name)) {
-            existing[0].name = baseName + ' 1';
-            newName = baseName + ' 2';
-        } else {
-            newName = baseName + ' ' + (existing.length + 1);
-        }
         // Infer size from linked stat block
         let size = 'medium';
         if (worldNpcId) {
             let wn = (_wNotes.npcs||[]).find(n=>n.id===worldNpcId);
             if (wn?.statBlockId) {
                 let gmNpc = (window.gmNpcs||[]).find(g=>g.id===wn.statBlockId);
-                let sb = gmNpc?.npc;
-                if (sb?.size) size = sb.size.toLowerCase();
+                if (gmNpc?.npc?.size) size = gmNpc.npc.size.toLowerCase();
             }
         }
         // Never spawn on top of a same-size token — use the nearest open square
         let free = window.APXBattle.findFreeCell(map.battleTokens, {id:null, size}, gridX, gridY, t=>_btPos(mapId,t));
         if (free) { gridX = free.gridX; gridY = free.gridY; }
-        map.battleTokens.push({id:'bt_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),type,name:newName,color,size,gridX,gridY,
+        let base = type === 'player' ? name : _stripNum(name);
+        let tok = {id:'bt_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),type,name:base,baseName:base,color,size,gridX,gridY,
             worldNpcId:worldNpcId||null,playerUid:playerUid||null,initiativeId:null,revealed:false,
-            faction:faction||null});
+            faction: type==='player' ? 'player' : (faction||'enemy')};
+        map.battleTokens.push(tok);
+        window._gmRenumber();
+        if (typeof window.renderInitiativeTracker === 'function') window.renderInitiativeTracker();
         saveWorldNotes(); _btRenderTokens(mapId,winId);
+        return tok;
     };
 
-    window.removeBattleToken   = function(mapId,winId,tokenId){ let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return; map.battleTokens=(map.battleTokens||[]).filter(t=>t.id!==tokenId); saveWorldNotes(); _btRenderTokens(mapId,winId); };
-    window.linkBattleTokenToInit = function(mapId,tokenId,initId){ let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); let tok=(map?.battleTokens||[]).find(t=>t.id===tokenId); if(tok){tok.initiativeId=initId;tok._explicitDead=false;saveWorldNotes();} };
+    window.removeBattleToken = function(mapId,winId,tokenId){
+        let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return;
+        map.battleTokens=(map.battleTokens||[]).filter(t=>t.id!==tokenId);
+        window._gmRenumber();
+        if (typeof window.renderInitiativeTracker === 'function') window.renderInitiativeTracker();
+        saveWorldNotes(); _btRenderTokens(mapId,winId);
+    };
+    window.linkBattleTokenToInit = function(mapId,tokenId,initId){ let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); let tok=(map?.battleTokens||[]).find(t=>t.id===tokenId); if(tok){tok.initiativeId=initId;tok._explicitDead=false;window._gmRenumber();saveWorldNotes();} };
     window._btToggleReveal = function(mapId,winId,tokenId){ let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); let tok=(map?.battleTokens||[]).find(t=>t.id===tokenId); if(!tok) return; tok.revealed=tok.revealed===false?true:false; saveWorldNotes(); _btRenderTokens(mapId,winId); };
     window._btRefreshAllOpenMaps = function(){ (_wNotes.otherMaps||[]).forEach(m=>{if(m.battleMapEnabled){let wid='omWin_'+m.id;if(document.getElementById(wid))_btRenderTokens(m.id,wid);}}); };
 
-    // Spawn a linked battle token from an initiative entry that doesn't have one yet
     window._btPickFactionThenAdd = function(mapId, winId, name, type, worldNpcId, playerUid) {
         document.getElementById('btPickerPanel')?.remove();
         let fo = document.createElement('div');
         fo.id = 'btFactionPick2';
         fo.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;';
+        let b = (f, col, bg, bd, label) => `<button onclick="window._btAddToken('${mapId}','${winId}','${name}','${type}','${col}','${worldNpcId}','${playerUid||''}','${f}');document.getElementById('btFactionPick2').remove()" style="flex:1;background:${bg};border:1px solid ${bd};color:#f8fafc;font-size:0.75rem;font-weight:700;padding:0.5rem;border-radius:0.375rem;cursor:pointer;">${label}</button>`;
         fo.innerHTML = `<div style="background:#1e293b;border:1px solid #334155;border-radius:0.75rem;padding:1.25rem;min-width:220px;text-align:center;">
             <div style="font-size:0.8rem;font-weight:700;color:#f8fafc;margin-bottom:0.75rem;">Faction for ${name}</div>
             <div style="display:flex;gap:0.5rem;">
-                <button onclick="window._btAddToken('${mapId}','${winId}','${name}','${type}','#d97706','${worldNpcId}','${playerUid||''}','enemy');document.getElementById('btFactionPick2').remove()" style="flex:1;background:#7f1d1d;border:1px solid #991b1b;color:#fca5a5;font-size:0.75rem;font-weight:700;padding:0.5rem;border-radius:0.375rem;cursor:pointer;">Enemy</button>
-                <button onclick="window._btAddToken('${mapId}','${winId}','${name}','${type}','#64748b','${worldNpcId}','${playerUid||''}','neutral');document.getElementById('btFactionPick2').remove()" style="flex:1;background:#78350f;border:1px solid #92400e;color:#fde68a;font-size:0.75rem;font-weight:700;padding:0.5rem;border-radius:0.375rem;cursor:pointer;">Neutral</button>
-                <button onclick="window._btAddToken('${mapId}','${winId}','${name}','${type}','#16a34a','${worldNpcId}','${playerUid||''}','ally');document.getElementById('btFactionPick2').remove()" style="flex:1;background:#064e3b;border:1px solid #065f46;color:#6ee7b7;font-size:0.75rem;font-weight:700;padding:0.5rem;border-radius:0.375rem;cursor:pointer;">Ally</button>
+                ${b('enemy','#d97706','#7f1d1d','#991b1b','Enemy')}${b('neutral','#64748b','#78350f','#92400e','Neutral')}${b('ally','#16a34a','#064e3b','#065f46','Ally')}
             </div>
             <button onclick="document.getElementById('btFactionPick2').remove()" style="margin-top:0.5rem;background:none;border:none;color:#64748b;font-size:0.7rem;cursor:pointer;">Cancel</button>
         </div>`;
         document.body.appendChild(fo);
     };
 
+    // "+ Token" in the tracker: create a battle token for an entry that has none
     window._spawnTokenForInitEntry = function(initEntryId) {
         let entry = (window.gmInitiative||[]).find(e=>e.id===initEntryId);
         if (!entry) return;
-        // Find the first open battle map window to spawn into
-        let targetMapId = null, targetWinId = null;
-        (_wNotes.otherMaps||[]).forEach(m=>{
-            if (m.battleMapEnabled && document.getElementById('omWin_'+m.id)) {
-                if (!targetMapId) { targetMapId=m.id; targetWinId='omWin_'+m.id; }
-            }
-        });
-        if (!targetMapId) { alert('Open a Battle Map window first.'); return; }
-        // Find the matching world NPC for this stat block
+        let target = (_wNotes.otherMaps||[]).find(m => m.battleMapEnabled && document.getElementById('omWin_'+m.id));
+        if (!target) { alert('Open a Battle Map window first.'); return; }
         let wn = (_wNotes.npcs||[]).find(n=>n.statBlockId===entry.sourceNpcId);
         let color = {enemy:'#d97706',neutral:'#64748b',ally:'#16a34a'}[entry.faction]||'#d97706';
-        window._btAddToken(targetMapId, targetWinId, entry.name, 'npc', color, wn?.id||null, null);
-        // Link the new token to this initiative entry immediately
-        let map = (_wNotes.otherMaps||[]).find(m=>m.id===targetMapId);
-        let newTok = (map?.battleTokens||[]).slice(-1)[0];
-        if (newTok) {
-            newTok.initiativeId = initEntryId;
-            newTok.revealed = true;
-            saveWorldNotes();
-            _btRenderTokens(targetMapId, targetWinId);
-        }
+        let tok = window._btAddToken(target.id, 'omWin_'+target.id, entry.baseName || entry.name, 'npc', color, wn?.id||null, null, entry.faction);
+        if (!tok) return;
+        tok.initiativeId = initEntryId;
+        tok.revealed = true;
+        window._gmRenumber();
+        if (typeof window.renderInitiativeTracker === 'function') window.renderInitiativeTracker();
+        saveWorldNotes();
+        _btRenderTokens(target.id, 'omWin_'+target.id);
     };
 
     // Full player stat block popup — opened by double-clicking a player's battle token
@@ -3663,70 +3743,85 @@ document.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('mouseup',()=>wDrag=false);
     };
 
-    // Add ALL revealed battle tokens to initiative at once, then close the world summary panel
+    // Add ALL revealed, living, not-yet-in-combat tokens to initiative.
+    // Each token keeps the side (Enemy/Neutral/Ally) you set on it, and is linked
+    // to its OWN entry directly (no name guessing).
     window._btAddAllToInitiative = function(mapId) {
         let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return;
-        let revealed = (map.battleTokens||[]).filter(t => t.revealed !== false);
-
-        // Count base names among tokens to be added so we can number duplicates
-        // e.g. three "Ghoul" tokens become "Ghoul #1", "Ghoul #2", "Ghoul #3"
-        let nameCount = {};
-        let nameIdx   = {};
-        revealed.forEach(t => { let k = t.name||'Token'; nameCount[k] = (nameCount[k]||0)+1; });
-
-        let anyAdded = false;
-        revealed.forEach(t => {
-            // Skip if this token already has a linked (living) initiative entry
-            if (t.initiativeId && (window.gmInitiative||[]).find(e=>e.id===t.initiativeId)) return;
-
-            let baseName = t.name||'Token';
-            // Only append number suffix when there are multiple tokens with this name
-            nameIdx[baseName] = (nameIdx[baseName]||0) + 1;
-            let entryName = nameCount[baseName] > 1 ? `${baseName} #${nameIdx[baseName]}` : baseName;
-
-            let entry;
-            if (t.type === 'npc' && t.worldNpcId) {
-                let wn = (_wNotes.npcs||[]).find(n=>n.id===t.worldNpcId);
-                if (!wn?.statBlockId) return;
-                let npcIdx = (window.gmNpcs||[]).findIndex(g=>g.id===wn.statBlockId);
-                if (npcIdx < 0) return;
-                entry = window.addToInitiative(npcIdx, 'npc', 'enemy', entryName);
-            } else if (t.type === 'player' && t.playerUid) {
+        let todo = (map.battleTokens||[]).filter(t => t.revealed !== false && !t._explicitDead && !_btIsLiveEntry(t.initiativeId));
+        let added = 0, skipped = [];
+        todo.forEach(t => {
+            let entry = null;
+            if (t.type === 'player') {
                 let partyIdx = (window.gmParty||[]).findIndex(p=>p.fileName===t.playerUid);
-                if (partyIdx < 0) return;
+                if (partyIdx < 0) { skipped.push(`${t.name} (player not loaded)`); return; }
+                window._pendingTokenInitLink = { mapId, tokenId: t.id };
                 entry = window.addToInitiative(partyIdx, 'party');
+            } else {
+                let wn = (_wNotes.npcs||[]).find(n=>n.id===t.worldNpcId);
+                let npcIdx = wn?.statBlockId ? (window.gmNpcs||[]).findIndex(g=>g.id===wn.statBlockId) : -1;
+                if (npcIdx < 0) { skipped.push(`${t.name} (no stat block)`); return; }
+                window._pendingTokenInitLink = { mapId, tokenId: t.id };
+                entry = window.addToInitiative(npcIdx, 'npc', t.faction || 'enemy', t.name);
             }
-
-            // Bidirectional link: token → entry
-            if (entry?.id) {
-                t.initiativeId = entry.id;
-                t._explicitDead = false;   // fresh combat entry — token is alive again
-                // Also update the token's display name to match the numbered entry
-                if (nameCount[baseName] > 1) t.name = entryName;
-                anyAdded = true;
-            }
+            window._pendingTokenInitLink = null;
+            if (entry?.id) added++;
         });
-
-        if (!anyAdded) { alert('No new tokens to add — all revealed tokens already have initiative entries.'); return; }
-
-        saveWorldNotes(); // persist initiativeId links and updated names
-        _btRenderTokens(mapId, 'omWin_'+mapId); // refresh token display with new names
-
-        // Close just the world notes modal (same as pressing its Close button) — does NOT unload the world
+        if (!added) {
+            alert('No new tokens to add.' + (skipped.length ? '\nSkipped: ' + skipped.join(', ') : ' All revealed tokens are already in initiative.'));
+            return;
+        }
+        if (skipped.length) alert('Skipped: ' + skipped.join(', '));
+        window._gmRenumber();
+        if (typeof window.renderInitiativeTracker === 'function') window.renderInitiativeTracker();
+        saveWorldNotes();
+        _btRenderTokens(mapId, 'omWin_'+mapId);
         window.closeModal('gmWorldModal');
     };
 
     // Player token positions now arrive through APXBattle (see _gmOnPlayerPositions).
-    // Kept as a no-op so any old caller can't write stale positions.
     window._gmApplyPlayerBattlePos = function() {};
 
-    // Mark a battle token as explicitly dead BEFORE its initiative entry is removed
+    // Killed (0 HP / bled out): token goes grey. Remember the XP it paid out so a
+    // Revive can take it back out of the pending pool.
     window._gmMarkTokenDead = function(entryId) {
-        (_wNotes.otherMaps||[]).forEach(m => {
-            (m.battleTokens||[]).forEach(t => {
-                if (t.initiativeId === entryId) t._explicitDead = true;
-            });
-        });
+        let entry = (window.gmInitiative||[]).find(e=>e.id===entryId);
+        (_wNotes.otherMaps||[]).forEach(m => (m.battleTokens||[]).forEach(t => {
+            if (t.initiativeId !== entryId) return;
+            t._explicitDead = true;
+            t._deathXp = (entry && entry.faction !== 'player') ? (entry.tpValue || 0) : 0;
+            t.initiativeId = null;
+        }));
+    };
+    // Removed from combat (not killed): token stays alive, just unlinked
+    window._gmUnlinkEntry = function(entryId) {
+        (_wNotes.otherMaps||[]).forEach(m => (m.battleTokens||[]).forEach(t => {
+            if (t.initiativeId === entryId) t.initiativeId = null;
+        }));
+    };
+
+    // Right-click → Revive a dead token. Mid-combat it rejoins initiative at 1 HP.
+    window._btRevive = function(mapId, winId, tokenId) {
+        document.getElementById('btContextMenu')?.remove();
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+        let tok = (map?.battleTokens||[]).find(t=>t.id===tokenId); if (!tok) return;
+        tok._explicitDead = false;
+        if (tok._deathXp) { window.gmPendingXp = Math.max(0, (window.gmPendingXp||0) - tok._deathXp); tok._deathXp = 0; }
+        let inCombat = window.gmCombatStarted || (window.gmInitiative||[]).length > 0;
+        if (inCombat) {
+            let entry = window._btMenuAddInit(mapId, winId, tokenId, tok.type === 'player' ? null : (tok.faction || 'enemy'), true);
+            if (entry) {
+                entry.currentHp = 1; entry.bleedOutTurns = null; entry.stabilized = false;
+                if (entry.faction === 'player' && entry.playerUid) {
+                    let code = getActiveWorld()?.inviteCode;
+                    if (code && window.apxAuth?.enabled && window.apxAuth.setGmHpOverride)
+                        window.apxAuth.setGmHpOverride(code, entry.playerUid, 1).catch(e=>console.warn('Revive HP sync:', e.message));
+                }
+            }
+        }
+        if (typeof window.renderInitiativeTracker === 'function') window.renderInitiativeTracker();
+        saveWorldNotes();
+        _btRenderTokens(mapId, winId);
     };
 
     // ── END BATTLE MAP SYSTEM ──────────────────────────────────────

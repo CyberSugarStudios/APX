@@ -547,26 +547,28 @@ window.addToInitiative = function(sourceIdx, sourceType, faction, displayName) {
     } else {
         return;
     }
-    insertInitiativeEntry(entry);
-    window.recomputeLairTraitNotes();
+    entry.baseName = String(entry.name||'').replace(/\s+#?\d+$/, '').trim() || entry.name;
 
-    // If this initiative entry was triggered from a battle-map token dblclick, link them now
-    if (window._pendingTokenInitLink && entry?.id) {
+    // Link to its battle token FIRST, so the tracker never renders it as unlinked.
+    //  - from a token (right-click, dbl-click, All to Init): that exact token
+    //  - from the tracker panel: the matching token on the map, found automatically
+    if (window._pendingTokenInitLink) {
         let { mapId, tokenId } = window._pendingTokenInitLink;
         window._pendingTokenInitLink = null;
-        let linkMap = (_wNotes?.otherMaps||[]).find(m=>m.id===mapId);
+        let linkMap = (typeof _wNotes !== 'undefined' ? _wNotes.otherMaps||[] : []).find(m=>m.id===mapId);
         let linkTok = linkMap?.battleTokens?.find(t=>t.id===tokenId);
-        if (linkTok) {
-            linkTok.initiativeId = entry.id;
-            if (typeof saveWorldNotes === 'function') saveWorldNotes();
-            if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
-        }
-    } else if (entry?.id && typeof window._btAutoLinkEntry === 'function') {
-        // Added from the tracker panel — link it to its matching battle token automatically
+        if (linkTok) { linkTok.initiativeId = entry.id; linkTok._explicitDead = false; }
+    } else if (typeof window._btAutoLinkEntry === 'function') {
         window._btAutoLinkEntry(entry);
     }
 
-    return entry; // returned so battle map can link token.initiativeId = entry.id
+    insertInitiativeEntry(entry);
+    if (typeof window._gmRenumber === 'function') window._gmRenumber();
+    window.recomputeLairTraitNotes();   // re-renders the tracker with final names/links
+    if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
+    if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
+
+    return entry;
 };
 
 // Deliberately does NOT clear the form afterward -- a GM adding a group
@@ -580,8 +582,7 @@ window.addQuickNpc = function() {
     let hp = document.getElementById('quickNpcHp').value;
     let ap = document.getElementById('quickNpcAp').value;
 
-    let existingCount = window.gmInitiative.filter(e => e.name === name || e.name.startsWith(name + ' ')).length;
-    let displayName = existingCount > 0 ? `${name} ${existingCount + 1}` : name;
+    let displayName = name;   // numbering (Name / Name 1, Name 2…) is handled by _gmRenumber
 
     let resolvedFaction = nextAddFaction();
     let entry = {
@@ -592,9 +593,10 @@ window.addQuickNpc = function() {
         ap: ap !== '' ? parseInt(ap) : null,
         faction: resolvedFaction, bleedOutTurns: null,
         tpValue: 0, // quick-add NPCs have no formal Tier, so they don't contribute to the end-of-combat XP pool
-        lairTraitNote: null,
+        lairTraitNote: null, baseName: name,
     };
     insertInitiativeEntry(entry);
+    if (typeof window._gmRenumber === 'function') window._gmRenumber();
     window.recomputeLairTraitNotes();
 };
 
@@ -672,15 +674,16 @@ window.addSavedNpcFromPicker = function(npcIdx, btnEl) {
     window.addToInitiative(npcIdx, 'npc', factionSel.value, displayName);
 };
 
-window.removeFromInitiative = function(id) {
+// opts.dead = true  → killed (0 HP / bled out): its battle token turns grey (dead)
+// otherwise         → just removed from combat: token stays alive, simply unlinked
+window.removeFromInitiative = function(id, opts) {
     let idx = window.gmInitiative.findIndex(e => e.id === id);
     if (idx === -1) return;
     let wasCurrent = (idx === window.gmCurrentTurnIdx) && window.gmCombatStarted;
-    // Mark matching battle tokens as explicitly dead BEFORE splicing the entry,
-    // so the next saveWorldNotes call can still publish _dead:true even though
-    // the initiative entry no longer exists in gmInitiative.
-    if (typeof window._gmMarkTokenDead === 'function') window._gmMarkTokenDead(id);
+    if (opts?.dead) { if (typeof window._gmMarkTokenDead === 'function') window._gmMarkTokenDead(id); }
+    else if (typeof window._gmUnlinkEntry === 'function') window._gmUnlinkEntry(id);
     window.gmInitiative.splice(idx, 1);
+    if (typeof window._gmRenumber === 'function') window._gmRenumber();
     if (idx < window.gmCurrentTurnIdx) window.gmCurrentTurnIdx--;
     else if (wasCurrent) {
         window.gmCurrentTurnIdx = window.gmInitiative.length
@@ -717,7 +720,7 @@ window.setInitiativeTempHp = function(id, value) {
                 return;
             } else {
                 window.gmPendingXp += (entry.tpValue || 0);
-                window.removeFromInitiative(id);
+                window.removeFromInitiative(id, { dead: true });
                 return;
             }
         }
@@ -755,7 +758,7 @@ window.updateInitiativeHp = function(id, value) {
             window.openBleedOutModal(id);
         } else {
             window.gmPendingXp += (entry.tpValue || 0);
-            window.removeFromInitiative(id);
+            window.removeFromInitiative(id, { dead: true });
             return; // removeFromInitiative already re-renders
         }
     } else if (entry.currentHp > 0) {
@@ -810,7 +813,7 @@ window.toggleSurprised = function(id, checked) {
 // Combat only offers to end once EVERY player in the fight has actually died.
 function _killBledOutPlayer(entry) {
     let name = entry.name;
-    window.removeFromInitiative(entry.id);   // also marks their battle token dead
+    window.removeFromInitiative(entry.id, { dead: true });   // token turns grey
     let anyPlayerLeft = window.gmInitiative.some(e => e.faction === 'player');
     setTimeout(() => {
         if (window.gmCombatStarted && !anyPlayerLeft) {

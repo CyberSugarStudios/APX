@@ -3829,6 +3829,7 @@
                 tint: isBleedingOut ? 'rgba(220,38,38,0.45)' : isDead ? 'rgba(0,0,0,0.55)' : null,
                 opacity: isDead ? 0.7 : 1,
                 filter: isDead ? 'grayscale(1)' : isBleedingOut ? 'saturate(0.4)' : 'none',
+                badge: (isBleedingOut && t._bleedTurns != null) ? t._bleedTurns : null,
                 portrait,
                 title: t.name || '',
                 draggable: mine, interactive: true,

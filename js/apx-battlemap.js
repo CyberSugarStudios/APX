@@ -207,6 +207,9 @@
         el.style.cursor = vm.draggable ? 'grab' : 'default';
         el.style.pointerEvents = vm.interactive === false ? 'none' : 'auto';
         el._tint.style.background = vm.tint || 'transparent';
+        let hasBadge = vm.badge !== null && vm.badge !== undefined && vm.badge !== '';
+        el._badge.textContent = hasBadge ? String(vm.badge) : '';
+        el._badge.style.display = hasBadge ? 'flex' : 'none';
         Object.entries(vm.attrs || {}).forEach(([k, v]) => { if (v != null) el.setAttribute(k, v); });
         _paintContent(el, vm);
     }
@@ -224,6 +227,7 @@
         let glow = vm.glow ? `0 0 ${Math.max(4, 20 * s)}px ${Math.max(1, 5 * s)}px ${vm.glow},` : '';
         el.style.boxShadow = `${glow}0 ${Math.max(1, 2 * s)}px ${Math.max(2, 8 * s)}px rgba(0,0,0,0.8)`;
         if (el._label) el._label.style.fontSize = Math.max(6, Math.round(d * 0.42)) + 'px';
+        if (el._badge) el._badge.style.fontSize = Math.max(8, Math.round(d * 0.55)) + 'px';
         // Smaller tokens sit above larger ones
         if (!el._drag) el.style.zIndex = String(Math.round(10 / (SIZES[vm.size] || 1)));
     }
@@ -331,8 +335,12 @@
         inner.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;border-radius:50%;overflow:hidden;';
         let tint = document.createElement('div');
         tint.style.cssText = 'position:absolute;inset:0;border-radius:50%;pointer-events:none;';
-        el.appendChild(inner); el.appendChild(tint);
-        el._inner = inner; el._tint = tint;
+        // Big centred number (e.g. bleed-out turns remaining)
+        let badge = document.createElement('div');
+        badge.style.cssText = 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;pointer-events:none;' +
+            'color:#fff;font-weight:900;line-height:1;text-shadow:0 0 3px #000,0 0 6px #000,0 1px 2px #000;';
+        el.appendChild(inner); el.appendChild(tint); el.appendChild(badge);
+        el._inner = inner; el._tint = tint; el._badge = badge;
         _attach(layer, el);
         return el;
     }
