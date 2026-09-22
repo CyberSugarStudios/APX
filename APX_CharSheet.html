@@ -3529,10 +3529,13 @@
             if (!winEl) return;
             // Area circles and special markers
             _pwOmRenderTok(winId, winEl, m);
-            // Battle grid and tokens
+            // Battle grid and tokens (cleared when the GM turns Battle off)
             if(m.battleMapEnabled) {
                 _pwBtDrawGrid(winId, m);
                 _pwBtRenderTokens(winId, winEl, m);
+            } else {
+                let gc = document.getElementById(winId+'_grid'); if (gc) gc.width = 0;
+                if (window.APXBattle) window.APXBattle.clear(winId);
             }
         });
     }

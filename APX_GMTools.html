@@ -2585,15 +2585,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 <button onclick="window.omZoom('${winId}',0.8)"  style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;">−</button>
                 <button onclick="window.omReset('${winId}')"     style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;">Reset</button>
                 <!-- Fog controls live in the header so they never accidentally paint -->
-                <button id="${winId}_fogBtn" onclick="window.toggleFogMode('${mapId}')" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;">Fog Fog</button>
+                <button id="${winId}_fogBtn" onclick="window.toggleFogMode('${mapId}')" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;">Fog</button>
                 <button id="${winId}_specialBtn" onclick="window.toggleSpecialMarkerMode('${mapId}','${winId}')" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;" title="Place a special marker (secret door, trap, etc.)">* Special</button>
-                <button id="${winId}_battleToggle" onclick="window.toggleBattleMap('${mapId}','${winId}')" style="background:${map.battleMapEnabled?'#065f46':'#1e293b'};border:1px solid ${map.battleMapEnabled?'#10b981':'#334155'};color:${map.battleMapEnabled?'#6ee7b7':'#94a3b8'};font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;" title="Toggle Battle Map (grid + tokens)">Battle</button>
-                <!-- Battle Map: + Token and All to Init always visible when battle is on -->
-                ${map.battleMapEnabled ? `
+                <button id="${winId}_battleToggle" onclick="window.toggleBattleMap('${mapId}','${winId}')" style="background:${map.battleMapEnabled?'#065f46':'#1e293b'};border:1px solid ${map.battleMapEnabled?'#10b981':'#334155'};color:${map.battleMapEnabled?'#6ee7b7':'#94a3b8'};font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;" title="Turn the Battle Map (grid + tokens) on or off">Battle: ${map.battleMapEnabled ? 'On' : 'Off'}</button>
+                <!-- Battle Map controls: always rendered, shown only while Battle is ON -->
+                <span id="${winId}_battleBtns" style="display:${map.battleMapEnabled ? 'inline-flex' : 'none'};align-items:center;gap:0.35rem;">
                 <button onclick="window.openBattleTokenPanel('${mapId}','${winId}')" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#065f46;border:1px solid #10b981;color:#6ee7b7;border-radius:0.2rem;cursor:pointer;white-space:nowrap;">+ Token</button>
                 <button onclick="window._btAddAllToInitiative('${mapId}')" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#1e3a5f;border:1px solid #3b82f6;color:#93c5fd;border-radius:0.2rem;cursor:pointer;white-space:nowrap;" title="Add all revealed tokens to initiative">All to Init</button>
                 <button onclick="let s=document.getElementById('${winId}_battleControls'); s.style.display=s.style.display==='none'?'flex':'none';" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#1e293b;border:1px solid #334155;color:#94a3b8;border-radius:0.2rem;cursor:pointer;white-space:nowrap;">Grid</button>
-                ` : ''}
+                </span>
                 <!-- Grid settings: hidden by default, toggled by Grid button -->
                 <div id="${winId}_battleControls" style="display:none;align-items:center;gap:0.3rem;flex-wrap:nowrap;">
                     <span style="font-size:0.6rem;color:#6ee7b7;white-space:nowrap;">Cell:</span>
@@ -3165,23 +3165,36 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── BATTLE MAP SYSTEM ──────────────────────────────────────────
     // ═══════════════════════════════════════════════════════════════
 
+    // Battle Map on/off. Turning it off hides the grid and tokens for everyone (players included);
+    // the tokens and grid settings are kept, so turning it back on restores them exactly.
     window.toggleBattleMap = function(mapId, winId) {
         let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return;
-        if (!map.battleMapEnabled) {
-            // First time: enable and save
-            map.battleMapEnabled = true;
+        map.battleMapEnabled = !map.battleMapEnabled;
+        if (map.battleMapEnabled) {
             if (!map.battleGrid)   map.battleGrid   = {cellSize:50,offsetX:0,offsetY:0};
             if (!map.battleTokens) map.battleTokens = [];
-            saveWorldNotes();
         }
-        // Toggle the controls panel visibility (the battle state itself never turns off here)
-        let ctrl = document.getElementById(winId+'_battleControls');
-        if (ctrl) ctrl.style.display = ctrl.style.display === 'none' ? 'flex' : 'none';
-        let btn = document.getElementById(winId+'_battleToggle');
-        if (btn) { btn.style.background='#065f46'; btn.style.borderColor='#10b981'; btn.style.color='#6ee7b7'; }
-        _btDrawGrid(mapId, winId);
-        _btRenderTokens(mapId, winId);
+        _btSyncBattleUi(mapId, winId);
+        saveWorldNotes();
     };
+    function _btSyncBattleUi(mapId, winId) {
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return;
+        let on = !!map.battleMapEnabled;
+        let btns = document.getElementById(winId+'_battleBtns');
+        if (btns) btns.style.display = on ? 'inline-flex' : 'none';
+        let ctrl = document.getElementById(winId+'_battleControls');
+        if (ctrl && !on) ctrl.style.display = 'none';
+        let btn = document.getElementById(winId+'_battleToggle');
+        if (btn) {
+            btn.textContent = on ? 'Battle: On' : 'Battle: Off';
+            btn.style.background  = on ? '#065f46' : '#1e293b';
+            btn.style.borderColor = on ? '#10b981' : '#334155';
+            btn.style.color       = on ? '#6ee7b7' : '#94a3b8';
+        }
+        if (!on) document.getElementById('btPickerPanel')?.remove();
+        _btDrawGrid(mapId, winId);        // clears the grid when off
+        _btRenderTokens(mapId, winId);    // clears the tokens when off
+    }
 
     window._btUpdateGrid = function(mapId, winId) {
         let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return;
@@ -3520,9 +3533,10 @@ document.addEventListener('DOMContentLoaded', () => {
             let safeName=(n.name||'NPC').replace(/'/g,'').replace(/`/g,'');
             return `<button onclick="window._btPickFactionThenAdd('${mapId}','${winId}','${safeName}','npc','${n.id}',null)" style="width:100%;text-align:left;background:#0f172a;border:none;border-bottom:1px solid #1e293b;color:#fde68a;font-size:0.7rem;padding:0.4rem 0.6rem;cursor:pointer;"> ${n.name||'NPC'}</button>`;
         }).join('');
-        panel.innerHTML=`<div style="background:#065f46;padding:0.5rem 0.75rem;font-size:0.75rem;font-weight:700;color:#6ee7b7;display:flex;align-items:center;justify-content:space-between;">[Battle] Add Token <button onclick="document.getElementById('btPickerPanel').remove()" style="background:none;border:none;color:#6ee7b7;font-size:1rem;cursor:pointer;">X</button></div>
+        panel.innerHTML=`<div id="btPickerPanelHdr" title="Drag to move" style="background:#065f46;padding:0.5rem 0.75rem;font-size:0.75rem;font-weight:700;color:#6ee7b7;display:flex;align-items:center;justify-content:space-between;">Add Token <button onclick="document.getElementById('btPickerPanel').remove()" style="background:none;border:none;color:#6ee7b7;font-size:1rem;cursor:pointer;">X</button></div>
             <div style="max-height:60vh;overflow-y:auto;">${partyRows||'<div style="padding:0.5rem;font-size:0.65rem;color:#475569;">No party members found</div>'}${npcRows||'<div style="padding:0.5rem;font-size:0.65rem;color:#475569;">No world NPCs</div>'}</div>`;
         document.body.appendChild(panel);
+        window.apxMakeDraggable(panel, document.getElementById('btPickerPanelHdr'));
     };
 
     // ── Creature numbering ─────────────────────────────────────────

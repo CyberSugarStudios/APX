@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.9.22.1415';
+window.APX_VERSION = 'v2026.9.22.1430';
 
         window.state = getInitialState();
 
@@ -272,20 +272,30 @@ window.APX_VERSION = 'v2026.9.22.1415';
         // strings like "00002500" never get silently misread as a legacy
         // octal literal (00002500 -> 1344, not 2500) by the expression
         // evaluator below. Returns null if the input doesn't parse.
-        window.parseMathExpression = function(rawValue, currentValue) {
-            let cleanVal = (rawValue || '').replace(/[^0-9\+\-\s]/g, '');
-            if (cleanVal.trim() === "") return 0;
-            cleanVal = cleanVal.replace(/\b0+(?=\d)/g, '');
-            let result;
-            if (cleanVal.startsWith('+') || cleanVal.startsWith('-')) {
-                let delta = Math.floor(new Function('return ' + cleanVal)());
-                delta = isNaN(delta) ? 0 : delta;
-                result = (currentValue || 0) + delta;
-            } else {
-                result = Math.floor(new Function('return ' + cleanVal)());
-                result = isNaN(result) ? null : result;
+        // Sums a +/- expression like "10-3+2" without ever evaluating it as code.
+        // Signs combine ("5--3" = 8), a trailing/dangling operator is ignored ("10-" = 10),
+        // and numbers are read in base 10 (so "0025" is 25). Returns null if there are no digits.
+        function apxSumExpression(str) {
+            let s = String(str || '').replace(/\s+/g, '');
+            if (!/\d/.test(s)) return null;
+            let total = 0, sign = 1, num = '';
+            for (let ch of s) {
+                if (ch >= '0' && ch <= '9') { num += ch; continue; }
+                if (num) { total += sign * parseInt(num, 10); num = ''; sign = 1; }
+                if (ch === '-') sign = -sign;          // '+' keeps the current sign
             }
-            return result;
+            if (num) total += sign * parseInt(num, 10);
+            return total;
+        }
+        window.parseMathExpression = function(rawValue, currentValue) {
+            let cleanVal = String(rawValue ?? '').replace(/[^0-9\+\-\s]/g, '').trim();
+            if (cleanVal === "") return 0;
+            let value = apxSumExpression(cleanVal);
+            if (value === null) return null;                     // e.g. just "-" or "+"
+            if (cleanVal.startsWith('+') || cleanVal.startsWith('-')) {
+                return (currentValue || 0) + value;              // "+3" / "-8" adjust the current value
+            }
+            return value;                                        // "25" / "10-3" set it
         };
 
         // ── Shared HP rule (character sheet AND GM initiative tracker) ──────

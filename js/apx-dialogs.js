@@ -83,6 +83,33 @@
         });
     }
 
+    // Make any fixed-position panel draggable by a handle (its header).
+    // Buttons/inputs inside the handle still work normally. Stays on-screen.
+    window.apxMakeDraggable = function(win, handle) {
+        if (!win || !handle) return;
+        handle.style.cursor = 'grab';
+        handle.style.userSelect = 'none';
+        handle.style.touchAction = 'none';
+        handle.addEventListener('pointerdown', e => {
+            if (e.button !== 0 || e.target.closest('button, input, select, textarea, a')) return;
+            let r = win.getBoundingClientRect();
+            let ox = e.clientX - r.left, oy = e.clientY - r.top;
+            win.style.left = r.left + 'px'; win.style.top = r.top + 'px'; win.style.right = 'auto'; win.style.bottom = 'auto';
+            handle.setPointerCapture(e.pointerId);
+            handle.style.cursor = 'grabbing';
+            let move = ev => {
+                let x = Math.max(0, Math.min(window.innerWidth - 60, ev.clientX - ox));
+                let y = Math.max(0, Math.min(window.innerHeight - 30, ev.clientY - oy));
+                win.style.left = x + 'px'; win.style.top = y + 'px';
+            };
+            let up = () => { handle.style.cursor = 'grab'; handle.removeEventListener('pointermove', move); handle.removeEventListener('pointerup', up); handle.removeEventListener('pointercancel', up); };
+            handle.addEventListener('pointermove', move);
+            handle.addEventListener('pointerup', up);
+            handle.addEventListener('pointercancel', up);
+            e.preventDefault();
+        });
+    };
+
     window.apxAlert   = (msg, opts) => open('alert', msg, opts);
     window.apxConfirm = (msg, opts) => open('confirm', msg, opts);
     window.apxPrompt  = (msg, defaultValue, opts) => open('prompt', msg, Object.assign({ defaultValue }, opts || {}));
