@@ -1584,12 +1584,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                 let curEntry = (window.gmInitiative||[])[(window.gmCurrentTurnIdx??0)];
                                 let btTokens = (m.battleTokens||[]).map(t=>{
                                     let entry = t.initiativeId ? (window.gmInitiative||[]).find(e=>e.id===t.initiativeId) : null;
-                                    let isBO = !!(entry && entry.currentHp !== null && entry.currentHp <= 0 && entry.faction==='player' && (entry.bleedOutTurns||0) > 0);
+                                    let {isBleedingOut:isBO, isDead} = window._btLifeState(t, entry);
                                     // Live position — the SAME value the GM map is drawing
                                     let {gridX, gridY} = window.APXBattle ? window.APXBattle.posOf(m.id, t) : {gridX:t.gridX??0, gridY:t.gridY??0};
-                                    // _explicitDead is set on the token by _gmMarkTokenDead BEFORE removeFromInitiative
-                                    // splices the entry, so we can still publish the dead state even after removal
-                                    let isDead = t._explicitDead || !!(entry && entry.currentHp !== null && entry.currentHp <= 0 && !isBO);
                                     return {
                                         id:           t.id            || '',
                                         type:         t.type          || 'npc',
@@ -3198,6 +3195,20 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
     // ── Battle token helpers (GM) ─────────────────────────────────
+    // Token life state — the ONE rule used by the GM map and by what players are sent.
+    //   Player at 0 HP  → BLEEDING OUT (red) until the bleed-out counter hits 0
+    //                     (stabilized players stay down but stop bleeding)
+    //   Player dead     → only after bleeding out (token flagged _explicitDead)
+    //   NPC at 0 HP     → dead (grey)
+    window._btLifeState = function(t, entry) {
+        if (t._explicitDead) return { isBleedingOut:false, isDead:true };
+        if (!entry) return { isBleedingOut:false, isDead:false };
+        let atZero = entry.currentHp !== null && entry.currentHp !== undefined && entry.currentHp <= 0;
+        if (!atZero) return { isBleedingOut:false, isDead:false };
+        if (entry.faction === 'player') return { isBleedingOut: !entry.stabilized, isDead:false };
+        return { isBleedingOut:false, isDead:true };
+    };
+
     // Effective grid position — player tokens come from the live authority
     function _btPos(mapId, t) { return window.APXBattle.posOf(mapId, t); }
 
@@ -3252,10 +3263,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let pos = _btPos(mapId, t);
             let isActive = !!(t.initiativeId && curInitId && t.initiativeId === curInitId);
             let linkedEntry = t.initiativeId ? (window.gmInitiative||[]).find(e=>e.id===t.initiativeId) : null;
-            let entryHp = linkedEntry ? linkedEntry.currentHp : null;
-            let isAtZeroHp = entryHp !== null && entryHp !== undefined && entryHp <= 0;
-            let isBleedingOut = !!(isAtZeroHp && linkedEntry?.faction === 'player' && (linkedEntry.bleedOutTurns||0) > 0);
-            let isDead = t._explicitDead || !!(isAtZeroHp && !isBleedingOut);
+            let {isBleedingOut, isDead} = window._btLifeState(t, linkedEntry);
             let isHidden = t.revealed === false;
             let faction = linkedEntry?.faction || t.faction || (t.type === 'player' ? 'player' : 'enemy');
             let factionBorder = {player:'#3b82f6', ally:'#22c55e', neutral:'#e2e8f0', enemy:'#ef4444'}[faction] || '#e2e8f0';
@@ -3315,66 +3323,110 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // ── Token ↔ initiative linking (automatic — no manual picker needed) ──────
+    function _btIsLiveEntry(id) { return !!id && (window.gmInitiative||[]).some(e=>e.id===id); }
+
+    // Called by addToInitiative when an entry is added from the tracker panel.
+    // Players: link every token owned by that player. NPCs: link the token with the
+    // same name, or the only unlinked token of that stat block if there's just one.
+    window._btAutoLinkEntry = function(entry) {
+        let cands = [];
+        (_wNotes.otherMaps||[]).forEach(m => (m.battleTokens||[]).forEach(t => {
+            if (_btIsLiveEntry(t.initiativeId)) return;
+            if (entry.faction === 'player' && entry.playerUid) {
+                if (t.type === 'player' && t.playerUid === entry.playerUid) cands.push(t);
+            } else if (entry.sourceNpcId && t.type === 'npc' && t.worldNpcId) {
+                let wn = (_wNotes.npcs||[]).find(n=>n.id===t.worldNpcId);
+                if (wn?.statBlockId === entry.sourceNpcId) cands.push(t);
+            }
+        }));
+        let pick = entry.faction === 'player' ? cands
+                 : (cands.filter(t => t.name === entry.name).slice(0,1).concat(cands.length === 1 ? cands : [])).slice(0,1);
+        if (!pick.length) return;
+        pick.forEach(t => { t.initiativeId = entry.id; t._explicitDead = false; });
+        saveWorldNotes();
+        window._btRefreshAllOpenMaps();
+    };
+
+    // Right-click → add this token to initiative, already linked
+    window._btMenuAddInit = function(mapId, winId, tokenId, faction) {
+        document.getElementById('btContextMenu')?.remove();
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+        let tok = (map?.battleTokens||[]).find(t=>t.id===tokenId); if (!tok) return;
+        if (tok.type === 'player') {
+            let partyIdx = (window.gmParty||[]).findIndex(p=>p.fileName===tok.playerUid);
+            if (partyIdx < 0) { alert('That player isn\'t loaded in the party yet.'); return; }
+            window._pendingTokenInitLink = { mapId, tokenId };
+            window.addToInitiative(partyIdx, 'party');
+        } else {
+            let wn = (_wNotes.npcs||[]).find(n=>n.id===tok.worldNpcId);
+            let npcIdx = wn ? (window.gmNpcs||[]).findIndex(g=>g.id===wn.statBlockId) : -1;
+            if (npcIdx < 0) { alert('This token has no linked stat block.'); return; }
+            if (faction) window._btSetFaction(mapId, winId, tokenId, faction);
+            window._pendingTokenInitLink = { mapId, tokenId };
+            window.addToInitiative(npcIdx, 'npc', faction || tok.faction || 'enemy', tok.name);
+        }
+        tok._explicitDead = false;
+        _btRenderTokens(mapId, winId);
+    };
+
+    window._btSetFaction = function(mapId, winId, tokenId, faction) {
+        let m = (_wNotes.otherMaps||[]).find(x=>x.id===mapId);
+        let tk = (m?.battleTokens||[]).find(x=>x.id===tokenId); if (!tk) return;
+        tk.faction = faction;
+        tk.color = {enemy:'#d97706', neutral:'#64748b', ally:'#16a34a', player:'#1d4ed8'}[faction] || tk.color;
+        let entry = tk.initiativeId ? (window.gmInitiative||[]).find(e=>e.id===tk.initiativeId) : null;
+        if (entry) { entry.faction = faction; if (typeof window.renderInitiativeTracker==='function') window.renderInitiativeTracker(); }
+        saveWorldNotes(); _btRenderTokens(mapId, winId);
+    };
+
+    // Compact right-click menu. Clamped to the viewport so it never runs off-screen.
     window._btShowTokenMenu = function(mapId, winId, tokenId, e) {
         document.getElementById('btContextMenu')?.remove();
         let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
-        let tok = (map?.battleTokens||[]).find(t=>t.id===tokenId); if(!tok) return;
-        let isHidden = tok.revealed === false;
-        let curSizeIdx = BT_SIZE_LIST.indexOf(tok.size||'medium');
-        let canShrink = curSizeIdx > 0;
-        let canGrow   = curSizeIdx < BT_SIZE_LIST.length - 1;
+        let tok = (map?.battleTokens||[]).find(t=>t.id===tokenId); if (!tok) return;
+        let isHidden  = tok.revealed === false;
+        let isPlayer  = tok.type === 'player';
+        let inInit    = _btIsLiveEntry(tok.initiativeId);
+        let sizeIdx   = BT_SIZE_LIST.indexOf(tok.size||'medium');
+        let curFaction = tok.faction || (isPlayer ? 'player' : 'enemy');
+        let wn = tok.worldNpcId ? (_wNotes.npcs||[]).find(n=>n.id===tok.worldNpcId) : null;
+        let hasStatBlock = !!(wn?.statBlockId && (window.gmNpcs||[]).some(g=>g.id===wn.statBlockId));
+        let a = `'${mapId}','${winId}','${tokenId}'`;
+
+        const row  = 'display:flex;align-items:center;gap:2px;padding:2px 4px;border-top:1px solid #0f172a;';
+        const lbl  = 'font-size:0.55rem;color:#64748b;width:34px;flex-shrink:0;';
+        const btn  = (label, onclick, color, active, disabled) =>
+            `<button ${disabled?'disabled':''} onclick="${disabled?'':onclick}" style="flex:1;background:${active?'#334155':'none'};border:none;border-radius:3px;color:${disabled?'#334155':color};font-size:0.6rem;font-weight:${active?800:600};padding:3px 2px;cursor:${disabled?'default':'pointer'};white-space:nowrap;">${label}</button>`;
+
+        let initRow = '';
+        if (inInit) {
+            initRow = `<div style="${row}"><span style="${lbl}">Init</span><span style="font-size:0.6rem;color:#6ee7b7;padding:3px 2px;">Linked ✓</span></div>`;
+        } else if (isPlayer) {
+            initRow = `<div style="${row}"><span style="${lbl}">Init</span>${btn('+ Add', `window._btMenuAddInit(${a})`, '#93c5fd')}</div>`;
+        } else if (hasStatBlock) {
+            initRow = `<div style="${row}"><span style="${lbl}">+ Init</span>${btn('Enemy', `window._btMenuAddInit(${a},'enemy')`, '#fca5a5')}${btn('Neutral', `window._btMenuAddInit(${a},'neutral')`, '#fde68a')}${btn('Ally', `window._btMenuAddInit(${a},'ally')`, '#6ee7b7')}</div>`;
+        }
+
         let menu = document.createElement('div');
         menu.id = 'btContextMenu';
-        menu.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;z-index:2147483647;background:#1e293b;border:1px solid #334155;border-radius:0.4rem;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.9);min-width:180px;`;
-        // Initiative rows
-        let npcIdx = tok.worldNpcId ? (window.gmNpcs||[]).findIndex(g=>g.id===(_wNotes.npcs||[]).find(n=>n.id===tok.worldNpcId)?.statBlockId) : -1;
-        let initRows = npcIdx >= 0 ? `
-            <div style="padding:0.2rem 0.6rem;font-size:0.6rem;color:#64748b;border-bottom:1px solid #1e293b;">Add to Initiative as…</div>
-            <button onclick="window.addToInitiative(${npcIdx},'npc','enemy',undefined);document.getElementById('btContextMenu').remove()" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid #1e293b;color:#fca5a5;font-size:0.65rem;padding:0.3rem 0.6rem;cursor:pointer;">Enemy</button>
-            <button onclick="window.addToInitiative(${npcIdx},'npc','neutral',undefined);document.getElementById('btContextMenu').remove()" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid #1e293b;color:#fde68a;font-size:0.65rem;padding:0.3rem 0.6rem;cursor:pointer;">◈ Neutral</button>
-            <button onclick="window.addToInitiative(${npcIdx},'npc','ally',undefined);document.getElementById('btContextMenu').remove()" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid #1e293b;color:#6ee7b7;font-size:0.65rem;padding:0.3rem 0.6rem;cursor:pointer;">Ally</button>` : '';
-        // Link to initiative entry
-        let initEntries = (window.gmInitiative||[]).map(ei=>`<button onclick="window.linkBattleTokenToInit('${mapId}','${tokenId}','${ei.id}');document.getElementById('btContextMenu').remove()" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid #1e293b;color:${tok.initiativeId===ei.id?'#fbbf24':'#e2e8f0'};font-size:0.6rem;padding:0.25rem 0.6rem;cursor:pointer;">${tok.initiativeId===ei.id?'* ':''} ${ei.name}</button>`).join('');
-        // Add faction setter function
-        window._btSetFaction = window._btSetFaction || function(mapId2,winId2,tokenId2,faction){
-            let m=(_wNotes.otherMaps||[]).find(x=>x.id===mapId2);
-            let tk=(m?.battleTokens||[]).find(x=>x.id===tokenId2);
-            if(tk){
-                tk.faction=faction;
-                // Update color to match faction
-                let colors={enemy:'#d97706',neutral:'#64748b',ally:'#16a34a',player:'#1d4ed8'};
-                tk.color=colors[faction]||tk.color;
-                // Also update the linked initiative entry if one exists
-                if (tk.initiativeId) {
-                    let entry=(window.gmInitiative||[]).find(e=>e.id===tk.initiativeId);
-                    if (entry) {
-                        let oldFaction = entry.faction;
-                        entry.faction = faction;
-                        // If faction changed FROM enemy to something else, refund XP
-                        // If faction changed TO enemy, add XP
-                        // Pending XP is accumulated from defeated enemies
-                        if (typeof window.renderInitiativeTracker==='function') window.renderInitiativeTracker();
-                    }
-                }
-                saveWorldNotes();_btRenderTokens(mapId2,winId2);
-            }
-        };
-        let curFaction = tok.faction || (tok.type==='player'?'player':'enemy');
-        let fBtn = (f,label,col)=>`<button onclick="window._btSetFaction('${mapId}','${winId}','${tokenId}','${f}');document.getElementById('btContextMenu').remove()" style="flex:1;background:none;border:none;color:${col};font-size:0.65rem;padding:0.3rem;cursor:pointer;${curFaction===f?'font-weight:900;text-decoration:underline;':''}">${label}</button>`;
-        menu.innerHTML = `<div style="background:#1e3a5f;padding:0.3rem 0.6rem;font-size:0.65rem;font-weight:700;color:#93c5fd;">
-            ${tok.name} <span style="font-size:0.55rem;color:#64748b;">(${tok.size||'medium'})</span>
-        </div>
-        <button onclick="window._btToggleReveal('${mapId}','${winId}','${tokenId}');document.getElementById('btContextMenu').remove()" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid #1e293b;color:${isHidden?'#6ee7b7':'#94a3b8'};font-size:0.65rem;padding:0.35rem 0.6rem;cursor:pointer;">${isHidden?'Reveal to Players':'Hide from Players'}</button>
-        <div style="padding:0.15rem 0.6rem;font-size:0.6rem;color:#64748b;">Faction:</div>
-        <div style="display:flex;border-bottom:1px solid #1e293b;">${fBtn('enemy','Enemy','#fca5a5')}${fBtn('neutral','Neutral','#fde68a')}${fBtn('ally','Ally','#6ee7b7')}</div>
-        ${initEntries ? `<div style="padding:0.15rem 0.6rem;font-size:0.6rem;color:#64748b;">Link Initiative Turn</div>${initEntries}` : ''}
-        ${initRows}
-        <div style="display:flex;border-bottom:1px solid #1e293b;">
-            <button ${!canShrink?'disabled':''} onclick="window._btResizeToken('${mapId}','${winId}','${tokenId}',-1);document.getElementById('btContextMenu').remove()" style="flex:1;background:none;border:none;color:${canShrink?'#c4b5fd':'#334155'};font-size:0.65rem;padding:0.3rem;cursor:${canShrink?'pointer':'not-allowed'};">Squeeze</button>
-            <button ${!canGrow?'disabled':''} onclick="window._btResizeToken('${mapId}','${winId}','${tokenId}',1);document.getElementById('btContextMenu').remove()" style="flex:1;background:none;border:none;color:${canGrow?'#c4b5fd':'#334155'};font-size:0.65rem;padding:0.3rem;cursor:${canGrow?'pointer':'not-allowed'};">Grow</button>
-        </div>
-        <button onclick="window.removeBattleToken('${mapId}','${winId}','${tokenId}');document.getElementById('btContextMenu').remove()" style="width:100%;text-align:left;background:none;border:none;color:#f87171;font-size:0.65rem;padding:0.35rem 0.6rem;cursor:pointer;">Remove Token</button>`;
+        menu.style.cssText = `position:fixed;left:0;top:0;visibility:hidden;z-index:2147483647;background:#1e293b;border:1px solid #334155;border-radius:0.35rem;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.9);width:190px;`;
+        menu.innerHTML = `
+            <div style="background:#1e3a5f;padding:3px 6px;font-size:0.62rem;font-weight:700;color:#93c5fd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${tok.name} <span style="font-size:0.52rem;color:#64748b;">${tok.size||'medium'}</span></div>
+            <div style="${row}">${btn(isHidden?'Reveal to Players':'Hide from Players', `window._btToggleReveal(${a});document.getElementById('btContextMenu').remove()`, isHidden?'#6ee7b7':'#94a3b8')}</div>
+            ${isPlayer ? '' : `<div style="${row}"><span style="${lbl}">Side</span>${btn('Enemy', `window._btSetFaction(${a},'enemy');document.getElementById('btContextMenu').remove()`, '#fca5a5', curFaction==='enemy')}${btn('Neutral', `window._btSetFaction(${a},'neutral');document.getElementById('btContextMenu').remove()`, '#fde68a', curFaction==='neutral')}${btn('Ally', `window._btSetFaction(${a},'ally');document.getElementById('btContextMenu').remove()`, '#6ee7b7', curFaction==='ally')}</div>`}
+            ${initRow}
+            <div style="${row}"><span style="${lbl}">Size</span>${btn('−', `window._btResizeToken(${a},-1);document.getElementById('btContextMenu').remove()`, '#c4b5fd', false, sizeIdx<=0)}${btn('+', `window._btResizeToken(${a},1);document.getElementById('btContextMenu').remove()`, '#c4b5fd', false, sizeIdx>=BT_SIZE_LIST.length-1)}</div>
+            <div style="${row}">${btn('Remove Token', `window.removeBattleToken(${a});document.getElementById('btContextMenu').remove()`, '#f87171')}</div>`;
         document.body.appendChild(menu);
+
+        // Keep fully on-screen: flip up/left when near the bottom/right edge
+        let r = menu.getBoundingClientRect(), pad = 6;
+        let x = e.clientX, y = e.clientY;
+        if (x + r.width  > window.innerWidth  - pad) x = Math.max(pad, e.clientX - r.width);
+        if (y + r.height > window.innerHeight - pad) y = Math.max(pad, e.clientY - r.height);
+        menu.style.left = x + 'px'; menu.style.top = y + 'px'; menu.style.visibility = 'visible';
+
         setTimeout(()=>document.addEventListener('mousedown',function cls(ev){if(!menu.contains(ev.target)){menu.remove();document.removeEventListener('mousedown',cls);}},100));
     };
 
@@ -3455,7 +3507,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.removeBattleToken   = function(mapId,winId,tokenId){ let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return; map.battleTokens=(map.battleTokens||[]).filter(t=>t.id!==tokenId); saveWorldNotes(); _btRenderTokens(mapId,winId); };
-    window.linkBattleTokenToInit = function(mapId,tokenId,initId){ let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); let tok=(map?.battleTokens||[]).find(t=>t.id===tokenId); if(tok){tok.initiativeId=initId;saveWorldNotes();} };
+    window.linkBattleTokenToInit = function(mapId,tokenId,initId){ let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); let tok=(map?.battleTokens||[]).find(t=>t.id===tokenId); if(tok){tok.initiativeId=initId;tok._explicitDead=false;saveWorldNotes();} };
     window._btToggleReveal = function(mapId,winId,tokenId){ let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); let tok=(map?.battleTokens||[]).find(t=>t.id===tokenId); if(!tok) return; tok.revealed=tok.revealed===false?true:false; saveWorldNotes(); _btRenderTokens(mapId,winId); };
     window._btRefreshAllOpenMaps = function(){ (_wNotes.otherMaps||[]).forEach(m=>{if(m.battleMapEnabled){let wid='omWin_'+m.id;if(document.getElementById(wid))_btRenderTokens(m.id,wid);}}); };
 
@@ -3648,6 +3700,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Bidirectional link: token → entry
             if (entry?.id) {
                 t.initiativeId = entry.id;
+                t._explicitDead = false;   // fresh combat entry — token is alive again
                 // Also update the token's display name to match the numbered entry
                 if (nameCount[baseName] > 1) t.name = entryName;
                 anyAdded = true;

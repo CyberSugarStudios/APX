@@ -332,6 +332,12 @@ function startPartyListener(inviteCode) {
             if (newHp !== undefined) {
                 (window.gmInitiative||[]).forEach(e => {
                     if (e.playerUid === p.uid) {
+                        let wasUp = e.currentHp === null || e.currentHp > 0;
+                        // Player's own sheet took them to 0 → start bleeding out (not dead)
+                        if (wasUp && newHp <= 0 && e.faction === 'player' && e.bleedOutTurns == null) {
+                            setTimeout(() => window.openBleedOutModal(e.id), 0);
+                        }
+                        if (newHp > 0) { e.bleedOutTurns = null; e.stabilized = false; }
                         e.currentHp = newHp;
                         e.tempHp    = newTempHp;
                         e.maxHp     = computeCharSummary(state).maxHp;
@@ -555,6 +561,9 @@ window.addToInitiative = function(sourceIdx, sourceType, faction, displayName) {
             if (typeof saveWorldNotes === 'function') saveWorldNotes();
             if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
         }
+    } else if (entry?.id && typeof window._btAutoLinkEntry === 'function') {
+        // Added from the tracker panel — link it to its matching battle token automatically
+        window._btAutoLinkEntry(entry);
     }
 
     return entry; // returned so battle map can link token.initiativeId = entry.id
@@ -751,6 +760,7 @@ window.updateInitiativeHp = function(id, value) {
         }
     } else if (entry.currentHp > 0) {
         entry.bleedOutTurns = null; // healed
+        entry.stabilized = false;
     }
     // ── Sync HP back to player's character sheet ──────────────────────────
     // If this is a party member (faction:'player'), push the new HP to
@@ -766,22 +776,10 @@ window.updateInitiativeHp = function(id, value) {
         }
     }
     window.renderInitiativeTracker();
-    // Refresh token colours (dead/bleed-out) WITHOUT saving world notes.
+    // Refresh token colours (dead/bleed-out). Combat never ends here — a player at
+    // 0 HP is BLEEDING OUT, not dead. Death only happens when the counter hits 0
+    // (see _killBledOutPlayer), and that is where the "all players dead" check lives.
     if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
-    // Auto-end combat only if ALL players are TRULY dead — not just bleeding out.
-    // A player at 0 HP with bleedOutTurns > 0 is still fighting for their life.
-    if (window.gmCombatStarted) {
-        let players = window.gmInitiative.filter(e => e.faction === 'player');
-        let allTrulyDead = players.length > 0 && players.every(e =>
-            e.currentHp !== null && e.currentHp <= 0 &&
-            !(e.bleedOutTurns !== null && e.bleedOutTurns !== undefined && e.bleedOutTurns > 0)
-        );
-        if (allTrulyDead) {
-            setTimeout(() => {
-                window.showConfirm('All players are down! End combat?', () => window.endCombat(), true);
-            }, 300);
-        }
-    }
 };
 
 window.toggleSurprised = function(id, checked) {
@@ -806,17 +804,28 @@ window.toggleSurprised = function(id, checked) {
     window.renderInitiativeTracker();
 };
 
+// ── Player death ──────────────────────────────────────────────────────────
+// 0 HP  → BLEEDING OUT (red token, counter ticks each of their turns)
+// counter hits 0 → DEAD (grey token, removed from initiative)
+// Combat only offers to end once EVERY player in the fight has actually died.
+function _killBledOutPlayer(entry) {
+    let name = entry.name;
+    window.removeFromInitiative(entry.id);   // also marks their battle token dead
+    let anyPlayerLeft = window.gmInitiative.some(e => e.faction === 'player');
+    setTimeout(() => {
+        if (window.gmCombatStarted && !anyPlayerLeft) {
+            window.showConfirm(`${name} has bled out and died. All players are dead — end combat?`, () => window.endCombat(), true);
+        } else {
+            window.showConfirm(`${name} has bled out and died.`, null, true);
+        }
+    }, 150);
+}
+
 window.adjustBleedOutTurns = function(id, delta) {
     let entry = window.gmInitiative.find(e => e.id === id);
     if (!entry || entry.bleedOutTurns === null || entry.bleedOutTurns === undefined) return;
     entry.bleedOutTurns = Math.max(0, entry.bleedOutTurns + delta);
-    if (entry.bleedOutTurns === 0) {
-        let idx = window.gmInitiative.indexOf(entry);
-        let name = entry.name;
-        window.gmInitiative.splice(idx, 1);
-        if (window.gmCurrentTurnIdx >= window.gmInitiative.length) window.gmCurrentTurnIdx = Math.max(0, window.gmInitiative.length - 1);
-        window.showConfirm(`${name} has bled out and died.`, null, true);
-    }
+    if (entry.bleedOutTurns === 0) { _killBledOutPlayer(entry); return; }
     window.renderInitiativeTracker();
     if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
     if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
@@ -847,7 +856,10 @@ window.stabilizeEntry = function(id) {
     let entry = window.gmInitiative.find(e => e.id === id);
     if (!entry) return;
     entry.bleedOutTurns = null;
+    entry.stabilized = true;   // still at 0 HP, but no longer bleeding
     window.renderInitiativeTracker();
+    if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
+    if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
 };
 
 // Arrows only ever appear for a genuine, unresolved tie (same effective
@@ -953,12 +965,7 @@ window.nextInitiativeTurn = function() {
     let current = window.gmInitiative[window.gmCurrentTurnIdx];
     if (current && current.bleedOutTurns > 0) {
         current.bleedOutTurns--;
-        if (current.bleedOutTurns === 0) {
-            let deadName = current.name;
-            window.gmInitiative.splice(window.gmCurrentTurnIdx, 1);
-            if (window.gmCurrentTurnIdx >= window.gmInitiative.length) window.gmCurrentTurnIdx = 0;
-            window.showConfirm(`${deadName} has died from bleeding out.`, null, true);
-        }
+        if (current.bleedOutTurns === 0) { _killBledOutPlayer(current); return; }
     }
     window.renderInitiativeTracker();
     // Refresh battle map tokens and push current-turn data to players
