@@ -1233,13 +1233,25 @@
     </div>
 
     <div class="modal-overlay" id="npcCrafterModal">
-        <div class="modal-content max-w-[850px]">
+        <div class="modal-content" style="max-width:min(1320px,96vw);">
             <div class="flex justify-between items-center mb-1 border-b border-purple-600 pb-2">
                 <h3 class="text-xl font-black text-white" id="npcCrafterTitle">The NPC Crafter -- Loyal Companion</h3>
                 <div class="text-[10px] text-slate-500">Chapter 15: NPCs</div>
             </div>
+            <div class="flex flex-col lg:flex-row gap-4 items-start">
+            <!-- Live stat block: updates as you build -->
+            <aside class="w-full lg:w-[400px] shrink-0 lg:sticky lg:top-0">
+                <div class="bg-slate-900/50 border border-purple-800/50 rounded-lg p-3" style="max-height:74vh;overflow-y:auto;">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="text-sm font-black text-purple-300 truncate" id="ncPreviewName">NPC</div>
+                        <div class="text-[9px] text-slate-500 uppercase font-bold shrink-0 ml-2">Live Stat Block</div>
+                    </div>
+                    <div id="ncPreviewBody"><!-- JS injected: full stat block --></div>
+                </div>
+            </aside>
+            <div class="flex-1 min-w-0 w-full">
             <div class="mb-3">
-                <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Companion Name</label>
+                <label id="ncNameLabel" class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">NPC Name</label>
                 <input type="text" id="ncName" onchange="window.ncUpdateName(this.value)" placeholder="e.g. Fang" class="bg-slate-900 border-purple-900/50 text-purple-300 font-bold">
             </div>
             <div class="grid grid-cols-3 gap-2 mb-3 bg-slate-900 border border-purple-800/50 rounded-lg p-2">
@@ -1260,12 +1272,12 @@
                 <span id="ncTab2" onclick="window.jumpToNcStep(2)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">2. Size/Move</span>
                 <span id="ncTab3" onclick="window.jumpToNcStep(3)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">3. Senses</span>
                 <span id="ncTab4" onclick="window.jumpToNcStep(4)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">4. Defenses</span>
-                <span id="ncTab5" onclick="window.jumpToNcStep(5)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">5. Weapons</span>
+                <span id="ncTab5" onclick="window.jumpToNcStep(5)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">5. Weapons &amp; Skills</span>
                 <span id="ncTab6" onclick="window.jumpToNcStep(6)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">6. Powers</span>
                 <span id="ncTab7" onclick="window.jumpToNcStep(7)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">7. Traits</span>
             </div>
 
-            <div class="max-h-[45vh] overflow-y-auto pr-1">
+            <div class="max-h-[52vh] overflow-y-auto pr-1">
                 <div id="ncStep1" class="wizard-step active">
                     <div id="ncStep1Attrs" class="space-y-1.5 mb-3"><!-- JS injected --></div>
                     <div id="ncStep1Extras" class="space-y-1.5"><!-- JS injected --></div>
@@ -1299,6 +1311,8 @@
                     <button id="ncBtnFinishGm" onclick="window.finishGmNpc()" class="px-6 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition hidden shadow-lg">Save NPC</button>
                     <button id="ncBtnFinishCompanion" onclick="window.closeNpcCrafter()" class="px-6 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition hidden shadow-lg">Confirm & Close</button>
                 </div>
+            </div>
+        </div>
             </div>
         </div>
     </div>
@@ -2214,6 +2228,7 @@
     </div>
 
 
+    <script src="js/apx-dialogs.js"></script>
     <script src="js/apx-data.js"></script>
     <script src="js/apx-perks-db.js"></script>
     <script src="js/apx-roster.js"></script>
@@ -4216,7 +4231,7 @@
         } catch(e) {
             if (e.code === 'auth/requires-recent-login') {
                 errEl.innerText = '';
-                let pass = prompt('Your session has expired. Re-enter your password to confirm deletion:');
+                let pass = await window.apxPrompt('Your session has expired. Re-enter your password to confirm deletion:', '', { title:'Confirm Password', password:true, okLabel:'Confirm', danger:true });
                 if (!pass) { errEl.innerText = ''; return; }
                 try {
                     let user = window.apxAuth.user;

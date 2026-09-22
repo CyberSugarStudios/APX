@@ -60,7 +60,47 @@ function ncMigrateCompanionFields(c) {
     if (c.mythicAwakeningText === undefined) c.mythicAwakeningText = '';
     if (!c.traitEnergyTypes) c.traitEnergyTypes = {};
     if (c.lairSharedTraitKey === undefined) c.lairSharedTraitKey = null;
+    if (!Array.isArray(c.damageResistances)) c.damageResistances = [];
+    if (c.powerAttr === undefined) c.powerAttr = null;          // null = auto (best of INT/CHA)
+    ['conditionImmunities','conditionalDmgImmunities','energyImmunities','energyVulnerabilities','otherTrainings','weapons','powers','traits']
+        .forEach(k => { if (!Array.isArray(c[k])) c[k] = []; });
+    // One innate weapon (old saves) → list of innate weapons. Same TP, same stats.
+    if (!Array.isArray(c.innateWeapons)) {
+        c.innateWeapons = [ncNewInnateWeapon({
+            dieStepIndex:  c.innateDieStepIndex || 0,
+            extraDice:     c.additionalDiceCount || 0,
+            dmgBonus:      c.addAttrToDamage || null,
+            rangeBonus:    c.weaponRangeBonus || 0,
+            properties:    Array.isArray(c.weaponProperties) ? c.weaponProperties.slice() : []
+        })];
+        delete c.innateDieStepIndex; delete c.additionalDiceCount; delete c.addAttrToDamage;
+        delete c.weaponRangeBonus; delete c.weaponProperties;
+    }
 }
+
+// ---- Innate weapons (claws, fangs, horns...) — an NPC can have any number ----
+function ncNewInnateWeapon(over) {
+    return Object.assign({
+        id: 'iw_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        name: 'Innate Weapon',
+        dmgType: 'Bludgeoning',   // Bludgeoning / Slashing / Piercing
+        dieStepIndex: 0,          // NPC_DIE_STEPS index, 1 TP per step
+        extraDice: 0,             // extra dice of the current step's die type
+        dmgBonus: null,           // null | 'STR' | 'AGI' | 'energy'  (2 TP)
+        energyType: 'Fire',       // used when dmgBonus === 'energy' (damage split between the two types)
+        rangeBonus: 0,            // +1 sq each, 2 TP each
+        properties: []            // NPC_WEAPON_PROPERTIES keys
+    }, over || {});
+}
+function ncInnateWeaponTp(w) {
+    let tp = w.dieStepIndex || 0;
+    tp += (w.extraDice || 0) * NPC_ADDITIONAL_DIE_COST[parseDieStep(NPC_DIE_STEPS[w.dieStepIndex || 0]).type];
+    if (w.dmgBonus) tp += 2;
+    tp += (w.rangeBonus || 0) * 2;
+    (w.properties || []).forEach(pk => { let p = NPC_WEAPON_PROPERTIES.find(x => x.key === pk); if (p) tp += p.tp; });
+    return tp;
+}
+window.ncInnateWeaponTp = ncInnateWeaponTp;
 
 function getBlankCompanion() {
     return {
@@ -92,13 +132,11 @@ function getBlankCompanion() {
         senses: { nightvision: false, keensenses: [], vibration: false, supernatural: false, blinddeaf: [] },
         acBonus: 0, drBonus: 0, erBonus: 0,
         conditionImmunities: [], conditionalDmgImmunities: [], energyImmunities: [], energyVulnerabilities: [],
+        damageResistances: [], // specific damage types this creature resists (+5 each), 2 TP each
         trainingBonus: 2, // starts at +2 like PCs; +2 TP per +1 increase
-        otherTrainings: [], // free-text list of trained skills/weapon types (Innate Weapon is always trained for free), 1 TP each
-        innateDieStepIndex: 0,
-        additionalDiceCount: 0, // extra dice beyond the step's base count, always the SAME type as the current step (e.g. step=1d6 + count=2 -> 3d6)
-        addAttrToDamage: null,
-        weaponRangeBonus: 0,
-        weaponProperties: [],
+        otherTrainings: [], // free-text list of trained skills/weapon types (Innate Weapons are always trained for free), 1 TP each
+        innateWeapons: [ncNewInnateWeapon()], // claws, fangs, horns... each built separately (Step 5)
+        powerAttr: null, // Power casting attribute; null = auto (best of INT/CHA)
         powers: [], // [{name, lvl, ap, atk, rng, dmg, desc, draft, tp}]
         casterSlots: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
         usedPowerSlots: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
@@ -174,13 +212,10 @@ window.companionTpSpent = function() {
     spent += c.conditionalDmgImmunities.length * 3;
     spent += c.energyImmunities.length * 4;
     spent += c.energyVulnerabilities.length * -3;
+    spent += (c.damageResistances || []).length * 2;
     spent += (c.trainingBonus - 2) * 2; // Training Bonus purchases, 2 TP per +1 above the starting +2
-    spent += c.otherTrainings.length; // Skill/Weapon Training, 1 TP each (Innate Weapon itself is free/automatic)
-    spent += c.innateDieStepIndex; // 1 TP per step
-    spent += c.additionalDiceCount * NPC_ADDITIONAL_DIE_COST[parseDieStep(NPC_DIE_STEPS[c.innateDieStepIndex]).type];
-    if (c.addAttrToDamage) spent += 2;
-    spent += (c.weaponRangeBonus / 1) * 2; // stored in squares, 2TP each
-    c.weaponProperties.forEach(pk => { let p = NPC_WEAPON_PROPERTIES.find(x => x.key === pk); if (p) spent += p.tp; });
+    spent += c.otherTrainings.length; // Skill/Weapon Training, 1 TP each (Innate Weapons are free/automatic)
+    (c.innateWeapons || []).forEach(w => { spent += ncInnateWeaponTp(w); });
     c.powers.forEach(p => { spent += p.tp; });
     [1, 2, 3, 4, 5].forEach(lvl => { spent += c.casterSlots[lvl] * ({ 1: 1, 2: 2, 3: 3, 4: 5, 5: 10 })[lvl]; });
     c.traits.forEach(tk => { let t = NPC_TRAITS.find(x => x.key === tk); if (t) spent += t.tp; });
@@ -215,13 +250,15 @@ window.openNpcCrafter = function() {
 
 // GM entry point. Pass an existing gmNpcs id to edit it, or omit to create
 // a fresh NPC and open straight into the builder for it.
-window.openGmNpcBuilder = function(npcId) {
+window.openGmNpcBuilder = function(npcId, opts) {
     ncTarget = 'gm';
     if (npcId) {
         ncActiveGmNpcId = npcId;
     } else {
         let id = crypto.randomUUID();
-        window.gmNpcs.push({ id, npc: getBlankCompanion() });
+        let fresh = getBlankCompanion();
+        if (opts?.name) fresh.name = opts.name;   // e.g. from "Link Stat Block" on a world NPC
+        window.gmNpcs.push({ id, npc: fresh });
         ncActiveGmNpcId = id;
     }
     ncStep = 1;
@@ -385,11 +422,10 @@ window.ncToggleSenseOption = function(key, option, checked) {
 };
 
 // ---- Step 4: Defenses ----
+// No per-Tier cap — buy as much AC / DR / ER as the budget allows.
 window.ncAdjustDef = function(field, delta, tpPer) {
     let c = ncActiveCompanion();
-    let tierInfo = npcTierForTP(window.companionTotalTp());
-    let max = Math.max(1, tierInfo.tier); // "max +1 AC / +2 DR / +2 ER per Tier"
-    if (c[field] + delta < 0 || c[field] + delta > max) return;
+    if (c[field] + delta < 0) return;
     ncSpend(delta * tpPer, () => { c[field] += delta; });
 };
 // All text-immunity Add buttons now route to specific pickers by field type.
@@ -400,17 +436,21 @@ const NPC_CONDITION_TYPES = [
     'Infected','Starving','Suffocating'
 ];
 const NPC_PHYS_DMG_TYPES = ['Bludgeoning','Slashing','Piercing'];
+function ncAllDamageTypes() { return NPC_PHYS_DMG_TYPES.concat(window.NPC_ENERGY_TYPES || NPC_ENERGY_TYPES); }
 
 window.ncAddTextImmunity = function(field, tp, label) {
-    if (field === 'energyImmunities' || field === 'energyVulnerabilities') {
-        window.ncPickEnergyType(field, tp);
+    if (field === 'energyImmunities') {
+        window.ncPickFromList(field, tp, 'Damage Immunity', ncAllDamageTypes());
+    } else if (field === 'energyVulnerabilities') {
+        window.ncPickFromList(field, tp, 'Damage Vulnerability', ncAllDamageTypes());
+    } else if (field === 'damageResistances') {
+        window.ncPickFromList(field, tp, 'Damage Resistance (+5)', ncAllDamageTypes());
     } else if (field === 'conditionImmunities') {
         window.ncPickFromList(field, tp, 'Condition Immunity', NPC_CONDITION_TYPES);
     } else if (field === 'conditionalDmgImmunities') {
-        let all = NPC_PHYS_DMG_TYPES.concat(
-            window.NPC_ENERGY_TYPES || ['Fire','Cold','Lightning','Acid','Poison','Radiant','Necrotic','Force','Psychic','Sonic']
-        );
-        window.ncPickFromList(field, tp, 'Damage Type Immunity', all);
+        // "Immune to damage unless a specific condition is met" — the condition is free text
+        window.apxPrompt('Immune to damage UNLESS…', '', { title: 'Conditional Damage Immunity', okLabel: 'Add', placeholder: 'e.g. hit by silver or magical weapons' })
+            .then(text => { text = (text || '').trim(); if (text) ncSpend(tp, () => { ncActiveCompanion()[field].push(text); }); });
     } else {
         window.openPerkTextPicker({ name: label }, 'Companion', (text) => {
             if (!text) return;
@@ -465,8 +505,11 @@ window.ncPickEnergyType = function(field, tp) {
     picker.style.display = 'flex';
 };
 window.ncConfirmEnergyPick = function(field, tp, type) {
-    document.getElementById('ncEnergyPickerOverlay').style.display = 'none';
-    ncSpend(tp, () => { ncActiveCompanion()[field].push(type); });
+    let ov = document.getElementById('ncEnergyPickerOverlay'); if (ov) ov.style.display = 'none';
+    let c = ncActiveCompanion();
+    if (!Array.isArray(c[field])) c[field] = [];
+    if (c[field].includes(type)) return;   // no duplicates
+    ncSpend(tp, () => { c[field].push(type); });
 };
 window.ncRemoveTextImmunity = function(field, idx, tp) {
     let c = ncActiveCompanion();
@@ -542,13 +585,7 @@ window.ncAdjustTrainingBonus = function(delta) {
     ncSpend(delta * 2, () => { c.trainingBonus += delta; });
 };
 window.ncAddOtherTraining = function() {
-    let c = ncActiveCompanion();
-    let tierInfo = npcTierForTP(window.companionTotalTp());
-    let max = 2 * tierInfo.tier;
-    if (ncTrainingCount(c) >= max) {
-        window.showConfirm(`Max Training TP reached (2x Tier = ${max}).`, null, true);
-        return;
-    }
+    let c = ncActiveCompanion();   // no cap on the number of trained skills/weapon types
     let skillNames = [...new Set(SKILLS.map(s => s.name))];
     let renderPickRow = (name) => {
         let already = c.otherTrainings.includes(name);
@@ -694,63 +731,72 @@ window.ncQuickAddPower = function(playerPowerIdx) {
     document.getElementById('ncTrainingPickerModal').querySelector('h3').innerText = 'Choose Training';
     ncRenderAll();
 };
-window.ncAdjustDieStep = function(delta) {
+// ---- Innate weapons: each one is built separately (1 TP per die step, extra dice, etc.) ----
+function ncIw(i) { return (ncActiveCompanion().innateWeapons || [])[i]; }
+function ncIwTotalDice(w) { return parseDieStep(NPC_DIE_STEPS[w.dieStepIndex || 0]).count + (w.extraDice || 0); }
+let ncIwTabs = {};   // weapon id -> open tab ('damage' | 'range' | 'props'), UI only
+window.ncIwTab = function(i, tab) { let w = ncIw(i); if (!w) return; ncIwTabs[w.id] = tab; ncRenderAll(); };
+
+window.ncAddInnateWeapon = function() {
     let c = ncActiveCompanion();
-    let tierInfo = npcTierForTP(window.companionTotalTp());
-    let max = Math.min(NPC_DIE_STEPS.length - 1, tierInfo.tier);
-    let newIndex = c.innateDieStepIndex + delta;
-    if (newIndex < 0 || newIndex > max) return;
-    ncSpend(delta, () => {
-        c.innateDieStepIndex = newIndex;
-        // Additional dice always match the current step's die type -- they
-        // don't need "converting", but the step's own base die count can
-        // change (e.g. 1d12 -> 2d6), so re-clamp against the 2xTier cap.
-        let maxDiceTotal = 2 * tierInfo.tier;
-        let baseCount = parseDieStep(NPC_DIE_STEPS[c.innateDieStepIndex]).count;
-        if (baseCount + c.additionalDiceCount > maxDiceTotal) {
-            c.additionalDiceCount = Math.max(0, maxDiceTotal - baseCount);
-        }
-    });
+    let n = (c.innateWeapons || []).length + 1;
+    c.innateWeapons.push(ncNewInnateWeapon({ name: n === 1 ? 'Innate Weapon' : 'Innate Weapon ' + n }));
+    ncRenderAll();
 };
-function ncTotalDice() {
-    let c = ncActiveCompanion();
-    let baseCount = parseDieStep(NPC_DIE_STEPS[c.innateDieStepIndex]).count;
-    return baseCount + c.additionalDiceCount;
-}
-window.ncAdjustAdditionalDice = function(delta) {
-    let c = ncActiveCompanion();
-    let tierInfo = npcTierForTP(window.companionTotalTp());
-    let maxDice = 2 * tierInfo.tier;
-    if (delta > 0 && ncTotalDice() >= maxDice) {
-        window.showConfirm(`Max dice reached (2x Tier = ${maxDice}).`, null, true);
+window.ncRemoveInnateWeapon = function(i) {
+    let c = ncActiveCompanion(); let w = c.innateWeapons[i]; if (!w) return;
+    window.apxConfirm(`Remove "${w.name}"? Its ${ncInnateWeaponTp(w)} TP will be refunded.`, { title: 'Remove Innate Weapon', okLabel: 'Remove', danger: true })
+        .then(ok => { if (ok) { c.innateWeapons.splice(i, 1); ncRenderAll(); } });
+};
+window.ncIwSet = function(i, field, val) {
+    let w = ncIw(i); if (!w) return;
+    w[field] = val;
+    ncRenderAll();
+};
+window.ncIwAdjustDie = function(i, delta) {
+    let w = ncIw(i); if (!w) return;
+    let tier = npcTierForTP(window.companionTotalTp()).tier;
+    let max = Math.min(NPC_DIE_STEPS.length - 1, tier);          // "max TP on this feature = Tier"
+    let next = (w.dieStepIndex || 0) + delta;
+    if (next < 0 || next > max) {
+        if (delta > 0) window.showConfirm(`Die step is capped at Tier (${tier}) steps for a Tier ${tier} creature.`, null, true);
         return;
     }
-    if (c.additionalDiceCount + delta < 0) return;
-    let dieType = parseDieStep(NPC_DIE_STEPS[c.innateDieStepIndex]).type;
-    ncSpend(delta * NPC_ADDITIONAL_DIE_COST[dieType], () => { c.additionalDiceCount += delta; });
+    ncSpend(delta, () => {
+        w.dieStepIndex = next;
+        let maxDice = 2 * tier, base = parseDieStep(NPC_DIE_STEPS[w.dieStepIndex]).count;
+        if (base + (w.extraDice || 0) > maxDice) w.extraDice = Math.max(0, maxDice - base);
+    });
 };
-window.ncSetAttrToDamage = function(attr) {
-    let c = ncActiveCompanion();
-    if (c.addAttrToDamage === attr) {
-        ncSpend(-2, () => { c.addAttrToDamage = null; });
-    } else {
-        let wasNull = !c.addAttrToDamage;
-        ncSpend(wasNull ? 2 : 0, () => { c.addAttrToDamage = attr; });
+window.ncIwAdjustDice = function(i, delta) {
+    let w = ncIw(i); if (!w) return;
+    let tier = npcTierForTP(window.companionTotalTp()).tier;
+    let maxDice = 2 * tier;
+    if (delta > 0 && ncIwTotalDice(w) >= maxDice) {
+        window.showConfirm(`Max dice reached (2 x Tier = ${maxDice}).`, null, true);
+        return;
     }
+    if ((w.extraDice || 0) + delta < 0) return;
+    let dieType = parseDieStep(NPC_DIE_STEPS[w.dieStepIndex || 0]).type;
+    ncSpend(delta * NPC_ADDITIONAL_DIE_COST[dieType], () => { w.extraDice = (w.extraDice || 0) + delta; });
 };
-window.ncAdjustWeaponRange = function(delta) {
-    let c = ncActiveCompanion();
-    if (c.weaponRangeBonus + delta < 0) return;
-    ncSpend(delta * 2, () => { c.weaponRangeBonus += delta; });
+// null | 'STR' | 'AGI' | 'energy' — 2 TP for any of them
+window.ncIwSetBonus = function(i, val) {
+    let w = ncIw(i); if (!w) return;
+    val = val || null;
+    let delta = (val ? 2 : 0) - (w.dmgBonus ? 2 : 0);
+    ncSpend(delta, () => { w.dmgBonus = val; });
 };
-window.ncToggleWeaponProperty = function(key, checked) {
-    let c = ncActiveCompanion();
-    let def = NPC_WEAPON_PROPERTIES.find(p => p.key === key);
-    if (checked) {
-        ncSpend(def.tp, () => { c.weaponProperties.push(key); });
-    } else {
-        ncSpend(-def.tp, () => { c.weaponProperties = c.weaponProperties.filter(k => k !== key); });
-    }
+window.ncIwAdjustRange = function(i, delta) {
+    let w = ncIw(i); if (!w) return;
+    if ((w.rangeBonus || 0) + delta < 0) return;
+    ncSpend(delta * 2, () => { w.rangeBonus = (w.rangeBonus || 0) + delta; });
+};
+window.ncIwToggleProp = function(i, key, checked) {
+    let w = ncIw(i); if (!w) return;
+    let def = NPC_WEAPON_PROPERTIES.find(p => p.key === key); if (!def) return;
+    if (checked) { if (!w.properties.includes(key)) ncSpend(def.tp, () => { w.properties.push(key); }); }
+    else ncSpend(-def.tp, () => { w.properties = w.properties.filter(k => k !== key); });
 };
 
 // ---- Step 6: Powers ----
@@ -816,6 +862,12 @@ window.ncToggleTrait = function(key, checked) {
 
 window.ncUpdateName = function(val) {
     ncActiveCompanion().name = val;
+    ncRenderPreview();
+};
+// GM NPCs may cast with ANY attribute ('' = auto, best of INT/CHA)
+window.ncSetPowerAttr = function(val) {
+    ncActiveCompanion().powerAttr = val || null;
+    ncRenderAll();
 };
 
 window.closeNpcCrafter = function() {
@@ -1049,20 +1101,25 @@ window.companionStatBlock = function() {
     // AGI is the standard default for Passive Initiative.
     let initiative = 10 + mods.AGI;
 
-    let dieInfo = parseDieStep(NPC_DIE_STEPS[c.innateDieStepIndex]);
-    let totalDiceCount = dieInfo.count + c.additionalDiceCount;
-    let dmgDiceText = `${totalDiceCount}${dieInfo.type}`;
-    let attackAttrMod = c.addAttrToDamage ? mods[c.addAttrToDamage] : 0;
-    let dmgText = dmgDiceText + (attackAttrMod ? ` ${attackAttrMod >= 0 ? '+' : '-'} ${Math.abs(attackAttrMod)}` : '');
     // Attack roll always uses whichever of STR/AGI is better (mirroring
-    // equipped-weapon melee attacks and Ch.9 Making Attacks generally --
-    // an attack roll always draws on the creature's own physical stats,
-    // not just its training). "Add Attribute to Damage" is a separate,
-    // optional purchase that only affects the damage roll.
+    // equipped-weapon melee attacks and Ch.9 Making Attacks generally).
+    // "Add Attribute to Damage" is a separate purchase affecting damage only.
     let attackAttrChoice = (mods.AGI || 0) > (mods.STR || 0) ? 'AGI' : 'STR';
     let attackBonus = c.trainingBonus + (mods[attackAttrChoice] || 0);
-    let range = 1 + c.weaponRangeBonus;
-    let propNames = c.weaponProperties.map(k => (NPC_WEAPON_PROPERTIES.find(p => p.key === k) || {}).label).filter(Boolean);
+    // One attack line per innate weapon
+    let innateAttacks = (c.innateWeapons || []).map(w => {
+        let dieInfo = parseDieStep(NPC_DIE_STEPS[w.dieStepIndex || 0]);
+        let dice = `${dieInfo.count + (w.extraDice || 0)}${dieInfo.type}`;
+        let bonusMod = (w.dmgBonus === 'STR' || w.dmgBonus === 'AGI') ? (mods[w.dmgBonus] || 0) : 0;
+        let dmgText = dice + (bonusMod ? ` ${bonusMod >= 0 ? '+' : '-'} ${Math.abs(bonusMod)}` : '');
+        let typeText = w.dmgBonus === 'energy' ? `${w.dmgType} + ${w.energyType} (split)` : w.dmgType;
+        let props = (w.properties || []).map(k => NPC_WEAPON_PROPERTIES.find(p => p.key === k)).filter(Boolean)
+            .map(p => p.tierCalc ? `${p.label} — ${p.tierCalc(tier)}` : p.label);
+        return { id: w.id, name: w.name || 'Innate Weapon', attackBonus, dmgText, typeText, range: 1 + (w.rangeBonus || 0), propNames: props, tp: ncInnateWeaponTp(w) };
+    });
+    // Back-compat fields (first innate weapon) for older views
+    let first = innateAttacks[0] || { dmgText: '—', range: 1, propNames: [] };
+    let dmgText = first.dmgText, range = first.range, propNames = first.propNames;
 
     let senseList = [];
     if (c.senses.nightvision) senseList.push('Nightvision');
@@ -1081,7 +1138,9 @@ window.companionStatBlock = function() {
     // whichever of INT/CHA is better -- mirrors how a player's own Powers
     // are governed by whichever Powers perk (Intelligence or Charisma)
     // they've taken.
-    let powerAttrChoice = (mods.CHA || 0) > (mods.INT || 0) ? 'CHA' : 'INT';
+    // A GM NPC can use ANY attribute to cast (chosen in Step 6); otherwise best of INT/CHA
+    let powerAttrChoice = ncTarget === 'gm' && c.powerAttr && ATTRIBUTES.includes(c.powerAttr)
+        ? c.powerAttr : ((mods.CHA || 0) > (mods.INT || 0) ? 'CHA' : 'INT');
     let powerAttackBonus = c.trainingBonus + (mods[powerAttrChoice] || 0);
     let powerSaveDc = 10 + c.trainingBonus + (mods[powerAttrChoice] || 0);
     let powerList = powerCards.map(p => `${p.name} (Level ${p.lvl})`);
@@ -1146,12 +1205,13 @@ window.companionStatBlock = function() {
         mythicAwakeningText: c.mythicAwakeningText || '',
         size: sizeDef ? sizeDef.label : 'Medium', swarm: c.swarm,
         altLocomotion: c.altLocomotion, hover: c.hover,
-        mods, dmgText, attackBonus, range, propNames, trainingBonus: c.trainingBonus,
+        mods, dmgText, attackBonus, range, propNames, innateAttacks, trainingBonus: c.trainingBonus,
         otherTrainings: c.otherTrainings, equippedWeapons, equippedArmorName: armor.name || null, trainedSkills,
         senseList, traitList, powerList, powerCards, lairActionPowerCards, casterSlots: c.casterSlots,
         powerAttrChoice, powerAttackBonus, powerSaveDc,
         conditionImmunities: c.conditionImmunities, conditionalDmgImmunities: c.conditionalDmgImmunities,
-        energyImmunities: c.energyImmunities, energyVulnerabilities: c.energyVulnerabilities
+        energyImmunities: c.energyImmunities, energyVulnerabilities: c.energyVulnerabilities,
+        damageResistances: c.damageResistances || []
     };
 };
 
@@ -1306,6 +1366,8 @@ window._floatAddToInit = function(winId) {
 // Screen's read-only floating stat-block windows -- one source of truth
 // for this markup instead of two copies drifting apart.
 function buildStatBlockHtml(sb, editable) {
+    if (!sb) return '';
+    let esc = v => String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;');
     let hpControls = editable ? `
         <div class="flex items-center gap-2">
             <button onclick="window.adjustCompanionHp(-1)" class="w-7 h-7 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">-</button>
@@ -1316,6 +1378,13 @@ function buildStatBlockHtml(sb, editable) {
     ` : `
         <div class="text-white font-black">${sb.currentHp} <span class="text-slate-500 font-bold">/ ${sb.maxHp}</span></div>
     `;
+    let chips = (arr, cls) => arr.length
+        ? `<div class="flex flex-wrap gap-1">${arr.map(v => `<span class="text-[10px] px-1.5 py-0.5 rounded border ${cls}">${esc(v)}</span>`).join('')}</div>`
+        : '<div class="text-[10px] text-slate-600">None</div>';
+    let defBox = (title, titleCls, body) => `<div class="bg-slate-900 border border-slate-700 rounded p-2">
+        <div class="text-[10px] font-black ${titleCls} uppercase mb-1">${title}</div>${body}</div>`;
+    let innate = sb.innateAttacks || [];
+    let resist = [`DR ${sb.dr} (physical)`, `ER ${sb.er} (energy)`].concat((sb.damageResistances || []).map(t => `${t} +5`));
     return `
         <div class="grid grid-cols-5 gap-2 mb-3 bg-slate-900 border border-purple-800/50 rounded-lg p-2">
             <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">Tier</div><div class="text-lg font-black text-white">${sb.tier}</div></div>
@@ -1332,39 +1401,38 @@ function buildStatBlockHtml(sb, editable) {
             ${ATTRIBUTES.map(a => `<div class="text-center bg-slate-900 border border-slate-700 rounded p-1"><div class="text-[9px] text-slate-500 font-bold">${a}</div><div class="text-xs font-black text-white">${sb.mods[a]>=0?'+':''}${sb.mods[a]}</div></div>`).join('')}
         </div>
         <div class="bg-slate-900 border border-slate-700 rounded p-2 mb-2">
-            <div class="text-[10px] font-black text-amber-400 uppercase mb-1">Innate Attack</div>
-            <div class="text-xs text-slate-200">+${sb.attackBonus} to hit, ${sb.dmgText} damage, Range ${sb.range} sq, 3 AP</div>
-            ${sb.propNames.length ? `<div class="text-[10px] text-slate-500 mt-1">${sb.propNames.join(', ')}</div>` : ''}
+            <div class="text-[10px] font-black text-amber-400 uppercase mb-1">Innate Attacks <span class="text-slate-500 normal-case font-bold">(always trained, 3 AP each)</span></div>
+            ${innate.length ? innate.map(w => `
+                <div class="text-xs text-slate-200 ${innate.length > 1 ? 'mb-1' : ''}"><span class="font-bold text-slate-200">${esc(w.name)}:</span> +${w.attackBonus} to hit, ${w.dmgText} ${esc(w.typeText)}, Range ${w.range} sq</div>
+                ${w.propNames.length ? `<div class="text-[10px] text-slate-500 -mt-0.5 mb-1">${w.propNames.map(esc).join(', ')}</div>` : ''}`).join('')
+              : '<div class="text-[10px] text-slate-600">No innate weapons</div>'}
         </div>
         ${(sb.equippedWeapons.length || sb.equippedArmorName) ? `<div class="bg-slate-900 border border-orange-800/50 rounded p-2 mb-2">
             <div class="text-[10px] font-black text-orange-400 uppercase mb-1">Equipped Gear</div>
-            ${sb.equippedWeapons.length ? sb.equippedWeapons.map(w => `<div class="text-xs text-slate-200">${w.name}: +${w.atk} to hit, ${w.dmg} damage, ${w.ap} AP <span class="text-[10px] text-slate-500">(${w.typeLabel})</span></div>`).join('') : ''}
-            ${sb.equippedArmorName ? `<div class="text-xs text-slate-200 mt-1">Armor: ${sb.equippedArmorName}</div>` : ''}
+            ${sb.equippedWeapons.length ? sb.equippedWeapons.map(w => `<div class="text-xs text-slate-200">${esc(w.name)}: +${w.atk} to hit, ${w.dmg} damage, ${w.ap} AP <span class="text-[10px] text-slate-500">(${w.typeLabel})</span></div>`).join('') : ''}
+            ${sb.equippedArmorName ? `<div class="text-xs text-slate-200 mt-1">Armor: ${esc(sb.equippedArmorName)}</div>` : ''}
         </div>` : ''}
         <div class="bg-slate-900 border border-emerald-800/50 rounded p-2 mb-2">
-            <div class="text-[10px] font-black text-emerald-400 uppercase mb-1">Trained Skills</div>
-            <div class="grid grid-cols-2 gap-x-3">${sb.trainedSkills.length ? sb.trainedSkills.map(s => `<div class="text-xs text-slate-200">${s.name} (${s.total >= 0 ? '+' : ''}${s.total})</div>`).join('') : '<div class="text-[10px] text-slate-600 col-span-2">No skills trained</div>'}</div>
+            <div class="text-[10px] font-black text-emerald-400 uppercase mb-1">Trained Skills <span class="text-slate-500 normal-case font-bold">(Training +${sb.trainingBonus})</span></div>
+            <div class="grid grid-cols-2 gap-x-3">${sb.trainedSkills.length ? sb.trainedSkills.map(s => `<div class="text-xs text-slate-200">${esc(s.name)} (${s.total >= 0 ? '+' : ''}${s.total})</div>`).join('') : '<div class="text-[10px] text-slate-600 col-span-2">No skills trained</div>'}</div>
         </div>
-        <div class="grid grid-cols-2 gap-2">
-            <div class="bg-slate-900 border border-slate-700 rounded p-2">
-                <div class="text-[10px] font-black text-blue-400 uppercase mb-1">Size / Movement</div>
-                <div class="text-[10px] text-slate-300">${sb.size}${sb.swarm ? ' (Swarm)' : ''}</div>
+        <div class="grid grid-cols-2 gap-2 mb-2">
+            ${defBox('Size / Movement', 'text-blue-400', `<div class="text-[10px] text-slate-300">${sb.size}${sb.swarm ? ' (Swarm)' : ''} · Speed ${sb.speed}</div>
                 ${sb.altLocomotion.map(l => `<div class="text-[10px] text-slate-300">${l.type} Speed ${sb.speed * (l.doubled ? 2 : 1)}</div>`).join('')}
-                ${sb.hover ? '<div class="text-[10px] text-slate-300">Hover</div>' : ''}
-            </div>
-            <div class="bg-slate-900 border border-slate-700 rounded p-2">
-                <div class="text-[10px] font-black text-blue-400 uppercase mb-1">Senses</div>
-                ${sb.senseList.length ? sb.senseList.map(s => `<div class="text-[10px] text-slate-300">${s}</div>`).join('') : '<div class="text-[10px] text-slate-600">None</div>'}
-            </div>
-            <div class="bg-slate-900 border border-slate-700 rounded p-2">
-                <div class="text-[10px] font-black text-emerald-400 uppercase mb-1">Immunities</div>
-                ${sb.conditionImmunities.concat(sb.energyImmunities).map(v => `<div class="text-[10px] text-slate-300">${v}</div>`).join('') || '<div class="text-[10px] text-slate-600">None</div>'}
-            </div>
-            <div class="bg-slate-900 border border-slate-700 rounded p-2">
-                <div class="text-[10px] font-black text-red-400 uppercase mb-1">Vulnerabilities</div>
-                ${sb.energyVulnerabilities.map(v => `<div class="text-[10px] text-slate-300">${v}</div>`).join('') || '<div class="text-[10px] text-slate-600">None</div>'}
-            </div>
+                ${sb.hover ? '<div class="text-[10px] text-slate-300">Hover</div>' : ''}`)}
+            ${defBox('Senses', 'text-blue-400', sb.senseList.length ? sb.senseList.map(s => `<div class="text-[10px] text-slate-300">${esc(s)}</div>`).join('') : '<div class="text-[10px] text-slate-600">None</div>')}
         </div>
+        <div class="text-[10px] font-black text-slate-400 uppercase mb-1">Defenses</div>
+        <div class="grid grid-cols-2 gap-2">
+            ${defBox('Resistances', 'text-blue-400', chips(resist, 'bg-slate-800 border-slate-600 text-slate-300'))}
+            ${defBox('Vulnerabilities <span class="text-slate-500 normal-case">(double damage)</span>', 'text-red-400', chips(sb.energyVulnerabilities || [], 'bg-red-900/30 border-red-800 text-red-300'))}
+            ${defBox('Damage Immunities', 'text-emerald-400', chips(sb.energyImmunities || [], 'bg-emerald-900/30 border-emerald-800 text-emerald-300'))}
+            ${defBox('Condition Immunities', 'text-emerald-400', chips(sb.conditionImmunities || [], 'bg-emerald-900/30 border-emerald-800 text-emerald-300'))}
+        </div>
+        ${(sb.conditionalDmgImmunities || []).length ? `<div class="bg-slate-900 border border-slate-700 rounded p-2 mt-2">
+            <div class="text-[10px] font-black text-emerald-400 uppercase mb-1">Conditional Damage Immunity</div>
+            ${sb.conditionalDmgImmunities.map(v => `<div class="text-[10px] text-slate-300">Immune to damage unless ${esc(v)}</div>`).join('')}
+        </div>` : ''}
         ${sb.traitList.length ? `<div class="bg-slate-900 border border-slate-700 rounded p-2 mt-2">
             <div class="text-[10px] font-black text-purple-400 uppercase mb-1">Traits</div>
             ${sb.traitList.map(t => `<div class="text-[10px] text-slate-300 mb-1"><span class="font-bold text-slate-200">${t.label}:</span> ${t.desc}${t.tierNote ? `<div class="text-emerald-400 font-bold mt-0.5">${t.tierNote}</div>` : ''}</div>`).join('')}
@@ -1375,16 +1443,16 @@ function buildStatBlockHtml(sb, editable) {
             ${sb.legendaryApPool > 0 ? `<div class="text-[10px] text-slate-300">Legendary Actions: ${sb.legendaryApPool} bonus AP</div>` : ''}
             ${sb.lairActions ? `<div class="text-[10px] text-slate-300 mt-1">
                 <span class="font-bold">Lair Actions</span>
-                ${sb.lairActionsText ? `<div style="white-space: pre-line" class="mt-0.5">${sb.lairActionsText}</div>` : ''}
+                ${sb.lairActionsText ? `<div style="white-space: pre-line" class="mt-0.5">${esc(sb.lairActionsText)}</div>` : ''}
             </div>` : ''}
             ${sb.lairActionPowerCards.length ? sb.lairActionPowerCards.map(p => powerCardHtml(p)).join('') : ''}
             ${sb.mythicAwakening ? `<div class="text-[10px] text-slate-300 mt-1">
                 <span class="font-bold">Mythic Awakening</span>
-                ${sb.mythicAwakeningText ? `<div style="white-space: pre-line" class="mt-0.5">${sb.mythicAwakeningText}</div>` : ''}
+                ${sb.mythicAwakeningText ? `<div style="white-space: pre-line" class="mt-0.5">${esc(sb.mythicAwakeningText)}</div>` : ''}
             </div>` : ''}
         </div>` : ''}
         ${sb.powerCards.length ? `<div class="bg-slate-900 border border-slate-700 rounded p-2 mt-2">
-            <div class="flex items-center justify-between mb-1">
+            <div class="flex items-center justify-between mb-1 flex-wrap gap-1">
                 <div class="text-[10px] font-black text-purple-400 uppercase">Powers</div>
                 <div class="text-[10px] text-slate-300 font-bold">Power Attack Bonus: <span class="text-white">${sb.powerAttackBonus >= 0 ? '+' : ''}${sb.powerAttackBonus}</span> &middot; Save DC: <span class="text-white">${sb.powerSaveDc}</span> <span class="text-slate-500 font-normal">(${sb.powerAttrChoice})</span></div>
             </div>
@@ -1424,6 +1492,7 @@ function ncRenderAll() {
     ncRenderStep5(); ncRenderStep6(); ncRenderStep7();
     if (ncTarget === 'gm') ncRenderStep8();
     ncRenderSummary();
+    ncRenderPreview();
     document.getElementById('ncBtnPrev').style.display = ncStep > 1 ? 'block' : 'none';
     document.getElementById('ncBtnNext').style.display = ncStep < unlocked ? 'block' : 'none';
     // GM NPCs auto-save as you edit them (same as a companion always has),
@@ -1435,6 +1504,17 @@ function ncRenderAll() {
     if (companionFinishBtn) companionFinishBtn.style.display = (ncTarget === 'companion' && ncStep >= unlocked) ? 'block' : 'none';
 }
 
+// Live, full stat block beside the crafter — re-rendered on every change
+function ncRenderPreview() {
+    let el = document.getElementById('ncPreviewBody');
+    if (!el) return;
+    let sb = window.companionStatBlock();
+    let nameEl = document.getElementById('ncPreviewName');
+    if (nameEl) nameEl.textContent = sb?.name || (ncTarget === 'gm' ? 'New NPC' : 'Companion');
+    el.innerHTML = sb ? buildStatBlockHtml(sb, false) : '';
+}
+window.ncRenderPreview = ncRenderPreview;
+
 function ncRenderSummary() {
     let c = ncActiveCompanion();
     let total = window.companionTotalTp();
@@ -1442,6 +1522,9 @@ function ncRenderSummary() {
     let remaining = total - spent;
     let tierInfo = npcTierForTP(total);
     document.getElementById('ncName').value = c.name;
+    let nameLbl = document.getElementById('ncNameLabel');
+    if (nameLbl) nameLbl.textContent = ncTarget === 'gm' ? 'NPC Name' : 'Companion Name';
+    document.getElementById('ncName').placeholder = ncTarget === 'gm' ? 'e.g. Goblin Skirmisher' : 'e.g. Fang';
     document.getElementById('ncSumTier').innerText = tierInfo.tier;
     document.getElementById('ncSumTp').innerText = `${spent} / ${total}`;
     document.getElementById('ncSumTp').className = remaining < 0 ? 'text-lg font-black text-red-400' : 'text-lg font-black text-white';
@@ -1566,83 +1649,132 @@ function ncRenderStep3() {
 
 function ncRenderStep4() {
     let c = ncActiveCompanion();
-    let tierInfo = npcTierForTP(window.companionTotalTp());
-    let statRow = (label, field, tpPer, maxPerTier) => `
+    let statRow = (label, field, tpPer) => `
         <div class="flex items-center justify-between bg-slate-900 border border-slate-700 rounded px-2 py-1.5">
-            <span class="text-xs font-bold text-white">${label} (max +${maxPerTier}/Tier, ${tpPer} TP each): +${c[field]}</span>
+            <span class="text-xs font-bold text-white">${label} <span class="text-yellow-500">[${tpPer} TP each]</span>: +${c[field] * (field === 'acBonus' ? 1 : 2)}</span>
             <div class="flex items-center gap-1">
                 <button onclick="window.ncAdjustDef('${field}', -1, ${tpPer})" class="w-6 h-6 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">-</button>
+                <span class="w-6 text-center text-white font-bold">${c[field]}</span>
                 <button onclick="window.ncAdjustDef('${field}', 1, ${tpPer})" class="w-6 h-6 rounded bg-amber-700 hover:bg-amber-600 text-white font-bold">+</button>
             </div>
-        </div>
-    `;
-    let textList = (field, label, tp) => `
+        </div>`;
+    let listBox = (field, label, tp, hint, chipCls) => `
         <div class="bg-slate-900 border border-slate-700 rounded p-2">
-            <div class="flex items-center justify-between mb-1">
-                <span class="text-xs font-bold text-white">${label} [${tp} TP each]</span>
-                <button onclick="window.ncAddTextImmunity('${field}', ${tp}, '${label}')" class="text-[10px] text-amber-400 hover:text-amber-300 font-bold">+ Add</button>
+            <div class="flex items-center justify-between mb-1 gap-2">
+                <div><span class="text-xs font-bold text-white">${label}</span> <span class="${tp < 0 ? 'text-emerald-400' : 'text-yellow-500'} text-[10px] font-bold">[${tp} TP each]</span>
+                    ${hint ? `<div class="text-[10px] text-slate-500 leading-tight">${hint}</div>` : ''}</div>
+                <button onclick="window.ncAddTextImmunity('${field}', ${tp}, '${label}')" class="text-[10px] text-amber-400 hover:text-amber-300 font-bold shrink-0">+ Add</button>
             </div>
-            <div class="flex flex-wrap gap-1">${c[field].map((v, i) => `<span class="text-[9px] bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-slate-300">${v} <button onclick="window.ncRemoveTextImmunity('${field}', ${i}, ${tp})" class="text-red-400 font-bold ml-1">&times;</button></span>`).join('')}</div>
-        </div>
-    `;
+            <div class="flex flex-wrap gap-1">${(c[field] || []).map((v, i) => `<span class="text-[9px] rounded px-1.5 py-0.5 border ${chipCls}">${String(v).replace(/</g,'&lt;')} <button onclick="window.ncRemoveTextImmunity('${field}', ${i}, ${tp})" class="text-red-400 font-bold ml-1">&times;</button></span>`).join('') || '<span class="text-[9px] text-slate-600">None</span>'}</div>
+        </div>`;
+    let heading = t => `<div class="text-[10px] font-black text-slate-400 uppercase mt-3 mb-1">${t}</div>`;
     document.getElementById('ncStep4').querySelector('.ncDefList').innerHTML =
-        statRow('AC', 'acBonus', 1, tierInfo.tier || 1) +
-        statRow('DR (+2)', 'drBonus', 1, tierInfo.tier || 1) +
-        statRow('ER (+2)', 'erBonus', 1, tierInfo.tier || 1) +
-        textList('conditionImmunities', 'Condition Immunity', 2) +
-        textList('conditionalDmgImmunities', 'Conditional Damage Immunity', 3) +
-        textList('energyImmunities', 'Energy Immunity', 4) +
-        textList('energyVulnerabilities', 'Energy Vulnerability (-3 TP refund)', -3);
+        heading('Armor') +
+        `<div class="bg-slate-900 border border-slate-700 rounded p-2">
+            <div class="flex items-center justify-between mb-1">
+                <span class="text-xs font-bold text-white">Equipped Armor <span class="text-yellow-500 text-[10px]">[1 TP per point of AC it grants]</span></span>
+                <button onclick="window.openArmorForge(ncTarget)" class="text-[10px] text-orange-400 hover:text-orange-300 font-bold">${c.equippedArmor.name ? 'Edit' : '+ Forge Armor'}</button>
+            </div>
+            ${c.equippedArmor.name ? `<div class="text-[10px] text-slate-300">${c.equippedArmor.name} (AC +${c.equippedArmor.ac}, DR +${c.equippedArmor.dr}, ER +${c.equippedArmor.er})</div>` : '<div class="text-[10px] text-slate-600">None equipped — use natural defenses below, or forge armor.</div>'}
+        </div>` +
+        heading('Natural Defenses (no cap)') +
+        statRow('+1 AC', 'acBonus', 1) +
+        statRow('+2 DR', 'drBonus', 1) +
+        statRow('+2 ER', 'erBonus', 1) +
+        heading('Resistances') +
+        listBox('damageResistances', 'Damage Resistance (+5)', 2, 'Resists one specific damage type by 5, on top of DR/ER.', 'bg-slate-800 border-slate-600 text-slate-300') +
+        heading('Immunities') +
+        listBox('energyImmunities', 'Damage Immunity', 4, 'Completely immune to one damage type.', 'bg-emerald-900/30 border-emerald-800 text-emerald-300') +
+        listBox('conditionImmunities', 'Condition Immunity', 2, 'Immune to one specific condition.', 'bg-emerald-900/30 border-emerald-800 text-emerald-300') +
+        listBox('conditionalDmgImmunities', 'Conditional Damage Immunity', 3, 'Immune to damage UNLESS a condition is met (silver, magic, a shield generator…).', 'bg-emerald-900/30 border-emerald-800 text-emerald-300') +
+        heading('Vulnerabilities') +
+        listBox('energyVulnerabilities', 'Damage Vulnerability', -3, 'Takes double damage from one damage type (refunds TP).', 'bg-red-900/30 border-red-800 text-red-300');
+}
+
+function ncRenderInnateWeapon(w, i, tier) {
+    let tab = ncIwTabs[w.id] || 'damage';
+    let dieInfo = parseDieStep(NPC_DIE_STEPS[w.dieStepIndex || 0]);
+    let perDie = NPC_ADDITIONAL_DIE_COST[dieInfo.type];
+    let totalDice = ncIwTotalDice(w);
+    let stepper = (label, cur, dec, inc) => `
+        <div class="flex items-center justify-between bg-slate-800/60 border border-slate-700 rounded px-2 py-1.5">
+            <span class="text-[11px] font-bold text-slate-200">${label}</span>
+            <div class="flex items-center gap-1">
+                <button onclick="${dec}" class="w-6 h-6 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">-</button>
+                <span class="w-7 text-center text-white font-bold text-xs">${cur}</span>
+                <button onclick="${inc}" class="w-6 h-6 rounded bg-amber-700 hover:bg-amber-600 text-white font-bold">+</button>
+            </div>
+        </div>`;
+    let tabBtn = (key, label) => `<button onclick="window.ncIwTab(${i},'${key}')" class="px-2 py-1 rounded text-[10px] font-bold ${tab === key ? 'bg-purple-700 text-white' : 'bg-slate-800 text-slate-400 hover:text-slate-200'}">${label}</button>`;
+    let dmgStr = `${totalDice}${dieInfo.type}`;
+    let body = '';
+    if (tab === 'damage') {
+        body = `
+            ${stepper(`Die Step <span class="text-yellow-500 text-[10px]">[1 TP each, max ${tier} steps at Tier ${tier}]</span> — ${NPC_DIE_STEPS[w.dieStepIndex || 0]}`, w.dieStepIndex || 0, `window.ncIwAdjustDie(${i},-1)`, `window.ncIwAdjustDie(${i},1)`)}
+            ${stepper(`Extra ${dieInfo.type} dice <span class="text-yellow-500 text-[10px]">[${perDie} TP each, max ${2 * tier} dice total]</span>`, w.extraDice || 0, `window.ncIwAdjustDice(${i},-1)`, `window.ncIwAdjustDice(${i},1)`)}
+            <div class="bg-slate-800/60 border border-slate-700 rounded px-2 py-1.5">
+                <div class="text-[11px] font-bold text-slate-200 mb-1">Damage Bonus <span class="text-yellow-500 text-[10px]">[2 TP]</span></div>
+                <div class="flex flex-wrap items-center gap-3 text-[10px] text-slate-300">
+                    ${[['', 'None'], ['STR', '+STR'], ['AGI', '+AGI'], ['energy', 'Add Energy Type']].map(([v, l]) => `<label class="flex items-center gap-1"><input type="radio" name="ncIwBonus_${w.id}" ${(w.dmgBonus || '') === v ? 'checked' : ''} onchange="window.ncIwSetBonus(${i}, '${v}')">${l}</label>`).join('')}
+                    ${w.dmgBonus === 'energy' ? `<select onchange="window.ncIwSet(${i},'energyType',this.value)" style="width:auto;" class="bg-slate-800 border-slate-600 text-[10px]">${(window.NPC_ENERGY_TYPES || NPC_ENERGY_TYPES).map(e => `<option ${w.energyType === e ? 'selected' : ''}>${e}</option>`).join('')}</select><span class="text-slate-500">(damage split evenly)</span>` : ''}
+                </div>
+            </div>`;
+    } else if (tab === 'range') {
+        body = `${stepper(`Range +1 sq <span class="text-yellow-500 text-[10px]">[2 TP each]</span> — reach ${1 + (w.rangeBonus || 0)} sq`, w.rangeBonus || 0, `window.ncIwAdjustRange(${i},-1)`, `window.ncIwAdjustRange(${i},1)`)}`;
+    } else {
+        body = `<div class="grid grid-cols-1 sm:grid-cols-2 gap-1">${NPC_WEAPON_PROPERTIES.map(p => `
+            <label class="flex items-center gap-2 bg-slate-800/60 border border-slate-700 rounded px-2 py-1.5 cursor-pointer">
+                <input type="checkbox" ${(w.properties || []).includes(p.key) ? 'checked' : ''} onchange="window.ncIwToggleProp(${i}, '${p.key}', this.checked)">
+                <span class="text-[11px] text-slate-200">${p.label} <span class="text-yellow-500">[${p.tp} TP]</span></span>
+            </label>`).join('')}</div>`;
+    }
+    let esc = v => String(v || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+    return `
+        <div class="bg-slate-900 border border-slate-700 rounded p-2">
+            <div class="flex items-center gap-2 mb-2 flex-wrap">
+                <input type="text" value="${esc(w.name)}" onchange="window.ncIwSet(${i},'name',this.value || 'Innate Weapon')" style="flex:1 1 140px;width:auto;min-width:0;" class="bg-slate-800 border-slate-600 text-xs font-bold text-purple-300" placeholder="Claws, Bite, Horns…">
+                <select onchange="window.ncIwSet(${i},'dmgType',this.value)" style="width:auto;" class="bg-slate-800 border-slate-600 text-[10px]">
+                    ${NPC_PHYS_DMG_TYPES.map(t => `<option ${w.dmgType === t ? 'selected' : ''}>${t}</option>`).join('')}
+                </select>
+                <span class="text-[10px] font-bold text-slate-300">${dmgStr}</span>
+                <span class="text-[10px] font-bold text-yellow-500">${ncInnateWeaponTp(w)} TP</span>
+                <button onclick="window.ncRemoveInnateWeapon(${i})" class="text-[10px] text-red-400 hover:text-red-300 font-bold">Remove</button>
+            </div>
+            <div class="flex gap-1 mb-2">${tabBtn('damage', 'Damage')}${tabBtn('range', 'Range')}${tabBtn('props', 'Properties' + ((w.properties || []).length ? ` (${w.properties.length})` : ''))}</div>
+            <div class="space-y-1.5">${body}</div>
+        </div>`;
 }
 
 function ncRenderStep5() {
     let c = ncActiveCompanion();
-    let tierInfo = npcTierForTP(window.companionTotalTp());
-    let stepper = (label, cur, onDec, onInc, extra = '') => `
+    let tier = npcTierForTP(window.companionTotalTp()).tier;
+    let stepper = (label, cur, onDec, onInc) => `
         <div class="flex items-center justify-between bg-slate-900 border border-slate-700 rounded px-2 py-1.5">
-            <span class="text-xs font-bold text-white">${label}${extra}</span>
+            <span class="text-xs font-bold text-white">${label}</span>
             <div class="flex items-center gap-1">
                 <button onclick="${onDec}" class="w-6 h-6 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">-</button>
                 <span class="w-6 text-center text-white font-bold">${cur}</span>
                 <button onclick="${onInc}" class="w-6 h-6 rounded bg-amber-700 hover:bg-amber-600 text-white font-bold">+</button>
             </div>
-        </div>
-    `;
-    let dieInfo = parseDieStep(NPC_DIE_STEPS[c.innateDieStepIndex]);
-    let perDieCost = NPC_ADDITIONAL_DIE_COST[dieInfo.type];
-    let totalDice = ncTotalDice();
-    let diceRows = stepper(`Additional ${dieInfo.type} dice (${perDieCost} TP each, currently ${totalDice}${dieInfo.type} total)`, c.additionalDiceCount,
-        `window.ncAdjustAdditionalDice(-1)`, `window.ncAdjustAdditionalDice(1)`);
+        </div>`;
+    let heading = t => `<div class="text-[10px] font-black text-slate-400 uppercase mt-3 mb-1">${t}</div>`;
     document.getElementById('ncStep5').querySelector('.ncWeaponList').innerHTML = `
-        ${stepper(`Training Bonus (2 TP per +1, starts at +2)`, c.trainingBonus, `window.ncAdjustTrainingBonus(-1)`, `window.ncAdjustTrainingBonus(1)`)}
-        <div class="bg-slate-900 border border-emerald-800/50 rounded p-2 text-[10px] text-emerald-300">
-            Innate Weapons are inherently trained -- the attack roll already includes the Training Bonus above (+${c.trainingBonus}) at no TP cost.
-        </div>
+        ${heading('Training')}
+        ${stepper(`Training Bonus <span class="text-yellow-500 text-[10px]">[2 TP per +1, starts at +2]</span>`, '+' + c.trainingBonus, `window.ncAdjustTrainingBonus(-1)`, `window.ncAdjustTrainingBonus(1)`)}
         <div class="bg-slate-900 border border-slate-700 rounded p-2">
             <div class="flex items-center justify-between mb-1">
-                <span class="text-xs font-bold text-white">Other Skill/Weapon Training [1 TP each, max ${2*(tierInfo.tier||0)} TP total]</span>
+                <span class="text-xs font-bold text-white">Other Skill/Weapon Training <span class="text-yellow-500 text-[10px]">[1 TP each]</span></span>
                 <button onclick="window.ncAddOtherTraining()" class="text-[10px] text-amber-400 hover:text-amber-300 font-bold">+ Add</button>
             </div>
             <div class="flex flex-wrap gap-1">${c.otherTrainings.map((v, i) => `<span class="text-[9px] bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-slate-300">${v} <button onclick="window.ncRemoveOtherTraining(${i})" class="text-red-400 font-bold ml-1">&times;</button></span>`).join('') || '<span class="text-[9px] text-slate-600">None</span>'}</div>
         </div>
-        ${stepper(`Innate Weapon Die Step (currently ${NPC_DIE_STEPS[c.innateDieStepIndex]})`, c.innateDieStepIndex, `window.ncAdjustDieStep(-1)`, `window.ncAdjustDieStep(1)`)}
-        ${diceRows}
-        <div class="flex items-center gap-3 bg-slate-900 border border-slate-700 rounded px-2 py-1.5">
-            <span class="text-xs font-bold text-white">Add Attribute to Damage [2 TP]</span>
-            <label class="flex items-center gap-1 text-[10px] text-slate-300"><input type="radio" name="ncAttrDmg" ${c.addAttrToDamage==='STR'?'checked':''} onchange="window.ncSetAttrToDamage('STR')">STR</label>
-            <label class="flex items-center gap-1 text-[10px] text-slate-300"><input type="radio" name="ncAttrDmg" ${c.addAttrToDamage==='AGI'?'checked':''} onchange="window.ncSetAttrToDamage('AGI')">AGI</label>
-            <label class="flex items-center gap-1 text-[10px] text-slate-300"><input type="radio" name="ncAttrDmg" ${!c.addAttrToDamage?'checked':''} onchange="window.ncSetAttrToDamage(null)">None</label>
+        <div class="flex items-center justify-between mt-3 mb-1">
+            <div class="text-[10px] font-black text-slate-400 uppercase">Innate Weapons <span class="normal-case font-bold text-emerald-400">— always trained (+${c.trainingBonus}), no TP for training</span></div>
+            <button onclick="window.ncAddInnateWeapon()" class="px-2 py-1 rounded bg-purple-700 hover:bg-purple-600 text-white text-[10px] font-bold">+ Add Innate Weapon</button>
         </div>
-        ${stepper('Weapon Range +1 sq (2 TP each)', c.weaponRangeBonus, `window.ncAdjustWeaponRange(-1)`, `window.ncAdjustWeaponRange(1)`)}
-        <div class="text-[10px] font-black text-slate-400 uppercase mt-2">Weapon Properties</div>
-        ${NPC_WEAPON_PROPERTIES.map(p => `
-            <label class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded p-2 cursor-pointer">
-                <input type="checkbox" ${c.weaponProperties.includes(p.key)?'checked':''} onchange="window.ncToggleWeaponProperty('${p.key}', this.checked)">
-                <span class="text-xs text-slate-200">${p.label} <span class="text-yellow-500">[${p.tp} TP]</span></span>
-            </label>
-        `).join('')}
-        <div class="text-[10px] font-black text-slate-400 uppercase mt-3 mb-1">Manufactured Gear (built with Currency/Crafting Materials, not TP)</div>
-        <div class="bg-slate-900 border border-slate-700 rounded p-2 mb-1.5">
+        <div class="space-y-2">${(c.innateWeapons || []).map((w, i) => ncRenderInnateWeapon(w, i, tier)).join('') || '<div class="text-[10px] text-slate-600 bg-slate-900 border border-slate-700 rounded p-2">No innate weapons. Add claws, fangs, horns, a tail…</div>'}</div>
+        ${heading('Manufactured Weapons <span class="normal-case">(built with Currency/Crafting Materials, not TP)</span>')}
+        <div class="bg-slate-900 border border-slate-700 rounded p-2">
             <div class="flex items-center justify-between mb-1">
                 <span class="text-xs font-bold text-white">Equipped Weapons</span>
                 <button onclick="window.openWeaponForge(null, ncTarget)" class="text-[10px] text-orange-400 hover:text-orange-300 font-bold">+ Forge Weapon</button>
@@ -1654,15 +1786,7 @@ function ncRenderStep5() {
                         <button onclick="window.openWeaponForge(${i}, ncTarget)" class="text-orange-400 hover:text-orange-300 font-bold">Edit</button>
                         <button onclick="window.ncRemoveCompanionWeapon(${i})" class="text-red-400 hover:text-red-300 font-bold">Remove</button>
                     </div>
-                </div>
-            `).join('') : '<div class="text-[10px] text-slate-600">None equipped</div>'}
-        </div>
-        <div class="bg-slate-900 border border-slate-700 rounded p-2">
-            <div class="flex items-center justify-between mb-1">
-                <span class="text-xs font-bold text-white">Equipped Armor [1 TP per point of AC it grants]</span>
-                <button onclick="window.openArmorForge(ncTarget)" class="text-[10px] text-orange-400 hover:text-orange-300 font-bold">${c.equippedArmor.name ? 'Edit' : '+ Forge Armor'}</button>
-            </div>
-            ${c.equippedArmor.name ? `<div class="text-[10px] text-slate-300">${c.equippedArmor.name} (AC +${c.equippedArmor.ac}, DR +${c.equippedArmor.dr}, ER +${c.equippedArmor.er})</div>` : '<div class="text-[10px] text-slate-600">None equipped</div>'}
+                </div>`).join('') : '<div class="text-[10px] text-slate-600">None equipped. Add the matching Weapon Type training above so it gets the Training Bonus.</div>'}
         </div>
     `;
 }
@@ -1690,8 +1814,19 @@ function ncRenderStep6() {
             </div>
         </div>
     `).join('');
+    let sbNow = window.companionStatBlock();
+    let attrPicker = ncTarget === 'gm' ? `
+        <div class="flex items-center gap-2 flex-wrap bg-slate-900 border border-purple-800/50 rounded px-2 py-1.5 mb-2">
+            <span class="text-xs font-bold text-white">Power Casting Attribute</span>
+            <select onchange="window.ncSetPowerAttr(this.value)" class="bg-slate-800 border-slate-600 text-xs">
+                <option value="" ${!c.powerAttr ? 'selected' : ''}>Auto (best of INT / CHA)</option>
+                ${ATTRIBUTES.map(a => `<option value="${a}" ${c.powerAttr === a ? 'selected' : ''}>${a} (${(sbNow?.mods?.[a] ?? 0) >= 0 ? '+' : ''}${sbNow?.mods?.[a] ?? 0})</option>`).join('')}
+            </select>
+            <span class="text-[10px] text-slate-400">Power Attack <b class="text-white">${sbNow ? (sbNow.powerAttackBonus >= 0 ? '+' : '') + sbNow.powerAttackBonus : '—'}</b> · Save DC <b class="text-white">${sbNow ? sbNow.powerSaveDc : '—'}</b></span>
+        </div>` : '';
     document.getElementById('ncStep6').querySelector('.ncPowerList').innerHTML = `
-        <p class="text-[10px] text-slate-400 mb-2">Powers are built with the same Power Crafter used for your own character. Its XP-derived Level determines the flat TP cost charged to your companion's budget instead. Powers default to once per day/combat unless you buy Caster Slots below for repeated Full-Rest uses.</p>
+        <p class="text-[10px] text-slate-400 mb-2">Build powers with the Power Crafter. Each power's Level sets its TP cost (Lvl 1: 2 · Lvl 2: 4 · Lvl 3: 8 · Lvl 4: 12 · Lvl 5: 20 TP). Powers default to once per day/combat unless you buy Caster Slots below.</p>
+        ${attrPicker}
         <div class="flex flex-wrap gap-2 mb-2">
             <button onclick="window.openPowerCrafter(false, ncTarget)" class="px-3 py-1.5 rounded bg-purple-700 hover:bg-purple-600 text-white text-[10px] font-bold">Craft New Power</button>
             <button onclick="window.ncOpenPowerPicker()" class="px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-white text-[10px] font-bold">+ Quick Add from Your Powers</button>
@@ -1769,9 +1904,11 @@ window.ncToggleMythicAwakening = function(checked) {
 };
 window.ncSetLairActionsText = function(val) {
     ncActiveCompanion().lairActionsText = val;
+    ncRenderPreview();
 };
 window.ncSetMythicAwakeningText = function(val) {
     ncActiveCompanion().mythicAwakeningText = val;
+    ncRenderPreview();
 };
 
 function ncRenderStep8() {

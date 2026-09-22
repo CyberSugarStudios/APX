@@ -147,7 +147,7 @@
         // Regeneration's optional "restrict to one type" option -- not
         // pulled from a specific in-book list, since there isn't a single
         // fixed one already defined elsewhere in this data file.
-        const NPC_ENERGY_TYPES = ["Fire", "Cold", "Lightning", "Acid", "Poison", "Radiant", "Necrotic", "Force", "Psychic", "Sonic"];
+        const NPC_ENERGY_TYPES = ["Fire", "Cold", "Electric", "Acid", "Poison", "Sonic", "Radiation", "Force", "Psychic"]; // the rulebook's Energy Damage types (Ch.1 / Resistances)
 
         const NPC_TRAITS = [
             { key: "quantumlocked", label: "Quantum Locked", tp: -4, desc: "While seen by a conscious hostile creature, turns to stone/phases out: immune to damage/conditions, Speed 0, no AP." },

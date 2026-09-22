@@ -16,6 +16,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="js/firebase-config.js"></script>
     <script src="js/apx-firebase.js"></script>
+    <script src="js/apx-dialogs.js"></script>
 
     <style>
         input[type="email"], input[type="password"] {
@@ -200,7 +201,7 @@
             </button>
         </div>
         <div class="text-center">
-            <span id="landingVersion" class="text-[10px]" style="color:var(--c-text-dimmer,#334155);">APX System Tools v2026.9.22.1300</span>
+            <span id="landingVersion" class="text-[10px]" style="color:var(--c-text-dimmer,#334155);">APX System Tools v2026.9.22.1400</span>
         </div>
 
         <!-- Delete account (shown only when signed in) -->
@@ -328,7 +329,7 @@
             let isNew = cred.additionalUserInfo?.isNewUser;
             if (isNew) {
                 let suggested = cred.user.displayName || '';
-                let chosen = prompt('Set a display name for APX TTRPG (you can change this later):', suggested);
+                let chosen = await window.apxPrompt('Set a display name for APX TTRPG (you can change this later):', suggested, { title:'Welcome!', okLabel:'Save' });
                 if (chosen && chosen !== suggested) {
                     await cred.user.updateProfile({ displayName: chosen }).catch(()=>{});
                 }
@@ -396,7 +397,7 @@
         let user = firebase.auth().currentUser;
         if (!user) return;
         let current = user.displayName || '';
-        let newName = prompt('Set display name:', current);
+        let newName = await window.apxPrompt('This is the name other people see.', current, { title:'Display Name', okLabel:'Save' });
         if (!newName || newName === current) return;
         try {
             await user.updateProfile({ displayName: newName });
@@ -469,7 +470,7 @@
         } catch(e) {
             if (e.code === 'auth/requires-recent-login') {
                 errEl.innerText = '';
-                let pass = prompt('Your session has expired. Re-enter your password to confirm deletion:');
+                let pass = await window.apxPrompt('Your session has expired. Re-enter your password to confirm deletion:', '', { title:'Confirm Password', password:true, okLabel:'Confirm', danger:true });
                 if (!pass) { errEl.innerText = ''; return; }
                 try {
                     let user = window.apxAuth.user;

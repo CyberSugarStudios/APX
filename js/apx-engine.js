@@ -1025,20 +1025,24 @@
             if ((window.state.perks['cha_loyalcompanion'] || 0) >= 1 && window.state.companion && typeof window.companionStatBlock === 'function') {
                 let sb = window.companionStatBlock();
                 if (sb) {
+                    // One row per innate weapon (claws, bite, horns...)
+                    (sb.innateAttacks && sb.innateAttacks.length ? sb.innateAttacks : [{ name: 'Innate Attack', attackBonus: sb.attackBonus, dmgText: sb.dmgText, typeText: '' }]).forEach((ia, iaIdx) => {
                     html += `
                         <tr class="bg-purple-900/20 border-b border-purple-800/50">
                             <td class="px-1 py-2">
-                                <div class="text-xs font-bold text-purple-300">${sb.name} (Innate Attack)</div>
-                                <button onclick="window.openCompanionDetail()" class="text-[9px] text-purple-400 hover:text-purple-300 font-bold">View Stat Block</button>
+                                <div class="text-xs font-bold text-purple-300">${sb.name} -- ${ia.name}</div>
+                                ${ia.typeText ? `<div class="text-[9px] text-slate-500">${ia.typeText}${ia.range > 1 ? ` · Range ${ia.range} sq` : ''}</div>` : ''}
+                                ${iaIdx === 0 ? `<button onclick="window.openCompanionDetail()" class="text-[9px] text-purple-400 hover:text-purple-300 font-bold">View Stat Block</button>` : ''}
                             </td>
                             <td class="px-1 py-2 text-center text-[10px] text-slate-400">--</td>
                             <td class="px-1 py-2 text-center"><input type="checkbox" checked disabled class="w-4 h-4 opacity-50"></td>
-                            <td class="px-1 py-2 text-center"><div class="font-black text-emerald-400/80 text-sm bg-slate-900 rounded border border-slate-700 py-0.5">+${sb.attackBonus}</div></td>
-                            <td class="px-1 py-2 text-center text-[11px] text-slate-300 font-bold">${sb.dmgText}</td>
+                            <td class="px-1 py-2 text-center"><div class="font-black text-emerald-400/80 text-sm bg-slate-900 rounded border border-slate-700 py-0.5">+${ia.attackBonus}</div></td>
+                            <td class="px-1 py-2 text-center text-[11px] text-slate-300 font-bold">${ia.dmgText}</td>
                             <td class="px-1 py-2 text-center text-[11px] text-blue-400 font-bold">3</td>
                             <td class="px-1 py-2"></td>
                         </tr>
                     `;
+                    });
                     sb.equippedWeapons.forEach(w => {
                         html += `
                             <tr class="bg-purple-900/20 border-b border-purple-800/50">

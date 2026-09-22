@@ -45,6 +45,31 @@ function pcApplyCompanionTpDelta(newLevel, oldTp, usageType, maxCharges) {
     return newTp;
 }
 
+// ── NPC / companion powers are paid in TP, set by the power's Level ──────
+// So instead of XP, every option shows what it would change in TP *right now*.
+function pcIsNpc() { return pcTarget !== 'player'; }
+function pcTpFor(draft) {
+    let lvl = window.pcCalcXP(draft).level;
+    return window.npcPowerTotalTp ? window.npcPowerTotalTp(lvl, draft.usageType, draft.maxCharges) : 0;
+}
+// xp: the option's XP cost (players). mutate(d): applies the option to a copy of the draft (NPCs).
+// selected: this option is the one currently chosen (radio) / currently on (checkbox).
+function pcCost(xp, mutate, selected, suffix) {
+    if (!pcIsNpc()) return `${xp} XP${suffix || ''}`;
+    if (selected) return 'selected';
+    if (!mutate) return '';
+    let d = JSON.parse(JSON.stringify(pcDraft)); mutate(d);
+    let delta = pcTpFor(d) - pcTpFor(pcDraft);
+    return delta > 0 ? `+${delta} TP` : delta < 0 ? `${delta} TP` : '+0 TP';
+}
+// For checkboxes that are ON: what they're currently costing (TP saved if turned off, shown as a cost)
+function pcCostOn(xp, unmutate, suffix) {
+    if (!pcIsNpc()) return `${xp} XP${suffix || ''}`;
+    let d = JSON.parse(JSON.stringify(pcDraft)); unmutate(d);
+    let delta = pcTpFor(pcDraft) - pcTpFor(d);
+    return delta > 0 ? `${delta} TP` : delta < 0 ? `${delta} TP` : '0 TP';
+}
+
 function getBlankPowerDraft() {
     return {
         step1: 'atkSave', step2: 'touch', aoe: 'single',
@@ -163,7 +188,8 @@ function pcRenderUsageSection() {
 
     let level = window.pcCalcXP(pcDraft).level;
     let tier = pcCurrentNpcTier();
-    let eligible = window.npcUnlimitedUsesAllowed(level, tier);
+    // GM NPCs: Unlimited Uses is always available. (Loyal Companions keep the book's Level/Tier limit.)
+    let eligible = pcTarget === 'gm' ? true : window.npcUnlimitedUsesAllowed(level, tier);
     if (pcDraft.usageType === 'unlimitedPaid' && !eligible) pcDraft.usageType = 'unlimited'; // no longer eligible (level/tier changed) -- fall back rather than silently keep an illegal selection
 
     document.querySelector(`input[name="pcUsageType"][value="${pcDraft.usageType}"]`).checked = true;
@@ -436,7 +462,7 @@ function pcRenderStep1() {
     document.getElementById('pcStep1Options').innerHTML = POWER_STEP1.map(s => `
         <label class="flex items-start gap-2 bg-slate-900 border ${pcDraft.step1 === s.key ? 'border-purple-500' : 'border-slate-700'} rounded p-2 cursor-pointer">
             <input type="radio" name="pcStep1" class="mt-1" ${pcDraft.step1 === s.key ? 'checked' : ''} onchange="window.pcSetStep1('${s.key}')">
-            <div><div class="text-xs font-bold text-slate-200">${s.label} <span class="text-yellow-500">[${s.cost} XP]</span></div><div class="text-[10px] text-slate-500 leading-tight">${s.desc}</div></div>
+            <div><div class="text-xs font-bold text-slate-200">${s.label} <span class="text-yellow-500">[${pcCost(s.cost, d => { d.step1 = s.key; if (s.key === 'hpPool') d.addSecondType = false; }, pcDraft.step1 === s.key)}]</span></div><div class="text-[10px] text-slate-500 leading-tight">${pcIsNpc() ? String(s.desc).replace(/ XP\b/g, '') : s.desc}</div></div>
         </label>
     `).join('');
 }
@@ -445,7 +471,7 @@ function pcRenderStep2() {
     document.getElementById('pcStep2Options').innerHTML = POWER_STEP2_RANGE.map(s => `
         <label class="flex items-start gap-2 bg-slate-900 border ${pcDraft.step2 === s.key ? 'border-purple-500' : 'border-slate-700'} rounded p-2 cursor-pointer">
             <input type="radio" name="pcStep2" class="mt-1" ${pcDraft.step2 === s.key ? 'checked' : ''} onchange="window.pcSetStep2('${s.key}')">
-            <div><div class="text-xs font-bold text-slate-200">${s.label} <span class="text-yellow-500">[${s.cost} XP]</span></div><div class="text-[10px] text-slate-500 leading-tight">${s.desc}</div></div>
+            <div><div class="text-xs font-bold text-slate-200">${s.label} <span class="text-yellow-500">[${pcCost(s.cost, d => { d.step2 = s.key; }, pcDraft.step2 === s.key)}]</span></div><div class="text-[10px] text-slate-500 leading-tight">${s.desc}</div></div>
         </label>
     `).join('');
 }
@@ -463,7 +489,7 @@ function pcRenderStep4() {
     let t = window.pcCalcXP(pcDraft);
     let dieRows = POWER_DIE_STEPS.map(step => `
         <div class="flex items-center justify-between bg-slate-900 border border-slate-700 rounded px-3 py-1.5">
-            <span class="text-xs font-bold text-white">${step} <span class="text-[10px] text-slate-500">(${POWER_DIE_COSTS[step]} XP/die${pcDraft.step1 === 'guaranteed' ? ', x2 Guaranteed Hit' : ''})</span></span>
+            <span class="text-xs font-bold text-white">${step} <span class="text-[10px] text-slate-500">(${pcIsNpc() ? 'next die: ' + pcCost(0, d => { d.dmg[step] = (d.dmg[step] || 0) + 1; }) : POWER_DIE_COSTS[step] + ' XP/die' + (pcDraft.step1 === 'guaranteed' ? ', x2 Guaranteed Hit' : '')})</span></span>
             <div class="flex items-center gap-2">
                 <button onclick="window.pcSetDie('${step}', -1)" class="w-6 h-6 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">-</button>
                 <span class="w-6 text-center font-bold text-sm text-white">${pcDraft.dmg[step]}</span>
@@ -487,7 +513,7 @@ function pcRenderStep4() {
             ${pcDraft.step1 === 'hpPool' ? '<span class="text-[9px] text-slate-500">(HP Capacity Pool doesn\'t deal typed damage)</span>' : ''}
         </div>
         <label class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white cursor-pointer">
-            <input type="checkbox" ${pcDraft.addSecondType ? 'checked' : ''} ${pcDraft.step1 === 'hpPool' ? 'disabled' : ''} onchange="window.pcToggleSecondType(this.checked)"> Add a second damage type, splitting the dice [+5 XP]
+            <input type="checkbox" ${pcDraft.addSecondType ? 'checked' : ''} ${pcDraft.step1 === 'hpPool' ? 'disabled' : ''} onchange="window.pcToggleSecondType(this.checked)"> Add a second damage type, splitting the dice [${pcDraft.addSecondType ? pcCostOn('+5', d => { d.addSecondType = false; }) : pcCost('+5', d => { d.addSecondType = true; })}]
         </label>
         ${pcDraft.addSecondType ? `
         <div class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded p-2">
@@ -497,10 +523,10 @@ function pcRenderStep4() {
             </select>
         </div>` : ''}` : ''}
         <label class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white cursor-pointer">
-            <input type="checkbox" ${pcDraft.addFlatDmgPerDie ? 'checked' : ''} onchange="window.pcToggleFlatDmg(this.checked)"> +1 ${verb} per die [1 XP/die -- ${t.totalDiceCount} XP]
+            <input type="checkbox" ${pcDraft.addFlatDmgPerDie ? 'checked' : ''} onchange="window.pcToggleFlatDmg(this.checked)"> +1 ${verb} per die [${pcIsNpc() ? (pcDraft.addFlatDmgPerDie ? pcCostOn(0, d => { d.addFlatDmgPerDie = false; }) : pcCost(0, d => { d.addFlatDmgPerDie = true; })) : `1 XP/die -- ${t.totalDiceCount} XP`}]
         </label>
         <label class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white cursor-pointer">
-            <input type="checkbox" ${pcDraft.addAttrToDmg ? 'checked' : ''} onchange="window.pcToggleAttrToDmg(this.checked)"> Add Power Attribute modifier to ${verb} [+10 XP]
+            <input type="checkbox" ${pcDraft.addAttrToDmg ? 'checked' : ''} onchange="window.pcToggleAttrToDmg(this.checked)"> Add Power Attribute modifier to ${verb} [${pcDraft.addAttrToDmg ? pcCostOn('+10', d => { d.addAttrToDmg = false; }) : pcCost('+10', d => { d.addAttrToDmg = true; })}]
         </label>
     `;
 }
@@ -510,7 +536,7 @@ function pcRenderUtilityTier(tier, label, colorClass) {
         let count = pcDraft.utility[tier][u.key] || 0;
         return `
             <div class="flex items-center justify-between bg-slate-900 border border-slate-700 rounded px-2 py-1.5 gap-2">
-                <div class="flex-1 text-[10px] text-slate-300 leading-tight">${u.label}${u.rep ? ' <span class="text-slate-600">(repeatable)</span>' : ''}</div>
+                <div class="flex-1 text-[10px] text-slate-300 leading-tight">${u.label}${u.rep ? ' <span class="text-slate-600">(repeatable)</span>' : ''}${pcIsNpc() && (u.rep || count < 1) ? ` <span class="text-yellow-500 font-bold">[${pcCost(0, d => { d.utility[tier][u.key] = (d.utility[tier][u.key] || 0) + 1; })}]</span>` : ''}</div>
                 <div class="flex items-center gap-1 shrink-0">
                     <button onclick="window.pcSetUtilityCount('${tier}','${u.key}', -1)" ${count<=0?'disabled':''} class="w-5 h-5 rounded ${count<=0?'bg-slate-800 text-slate-600':'bg-slate-700 hover:bg-slate-600 text-white'} text-xs font-bold">-</button>
                     <span class="w-5 text-center text-xs font-bold text-white">${count}</span>
@@ -523,26 +549,27 @@ function pcRenderUtilityTier(tier, label, colorClass) {
 }
 
 function pcRenderStep5() {
-    let discountNote = pcDraft.step1 === 'hpPool' ? '<div class="text-[10px] text-emerald-400 mb-2">HP Capacity Pool: each Utility selection costs 10 XP less (min 0) before AoE multiplier.</div>' : '';
+    let npc = pcIsNpc();
+    let discountNote = pcDraft.step1 === 'hpPool' ? `<div class="text-[10px] text-emerald-400 mb-2">HP Capacity Pool: each Utility selection is ${npc ? 'cheaper' : 'costs 10 XP less (min 0)'} before the AoE multiplier.</div>` : '';
     document.getElementById('pcStep5List').innerHTML = discountNote +
-        pcRenderUtilityTier('minor', 'Minor Utility (5 XP each)', 'text-emerald-400') +
-        pcRenderUtilityTier('moderate', 'Moderate Utility (15 XP each)', 'text-blue-400') +
-        pcRenderUtilityTier('major', 'Major Utility (30 XP each)', 'text-purple-400') +
-        pcRenderUtilityTier('master', 'Master Utility (50 XP each)', 'text-red-400');
+        pcRenderUtilityTier('minor', npc ? 'Minor Utility' : 'Minor Utility (5 XP each)', 'text-emerald-400') +
+        pcRenderUtilityTier('moderate', npc ? 'Moderate Utility' : 'Moderate Utility (15 XP each)', 'text-blue-400') +
+        pcRenderUtilityTier('major', npc ? 'Major Utility' : 'Major Utility (30 XP each)', 'text-purple-400') +
+        pcRenderUtilityTier('master', npc ? 'Master Utility' : 'Master Utility (50 XP each)', 'text-red-400');
 }
 
 function pcRenderStep6() {
     document.getElementById('pcStep6Options').innerHTML = POWER_DURATION.map(d => `
         <label class="flex items-start gap-2 bg-slate-900 border ${pcDraft.duration === d.key ? 'border-purple-500' : 'border-slate-700'} rounded p-2 cursor-pointer">
             <input type="radio" name="pcDuration" class="mt-1" ${pcDraft.duration === d.key ? 'checked' : ''} onchange="window.pcSetDuration('${d.key}')">
-            <div><div class="text-xs font-bold text-slate-200">${d.label} <span class="text-yellow-500">[${d.cost} XP]</span></div>${d.desc ? `<div class="text-[10px] text-slate-500 leading-tight">${d.desc}</div>` : ''}</div>
+            <div><div class="text-xs font-bold text-slate-200">${d.label} <span class="text-yellow-500">[${pcCost(d.cost, x => { x.duration = d.key; if (d.key === 'instant') { x.durationMods.dmgInterrupt = false; x.durationMods.actionInterrupt = false; } }, pcDraft.duration === d.key)}]</span></div>${d.desc ? `<div class="text-[10px] text-slate-500 leading-tight">${d.desc}</div>` : ''}</div>
         </label>
     `).join('');
     let interruptsAllowed = pcDurationAllowsInterrupts(pcDraft.duration);
     document.getElementById('pcStep6Mods').innerHTML = POWER_DURATION_MODS.map(m => `
         <label class="flex items-start gap-2 bg-slate-900 border border-slate-700 rounded p-2 ${interruptsAllowed ? 'cursor-pointer' : 'opacity-40'}">
             <input type="checkbox" class="mt-1" ${pcDraft.durationMods[m.key] ? 'checked' : ''} ${interruptsAllowed ? '' : 'disabled'} onchange="window.pcToggleDurationMod('${m.key}', this.checked)">
-            <div><div class="text-xs font-bold text-slate-200">${m.label} <span class="text-emerald-400">[${m.cost} XP]</span></div><div class="text-[10px] text-slate-500 leading-tight">${m.desc}</div></div>
+            <div><div class="text-xs font-bold text-slate-200">${m.label} <span class="text-emerald-400">[${pcDraft.durationMods[m.key] ? pcCostOn(m.cost, x => { x.durationMods[m.key] = false; }) : pcCost(m.cost, x => { x.durationMods[m.key] = true; })}]</span></div><div class="text-[10px] text-slate-500 leading-tight">${m.desc}</div></div>
         </label>
     `).join('');
     if (!interruptsAllowed) {
@@ -555,7 +582,7 @@ function pcRenderStep7() {
         <label class="flex items-center gap-2 bg-slate-900 border ${pcDraft.apMod === a.key ? 'border-purple-500' : 'border-slate-700'} rounded p-2 cursor-pointer">
             <input type="radio" name="pcApMod" ${pcDraft.apMod === a.key ? 'checked' : ''} onchange="window.pcSetApMod('${a.key}')">
             <span class="text-xs font-bold text-slate-200">${a.label}</span>
-            <span class="text-[10px] ${a.cost < 0 ? 'text-slate-500' : 'text-yellow-500'} ml-auto">${a.cost >= 0 ? a.cost + ' XP' : a.cost + ' XP'}</span>
+            <span class="text-[10px] ${a.cost < 0 ? 'text-slate-500' : 'text-yellow-500'} ml-auto">${pcCost(a.cost, x => { x.apMod = a.key; }, pcDraft.apMod === a.key)}</span>
         </label>
     `).join('');
 }
@@ -565,7 +592,7 @@ function pcRenderStep8() {
     let mrCount = pcDraft.refunds.minorRestriction || 0;
     let minorRestrictionRow = `
         <div class="flex items-center justify-between bg-slate-900 border border-slate-700 rounded p-2 gap-2">
-            <div class="flex-1"><div class="text-xs font-bold text-slate-200">${mrDef.label} <span class="text-emerald-400">[${mrDef.cost} XP each]</span> <span class="text-slate-600">(repeatable -- stack distinct clauses like Verbal, Somatic, etc.)</span></div><div class="text-[10px] text-slate-500 leading-tight">${mrDef.desc}</div></div>
+            <div class="flex-1"><div class="text-xs font-bold text-slate-200">${mrDef.label} <span class="text-emerald-400">[${pcIsNpc() ? 'next: ' + pcCost(0, x => { x.refunds.minorRestriction = (x.refunds.minorRestriction || 0) + 1; }) : mrDef.cost + ' XP each'}]</span> <span class="text-slate-600">(repeatable -- stack distinct clauses like Verbal, Somatic, etc.)</span></div><div class="text-[10px] text-slate-500 leading-tight">${mrDef.desc}</div></div>
             <div class="flex items-center gap-1 shrink-0">
                 <button onclick="window.pcSetMinorRestriction(-1)" ${mrCount<=0?'disabled':''} class="w-6 h-6 rounded ${mrCount<=0?'bg-slate-800 text-slate-600':'bg-slate-700 hover:bg-slate-600 text-white'} font-bold">-</button>
                 <span class="w-6 text-center font-bold text-sm text-white">${mrCount}</span>
@@ -576,7 +603,7 @@ function pcRenderStep8() {
     let checkboxRows = POWER_REFUNDS.filter(r => r.key !== 'minorRestriction').map(r => `
         <label class="flex items-start gap-2 bg-slate-900 border border-slate-700 rounded p-2 cursor-pointer">
             <input type="checkbox" class="mt-1" ${pcDraft.refunds[r.key] ? 'checked' : ''} onchange="window.pcToggleRefund('${r.key}', this.checked)">
-            <div><div class="text-xs font-bold text-slate-200">${r.label} <span class="text-emerald-400">[${r.cost} XP]</span></div><div class="text-[10px] text-slate-500 leading-tight">${r.desc}</div></div>
+            <div><div class="text-xs font-bold text-slate-200">${r.label} <span class="text-emerald-400">[${pcDraft.refunds[r.key] ? pcCostOn(r.cost, x => { x.refunds[r.key] = false; }) : pcCost(r.cost, x => { x.refunds[r.key] = true; })}]</span></div><div class="text-[10px] text-slate-500 leading-tight">${r.desc}</div></div>
         </label>
     `).join('');
     let costlyRow = `
@@ -584,10 +611,8 @@ function pcRenderStep8() {
             <span class="text-xs font-bold text-slate-200">Costly (requires a rare/expensive item):</span>
             <select onchange="window.pcSetCostly(this.value)" class="bg-slate-800 text-xs ml-auto">
                 <option value="0" ${pcDraft.refunds.costly===0?'selected':''}>Not Costly</option>
-                <option value="-5" ${pcDraft.refunds.costly===-5?'selected':''}>-5 XP (minor item)</option>
-                <option value="-10" ${pcDraft.refunds.costly===-10?'selected':''}>-10 XP</option>
-                <option value="-15" ${pcDraft.refunds.costly===-15?'selected':''}>-15 XP</option>
-                <option value="-20" ${pcDraft.refunds.costly===-20?'selected':''}>-20 XP (rare item)</option>
+                ${[[-5,'minor item'],[-10,''],[-15,''],[-20,'rare item']].map(([v, note]) =>
+                    `<option value="${v}" ${pcDraft.refunds.costly===v?'selected':''}>${pcIsNpc() ? (note || 'Costly ' + (-v/5)) + ' — ' + pcCost(v, x => { x.refunds.costly = v; }, pcDraft.refunds.costly === v) : v + ' XP' + (note ? ' (' + note + ')' : '')}</option>`).join('')}
             </select>
         </label>
     `;
@@ -613,7 +638,23 @@ function pcRenderSummary() {
     let t = window.pcCalcXP(pcDraft);
     let maxLevel = pcTarget !== 'player' ? 5 : pcMaxUnlockedLevel();
     let overCap = t.level > maxLevel;
-    document.getElementById('pcSumXp').innerText = t.total + ' XP';
+    let sumXpEl = document.getElementById('pcSumXp');
+    let sumXpLbl = sumXpEl.previousElementSibling;
+    if (pcIsNpc()) {
+        sumXpEl.innerText = pcTpFor(pcDraft) + ' TP';
+        if (sumXpLbl) sumXpLbl.innerText = 'TP Cost';
+    } else {
+        sumXpEl.innerText = t.total + ' XP';
+        if (sumXpLbl) sumXpLbl.innerText = 'Total XP Cost';
+    }
+    // Step intro text: no XP wording for NPC powers
+    [['pcStep7', 'Powers cost 4 AP by default. Spend XP to lower it, or take more AP to refund some.', 'Powers cost 4 AP by default. Lower it (raises the TP cost) or take more AP (can lower it).'],
+     ['pcStep8', 'Add restrictions and hindrances to refund XP and increase potency elsewhere.', 'Add restrictions and hindrances to lower the power\'s Level and TP cost.']]
+        .forEach(([id, playerTxt, npcTxt]) => {
+            let p = document.querySelector('#' + id + ' p'); if (!p) return;
+            if (!p.dataset.playerText) p.dataset.playerText = p.textContent.trim() || playerTxt;
+            p.textContent = pcIsNpc() ? npcTxt : p.dataset.playerText;
+        });
     document.getElementById('pcSumLevel').innerText = 'Level ' + t.level;
     document.getElementById('pcSumLevel').className = overCap ? 'text-lg font-black text-red-400' : 'text-lg font-black text-white';
     document.getElementById('pcSumAp').innerText = t.ap + ' AP';

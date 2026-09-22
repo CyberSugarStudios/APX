@@ -630,13 +630,25 @@
     </div>
 
 <div class="modal-overlay" id="npcCrafterModal" style="z-index:1300;">
-        <div class="modal-content max-w-[850px]">
+        <div class="modal-content" style="max-width:min(1320px,96vw);">
             <div class="flex justify-between items-center mb-1 border-b border-purple-600 pb-2">
                 <h3 class="text-xl font-black text-white" id="npcCrafterTitle">The NPC Crafter -- Loyal Companion</h3>
                 <div class="text-[10px] text-slate-500">Chapter 15: NPCs</div>
             </div>
+            <div class="flex flex-col lg:flex-row gap-4 items-start">
+            <!-- Live stat block: updates as you build -->
+            <aside class="w-full lg:w-[400px] shrink-0 lg:sticky lg:top-0">
+                <div class="bg-slate-900/50 border border-purple-800/50 rounded-lg p-3" style="max-height:74vh;overflow-y:auto;">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="text-sm font-black text-purple-300 truncate" id="ncPreviewName">NPC</div>
+                        <div class="text-[9px] text-slate-500 uppercase font-bold shrink-0 ml-2">Live Stat Block</div>
+                    </div>
+                    <div id="ncPreviewBody"><!-- JS injected: full stat block --></div>
+                </div>
+            </aside>
+            <div class="flex-1 min-w-0 w-full">
             <div class="mb-3">
-                <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Companion Name</label>
+                <label id="ncNameLabel" class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">NPC Name</label>
                 <input type="text" id="ncName" onchange="window.ncUpdateName(this.value)" placeholder="e.g. Fang" class="bg-slate-900 border-purple-900/50 text-purple-300 font-bold">
             </div>
             <div class="grid grid-cols-4 gap-2 mb-3 bg-slate-900 border border-purple-800/50 rounded-lg p-2">
@@ -658,13 +670,13 @@
                 <span id="ncTab2" onclick="window.jumpToNcStep(2)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">2. Size/Move</span>
                 <span id="ncTab3" onclick="window.jumpToNcStep(3)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">3. Senses</span>
                 <span id="ncTab4" onclick="window.jumpToNcStep(4)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">4. Defenses</span>
-                <span id="ncTab5" onclick="window.jumpToNcStep(5)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">5. Weapons</span>
+                <span id="ncTab5" onclick="window.jumpToNcStep(5)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">5. Weapons &amp; Skills</span>
                 <span id="ncTab6" onclick="window.jumpToNcStep(6)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">6. Powers</span>
                 <span id="ncTab7" onclick="window.jumpToNcStep(7)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">7. Traits</span>
                 <span id="ncTab8" onclick="window.jumpToNcStep(8)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">8. Legendary</span>
             </div>
 
-            <div class="max-h-[45vh] overflow-y-auto pr-1">
+            <div class="max-h-[52vh] overflow-y-auto pr-1">
                 <div id="ncStep1" class="wizard-step active">
                     <div id="ncStep1Attrs" class="space-y-1.5 mb-3"><!-- JS injected --></div>
                     <div id="ncStep1Extras" class="space-y-1.5"><!-- JS injected --></div>
@@ -702,6 +714,8 @@
                     <button id="ncBtnNext" onclick="window.navNpcCrafter(1)" class="px-4 py-2 rounded bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold transition">Next Step</button>
                     <button id="ncBtnFinishGm" onclick="window.finishGmNpc()" class="px-6 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition hidden shadow-lg">Save NPC</button>
                 </div>
+            </div>
+        </div>
             </div>
         </div>
     </div>
@@ -1157,11 +1171,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div id="fogControls" style="display:none;align-items:center;gap:0.4rem;">
                             <span class="text-[10px] text-slate-400">Size:</span>
                             <input type="range" id="fogBrushSlider" min="5" max="150" value="40" step="5"
-                                oninput="window._fogBrushSize=+this.value;document.getElementById('fogBrushVal').textContent=this.value+'px';"
+                                oninput="window._fogSetBrush(+this.value,'worldmap')"
                                 style="width:80px;accent-color:#f59e0b;">
                             <span id="fogBrushVal" class="text-[10px] text-slate-300 w-8">40px</span>
                             <button onclick="window._fogClearAll()" class="px-2 py-1 rounded text-[10px] font-bold" style="background:#7f1d1d;color:#fca5a5;border:1px solid #991b1b;">Clear All</button>
-                            <span class="text-[10px] text-slate-500">Shift=Erase</span>
+                            <span class="text-[10px] text-slate-500">Shift=Erase · Shift+Scroll=Size</span>
                         </div>
                         <span id="mapHint" class="text-[10px] text-slate-500 flex-1">Click map to pin a Location. Drag to pan.</span>
                     </div>
@@ -1182,7 +1196,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div id="wPanelNpcs" class="hidden flex-1 flex flex-col overflow-hidden min-h-0">
                     <div class="flex gap-2 mb-2 flex-shrink-0">
                         <input type="text" id="npcSearch" oninput="window.renderNpcList()" placeholder="Search NPCs..." class="bg-slate-900 text-xs flex-1">
-                        <button onclick="window.openNoteModal('npc')" class="px-3 py-1.5 rounded bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-bold">+ Add NPC</button>
+                        <button onclick="window.openNoteModal('npc', null, { name: (document.getElementById('npcSearch')?.value||'').trim() })" class="px-3 py-1.5 rounded bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-bold">+ Add NPC</button>
                     </div>
                     <div id="npcList" class="flex-1 overflow-y-auto space-y-2 min-h-0 pr-1"></div>
                 </div>
@@ -1305,6 +1319,7 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
+    <script src="js/apx-dialogs.js"></script>
     <script src="js/apx-data.js"></script>
     <script src="js/apx-perks-db.js"></script>
     <script src="js/apx-state.js"></script>
@@ -1367,7 +1382,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── World CRUD ───────────────────────────────────────────────
     window.createGmWorld = async function() {
-        let name = prompt('World name:');
+        let name = await window.apxPrompt('Name your new world:', '', { title:'New World', okLabel:'Create', placeholder:'e.g. The Shattered Coast' });
         if (!name) return;
         try {
             let w;
@@ -1499,7 +1514,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── Display name editor ──────────────────────────────────────
     window.gmEditDisplayName = async function() {
         let current = window.apxAuth?.user?.displayName || '';
-        let newName = prompt('Set display name:', current);
+        let newName = await window.apxPrompt('This is the name other people see.', current, { title:'Display Name', okLabel:'Save' });
         if (!newName || newName === current) return;
         try {
             let user = firebase.auth?.().currentUser;
@@ -2231,7 +2246,9 @@ document.addEventListener('DOMContentLoaded', () => {
         secret: (n={}) => NOTE_TEMPLATES.note(n),
     };
 
-    window.openNoteModal = function(type, id=null) {
+    // prefill: optional starting values for a NEW item (e.g. {name} carried over from the search box)
+    window.openNoteModal = function(type, id=null, prefill=null) {
+        if (prefill?.name) prefill = { ...prefill, name: String(prefill.name).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;') };
         if (type==='secret') type='note';
         _noteContext = { type, id };
         let arrKey = type==='session'?'session':type==='npc'?'npcs':type==='location'?'locations':'notes';
@@ -2246,7 +2263,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let titles = { session:'Session Note', npc:'NPC', location:'Location', note:'Note' };
         document.getElementById('noteDetailTitle').innerText = (id?'Edit ':'Add ')+titles[type];
         document.getElementById('noteDetailDeleteBtn').classList.toggle('hidden', !id);
-        document.getElementById('noteDetailBody').innerHTML = NOTE_TEMPLATES[type]?.(existing||{}) || '';
+        document.getElementById('noteDetailBody').innerHTML = NOTE_TEMPLATES[type]?.(existing || prefill || {}) || '';
         if (type==='location'||type==='npc') _snRender();
         window.openModal('noteDetailModal');
     };
@@ -2323,11 +2340,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 }).join('')}
             </div>
             <div style="display:flex;gap:0.4rem;margin-top:0.25rem;">
-                <button onclick="window.openWorldMgr()" style="flex:1;background:#059669;border:none;color:#fff;font-size:0.7rem;font-weight:700;padding:0.4rem;border-radius:0.375rem;cursor:pointer;">+ New Map</button>
+                <button onclick="window._locAddNewMap()" style="flex:1;background:#059669;border:none;color:#fff;font-size:0.7rem;font-weight:700;padding:0.4rem;border-radius:0.375rem;cursor:pointer;">+ New Map</button>
                 <button onclick="document.getElementById('locMapPickerOverlay').remove();document.getElementById('nfLinkedMapsDisplay').innerHTML=window._buildLocMapDisplay();" style="background:#334155;border:none;color:#94a3b8;font-size:0.7rem;font-weight:700;padding:0.4rem 0.75rem;border-radius:0.375rem;cursor:pointer;">Done</button>
             </div>
         </div>`;
         document.body.appendChild(overlay);
+    };
+    // "+ New Map" from a location's Link Maps picker: create the map and link it to this location
+    window._locAddNewMap = function() {
+        document.getElementById('locMapPickerOverlay')?.remove();
+        window.addOtherMap(newId => {
+            window._locLinkedMapIds = [...(window._locLinkedMapIds||[]), newId];
+            let disp = document.getElementById('nfLinkedMapsDisplay');
+            if (disp) disp.innerHTML = window._buildLocMapDisplay();
+            // Persist right away if this location already exists (don't depend on pressing Save)
+            if (_noteContext?.type === 'location' && _noteContext.id) {
+                let loc = (_wNotes.locations||[]).find(l=>l.id===_noteContext.id);
+                if (loc) loc.linkedOtherMapIds = [...new Set([...(loc.linkedOtherMapIds||[]), newId])];
+            }
+        });
     };
     window._toggleLocMapLink = function(mapId) {
         window._locLinkedMapIds = window._locLinkedMapIds||[];
@@ -2401,6 +2432,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let loc = (_wNotes.locations||[]).find(l => l.id === id);
         if (!loc) return;
         delete loc.pinX; delete loc.pinY;
+        document.getElementById('locInfo_'+id)?.remove();   // its pin popup goes with it
         saveWorldNotes();
         renderMapPins();
         window.renderLocationList();
@@ -2456,7 +2488,9 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // Add a new Other Map — custom styled modal, no browser prompt()
-    window.addOtherMap = function() {
+    // onCreated(mapId) — optional; used by "+ New Map" in the Link Maps pickers to link it right away
+    window.addOtherMap = function(onCreated) {
+        window._onNewMapCreated = typeof onCreated === 'function' ? onCreated : null;
         let existing = document.getElementById('addOtherMapOverlay');
         if (existing) existing.remove();
         let overlay = document.createElement('div');
@@ -2486,6 +2520,8 @@ document.addEventListener('DOMContentLoaded', () => {
         let id = 'omap_' + Date.now();
         if (!_wNotes.otherMaps) _wNotes.otherMaps = [];
         _wNotes.otherMaps.push({ id, name, revealed: false, tokens: [] });
+        let cb = window._onNewMapCreated; window._onNewMapCreated = null;
+        if (cb) { try { cb(id); } catch(e) { console.warn('New map link:', e); } }
         saveWorldNotes();
         window.renderOtherMapsList();
         // Auto-open the map window and immediately trigger file upload
@@ -2582,7 +2618,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div id="${winId}_fogControls" style="display:none;align-items:center;gap:0.25rem;">
                     <span style="font-size:0.6rem;color:#94a3b8;">Size:</span>
                     <input type="range" id="${winId}_fogSlider" min="5" max="150" value="40" step="5"
-                        oninput="window._fogBrushSize=+this.value; document.getElementById('${winId}_fogVal').textContent=this.value+'px';"
+                        oninput="window._fogSetBrush(+this.value,'${mapId}')"
                         style="width:60px;accent-color:#f59e0b;">
                     <span id="${winId}_fogVal" style="font-size:0.6rem;color:#e2e8f0;min-width:28px;">40px</span>
                     <button onclick="window._fogClearAllOmap('${mapId}')" style="font-size:0.6rem;padding:0.1rem 0.35rem;background:#7f1d1d;border:1px solid #991b1b;color:#fca5a5;border-radius:0.2rem;cursor:pointer;">Clear</button>
@@ -2664,6 +2700,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         area.addEventListener('mouseleave', () => { win._dragging=false; area.style.cursor='crosshair'; });
         area.addEventListener('wheel', e => {
+            if (window._fogWheel(e, mapId)) return;
             e.preventDefault();
             let r=area.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top;
             let mapX=(mx-win._offX)/win._scale, mapY=(my-win._offY)/win._scale;
@@ -3006,8 +3043,13 @@ document.addEventListener('DOMContentLoaded', () => {
     window._addAndLinkNewMap = function(parentMapId, tokenId, winId) {
         document.getElementById('omMapPickerOverlay')?.remove();
         // Open add-map dialog; on creation, auto-link to this token
-        window._pendingLinkToken = { mapId: parentMapId, tokenId, winId };
-        window.addOtherMap();
+        window.addOtherMap(newId => {
+            let map = (_wNotes.otherMaps||[]).find(m=>m.id===parentMapId);
+            let tok = map?.tokens?.find(t=>t.id===tokenId); if (!tok) return;
+            tok.linkedOtherMapIds = [...new Set([...(tok.linkedOtherMapIds||[]), newId])];
+            let el = document.getElementById(winId+'_linkedMaps');
+            if (el) el.innerHTML = _buildTokenMapLinks(tok, parentMapId, tokenId, winId, false);
+        });
     };
     window._updateTokenSubnote = function(winId, idx, field, val) {
         // Subnote is edited live; saved when Save button is pressed
@@ -4174,13 +4216,23 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    window.deleteCurrentNote = function() {
-        if (!confirm('Delete this note?')) return;
+    window.deleteCurrentNote = async function() {
         let { type, id } = _noteContext;
         let arrKey = type==='session'?'session':type==='npc'?'npcs':type==='location'?'locations':'notes';
+        let item = (_wNotes[arrKey]||[]).find(n=>n.id===id);
+        let label = {session:'session note', npc:'NPC', location:'location', note:'note'}[type] || 'note';
+        let name = item?.name || item?.title || '';
+        let ok = await window.apxConfirm(
+            `Delete ${name ? '"'+name+'"' : 'this '+label}? This can't be undone.` + (type==='location' && item?.pinX!=null ? '\nIts map pin will be removed too.' : ''),
+            { title: 'Delete ' + label.replace(/^./, c=>c.toUpperCase()), okLabel: 'Delete', danger: true });
+        if (!ok) return;
         _wNotes[arrKey] = (_wNotes[arrKey]||[]).filter(n=>n.id!==id);
         saveWorldNotes();
         window.closeModal('noteDetailModal');
+        // Close any floating info window still showing the deleted item
+        document.getElementById('locInfo_'+id)?.remove();
+        document.getElementById('npcInfo_'+id)?.remove();
+        document.getElementById('npcPortrait_'+id)?.remove();
         if (type==='session')   window.renderSessionList();
         if (type==='npc')       window.renderNpcList();
         if (type==='location')  { window.renderLocationList(); renderMapPins(); }
@@ -4216,7 +4268,9 @@ document.addEventListener('DOMContentLoaded', () => {
         window.closeModal('npcStatBlockPickerModal');
         // Open the GM NPC builder for a fresh entry; after save we'll auto-link
         window._pendingLinkNpcNoteId = _linkingNpcNoteId;
-        window.openGmNpcBuilder();
+        // Start the new stat block with the world NPC's name
+        let note = (_wNotes.npcs||[]).find(n=>n.id===_linkingNpcNoteId);
+        window.openGmNpcBuilder(null, { name: note?.name || '' });
     };
 
     // ── World Map ────────────────────────────────────────────────
@@ -4451,6 +4505,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     window.mapEndDragLeave = function(e) {
         _fogPainting = false;
+        if (_fogLastPt.worldmap) _fogLastPt.worldmap.over = false;
         _mapDragging = false; // prevent stuck-drag state from file dialogs etc.
         let cursor = document.getElementById('fogCursor');
         if (cursor) cursor.style.display = 'none';
@@ -4480,6 +4535,7 @@ document.addEventListener('DOMContentLoaded', () => {
         applyMapTransform();
     };
     window.mapScroll = function(e) {
+        if (window._fogWheel(e, 'worldmap')) return;
         e.preventDefault();
         zoomAtPoint(e.deltaY < 0 ? 1.1 : 0.9, e.clientX, e.clientY);
     };
@@ -4693,7 +4749,46 @@ document.addEventListener('DOMContentLoaded', () => {
         window._btRefreshAllOpenMaps();
     };
 
+    // ── Brush size: ONE setter for the slider, Shift+scroll, and the on-map preview ──
+    const FOG_MIN = 5, FOG_MAX = 150;
+    let _fogLastPt = {};          // last mouse position over each map (screen coords)
+    let _fogPreviewTimer = null;
+    window._fogSetBrush = function(size, mapId) {
+        size = Math.max(FOG_MIN, Math.min(FOG_MAX, Math.round(size)));
+        _fogBrushSize = size; window._fogBrushSize = size;
+        // keep every slider + label in step
+        let s1 = document.getElementById('fogBrushSlider'); if (s1) s1.value = size;
+        let v1 = document.getElementById('fogBrushVal');    if (v1) v1.textContent = size+'px';
+        document.querySelectorAll('[id$="_fogSlider"]').forEach(el => { el.value = size; });
+        document.querySelectorAll('[id$="_fogVal"]').forEach(el => { el.textContent = size+'px'; });
+        // redraw the circle NOW — at the mouse if it's over the map, otherwise centred as a preview
+        mapId = mapId || _fogMode; if (!mapId) return;
+        let container = mapId === 'worldmap' ? document.getElementById('mapContainer') : document.getElementById('omWin_'+mapId+'_area');
+        if (!container) return;
+        let r = container.getBoundingClientRect();
+        let pt = _fogLastPt[mapId];
+        let inside = pt && pt.x >= r.left && pt.x <= r.right && pt.y >= r.top && pt.y <= r.bottom && pt.over;
+        _fogMoveCursor({ clientX: inside ? pt.x : r.left + r.width/2, clientY: inside ? pt.y : r.top + r.height/2 }, mapId);
+        if (!inside) {
+            clearTimeout(_fogPreviewTimer);
+            _fogPreviewTimer = setTimeout(() => {
+                if (_fogLastPt[mapId]?.over) return;
+                let c = document.getElementById(mapId === 'worldmap' ? 'fogCursor' : 'omWin_'+mapId+'_fogCursorDiv');
+                if (c) c.style.display = 'none';
+            }, 900);
+        }
+    };
+    // Shift + mouse wheel while fog painting → resize the brush (instead of zooming)
+    window._fogWheel = function(e, mapId) {
+        if (_fogMode !== mapId || !e.shiftKey) return false;
+        e.preventDefault(); e.stopPropagation();
+        let d = e.deltaY || e.deltaX;   // some browsers turn Shift+wheel into horizontal scroll
+        window._fogSetBrush((_fogBrushSize||40) + (d < 0 ? 5 : -5), mapId);
+        return true;
+    };
+
     function _fogMoveCursor(e, mapId) {
+        if (e && e.clientX !== undefined && e.type) _fogLastPt[mapId] = { x: e.clientX, y: e.clientY, over: true };
         // For world map: use the fixed fogCursor div inside mapContainer.
         // For other maps: create/find a cursor div inside the map window's area.
         let cursorId = mapId === 'worldmap' ? 'fogCursor' : 'omWin_'+mapId+'_fogCursorDiv';
@@ -4821,6 +4916,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, true);
         area.addEventListener('mouseleave', ()=>{
             _fogPainting=false;
+            if (_fogLastPt[mapId]) _fogLastPt[mapId].over = false;
             let c = document.getElementById('omWin_'+mapId+'_fogCursorDiv');
             if (c) c.style.display='none';
         });
