@@ -3788,13 +3788,21 @@
 
         // Sync active turn and dead/bleed-out states from world notes initiative data
         let pwCurInitId = map._currentInitId || null; // GM writes this to publicNotes map object
+        // Local position cache: player's own token uses last locally-confirmed position.
+        // This prevents server-side saves (HP update, NPC death, etc.) from reverting
+        // the player's token to a stale position published in world notes.
+        if (!window._pwMyTokenPos) window._pwMyTokenPos = {};
         layer.innerHTML = revealed.map(t => {
             let sm  = ({tiny:0.5,small:0.75,medium:1,large:2,huge:3,gargantuan:4})[t.size||'medium']||1;
             let off = sm <= 1 ? 0.5 : sm/2;
-            let px  = (g.offsetX % g.cellSize) + (t.gridX + off) * g.cellSize;
-            let py  = (g.offsetY % g.cellSize) + (t.gridY + off) * g.cellSize;
-            let diam = Math.max(12, g.cellSize*(sm<=1?sm*0.85:sm*0.9));
             let isMe = t.type==='player' && ((myUid && t.playerUid === myUid) || (!myUid && t.name === myName));
+            // For own token: use locally-cached position so server-triggered saves don't revert it
+            let localPos = isMe ? window._pwMyTokenPos[t.id] : null;
+            let gx = localPos ? localPos.gridX : t.gridX;
+            let gy = localPos ? localPos.gridY : t.gridY;
+            let px  = (g.offsetX % g.cellSize) + (gx + off) * g.cellSize;
+            let py  = (g.offsetY % g.cellSize) + (gy + off) * g.cellSize;
+            let diam = Math.max(12, g.cellSize*(sm<=1?sm*0.85:sm*0.9));
             let icon = (t.name||'?')[0].toUpperCase();
             // Active turn: gold; only when both IDs truthy — own token is NOT always gold
             let isActive = !!(t.initiativeId && pwCurInitId && t.initiativeId === pwCurInitId);
@@ -3825,6 +3833,8 @@
             let innerHtml = portrait
                 ? `<img src="${portrait}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;pointer-events:none;">`
                 : `<span style="font-size:${Math.round(diam*0.42)}px;font-weight:900;color:#fff;pointer-events:none;">${icon}</span>`;
+            // Smaller tokens render ABOVE larger ones via z-index
+            let sizeZ = Math.round(10 / (sm || 1));
             return `<div data-pwbt="${t.id}" ${t.type==='npc'&&t.worldNpcId?`data-pwbt-npc="${t.worldNpcId}"`:''}
                 style="position:absolute;left:${px}px;top:${py}px;
                 width:${diam}px;height:${diam}px;transform:translate(-50%,-50%);
@@ -3832,7 +3842,7 @@
                 border:${isActive?3:2}px solid ${borderColor};
                 border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;
                 box-shadow:${bleedTint}${deadTint}${glowStyle} 0 2px 8px rgba(0,0,0,0.8);
-                opacity:${isDead?0.65:1};filter:${filterStyle};
+                z-index:${sizeZ};opacity:${isDead?0.65:1};filter:${filterStyle};
                 cursor:${isMe?'grab':'default'};user-select:none;pointer-events:auto;" title="${t.name}">${innerHtml}</div>`;
         }).join('');
 
@@ -3876,6 +3886,9 @@
                 // Fog restriction: snap to nearest revealed cell if drop target is fogged
                 let dest = _pwNearestOpenCell(winId, el._pgx, el._pgy, g);
                 tok.gridX=dest.gridX; tok.gridY=dest.gridY;
+                // Persist locally so re-renders from server updates don't revert position
+                if (!window._pwMyTokenPos) window._pwMyTokenPos = {};
+                window._pwMyTokenPos[tok.id] = {gridX:dest.gridX, gridY:dest.gridY};
                 // Write position (fast path)
                 if(!window.state.battlePositions) window.state.battlePositions={};
                 if(!window.state.battlePositions[map.id]) window.state.battlePositions[map.id]={};

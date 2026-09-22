@@ -850,6 +850,9 @@ window.confirmBleedOut = function() {
     if (entry && !isNaN(turns) && turns > 0) entry.bleedOutTurns = turns;
     window.closeModal('bleedOutModal');
     window.renderInitiativeTracker();
+    // Save immediately so player maps show bleed-out state without waiting for the next turn cycle
+    if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
+    if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
 };
 
 window.stabilizeEntry = function(id) {

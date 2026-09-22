@@ -3233,12 +3233,14 @@ document.addEventListener('DOMContentLoaded', () => {
             let bleedInset = isBleedingOut ? '0 0 0 1000px rgba(220,38,38,0.5) inset,' : '';
             let deadInset  = isDead        ? '0 0 0 1000px rgba(0,0,0,0.6) inset,' : '';
             let filterStyle = isDead?'grayscale(1)' : isBleedingOut?'saturate(0.4)' : 'none';
+            // Smaller tokens render ABOVE larger ones (z-index inversely proportional to size)
+            let sizeZ = Math.round(10 / (sm || 1));
             el.style.cssText=`position:absolute;left:${px}px;top:${py}px;width:${diam}px;height:${diam}px;
                 transform:translate(-50%,-50%);background:${portrait?'transparent':bg};
                 border:${isActive?3:2}px solid ${borderColor};
                 border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;
                 box-shadow:${glowStyle}${bleedInset}${deadInset} 0 2px 8px rgba(0,0,0,0.8);
-                cursor:grab;user-select:none;pointer-events:auto;
+                cursor:grab;user-select:none;pointer-events:auto;z-index:${sizeZ};
                 opacity:${isHidden?0.45:isDead?0.7:1};transition:box-shadow 0.15s;filter:${filterStyle};`;
             el.title=`${t.name} (${t.size||'medium'})${isHidden?' [Hidden]':''} — dbl-click for stat block`;
             // Double-click opens linked stat block (NPC) or player summary
@@ -3302,10 +3304,32 @@ document.addEventListener('DOMContentLoaded', () => {
             if(el._pgx!==undefined){
                 let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId);
                 let tok=(map?.battleTokens||[]).find(t=>t.id===tokenId);
-                if(tok){tok.gridX=el._pgx;tok.gridY=el._pgy;
+                if(tok){
+                    let gx = el._pgx, gy = el._pgy;
+                    // Same-size collision: find a free cell if another same-size token occupies gx,gy
+                    let sm = ({tiny:0.5,small:0.75,medium:1,large:2,huge:3,gargantuan:4})[tok.size||'medium']||1;
+                    let conflict = (map.battleTokens||[]).find(other => {
+                        if (other.id === tokenId) return false;
+                        let osm = ({tiny:0.5,small:0.75,medium:1,large:2,huge:3,gargantuan:4})[other.size||'medium']||1;
+                        return osm === sm && other.gridX === gx && other.gridY === gy;
+                    });
+                    if (conflict) {
+                        // Find adjacent free cell (spiral outward)
+                        let found = false;
+                        for (let r = 1; r <= 5 && !found; r++) {
+                            for (let dx=-r; dx<=r && !found; dx++) {
+                                for (let dy=-r; dy<=r && !found; dy++) {
+                                    if (Math.abs(dx)!==r && Math.abs(dy)!==r) continue;
+                                    let nx=gx+dx, ny=gy+dy;
+                                    let occ = (map.battleTokens||[]).find(o=>o.id!==tokenId&&({tiny:0.5,small:0.75,medium:1,large:2,huge:3,gargantuan:4})[o.size||'medium']===sm&&o.gridX===nx&&o.gridY===ny);
+                                    if (!occ) { gx=nx; gy=ny; found=true; }
+                                }
+                            }
+                        }
+                    }
+                    tok.gridX=gx;tok.gridY=gy;
                     // Save immediately for near-instant player updates — bypass debounce
                     saveWorldNotes();
-                    // Also force immediate Firestore write without waiting for debounce
                     if (typeof _doSaveWorldNotes === 'function') {
                         clearTimeout(window._saveNotesTimer);
                         _doSaveWorldNotes();
@@ -3339,14 +3363,31 @@ document.addEventListener('DOMContentLoaded', () => {
             <button onclick="window.addToInitiative(${npcIdx},'npc','ally',undefined);document.getElementById('btContextMenu').remove()" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid #1e293b;color:#6ee7b7;font-size:0.65rem;padding:0.3rem 0.6rem;cursor:pointer;">Ally</button>` : '';
         // Link to initiative entry
         let initEntries = (window.gmInitiative||[]).map(ei=>`<button onclick="window.linkBattleTokenToInit('${mapId}','${tokenId}','${ei.id}');document.getElementById('btContextMenu').remove()" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid #1e293b;color:${tok.initiativeId===ei.id?'#fbbf24':'#e2e8f0'};font-size:0.6rem;padding:0.25rem 0.6rem;cursor:pointer;">${tok.initiativeId===ei.id?'* ':''} ${ei.name}</button>`).join('');
+        // Add faction setter function
+        window._btSetFaction = window._btSetFaction || function(mapId2,winId2,tokenId2,faction){
+            let m=(_wNotes.otherMaps||[]).find(x=>x.id===mapId2);
+            let tk=(m?.battleTokens||[]).find(x=>x.id===tokenId2);
+            if(tk){
+                tk.faction=faction;
+                // Update color to match faction
+                let colors={enemy:'#d97706',neutral:'#64748b',ally:'#16a34a'};
+                if(!tk._customColor) tk.color=colors[faction]||tk.color;
+                saveWorldNotes();_btRenderTokens(mapId2,winId2);
+            }
+        };
+        let curFaction = tok.faction || (tok.type==='player'?'player':'enemy');
+        let fBtn = (f,label,col)=>`<button onclick="window._btSetFaction('${mapId}','${winId}','${tokenId}','${f}');document.getElementById('btContextMenu').remove()" style="flex:1;background:none;border:none;color:${col};font-size:0.65rem;padding:0.3rem;cursor:pointer;${curFaction===f?'font-weight:900;text-decoration:underline;':''}">${label}</button>`;
         menu.innerHTML = `<div style="background:#1e3a5f;padding:0.3rem 0.6rem;font-size:0.65rem;font-weight:700;color:#93c5fd;">
             ${tok.name} <span style="font-size:0.55rem;color:#64748b;">(${tok.size||'medium'})</span>
         </div>
         <button onclick="window._btToggleReveal('${mapId}','${winId}','${tokenId}');document.getElementById('btContextMenu').remove()" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid #1e293b;color:${isHidden?'#6ee7b7':'#94a3b8'};font-size:0.65rem;padding:0.35rem 0.6rem;cursor:pointer;">${isHidden?'Reveal to Players':'Hide from Players'}</button>
-        ${initEntries ? `<div style="padding:0.2rem 0.6rem;font-size:0.6rem;color:#64748b;border-bottom:1px solid #1e293b;">Highlight this turn for…</div>${initEntries}` : ''}
+        <div style="padding:0.15rem 0.6rem;font-size:0.6rem;color:#64748b;">Faction:</div>
+        <div style="display:flex;border-bottom:1px solid #1e293b;">${fBtn('enemy','Enemy','#fca5a5')}${fBtn('neutral','Neutral','#fde68a')}${fBtn('ally','Ally','#6ee7b7')}</div>
+        ${initEntries ? `<div style="padding:0.15rem 0.6rem;font-size:0.6rem;color:#64748b;">Link Initiative Turn</div>${initEntries}` : ''}
+        ${initRows}
         <div style="display:flex;border-bottom:1px solid #1e293b;">
-            <button ${!canShrink?'disabled':''} onclick="window._btResizeToken('${mapId}','${winId}','${tokenId}',-1);document.getElementById('btContextMenu').remove()" style="flex:1;background:none;border:none;color:${canShrink?'#c4b5fd':'#334155'};font-size:0.65rem;padding:0.3rem;cursor:${canShrink?'pointer':'not-allowed'};">⬡ Squeeze</button>
-            <button ${!canGrow?'disabled':''} onclick="window._btResizeToken('${mapId}','${winId}','${tokenId}',1);document.getElementById('btContextMenu').remove()" style="flex:1;background:none;border:none;color:${canGrow?'#c4b5fd':'#334155'};font-size:0.65rem;padding:0.3rem;cursor:${canGrow?'pointer':'not-allowed'};">⬡ Grow</button>
+            <button ${!canShrink?'disabled':''} onclick="window._btResizeToken('${mapId}','${winId}','${tokenId}',-1);document.getElementById('btContextMenu').remove()" style="flex:1;background:none;border:none;color:${canShrink?'#c4b5fd':'#334155'};font-size:0.65rem;padding:0.3rem;cursor:${canShrink?'pointer':'not-allowed'};">Squeeze</button>
+            <button ${!canGrow?'disabled':''} onclick="window._btResizeToken('${mapId}','${winId}','${tokenId}',1);document.getElementById('btContextMenu').remove()" style="flex:1;background:none;border:none;color:${canGrow?'#c4b5fd':'#334155'};font-size:0.65rem;padding:0.3rem;cursor:${canGrow?'pointer':'not-allowed'};">Grow</button>
         </div>
         <button onclick="window.removeBattleToken('${mapId}','${winId}','${tokenId}');document.getElementById('btContextMenu').remove()" style="width:100%;text-align:left;background:none;border:none;color:#f87171;font-size:0.65rem;padding:0.35rem 0.6rem;cursor:pointer;">Remove Token</button>`;
         document.body.appendChild(menu);
