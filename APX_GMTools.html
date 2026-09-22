@@ -3807,17 +3807,24 @@ document.addEventListener('DOMContentLoaded', () => {
         let tok = (map?.battleTokens||[]).find(t=>t.id===tokenId); if (!tok) return;
         tok._explicitDead = false;
         if (tok._deathXp) { window.gmPendingXp = Math.max(0, (window.gmPendingXp||0) - tok._deathXp); tok._deathXp = 0; }
+        // Every revive sets the character to 1 HP (adjust afterwards for the power/consumable used)
+        if (tok.type === 'player' && tok.playerUid) {
+            let pm = (window.gmParty||[]).find(p=>p.fileName===tok.playerUid);
+            if (pm?.state)   pm.state.currentHp = 1;
+            if (pm?.summary) pm.summary.currentHp = 1;   // so a new initiative entry starts at 1, not 0
+        }
         let inCombat = window.gmCombatStarted || (window.gmInitiative||[]).length > 0;
-        if (inCombat) {
-            let entry = window._btMenuAddInit(mapId, winId, tokenId, tok.type === 'player' ? null : (tok.faction || 'enemy'), true);
-            if (entry) {
-                entry.currentHp = 1; entry.bleedOutTurns = null; entry.stabilized = false;
-                if (entry.faction === 'player' && entry.playerUid) {
-                    let code = getActiveWorld()?.inviteCode;
-                    if (code && window.apxAuth?.enabled && window.apxAuth.setGmHpOverride)
-                        window.apxAuth.setGmHpOverride(code, entry.playerUid, 1).catch(e=>console.warn('Revive HP sync:', e.message));
-                }
-            }
+        let entry = inCombat
+            ? window._btMenuAddInit(mapId, winId, tokenId, tok.type === 'player' ? null : (tok.faction || 'enemy'), true)
+            : null;
+        if (entry) { entry.currentHp = 1; entry.bleedOutTurns = null; entry.stabilized = false; entry._reviveHoldUntil = Date.now() + 15000; }
+        if (tok.type === 'player' && tok.playerUid) {
+            // Write 1 HP to the player's sheet. The GM-side listener trusts this value over the
+            // sheet's stale 0 until the player saves, so no new bleed-out prompt appears.
+            let code = getActiveWorld()?.inviteCode;
+            if (code && window.apxAuth?.enabled && window.apxAuth.setGmHpOverride)
+                window.apxAuth.setGmHpOverride(code, tok.playerUid, 1, entry ? (entry.tempHp||0) : 0)
+                    .catch(e=>console.warn('Revive HP sync:', e.message));
         }
         if (typeof window.renderInitiativeTracker === 'function') window.renderInitiativeTracker();
         saveWorldNotes();

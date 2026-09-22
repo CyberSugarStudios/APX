@@ -318,14 +318,17 @@
         return writeBattlePosition(inviteCode, user.uid, mapId, tokenId, gridX, gridY);
     }
 
-    // --- setGmHpOverride: GM writes an HP value that the player's charsheet listens for ---
-    // Stored in worldCodes/{inviteCode}/players/{uid} as { _gmHp: { hp, at } }.
-    // The player never writes this field — only the GM does — so there's no sync loop.
-    async function setGmHpOverride(inviteCode, uid, hp) {
+    // --- setGmHpOverride: GM writes HP + Temp HP that the player's charsheet listens for ---
+    // Stored in worldCodes/{inviteCode}/players/{uid} as { _gmHp: { hp, tempHp, at } }.
+    // The player never writes this field — only the GM does. Both sides compare _gmHp.at
+    // with the doc's updatedAt (the player's last save) to know which value is newer.
+    async function setGmHpOverride(inviteCode, uid, hp, tempHp) {
         if (!inviteCode || !uid) return;
+        let v = { hp, at: firebase.firestore.FieldValue.serverTimestamp() };
+        if (tempHp !== undefined && tempHp !== null) v.tempHp = tempHp;
         await db.collection('worldCodes').doc(inviteCode)
             .collection('players').doc(uid)
-            .set({ _gmHp: { hp, at: firebase.firestore.FieldValue.serverTimestamp() } }, { merge: true });
+            .set({ _gmHp: v }, { merge: true });
     }
 
     // --- NPC portraits (stored separately to keep world doc under 1MB limit) ---

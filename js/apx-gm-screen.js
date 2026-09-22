@@ -312,6 +312,16 @@ function startPartyListener(inviteCode) {
             let state = p.charState || p.state;
             // Battle token positions are handled by APXBattle's own listener (js/apx-battlemap.js)
             if (!state) return;
+            // HP authority: if the GM's last HP write (_gmHp) is newer than the player's last
+            // save, the sheet data here is STALE (the player hasn't received it yet) — use the
+            // GM's values. Without this, a Revive to 1 HP was instantly overwritten by the
+            // sheet's old 0 HP, which re-triggered the bleed-out prompt.
+            let gm = p._gmHp;
+            if (gm && gm.hp !== undefined) {
+                let gmAt  = gm.at?.toMillis ? gm.at.toMillis() : Infinity;   // null = our own pending write
+                let savAt = p.updatedAt?.toMillis ? p.updatedAt.toMillis() : 0;
+                if (gmAt >= savAt) state = { ...state, currentHp: gm.hp, tempHp: gm.tempHp ?? state.tempHp };
+            }
             // Update the party panel
             let entry = window.gmParty.find(x => x.fileName === p.uid);
             if (entry) {
@@ -332,6 +342,11 @@ function startPartyListener(inviteCode) {
             if (newHp !== undefined) {
                 (window.gmInitiative||[]).forEach(e => {
                     if (e.playerUid === p.uid) {
+                        // Just revived: ignore a stale "0 HP" from the sheet until it catches up
+                        if (e._reviveHoldUntil) {
+                            if (newHp > 0 || Date.now() > e._reviveHoldUntil) delete e._reviveHoldUntil;
+                            else return;
+                        }
                         let wasUp = e.currentHp === null || e.currentHp > 0;
                         // Player's own sheet took them to 0 → start bleeding out (not dead)
                         if (wasUp && newHp <= 0 && e.faction === 'player' && e.bleedOutTurns == null) {
@@ -704,85 +719,71 @@ window.removeFromInitiative = function(id, opts) {
 // Directly editing the Temp HP field itself, not damage passing through
 // it -- same overflow-to-current-HP behavior as the character sheet's own
 // Temp HP field for consistency.
+// Push the tracker's HP + Temp HP for a party member to their character sheet
+function _syncHpToPlayer(entry) {
+    if (!entry || entry.faction !== 'player' || !entry.playerUid) return;
+    let worlds = typeof _gmWorlds !== 'undefined' ? _gmWorlds : [];
+    let activeWorld = worlds.find(w => (w.worldId||w.id) === (typeof _activeWorldId !== 'undefined' ? _activeWorldId : null));
+    let inviteCode = activeWorld?.inviteCode;
+    if (inviteCode && window.apxAuth?.enabled && typeof window.apxAuth.setGmHpOverride === 'function') {
+        window.apxAuth.setGmHpOverride(inviteCode, entry.playerUid, entry.currentHp, entry.tempHp || 0)
+            .catch(e => console.warn('HP sync to player:', e.message));
+    }
+}
+window._syncHpToPlayer = _syncHpToPlayer;
+
+// Shared after-change handling: 0 HP → bleed out (players) / killed (NPCs); healed → clear bleed-out
+function _afterHpChange(entry, wasAboveZero) {
+    if (entry.currentHp !== null && entry.currentHp <= 0 && wasAboveZero) {
+        if (entry.faction === 'player') {
+            _syncHpToPlayer(entry);
+            window.openBleedOutModal(entry.id);
+        } else {
+            window.gmPendingXp += (entry.tpValue || 0);
+            window.removeFromInitiative(entry.id, { dead: true });
+            return;
+        }
+    } else if (entry.currentHp > 0) {
+        entry.bleedOutTurns = null;
+        entry.stabilized = false;
+        _syncHpToPlayer(entry);
+    } else {
+        _syncHpToPlayer(entry);
+    }
+    window.renderInitiativeTracker();
+    // Refresh token colours (dead/bleed-out). Combat never ends here — a player at
+    // 0 HP is BLEEDING OUT, not dead (see _killBledOutPlayer).
+    if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
+}
+
+// Temp HP box: typed value sets Temp HP; a negative result overflows into HP.
 window.setInitiativeTempHp = function(id, value) {
     let entry = window.gmInitiative.find(e => e.id === id);
     if (!entry) return;
     let result = window.parseMathExpression(value, entry.tempHp || 0);
     if (result === null) { window.renderInitiativeTracker(); return; }
+    let wasAboveZero = entry.currentHp === null || entry.currentHp > 0;
     if (result < 0) {
-        let overflow = result;
+        let r = window.apxApplyHpInput(String(result), entry.currentHp, 0, entry.maxHp);
         entry.tempHp = 0;
-        let wasAboveZero = entry.currentHp === null || entry.currentHp > 0;
-        entry.currentHp = entry.maxHp !== null ? Math.max(0, Math.min(entry.maxHp, (entry.currentHp || 0) + overflow)) : Math.max(0, (entry.currentHp || 0) + overflow);
-        if (entry.currentHp <= 0 && wasAboveZero) {
-            if (entry.faction === 'player') {
-                window.openBleedOutModal(id);
-                return;
-            } else {
-                window.gmPendingXp += (entry.tpValue || 0);
-                window.removeFromInitiative(id, { dead: true });
-                return;
-            }
-        }
+        if (r) entry.currentHp = r.currentHp;
     } else {
         entry.tempHp = result;
     }
-    window.renderInitiativeTracker();
+    _afterHpChange(entry, wasAboveZero);
 };
 
+// HP box: "-N" damage hits Temp HP first, leftover carries to HP; "+N" heals; "N" sets.
+// Same rule as the character sheet (window.apxApplyHpInput), and both values sync.
 window.updateInitiativeHp = function(id, value) {
     let entry = window.gmInitiative.find(e => e.id === id);
     if (!entry) return;
-    let cleanVal = (value || '').replace(/[^0-9\+\-\s]/g, '').trim();
     let wasAboveZero = entry.currentHp === null || entry.currentHp > 0;
-
-    if (cleanVal.startsWith('-')) {
-        let delta = window.parseMathExpression(cleanVal, 0); // the raw delta alone, e.g. -5
-        let dmg = -delta; // positive damage amount
-        let tempHp = entry.tempHp || 0;
-        if (tempHp >= dmg) {
-            entry.tempHp = tempHp - dmg;
-        } else {
-            let leftover = dmg - tempHp;
-            entry.tempHp = 0;
-            entry.currentHp = Math.max(0, (entry.currentHp || 0) - leftover);
-        }
-    } else {
-        let result = window.parseMathExpression(cleanVal, entry.currentHp);
-        if (result === null) { window.renderInitiativeTracker(); return; }
-        entry.currentHp = entry.maxHp !== null ? Math.max(0, Math.min(result, entry.maxHp)) : Math.max(0, result);
-    }
-
-    if (entry.currentHp <= 0 && wasAboveZero) {
-        if (entry.faction === 'player') {
-            window.openBleedOutModal(id);
-        } else {
-            window.gmPendingXp += (entry.tpValue || 0);
-            window.removeFromInitiative(id, { dead: true });
-            return; // removeFromInitiative already re-renders
-        }
-    } else if (entry.currentHp > 0) {
-        entry.bleedOutTurns = null; // healed
-        entry.stabilized = false;
-    }
-    // ── Sync HP back to player's character sheet ──────────────────────────
-    // If this is a party member (faction:'player'), push the new HP to
-    // worldCodes/{inviteCode}/players/{uid} so the player's sheet listener
-    // picks it up immediately.
-    if (entry.faction === 'player' && entry.playerUid) {
-        let worlds = typeof _gmWorlds !== 'undefined' ? _gmWorlds : [];
-        let activeWorld = worlds.find(w => (w.worldId||w.id) === (typeof _activeWorldId !== 'undefined' ? _activeWorldId : null));
-        let inviteCode = activeWorld?.inviteCode;
-        if (inviteCode && window.apxAuth?.enabled && typeof window.apxAuth.setGmHpOverride === 'function') {
-            window.apxAuth.setGmHpOverride(inviteCode, entry.playerUid, entry.currentHp)
-                .catch(e => console.warn('HP sync to player:', e.message));
-        }
-    }
-    window.renderInitiativeTracker();
-    // Refresh token colours (dead/bleed-out). Combat never ends here — a player at
-    // 0 HP is BLEEDING OUT, not dead. Death only happens when the counter hits 0
-    // (see _killBledOutPlayer), and that is where the "all players dead" check lives.
-    if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
+    let r = window.apxApplyHpInput(value, entry.currentHp, entry.tempHp, entry.maxHp);
+    if (!r) { window.renderInitiativeTracker(); return; }
+    entry.currentHp = r.currentHp;
+    entry.tempHp = r.tempHp;
+    _afterHpChange(entry, wasAboveZero);
 };
 
 window.toggleSurprised = function(id, checked) {
@@ -908,20 +909,25 @@ window.clearInitiative = function() {
 // non-player hit 0 -- the GM might still add more, or a Mythic Awakening
 // could bring one back -- so this is the only thing that actually ends it.
 window.endCombat = function() {
-    // Check for alive enemies to handle escaped/surrendered XP
-    let playerCount = window.gmInitiative.filter(e => e.faction === 'player' && (e.currentHp === null || e.currentHp > 0)).length;
+    // XP is split evenly between EVERY survivor on the party's side: players and allies.
+    // Anyone still in the tracker is alive (the dead are removed), including players
+    // who are bleeding out. Allies take a share but, being NPCs, their share isn't paid out.
+    let survivors = window.gmInitiative.filter(e => e.faction === 'player' || e.faction === 'ally');
+    let players   = survivors.filter(e => e.faction === 'player');
+    let allyCount = survivors.length - players.length;
     let totalXp = window.gmPendingXp;
-    let perPlayer = playerCount > 0 ? Math.floor(totalXp / playerCount) : 0;
-    let message = playerCount > 0
-        ? `Combat ended. ${totalXp} XP earned — ${perPlayer} XP per player (${playerCount} players).`
-        : `Combat ended. ${totalXp} XP earned, but no surviving players to split it.`;
+    let perPlayer = survivors.length > 0 ? Math.floor(totalXp / survivors.length) : 0;
+    let split = `${players.length} player${players.length===1?'':'s'}${allyCount ? ` + ${allyCount} all${allyCount===1?'y':'ies'}` : ''}`;
+    let message = survivors.length > 0
+        ? `Combat ended. ${totalXp} XP earned — ${perPlayer} XP each, split between ${split}.`
+        : `Combat ended. ${totalXp} XP earned, but no surviving players or allies to split it.`;
     window.showConfirm(message, () => {
         // Distribute XP to each surviving player via their initiative entry
         if (perPlayer > 0) {
             let worlds = typeof _gmWorlds !== 'undefined' ? _gmWorlds : [];
             let activeWorld = worlds.find(w => (w.worldId||w.id) === (typeof _activeWorldId !== 'undefined' ? _activeWorldId : null));
             let inviteCode = activeWorld?.inviteCode;
-            window.gmInitiative.filter(e => e.faction === 'player' && e.playerUid && (e.currentHp === null || e.currentHp > 0)).forEach(e => {
+            players.filter(e => e.playerUid).forEach(e => {
                 if (inviteCode && window.apxAuth?.enabled && typeof window.apxAuth.addXpToPlayer === 'function') {
                     window.apxAuth.addXpToPlayer(inviteCode, e.playerUid, perPlayer)
                         .catch(err => console.warn('XP grant error:', err.message));

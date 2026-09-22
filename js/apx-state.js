@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.9.22.1040';
+window.APX_VERSION = 'v2026.9.22.1100';
 
         window.state = getInitialState();
 
@@ -288,17 +288,46 @@ window.APX_VERSION = 'v2026.9.22.1040';
             return result;
         };
 
+        // ── Shared HP rule (character sheet AND GM initiative tracker) ──────
+        //   "-N"  → damage: Temp HP absorbs it first, any leftover comes off HP (min 0)
+        //   "+N"  → healing: HP only, capped at max. Temp HP untouched.
+        //   "N"   → set HP to N (capped). Temp HP untouched.
+        // Returns {currentHp, tempHp} or null if the input doesn't parse.
+        window.apxApplyHpInput = function(raw, cur, temp, max) {
+            let clean = String(raw ?? '').replace(/[^0-9\+\-\s]/g, '').trim();
+            if (clean === '') return null;
+            cur = Number(cur) || 0; temp = Math.max(0, Number(temp) || 0);
+            let cap = v => Math.max(0, (max !== null && max !== undefined) ? Math.min(max, v) : v);
+            if (clean.startsWith('-') || clean.startsWith('+')) {
+                let delta = window.parseMathExpression(clean, 0);
+                if (delta === null || isNaN(delta)) return null;
+                if (delta < 0) {
+                    let dmg = -delta, fromTemp = Math.min(temp, dmg);
+                    return { currentHp: cap(cur - (dmg - fromTemp)), tempHp: temp - fromTemp };
+                }
+                return { currentHp: cap(cur + delta), tempHp: temp };
+            }
+            let r = window.parseMathExpression(clean, cur);
+            if (r === null || isNaN(r)) return null;
+            return { currentHp: cap(r), tempHp: temp };
+        };
+
         window.handleMathInput = function(stateKey, inputEl) {
             let val = inputEl.value;
             try {
-                let result = window.parseMathExpression(val, window.state[stateKey]);
-                if (result === null) throw new Error('unparseable');
-
                 if (stateKey === 'currentHp') {
+                    // Damage goes through Temp HP first (same rule as the GM tracker)
                     let vitalHpRank = window.state.perks['con_vitality'] || 0;
                     let maxHp = Math.max(5, (calc.scores.CON * 5) + (vitalHpRank * 5) + window.state.xpHpBought - calc.maxHpPenalty);
-                    result = Math.max(0, Math.min(result, maxHp));
+                    let r = window.apxApplyHpInput(val, window.state.currentHp, window.state.tempHp, maxHp);
+                    if (!r) throw new Error('unparseable');
+                    window.state.tempHp = r.tempHp;
+                    window.updateState('currentHp', r.currentHp);
+                    window.apxRefreshHpInputs?.();
+                    return;
                 }
+                let result = window.parseMathExpression(val, window.state[stateKey]);
+                if (result === null) throw new Error('unparseable');
                 if (stateKey === 'tempHp' && result < 0) {
                     // Temp HP can never go negative. Any negative overflow
                     // comes out of current HP instead, same as it would in
@@ -315,9 +344,16 @@ window.APX_VERSION = 'v2026.9.22.1040';
                 }
 
                 window.updateState(stateKey, result);
+                if (stateKey === 'tempHp') window.apxRefreshHpInputs?.();  // overflow may have changed HP
             } catch(e) {
                 inputEl.value = window.state[stateKey];
             }
+        };
+
+        // Keep both HP boxes showing the real values after any change
+        window.apxRefreshHpInputs = function() {
+            let h = document.getElementById('currentHpInput'); if (h) h.value = window.state.currentHp;
+            let t = document.getElementById('tempHpInput');    if (t) t.value = window.state.tempHp || 0;
         };
 
         window.updateNestedState = function(obj, key, val) {

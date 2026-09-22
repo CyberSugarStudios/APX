@@ -4020,26 +4020,41 @@
     // ── GM→Player HP sync listener ────────────────────────────    // When the GM applies damage/healing in the initiative tracker, they write
     // { _gmHp: { hp, at } } to worldCodes/{code}/players/{uid}.
     // This listener picks that up and updates the player's sheet immediately.
-    let _lastGmHpAt = 0;
+    let _lastGmHpAt = {};   // per world
+    let _hpListeners = {};
     function startPlayerHpListener(inviteCode, uid) {
         if (!inviteCode || !uid || !window.apxAuth?.enabled || !window._apxDb) return;
+        if (_hpListeners[inviteCode]) return;   // one listener per world
         let db = window._apxDb;
-        db.collection('worldCodes').doc(inviteCode)
+        let first = true;
+        _hpListeners[inviteCode] = db.collection('worldCodes').doc(inviteCode)
             .collection('players').doc(uid)
             .onSnapshot(snap => {
                 if (!snap.exists) return;
                 let data = snap.data();
+                // Only touch the sheet if the loaded character belongs to THIS world
+                let activeChar = (window._sidebarChars||[]).find(c => c.id === window._activeCloudCharId);
+                let isThisWorld = !activeChar?.worldCode || activeChar.worldCode === inviteCode;
                 let gmHp = data._gmHp;
-                if (gmHp) {
+                if (gmHp && isThisWorld) {
                     let at = gmHp.at?.toMillis?.() || 0;
-                    if (at > _lastGmHpAt) {
-                        _lastGmHpAt = at;
+                    let savedAt = data.updatedAt?.toMillis?.() || 0;
+                    // On load, apply only if the GM changed HP after this sheet last saved;
+                    // after that, apply every new GM write.
+                    let apply = at > (_lastGmHpAt[inviteCode] || 0) && (!first || at >= savedAt);
+                    if (at) _lastGmHpAt[inviteCode] = Math.max(_lastGmHpAt[inviteCode] || 0, at);
+                    if (apply && window.state) {
                         let hp = gmHp.hp;
-                        if (hp !== undefined && hp !== window.state?.currentHp) {
-                            if (window.state) window.state.currentHp = hp;
-                            if (typeof window.recalculateMath === 'function') window.recalculateMath();
+                        let tmp = gmHp.tempHp;
+                        let hpChanged  = hp !== undefined && hp !== window.state.currentHp;
+                        let tmpChanged = tmp !== undefined && tmp !== (window.state.tempHp || 0);
+                        if (hpChanged || tmpChanged) {
+                            if (hp !== undefined)  window.state.currentHp = hp;
+                            if (tmp !== undefined) window.state.tempHp = tmp;
+                            if (typeof window.recalculateMath === 'function') window.recalculateMath();  // also saves
+                            window.apxRefreshHpInputs?.();
                             let toast = document.createElement('div');
-                            toast.textContent = `HP updated by GM: ${hp}`;
+                            toast.textContent = `HP updated by GM: ${window.state.currentHp}` + ((window.state.tempHp||0) ? ` (+${window.state.tempHp} temp)` : '');
                             toast.style.cssText = 'position:fixed;bottom:1.5rem;right:1.5rem;z-index:99999;background:#1e3a5f;color:#93c5fd;font-size:0.75rem;font-weight:700;padding:0.5rem 1rem;border-radius:0.5rem;border:1px solid #3b82f6;pointer-events:none;';
                             document.body.appendChild(toast);
                             setTimeout(() => toast.remove(), 3500);
@@ -4047,11 +4062,14 @@
                     }
                 }
                 // XP grant from end of combat
+                // (On load, only if granted after this sheet last saved — otherwise it was
+                //  already applied and re-applying on every page load would double-pay.)
                 let xpGrant = data._xpGrant;
-                if (xpGrant?.amount && xpGrant.at) {
+                if (xpGrant?.amount && xpGrant.at && isThisWorld) {
                     let xpAt = xpGrant.at?.toMillis?.() || 0;
+                    let savedAt = data.updatedAt?.toMillis?.() || 0;
                     if (!window._lastXpAt) window._lastXpAt = 0;
-                    if (xpAt > window._lastXpAt) {
+                    if (xpAt > window._lastXpAt && (!first || xpAt > savedAt)) {
                         window._lastXpAt = xpAt;
                         let gained = xpGrant.amount;
                         if (window.state) {
@@ -4064,8 +4082,11 @@
                         toast.style.cssText = 'position:fixed;bottom:4rem;right:1.5rem;z-index:99999;background:#064e3b;color:#6ee7b7;font-size:0.8rem;font-weight:900;padding:0.6rem 1.2rem;border-radius:0.5rem;border:1px solid #10b981;pointer-events:none;';
                         document.body.appendChild(toast);
                         setTimeout(() => toast.remove(), 5000);
+                    } else if (xpAt > window._lastXpAt) {
+                        window._lastXpAt = xpAt;   // already applied before this load
                     }
                 }
+                first = false;
             }, err => console.warn('Player HP listener:', err.message));
     }
 
