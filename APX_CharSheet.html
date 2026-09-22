@@ -3878,6 +3878,28 @@
             if(el._pgx!==undefined){
                 // Fog restriction: snap to nearest revealed cell if drop target is fogged
                 let dest = _pwNearestOpenCell(winId, el._pgx, el._pgy, g);
+                // Same-size collision: if another same-size token is at the destination, find adjacent free cell
+                let mySm = ({tiny:0.5,small:0.75,medium:1,large:2,huge:3,gargantuan:4})[tok.size||'medium']||1;
+                let tokens = (map.battleTokens||[]);
+                let blocked = tokens.some(other => {
+                    if (other.id === tok.id) return false;
+                    let osm = ({tiny:0.5,small:0.75,medium:1,large:2,huge:3,gargantuan:4})[other.size||'medium']||1;
+                    return osm === mySm && other.gridX === dest.gridX && other.gridY === dest.gridY;
+                });
+                if (blocked) {
+                    let found = false;
+                    for (let r = 1; r <= 6 && !found; r++) {
+                        for (let dx = -r; dx <= r && !found; dx++) {
+                            for (let dy = -r; dy <= r && !found; dy++) {
+                                if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
+                                let nx = dest.gridX+dx, ny = dest.gridY+dy;
+                                let occ = tokens.some(o=>o.id!==tok.id&&({tiny:0.5,small:0.75,medium:1,large:2,huge:3,gargantuan:4})[o.size||'medium']===mySm&&o.gridX===nx&&o.gridY===ny);
+                                let fog = _pwCellUnderFog(winId, nx, ny, g);
+                                if (!occ && !fog) { dest = {gridX:nx, gridY:ny}; found=true; }
+                            }
+                        }
+                    }
+                }
                 tok.gridX=dest.gridX; tok.gridY=dest.gridY;
                 // Write position (fast path)
                 if(!window.state.battlePositions) window.state.battlePositions={};

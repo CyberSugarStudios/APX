@@ -1459,16 +1459,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     revealed: false, notes: [], ...n
                 })),
             };
-            // Pre-populate NPC portrait cache from subcollection so portraits show at full
-            // quality immediately without waiting for a token to be moved.
-            window._npcPortraitCache = {};
-            (_wNotes.npcs||[]).filter(n=>n.hasPortrait).forEach(n=>{
+            // Pre-populate NPC portrait cache from subcollection so portraits show at full quality
+            // on world load without waiting for a token to be moved.
+            // IMPORTANT: never clear the existing cache — it may have portraits from this session.
+            if (!window._npcPortraitCache) window._npcPortraitCache = {};
+            (_wNotes.npcs||[]).filter(n=>n.hasPortrait && !window._npcPortraitCache[n.id]).forEach(n=>{
                 if (!window.apxAuth?.enabled || !_activeWorldId) return;
                 window.apxAuth.loadNpcPortrait(_activeWorldId, n.id).then(data=>{
                     if (data) {
                         window._npcPortraitCache[n.id] = data;
                         n.portrait = data.portrait; n.portraitFull = data.portraitFull;
-                        // Refresh any already-open portrait elements
                         document.querySelectorAll(`[data-npcportrait="${n.id}"]`).forEach(el=>{
                             if (data.portrait) el.innerHTML=`<img src="${data.portrait}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;pointer-events:none;">`;
                         });
@@ -1849,7 +1849,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // NPC portrait upload with circle-crop preview
     // ── NPC Portrait cache ───────────────────────────────────────
-    window._npcPortraitCache = {};
+    if (!window._npcPortraitCache) window._npcPortraitCache = {};
 
     window._getNpcPortrait = async function(npcId) {
         // 1. Return from cache if available
@@ -3346,15 +3346,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
                     tok.gridX=gx;tok.gridY=gy;
-                    // If this is a player token, update their Firestore battlePositions record.
-                    // This prevents the party listener from reverting the GM's move when it
-                    // next fires (from HP changes, XP grants, etc.) and reads the player's
-                    // stale old position.
-                    if (tok.type === 'player' && tok.playerUid && window.apxAuth?.gmSetPlayerBattlePos) {
-                        let worlds = typeof _gmWorlds !== 'undefined' ? _gmWorlds : [];
-                        let activeWorld = worlds.find(w=>(w.worldId||w.id)===(typeof _activeWorldId!=='undefined'?_activeWorldId:null));
-                        let ic = activeWorld?.inviteCode;
-                        if (ic) window.apxAuth.gmSetPlayerBattlePos(ic, tok.playerUid, mapId, tok.id, gx, gy).catch(()=>{});
+                    // Timestamp-lock: record when GM moved this player token so _gmApplyPlayerBattlePos
+                    // can reject the player's stale old battlePositions when it fires next.
+                    if (tok.type === 'player') {
+                        tok._gmMoveAtMs = Date.now();
                     }
                     // Save immediately for near-instant player updates — bypass debounce
                     saveWorldNotes();
@@ -3714,9 +3709,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Must live here (not in gm-screen.js) because _wNotes is a closure variable in GMTools.
     window._gmApplyPlayerBattlePos = function(playerUid, battlePositions) {
         if (!battlePositions) return;
-        // Maintain a separate authoritative cache — this is the source of truth
-        // for player positions when building public notes. Using _wNotes alone
-        // can cause position drift if the party listener fires from a non-move write.
         if (!window._gmPlayerPosCache) window._gmPlayerPosCache = {};
         window._gmPlayerPosCache[playerUid] = battlePositions;
 
@@ -3726,6 +3718,15 @@ document.addEventListener('DOMContentLoaded', () => {
             Object.entries(positions).forEach(([tokenId, pos]) => {
                 let tok = (map.battleTokens||[]).find(t=>t.id===tokenId); if(!tok) return;
                 if (tok.playerUid !== playerUid) return;
+                // If the GM moved this token more recently than the player's last recorded move,
+                // reject the stale player position so the GM's move is not reverted.
+                // pos.at is the server timestamp of the player's last updatePlayerBattlePos write.
+                let posAtMs = pos.at?.toMillis?.() || pos.at || 0;
+                if (tok._gmMoveAtMs && posAtMs < tok._gmMoveAtMs - 500) {
+                    return; // GM's move is newer — skip this stale player position
+                }
+                // Player made a new move after GM's — clear the lock
+                if (tok._gmMoveAtMs) delete tok._gmMoveAtMs;
                 if (tok.gridX !== pos.gridX || tok.gridY !== pos.gridY) {
                     tok.gridX = pos.gridX; tok.gridY = pos.gridY; dirty = true;
                 }
