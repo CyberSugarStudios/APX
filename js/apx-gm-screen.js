@@ -679,19 +679,18 @@ window.removeFromInitiative = function(id) {
     let idx = window.gmInitiative.findIndex(e => e.id === id);
     if (idx === -1) return;
     let wasCurrent = (idx === window.gmCurrentTurnIdx) && window.gmCombatStarted;
+    // Mark matching battle tokens as explicitly dead BEFORE splicing the entry,
+    // so the next saveWorldNotes call can still publish _dead:true even though
+    // the initiative entry no longer exists in gmInitiative.
+    if (typeof window._gmMarkTokenDead === 'function') window._gmMarkTokenDead(id);
     window.gmInitiative.splice(idx, 1);
     if (idx < window.gmCurrentTurnIdx) window.gmCurrentTurnIdx--;
     else if (wasCurrent) {
-        // Advance to the next creature's turn immediately
-        if (window.gmInitiative.length) {
-            window.gmCurrentTurnIdx = window.gmCurrentTurnIdx % window.gmInitiative.length;
-        } else {
-            window.gmCurrentTurnIdx = 0;
-        }
+        window.gmCurrentTurnIdx = window.gmInitiative.length
+            ? window.gmCurrentTurnIdx % window.gmInitiative.length : 0;
     }
     window.closeFloatingStatBlock(id);
     window.renderInitiativeTracker();
-    // Push updated turn highlight and cleared dead-state immediately
     if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
     if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
 };
@@ -781,10 +780,15 @@ window.updateInitiativeHp = function(id, value) {
     window.renderInitiativeTracker();
     // Refresh token colours (dead/bleed-out) WITHOUT saving world notes.
     if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
-    // Auto-end combat if all players are dead/bleeding out and combat is running
+    // Auto-end combat only if ALL players are TRULY dead — not just bleeding out.
+    // A player at 0 HP with bleedOutTurns > 0 is still fighting for their life.
     if (window.gmCombatStarted) {
         let players = window.gmInitiative.filter(e => e.faction === 'player');
-        if (players.length > 0 && players.every(e => e.currentHp !== null && e.currentHp <= 0)) {
+        let allTrulyDead = players.length > 0 && players.every(e =>
+            e.currentHp !== null && e.currentHp <= 0 &&
+            !(e.bleedOutTurns !== null && e.bleedOutTurns !== undefined && e.bleedOutTurns > 0)
+        );
+        if (allTrulyDead) {
             setTimeout(() => {
                 window.showConfirm('All players are down! End combat?', () => window.endCombat(), true);
             }, 300);

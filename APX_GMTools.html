@@ -1555,22 +1555,31 @@ document.addEventListener('DOMContentLoaded', () => {
                                 let btTokens = (m.battleTokens||[]).map(t=>{
                                     let entry = t.initiativeId ? (window.gmInitiative||[]).find(e=>e.id===t.initiativeId) : null;
                                     let isBO = !!(entry && entry.currentHp !== null && entry.currentHp <= 0 && entry.faction==='player' && (entry.bleedOutTurns||0) > 0);
-                                    // Explicitly list every field — never spread t directly, undefined values break Firestore
+                                    // For player tokens: use the position cache as authoritative source
+                                    // to prevent position drift when HP updates trigger party listener
+                                    let gridX = t.gridX ?? 0, gridY = t.gridY ?? 0;
+                                    if (t.type === 'player' && t.playerUid && window._gmPlayerPosCache?.[t.playerUid]) {
+                                        let cached = window._gmPlayerPosCache[t.playerUid]?.[m.id]?.[t.id];
+                                        if (cached) { gridX = cached.gridX ?? gridX; gridY = cached.gridY ?? gridY; }
+                                    }
+                                    // _explicitDead is set on the token by _gmMarkTokenDead BEFORE removeFromInitiative
+                                    // splices the entry, so we can still publish the dead state even after removal
+                                    let isDead = t._explicitDead || !!(entry && entry.currentHp !== null && entry.currentHp <= 0 && !isBO);
                                     return {
                                         id:           t.id            || '',
                                         type:         t.type          || 'npc',
                                         name:         t.name          || '',
                                         color:        t.color         || null,
                                         size:         t.size          || 'medium',
-                                        gridX:        t.gridX         ?? 0,
-                                        gridY:        t.gridY         ?? 0,
+                                        gridX,
+                                        gridY,
                                         worldNpcId:   t.worldNpcId    || null,
                                         playerUid:    t.playerUid     || null,
                                         initiativeId: t.initiativeId  || null,
                                         revealed:     t.revealed      !== false,
-                                        _dead:        !!(entry && entry.currentHp !== null && entry.currentHp <= 0 && !isBO),
+                                        _dead:        isDead,
                                         _bleedingOut: isBO,
-                                        _faction:     entry?.faction  || null
+                                        _faction:     t.faction || entry?.faction  || null
                                     };
                                 });
                                 let tokens = (m.tokens||[]).filter(t=>t.revealed).map(t=>{
@@ -1829,22 +1838,25 @@ document.addEventListener('DOMContentLoaded', () => {
     window._getNpcPortrait = async function(npcId) {
         // 1. Return from cache if available
         if (window._npcPortraitCache[npcId]) return window._npcPortraitCache[npcId];
-        // 2. Check in-memory _wNotes (just uploaded this session)
         let npc = (_wNotes.npcs||[]).find(n=>n.id===npcId);
+        // 2. If hasPortrait is set, ALWAYS load from subcollection — the inline npc.portrait
+        //    may be a stale low-res thumbnail from before the subcollection change.
+        //    Skip the in-memory fallback so players always see the full-quality version.
+        if (npc?.hasPortrait && window.apxAuth?.enabled && _activeWorldId && window.apxAuth.loadNpcPortrait) {
+            let data = await window.apxAuth.loadNpcPortrait(_activeWorldId, npcId).catch(()=>null);
+            if (data) {
+                window._npcPortraitCache[npcId] = data;
+                npc.portrait = data.portrait; npc.portraitFull = data.portraitFull;
+            }
+            return data || null;
+        }
+        // 3. Fall back to in-memory portrait (just-uploaded this session, no subcollection write yet)
         if (npc?.portrait) {
             let cached = { portrait: npc.portrait, portraitFull: npc.portraitFull || npc.portrait };
             window._npcPortraitCache[npcId] = cached;
             return cached;
         }
-        // 3. Fetch from Firestore subcollection
-        if (!window.apxAuth?.enabled || !_activeWorldId || !window.apxAuth.loadNpcPortrait) return null;
-        let data = await window.apxAuth.loadNpcPortrait(_activeWorldId, npcId).catch(()=>null);
-        if (data) {
-            window._npcPortraitCache[npcId] = data;
-            // Also update in-memory npc object so next render is instant
-            if (npc) { npc.portrait = data.portrait; npc.portraitFull = data.portraitFull; }
-        }
-        return data || null;
+        return null;
     };
 
     // Update every portrait element for this npcId on the page
@@ -3190,10 +3202,9 @@ document.addEventListener('DOMContentLoaded', () => {
             let linkedEntry = t.initiativeId ? (window.gmInitiative||[]).find(e=>e.id===t.initiativeId) : null;
             let entryHp   = linkedEntry ? linkedEntry.currentHp : null;
             let isAtZeroHp = entryHp !== null && entryHp !== undefined && entryHp <= 0;
-            // Bleeding out: PLAYER faction, HP <= 0, bleedOutTurns set > 0
             let isBleedingOut = !!(isAtZeroHp && linkedEntry?.faction === 'player' && (linkedEntry.bleedOutTurns||0) > 0);
-            // Dead: HP <= 0 AND not bleeding out (covers enemies at 0 HP, and players when bleedOutTurns hits 0)
-            let isDead = !!(isAtZeroHp && !isBleedingOut);
+            // _explicitDead is set by _gmMarkTokenDead before the entry is spliced from gmInitiative
+            let isDead = t._explicitDead || !!(isAtZeroHp && !isBleedingOut);
             let isHidden = t.revealed === false;
             let faction = linkedEntry?.faction || t.faction || (t.type === 'player' ? 'player' : 'enemy');
             let factionBorder = {player:'#3b82f6', ally:'#22c55e', neutral:'#e2e8f0', enemy:'#ef4444'}[faction] || '#e2e8f0';
@@ -3622,12 +3633,18 @@ document.addEventListener('DOMContentLoaded', () => {
     // Must live here (not in gm-screen.js) because _wNotes is a closure variable in GMTools.
     window._gmApplyPlayerBattlePos = function(playerUid, battlePositions) {
         if (!battlePositions) return;
+        // Maintain a separate authoritative cache — this is the source of truth
+        // for player positions when building public notes. Using _wNotes alone
+        // can cause position drift if the party listener fires from a non-move write.
+        if (!window._gmPlayerPosCache) window._gmPlayerPosCache = {};
+        window._gmPlayerPosCache[playerUid] = battlePositions;
+
         let dirty = false;
         Object.entries(battlePositions).forEach(([mapId, positions]) => {
             let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return;
             Object.entries(positions).forEach(([tokenId, pos]) => {
                 let tok = (map.battleTokens||[]).find(t=>t.id===tokenId); if(!tok) return;
-                if (tok.playerUid !== playerUid) return; // only the owner can move their token
+                if (tok.playerUid !== playerUid) return;
                 if (tok.gridX !== pos.gridX || tok.gridY !== pos.gridY) {
                     tok.gridX = pos.gridX; tok.gridY = pos.gridY; dirty = true;
                 }
@@ -3637,6 +3654,15 @@ document.addEventListener('DOMContentLoaded', () => {
             saveWorldNotes();
             window._btRefreshAllOpenMaps();
         }
+    };
+
+    // Mark a battle token as explicitly dead BEFORE its initiative entry is removed
+    window._gmMarkTokenDead = function(entryId) {
+        (_wNotes.otherMaps||[]).forEach(m => {
+            (m.battleTokens||[]).forEach(t => {
+                if (t.initiativeId === entryId) t._explicitDead = true;
+            });
+        });
     };
 
     // ── END BATTLE MAP SYSTEM ──────────────────────────────────────
