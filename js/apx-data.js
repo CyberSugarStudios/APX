@@ -39,7 +39,7 @@
             { id: "freezing", name: "Freezing", desc: "2x AP to move. +5 damage taken from Bludgeoning. Past your CON score in hours, gain 1 Fatigue/hour until warmed." },
             { id: "frightened", name: "Frightened", desc: "Disadvantage on all attribute checks and attack rolls while the fear source is visible/audible. Can't willingly move toward it.",
               atkDisadvantage: 'general', checkDisadvantage: 'all' },
-            { id: "incapacitated", name: "Incapacitated", desc: "AP reduced to 0; can't take actions, Free Actions, or Reactions. Vulnerable to a Coup de Grace or capture.",
+            { id: "incapacitated", name: "Incapacitated", desc: "AP reduced to 0; can't take actions, Free Actions, or Reactions. Completely exposed: any hit against you is a Critical Hit and bypasses all your resistances.",
               apZero: true },
             { id: "infected", name: "Infected", desc: "Carries a disease with no symptoms or penalties yet. Becomes Diseased after the incubation period." },
             { id: "paralyzed", name: "Paralyzed", desc: "Also Incapacitated. Can't move or speak. Auto-fail STR/AGI saves. Melee hits within 1 square are automatic Critical Hits.",
@@ -663,3 +663,42 @@
         }
         window.npcWeaponTp = npcWeaponTp;
         window.npcArmorTp = npcArmorTp;
+
+
+        // ------------------------------------------------------------------
+        // Conditions that bring other conditions with them (rulebook wording:
+        // "is also Unconscious", "considered Incapacitated", ...).
+        //   CONDITION_IMPLIES: active only while the parent is active
+        //   CONDITION_ON_START: added once when the parent begins, then stays
+        //                       on its own (an Unconscious creature falls Prone
+        //                       and must still stand up afterwards)
+        // ------------------------------------------------------------------
+        const CONDITION_IMPLIES = {
+            bleedingout: ['unconscious'],
+            unconscious: ['incapacitated'],
+            paralyzed:   ['incapacitated'],
+            diseased:    ['infected']
+        };
+        const CONDITION_ON_START = { unconscious: ['prone'] };
+        // Exceptions from perks. Frenzy Rank 5: "If you drop to 0 HP while Provoked,
+        // you do not fall Unconscious."
+        function apxConditionBlocked(parent, child, stored, st) {
+            let perks = (st && st.perks) || {};
+            if (parent === 'bleedingout' && child === 'unconscious' && (perks.con_frenzy || 0) >= 5 && stored.includes('provoked')) return 'Frenzy (Rank 5)';
+            return null;
+        }
+        // stored: the conditions actually set. Returns [{id, from}] for every
+        // condition in effect (from = the condition that caused it, or null).
+        function apxEffectiveConditions(stored, st) {
+            stored = (stored || []).slice();
+            let out = stored.map(id => ({ id, from: null })), seen = new Set(stored);
+            for (let i = 0; i < out.length; i++) {
+                (CONDITION_IMPLIES[out[i].id] || []).forEach(child => {
+                    if (seen.has(child) || apxConditionBlocked(out[i].id, child, stored, st)) return;
+                    seen.add(child); out.push({ id: child, from: out[i].id });
+                });
+            }
+            return out;
+        }
+        window.apxEffectiveConditions = apxEffectiveConditions;
+        window.apxConditionBlocked = apxConditionBlocked;

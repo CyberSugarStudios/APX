@@ -45,12 +45,15 @@
         };
 
         window.openConditionPicker = function() {
+            let eff = window.apxEffectiveConditions ? window.apxEffectiveConditions(window.state.conditions, window.state) : [];
             let condRows = CONDITIONS.map(c => {
                 let active = window.state.conditions.includes(c.id);
+                let implied = !active && eff.find(e => e.id === c.id && e.from);
+                let fromName = implied ? (CONDITIONS.find(x => x.id === implied.from) || {}).name : '';
                 return `
-                    <label class="flex items-start gap-2 bg-slate-900 border ${active ? 'border-red-600' : 'border-slate-700'} rounded p-2 cursor-pointer">
-                        <input type="checkbox" class="mt-1" ${active ? 'checked' : ''} onchange="window.toggleCondition('${c.id}', this.checked)">
-                        <div><div class="text-xs font-bold text-slate-200">${c.name}</div><div class="text-[10px] text-slate-500 leading-tight">${c.desc}</div></div>
+                    <label class="flex items-start gap-2 bg-slate-900 border ${active ? 'border-red-600' : implied ? 'border-red-900' : 'border-slate-700'} rounded p-2 ${implied ? 'opacity-80' : 'cursor-pointer'}" ${implied ? `title="Applied automatically by ${fromName}; ends when ${fromName} ends"` : ''}>
+                        <input type="checkbox" class="mt-1" ${active || implied ? 'checked' : ''} ${implied ? 'disabled' : ''} onchange="window.toggleCondition('${c.id}', this.checked); window.openConditionPicker();">
+                        <div><div class="text-xs font-bold text-slate-200">${c.name}${implied ? ` <span class="text-[9px] text-red-400 font-bold">(from ${fromName})</span>` : ''}</div><div class="text-[10px] text-slate-500 leading-tight">${c.desc}</div></div>
                     </label>
                 `;
             }).join('');
@@ -101,9 +104,12 @@
         window.renderActiveConditions = function() {
             let el = document.getElementById('activeConditionsDisplay');
             if (!el) return;
-            let condTags = window.state.conditions.map(id => {
-                let c = CONDITIONS.find(x => x.id === id);
-                return c ? `<span class="text-[9px] bg-red-900/40 text-red-300 border border-red-800/50 px-1.5 py-0.5 rounded font-bold">${c.name}</span>` : '';
+            let eff = window.apxEffectiveConditions ? window.apxEffectiveConditions(window.state.conditions, window.state) : window.state.conditions.map(id => ({ id }));
+            let condTags = eff.map(ec => {
+                let c = CONDITIONS.find(x => x.id === ec.id);
+                if (!c) return '';
+                let from = ec.from ? (CONDITIONS.find(x => x.id === ec.from) || {}).name : '';
+                return `<span class="text-[9px] ${from ? 'bg-red-900/20 text-red-300/80 border-dashed' : 'bg-red-900/40 text-red-300'} border border-red-800/50 px-1.5 py-0.5 rounded font-bold" title="${String(c.desc).replace(/"/g, '&quot;')}${from ? ' (from ' + from + ')' : ''}">${c.name}</span>`;
             });
             let limbTags = window.state.woundedLimbs.map(limb =>
                 `<span class="text-[9px] bg-red-900/40 text-red-300 border border-red-800/50 px-1.5 py-0.5 rounded font-bold">Wounded: ${limb}</span>`

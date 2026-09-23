@@ -1630,7 +1630,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         _bleedTurns:  (isBO && entry?.bleedOutTurns != null) ? entry.bleedOutTurns : null,
                                         _faction:     t.faction || entry?.faction  || null,
                                         layer:        t.layer == null ? 1 : t.layer,
-                                        _conds:       t.type === 'player' ? [] : (t.conditions || []).map(c => window._gmCondName ? window._gmCondName(c) : c)
+                                        _conds:       t.type === 'player' ? [] : (window._gmEffCondNames ? window._gmEffCondNames(t.conditions) : (t.conditions || []))
                                     };
                                 });
                                 let btImages = (m.battleImages||[]).filter(i=>i.revealed!==false).map(i=>({
@@ -2559,7 +2559,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!ok) return;
         fc.getContext('2d').clearRect(0,0,fc.width,fc.height);
         delete _fogCache[(_activeWorldId||'?')+':'+mapId];
-        await _fogSave(mapId);
+        await _fogSaveNow(mapId);
     };
 
     // Add a new Other Map — custom styled modal, no browser prompt()
@@ -2648,7 +2648,7 @@ document.addEventListener('DOMContentLoaded', () => {
         win.style.cssText = `position:fixed;left:${170+offset}px;top:${90+offset}px;width:730px;height:540px;
             background:#0f172a;border:1px solid #334155;border-radius:0.75rem;z-index:${window.apxFloatingZTop};
             display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.85);
-            min-width:380px;min-height:300px;resize:both;overflow:hidden;`;
+            min-width:380px;min-height:300px;resize:both;overflow:hidden;contain:layout paint;`;
 
         win.innerHTML = `
             <div id="${winId}_hdr" style="cursor:grab;user-select:none;background:#1e293b;padding:0.4rem 0.6rem;
@@ -2728,7 +2728,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.target.tagName==='BUTTON' || e.target.tagName==='INPUT') return;
             wDrag=true; let r=win.getBoundingClientRect(); wOX=e.clientX-r.left; wOY=e.clientY-r.top; e.preventDefault();
         });
-        let wMM = e=>{ if(!wDrag)return; win.style.left=Math.max(0,Math.min(window.innerWidth-60,e.clientX-wOX))+'px'; win.style.top=Math.max(0,Math.min(window.innerHeight-40,e.clientY-wOY))+'px'; };
+        // one position update per frame while dragging the window
+        let wPend = null, wRaf = 0;
+        let wMM = e=>{ if(!wDrag)return; wPend = { x: e.clientX, y: e.clientY }; if (wRaf) return;
+            wRaf = requestAnimationFrame(() => { wRaf = 0; if (!wPend) return;
+                win.style.left=Math.max(0,Math.min(window.innerWidth-60,wPend.x-wOX))+'px'; win.style.top=Math.max(0,Math.min(window.innerHeight-40,wPend.y-wOY))+'px'; }); };
         let wMU = ()=>{ wDrag=false; };
         document.addEventListener('mousemove', wMM);
         document.addEventListener('mouseup', wMU);
@@ -2910,9 +2914,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let fc = document.getElementById(winId+'_fog');
             if (fc) {
                 // Resizing a canvas wipes it, so only do it (and reload) when the size really changes
-                if (fc.width !== img.naturalWidth || fc.height !== img.naturalHeight || !fc._fogInit) {
-                    fc.width  = img.naturalWidth;
-                    fc.height = img.naturalHeight;
+                if (window.APXBattle.sizeFogCanvas(fc, img.naturalWidth, img.naturalHeight) || !fc._fogInit) {
                     fc._fogInit = true;
                     fc._fogReady = false;          // no painting until the saved fog is on the canvas
                     _fogLoad(mapId);
@@ -3313,15 +3315,7 @@ document.addEventListener('DOMContentLoaded', () => {
             canvas.replaceWith(c2);
             canvas = c2;
         }
-        if (!canvas || !img || !img.naturalWidth || !map?.battleMapEnabled) { if(canvas) canvas.width=0; return; }
-        let iw=img.naturalWidth, ih=img.naturalHeight;
-        canvas.width=iw; canvas.height=ih;
-        let ctx=canvas.getContext('2d');
-        ctx.clearRect(0,0,iw,ih);
-        let g=map.battleGrid||{cellSize:50,offsetX:0,offsetY:0};
-        ctx.strokeStyle='#ffffff'; ctx.lineWidth=1;
-        for(let x=g.offsetX%g.cellSize;x<iw;x+=g.cellSize){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,ih);ctx.stroke();}
-        for(let y=g.offsetY%g.cellSize;y<ih;y+=g.cellSize){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(iw,y);ctx.stroke();}
+        window.APXBattle.styleGrid(canvas);   // the grid itself is drawn by APXBattle (screen space)
     }
 
     const BT_SIZES = {tiny:0.5, small:0.75, medium:1, large:2, huge:3, gargantuan:4};
@@ -3447,7 +3441,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 badge: (isBleedingOut && linkedEntry?.bleedOutTurns != null) ? linkedEntry.bleedOutTurns : null,
                 num: t.type === 'player' ? null : window.APXBattle.numberOf(linkedEntry?.name || t.name),
                 layer: t.layer == null ? 1 : t.layer,
-                conds: (t.type === 'player' ? [] : (t.conditions || [])).map(_condName),
+                conds: t.type === 'player' ? [] : window._gmEffCondNames(t.conditions),
                 numColor: factionBorder,
                 portrait,
                 title: `${t.name} (${t.size||'medium'})${isHidden?' [Hidden]':''} — dbl-click for stat block, right-click for options`,
@@ -3468,6 +3462,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         window.APXBattle.render({
             winId, win, area, grid: map.battleGrid, tokens: vms, props,
+            imgSize: { w: img.naturalWidth, h: img.naturalHeight },
             fogId: winId + '_fog',
             selection: _btSelFor(mapId),
             marquee: true,
@@ -3771,12 +3766,15 @@ document.addEventListener('DOMContentLoaded', () => {
         box.id = 'apxCondPicker';
         box.style.cssText = 'position:fixed;left:0;top:0;visibility:hidden;z-index:2147483647;background:var(--c-surface,#1e293b);border:1px solid var(--c-border2,#475569);border-radius:.45rem;box-shadow:0 10px 30px rgba(0,0,0,.85);width:230px;max-height:70vh;display:flex;flex-direction:column;';
         let draw = () => {
-            let cur = new Set(getIds());
+            let stored = getIds();
+            let cur = new Set(stored);
+            let implied = {};
+            if (window.apxEffectiveConditions) window.apxEffectiveConditions(stored).forEach(c => { if (c.from) implied[c.id] = c.from; });
             box.innerHTML = `<div style="padding:5px 8px;font-size:.66rem;font-weight:800;color:var(--c-text,#fff);border-bottom:1px solid var(--c-border,#334155);display:flex;justify-content:space-between;align-items:center;">
                     <span>${title||'Conditions'}</span><button data-close style="background:none;border:none;color:var(--c-text-dimmer,#94a3b8);cursor:pointer;font-weight:800;">X</button></div>
                 <div style="overflow-y:auto;padding:3px;">${(typeof CONDITIONS!=='undefined'?CONDITIONS:[]).map(c => `
                     <label title="${String(c.desc||'').replace(/"/g,'&quot;')}" style="display:flex;align-items:center;gap:6px;padding:3px 5px;border-radius:4px;cursor:pointer;font-size:.68rem;color:${cur.has(c.id)?'#fed7aa':'var(--c-text-dimmer,#cbd5e1)'};background:${cur.has(c.id)?'rgba(194,65,12,.25)':'transparent'};">
-                        <input type="checkbox" data-cond="${c.id}" ${cur.has(c.id)?'checked':''} style="width:12px;height:12px;"> ${c.name}</label>`).join('')}</div>`;
+                        <input type="checkbox" data-cond="${c.id}" ${cur.has(c.id)||implied[c.id]?'checked':''} ${implied[c.id]&&!cur.has(c.id)?'disabled':''} style="width:12px;height:12px;"> ${c.name}${implied[c.id]&&!cur.has(c.id)?` <span style="font-size:.58rem;color:#fb923c">(from ${_condName(implied[c.id])})</span>`:''}</label>`).join('')}</div>`;
             box.querySelector('[data-close]').onclick = () => box.remove();
             box.querySelectorAll('[data-cond]').forEach(cb => cb.onchange = () => { onToggle(cb.dataset.cond, cb.checked); draw(); });
         };
@@ -3789,9 +3787,20 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(()=>document.addEventListener('mousedown',function cls(ev){if(!box.contains(ev.target)){box.remove();document.removeEventListener('mousedown',cls);}},100));
     };
     function _toggleIn(holder, condId, on) {
+        let before = window.apxEffectiveConditions ? window.apxEffectiveConditions(holder.conditions).map(c => c.id) : [];
         let list = holder.conditions = (holder.conditions || []).filter(c => c !== condId);
         if (on) list.push(condId);
+        // "falls Prone": conditions that add another one when they begin (it then stays on its own)
+        if (on && window.apxEffectiveConditions && typeof CONDITION_ON_START !== 'undefined') {
+            window.apxEffectiveConditions(list).map(c => c.id).filter(id => !before.includes(id))
+                .forEach(id => (CONDITION_ON_START[id] || []).forEach(x => { if (!list.includes(x)) list.push(x); }));
+        }
     }
+    // Names of every condition in effect, including ones brought by another ("Unconscious (from Bleeding Out)")
+    window._gmEffCondNames = function(stored) {
+        if (!window.apxEffectiveConditions) return (stored || []).map(_condName);
+        return window.apxEffectiveConditions(stored || []).map(c => c.from ? `${_condName(c.id)} (from ${_condName(c.from)})` : _condName(c.id));
+    };
     window._btTokenCondPicker = function(mapId, winId, tokenId, x, y) {
         document.getElementById('btContextMenu')?.remove();
         let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
@@ -3942,7 +3951,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div style="${row}">${btn(isHidden?'Reveal to Players':'Hide from Players', `window._btToggleReveal(${a})${close}`, isHidden?'#6ee7b7':'#94a3b8')}</div>
             ${isPlayer ? '' : `<div style="${row}"><span style="${lbl}">Side</span>${btn('Enemy', `window._btSetFaction(${a},'enemy')${close}`, '#fca5a5', curFaction==='enemy')}${btn('Neutral', `window._btSetFaction(${a},'neutral')${close}`, '#fde68a', curFaction==='neutral')}${btn('Ally', `window._btSetFaction(${a},'ally')${close}`, '#6ee7b7', curFaction==='ally')}</div>`}
             ${initRow}
-            ${isPlayer ? '' : `<div style="${row}"><span style="${lbl}">Cond</span><span style="flex:1;font-size:0.56rem;color:#fdba74;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px;" title="${esc((tok.conditions||[]).map(_condName).join(', '))}">${(tok.conditions||[]).length ? esc((tok.conditions||[]).map(_condName).join(', ')) : '<span style=\'color:#475569\'>none</span>'}</span><button onclick="window._btTokenCondPicker(${a}, event.clientX, event.clientY)" style="background:none;border:none;color:#fdba74;font-size:0.6rem;font-weight:800;cursor:pointer;padding:0 4px;">Edit</button></div>`}
+            ${isPlayer ? '' : `<div style="${row}"><span style="${lbl}">Cond</span><span style="flex:1;font-size:0.56rem;color:#fdba74;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px;" title="${esc(window._gmEffCondNames(tok.conditions).join(', '))}">${(tok.conditions||[]).length ? esc(window._gmEffCondNames(tok.conditions).join(', ')) : '<span style=\'color:#475569\'>none</span>'}</span><button onclick="window._btTokenCondPicker(${a}, event.clientX, event.clientY)" style="background:none;border:none;color:#fdba74;font-size:0.6rem;font-weight:800;cursor:pointer;padding:0 4px;">Edit</button></div>`}
             <div style="${row}"><span style="${lbl}">Size</span>${btn('−', `window._btResizeToken(${a},-1)${close}`, '#c4b5fd', false, sizeIdx<=0)}${btn('+', `window._btResizeToken(${a},1)${close}`, '#c4b5fd', false, sizeIdx>=BT_SIZE_LIST.length-1)}</div>
             <div style="${row}"><span style="${lbl}">Layer ${tok.layer==null?1:tok.layer}</span>${btn('Down', `window._btTokLayer('${mapId}','${winId}','${tokenId}','down')${close}`, '#c4b5fd', false, false, 'Move under images on higher layers')}${btn('Up', `window._btTokLayer('${mapId}','${winId}','${tokenId}','up')${close}`, '#c4b5fd', false, false, 'Move above images on lower layers')}</div>
             <div style="${row}">${btn('Remove Token', `window.removeBattleToken(${a})${close}`, '#f87171')}</div>`;
@@ -4799,10 +4808,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Fog canvas must be sized to match the image — do it here where naturalWidth is ready
                 let fc = document.getElementById('mapFogCanvas');
                 if (fc) {
-                    if (fc.width !== _mapImg.naturalWidth) {
-                        fc.width  = _mapImg.naturalWidth;
-                        fc.height = _mapImg.naturalHeight;
-                    }
+                    window.APXBattle.sizeFogCanvas(fc, _mapImg.naturalWidth, _mapImg.naturalHeight);
                     _fogLoad('worldmap');
                 }
             };
@@ -4934,7 +4940,7 @@ document.addEventListener('DOMContentLoaded', () => {
             _mapImg.onload = function() {
                 window.mapResetView();
                 let fc = document.getElementById('mapFogCanvas');
-                if (fc) { fc.width = _mapImg.naturalWidth; fc.height = _mapImg.naturalHeight; }
+                if (fc) window.APXBattle.sizeFogCanvas(fc, _mapImg.naturalWidth, _mapImg.naturalHeight);
             };
 
             if (window.apxAuth?.enabled && _activeWorldId) {
@@ -5354,10 +5360,12 @@ document.addEventListener('DOMContentLoaded', () => {
         let offY   = mapId==='worldmap' ? _mapOffY   : (document.getElementById('omWin_'+mapId)?._offY||0);
         let rect   = container.getBoundingClientRect();
         // Convert from screen coordinates to image canvas coordinates
-        let cx = (e.clientX - rect.left - offX) / scale;
-        let cy = (e.clientY - rect.top  - offY) / scale;
+        // (the fog canvas may be lower resolution than the map: fc._k = canvas px per map px)
+        let k = fc._k || 1;
+        let cx = (e.clientX - rect.left - offX) / scale * k;
+        let cy = (e.clientY - rect.top  - offY) / scale * k;
         // Brush radius: screen pixels ÷ scale = image pixels
-        let brushR = (_fogBrushSize||40) / scale;
+        let brushR = (_fogBrushSize||40) / scale * k;
         let ctx = fc.getContext('2d');
         ctx.globalCompositeOperation = _fogErase ? 'destination-out' : 'source-over';
         ctx.fillStyle = 'rgba(0,0,0,1)';
@@ -5375,7 +5383,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let fc = _fogCanvas(_fogMode); if (!fc||!fc.width) return;
         fc.getContext('2d').clearRect(0, 0, fc.width, fc.height);
         delete _fogCache[(_activeWorldId||'?')+':'+_fogMode];
-        await _fogSave(_fogMode);
+        await _fogSaveNow(_fogMode);
     };
 
     // Loads are sequenced: an older image that finishes decoding late can never
@@ -5399,11 +5407,21 @@ document.addEventListener('DOMContentLoaded', () => {
         img.src = base64png;
     }
 
-    async function _fogSave(mapId) {
+    // Saving fog = reading the canvas back + encoding a PNG + a Firestore write. Doing that
+    // after every single brush stroke piled up work (and memory) during long fog sessions,
+    // so strokes are batched: the save runs once you pause painting for a moment.
+    let _fogSaveTimers = {}, _fogTmp = null;
+    function _fogSave(mapId) {
+        clearTimeout(_fogSaveTimers[mapId]);
+        _fogSaveTimers[mapId] = setTimeout(() => _fogSaveNow(mapId), 700);
+        return Promise.resolve();
+    }
+    async function _fogSaveNow(mapId) {
+        clearTimeout(_fogSaveTimers[mapId]); delete _fogSaveTimers[mapId];
         let fc = _fogCanvas(mapId); if (!fc||!fc.width) return;
         let maxSide = 512;
         let sf  = Math.min(maxSide/fc.width, maxSide/fc.height, 1);
-        let tmp = document.createElement('canvas');
+        let tmp = _fogTmp || (_fogTmp = document.createElement('canvas'));
         tmp.width  = Math.round(fc.width*sf);
         tmp.height = Math.round(fc.height*sf);
         tmp.getContext('2d').drawImage(fc, 0, 0, tmp.width, tmp.height);

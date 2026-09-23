@@ -1187,8 +1187,11 @@ window.renderInitiativeTracker = function() {
                 ${e.faction !== 'player' ? (() => {
                     let conds = window._gmEntryConditions ? window._gmEntryConditions(e.id) : (e.conditions || []);
                     let nm = id => window._gmCondName ? window._gmCondName(id) : id;
+                    let eff = window.apxEffectiveConditions ? window.apxEffectiveConditions(conds) : conds.map(id => ({ id }));
                     return `<div class="flex items-center gap-1 flex-wrap">
-                        ${conds.map(c => `<span class="apx-cond-chip" title="Click to remove">${nm(c)}<button onclick="window._gmRemoveEntryCondition ? window._gmRemoveEntryCondition('${e.id}','${c}') : null">&times;</button></span>`).join('')}
+                        ${eff.map(c => c.from
+                            ? `<span class="apx-cond-chip" style="border-style:dashed;opacity:.8" title="From ${nm(c.from)}: ends when ${nm(c.from)} ends">${nm(c.id)}</span>`
+                            : `<span class="apx-cond-chip" title="Click × to remove">${nm(c.id)}<button onclick="window._gmRemoveEntryCondition ? window._gmRemoveEntryCondition('${e.id}','${c.id}') : null">&times;</button></span>`).join('')}
                         <button onclick="window._gmEntryCondPicker && window._gmEntryCondPicker('${e.id}', event)" class="text-[9px] font-bold text-orange-300 hover:text-orange-200">+ Condition</button>
                     </div>`;
                 })() : ''}

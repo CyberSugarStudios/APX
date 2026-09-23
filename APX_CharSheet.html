@@ -3656,7 +3656,7 @@
                 _pwBtDrawGrid(winId, m);
                 _pwBtRenderTokens(winId, winEl, m);
             } else {
-                let gc = document.getElementById(winId+'_grid'); if (gc) gc.width = 0;
+                let gc = document.getElementById(winId+'_grid'); if (gc) window.APXBattle.styleGrid(gc);
                 if (window.APXBattle) window.APXBattle.clear(winId);
             }
         });
@@ -3693,7 +3693,7 @@
         win.style.cssText = `position:fixed;left:160px;top:90px;width:680px;height:520px;
             background:#0f172a;border:1px solid #334155;border-radius:0.75rem;z-index:${window.apxFloatingZTop};
             display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.85);
-            min-width:340px;min-height:280px;resize:both;overflow:hidden;`;
+            min-width:340px;min-height:280px;resize:both;overflow:hidden;contain:layout paint;`;
         win.innerHTML = `
             <div id="${winId}_hdr" style="cursor:grab;user-select:none;background:#1e293b;padding:0.5rem 0.75rem;
                 border-bottom:1px solid #334155;border-radius:0.75rem 0.75rem 0 0;
@@ -3729,7 +3729,10 @@
         win.addEventListener('mousedown', ()=>{ window.apxFloatingZTop = (window.apxFloatingZTop||2000)+1; win.style.zIndex=window.apxFloatingZTop; });
         let hdr=document.getElementById(winId+'_hdr'), wDrag=false, wOX=0, wOY=0;
         hdr.addEventListener('mousedown', e=>{ if(e.target.tagName==='BUTTON')return; wDrag=true; let r=win.getBoundingClientRect(); wOX=e.clientX-r.left; wOY=e.clientY-r.top; e.preventDefault(); });
-        document.addEventListener('mousemove', e=>{ if(!wDrag)return; win.style.left=Math.max(0,Math.min(window.innerWidth-60,e.clientX-wOX))+'px'; win.style.top=Math.max(0,Math.min(window.innerHeight-40,e.clientY-wOY))+'px'; });
+        let wPend = null, wRaf = 0;   // one position update per frame while dragging the window
+        document.addEventListener('mousemove', e=>{ if(!wDrag)return; wPend = { x: e.clientX, y: e.clientY }; if (wRaf) return;
+            wRaf = requestAnimationFrame(() => { wRaf = 0; if (!wPend) return;
+                win.style.left=Math.max(0,Math.min(window.innerWidth-60,wPend.x-wOX))+'px'; win.style.top=Math.max(0,Math.min(window.innerHeight-40,wPend.y-wOY))+'px'; }); });
         document.addEventListener('mouseup', ()=>wDrag=false);
 
         let area=document.getElementById(winId+'_area');
@@ -3945,14 +3948,7 @@
         let canvas = document.getElementById(winId+'_grid');
         let img    = document.getElementById(winId+'_img');
         if (!canvas || !img || !img.naturalWidth) return;
-        let iw=img.naturalWidth, ih=img.naturalHeight;
-        canvas.width=iw; canvas.height=ih;
-        let ctx=canvas.getContext('2d');
-        ctx.clearRect(0,0,iw,ih);
-        let g=map?.battleGrid||{cellSize:50,offsetX:0,offsetY:0};
-        ctx.strokeStyle='#ffffff'; ctx.lineWidth=1;
-        for(let x=g.offsetX%g.cellSize;x<iw;x+=g.cellSize){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,ih);ctx.stroke();}
-        for(let y=g.offsetY%g.cellSize;y<ih;y+=g.cellSize){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(iw,y);ctx.stroke();}
+        window.APXBattle.styleGrid(canvas);   // the grid itself is drawn by APXBattle (screen space)
     }
     // Re-render every open battle-map window (called when positions change in Firestore)
     function _pwRefreshBattleWindows() {
@@ -4071,6 +4067,7 @@
 
         window.APXBattle.render({
             winId, win, area, grid: g, tokens: vms, props,
+            imgSize: { w: img.naturalWidth, h: img.naturalHeight },
             fogId: winId + '_fog', aboveFog: mineIds,
             onMeasureChange: (on) => { let b = document.getElementById(winId+'_measureBtn'); if (b) { b.style.background = on ? '#a16207' : '#1e293b'; b.style.color = on ? '#fff' : '#fde68a'; } },
             previewBlocked: (vm, gx, gy) => _pwCellUnderFog(winId, gx, gy, g) ||
@@ -4093,8 +4090,9 @@
         // No fog loaded = all open. (An untouched <canvas> is 300×150 by default — it must
         // NOT be sampled, or every square outside that box counts as fogged.)
         if (!canvas || !canvas._fogLoaded || !canvas.width || !canvas.height) return false;
-        let px = Math.round((g.offsetX % g.cellSize) + (gridX + 0.5) * g.cellSize);
-        let py = Math.round((g.offsetY % g.cellSize) + (gridY + 0.5) * g.cellSize);
+        let k = canvas._k || 1;   // fog canvas px per map px
+        let px = Math.round(((g.offsetX % g.cellSize) + (gridX + 0.5) * g.cellSize) * k);
+        let py = Math.round(((g.offsetY % g.cellSize) + (gridY + 0.5) * g.cellSize) * k);
         if (px < 0 || px >= canvas.width || py < 0 || py >= canvas.height) return true; // out of bounds
         let ctx = canvas.getContext('2d', { willReadFrequently: true });
         return ctx.getImageData(px, py, 1, 1).data[3] > 50;
@@ -4213,9 +4211,7 @@
         let fimg = new Image();
         fimg.onload = () => {
             if (seq !== fc._fogSeq) return;   // superseded by a newer snapshot
-            if (refImg && refImg.naturalWidth && (fc.width !== refImg.naturalWidth || fc.height !== refImg.naturalHeight)) {
-                fc.width = refImg.naturalWidth; fc.height = refImg.naturalHeight;
-            }
+            if (refImg && refImg.naturalWidth) window.APXBattle.sizeFogCanvas(fc, refImg.naturalWidth, refImg.naturalHeight);
             let ctx=fc.getContext('2d',{willReadFrequently:true});
             ctx.clearRect(0,0,fc.width,fc.height); ctx.drawImage(fimg,0,0,fc.width,fc.height);
             fc._fogLoaded = true;

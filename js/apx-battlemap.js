@@ -202,7 +202,7 @@
         let l = document.getElementById(winId + '_btScreen');
         if (!l) return;
         _restoreFog(l);
-        l.querySelectorAll('[data-bt],[data-btp],[data-bt-ui]').forEach(el => el.remove());
+        l.querySelectorAll('[data-bt],[data-btp],[data-bt-ui],[data-bt-grid]').forEach(el => el.remove());
         l._opts = null;
         exitMeasure(winId);
     }
@@ -359,6 +359,15 @@
         });
         if (layer._fog) {
             layer._fog.style.transform = `translate(${ox}px,${oy}px) scale(${s})`;
+        }
+        let gridEl = layer.querySelector('[data-bt-grid]');
+        if (gridEl && o.imgSize) {
+            let g = o.grid, org = origin(g), cs = g.cellSize * s;
+            gridEl.style.left = ox + 'px'; gridEl.style.top = oy + 'px';
+            gridEl.style.width = (o.imgSize.w * s) + 'px'; gridEl.style.height = (o.imgSize.h * s) + 'px';
+            gridEl.style.backgroundSize = `${cs}px ${cs}px`;
+            gridEl.style.backgroundPosition = `${org.ox * s}px ${org.oy * s}px`;
+            gridEl.style.display = cs < 4 ? 'none' : '';   // too dense to be useful when zoomed far out
         }
         _layoutMeasure(layer);
     }
@@ -659,6 +668,18 @@
             layer._fog = fog;
         } else if (!fog && layer._fog) _restoreFog(layer);
 
+        // Grid: one screen-space element with a CSS line pattern, always 1 px and sharp
+        let gridEl = layer.querySelector('[data-bt-grid]');
+        if (opts.imgSize && opts.imgSize.w) {
+            if (!gridEl) {
+                gridEl = document.createElement('div');
+                gridEl.setAttribute('data-bt-grid', '1');
+                gridEl.style.cssText = 'position:absolute;pointer-events:none;opacity:.35;z-index:50;' +
+                    'background-image:linear-gradient(to right,#fff 1px,transparent 1px),linear-gradient(to bottom,#fff 1px,transparent 1px);';
+                layer.insertBefore(gridEl, layer.firstChild);
+            }
+        } else if (gridEl) gridEl.remove();
+
         // Props
         let existingP = new Map();
         layer.querySelectorAll('[data-btp]').forEach(el => existingP.set(el.getAttribute('data-btp'), el));
@@ -765,7 +786,7 @@
         for (let vm of (o.tokens || [])) {
             let sp = span(vm.size);
             if (cell.gx >= vm.gridX && cell.gx < vm.gridX + sp && cell.gy >= vm.gridY && cell.gy < vm.gridY + sp)
-                return { x0: vm.gridX, y0: vm.gridY, x1: vm.gridX + sp - 1, y1: vm.gridY + sp - 1, name: vm.name || vm.title };
+                return { x0: vm.gridX, y0: vm.gridY, x1: vm.gridX + sp - 1, y1: vm.gridY + sp - 1, name: vm.name || vm.title, token: true };
         }
         return { x0: cell.gx, y0: cell.gy, x1: cell.gx, y1: cell.gy };
     }
@@ -774,21 +795,31 @@
         let pick = (a0, a1, b0, b1) => b1 < a0 ? a0 : b0 > a1 ? a1 : Math.max(a0, b0);
         return { gx: pick(a.x0, a.x1, b.x0, b.x1), gy: pick(a.y0, a.y1, b.y0, b.y1) };
     }
+    // Square to square: counts every square the line covers, INCLUDING the starting
+    // square (next-door squares = 2). Token to token (or token to square): counts the
+    // squares between them the way movement does (adjacent = 1), and the line snaps to
+    // the nearest CORNER of each token's space, so it doubles as a cover check.
     function _layoutMeasure(layer) {
         let m = layer._measure; if (!m || !m.a || !m.b) { if (m && m.svg) m.svg.innerHTML = ''; return; }
         let o = layer._opts, g = o.grid, win = o.win;
         let s = win._scale || 1, ox = win._offX || 0, oy = win._offY || 0;
         let fa = _footprintAt(layer, m.a), fb = _footprintAt(layer, m.b);
         let ca = _nearest(fa, fb), cb = _nearest(fb, fa);
-        let n = squaresBetween(cb.gx - ca.gx, cb.gy - ca.gy);
-        let org = origin(g);
-        let sc = c => ({ x: ox + (org.ox + (c.gx + 0.5) * g.cellSize) * s, y: oy + (org.oy + (c.gy + 0.5) * g.cellSize) * s });
-        let p1 = sc(ca), p2 = sc(cb);
-        let cellPx = g.cellSize * s;
-        let hl = c => { let p = sc(c); return `<rect x="${p.x - cellPx / 2}" y="${p.y - cellPx / 2}" width="${cellPx}" height="${cellPx}" fill="rgba(250,204,21,.18)" stroke="rgba(250,204,21,.7)" stroke-width="1"/>`; };
+        let anyToken = fa.token || fb.token;
+        let n = squaresBetween(cb.gx - ca.gx, cb.gy - ca.gy) + (anyToken ? 0 : 1);
+        let org = origin(g), cs = g.cellSize;
+        let scr = (x, y) => ({ x: ox + (org.ox + x * cs) * s, y: oy + (org.oy + y * cs) * s });   // grid units -> screen
+        let centerPts = f => [{ x: f.x0 + 0.5, y: f.y0 + 0.5 }];
+        let cornerPts = f => [{ x: f.x0, y: f.y0 }, { x: f.x1 + 1, y: f.y0 }, { x: f.x0, y: f.y1 + 1 }, { x: f.x1 + 1, y: f.y1 + 1 }];
+        let pa = fa.token ? cornerPts(fa) : centerPts(fa), pb = fb.token ? cornerPts(fb) : centerPts(fb);
+        let best = null;
+        pa.forEach(A => pb.forEach(B => { let d = (A.x - B.x) ** 2 + (A.y - B.y) ** 2; if (!best || d < best.d) best = { d, A, B }; }));
+        let p1 = scr(best.A.x, best.A.y), p2 = scr(best.B.x, best.B.y);
+        let hl = f => { let tl = scr(f.x0, f.y0), br = scr(f.x1 + 1, f.y1 + 1);
+            return `<rect x="${tl.x}" y="${tl.y}" width="${br.x - tl.x}" height="${br.y - tl.y}" fill="rgba(250,204,21,${f.token ? '.08' : '.18'})" stroke="rgba(250,204,21,.7)" stroke-width="1" ${f.token ? 'stroke-dasharray="4 3"' : ''}/>`; };
         let label = `${n} square${n === 1 ? '' : 's'}`;
         let lx = p2.x + 14, ly = p2.y - 14;
-        m.svg.innerHTML = `${hl(ca)}${hl(cb)}
+        m.svg.innerHTML = `${hl(fa)}${hl(fb)}
             <line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="#000" stroke-opacity=".6" stroke-width="5" stroke-linecap="round"/>
             <line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="#facc15" stroke-width="2.5" stroke-dasharray="7 5" stroke-linecap="round"/>
             <circle cx="${p1.x}" cy="${p1.y}" r="4" fill="#facc15"/><circle cx="${p2.x}" cy="${p2.y}" r="4" fill="#facc15"/>
@@ -904,7 +935,32 @@
         });
     }
 
+    // Fog of War doesn't need the map's full resolution (it's saved at 512 px anyway).
+    // A full-size canvas on a big map is hundreds of MB of GPU memory, which is what
+    // made panning, resizing and dragging the GM's map window lag. The canvas keeps a
+    // capped pixel size and is simply displayed at the map's size.
+    const FOG_MAX = 1536;
+    function sizeFogCanvas(fc, iw, ih) {
+        if (!fc || !iw || !ih) return false;
+        let k = Math.min(1, FOG_MAX / Math.max(iw, ih));
+        let w = Math.max(1, Math.round(iw * k)), h = Math.max(1, Math.round(ih * k));
+        fc.style.width = iw + 'px'; fc.style.height = ih + 'px';
+        fc._imgW = iw; fc._imgH = ih; fc._k = w / iw;
+        if (fc.width === w && fc.height === h) return false;
+        fc.width = w; fc.height = h;   // (resizing wipes the canvas)
+        return true;
+    }
+
+    // The page's old full-size grid element is no longer drawn (a map-sized bitmap
+    // was costly); the grid is drawn in screen space by render()/layout() instead.
+    function styleGrid(el) {
+        if (!el) return;
+        if (el.tagName === 'CANVAS') { el.width = 0; el.height = 0; }
+        el.style.backgroundImage = 'none'; el.style.width = '0px'; el.style.height = '0px';
+    }
+
     window.APXBattle = {
+        sizeFogCanvas, styleGrid,
         SIZES, SIZE_LIST,
         grid, origin, mult, span, center, diameter, pointToCell,
         collides, findBlocker, findFreeCell,

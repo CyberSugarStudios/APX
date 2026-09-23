@@ -314,9 +314,18 @@
             // is melee Disadvantage + ranged Advantage, not a blanket
             // penalty; Head Wound only affects PER/INT checks).
             if (calc.hasArmorDisadvantage) applyEffectSource('Armor (STR requirement not met)', { atkDisadvantage: 'general' });
-            (window.state.conditions || []).forEach(cId => {
-                let cDef = CONDITIONS.find(c => c.id === cId);
-                if (cDef) applyEffectSource(cDef.name, cDef);
+            // Conditions in effect = the ones set + the ones they bring with them
+            // (Bleeding Out -> Unconscious -> Incapacitated, Paralyzed -> Incapacitated...)
+            let effConds = window.apxEffectiveConditions ? window.apxEffectiveConditions(window.state.conditions, window.state) : (window.state.conditions || []).map(id => ({ id }));
+            // "falls Prone": added once when it begins, and stays until they stand up
+            let startsNow = effConds.map(c => c.id).filter(id => !(window.state._condsInEffect || []).includes(id));
+            startsNow.forEach(id => (typeof CONDITION_ON_START !== 'undefined' ? CONDITION_ON_START[id] || [] : []).forEach(extra => {
+                if (!window.state.conditions.includes(extra)) { window.state.conditions.push(extra); effConds.push({ id: extra, from: null }); }
+            }));
+            window.state._condsInEffect = effConds.map(c => c.id);
+            effConds.forEach(ec => {
+                let cDef = CONDITIONS.find(c => c.id === ec.id);
+                if (cDef) applyEffectSource(ec.from ? `${cDef.name} (from ${(CONDITIONS.find(c => c.id === ec.from) || {}).name || ec.from})` : cDef.name, cDef);
             });
 
             let legWoundCount = 0;
