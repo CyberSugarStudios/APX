@@ -147,7 +147,7 @@
             s2.restDice = Math.min(maxDice, (s2.restDice || 0) + diceBack);
             if (s2.usedPowerSlots) Object.keys(s2.usedPowerSlots).forEach(k => s2.usedPowerSlots[k] = 0);
             s2.luckPts = maxLuck;
-            s2.apUsed = 0;
+            s2.apCurrent = (typeof calc !== 'undefined' && calc.maxAp) || 6; delete s2.apUsed;
             if (s2.companion) {
                 if (s2.companion.usedPowerSlots) Object.keys(s2.companion.usedPowerSlots).forEach(k => s2.companion.usedPowerSlots[k] = 0);
                 s2.companion.powerChargesUsed = {};

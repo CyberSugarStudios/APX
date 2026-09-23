@@ -687,6 +687,20 @@ function pcRenderSummary() {
     document.getElementById('pcSumLevel').className = t.level > maxLevel ? 'text-lg font-black text-red-400' : 'text-lg font-black text-white';
     document.getElementById('pcSumAp').innerText = t.ap + ' AP';
 
+    // Sacrifice + healing: legal, but the caster can't be healed by it
+    let warn = document.getElementById('pcWarnNote');
+    let capHost = document.getElementById('pcCapNote');
+    if (!warn && capHost) {
+        warn = document.createElement('div');
+        warn.id = 'pcWarnNote';
+        warn.style.cssText = 'border:1px solid #d97706;background:rgba(217,119,6,.14);color:#fde68a;border-radius:.4rem;padding:.4rem .6rem;font-size:11px;font-weight:700;margin-top:.4rem;line-height:1.35';
+        capHost.parentNode.insertBefore(warn, capHost.nextSibling);
+    }
+    if (warn) {
+        let clash = pcDraft.isHealing && pcDraft.refunds && pcDraft.refunds.sacrifice;
+        warn.style.display = clash ? '' : 'none';
+        warn.textContent = clash ? 'Heads up: this power heals but has the Sacrifice refund. Sacrifice stops the caster regaining HP from any source (including this power) until the start of their next turn, so it can heal others, but not the caster.' : '';
+    }
     let capNote = document.getElementById('pcCapNote');
     if (diceOver.length) {
         capNote.classList.remove('hidden');
@@ -820,7 +834,7 @@ function pcBuildTextSummary() {
     let refundBits = [];
     let mrCount = pcDraft.refunds.minorRestriction || 0;
     if (mrCount > 0) refundBits.push(mrCount > 1 ? `Minor Restriction (x${mrCount})` : 'Minor Restriction');
-    POWER_REFUNDS.filter(r => r.key !== 'minorRestriction').forEach(r => { if (pcDraft.refunds[r.key]) refundBits.push(r.label); });
+    POWER_REFUNDS.filter(r => r.key !== 'minorRestriction').forEach(r => { if (pcDraft.refunds[r.key]) refundBits.push(r.key === 'sacrifice' && pcDraft.isHealing ? 'Sacrifice (cannot heal the caster)' : r.label); });
     if (pcDraft.refunds.costly) refundBits.push(`Costly (${pcDraft.refunds.costly} XP)`);
 
     let utilityText = utilityBits.join('; ');

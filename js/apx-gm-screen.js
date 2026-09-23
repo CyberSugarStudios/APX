@@ -352,7 +352,7 @@ function startPartyListener(inviteCode) {
                         if (wasUp && newHp <= 0 && e.faction === 'player' && e.bleedOutTurns == null) {
                             setTimeout(() => window.openBleedOutModal(e.id), 0);
                         }
-                        if (newHp > 0) { e.bleedOutTurns = null; e.stabilized = false; }
+                        if (newHp > 0) { if (e.bleedOutTurns != null) _gmSetPlayerCondition(e, 'bleedingout', false); e.bleedOutTurns = null; e.stabilized = false; }
                         e.currentHp = newHp;
                         e.tempHp    = newTempHp;
                         e.maxHp     = computeCharSummary(state).maxHp;
@@ -382,6 +382,23 @@ window.renderGmScreen = function() {
     }
     body.innerHTML = window.gmParty.map((p, idx) => {
         let s = p.summary;
+        // Same full stat block as double-clicking the player's token
+        let sb = typeof window._gmPlayerStatBlock === 'function' ? window._gmPlayerStatBlock(p, s.name) : null;
+        if (sb) {
+            let uid = String(p.fileName || '').replace(/'/g, '');
+            return `
+            <div class="rounded-lg mb-2 overflow-hidden" style="background:#0f172a;border:1px solid #6366f1;">
+                <div style="background:#1e1b4b;padding:0.5rem 0.75rem;display:flex;align-items:center;gap:0.6rem;">
+                    ${sb.portrait}
+                    <div style="flex:1;min-width:0;cursor:pointer;" onclick="window._btOpenPlayerSummary && window._btOpenPlayerSummary('${String(s.name).replace(/'/g, '')}','${uid}')" title="Open in its own window">
+                        <div style="font-size:0.85rem;font-weight:900;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${sb.name}</div>
+                        <div style="font-size:0.58rem;color:#818cf8;">${sb.subtitle}${s.hasArmorDisadvantage ? ' <span style="color:#f87171;font-weight:700">(Armor STR not met)</span>' : ''}</div>
+                    </div>
+                    <button onclick="window.addToInitiative(${idx}, 'party')" class="text-[9px] px-2 py-1 rounded bg-indigo-700 hover:bg-indigo-600 text-white font-bold">+ Initiative</button>
+                </div>
+                ${sb.body}
+            </div>`;
+        }
         let hpPct = s.maxHp > 0 ? Math.max(0, Math.min(100, (s.currentHp / s.maxHp) * 100)) : 0;
         let hpColor = hpPct > 50 ? 'bg-emerald-600' : (hpPct > 20 ? 'bg-amber-600' : 'bg-red-600');
         return `
@@ -733,6 +750,17 @@ function _syncHpToPlayer(entry) {
 }
 window._syncHpToPlayer = _syncHpToPlayer;
 
+// Put a condition on (or take it off) a party member's own character sheet
+function _gmSetPlayerCondition(entry, condId, on) {
+    if (!entry || entry.faction !== 'player' || !entry.playerUid) return;
+    let worlds = typeof _gmWorlds !== 'undefined' ? _gmWorlds : [];
+    let activeWorld = worlds.find(w => (w.worldId||w.id) === (typeof _activeWorldId !== 'undefined' ? _activeWorldId : null));
+    let code = activeWorld?.inviteCode;
+    if (code && window.apxAuth?.enabled && typeof window.apxAuth.setGmCondition === 'function')
+        window.apxAuth.setGmCondition(code, entry.playerUid, condId, on).catch(e => console.warn('Condition sync to player:', e.message));
+}
+window._gmSetPlayerCondition = _gmSetPlayerCondition;
+
 // Shared after-change handling: 0 HP → bleed out (players) / killed (NPCs); healed → clear bleed-out
 function _afterHpChange(entry, wasAboveZero) {
     if (entry.currentHp !== null && entry.currentHp <= 0 && wasAboveZero) {
@@ -745,6 +773,7 @@ function _afterHpChange(entry, wasAboveZero) {
             return;
         }
     } else if (entry.currentHp > 0) {
+        if (entry.bleedOutTurns != null) _gmSetPlayerCondition(entry, 'bleedingout', false);
         entry.bleedOutTurns = null;
         entry.stabilized = false;
         _syncHpToPlayer(entry);
@@ -815,6 +844,7 @@ window.toggleSurprised = function(id, checked) {
 // Combat only offers to end once EVERY player in the fight has actually died.
 function _killBledOutPlayer(entry) {
     let name = entry.name;
+    _gmSetPlayerCondition(entry, 'bleedingout', false);
     window.removeFromInitiative(entry.id, { dead: true });   // token turns grey
     let anyPlayerLeft = window.gmInitiative.some(e => e.faction === 'player');
     setTimeout(() => {
@@ -849,7 +879,7 @@ window.confirmBleedOut = function() {
     let id = document.getElementById('bleedOutModal').dataset.entryId;
     let entry = window.gmInitiative.find(e => e.id === id);
     let turns = parseInt(document.getElementById('bleedOutTurnsInput').value);
-    if (entry && !isNaN(turns) && turns > 0) entry.bleedOutTurns = turns;
+    if (entry && !isNaN(turns) && turns > 0) { entry.bleedOutTurns = turns; _gmSetPlayerCondition(entry, 'bleedingout', true); }
     window.closeModal('bleedOutModal');
     window.renderInitiativeTracker();
     // Save immediately so player maps show bleed-out state without waiting for the next turn cycle
@@ -862,6 +892,7 @@ window.stabilizeEntry = function(id) {
     if (!entry) return;
     entry.bleedOutTurns = null;
     entry.stabilized = true;   // still at 0 HP, but no longer bleeding
+    _gmSetPlayerCondition(entry, 'bleedingout', false);
     window.renderInitiativeTracker();
     if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
     if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
@@ -962,6 +993,8 @@ window.startCombat = function() {
     window.gmCurrentTurnIdx = 0;
     window.gmRoundNumber = 1;
     window.gmTurnNumber = 1;
+    window.gmInitiative.forEach(x => { x.apCur = 0; });
+    if (window.gmInitiative[0]) gmStartTurnAp(window.gmInitiative[0]);
     window.renderInitiativeTracker();
     if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
     if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
@@ -976,7 +1009,7 @@ window.nextInitiativeTurn = function() {
     }
     window.gmTurnNumber++;
     let current = window.gmInitiative[window.gmCurrentTurnIdx];
-    if (current) current.apUsed = 0;   // start of a creature's turn: all AP back
+    if (current) gmStartTurnAp(current);
     if (current && current.bleedOutTurns > 0) {
         current.bleedOutTurns--;
         if (current.bleedOutTurns === 0) { _killBledOutPlayer(current); return; }
@@ -1056,30 +1089,40 @@ window.toggleInitiativePowerSlot = function(entryId, powerName, idx) {
     window.renderInitiativeTracker();
 };
 
-// AP left this turn. NPCs: click pips to spend/refund. Players: mirrors their sheet.
+// AP pool per creature. Unspent AP carries over between turns, up to 2x its AP.
+// NPCs: click pips to spend/refund. Players: mirrors their sheet.
+function gmApMax(e) { return Math.max(0, parseInt(e.ap) || 0); }
+function gmApCurrent(e) {
+    let max = gmApMax(e);
+    let cur = e.apCur;
+    if (cur === undefined || cur === null) cur = window.gmCombatStarted ? 0 : max;   // gains AP at the start of its first turn
+    return Math.max(0, Math.min(max * 2, cur));
+}
+function gmStartTurnAp(e) {
+    if (e.faction === 'player') return;   // players' sheets add their own AP when their turn starts
+    e.apCur = Math.min(gmApMax(e) * 2, gmApCurrent(e) + gmApMax(e));
+}
 function gmApPipsHtml(e) {
-    let max = Math.max(0, parseInt(e.ap) || 0);
-    let used, isPlayer = e.faction === 'player' && e.playerUid;
+    let max = gmApMax(e);
+    let cur, isPlayer = e.faction === 'player' && e.playerUid;
     if (isPlayer) {
         let pm = (window.gmParty || []).find(p => p.fileName === e.playerUid || p.summary?.playerUid === e.playerUid);
-        used = pm?.state?.apUsed || 0;
-    } else used = e.apUsed || 0;
-    used = Math.max(0, Math.min(max, used));
-    let left = max - used;
-    let pips = Array.from({ length: max }, (_, i) => {
-        let spent = i >= left;
-        return isPlayer
-            ? `<span style="width:7px;height:7px;border-radius:50%;display:inline-block;border:1px solid #60a5fa;background:${spent ? 'transparent' : '#3b82f6'}"></span>`
-            : `<button onclick="window.gmClickApPip('${e.id}', ${i})" title="${spent ? 'Refund' : 'Spend'} AP" style="width:8px;height:8px;border-radius:50%;padding:0;border:1px solid #60a5fa;background:${spent ? 'transparent' : '#3b82f6'};cursor:pointer"></button>`;
+        let st = pm?.state || {};
+        cur = st.apCurrent !== undefined && st.apCurrent !== null ? st.apCurrent : max - (st.apUsed || 0);
+        cur = Math.max(0, Math.min(max * 2, cur));
+    } else cur = gmApCurrent(e);
+    let pips = Array.from({ length: max * 2 }, (_, i) => {
+        let filled = i < cur, stored = i >= max;
+        let st = `width:7px;height:7px;border-radius:50%;display:inline-block;padding:0;border:1px ${stored ? 'dashed #67e8f9' : 'solid #60a5fa'};background:${filled ? (stored ? '#06b6d4' : '#3b82f6') : 'transparent'};${i === max ? 'margin-left:3px;' : ''}`;
+        return isPlayer ? `<span style="${st}"></span>`
+            : `<button onclick="window.gmClickApPip('${e.id}', ${i})" title="${filled ? 'Spend' : 'Add'} AP" style="${st}cursor:pointer"></button>`;
     }).join('');
-    return `<span class="flex items-center gap-0.5" title="${isPlayer ? 'Tracked on the player\'s sheet' : 'AP left this turn (resets at the start of its turn)'}"><b class="${left === 0 ? 'text-red-400' : 'text-blue-300'}">AP ${left}/${max}</b>${pips}</span>`;
+    return `<span class="flex items-center gap-0.5 flex-wrap" title="${isPlayer ? 'Tracked on the player\'s sheet' : 'AP now (gains its AP at the start of each turn; unspent AP carries over, up to double)'}"><b class="${cur === 0 ? 'text-red-400' : 'text-blue-300'}">AP ${cur}/${max}</b>${pips}</span>`;
 }
 window.gmClickApPip = function(id, i) {
     let e = window.gmInitiative.find(x => x.id === id); if (!e) return;
-    let max = Math.max(0, parseInt(e.ap) || 0);
-    let left = max - Math.max(0, Math.min(max, e.apUsed || 0));
-    let newLeft = i < left ? i : i + 1;
-    e.apUsed = Math.max(0, max - newLeft);
+    let cur = gmApCurrent(e);
+    e.apCur = Math.max(0, Math.min(gmApMax(e) * 2, i < cur ? i : i + 1));
     window.renderInitiativeTracker();
 };
 
@@ -1120,7 +1163,7 @@ window.renderInitiativeTracker = function() {
                     <button onclick="window.moveInitiativeEntry('${e.id}', 1)" ${downEnabled ? '' : 'disabled'} class="leading-none ${downEnabled ? 'text-slate-300 hover:text-white' : 'text-slate-700'}">&#9660;</button>
                 </div>
                 <div class="w-8 text-center text-sm font-black ${fs.text}">${effInit(e)}</div>
-                <span class="flex-1 text-xs font-bold ${isCurrent ? 'text-amber-300' : fs.text} ${e.faction !== 'player' ? 'cursor-pointer hover:underline' : ''}" ${e.faction !== 'player' ? `onclick="window.openFloatingStatBlock('${e.id}')" title="Click for full stat block"` : ''}>${e.name}</span>
+                <span class="flex-1 text-xs font-bold ${isCurrent ? 'text-amber-300' : fs.text} ${(e.faction !== 'player' || e.playerUid) ? 'cursor-pointer hover:underline' : ''}" ${e.faction !== 'player' ? `onclick="window.openFloatingStatBlock('${e.id}')" title="Click for full stat block"` : (e.playerUid ? `onclick="window._btOpenPlayerSummary && window._btOpenPlayerSummary('${String(e.name).replace(/'/g, '')}','${e.playerUid}')" title="Click for this player's stats"` : '')}>${e.name}</span>
                 ${e.maxHp !== null ? `
                     <input type="text" value="${e.currentHp}" onchange="window.updateInitiativeHp('${e.id}', this.value)" title="Type a number to set HP, or +N/-N to heal/damage" class="w-12 text-center bg-slate-800 border-red-800/50 text-red-300 text-xs font-bold">
                     <span class="text-[10px] text-slate-500">/ ${e.maxHp}</span>

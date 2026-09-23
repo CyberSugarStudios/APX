@@ -340,9 +340,9 @@
             { id: "t_unal", cost: 3, name: "Unalive Physiology", desc: "Immune to Poison/Disease. Don't eat, sleep, or breathe." },
             { id: "t_bp", cost: 3, name: "Bonus Perk", desc: "Gain one General Perk of your choice.", rep: true, max: 2 },
             { id: "t_comm", cost: 3, name: "Distance Communicator", desc: "Communicate telepathically within 12 squares." },
+            { id: "t_reg", cost: 3, name: "Regenerative", desc: "At the beginning of your turn in combat you can expend a Rest Die, rolling it, and healing for an amount equal to the result." },
             { id: "t_fly", cost: 4, name: "Flight", desc: "Fly speed = walking speed. Not if Encumbered/Heavy Armor." },
-            { id: "t_poly", cost: 4, name: "Polymelia", desc: "Four arms. Hold 4 items. Craft in half time.", extraArms: 2 },
-            { id: "t_reg", cost: 3, name: "Regenerative", desc: "At the beginning of your turn in combat you can expend a Rest Die, rolling it, and healing for an amount equal to the result." }
+            { id: "t_poly", cost: 4, name: "Polymelia", desc: "Four arms. Hold 4 items. Craft in half time.", extraArms: 2 }
         ];
 
         const ANCESTRY_FLAWS = [

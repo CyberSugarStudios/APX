@@ -514,11 +514,11 @@
                     </div>
 
                     <div class="bg-slate-900 p-2 rounded border border-slate-700 text-center" id="apTrackerBox">
-                        <div class="text-[10px] text-slate-500 uppercase font-bold" data-tip="AP left this turn / your AP (6 + half your AGI modifier, rounded down, minimum 6; reduced by unrecovered Fatigue). Click the pips to spend or refund AP.">AP This Turn</div>
+                        <div class="text-[10px] text-slate-500 uppercase font-bold" data-tip="AP you have now / the AP you gain each turn (6 + half your AGI modifier, rounded down, minimum 6; reduced by unrecovered Fatigue). Unspent AP carries over to your next turn, up to double (the dashed pips). Click the pips to spend or refund AP.">Action Points</div>
                         <div class="flex items-baseline justify-center gap-0.5 mt-0.5"><span class="text-2xl font-black text-blue-400" id="dispApLeft">6</span><span class="text-xs font-bold text-slate-500">/<span id="dispAp">6</span></span></div>
                         <div id="apPips" class="flex flex-wrap justify-center gap-0.5 mt-0.5"></div>
                         <div class="flex justify-center gap-2 mt-0.5">
-                            <button onclick="window.apxResetAp()" class="text-[9px] font-bold text-blue-300 hover:text-blue-200" title="Start of your turn: get all your AP back">New Turn</button>
+                            <button onclick="window.apxResetAp()" class="text-[9px] font-bold text-blue-300 hover:text-blue-200" title="Start of your turn: gain your AP. Unspent AP carries over (up to double).">New Turn</button>
                             <button id="regenBtn" onclick="window.apxRegenerate()" class="hidden text-[9px] font-bold text-emerald-300 hover:text-emerald-200" title="Regenerative: at the start of your turn in combat, expend a Rest Die and heal the result">Regen</button>
                         </div>
                     </div>
@@ -2606,10 +2606,7 @@
                 if (!window._playerWorldsData) window._playerWorldsData = {};
                 window._playerWorldsData[worldCode] = world;
                 window._playerWorldData = world;
-                if (world.races?.length && Array.isArray(window.gmRaces)) {
-                    world.races.forEach(r => { if (!window.gmRaces.find(x=>x.id===r.id)) window.gmRaces.push(window.apxMigrateRace ? window.apxMigrateRace(r) : r); });
-                    if (typeof window.renderImportedRaceList === 'function') window.renderImportedRaceList();
-                }
+                window._pwSetWorldRaces(worldCode, world.races);
                 document.getElementById('playerWorldBtn')?.classList.remove('hidden');
                 startWorldNotesListener(worldCode);
             }).catch(err => {
@@ -2617,6 +2614,25 @@
                 if (err.message?.startsWith('BANNED')) _cleanupBannedWorld(worldCode);
             });
         }
+    };
+
+    // Race templates belong to ONE world. Keep each world's list separately and only
+    // offer the active character's world races (plus any race files imported locally).
+    window._pwWorldRaces = window._pwWorldRaces || {};
+    window._pwSetWorldRaces = function(code, races) {
+        if (!code) return;
+        window._pwWorldRaces[code] = (races || []).map(r => Object.assign(window.apxMigrateRace ? window.apxMigrateRace(r) : r, { _worldCode: code }));
+        window._pwApplyWorldRaces();
+    };
+    window._pwApplyWorldRaces = function() {
+        if (!Array.isArray(window.gmRaces)) return;
+        let active = (window._sidebarChars || []).find(c => c.id === window._activeCloudCharId);
+        let code = active?.worldCode || null;
+        let keep = window.gmRaces.filter(r => !r._worldCode);   // locally imported race files
+        let mine = code ? (window._pwWorldRaces[code] || []) : [];
+        window.gmRaces.length = 0;
+        keep.concat(mine.filter(r => !keep.some(k => k.id === r.id))).forEach(r => window.gmRaces.push(r));
+        if (typeof window.renderImportedRaceList === 'function') window.renderImportedRaceList();
     };
 
     window.loadCharacterState = function(state) {
@@ -2630,6 +2646,7 @@
         if (typeof window.recalculateMath === 'function') window.recalculateMath();
         if (typeof window.syncDOM === 'function') window.syncDOM();
         if (typeof window.apxMaybeShowRulesNotices === 'function') window.apxMaybeShowRulesNotices();
+        setTimeout(() => window._pwApplyWorldRaces && window._pwApplyWorldRaces(), 0);
     };
 
     // Live sidebar rename when character name field changes
@@ -2732,10 +2749,7 @@
                 if (!window._playerWorldsData) window._playerWorldsData = {};
                 window._playerWorldsData[worldCode] = world;
                 window._playerWorldData = world;
-                if (world.races?.length && Array.isArray(window.gmRaces)) {
-                    world.races.forEach(r => { if (!window.gmRaces.find(x=>x.id===r.id)) window.gmRaces.push(window.apxMigrateRace ? window.apxMigrateRace(r) : r); });
-                    if (typeof window.renderImportedRaceList === 'function') window.renderImportedRaceList();
-                }
+                window._pwSetWorldRaces(worldCode, world.races);
                 document.getElementById('playerWorldBtn')?.classList.remove('hidden');
                 startWorldNotesListener(worldCode);
             }).catch(err => {
@@ -2814,10 +2828,7 @@
             }
 
             // Load race templates
-            if (world.races && Array.isArray(window.gmRaces)) {
-                world.races.forEach(r => { if (!window.gmRaces.find(x=>x.id===r.id)) window.gmRaces.push(window.apxMigrateRace ? window.apxMigrateRace(r) : r); });
-                if (typeof window.renderImportedRaceList === 'function') window.renderImportedRaceList();
-            }
+            window._pwSetWorldRaces(code, world.races);
 
             window.renderSidebarCharList();
             document.getElementById('playerWorldBtn').classList.remove('hidden');
@@ -3246,7 +3257,13 @@
                 otherMaps: data.publicNotes?.otherMaps || [],
                 worldMapDataUrl: cachedMap
             };
-            // Your turn just started in the GM's initiative -> your AP comes back
+            // Combat just started -> your AP pool empties; you gain AP when your turn comes up
+            try {
+                let inCombat = (world.notesV2.otherMaps || []).some(m => m._currentInitId);
+                if (inCombat && window._pwWasInCombat === false && window.state) { window.state.apCurrent = 0; window._pwLastTurnKey = null; window.apxRenderApPips?.(); window.scheduleAutoSave?.(); }
+                window._pwWasInCombat = inCombat;
+            } catch (e) { }
+            // Your turn just started in the GM's initiative -> you gain your AP (unspent AP carries over)
             try {
                 let myUid = window.apxAuth?.user?.uid;
                 (world.notesV2.otherMaps || []).forEach(m => {
@@ -3735,9 +3752,17 @@
     };
 
     function _pwOmTransform(winId, win) {
-        let vp=document.getElementById(winId+'_vp'); if(vp) vp.style.transform=`translate(${win._offX}px,${win._offY}px) scale(${win._scale})`;
-        _pwOmRenderTok(winId, win);
-        if (window.APXBattle) window.APXBattle.layout(winId);
+        // Batched to one update per animation frame (mouse-move can fire hundreds of
+        // times a second); the map, battle tokens and fog all move together in that frame.
+        // Area markers are only rebuilt when the zoom changes; panning never needs it.
+        if (win._raf) return;
+        win._raf = requestAnimationFrame(() => {
+            win._raf = 0;
+            let vp=document.getElementById(winId+'_vp');
+            if (vp) vp.style.transform=`translate(${win._offX}px,${win._offY}px) scale(${win._scale})`;
+            if (win._tokScale !== win._scale) { win._tokScale = win._scale; _pwOmRenderTok(winId, win); }
+            if (window.APXBattle) window.APXBattle.layout(winId);
+        });
     }
     function _pwOmShowImg(winId, win, map, src) {
         let mapId = winId.replace('pwOmWin_',''); // derive from winId — passed down to onload closure
@@ -3779,7 +3804,12 @@
         win._map=map;
     }
     function _pwOmRenderTok(winId, win, map) {
-        let m = map || win._map; if(!m) return;
+        // Always draw from the LATEST world data. The window used to keep the map it was
+        // opened with (win._map), so every pan/zoom redrew the old, pre-reveal version and
+        // newly revealed areas vanished until the map was reopened.
+        let mapId = winId.replace('pwOmWin_', '');
+        let m = (window._playerWorldData?.notesV2?.otherMaps || []).find(x => x.id === mapId) || map || win._map; if(!m) return;
+        win._map = m;
         let layer=document.getElementById(winId+'_tok'); if(!layer) return;
         let img=document.getElementById(winId+'_img'); if(!img||!img.naturalWidth) return;
         let iw=img.naturalWidth, ih=img.naturalHeight;
@@ -4091,6 +4121,7 @@
         let win=document.getElementById(winId); if(!win) return;
         let img=document.getElementById(winId+'_img'), area=document.getElementById(winId+'_area');
         if(img&&img.naturalWidth&&area){ let cw=area.clientWidth, ch=area.clientHeight, iw=img.naturalWidth, ih=img.naturalHeight; win._scale=Math.min(cw/iw,ch/ih,1); win._offX=(cw-iw*win._scale)/2; win._offY=(ch-ih*win._scale)/2; } else { win._scale=1; win._offX=0; win._offY=0; }
+        win._tokScale = null;
         _pwOmTransform(winId, win);
     };
 
@@ -4266,6 +4297,22 @@
                         }
                     }
                 }
+                // Conditions the GM sets on this character (e.g. Bleeding Out at 0 HP)
+                if (data._gmConds && isThisWorld && window.state) {
+                    if (!window._lastGmCondAt) window._lastGmCondAt = {};
+                    let savedAt = data.updatedAt?.toMillis?.() || 0, changed = false;
+                    Object.entries(data._gmConds).forEach(([cid, v]) => {
+                        let at = v?.at?.toMillis?.() || 0, k = inviteCode + ':' + cid;
+                        if (!at || at <= (window._lastGmCondAt[k] || 0)) return;
+                        let apply = !first || at >= savedAt;
+                        window._lastGmCondAt[k] = at;
+                        if (!apply) return;
+                        let list = window.state.conditions = (window.state.conditions || []).filter(c => c !== cid);
+                        if (v.on) list.push(cid);
+                        changed = true;
+                    });
+                    if (changed && typeof window.recalculateMath === 'function') window.recalculateMath();
+                }
                 // XP grants from the GM (combat, discovery, role play…). Each grant is paid
                 // once, with this character's own bonuses (Educated, Expertise, INT), logged,
                 // then removed from the queue.
@@ -4333,6 +4380,7 @@
         if (typeof window.recalculateMath === 'function') window.recalculateMath();
         if (typeof window.syncDOM === 'function') window.syncDOM();
         if (typeof window.apxMaybeShowRulesNotices === 'function') window.apxMaybeShowRulesNotices();
+        setTimeout(() => window._pwApplyWorldRaces && window._pwApplyWorldRaces(), 0);
     };
 
     // ── Sidebar account section ──────────────────────────────
@@ -4488,10 +4536,7 @@
                             if (!window._playerWorldsData) window._playerWorldsData = {};
                             window._playerWorldsData[w.code] = world;
                             if (!window._playerWorldData) window._playerWorldData = world;
-                            if (world.races?.length && Array.isArray(window.gmRaces)) {
-                                world.races.forEach(r => { if (!window.gmRaces.find(x=>x.id===r.id)) window.gmRaces.push(window.apxMigrateRace ? window.apxMigrateRace(r) : r); });
-                                if (typeof window.renderImportedRaceList === 'function') window.renderImportedRaceList();
-                            }
+                            window._pwSetWorldRaces(w.code, world.races);
                             document.getElementById('playerWorldBtn')?.classList.remove('hidden');
                             // Resume listeners for returning players
                             let me = window.apxAuth?.user?.uid;

@@ -36,6 +36,9 @@
             if (window.state.freePowersOwed === undefined) window.state.freePowersOwed = 0;
             if (window.state.ancestry.bonusPerkChoice === undefined) window.state.ancestry.bonusPerkChoice = null;
             if (!window.state.conditions) window.state.conditions = [];
+            // Bleeding Out ends as soon as the character has HP again
+            if ((window.state.currentHp || 0) > 0 && window.state.conditions.includes('bleedingout'))
+                window.state.conditions = window.state.conditions.filter(c => c !== 'bleedingout');
             if (!window.state.woundedLimbs) window.state.woundedLimbs = [];
             if (!window.state.savesTrained) window.state.savesTrained = { STR: false, AGI: false, CON: false, PER: false, INT: false, CHA: false, LUC: false };
             if (!window.state.trainedWeaponTypes) window.state.trainedWeaponTypes = [];

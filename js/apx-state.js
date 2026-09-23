@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.9.23.1300';
+window.APX_VERSION = 'v2026.9.23.1500';
 
         window.state = getInitialState();
 
@@ -360,38 +360,41 @@ window.APX_VERSION = 'v2026.9.23.1300';
             }
         };
 
-        // ── AP tracker (this turn) ─────────────────────────────────
+        // ── AP tracker ─────────────────────────────────────────────
+        // Unspent AP carries over between turns, so the pool can hold up to 2x your AP.
+        // "New Turn" adds your AP (capped at 2x); pips beyond your AP are stored AP.
+        function apxApMax() { return Math.max(0, calc.maxAp || 0); }
+        function apxApCurrent() {
+            let max = apxApMax();
+            let cur = window.state.apCurrent;
+            if (cur === undefined || cur === null) cur = max - Math.max(0, window.state.apUsed || 0);   // older sheets
+            return Math.max(0, Math.min(max * 2, cur));
+        }
+        function apxSetAp(v) {
+            window.state.apCurrent = Math.max(0, Math.min(apxApMax() * 2, v));
+            delete window.state.apUsed;
+            window.apxRenderApPips();
+            window.scheduleAutoSave?.();
+        }
+        window.apxApCurrent = apxApCurrent;
         window.apxRenderApPips = function() {
             let box = document.getElementById('apPips'); if (!box) return;
-            let max = Math.max(0, calc.maxAp || 0);
-            let used = Math.max(0, Math.min(max, window.state.apUsed || 0));
-            let left = max - used;
-            let lEl = document.getElementById('dispApLeft'); if (lEl) { lEl.innerText = left; lEl.className = 'text-2xl font-black ' + (left === 0 ? 'text-red-400' : 'text-blue-400'); }
-            box.innerHTML = Array.from({ length: max }, (_, i) => {
-                let spent = i >= left;
-                return `<button onclick="window.apxClickApPip(${i})" title="${spent ? 'Refund this AP' : 'Spend this AP'}" style="width:9px;height:9px;border-radius:50%;padding:0;border:1px solid #60a5fa;background:${spent ? 'transparent' : '#3b82f6'};cursor:pointer;"></button>`;
+            let max = apxApMax(), cur = apxApCurrent();
+            let lEl = document.getElementById('dispApLeft'); if (lEl) { lEl.innerText = cur; lEl.className = 'text-2xl font-black ' + (cur === 0 ? 'text-red-400' : cur > max ? 'text-cyan-300' : 'text-blue-400'); }
+            box.innerHTML = Array.from({ length: max * 2 }, (_, i) => {
+                let filled = i < cur, stored = i >= max;
+                return `<button onclick="window.apxClickApPip(${i})" title="${filled ? 'Spend' : 'Add'} AP${stored ? ' (stored from earlier turns)' : ''}" style="width:9px;height:9px;border-radius:50%;padding:0;border:1px ${stored ? 'dashed #67e8f9' : 'solid #60a5fa'};background:${filled ? (stored ? '#06b6d4' : '#3b82f6') : 'transparent'};cursor:pointer;${i === max ? 'margin-left:3px;' : ''}"></button>`;
             }).join('');
         };
-        // Pips fill from the left: clicking one spends AP down to it, clicking a spent one refunds up to it
+        // Clicking a filled pip spends down to it; clicking an empty one fills up to it
         window.apxClickApPip = function(i) {
-            let max = Math.max(0, calc.maxAp || 0);
-            let left = max - Math.max(0, Math.min(max, window.state.apUsed || 0));
-            let newLeft = i < left ? i : i + 1;
-            window.state.apUsed = Math.max(0, max - newLeft);
-            window.apxRenderApPips();
-            window.scheduleAutoSave?.();
+            let cur = apxApCurrent();
+            apxSetAp(i < cur ? i : i + 1);
         };
-        window.apxSpendAp = function(n) {
-            let max = Math.max(0, calc.maxAp || 0);
-            window.state.apUsed = Math.max(0, Math.min(max, (window.state.apUsed || 0) + n));
-            window.apxRenderApPips();
-            window.scheduleAutoSave?.();
-        };
-        window.apxResetAp = function() {
-            window.state.apUsed = 0;
-            window.apxRenderApPips();
-            window.scheduleAutoSave?.();
-        };
+        window.apxSpendAp = function(n) { apxSetAp(apxApCurrent() - n); };
+        // Start of your turn: gain your AP on top of whatever you saved (max 2x)
+        window.apxResetAp = function() { apxSetAp(apxApCurrent() + apxApMax()); };
+        window.apxFillAp = function() { apxSetAp(apxApMax()); };
 
         // XP history (grants from the GM, with the bonuses this character earned)
         window.apxShowXpLog = function() {
@@ -528,6 +531,8 @@ window.APX_VERSION = 'v2026.9.23.1300';
             
             document.getElementById('dispAncestryName').innerText = window.state.ancestry.name;
             document.getElementById('dispGpUsed').innerText = window.state.ancestry.gpUsed;
+            let gpLimEl = document.getElementById('dispGpLimit'); if (gpLimEl) gpLimEl.innerText = window.state.ancestry.gpLimit || 15;
+            let wizLimEl = document.getElementById('wizGpLimit'); if (wizLimEl && !document.getElementById('ancestryModal')?.classList.contains('active')) wizLimEl.value = window.state.ancestry.gpLimit || 15;
             document.getElementById('dispOriginName').innerText = window.state.origin.name !== "" ? window.state.origin.name : "Unknown";
         }
 

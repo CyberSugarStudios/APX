@@ -1171,7 +1171,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <button onclick="window.mapZoom(1.25)" class="px-2 py-1.5 rounded bg-slate-700 text-white text-xs font-bold">+</button>
                         <button onclick="window.mapZoom(0.8)" class="px-2 py-1.5 rounded bg-slate-700 text-white text-xs font-bold">&#8722;</button>
                         <button onclick="window.mapResetView()" class="px-2 py-1.5 rounded bg-slate-700 text-slate-400 text-xs">Reset</button>
-                        <button id="fogToggleBtn" onclick="window.toggleFogMode('worldmap')" class="px-2 py-1.5 rounded bg-slate-700 text-slate-400 text-xs font-bold">Fog</button>
+                        <button id="fogToggleBtn" onclick="window.toggleFogMode('worldmap')" title="Paint Fog of War (hotkey F)" class="px-2 py-1.5 rounded bg-slate-700 text-slate-400 text-xs font-bold">Fog</button>
                         <div id="fogControls" style="display:none;align-items:center;gap:0.4rem;">
                             <span class="text-[10px] text-slate-400">Size:</span>
                             <input type="range" id="fogBrushSlider" min="5" max="150" value="40" step="5"
@@ -2555,6 +2555,8 @@ document.addEventListener('DOMContentLoaded', () => {
     window._fogClearAllOmap = async function(mapId) {
         let fc = document.getElementById('omWin_'+mapId+'_fog');
         if (!fc||!fc.width) return;
+        let ok = await window.apxConfirm('Clear ALL fog on this map? Players will immediately see the whole map.', { title: 'Clear Fog of War', okLabel: 'Clear Fog', danger: true });
+        if (!ok) return;
         fc.getContext('2d').clearRect(0,0,fc.width,fc.height);
         delete _fogCache[(_activeWorldId||'?')+':'+mapId];
         await _fogSave(mapId);
@@ -2658,7 +2660,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <button onclick="window.omZoom('${winId}',0.8)"  style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;">−</button>
                 <button onclick="window.omReset('${winId}')"     style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;">Reset</button>
                 <!-- Fog controls live in the header so they never accidentally paint -->
-                <button id="${winId}_fogBtn" onclick="window.toggleFogMode('${mapId}')" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;">Fog</button>
+                <button id="${winId}_fogBtn" onclick="window.toggleFogMode('${mapId}')" title="Paint Fog of War (hotkey F)" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;">Fog</button>
                 <button id="${winId}_specialBtn" onclick="window.toggleSpecialMarkerMode('${mapId}','${winId}')" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;" title="Place a special marker (secret door, trap, etc.)">* Special</button>
                 <button id="${winId}_battleToggle" onclick="window.toggleBattleMap('${mapId}','${winId}')" style="background:${map.battleMapEnabled?'#065f46':'#1e293b'};border:1px solid ${map.battleMapEnabled?'#10b981':'#334155'};color:${map.battleMapEnabled?'#6ee7b7':'#94a3b8'};font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;" title="Turn the Battle Map (grid + tokens) on or off">Battle: ${map.battleMapEnabled ? 'On' : 'Off'}</button>
                 <!-- Battle Map controls: always rendered, shown only while Battle is ON -->
@@ -2777,11 +2779,21 @@ document.addEventListener('DOMContentLoaded', () => {
         _omLoadImage(mapId, winId, win);
     };
 
+    // Pan/zoom. Mouse-move events can fire hundreds of times a second, so the
+    // expensive parts are batched to one per animation frame, and the area markers
+    // are only rebuilt when the zoom level actually changes (panning never needs it).
     function _omTransform(winId, win) {
-        let vp=document.getElementById(winId+'_vp');
-        if (vp) vp.style.transform=`translate(${win._offX}px,${win._offY}px) scale(${win._scale})`;
-        _omRenderTok(winId, win);
-        if (window.APXBattle) window.APXBattle.layout(winId);
+        // Batched to one update per animation frame (mouse-move can fire hundreds of
+        // times a second); the map, battle tokens and fog all move together in that frame.
+        // Area markers are only rebuilt when the zoom changes; panning never needs it.
+        if (win._raf) return;
+        win._raf = requestAnimationFrame(() => {
+            win._raf = 0;
+            let vp=document.getElementById(winId+'_vp');
+            if (vp) vp.style.transform=`translate(${win._offX}px,${win._offY}px) scale(${win._scale})`;
+            if (win._tokScale !== win._scale) { win._tokScale = win._scale; _omRenderTok(winId, win); }
+            if (window.APXBattle) window.APXBattle.layout(winId);
+        });
     }
 
     window.omZoom = function(winId, factor) {
@@ -2804,6 +2816,7 @@ document.addEventListener('DOMContentLoaded', () => {
             win._scale=Math.min(cw/iw,ch/ih,1);
             win._offX=(cw-iw*win._scale)/2; win._offY=(ch-ih*win._scale)/2;
         } else { win._scale=1; win._offX=0; win._offY=0; }
+        win._tokScale = null;   // force a full redraw
         _omTransform(winId, win);
     };
 
@@ -2872,7 +2885,7 @@ document.addEventListener('DOMContentLoaded', () => {
         map.tokens.push(tok);
         saveWorldNotes();
         window.renderOtherMapsList();
-        _omTransform(winId, win);
+        _omRenderTok(winId, win);
         window.openTokenInfoWin(mapId, tok.id, winId, false);
     }
 
@@ -3229,7 +3242,7 @@ document.addEventListener('DOMContentLoaded', () => {
             map.tokens.push(tok);
             saveWorldNotes();
             window.renderOtherMapsList();
-            _omTransform(winId, win);
+            _omRenderTok(winId, win);
             window.openTokenInfoWin(mapId, tok.id, winId, false);
         };
         document.getElementById('omCharConfirm').addEventListener('click', confirmFn);
@@ -4142,22 +4155,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Full player stat block popup — opened by double-clicking a player's battle token
     // Full player stat block popup — opened by double-clicking a player's battle token
-    window._btOpenPlayerSummary = function(playerName, playerUid) {
-        let winId = 'playerSummary_'+playerUid;
-        let existing = document.getElementById(winId);
-        if (existing) {
-            window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1;
-            existing.style.zIndex=window.apxFloatingZTop;
-            return;
-        }
-        let p = (window.gmParty||[]).find(x=>x.fileName===playerUid);
+    // ONE player stat block, used by the token double-click window, the initiative
+    // tracker (click a player's name) and the Party panel.
+    window._gmPlayerStatBlock = function(p, playerName) {
         let s = p?.summary; let st = p?.state;
-        if (!s) { alert('Player data not yet loaded.'); return; }
-        window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1;
-        let win = document.createElement('div');
-        win.id = winId;
-        win.style.cssText=`position:fixed;right:20px;top:60px;width:340px;max-height:82vh;overflow-y:auto;background:#0f172a;border:1px solid #6366f1;border-radius:0.75rem;z-index:${window.apxFloatingZTop};box-shadow:0 10px 40px rgba(0,0,0,.9);font-family:inherit;`;
-
+        if (!s) return null;
         const hdr=(t)=>`<div style="font-size:0.52rem;font-weight:900;text-transform:uppercase;color:#6366f1;letter-spacing:0.07em;margin:0.5rem 0 0.2rem;border-bottom:1px solid #1e293b;padding-bottom:0.15rem;">${t}</div>`;
         const ATTRS=['STR','AGI','CON','PER','INT','CHA','LUC'];
 
@@ -4197,16 +4199,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // Ancestry name is a string in s.ancestryName — never use st.ancestry directly
         let subtitle = s.ancestryName || '';
 
-        win.innerHTML=`
-        <div id="${winId}_hdr" style="cursor:grab;user-select:none;background:#1e1b4b;padding:0.6rem 0.75rem;display:flex;align-items:center;gap:0.6rem;position:sticky;top:0;z-index:1;">
-            ${portrait}
-            <div style="flex:1;min-width:0;">
-                <div style="font-size:0.85rem;font-weight:900;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s.name||playerName}</div>
-                <div style="font-size:0.58rem;color:#818cf8;">${subtitle}</div>
-            </div>
-            <button onclick="document.getElementById('${winId}').remove()" style="background:none;border:none;color:#94a3b8;font-size:1.1rem;cursor:pointer;flex-shrink:0;">X</button>
-        </div>
-        <div style="padding:0.5rem 0.75rem;">
+        let R = o => window.APXDice ? ` data-apx-roll='${window.APXDice.attr(Object.assign({ who: s.name, perks: false }, o))}' title="Click to roll"` : '';
+        savesTable = `<table style="width:100%;border-collapse:collapse;font-size:0.6rem;margin-top:0.1rem;">
+            <tr>${ATTRS.map(a=>`<th style="text-align:center;color:#64748b;font-weight:600;padding:0.1rem 0.05rem;">${a}</th>`).join('')}</tr>
+            <tr>${ATTRS.map(a=>{let v=s.saves?.[a]??0;return`<td style="text-align:center;font-weight:900;color:${v>=0?'#a3e635':'#f87171'};padding:0.15rem 0.05rem;"${R({type:'check',kind:'save',label:a+' Save',bonus:v})}>${v>=0?'+':''}${v}</td>`}).join('')}</tr>
+        </table>`;
+        skillsList = (s.trainedSkills||[]).length
+            ? (s.trainedSkills||[]).map(sk=>`<span${R({type:'check',label:sk.name,bonus:sk.total})}>${sk.name} (${sk.total>=0?'+':''}${sk.total})</span>`).join(', ')
+            : 'None';
+        return { portrait, subtitle, name: s.name || playerName,
+            body: `        <div style="padding:0.5rem 0.75rem;">
             <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.3rem;margin-bottom:0.3rem;">
                 <div style="background:#1e293b;border-radius:0.3rem;padding:0.3rem;text-align:center;"><div style="font-size:0.45rem;color:#64748b;">HP</div><div style="font-size:0.7rem;font-weight:900;color:#f87171;">${s.currentHp??'—'}/${s.maxHp??'—'}${s.tempHp?`<span style='font-size:0.45rem;color:#fbbf24'> +${s.tempHp}t</span>`:''}</div></div>
                 <div style="background:#1e293b;border-radius:0.3rem;padding:0.3rem;text-align:center;"><div style="font-size:0.45rem;color:#64748b;">AC</div><div style="font-size:0.7rem;font-weight:900;color:#93c5fd;">${s.ac??'—'}</div></div>
@@ -4229,7 +4231,34 @@ document.addEventListener('DOMContentLoaded', () => {
             ${envSection}
             ${hdr('Trained Skills')}<div style="font-size:0.62rem;color:#a3e635;padding:0.15rem 0;">${skillsList}</div>
             ${hdr('Languages')}<div style="font-size:0.62rem;color:#c4b5fd;padding:0.15rem 0;">${languages}</div>
-        </div>`;
+        </div>` };
+    };
+
+    window._btOpenPlayerSummary = function(playerName, playerUid) {
+        let winId = 'playerSummary_'+playerUid;
+        let existing = document.getElementById(winId);
+        if (existing) {
+            window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1;
+            existing.style.zIndex=window.apxFloatingZTop;
+            return;
+        }
+        let p = (window.gmParty||[]).find(x=>x.fileName===playerUid||x.summary?.playerUid===playerUid);
+        let sb = window._gmPlayerStatBlock(p, playerName);
+        if (!sb) { window.apxAlert('Player data not yet loaded.'); return; }
+        window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1;
+        let win = document.createElement('div');
+        win.id = winId;
+        win.style.cssText=`position:fixed;right:20px;top:60px;width:340px;max-height:82vh;overflow-y:auto;background:#0f172a;border:1px solid #6366f1;border-radius:0.75rem;z-index:${window.apxFloatingZTop};box-shadow:0 10px 40px rgba(0,0,0,.9);font-family:inherit;`;
+        win.innerHTML=`
+        <div id="${winId}_hdr" style="cursor:grab;user-select:none;background:#1e1b4b;padding:0.6rem 0.75rem;display:flex;align-items:center;gap:0.6rem;position:sticky;top:0;z-index:1;">
+            ${sb.portrait}
+            <div style="flex:1;min-width:0;">
+                <div style="font-size:0.85rem;font-weight:900;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${sb.name}</div>
+                <div style="font-size:0.58rem;color:#818cf8;">${sb.subtitle}</div>
+            </div>
+            <button onclick="document.getElementById('${winId}').remove()" style="background:none;border:none;color:#94a3b8;font-size:1.1rem;cursor:pointer;flex-shrink:0;">X</button>
+        </div>
+        ${sb.body}`;
 
         document.getElementById('floatingWindowContainer').appendChild(win);
 
@@ -4358,7 +4387,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div style="width:24px;height:24px;background:#dc2626;border:2px solid #fff;border-radius:50%;
                     display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#fff;flex-shrink:0;">${tok.letter}</div>
                 <span style="font-size:0.75rem;font-weight:700;color:#e2e8f0;flex:1;">${tok.type==='special'?`* Marker ${tok.letter}`:`Area ${tok.letter}`}</span>
-                ${readOnly?`<button onclick="document.getElementById('${winId}').remove();window.openTokenInfoWin('${mapId}','${tokenId}','${parentWinId}',false)"
+                ${readOnly?`<button onclick="window._omToggleTokReveal('${mapId}','${tokenId}','${parentWinId}')" title="${tok.revealed?'Players can see this area. Click to hide it.':'Hidden from players. Click to reveal it.'}"
+                    style="font-size:0.65rem;font-weight:700;padding:0.2rem 0.5rem;background:${tok.revealed?'#064e3b':'#1e293b'};border:1px solid ${tok.revealed?'#10b981':'#475569'};color:${tok.revealed?'#6ee7b7':'#94a3b8'};border-radius:0.25rem;cursor:pointer;">${tok.revealed?'Revealed':'Hidden'}</button>
+                <button onclick="document.getElementById('${winId}').remove();window.openTokenInfoWin('${mapId}','${tokenId}','${parentWinId}',false)"
                     style="font-size:0.65rem;font-weight:700;padding:0.2rem 0.5rem;background:#1e3a5f;border:1px solid #2563eb;color:#93c5fd;border-radius:0.25rem;cursor:pointer;">Edit</button>`:''}
                 <button onclick="document.getElementById('${winId}').remove()"
                     style="background:none;border:none;color:#94a3b8;font-size:1.1rem;cursor:pointer;line-height:1;padding:0 0.2rem;">X</button>
@@ -4485,6 +4516,18 @@ document.addEventListener('DOMContentLoaded', () => {
         win.addEventListener('mousedown', ()=>{ window.apxFloatingZTop++; win.style.zIndex=window.apxFloatingZTop; });
     };
 
+    // One-click reveal/hide from the info window (no need to open Edit mid-session)
+    window._omToggleTokReveal = function(mapId, tokenId, parentWinId) {
+        let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+        let tok=map?.tokens?.find(t=>t.id===tokenId); if(!tok) return;
+        tok.revealed = !tok.revealed;
+        window.saveWorldNotesNow();
+        let pw = document.getElementById(parentWinId); if (pw) _omRenderTok(parentWinId, pw);
+        let w = document.getElementById('omTok_'+tokenId); let r = w && { left: w.style.left, top: w.style.top };
+        w?.remove();
+        window.openTokenInfoWin(mapId, tokenId, parentWinId, true);
+        let nw = document.getElementById('omTok_'+tokenId); if (nw && r) { nw.style.left = r.left; nw.style.top = r.top; }
+    };
     window._saveToken = function(mapId, tokenId, winId, parentWinId) {
         let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId);
         let tok=map?.tokens?.find(t=>t.id===tokenId); if(!tok) return;
@@ -5179,6 +5222,24 @@ document.addEventListener('DOMContentLoaded', () => {
             : document.getElementById('omWin_'+mapId+'_fog');
     }
 
+    // F toggles fog painting on the map under the mouse (or turns off the active one)
+    let _fogHoverMap = null;
+    document.addEventListener('mousemove', e => {
+        let a = e.target.closest && e.target.closest('[id^="omWin_"][id$="_area"], #mapContainer');
+        _fogHoverMap = !a ? null : a.id === 'mapContainer' ? 'worldmap' : a.id.replace(/^omWin_/, '').replace(/_area$/, '');
+    }, { passive: true });
+    document.addEventListener('keydown', e => {
+        if (e.key !== 'f' && e.key !== 'F') return;
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        let t = e.target;
+        if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+        let target = _fogHoverMap || _fogMode;
+        if (!target) return;
+        if (target !== 'worldmap' && !document.getElementById('omWin_' + target)) return;
+        e.preventDefault();
+        window.toggleFogMode(target);
+    });
+
     window.toggleFogMode = function(mapId) {
         let btn      = mapId === 'worldmap' ? document.getElementById('fogToggleBtn') : document.getElementById('omWin_'+mapId+'_fogBtn');
         let controls = mapId === 'worldmap' ? document.getElementById('fogControls') : document.getElementById('omWin_'+mapId+'_fogControls');
@@ -5309,6 +5370,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window._fogClearAll = async function() {
         if (!_fogMode) return;
+        let ok = await window.apxConfirm('Clear ALL fog on this map? Players will immediately see the whole map.', { title: 'Clear Fog of War', okLabel: 'Clear Fog', danger: true });
+        if (!ok || !_fogMode) return;
         let fc = _fogCanvas(_fogMode); if (!fc||!fc.width) return;
         fc.getContext('2d').clearRect(0, 0, fc.width, fc.height);
         delete _fogCache[(_activeWorldId||'?')+':'+_fogMode];

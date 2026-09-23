@@ -169,8 +169,10 @@
     // tokenVM = { id, gridX, gridY, size, layer, label, bg, borderColor, borderW, glow, tint,
     //   opacity, filter, portrait, title, draggable, interactive, badge, num, numColor, conds, attrs:{} }
     // propVM  = { id, src, x, y, w, h, layer, opacity, title, draggable, locked, resizable }
-    const Z_BASE = 100, Z_FOG = 100000, Z_ABOVE_FOG = 100100, Z_DRAG = 900000, Z_UI = 950000;
-    function zFor(layer, sizeRank) { return Z_BASE + ((Number(layer) || 0) + 50) * 10 + (sizeRank || 0); }
+    // Stacking: layer first; within a layer, images keep their list order (so every
+    // screen stacks overlapping images the same way) and tokens sit above images.
+    const Z_BASE = 100, Z_FOG = 10000000, Z_ABOVE_FOG = 10000100, Z_DRAG = 20000000, Z_UI = 21000000;
+    function zFor(layer, sub) { return Z_BASE + Math.max(0, (Number(layer) || 0) + 500) * 1000 + (sub || 0); }
 
     function _layer(area, winId) {
         let id = winId + '_btScreen';
@@ -192,7 +194,7 @@
         if (fog._home && fog.parentNode === layer) {
             fog._home.insertBefore(fog, fog._homeNext && fog._homeNext.parentNode === fog._home ? fog._homeNext : null);
         }
-        fog.style.transform = ''; fog.style.transformOrigin = ''; fog.style.zIndex = fog._homeZ || '3';
+        fog.style.transform = ''; fog.style.transformOrigin = ''; fog.style.willChange = ''; fog.style.zIndex = fog._homeZ || '3';
         layer._fog = null;
     }
 
@@ -266,7 +268,7 @@
         let o = el._layerRef && el._layerRef._opts;
         if (o && o.aboveFog && o.aboveFog.has(vm.id)) return Z_ABOVE_FOG + SIZE_LIST.length - SIZE_LIST.indexOf(vm.size || 'medium');
         // Smaller tokens sit above larger ones on the same layer
-        return zFor(vm.layer == null ? 1 : vm.layer, SIZE_LIST.length - SIZE_LIST.indexOf(vm.size || 'medium'));
+        return zFor(vm.layer == null ? 1 : vm.layer, 900 + SIZE_LIST.length - SIZE_LIST.indexOf(vm.size || 'medium'));
     }
 
     function _place(el, g, s, offX, offY, gx, gy) {
@@ -299,7 +301,7 @@
         el.style.top = (offY + y * s) + 'px';
         el.style.width = Math.max(4, vm.w * s) + 'px';
         el.style.height = Math.max(4, vm.h * s) + 'px';
-        el.style.zIndex = String(el._drag ? Z_DRAG - 1 : zFor(vm.layer || 0, 0));
+        el.style.zIndex = String(el._drag ? Z_DRAG - 1 : zFor(vm.layer || 0, Math.min(800, vm._order || 0)));
     }
 
     function _styleProp(el, vm, opts) {
@@ -652,6 +654,7 @@
                 layer.appendChild(fog);
             }
             fog.style.transformOrigin = '0 0';
+            fog.style.willChange = 'transform';   // its own GPU layer: panning just moves it, no repaint
             fog.style.zIndex = String(Z_FOG);
             layer._fog = fog;
         } else if (!fog && layer._fog) _restoreFog(layer);
@@ -659,7 +662,8 @@
         // Props
         let existingP = new Map();
         layer.querySelectorAll('[data-btp]').forEach(el => existingP.set(el.getAttribute('data-btp'), el));
-        (opts.props || []).forEach(vm => {
+        (opts.props || []).forEach((vm, i) => {
+            vm._order = i;
             let el = existingP.get(vm.id);
             if (el) existingP.delete(vm.id);
             else { el = _createProp(layer); el.setAttribute('data-btp', vm.id); layer.appendChild(el); }

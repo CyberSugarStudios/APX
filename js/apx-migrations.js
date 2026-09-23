@@ -103,6 +103,15 @@
                 if (!g.total) return [];
                 return [{ title: 'Companion gear now costs Threat Points', text: `Manufactured weapons and armor now count against your companion's TP, priced like the innate weapon they imitate. ${c.name || 'Your companion'}'s gear is worth ${g.total} TP. Nothing was removed: if that puts it over budget, its TP total shows in red in the NPC Crafter until you buy more TP or change its gear.` }];
             }
+        },
+        {
+            v: 5, label: 'Per-character GP limit',
+            run(s) {
+                // The Ancestry GP limit used to be a single browser-wide box. Keep any
+                // character that was built over 15 GP valid by remembering its own limit.
+                if (s.ancestry && s.ancestry.gpLimit === undefined) s.ancestry.gpLimit = Math.max(15, s.ancestry.gpUsed || 0);
+                return [];
+            }
         }
     ];
     window.APX_RULES_VERSION = Math.max(...CHARACTER_MIGRATIONS.map(m => m.v));

@@ -40,7 +40,7 @@
             loadOtherMapImageForPlayer: () => Promise.resolve(null),
             deleteOtherMapImage: () => Promise.resolve(),
             saveBattleImage: () => Promise.resolve(), loadBattleImage: () => Promise.resolve(null),
-            setActiveCharId: () => {},
+            setActiveCharId: () => {}, setGmCondition: () => Promise.resolve(),
             addXpGrant: () => Promise.resolve(), ackXpGrants: () => Promise.resolve(), addXpToPlayer: () => Promise.resolve(),
             loadBattleImageForPlayer: () => Promise.resolve(null), deleteBattleImage: () => Promise.resolve(),
             saveFogData: () => Promise.resolve(),
@@ -407,6 +407,13 @@
             .set({ _gmHp: v }, { merge: true });
     }
 
+    // GM turns a condition on/off on a player's sheet (e.g. Bleeding Out at 0 HP)
+    async function setGmCondition(inviteCode, uid, condId, on) {
+        if (!inviteCode || !uid || !condId) return;
+        await db.collection('worldCodes').doc(inviteCode).collection('players').doc(uid)
+            .set({ _gmConds: { [condId]: { on: !!on, at: firebase.firestore.FieldValue.serverTimestamp() } } }, { merge: true });
+    }
+
     // --- NPC portraits (stored separately to keep world doc under 1MB limit) ---
     // Path: users/{uid}/worlds/{worldId}/npcPortraits/{npcId}
     async function saveNpcPortrait(worldId, npcId, circleData, fullData) {
@@ -751,7 +758,7 @@
         writeBattlePosition, listenBattlePositions,
         saveOtherMapImage, loadOtherMapImage, loadOtherMapImageForPlayer, deleteOtherMapImage,
         saveBattleImage, loadBattleImage, loadBattleImageForPlayer, deleteBattleImage,
-        addXpGrant, ackXpGrants,
+        addXpGrant, ackXpGrants, setGmCondition,
         saveFogData, loadFogData, loadFogDataForPlayer, listenFogDataForPlayer,
         listenWorldPlayers, listenPublicWorldNotes, kickWorldPlayer,
         scheduleAutoSave, setActiveCharId,

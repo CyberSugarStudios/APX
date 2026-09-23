@@ -311,6 +311,7 @@
             ancTarget = 'player';
             window.ancTarget = ancTarget;
             ancRaceEditId = null;
+            document.getElementById('wizGpLimit').value = window.state.ancestry.gpLimit || 15;
             document.getElementById('ancestryWizardTitle').innerText = 'Ancestry & Genetics Builder';
             document.getElementById('wizBtnFinish').innerText = 'Save & Apply';
             toggleWizBaseAttrFields(false);
@@ -760,6 +761,9 @@
 
             let gp = 0;
             let limit = parseInt(document.getElementById('wizGpLimit').value) || 15;
+            // The GP limit belongs to THIS character (a GM override for one player),
+            // not to every sheet opened in this browser.
+            if (ancTarget === 'player' && window.state?.ancestry) window.state.ancestry.gpLimit = limit;
             // dispGpLimit lives in the main character sheet's header (next
             // to the Ancestry button), not inside this modal -- it doesn't
             // exist when this wizard is reused standalone in GM Tools.
