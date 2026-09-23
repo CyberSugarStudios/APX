@@ -51,6 +51,28 @@
     firebase.initializeApp(window.FIREBASE_CONFIG);
     const auth = firebase.auth();
     const db   = firebase.firestore();
+    // Never let a stray `undefined` anywhere in a payload kill a save.
+    try { db.settings({ ignoreUndefinedProperties: true }); } catch (e) { console.warn('Firestore settings:', e.message); }
+
+    // Deep-clean a plain-data object for Firestore: drops undefined / functions,
+    // turns undefined array slots into null, and NaN/Infinity into 0.
+    function apxClean(v) {
+        if (v === undefined || typeof v === 'function' || typeof v === 'symbol') return undefined;
+        if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+        if (v === null || typeof v !== 'object') return v;
+        if (Array.isArray(v)) return v.map(x => { let c = apxClean(x); return c === undefined ? null : c; });
+        if (v instanceof Date) return v;
+        let proto = Object.getPrototypeOf(v);
+        if (proto !== Object.prototype && proto !== null) return v; // Firestore sentinels, Timestamps, etc.
+        let out = {};
+        for (let k in v) {
+            if (!Object.prototype.hasOwnProperty.call(v, k)) continue;
+            let c = apxClean(v[k]);
+            if (c !== undefined) out[k] = c;
+        }
+        return out;
+    }
+    window.apxCleanForFirestore = apxClean;
     window._apxDb = db; // expose for GMTools inline scripts that need cross-user reads
 
     // --- Auth helpers ---------------------------------------------------
@@ -85,6 +107,8 @@
     async function saveCharacter(charId, stateObj, meta) {
         let user = currentUser();
         if (!user) return;
+        stateObj = apxClean(stateObj) || {};
+        if (meta) meta = apxClean(meta);
         let doc = {
             state: stateObj,
             name: stateObj.name || 'Unnamed Character',
@@ -150,7 +174,7 @@
         let user = currentUser();
         if (!user) return;
         await db.collection('users').doc(user.uid).collection('gmRaces').doc('all')
-            .set({ races: racesArray, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+            .set({ races: apxClean(racesArray) || [], updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
     }
     async function loadGmRaces() {
         let user = currentUser();
@@ -162,7 +186,7 @@
         let user = currentUser();
         if (!user) return;
         await db.collection('users').doc(user.uid).collection('gmNpcs').doc('all')
-            .set({ npcs: npcsArray, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+            .set({ npcs: apxClean(npcsArray) || [], updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
     }
     async function loadGmNpcs() {
         let user = currentUser();
@@ -472,12 +496,12 @@
         let user = currentUser();
         if (!user) return;
         if (gmPrivateData && Object.keys(gmPrivateData).length)
-            await db.collection('users').doc(user.uid).collection('worlds').doc(worldId).set(gmPrivateData, { merge: true });
+            await db.collection('users').doc(user.uid).collection('worlds').doc(worldId).set(apxClean(gmPrivateData), { merge: true });
         if (publicData && Object.keys(publicData).length) {
             let worldDoc = await db.collection('users').doc(user.uid).collection('worlds').doc(worldId).get();
             let inviteCode = worldDoc.exists ? worldDoc.data().inviteCode : null;
             if (inviteCode) await db.collection('worldCodes').doc(inviteCode).set({
-                ...publicData,
+                ...apxClean(publicData),
                 gmUid: user.uid,
                 worldId   // players need this to load portraits from users/{gmUid}/worlds/{worldId}/npcPortraits
             }, { merge: true });
