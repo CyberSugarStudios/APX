@@ -116,6 +116,14 @@
         .apxd-q button{background:var(--c-surface2,#0f172a);border:1px solid var(--c-border,#334155);color:var(--c-text,#fff);font-size:.66rem;font-weight:800;padding:.2rem .4rem;border-radius:.3rem;cursor:pointer}
         .apxd-q button:hover{border-color:var(--c-indigo,#6366f1)}
         .apxd-q input{width:74px;background:var(--c-surface2,#0f172a);border:1px solid var(--c-border,#334155);color:var(--c-text,#fff);font-size:.68rem;padding:.2rem .35rem;border-radius:.3rem}
+        .apxd-pool{display:flex;flex-wrap:wrap;align-items:center;gap:.25rem;padding:.35rem .6rem;border-bottom:1px solid var(--c-border,#334155);min-height:30px}
+        .apxd-pool .chip{font-size:.66rem;font-weight:900;padding:.12rem .4rem;border-radius:.3rem;border:1px solid var(--c-indigo,#6366f1);background:rgba(99,102,241,.15);color:var(--c-text,#fff);cursor:pointer}
+        .apxd-pool .chip:hover{border-color:#f87171;color:#fca5a5}
+        .apxd-pool .ph{font-size:.62rem;color:var(--c-text-muted,#64748b);flex:1}
+        .apxd-pool .modtag{font-size:.66rem;font-weight:800;color:var(--c-text-dimmer,#cbd5e1)}
+        .apxd-pool .go{margin-left:auto;background:var(--c-emerald,#059669);border:none;color:#fff;font-size:.7rem;font-weight:900;padding:.22rem .7rem;border-radius:.3rem;cursor:pointer}
+        .apxd-pool .go:disabled{opacity:.4;cursor:default}
+        .apxd-pool .clr{background:none;border:none;color:var(--c-text-muted,#94a3b8);font-size:.6rem;font-weight:800;cursor:pointer}
         .apxd-log{overflow-y:auto;padding:.5rem .6rem;display:flex;flex-direction:column;gap:.45rem;min-height:90px}
         .apxd-empty{font-size:.7rem;color:var(--c-text-muted,#64748b);text-align:center;padding:1rem .5rem}
         .apxd-card{border:1px solid var(--c-border,#334155);background:var(--c-surface2,#0f172a);border-radius:.55rem;padding:.45rem .55rem}
@@ -182,8 +190,9 @@
             <div class="apxd-omen" data-omen style="display:none"></div>
             <div class="apxd-q">
                 ${[4, 6, 8, 10, 12, 20, 100].map(s => `<button data-q="${s}">d${s}</button>`).join('')}
-                <input data-free placeholder="2d6+3" title="Type any roll, press Enter">
+                <input data-free placeholder="+3 or 2d6+3" title="A number is added to the dice pool as a modifier. Any other roll (like 2d6+3) is rolled with the pool. Enter rolls.">
             </div>
+            <div class="apxd-pool" data-pool></div>
             <div class="apxd-log"><div class="apxd-empty">Click a skill, save, weapon, power or any dice in a stat block to roll. Or use the buttons above.</div></div>`;
         document.body.appendChild(fab);
         document.body.appendChild(el);
@@ -191,21 +200,66 @@
         el.querySelector('[data-close]').onclick = () => toggle(false);
         el.querySelector('[data-clear]').onclick = () => { cards = []; tray.log.innerHTML = '<div class="apxd-empty">Log cleared.</div>'; };
         el.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => setMode(b.dataset.mode));
-        el.querySelectorAll('[data-q]').forEach(b => b.onclick = e => {
-            let s = b.dataset.q;
-            if (s === '20') APXDice.check({ label: 'd20', bonus: 0 });
-            else APXDice.formula('d' + s, '1d' + s);
+        // Die buttons add to a pool; Roll rolls the pool (plus the text field) and clears both
+        tray.pool = {};
+        el.querySelectorAll('[data-q]').forEach(b => {
+            b.title = 'Add a d' + b.dataset.q + ' to the pool (right-click to remove one)';
+            b.onclick = () => { poolAdd(+b.dataset.q, 1); };
+            b.oncontextmenu = e => { e.preventDefault(); poolAdd(+b.dataset.q, -1); };
         });
         let free = el.querySelector('[data-free]');
-        free.addEventListener('keydown', e => {
-            if (e.key !== 'Enter') return;
-            let v = free.value.trim(); if (!v) return;
-            if (/^\s*1?d20\s*([+-]\s*\d+)?\s*$/i.test(v)) APXDice.check({ label: v, bonus: parse(v).flat });
-            else APXDice.formula(v, v);
+        free.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); rollPool(); } });
+        free.addEventListener('input', renderPool);
+        el.querySelector('[data-pool]').addEventListener('click', e => {
+            let chip = e.target.closest('[data-chip]');
+            if (chip) return poolAdd(+chip.dataset.chip, -1);
+            if (e.target.closest('[data-roll]')) return rollPool();
+            if (e.target.closest('[data-poolclear]')) { tray.pool = {}; free.value = ''; renderPool(); }
         });
+        renderPool();
         el.querySelector('[data-explode]').onchange = e => { tray.explodeNext = e.target.checked; };
         if (window.apxMakeDraggable) window.apxMakeDraggable(el, el.querySelector('#apxdHdr'));
         refreshPerkBar();
+    }
+    const POOL_SIDES = [4, 6, 8, 10, 12, 20, 100];
+    function poolAdd(sides, d) {
+        let n = Math.max(0, (tray.pool[sides] || 0) + d);
+        if (n) tray.pool[sides] = Math.min(99, n); else delete tray.pool[sides];
+        renderPool();
+    }
+    // Text field: a bare number ("3", "+3", "-2") is a modifier for the pool; anything else is a roll formula
+    function freeText() {
+        let v = (tray.el?.querySelector('[data-free]')?.value || '').trim();
+        if (!v) return { mod: 0, formula: '' };
+        if (/^[+-]?\s*\d+$/.test(v)) return { mod: parseInt(v.replace(/\s+/g, ''), 10), formula: '' };
+        return { mod: 0, formula: v };
+    }
+    function poolFormula() {
+        let parts = POOL_SIDES.filter(sd => tray.pool[sd]).map(sd => tray.pool[sd] + 'd' + sd);
+        let f = freeText();
+        if (f.formula) parts.push(f.formula.replace(/^\+/, ''));
+        let str = parts.join('+').replace(/\+-/g, '-');
+        if (f.mod) str = str ? str + fmtNum(f.mod) : '';
+        return str;
+    }
+    function renderPool() {
+        let box = tray.el?.querySelector('[data-pool]'); if (!box) return;
+        let chips = POOL_SIDES.filter(sd => tray.pool[sd]).map(sd => `<button class="chip" data-chip="${sd}" title="Remove one d${sd}">${tray.pool[sd]}d${sd}</button>`).join('');
+        let f = freeText(), str = poolFormula();
+        let extra = f.formula ? `<span class="modtag">+ ${esc(f.formula)}</span>` : (f.mod && chips ? `<span class="modtag">${fmtNum(f.mod)}</span>` : '');
+        box.innerHTML = (chips || extra ? chips + extra : '<span class="ph">Click dice above to build a pool.</span>')
+            + (chips || f.formula ? '<button class="clr" data-poolclear title="Empty the pool">Clear</button>' : '')
+            + `<button class="go" data-roll ${str ? '' : 'disabled'} title="${str ? 'Roll ' + esc(str) : 'Add dice first'}">Roll</button>`;
+    }
+    function rollPool() {
+        let str = poolFormula(); if (!str) return;
+        let p = parse(str);
+        // A single d20 (plus a modifier) is a check, so Advantage/Disadvantage and crits apply
+        if (p.dice.length === 1 && p.dice[0].n === 1 && p.dice[0].s === 20 && p.dice[0].sign === 1) APXDice.check({ label: str, bonus: p.flat });
+        else APXDice.formula(str, str);
+        tray.pool = {};
+        let free = tray.el.querySelector('[data-free]'); if (free) free.value = '';
+        renderPool();
     }
     function setMode(m) {
         tray.mode = m;

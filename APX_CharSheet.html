@@ -514,11 +514,11 @@
                     </div>
 
                     <div class="bg-slate-900 p-2 rounded border border-slate-700 text-center" id="apTrackerBox">
-                        <div class="text-[10px] text-slate-500 uppercase font-bold" data-tip="AP you have now / the AP you gain each turn (6 + half your AGI modifier, rounded down, minimum 6; reduced by unrecovered Fatigue). Unspent AP carries over to your next turn, up to double (the dashed pips). Click the pips to spend or refund AP.">Action Points</div>
+                        <div class="text-[10px] text-slate-500 uppercase font-bold" data-tip="AP you have now / the AP you gain each turn (6 + half your AGI modifier, rounded down, minimum 6; reduced by unrecovered Fatigue). Unspent AP carries over to your next turn with no cap (the dashed pips; more appear as they fill). Click the pips to spend or refund AP.">Action Points</div>
                         <div class="flex items-baseline justify-center gap-0.5 mt-0.5"><span class="text-2xl font-black text-blue-400" id="dispApLeft">6</span><span class="text-xs font-bold text-slate-500">/<span id="dispAp">6</span></span></div>
                         <div id="apPips" class="flex flex-wrap justify-center gap-0.5 mt-0.5"></div>
                         <div class="flex justify-center gap-2 mt-0.5">
-                            <button onclick="window.apxResetAp()" class="text-[9px] font-bold text-blue-300 hover:text-blue-200" title="Start of your turn: gain your AP. Unspent AP carries over (up to double).">New Turn</button>
+                            <button onclick="window.apxResetAp()" class="text-[9px] font-bold text-blue-300 hover:text-blue-200" title="Start of your turn: gain your AP. Unspent AP carries over (no cap).">New Turn</button>
                             <button id="regenBtn" onclick="window.apxRegenerate()" class="hidden text-[9px] font-bold text-emerald-300 hover:text-emerald-200" title="Regenerative: at the start of your turn in combat, expend a Rest Die and heal the result">Regen</button>
                         </div>
                     </div>
@@ -3736,7 +3736,7 @@
         document.addEventListener('mouseup', ()=>wDrag=false);
 
         let area=document.getElementById(winId+'_area');
-        area.addEventListener('mousedown', e=>{ if(e.button!==0)return; win._dragging=true; win._didDrag=false; win._dragSX=e.clientX; win._dragSY=e.clientY; win._dragOX=win._offX; win._dragOY=win._offY; area.style.cursor='grabbing'; e.preventDefault(); });
+        area.addEventListener('mousedown', e=>{ if(e.button!==0 && e.button!==1)return; win._dragging=true; win._didDrag=false; win._dragSX=e.clientX; win._dragSY=e.clientY; win._dragOX=win._offX; win._dragOY=win._offY; area.style.cursor='grabbing'; e.preventDefault(); });
         area.addEventListener('mousemove', e=>{ if(!win._dragging)return; let dx=e.clientX-win._dragSX, dy=e.clientY-win._dragSY; if(Math.abs(dx)+Math.abs(dy)>4)win._didDrag=true; win._offX=win._dragOX+dx; win._offY=win._dragOY+dy; _pwOmTransform(winId,win); });
         area.addEventListener('mouseup', ()=>{ win._dragging=false; area.style.cursor='grab'; });
         area.addEventListener('mouseleave', ()=>{ win._dragging=false; area.style.cursor='grab'; });

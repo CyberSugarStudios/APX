@@ -1089,18 +1089,19 @@ window.toggleInitiativePowerSlot = function(entryId, powerName, idx) {
     window.renderInitiativeTracker();
 };
 
-// AP pool per creature. Unspent AP carries over between turns, up to 2x its AP.
+// AP pool per creature. Unspent AP carries over between turns with no cap;
+// pips show 2x its AP and grow as the pool fills.
 // NPCs: click pips to spend/refund. Players: mirrors their sheet.
 function gmApMax(e) { return Math.max(0, parseInt(e.ap) || 0); }
 function gmApCurrent(e) {
     let max = gmApMax(e);
     let cur = e.apCur;
     if (cur === undefined || cur === null) cur = window.gmCombatStarted ? 0 : max;   // gains AP at the start of its first turn
-    return Math.max(0, Math.min(max * 2, cur));
+    return Math.max(0, Math.floor(Number(cur) || 0));
 }
 function gmStartTurnAp(e) {
     if (e.faction === 'player') return;   // players' sheets add their own AP when their turn starts
-    e.apCur = Math.min(gmApMax(e) * 2, gmApCurrent(e) + gmApMax(e));
+    e.apCur = gmApCurrent(e) + gmApMax(e);
 }
 function gmApPipsHtml(e) {
     let max = gmApMax(e);
@@ -1109,20 +1110,20 @@ function gmApPipsHtml(e) {
         let pm = (window.gmParty || []).find(p => p.fileName === e.playerUid || p.summary?.playerUid === e.playerUid);
         let st = pm?.state || {};
         cur = st.apCurrent !== undefined && st.apCurrent !== null ? st.apCurrent : max - (st.apUsed || 0);
-        cur = Math.max(0, Math.min(max * 2, cur));
+        cur = Math.max(0, Math.floor(Number(cur) || 0));
     } else cur = gmApCurrent(e);
-    let pips = Array.from({ length: max * 2 }, (_, i) => {
+    let pips = Array.from({ length: Math.min(500, Math.max(max * 2, isPlayer ? cur : cur + 1)) }, (_, i) => {
         let filled = i < cur, stored = i >= max;
         let st = `width:7px;height:7px;border-radius:50%;display:inline-block;padding:0;border:1px ${stored ? 'dashed #67e8f9' : 'solid #60a5fa'};background:${filled ? (stored ? '#06b6d4' : '#3b82f6') : 'transparent'};${i === max ? 'margin-left:3px;' : ''}`;
         return isPlayer ? `<span style="${st}"></span>`
             : `<button onclick="window.gmClickApPip('${e.id}', ${i})" title="${filled ? 'Spend' : 'Add'} AP" style="${st}cursor:pointer"></button>`;
     }).join('');
-    return `<span class="flex items-center gap-0.5 flex-wrap" title="${isPlayer ? 'Tracked on the player\'s sheet' : 'AP now (gains its AP at the start of each turn; unspent AP carries over, up to double)'}"><b class="${cur === 0 ? 'text-red-400' : 'text-blue-300'}">AP ${cur}/${max}</b>${pips}</span>`;
+    return `<span class="flex items-center gap-0.5 flex-wrap" title="${isPlayer ? 'Tracked on the player\'s sheet' : 'AP now (gains its AP at the start of each turn; unspent AP carries over, no cap)'}"><b class="${cur === 0 ? 'text-red-400' : 'text-blue-300'}">AP ${cur}/${max}</b>${pips}</span>`;
 }
 window.gmClickApPip = function(id, i) {
     let e = window.gmInitiative.find(x => x.id === id); if (!e) return;
     let cur = gmApCurrent(e);
-    e.apCur = Math.max(0, Math.min(gmApMax(e) * 2, i < cur ? i : i + 1));
+    e.apCur = Math.max(0, i < cur ? i : i + 1);
     window.renderInitiativeTracker();
 };
 

@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.9.23.1615';
+window.APX_VERSION = 'v2026.9.23.1730';
 
         window.state = getInitialState();
 
@@ -361,17 +361,18 @@ window.APX_VERSION = 'v2026.9.23.1615';
         };
 
         // ── AP tracker ─────────────────────────────────────────────
-        // Unspent AP carries over between turns, so the pool can hold up to 2x your AP.
-        // "New Turn" adds your AP (capped at 2x); pips beyond your AP are stored AP.
+        // Unspent AP carries over between turns with no cap. The tracker shows
+        // 2x your AP to start and grows extra stored pips as the pool fills.
+        // "New Turn" adds your AP; pips beyond your AP are stored AP.
         function apxApMax() { return Math.max(0, calc.maxAp || 0); }
         function apxApCurrent() {
             let max = apxApMax();
             let cur = window.state.apCurrent;
             if (cur === undefined || cur === null) cur = max - Math.max(0, window.state.apUsed || 0);   // older sheets
-            return Math.max(0, Math.min(max * 2, cur));
+            return Math.max(0, Math.floor(Number(cur) || 0));
         }
         function apxSetAp(v) {
-            window.state.apCurrent = Math.max(0, Math.min(apxApMax() * 2, v));
+            window.state.apCurrent = Math.max(0, Math.floor(Number(v) || 0));
             delete window.state.apUsed;
             window.apxRenderApPips();
             window.scheduleAutoSave?.();
@@ -381,7 +382,7 @@ window.APX_VERSION = 'v2026.9.23.1615';
             let box = document.getElementById('apPips'); if (!box) return;
             let max = apxApMax(), cur = apxApCurrent();
             let lEl = document.getElementById('dispApLeft'); if (lEl) { lEl.innerText = cur; lEl.className = 'text-2xl font-black ' + (cur === 0 ? 'text-red-400' : cur > max ? 'text-cyan-300' : 'text-blue-400'); }
-            box.innerHTML = Array.from({ length: max * 2 }, (_, i) => {
+            box.innerHTML = Array.from({ length: Math.min(500, Math.max(max * 2, cur + 1)) }, (_, i) => {
                 let filled = i < cur, stored = i >= max;
                 return `<button onclick="window.apxClickApPip(${i})" title="${filled ? 'Spend' : 'Add'} AP${stored ? ' (stored from earlier turns)' : ''}" style="width:9px;height:9px;border-radius:50%;padding:0;border:1px ${stored ? 'dashed #67e8f9' : 'solid #60a5fa'};background:${filled ? (stored ? '#06b6d4' : '#3b82f6') : 'transparent'};cursor:pointer;${i === max ? 'margin-left:3px;' : ''}"></button>`;
             }).join('');
@@ -392,7 +393,7 @@ window.APX_VERSION = 'v2026.9.23.1615';
             apxSetAp(i < cur ? i : i + 1);
         };
         window.apxSpendAp = function(n) { apxSetAp(apxApCurrent() - n); };
-        // Start of your turn: gain your AP on top of whatever you saved (max 2x)
+        // Start of your turn: gain your AP on top of whatever you saved (no cap)
         window.apxResetAp = function() { apxSetAp(apxApCurrent() + apxApMax()); };
         window.apxFillAp = function() { apxSetAp(apxApMax()); };
 

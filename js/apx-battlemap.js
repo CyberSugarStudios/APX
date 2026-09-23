@@ -363,10 +363,13 @@
         let gridEl = layer.querySelector('[data-bt-grid]');
         if (gridEl && o.imgSize) {
             let g = o.grid, org = origin(g), cs = g.cellSize * s;
-            gridEl.style.left = ox + 'px'; gridEl.style.top = oy + 'px';
-            gridEl.style.width = (o.imgSize.w * s) + 'px'; gridEl.style.height = (o.imgSize.h * s) + 'px';
+            // Own GPU layer moved by a whole-pixel transform, so resizing the window or panning
+            // never repaints it (the fraction goes into the pattern offset to keep lines crisp)
+            let tx = Math.round(ox), ty = Math.round(oy);
+            gridEl.style.transform = `translate(${tx}px,${ty}px)`;
+            gridEl.style.width = (o.imgSize.w * s + 1) + 'px'; gridEl.style.height = (o.imgSize.h * s + 1) + 'px';
             gridEl.style.backgroundSize = `${cs}px ${cs}px`;
-            gridEl.style.backgroundPosition = `${org.ox * s}px ${org.oy * s}px`;
+            gridEl.style.backgroundPosition = `${org.ox * s + (ox - tx)}px ${org.oy * s + (oy - ty)}px`;
             gridEl.style.display = cs < 4 ? 'none' : '';   // too dense to be useful when zoomed far out
         }
         _layoutMeasure(layer);
@@ -674,7 +677,7 @@
             if (!gridEl) {
                 gridEl = document.createElement('div');
                 gridEl.setAttribute('data-bt-grid', '1');
-                gridEl.style.cssText = 'position:absolute;pointer-events:none;opacity:.35;z-index:50;' +
+                gridEl.style.cssText = 'position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform;pointer-events:none;opacity:.35;z-index:50;' +
                     'background-image:linear-gradient(to right,#fff 1px,transparent 1px),linear-gradient(to bottom,#fff 1px,transparent 1px);';
                 layer.insertBefore(gridEl, layer.firstChild);
             }
@@ -837,15 +840,17 @@
         svg.setAttribute('width', '100%'); svg.setAttribute('height', '100%');
         svg.style.cssText = 'position:absolute;inset:0;pointer-events:none;overflow:visible;';
         let tip = document.createElement('div');
-        tip.textContent = 'Measure: drag between squares or tokens. M or Esc to exit.';
+        tip.textContent = 'Measure: drag between squares or tokens. Middle-drag to pan. M or Esc to exit.';
         tip.style.cssText = 'position:absolute;left:50%;top:8px;transform:translateX(-50%);background:rgba(15,23,42,.92);border:1px solid #facc15;color:#fde68a;font-size:11px;font-weight:700;padding:3px 8px;border-radius:5px;pointer-events:none;white-space:nowrap;';
         ov.appendChild(svg); ov.appendChild(tip);
         layer.appendChild(ov);
         let m = layer._measure = { ov, svg, a: null, b: null, down: false };
         let cellOf = e => { let p = _imgPoint(layer, e); return _cellAt(layer._opts.grid, p.x, p.y); };
-        ov.addEventListener('mousedown', e => { e.stopPropagation(); e.preventDefault(); if (e.button !== 0) return; m.down = true; m.a = cellOf(e); m.b = m.a; _layoutMeasure(layer); });
+        // Middle-click (or Ctrl+left) passes through to the map so it can pan while measuring
+        let isPan = e => e.button === 1 || (e.button === 0 && (e.ctrlKey || e.metaKey));
+        ov.addEventListener('mousedown', e => { if (isPan(e)) return; e.stopPropagation(); e.preventDefault(); if (e.button !== 0) return; m.down = true; m.a = cellOf(e); m.b = m.a; _layoutMeasure(layer); });
         ov.addEventListener('mousemove', e => { if (!m.down) return; let c = cellOf(e); if (m.b && c.gx === m.b.gx && c.gy === m.b.gy) return; m.b = c; _layoutMeasure(layer); });
-        ov.addEventListener('mouseup', e => { e.stopPropagation(); m.down = false; });
+        ov.addEventListener('mouseup', e => { if (!m.down) return; e.stopPropagation(); m.down = false; });
         ov.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); exitMeasure(winId); });
         (layer._opts.onMeasureChange || (() => {}))(true);
         return true;

@@ -105,17 +105,21 @@
             let el = document.getElementById('activeConditionsDisplay');
             if (!el) return;
             let eff = window.apxEffectiveConditions ? window.apxEffectiveConditions(window.state.conditions, window.state) : window.state.conditions.map(id => ({ id }));
+            const xBtn = (onclick, title) => `<button type="button" class="apx-cond-x ml-1 -mr-0.5 text-red-300/70 hover:text-white leading-none" title="${title}" onclick="event.stopPropagation();${onclick}">&times;</button>`;
+            let stored = window.state.conditions || [];
             let condTags = eff.map(ec => {
                 let c = CONDITIONS.find(x => x.id === ec.id);
                 if (!c) return '';
                 let from = ec.from ? (CONDITIONS.find(x => x.id === ec.from) || {}).name : '';
-                return `<span class="text-[9px] ${from ? 'bg-red-900/20 text-red-300/80 border-dashed' : 'bg-red-900/40 text-red-300'} border border-red-800/50 px-1.5 py-0.5 rounded font-bold" title="${String(c.desc).replace(/"/g, '&quot;')}${from ? ' (from ' + from + ')' : ''}">${c.name}</span>`;
+                let removable = !from && stored.includes(ec.id);
+                let x = removable ? xBtn(`window.toggleCondition(decodeURIComponent('${encodeURIComponent(ec.id)}'), false)`, 'Remove ' + c.name) : '';
+                return `<span class="inline-flex items-center text-[9px] ${from ? 'bg-red-900/20 text-red-300/80 border-dashed' : 'bg-red-900/40 text-red-300'} border border-red-800/50 px-1.5 py-0.5 rounded font-bold" title="${String(c.desc).replace(/"/g, '&quot;')}${from ? ' (from ' + from + ' — remove ' + from + ' to clear)' : ''}">${c.name}${x}</span>`;
             });
             let limbTags = window.state.woundedLimbs.map(limb =>
-                `<span class="text-[9px] bg-red-900/40 text-red-300 border border-red-800/50 px-1.5 py-0.5 rounded font-bold">Wounded: ${limb}</span>`
+                `<span class="inline-flex items-center text-[9px] bg-red-900/40 text-red-300 border border-red-800/50 px-1.5 py-0.5 rounded font-bold">Wounded: ${limb}${xBtn(`window.toggleWoundedLimb(decodeURIComponent('${encodeURIComponent(limb)}'), false)`, 'Remove Wounded: ' + limb)}</span>`
             );
             let fatigueTag = window.state.fatigue > 0
-                ? [`<span class="text-[9px] bg-amber-900/40 text-amber-300 border border-amber-800/50 px-1.5 py-0.5 rounded font-bold">Fatigue ${window.state.fatigue}</span>`]
+                ? [`<span class="inline-flex items-center text-[9px] bg-amber-900/40 text-amber-300 border border-amber-800/50 px-1.5 py-0.5 rounded font-bold">Fatigue ${window.state.fatigue}<button type="button" class="apx-cond-x ml-1 -mr-0.5 text-amber-300/70 hover:text-white leading-none" title="Reduce Fatigue by 1" onclick="event.stopPropagation();window.updateState('fatigue', Math.max(0,(window.state.fatigue||0)-1))">&times;</button></span>`]
                 : [];
             let allTags = condTags.concat(limbTags).concat(fatigueTag);
             el.innerHTML = allTags.length ? allTags.join(' ') : '<span class="text-[10px] text-slate-600">No active conditions.</span>';

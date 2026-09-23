@@ -981,11 +981,11 @@
                                 let isTrained = weaponIsTrained(w);
                                 let isHeavyR = w.weightClass === 'heavy';
                                 if (ffRank >= 3 && !isTrained) {
-                                    let suffix = isHeavyR ? '+STR' : '';
+                                    let suffix = '';
                                     let atkOpts = [{ val:'AGI', label:`AGI${suffix}` }, { val:'LUC', label:`LUC${suffix}` }];
                                     return `<select onchange="window.updateWeaponAttr(${idx}, this.value)" class="bg-slate-900 border-slate-700 text-[10px] font-bold p-1 h-7 w-20" title="Fortunate Fighter: use LUC instead of AGI for untrained ranged attacks">${atkOpts.map(o=>`<option value="${o.val}" ${w.attr===o.val?'selected':''}>${o.label}</option>`).join('')}</select>`;
                                 }
-                                return `<div class="text-[10px] font-bold text-slate-300 p-1 h-7 flex items-center justify-center" title="Ranged attack and damage rolls always use AGI${isHeavyR?'; Heavy ranged also adds STR to damage':''}">AGI${isHeavyR?'+STR':''}</div>`;
+                                return `<div class="text-[10px] font-bold text-slate-300 p-1 h-7 flex items-center justify-center" title="Ranged attack and damage rolls always use AGI${isHeavyR?'; Heavy ranged also adds STR to damage':''}">AGI</div>`;
                               })()
                             : (() => {
                                 let isTrained = weaponIsTrained(w);
