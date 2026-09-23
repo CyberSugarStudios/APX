@@ -39,6 +39,10 @@
             loadOtherMapImage: () => Promise.resolve(null),
             loadOtherMapImageForPlayer: () => Promise.resolve(null),
             deleteOtherMapImage: () => Promise.resolve(),
+            saveBattleImage: () => Promise.resolve(), loadBattleImage: () => Promise.resolve(null),
+            setActiveCharId: () => {},
+            addXpGrant: () => Promise.resolve(), ackXpGrants: () => Promise.resolve(), addXpToPlayer: () => Promise.resolve(),
+            loadBattleImageForPlayer: () => Promise.resolve(null), deleteBattleImage: () => Promise.resolve(),
             saveFogData: () => Promise.resolve(),
             loadFogData: () => Promise.resolve(null),
             loadFogDataForPlayer: () => Promise.resolve(null),
@@ -283,11 +287,27 @@
     }
 
     // addXpToPlayer: adds XP to a player's unspent XP via their world record
-    async function addXpToPlayer(inviteCode, playerUid, xp) {
-        if (!inviteCode || !playerUid || !xp) return;
+    // XP grants are queued per player (_xpGrants.{grantId}) so several grants in a row
+    // are never lost. The player's sheet adds its own bonuses (Educated, Expertise…),
+    // logs the grant, then removes it from the queue (ackXpGrants).
+    async function addXpGrant(inviteCode, playerUid, grant) {
+        if (!inviteCode || !playerUid || !grant || !grant.amount) return;
+        let id = grant.id || ('xp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7));
+        let g = apxClean(Object.assign({}, grant, { id }));
+        g.at = firebase.firestore.FieldValue.serverTimestamp();
         await db.collection('worldCodes').doc(inviteCode)
             .collection('players').doc(playerUid)
-            .set({ _xpGrant: { amount: xp, at: firebase.firestore.FieldValue.serverTimestamp() } }, { merge: true });
+            .set({ _xpGrants: { [id]: g } }, { merge: true });
+    }
+    async function addXpToPlayer(inviteCode, playerUid, xp, meta) {
+        if (!inviteCode || !playerUid || !xp) return;
+        return addXpGrant(inviteCode, playerUid, Object.assign({ amount: xp, category: 'combat', name: 'Combat' }, meta || {}));
+    }
+    async function ackXpGrants(inviteCode, ids) {
+        let user = currentUser(); if (!user || !inviteCode || !ids || !ids.length) return;
+        let upd = {};
+        ids.forEach(id => { upd['_xpGrants.' + id] = firebase.firestore.FieldValue.delete(); });
+        await db.collection('worldCodes').doc(inviteCode).collection('players').doc(user.uid).update(upd).catch(() => {});
     }
 
     // --- Battle-map PLAYER token positions --------------------------------
@@ -324,10 +344,19 @@
             .collection('players').onSnapshot(snap => {
                 callback(snap.docs.map(d => {
                     let data = d.data() || {};
+                    let cs = data.charState || {};
                     return {
                         uid: data.uid || d.id,
                         battlePositions: data.battlePositions || {},
-                        charPortrait: data.charState?.charPortrait || ''
+                        charPortrait: cs.charPortrait || '',
+                        // Basic public info for the players' Party view (no stats)
+                        profile: {
+                            name: data.charName || cs.name || '',
+                            ancestry: cs.ancestry?.name || '',
+                            origin: cs.origin?.name || '',
+                            age: cs.charAge || '',
+                            size: cs.ancestry?.size || null
+                        }
                     };
                 }));
             }, err => console.warn('Battle position listener:', err.message));
@@ -407,6 +436,30 @@
         await db.collection('users').doc(user.uid)
             .collection('worlds').doc(worldId)
             .collection('otherMaps').doc(mapId).delete().catch(()=>{});
+    }
+
+    // Battle-map props (carts, tower floors, overlays): one image per document.
+    // Path: users/{uid}/worlds/{worldId}/battleImages/{imgId} — players may READ.
+    function _bimg(uid, worldId, imgId) {
+        return db.collection('users').doc(uid).collection('worlds').doc(worldId).collection('battleImages').doc(imgId);
+    }
+    async function saveBattleImage(worldId, imgId, base64DataUrl) {
+        let user = currentUser(); if (!user) return;
+        await _bimg(user.uid, worldId, imgId).set({ imageData: base64DataUrl, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    }
+    async function loadBattleImage(worldId, imgId) {
+        let user = currentUser(); if (!user) return null;
+        let snap = await _bimg(user.uid, worldId, imgId).get();
+        return snap.exists ? (snap.data().imageData || null) : null;
+    }
+    async function loadBattleImageForPlayer(gmUid, worldId, imgId) {
+        if (!gmUid || !worldId || !imgId) return null;
+        let snap = await _bimg(gmUid, worldId, imgId).get();
+        return snap.exists ? (snap.data().imageData || null) : null;
+    }
+    async function deleteBattleImage(worldId, imgId) {
+        let user = currentUser(); if (!user) return;
+        await _bimg(user.uid, worldId, imgId).delete().catch(() => {});
     }
 
     // --- Fog of War data storage ------------------------------------
@@ -664,6 +717,8 @@
         savePublicWorldMap, loadPublicWorldMap, loadWorldMapForPlayer, setGmHpOverride, updatePlayerBattlePos,
         writeBattlePosition, listenBattlePositions,
         saveOtherMapImage, loadOtherMapImage, loadOtherMapImageForPlayer, deleteOtherMapImage,
+        saveBattleImage, loadBattleImage, loadBattleImageForPlayer, deleteBattleImage,
+        addXpGrant, ackXpGrants,
         saveFogData, loadFogData, loadFogDataForPlayer, listenFogDataForPlayer,
         listenWorldPlayers, listenPublicWorldNotes, kickWorldPlayer,
         scheduleAutoSave, setActiveCharId,

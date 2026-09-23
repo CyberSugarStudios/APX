@@ -55,7 +55,7 @@
                 "Rank 5. Critical hits refund their AP cost."
             ]},
             { id: "agi_mobile", name: "Mobile", attr: "AGI", max: 5, baseDesc: "+1 AC per rank until next turn when spending AP to move (once/round).", ranks: [
-                "Rank 1. Ignore difficult terrain penalties.",
+                "Rank 1. Each time you spend AP to move on your turn, the cost is reduced by 1 AP (to a minimum of 0 AP). Additionally, you ignore the penalties of difficult terrain.",
                 "Rank 2. Move through occupied squares (cannot end there).",
                 "Rank 3. AGI save for half damage instead takes 0 damage on success.",
                 "Rank 4. Movement does not provoke attacks of opportunity.",

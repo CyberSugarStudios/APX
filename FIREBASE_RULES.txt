@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// APX FIRESTORE RULES  (v2026.9.22)
+// APX FIRESTORE RULES  (v2026.9.23)
 // Paste into: Firebase Console > Firestore Database > Rules tab
 // ─────────────────────────────────────────────────────────────────────────────
 // No Firebase Storage or Blaze plan required.
@@ -30,6 +30,11 @@ service cloud.firestore {
     // NPC portraits — players read the SAME full-quality (400px) portrait the GM
     // uses on battle tokens, so both maps show identical images.
     match /users/{userId}/worlds/{worldId}/npcPortraits/{npcId} {
+      allow read: if request.auth != null;
+    }
+
+    // Battle-map images (props like carts, tower floors) — players read them too
+    match /users/{userId}/worlds/{worldId}/battleImages/{imgId} {
       allow read: if request.auth != null;
     }
 

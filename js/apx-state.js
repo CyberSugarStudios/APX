@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.9.22.2115';
+window.APX_VERSION = 'v2026.9.23.1200';
 
         window.state = getInitialState();
 
@@ -358,6 +358,68 @@ window.APX_VERSION = 'v2026.9.22.2115';
             } catch(e) {
                 inputEl.value = window.state[stateKey];
             }
+        };
+
+        // ── AP tracker (this turn) ─────────────────────────────────
+        window.apxRenderApPips = function() {
+            let box = document.getElementById('apPips'); if (!box) return;
+            let max = Math.max(0, calc.maxAp || 0);
+            let used = Math.max(0, Math.min(max, window.state.apUsed || 0));
+            let left = max - used;
+            let lEl = document.getElementById('dispApLeft'); if (lEl) { lEl.innerText = left; lEl.className = 'text-2xl font-black ' + (left === 0 ? 'text-red-400' : 'text-blue-400'); }
+            box.innerHTML = Array.from({ length: max }, (_, i) => {
+                let spent = i >= left;
+                return `<button onclick="window.apxClickApPip(${i})" title="${spent ? 'Refund this AP' : 'Spend this AP'}" style="width:9px;height:9px;border-radius:50%;padding:0;border:1px solid #60a5fa;background:${spent ? 'transparent' : '#3b82f6'};cursor:pointer;"></button>`;
+            }).join('');
+        };
+        // Pips fill from the left: clicking one spends AP down to it, clicking a spent one refunds up to it
+        window.apxClickApPip = function(i) {
+            let max = Math.max(0, calc.maxAp || 0);
+            let left = max - Math.max(0, Math.min(max, window.state.apUsed || 0));
+            let newLeft = i < left ? i : i + 1;
+            window.state.apUsed = Math.max(0, max - newLeft);
+            window.apxRenderApPips();
+            window.scheduleAutoSave?.();
+        };
+        window.apxSpendAp = function(n) {
+            let max = Math.max(0, calc.maxAp || 0);
+            window.state.apUsed = Math.max(0, Math.min(max, (window.state.apUsed || 0) + n));
+            window.apxRenderApPips();
+            window.scheduleAutoSave?.();
+        };
+        window.apxResetAp = function() {
+            window.state.apUsed = 0;
+            window.apxRenderApPips();
+            window.scheduleAutoSave?.();
+        };
+
+        // XP history (grants from the GM, with the bonuses this character earned)
+        window.apxShowXpLog = function() {
+            let log = window.state.xpLog || [];
+            let esc = t => String(t ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+            let cat = c => (typeof XP_CATEGORY_LABELS !== 'undefined' && XP_CATEGORY_LABELS[c]) || c || '';
+            if (window.apxInjectDialogStyles) window.apxInjectDialogStyles();
+            let back = document.createElement('div');
+            back.className = 'apxdlg-back';
+            back.innerHTML = `<div class="apxdlg" style="width:min(520px,100%);max-height:80vh;display:flex;flex-direction:column">
+                <div class="apxdlg-title">XP Log</div>
+                <div style="overflow-y:auto;flex:1;margin-bottom:.7rem">${log.length ? log.map(e => `
+                    <div style="border:1px solid var(--c-border);background:var(--c-surface2);border-radius:.45rem;padding:.45rem .6rem;margin-bottom:.35rem">
+                        <div style="display:flex;justify-content:space-between;gap:.5rem;font-size:.76rem;font-weight:800;color:var(--c-text)"><span>${esc(e.name)}</span><span style="color:var(--c-emerald-lt,#6ee7b7)">+${e.total} XP</span></div>
+                        <div style="font-size:.64rem;color:var(--c-text-muted)">${esc(cat(e.category))}${e.session ? ' · Session ' + esc(e.session) : ''}${e.date ? ' · ' + esc(e.date) : ''}${e.bonus ? ` · ${e.base} + ${(e.bonusParts||[]).map(p => esc(p.label) + ' ' + p.amount).join(' + ')}` : ''}</div>
+                        ${e.desc ? `<div style="font-size:.7rem;color:var(--c-text-dimmer);margin-top:.2rem;white-space:pre-wrap">${esc(e.desc)}</div>` : ''}
+                    </div>`).join('') : '<div class="apxdlg-msg">No XP from your GM yet.</div>'}</div>
+                <div class="apxdlg-row"><button class="apxdlg-btn apxdlg-ok" data-ok>Close</button></div></div>`;
+            back.querySelector('[data-ok]').onclick = () => back.remove();
+            back.addEventListener('mousedown', e => { if (e.target === back) back.remove(); });
+            document.body.appendChild(back);
+        };
+
+        // One Rest Die, rolled in the dice tray (Well Rested: roll twice, keep highest)
+        window.apxRollRestDie = function() {
+            if (!window.APXDice) return;
+            window.APXDice.rest({ label: 'Rest Die', who: window.state.name || '', dieStep: calc.restDieStep || 'd6', count: 1,
+                wellRested: (window.state.perks || {})['gen_wellrested'] > 0 });
         };
 
         // Keep both HP boxes showing the real values after any change

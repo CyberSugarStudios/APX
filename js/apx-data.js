@@ -31,7 +31,7 @@
               apZero: true, autoFailSaves: ['STR','AGI'] },
             { id: "blinded", name: "Blinded", desc: "Auto-fail checks/saves relying on sight. Disadvantage on your own attack rolls; attacks against you have Advantage.",
               atkDisadvantage: 'general' },
-            { id: "burning", name: "Burning", desc: "1d8 Fire damage at the start of each of your turns, bypassing ER. 3 AP to extinguish (yourself or an adjacent ally)." },
+            { id: "burning", name: "Burning", desc: "1d10 Fire damage at the start of each of your turns, bypassing ER. 3 AP to extinguish (yourself or an adjacent ally)." },
             { id: "deafened", name: "Deafened", desc: "Auto-fail hearing-based checks; can't perceive spoken language without another means." },
             { id: "dehydrated", name: "Dehydrated", desc: "Past 3x your CON score in hours without water: DC 10+ CON save each hour (DC +2/hour) or gain 1 Fatigue." },
             { id: "diseased", name: "Diseased", desc: "Also Infected. Disadvantage on all attack rolls and attribute checks. Symptoms/progression vary by disease.",
@@ -342,7 +342,7 @@
             { id: "t_comm", cost: 3, name: "Distance Communicator", desc: "Communicate telepathically within 12 squares." },
             { id: "t_fly", cost: 4, name: "Flight", desc: "Fly speed = walking speed. Not if Encumbered/Heavy Armor." },
             { id: "t_poly", cost: 4, name: "Polymelia", desc: "Four arms. Hold 4 items. Craft in half time.", extraArms: 2 },
-            { id: "t_reg", cost: 4, name: "Regenerative", desc: "Heal HP = CON mod at start of turn. Stops on Energy damage." }
+            { id: "t_reg", cost: 3, name: "Regenerative", desc: "At the beginning of your turn in combat you can expend a Rest Die, rolling it, and healing for an amount equal to the result." }
         ];
 
         const ANCESTRY_FLAWS = [
@@ -471,6 +471,7 @@
 
         const POWER_DIE_COSTS = { d4: 1, d6: 2, d8: 3, d10: 5, d12: 8 };
         const POWER_DIE_STEPS = ["d4", "d6", "d8", "d10", "d12"];
+        const POWER_MAX_DICE_PER_STEP = 8; // was 12 before the Sept 23, 2026 update
 
         // Utility effects. `rep: true` = "*" in the book (selectable multiple
         // times, additive). All costs are per-selection before the HP
@@ -569,6 +570,42 @@
             { key: "minorRestriction", label: "Minor Restriction", cost: -5, desc: "A minor condition (light/darkness, a loud noise, a chant, specific gestures) must be met to cast it." },
             { key: "concentration", label: "Concentration", cost: -10, desc: "Spend 2 AP each turn to maintain it; taking damage forces a CON save (DC 10 or half damage) to keep it active." },
             { key: "overexertion", label: "Overexertion", cost: -15, desc: "You gain 1 level of Fatigue after the power ends." },
-            { key: "sacrifice", label: "Sacrifice", cost: -20, desc: "Using it deals 1d10 damage per Power Level to you, unpreventable and unmitigable." }
+            { key: "sacrifice", label: "Sacrifice", cost: -20, desc: "Using this power deals 1d10 damage per Power Level to you. This damage cannot be prevented or mitigated. (A Tier 5 Power would deal 5d10 damage to you upon using it.) Additionally, you cannot regain Hit points from any source (including this power) until the beginning of your next turn." }
         ];
         // Costly is a slider (GM sets the exact refund, -5 to -20).
+
+        // ------------------------------------------------------------------
+        // XP bonuses a character gets on top of any XP grant.
+        //   category: 'combat' | 'discovery' | 'roleplay' | 'other'
+        //   Educated:  +1 on every XP gain
+        //   Expertise: +2 when the grant matches the category chosen for the perk
+        //   INT:       see apxXpIntBonus (rule pending — returns 0 until set)
+        // Used by BOTH the GM (preview) and the player's sheet (what's actually paid).
+        // ------------------------------------------------------------------
+        // Your INT modifier is added to every XP gain (a negative modifier never takes XP away).
+        // intMod: the live modifier when the caller knows it (sheet calc / GM party summary).
+        function apxXpIntBonus(st, category, base, intMod) {
+            if (typeof intMod !== 'number') {
+                let score = ((st.baseStats && st.baseStats.INT) || 5) + ((st.ancestry && st.ancestry.bonuses && st.ancestry.bonuses.INT) || 0);
+                intMod = score - 5;
+            }
+            return Math.max(0, intMod);
+        }
+        function apxXpBonus(st, category, base, intMod) {
+            st = st || {};
+            let perks = st.perks || {}, parts = [];
+            if ((perks.gen_educated || 0) > 0) parts.push({ label: 'Educated', amount: 1 });
+            if ((perks.gen_expertise || 0) > 0) {
+                let ch = (st.perkChoices && st.perkChoices.gen_expertise) || {};
+                let choice = String(Object.values(ch).filter(Boolean)[0] || '').toLowerCase();
+                let match = (category === 'combat' && choice.includes('combat')) ||
+                            (category === 'discovery' && choice.includes('discovery')) ||
+                            (category === 'roleplay' && choice.includes('role'));
+                if (match) parts.push({ label: 'Expertise', amount: 2 });
+            }
+            let intB = apxXpIntBonus(st, category, base, intMod) || 0;
+            if (intB) parts.push({ label: 'INT', amount: intB });
+            return { bonus: parts.reduce((a, p) => a + p.amount, 0), parts };
+        }
+        window.apxXpBonus = apxXpBonus;
+        const XP_CATEGORY_LABELS = { combat: 'Combat', discovery: 'Discovery', roleplay: 'Role Play', other: 'Other' };

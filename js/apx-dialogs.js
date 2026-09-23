@@ -110,6 +110,7 @@
         });
     };
 
+    window.apxInjectDialogStyles = injectStyles;
     window.apxAlert   = (msg, opts) => open('alert', msg, opts);
     window.apxConfirm = (msg, opts) => open('confirm', msg, opts);
     window.apxPrompt  = (msg, defaultValue, opts) => open('prompt', msg, Object.assign({ defaultValue }, opts || {}));

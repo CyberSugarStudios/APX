@@ -124,7 +124,7 @@ function computeCharSummary(state) {
 
     let tirelessRank = (state.perks || {})['gen_tireless'] || 0;
     let effectiveFatigue = Math.max(0, (state.fatigue || 0) - tirelessRank);
-    calc.maxAp = calc.apForcedZero ? 0 : Math.max(6, 6 + calc.mods.AGI) - effectiveFatigue;
+    calc.maxAp = calc.apForcedZero ? 0 : Math.max(6, 6 + Math.floor(calc.mods.AGI / 2)) - effectiveFatigue;   // 6 + half AGI mod (round down), min 6 — Sept 23, 2026 update
 
     // Passive Initiative (Ch.9): 10 + chosen AGI-or-PER modifier, plus
     // whatever flat bonuses perks like Twitchy already added to calc.init
@@ -573,6 +573,7 @@ window.addToInitiative = function(sourceIdx, sourceType, faction, displayName) {
         let linkMap = (typeof _wNotes !== 'undefined' ? _wNotes.otherMaps||[] : []).find(m=>m.id===mapId);
         let linkTok = linkMap?.battleTokens?.find(t=>t.id===tokenId);
         if (linkTok) { linkTok.initiativeId = entry.id; linkTok._explicitDead = false; }
+        if (linkTok && entry.conditions?.length && linkTok.type !== 'player') { linkTok.conditions = [...new Set([...(linkTok.conditions||[]), ...entry.conditions])]; entry.conditions = []; }
     } else if (typeof window._btAutoLinkEntry === 'function') {
         window._btAutoLinkEntry(entry);
     }
@@ -929,7 +930,10 @@ window.endCombat = function() {
             let inviteCode = activeWorld?.inviteCode;
             players.filter(e => e.playerUid).forEach(e => {
                 if (inviteCode && window.apxAuth?.enabled && typeof window.apxAuth.addXpToPlayer === 'function') {
-                    window.apxAuth.addXpToPlayer(inviteCode, e.playerUid, perPlayer)
+                    window.apxAuth.addXpToPlayer(inviteCode, e.playerUid, perPlayer, {
+                        name: `Combat (Round ${window.gmRoundNumber})`, date: new Date().toISOString().slice(0, 10),
+                        session: (typeof _wNotes !== 'undefined' && (_wNotes.session || []).length) || null,
+                        description: `${totalXp} XP split between ${split}.` })
                         .catch(err => console.warn('XP grant error:', err.message));
                 }
             });
@@ -972,6 +976,7 @@ window.nextInitiativeTurn = function() {
     }
     window.gmTurnNumber++;
     let current = window.gmInitiative[window.gmCurrentTurnIdx];
+    if (current) current.apUsed = 0;   // start of a creature's turn: all AP back
     if (current && current.bleedOutTurns > 0) {
         current.bleedOutTurns--;
         if (current.bleedOutTurns === 0) { _killBledOutPlayer(current); return; }
@@ -1051,6 +1056,33 @@ window.toggleInitiativePowerSlot = function(entryId, powerName, idx) {
     window.renderInitiativeTracker();
 };
 
+// AP left this turn. NPCs: click pips to spend/refund. Players: mirrors their sheet.
+function gmApPipsHtml(e) {
+    let max = Math.max(0, parseInt(e.ap) || 0);
+    let used, isPlayer = e.faction === 'player' && e.playerUid;
+    if (isPlayer) {
+        let pm = (window.gmParty || []).find(p => p.fileName === e.playerUid || p.summary?.playerUid === e.playerUid);
+        used = pm?.state?.apUsed || 0;
+    } else used = e.apUsed || 0;
+    used = Math.max(0, Math.min(max, used));
+    let left = max - used;
+    let pips = Array.from({ length: max }, (_, i) => {
+        let spent = i >= left;
+        return isPlayer
+            ? `<span style="width:7px;height:7px;border-radius:50%;display:inline-block;border:1px solid #60a5fa;background:${spent ? 'transparent' : '#3b82f6'}"></span>`
+            : `<button onclick="window.gmClickApPip('${e.id}', ${i})" title="${spent ? 'Refund' : 'Spend'} AP" style="width:8px;height:8px;border-radius:50%;padding:0;border:1px solid #60a5fa;background:${spent ? 'transparent' : '#3b82f6'};cursor:pointer"></button>`;
+    }).join('');
+    return `<span class="flex items-center gap-0.5" title="${isPlayer ? 'Tracked on the player\'s sheet' : 'AP left this turn (resets at the start of its turn)'}"><b class="${left === 0 ? 'text-red-400' : 'text-blue-300'}">AP ${left}/${max}</b>${pips}</span>`;
+}
+window.gmClickApPip = function(id, i) {
+    let e = window.gmInitiative.find(x => x.id === id); if (!e) return;
+    let max = Math.max(0, parseInt(e.ap) || 0);
+    let left = max - Math.max(0, Math.min(max, e.apUsed || 0));
+    let newLeft = i < left ? i : i + 1;
+    e.apUsed = Math.max(0, max - newLeft);
+    window.renderInitiativeTracker();
+};
+
 window.renderInitiativeTracker = function() {
     let body = document.getElementById('initiativeTrackerBody');
     if (!body) return;
@@ -1097,7 +1129,8 @@ window.renderInitiativeTracker = function() {
             </div>
             <div class="pl-6 mt-1 space-y-0.5">
                 <div class="flex items-center gap-2 flex-wrap text-[9px] ${fs.text} opacity-90">
-                    <span>${fs.label}${e.ap !== undefined && e.ap !== null ? ` &middot; AP ${e.ap}` : ''}</span>
+                    <span>${fs.label}</span>
+                    ${e.ap !== undefined && e.ap !== null ? gmApPipsHtml(e) : ''}
                     ${(e.ac !== undefined && e.ac !== null) ? `<span>AC <b class="text-white">${e.ac}</b></span>` : ''}
                     ${(e.dr !== undefined && e.dr !== null) ? `<span>DR <b class="text-white">${e.dr}</b></span>` : ''}
                     ${(e.er !== undefined && e.er !== null) ? `<span>ER <b class="text-white">${e.er}</b></span>` : ''}
@@ -1108,6 +1141,14 @@ window.renderInitiativeTracker = function() {
                     ` : ''}
                 </div>
                 ${e.lairTraitNote ? `<div class="text-[9px] text-amber-400 font-bold">${e.lairTraitNote}</div>` : ''}
+                ${e.faction !== 'player' ? (() => {
+                    let conds = window._gmEntryConditions ? window._gmEntryConditions(e.id) : (e.conditions || []);
+                    let nm = id => window._gmCondName ? window._gmCondName(id) : id;
+                    return `<div class="flex items-center gap-1 flex-wrap">
+                        ${conds.map(c => `<span class="apx-cond-chip" title="Click to remove">${nm(c)}<button onclick="window._gmRemoveEntryCondition ? window._gmRemoveEntryCondition('${e.id}','${c}') : null">&times;</button></span>`).join('')}
+                        <button onclick="window._gmEntryCondPicker && window._gmEntryCondPicker('${e.id}', event)" class="text-[9px] font-bold text-orange-300 hover:text-orange-200">+ Condition</button>
+                    </div>`;
+                })() : ''}
                 ${e.sourceNpcId ? renderInitiativePowerBubbles(e) : ''}
                 ${isCurrent ? '<div class="text-[9px] text-amber-300 font-bold">Current Turn</div>' : ''}
                 <label class="flex items-center gap-1 text-[9px] text-slate-400">
@@ -1301,5 +1342,95 @@ window.openFloatingStatBlockRaw = function(winId, title, bodyHtml) {
     win._dragCleanup = () => {
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
+    };
+};
+
+
+// ------------------------------------------------------------------
+// Grant XP (Discovery / Role Play). Each player's sheet adds its own
+// bonuses (Educated, Expertise, INT) when the grant arrives — the preview
+// here uses the same rule (window.apxXpBonus) so the GM sees the real totals.
+// ------------------------------------------------------------------
+window.openGrantXpModal = function() {
+    document.getElementById('gmGrantXp')?.remove();
+    // Only players who joined the world online can receive XP (local-file party members have no account)
+    let party = (window.gmParty || []).filter(p => p.fileName && !/\.json$/i.test(p.fileName));
+    let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    let sessions = (typeof _wNotes !== 'undefined' && _wNotes.session) ? _wNotes.session.length : 0;
+    let log = (typeof _wNotes !== 'undefined' && _wNotes.xpLog) ? _wNotes.xpLog : [];
+    let back = document.createElement('div');
+    back.id = 'gmGrantXp';
+    if (window.apxInjectDialogStyles) window.apxInjectDialogStyles();
+    back.className = 'apxdlg-back';
+    back.innerHTML = `<div class="apxdlg" style="width:min(560px,100%);max-height:90vh;overflow-y:auto">
+        <div class="apxdlg-title">Grant XP</div>
+        <div class="gx-grid">
+            <label class="gx-full">Name<input id="gxName" placeholder="Found the hidden library"></label>
+            <label class="gx-full">Description<textarea id="gxDesc" rows="2" placeholder="What the party did (shows in each player's XP log)"></textarea></label>
+            <label>XP each<input id="gxAmt" type="number" min="1" value="5"></label>
+            <label>Session<input id="gxSession" type="number" min="1" value="${sessions || 1}"></label>
+            <label>Date<input id="gxDate" type="date" value="${new Date().toISOString().slice(0, 10)}"></label>
+            <div class="gx-full gx-radios"><span>Type</span>
+                <label><input type="radio" name="gxCat" value="discovery" checked> Discovery</label>
+                <label><input type="radio" name="gxCat" value="roleplay"> Role Play</label>
+                <span class="gx-note">Combat XP is granted automatically when you end combat.</span></div>
+        </div>
+        <div class="gx-sec">Players</div>
+        <div id="gxPlayers">${party.length ? party.map(p => `<label class="gx-p"><input type="checkbox" data-uid="${esc(p.fileName)}" checked> <b>${esc(p.summary?.name || 'Player')}</b> <span data-prev="${esc(p.fileName)}"></span></label>`).join('')
+            : '<div class="apxdlg-msg">No players have joined this world yet.</div>'}</div>
+        ${log.length ? `<div class="gx-sec">Recent grants</div><div class="gx-log">${log.slice(0, 6).map(l => `<div><b>${esc(l.name)}</b> +${l.amount} ${esc(l.categoryLabel || l.category)} · S${esc(l.session || '-')} · ${esc(l.date || '')} <span>(${esc((l.to || []).join(', '))})</span></div>`).join('')}</div>` : ''}
+        <div class="apxdlg-row" style="margin-top:.8rem"><button class="apxdlg-btn apxdlg-cancel" data-x>Cancel</button><button class="apxdlg-btn apxdlg-ok" data-go ${party.length ? '' : 'disabled'}>Grant XP</button></div>
+    </div>`;
+    if (!document.getElementById('gxCss')) {
+        let st = document.createElement('style'); st.id = 'gxCss';
+        st.textContent = `.gx-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.45rem;margin:.3rem 0 .5rem}.gx-full{grid-column:1/-1}
+        .gx-grid label{display:flex;flex-direction:column;gap:.15rem;font-size:.62rem;font-weight:800;text-transform:uppercase;color:var(--c-text-muted,#94a3b8)}
+        .gx-grid input,.gx-grid textarea{background:var(--c-surface2,#0f172a);border:1px solid var(--c-border,#334155);color:var(--c-text,#fff);border-radius:.35rem;padding:.35rem .5rem;font-size:.78rem;text-transform:none;font-weight:600}
+        .gx-radios{display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;font-size:.72rem;color:var(--c-text,#fff)}.gx-radios>span:first-child{font-size:.62rem;font-weight:800;text-transform:uppercase;color:var(--c-text-muted,#94a3b8)}
+        .gx-radios label{display:flex;align-items:center;gap:.25rem;cursor:pointer}.gx-note{font-size:.62rem;color:var(--c-text-muted,#94a3b8)}
+        .gx-sec{font-size:.62rem;font-weight:800;text-transform:uppercase;color:var(--c-text-muted,#94a3b8);margin:.5rem 0 .25rem}
+        .gx-p{display:flex;align-items:center;gap:.4rem;font-size:.76rem;color:var(--c-text,#fff);padding:.25rem .1rem;cursor:pointer}.gx-p span{margin-left:auto;font-size:.7rem;color:var(--c-emerald-lt,#6ee7b7);font-weight:800}
+        .gx-log{font-size:.66rem;color:var(--c-text-dimmer,#cbd5e1);display:flex;flex-direction:column;gap:.15rem}.gx-log span{color:var(--c-text-muted,#94a3b8)}`;
+        document.head.appendChild(st);
+    }
+    document.body.appendChild(back);
+    let cat = () => back.querySelector('input[name="gxCat"]:checked')?.value || 'discovery';
+    let preview = () => {
+        let amt = Math.max(0, parseInt(back.querySelector('#gxAmt').value) || 0);
+        party.forEach(p => {
+            let el = back.querySelector(`[data-prev="${CSS.escape(p.fileName)}"]`); if (!el) return;
+            let b = window.apxXpBonus ? window.apxXpBonus(p.state, cat(), amt, p.summary?.mods?.INT) : { bonus: 0, parts: [] };
+            el.textContent = amt ? `+${amt + b.bonus} XP` + (b.bonus ? ` (${amt} + ${b.parts.map(x => x.label + ' ' + x.amount).join(' + ')})` : '') : '';
+        });
+    };
+    back.addEventListener('input', preview); back.addEventListener('change', preview); preview();
+    back.querySelector('[data-x]').onclick = () => back.remove();
+    back.addEventListener('mousedown', e => { if (e.target === back) back.remove(); });
+    back.querySelector('#gxName').focus();
+    back.querySelector('[data-go]').onclick = async () => {
+        let amt = Math.max(0, parseInt(back.querySelector('#gxAmt').value) || 0);
+        let name = back.querySelector('#gxName').value.trim();
+        if (!amt) { window.apxAlert('Enter how much XP to give.', { title: 'Grant XP' }); return; }
+        if (!name) { window.apxAlert('Give the grant a name (it shows in each player\'s XP log).', { title: 'Grant XP' }); return; }
+        let uids = [...back.querySelectorAll('[data-uid]:checked')].map(c => c.dataset.uid);
+        if (!uids.length) { window.apxAlert('Pick at least one player.', { title: 'Grant XP' }); return; }
+        let grant = { id: 'xp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), amount: amt, category: cat(), name,
+            description: back.querySelector('#gxDesc').value.trim(), date: back.querySelector('#gxDate').value, session: parseInt(back.querySelector('#gxSession').value) || null };
+        let worlds = typeof _gmWorlds !== 'undefined' ? _gmWorlds : [];
+        let world = worlds.find(w => (w.worldId || w.id) === (typeof _activeWorldId !== 'undefined' ? _activeWorldId : null));
+        let code = world?.inviteCode;
+        if (!code || !window.apxAuth?.enabled) { window.apxAlert('Open a world (with sign-in) first, so XP can reach the players.', { title: 'Grant XP' }); return; }
+        try {
+            await Promise.all(uids.map(uid => window.apxAuth.addXpGrant(code, uid, Object.assign({}, grant, { id: grant.id }))));
+        } catch (e) { window.apxAlert('Could not send XP: ' + e.message, { title: 'Grant XP' }); return; }
+        if (typeof _wNotes !== 'undefined') {
+            (_wNotes.xpLog = _wNotes.xpLog || []).unshift({ id: grant.id, name, amount: amt, category: grant.category,
+                categoryLabel: (typeof XP_CATEGORY_LABELS !== 'undefined' ? XP_CATEGORY_LABELS[grant.category] : grant.category),
+                session: grant.session, date: grant.date, to: uids.map(u => party.find(p => p.fileName === u)?.summary?.name || 'Player') });
+            _wNotes.xpLog = _wNotes.xpLog.slice(0, 100);
+            if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
+        }
+        back.remove();
+        window.apxAlert(`Sent ${amt} XP to ${uids.length} player${uids.length > 1 ? 's' : ''}. Each sheet adds its own bonuses.`, { title: 'XP Granted' });
     };
 };

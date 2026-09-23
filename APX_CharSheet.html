@@ -21,6 +21,33 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IM+Fell+English&family=EB+Garamond:wght@400;500;600;700&family=Cinzel:wght@400;700&family=Rajdhani:wght@400;500;700&family=Orbitron:wght@400;700;900&family=Exo+2:wght@400;500;700&family=Inter:wght@400;500;700&family=Baloo+2:wght@400;600;700&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        .apx-pw-pop { background:var(--c-surface,#1e293b); border:1px solid var(--c-border2,#475569); border-radius:.6rem; box-shadow:0 12px 40px rgba(0,0,0,.85); color:var(--c-text,#e2e8f0); }
+        .apx-pw-pop-hdr { display:flex; align-items:center; gap:.45rem; padding:.5rem .65rem; background:var(--c-surface2,#0f172a); border-bottom:1px solid var(--c-border,#334155); border-radius:.6rem .6rem 0 0; }
+        .apx-pw-pop-hdr [data-x] { background:none; border:none; color:var(--c-text-dimmer,#94a3b8); font-weight:800; cursor:pointer; margin-left:auto; }
+        .apx-pw-pop-title { font-size:.8rem; font-weight:800; flex:1; }
+        .apx-pw-pop-letter { width:20px; height:20px; border-radius:50%; background:#dc2626; border:2px solid #fff; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; color:#fff; flex-shrink:0; }
+        .apx-pw-pop-body { padding:.65rem; overflow-y:auto; font-size:.72rem; }
+        .apx-pw-pop-desc { color:var(--c-text-dimmer,#cbd5e1); margin-bottom:.45rem; line-height:1.4; }
+        .apx-pw-pop-sec { font-size:.6rem; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--c-text-muted,#94a3b8); margin:.55rem 0 .25rem; }
+        .apx-pw-pop-map { display:block; width:100%; text-align:left; background:var(--c-surface2,#0f172a); border:1px solid var(--c-blue,#2563eb); color:var(--c-blue-lt,#93c5fd); font-size:.7rem; font-weight:700; padding:.35rem .5rem; border-radius:.3rem; cursor:pointer; margin-bottom:.2rem; }
+        .apx-pw-pop-npcs { display:grid; grid-template-columns:repeat(auto-fill,minmax(78px,1fr)); gap:.35rem; }
+        .apx-pw-pop-npc { display:flex; flex-direction:column; align-items:center; gap:.15rem; background:var(--c-surface2,#0f172a); border:1px solid var(--c-border,#334155); border-radius:.4rem; padding:.35rem .25rem; cursor:pointer; color:inherit; }
+        .apx-pw-pop-npc:hover { border-color:var(--c-indigo,#6366f1); }
+        .apx-pw-pop-npc img, .apx-pw-pop-ini { width:44px; height:44px; border-radius:50%; object-fit:cover; border:2px solid var(--c-border2,#475569); }
+        .apx-pw-pop-ini { display:flex; align-items:center; justify-content:center; font-weight:900; font-size:1.1rem; color:#fff; background:var(--c-indigo,#4f46e5); }
+        .apx-pw-pop-npcname { font-size:.65rem; font-weight:800; text-align:center; line-height:1.15; }
+        .apx-pw-pop-role { font-size:.58rem; color:var(--c-text-muted,#94a3b8); text-align:center; }
+        .apx-pw-pop-note { background:var(--c-surface2,#0f172a); border:1px solid var(--c-border,#334155); border-radius:.3rem; padding:.35rem .45rem; margin-top:.2rem; color:var(--c-text-dimmer,#cbd5e1); font-size:.66rem; }
+        .apx-pw-pop-notet { font-weight:800; color:var(--c-text,#e2e8f0); margin-bottom:.1rem; }
+        .apx-pw-pop-portrait { width:140px; height:140px; border-radius:50%; object-fit:cover; display:block; margin:0 auto .45rem; border:3px solid var(--c-border2,#475569); cursor:zoom-in; }
+        .apx-party-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:.6rem; }
+        .apx-party-card { background:var(--c-surface2,#0f172a); border:1px solid var(--c-border,#334155); border-radius:.6rem; padding:.8rem .6rem; text-align:center; }
+        .apx-party-card.is-me { border-color:var(--c-emerald,#059669); }
+        .apx-party-pic { width:84px; height:84px; border-radius:50%; object-fit:cover; margin:0 auto .5rem; display:block; border:2px solid var(--c-border2,#475569); cursor:zoom-in; }
+        .apx-party-initial { display:flex; align-items:center; justify-content:center; font-size:2rem; font-weight:900; color:#fff; background:var(--c-indigo,#4f46e5); cursor:default; }
+        .apx-party-name { font-weight:800; font-size:.85rem; color:var(--c-text,#fff); }
+        .apx-party-you { font-size:.6rem; font-weight:800; padding:0 .35rem; border-radius:.5rem; background:var(--c-emerald,#059669); color:#fff; vertical-align:middle; }
+        .apx-party-sub { font-size:.68rem; color:var(--c-text-dimmer,#94a3b8); margin-top:.15rem; }
         body {
             background-color: var(--c-page-bg, #0f172a);
             color: var(--c-text-dimmer, #e2e8f0);
@@ -448,7 +475,7 @@
             </div>
 
             <div class="col-span-2 lg:col-span-3 flex flex-col justify-end">
-                <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1 text-center">Experience (XP)</label>
+                <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1 text-center">Experience (XP) <button onclick="window.apxShowXpLog()" class="normal-case text-[9px] font-bold text-emerald-400 hover:text-emerald-300 ml-1" title="Every XP grant from your GM, with bonuses">Log</button></label>
                 <div class="flex gap-1 items-stretch h-[38px]">
                     <div class="flex-1 relative group">
                         <input type="text" id="unspentXp" onfocus="this.select()" onchange="window.handleMathInput('unspentXp', this); window.updateXpCosts();" onkeydown="if(event.key === 'Enter') { this.blur(); }" class="text-emerald-400 font-black bg-slate-900 border-emerald-900/50 text-lg h-full">
@@ -486,9 +513,14 @@
                         <input type="text" id="tempHpInput" onfocus="this.select()" onchange="window.handleMathInput('tempHp', this)" onkeydown="if(event.key === 'Enter') { this.blur(); }" placeholder="0" class="text-xl font-bold text-blue-300 bg-transparent border-none p-0 mt-1 focus:ring-0 w-full text-center">
                     </div>
 
-                    <div class="bg-slate-900 p-2 rounded border border-slate-700 text-center">
-                        <div class="text-[10px] text-slate-500 uppercase font-bold" data-tip="6 base + AGI modifier, reduced by unrecovered Fatigue">Base AP</div>
-                        <div class="text-2xl font-black text-blue-400 mt-1" id="dispAp">6</div>
+                    <div class="bg-slate-900 p-2 rounded border border-slate-700 text-center" id="apTrackerBox">
+                        <div class="text-[10px] text-slate-500 uppercase font-bold" data-tip="AP left this turn / your AP (6 + half your AGI modifier, rounded down, minimum 6; reduced by unrecovered Fatigue). Click the pips to spend or refund AP.">AP This Turn</div>
+                        <div class="flex items-baseline justify-center gap-0.5 mt-0.5"><span class="text-2xl font-black text-blue-400" id="dispApLeft">6</span><span class="text-xs font-bold text-slate-500">/<span id="dispAp">6</span></span></div>
+                        <div id="apPips" class="flex flex-wrap justify-center gap-0.5 mt-0.5"></div>
+                        <div class="flex justify-center gap-2 mt-0.5">
+                            <button onclick="window.apxResetAp()" class="text-[9px] font-bold text-blue-300 hover:text-blue-200" title="Start of your turn: get all your AP back">New Turn</button>
+                            <button id="regenBtn" onclick="window.apxRegenerate()" class="hidden text-[9px] font-bold text-emerald-300 hover:text-emerald-200" title="Regenerative: at the start of your turn in combat, expend a Rest Die and heal the result">Regen</button>
+                        </div>
                     </div>
 
                     <div class="bg-slate-900 p-2 rounded border border-slate-700 text-center relative flex flex-col items-center justify-center">
@@ -521,7 +553,7 @@
                         <div class="flex items-center justify-center gap-1 mt-1">
                             <input type="text" id="currentRestDice" onfocus="this.select()" onchange="window.handleMathInput('restDice', this)" onkeydown="if(event.key === 'Enter') { this.blur(); }" class="w-8 text-xl font-black text-emerald-400 bg-transparent border-none p-0 focus:ring-0 text-right">
                             <span class="text-slate-500 text-xs font-bold">/<span id="dispMaxRest">5</span></span>
-                            <span id="dispRestDieStep" class="text-xs font-black text-slate-300 ml-0.5">d6</span>
+                            <span id="dispRestDieStep" class="text-xs font-black text-slate-300 ml-0.5 apx-rollable" title="Click to roll a Rest Die" onclick="window.apxRollRestDie && window.apxRollRestDie()">d6</span>
                         </div>
                     </div>
 
@@ -533,13 +565,17 @@
                         </div>
                     </div>
                 </div>
+                <div class="grid grid-cols-2 gap-2 mt-2">
+                    <button onclick="window.apxShortRest()" class="py-1.5 rounded text-[11px] font-black border transition" style="background:var(--c-surface2,#0f172a);border-color:var(--c-emerald,#059669);color:var(--c-emerald-lt,#6ee7b7);" title="1 hour: spend Rest Dice to heal (die + CON mod each), CHA power slots come back">Short Rest</button>
+                    <button onclick="window.apxFullRest()" class="py-1.5 rounded text-[11px] font-black border transition" style="background:var(--c-surface2,#0f172a);border-color:var(--c-indigo,#4f46e5);color:var(--c-indigo-lt,#a5b4fc);" title="8 hours: full HP, half your spent Rest Dice, all Power Slots, Luck, -1 Fatigue">Full Rest</button>
+                </div>
 
                 <div class="flex-1 flex flex-col mt-2">
                     <div class="flex items-center justify-between mb-1">
                         <label class="block text-[9px] text-slate-500 uppercase font-bold">Wounded Limbs & Conditions</label>
                         <button onclick="window.openConditionPicker()" class="bg-red-600/20 text-red-400 hover:bg-red-600/40 text-[9px] px-2 py-0.5 rounded border border-red-800/50 transition font-bold">+ Add Condition</button>
                     </div>
-                    <div id="activeConditionsDisplay" class="flex flex-wrap gap-1 mb-1"><span class="text-[10px] text-slate-600">No active conditions.</span></div>
+                    <div id="activeConditionsDisplay" class="apx-dice-scope flex flex-wrap gap-1 mb-1"><span class="text-[10px] text-slate-600">No active conditions.</span></div>
                 </div>
             </div>
 
@@ -637,7 +673,6 @@
                         <span class="text-blue-400 font-black text-sm">+<span id="dispGlobalTb">2</span></span>
                     </div>
                 </div>
-                <div class="text-[9px] text-slate-500 mb-2 italic">Check the box to apply your Training Bonus. Passives automatically calculate as 10 + Total (if capable).</div>
                 
                 <div class="overflow-y-auto pr-2 space-y-4 flex-1" id="attrSkillContainer">
                     <!-- JS Injected: Attributes with their nested skills -->
@@ -1615,7 +1650,7 @@
 
             <div id="pcStep4" class="wizard-step">
                 <h4 class="text-sm font-bold text-purple-400 mb-2">Step 4: Damage or Healing</h4>
-                <p class="text-[10px] text-slate-400 mb-3">Optional -- skip if your power neither damages nor heals. Max 12 dice per die step.</p>
+                <p class="text-[10px] text-slate-400 mb-3">Optional -- skip if your power neither damages nor heals. Max 8 dice per die step.</p>
                 <div id="pcStep4Dice" class="space-y-1.5 mb-3"><!-- JS injected --></div>
                 <div id="pcStep4Extras" class="space-y-1.5"><!-- JS injected --></div>
             </div>
@@ -1723,6 +1758,7 @@
                 <h3 class="text-xl font-black text-white">The Perk Forge</h3>
                 <div class="flex items-center gap-2">
                     <input type="text" id="perkSearch" placeholder="Search perks..." oninput="window.renderPerkList()" class="bg-slate-900 p-1.5 text-xs w-40 border-slate-600 rounded font-bold text-white placeholder-slate-500">
+                    <label class="flex items-center gap-1 text-xs text-slate-300 font-bold cursor-pointer whitespace-nowrap" title="Only show perks this character already has"><input type="checkbox" id="perkOwnedOnly" onchange="window.renderPerkList()" class="w-3.5 h-3.5"> Owned</label>
                     <span class="text-xs text-slate-400">Filter:</span>
                     <select id="perkFilter" class="bg-slate-900 p-1.5 text-xs w-36 border-slate-600 rounded font-bold" onchange="window.renderPerkList()">
                         <option value="ALL">All Perks</option><option value="STR">STR Perks</option><option value="AGI">AGI Perks</option>
@@ -2163,11 +2199,13 @@
                 <button onclick="window.showPlayerWorldTab('notes')"     id="pwTabNotes"     class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Discoveries</button>
                 <button onclick="window.showPlayerWorldTab('map')"       id="pwTabMap"       class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">World Map</button>
                 <button onclick="window.showPlayerWorldTab('othermaps')" id="pwTabOthermaps" class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Other Maps</button>
+                <button onclick="window.showPlayerWorldTab('party')"     id="pwTabParty"     class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Party</button>
             </div>
             <div id="pwPanelLocations" class="flex-1 overflow-y-auto space-y-2 pr-1"></div>
             <div id="pwPanelNpcs"      class="hidden flex-1 overflow-y-auto space-y-2 pr-1"></div>
             <div id="pwPanelNotes"     class="hidden flex-1 overflow-y-auto space-y-2 pr-1"></div>
             <div id="pwPanelOthermaps" class="hidden flex-1 overflow-y-auto space-y-2 pr-1"></div>
+            <div id="pwPanelParty"     class="hidden flex-1 overflow-y-auto pr-1"></div>
             <div id="pwPanelMap" class="hidden flex-1 overflow-hidden rounded border border-slate-700 bg-slate-950 relative" style="min-height:540px;">
                 <div class="flex gap-2 p-2 flex-shrink-0 absolute top-0 left-0 z-10">
                     <button onclick="window.pwMapZoom(1.25)" class="px-2 py-1 rounded bg-slate-800/80 text-white text-xs font-bold backdrop-blur">+</button>
@@ -2229,8 +2267,10 @@
 
 
     <script src="js/apx-dialogs.js"></script>
+    <script src="js/apx-dice.js"></script>
     <script src="js/apx-data.js"></script>
     <script src="js/apx-perks-db.js"></script>
+    <script src="js/apx-migrations.js"></script>
     <script src="js/apx-roster.js"></script>
     <script src="js/apx-state.js"></script>
     <script src="js/apx-origin-wizard.js"></script>
@@ -2244,6 +2284,7 @@
     <script src="js/apx-npc-crafter.js"></script>
     <script src="js/apx-engine.js"></script>
     <script src="js/apx-perks-ui.js"></script>
+    <script src="js/apx-rest.js"></script>
     <script src="js/apx-main.js"></script>
 
     <!-- Firebase (cloud sync — requires firebase-config.js to be configured) -->
@@ -2566,7 +2607,7 @@
                 window._playerWorldsData[worldCode] = world;
                 window._playerWorldData = world;
                 if (world.races?.length && Array.isArray(window.gmRaces)) {
-                    world.races.forEach(r => { if (!window.gmRaces.find(x=>x.id===r.id)) window.gmRaces.push(r); });
+                    world.races.forEach(r => { if (!window.gmRaces.find(x=>x.id===r.id)) window.gmRaces.push(window.apxMigrateRace ? window.apxMigrateRace(r) : r); });
                     if (typeof window.renderImportedRaceList === 'function') window.renderImportedRaceList();
                 }
                 document.getElementById('playerWorldBtn')?.classList.remove('hidden');
@@ -2580,9 +2621,15 @@
 
     window.loadCharacterState = function(state) {
         if (!state) return;
-        Object.assign(window.state, JSON.parse(JSON.stringify(state)));
+        let incoming = JSON.parse(JSON.stringify(state));
+        if (window.apxPrepareLoadedState) window.apxPrepareLoadedState(incoming);
+        // Start from a clean slate so nothing from the previously open character
+        // (XP log, Omen dice, AP spent…) leaks into this one when its save lacks a field.
+        Object.keys(window.state).forEach(k => delete window.state[k]);
+        Object.assign(window.state, getInitialState(), incoming);
         if (typeof window.recalculateMath === 'function') window.recalculateMath();
         if (typeof window.syncDOM === 'function') window.syncDOM();
+        if (typeof window.apxMaybeShowRulesNotices === 'function') window.apxMaybeShowRulesNotices();
     };
 
     // Live sidebar rename when character name field changes
@@ -2686,7 +2733,7 @@
                 window._playerWorldsData[worldCode] = world;
                 window._playerWorldData = world;
                 if (world.races?.length && Array.isArray(window.gmRaces)) {
-                    world.races.forEach(r => { if (!window.gmRaces.find(x=>x.id===r.id)) window.gmRaces.push(r); });
+                    world.races.forEach(r => { if (!window.gmRaces.find(x=>x.id===r.id)) window.gmRaces.push(window.apxMigrateRace ? window.apxMigrateRace(r) : r); });
                     if (typeof window.renderImportedRaceList === 'function') window.renderImportedRaceList();
                 }
                 document.getElementById('playerWorldBtn')?.classList.remove('hidden');
@@ -2768,7 +2815,7 @@
 
             // Load race templates
             if (world.races && Array.isArray(window.gmRaces)) {
-                world.races.forEach(r => { if (!window.gmRaces.find(x=>x.id===r.id)) window.gmRaces.push(r); });
+                world.races.forEach(r => { if (!window.gmRaces.find(x=>x.id===r.id)) window.gmRaces.push(window.apxMigrateRace ? window.apxMigrateRace(r) : r); });
                 if (typeof window.renderImportedRaceList === 'function') window.renderImportedRaceList();
             }
 
@@ -3199,6 +3246,21 @@
                 otherMaps: data.publicNotes?.otherMaps || [],
                 worldMapDataUrl: cachedMap
             };
+            // Your turn just started in the GM's initiative -> your AP comes back
+            try {
+                let myUid = window.apxAuth?.user?.uid;
+                (world.notesV2.otherMaps || []).forEach(m => {
+                    if (!m._currentInitId || !myUid) return;
+                    let mine = (m.battleTokens || []).some(t => t.type === 'player' && t.playerUid === myUid && t.initiativeId === m._currentInitId);
+                    if (!mine) return;
+                    let key = m._currentInitId + ':' + (m._turnNo || 0);
+                    if (window._pwLastTurnKey !== key) {
+                        let first = window._pwLastTurnKey === undefined;
+                        window._pwLastTurnKey = key;
+                        if (!first && window.apxResetAp) window.apxResetAp();
+                    }
+                });
+            } catch (e) { }
             // Always re-render so floating Other Map windows (area circles, tokens, fog) update live.
             // renderPlayerWorld is cheap when the modal is closed — it rebuilds hidden panels.
             renderPlayerWorld();
@@ -3210,7 +3272,7 @@
     window._playerWorldsData = {};
 
     window.showPlayerWorldTab = function(tab) {
-        ['locations','npcs','notes','othermaps','map'].forEach(t => {
+        ['locations','npcs','notes','othermaps','map','party'].forEach(t => {
             let p = document.getElementById(`pwPanel${t.charAt(0).toUpperCase()}${t.slice(1)}`);
             if (p) p.classList.toggle('hidden', t !== tab);
             let b = document.getElementById(`pwTab${t.charAt(0).toUpperCase()}${t.slice(1)}`);
@@ -3225,6 +3287,50 @@
             renderPlayerMap();
         }
         if (tab === 'othermaps') renderPlayerOtherMaps();
+        if (tab === 'party') renderPlayerParty();
+    };
+
+    // ── Party inspector: who's in this world (portrait, name, basics — no stats) ──
+    function renderPlayerParty() {
+        let el = document.getElementById('pwPanelParty'); if (!el) return;
+        let world = window._playerWorldData || {};
+        let myUid = window.apxAuth?.user?.uid || 'me';
+        let gone = new Set([...(world.kicked||[]), ...(world.banned||[])]);
+        let esc = t => String(t ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        let party = (window.APXBattle?.party?.() || []).filter(p => p.name && !gone.has(p.uid));
+        if (!party.some(p => p.uid === myUid) && window.state?.name) {
+            party.push({ uid: myUid, name: window.state.name, portrait: window.state.charPortrait || '', ancestry: window.state.ancestry?.name || '', origin: window.state.origin?.name || '', age: window.state.charAge || '' });
+        }
+        party.sort((a, b) => (b.uid === myUid) - (a.uid === myUid) || a.name.localeCompare(b.name));
+        if (!party.length) { el.innerHTML = '<div class="text-slate-600 text-sm text-center py-6">No one else has joined this world yet</div>'; return; }
+        el.innerHTML = `<div class="apx-party-grid">${party.map(p => {
+            let bits = [p.ancestry, p.origin, p.age ? 'Age ' + p.age : ''].filter(Boolean).map(esc).join(' · ');
+            let pic = p.portrait
+                ? `<img src="${p.portrait}" alt="" class="apx-party-pic" data-name="${esc(p.name)}" onclick="window.pwShowPortrait(this.src, this.dataset.name)" title="Click to enlarge">`
+                : `<div class="apx-party-pic apx-party-initial">${esc((p.name || '?')[0].toUpperCase())}</div>`;
+            return `<div class="apx-party-card${p.uid === myUid ? ' is-me' : ''}">
+                ${pic}
+                <div class="apx-party-name">${esc(p.name)}${p.uid === myUid ? ' <span class="apx-party-you">You</span>' : ''}</div>
+                <div class="apx-party-sub">${bits || '&nbsp;'}</div>
+            </div>`;
+        }).join('')}</div>`;
+    }
+    window.renderPlayerParty = renderPlayerParty;
+    if (window.APXBattle && !window._pwPartyHooked) {
+        window._pwPartyHooked = true;
+        window.APXBattle.onChange(() => {
+            let p = document.getElementById('pwPanelParty');
+            if (p && !p.classList.contains('hidden')) renderPlayerParty();
+        });
+    }
+    window.pwShowPortrait = function(src, name) {
+        let back = document.createElement('div');
+        back.style.cssText = 'position:fixed;inset:0;z-index:2147483646;background:rgba(0,0,0,.8);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;cursor:zoom-out;';
+        back.innerHTML = `<img style="max-width:min(420px,90vw);max-height:75vh;border-radius:50%;border:3px solid var(--c-border2,#475569);box-shadow:0 20px 60px rgba(0,0,0,.8);"><div style="color:#fff;font-weight:800;font-size:1rem;"></div>`;
+        back.querySelector('img').src = src;
+        back.querySelector('div').textContent = name || '';
+        back.onclick = () => back.remove();
+        document.body.appendChild(back);
     };
 
 
@@ -3326,10 +3432,9 @@
             let rgb = { r: parseInt(col.slice(1,3),16)||0, g: parseInt(col.slice(3,5),16)||0, b: parseInt(col.slice(5,7),16)||0 };
             let lum = (0.299*rgb.r + 0.587*rgb.g + 0.114*rgb.b) / 255;
             let textColor = lum > 0.55 ? '#111111' : '#ffffff';
-            let hasMap = l.linkedOtherMapId && revealedMapIds.has(l.linkedOtherMapId);
-            let clickAct = hasMap
-                ? "window.openPlayerOtherMapWindow('" + l.linkedOtherMapId + "')"
-                : "window.pwZoomToPin('" + l.id + "')";
+            let lIds = (l.linkedOtherMapIds && l.linkedOtherMapIds.length) ? l.linkedOtherMapIds : (l.linkedOtherMapId ? [l.linkedOtherMapId] : []);
+            let hasMap = lIds.some(id => revealedMapIds.has(id));
+            let clickAct = "event.stopPropagation();window.pwOpenLocationInfo('" + l.id + "')";
             let mapIcon = hasMap ? '<span style="font-size:9px;">[Map]</span>' : '';
             return '<div style="position:absolute;left:' + (l.pinX*imgW) + 'px;top:' + (l.pinY*imgH) + 'px;transform:translate(-50%,-100%) scale(' + pinScale + ');transform-origin:50% 100%;pointer-events:auto;cursor:pointer;will-change:transform;" onclick="' + clickAct + '">'
                 + '<div style="background:' + col + ';color:' + textColor + ';font-size:11px;font-weight:700;padding:2px 6px;border-radius:3px;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.6);min-width:12px;min-height:14px;display:flex;align-items:center;gap:2px;">' + (l.name||'?') + mapIcon + '</div>'
@@ -3390,7 +3495,7 @@
     function renderPlayerWorld() {
         // Remember which tab is active before re-rendering (real-time updates should not reset it)
         let currentTab = null;
-        ['locations','npcs','notes','othermaps','map'].forEach(t => {
+        ['locations','npcs','notes','othermaps','map','party'].forEach(t => {
             let p = document.getElementById(`pwPanel${t.charAt(0).toUpperCase()}${t.slice(1)}`);
             if (p && !p.classList.contains('hidden')) currentTab = t;
         });
@@ -3412,7 +3517,7 @@
         let title  = document.getElementById('playerWorldTitle');
         let codeEl = document.getElementById('playerWorldCode');
         let tabBar = document.querySelector('#playerWorldModal .flex.gap-2.mb-3');
-        let panels = ['pwPanelLocations','pwPanelNpcs','pwPanelNotes','pwPanelMap'];
+        let panels = ['pwPanelLocations','pwPanelNpcs','pwPanelNotes','pwPanelMap','pwPanelOthermaps','pwPanelParty'];
         function showOnly(id, hideBar) {
             if (tabBar) tabBar.style.display = hideBar ? 'none' : '';
             panels.forEach(p => { let el=document.getElementById(p); if(el) el.classList.toggle('hidden', p!==id); });
@@ -3585,6 +3690,7 @@
                     <button onclick="window.pwOmZoom('${winId}',1.25)" style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;font-size:0.7rem;font-weight:700;padding:0.2rem 0.5rem;border-radius:0.25rem;cursor:pointer;">+</button>
                     <button onclick="window.pwOmZoom('${winId}',0.8)"  style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;font-size:0.7rem;font-weight:700;padding:0.2rem 0.5rem;border-radius:0.25rem;cursor:pointer;">−</button>
                     <button onclick="window.pwOmReset('${winId}')"     style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;padding:0.2rem 0.5rem;border-radius:0.25rem;cursor:pointer;">Reset</button>
+                    <button id="${winId}_measureBtn" onclick="window.APXBattle && window.APXBattle.toggleMeasure('${winId}')" title="Measure squares between two points or tokens (hotkey M)" style="display:none;background:#1e293b;border:1px solid #a16207;color:#fde68a;font-size:0.7rem;font-weight:700;padding:0.2rem 0.5rem;border-radius:0.25rem;cursor:pointer;">Measure</button>
                 </div>
                 <div id="${winId}_vp" style="position:absolute;transform-origin:0 0;will-change:transform;">
                     <img id="${winId}_img" src="" alt="" style="display:none;max-width:none;user-select:none;pointer-events:none;">
@@ -3663,7 +3769,7 @@
                         else {
                             // GM cleared the fog entirely
                             let fc = document.getElementById(winId+'_fog');
-                            if (fc) { fc.getContext('2d').clearRect(0,0,fc.width,fc.height); fc._fogLoaded = false; }
+                            if (fc) { fc._fogSeq = (fc._fogSeq||0) + 1; fc.getContext('2d').clearRect(0,0,fc.width,fc.height); fc._fogLoaded = false; }
                             rerender();
                         }
                     }
@@ -3683,7 +3789,7 @@
         let revealedMapIds = new Set((world?.notesV2?.otherMaps||[]).map(x=>x.id));
         layer.innerHTML=(m.tokens||[]).map(t=>{
             let isSpecial = t.type === 'special';
-            let hasInfo = !!(t.name||t.description||(t.subnotes&&t.subnotes.length));
+            let hasInfo = !!(t.name||t.description||(t.subnotes&&t.subnotes.length)||(t.linkedNpcs&&t.linkedNpcs.length));
             let hasLinkedMap = (t.linkedOtherMapIds||[]).some(mid=>revealedMapIds.has(mid));
             let clickable = hasInfo || hasLinkedMap;
             let clickHandler = clickable ? `onclick="event.stopPropagation();window.openPlayerTokenInfo('${m.id}','${t.id}')"` : '';
@@ -3706,49 +3812,98 @@
         win._curMap = m; win._revealedMapIds = revealedMapIds;
     }
 
-    // Player floating info popup for a revealed area token
-    window.openPlayerTokenInfo = function(mapId, tokenId) {
+    // ── Player pin popups ──────────────────────────────────────────
+    // One popup for BOTH world-map location pins and map area markers: everything
+    // the GM has revealed about it, with buttons for linked maps and linked NPCs.
+    function _pwEsc(t) { return String(t ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    function _pwWorldIds() {
         let world = window._playerWorldData;
-        let om = (world?.notesV2?.otherMaps||[]).find(m=>m.id===mapId);
-        let tok = om?.tokens?.find(t=>t.id===tokenId); if(!tok) return;
-        let revealedMapIds = new Set((world?.notesV2?.otherMaps||[]).map(m=>m.id));
-        let winId = 'ptokInfo_'+tokenId;
+        let saved = _getWorlds().find(w => w.worldId === world?.worldId) || _getPrimaryWorld();
+        return { gmUid: world?.gmUid || saved?.gmUid, worldId: world?.worldId };
+    }
+    // Loads (once) the same full-quality portrait the GM uses; calls back when ready
+    function _pwNpcPortrait(npcId, cb) {
+        if (!window._pwNpcPortraitCache) window._pwNpcPortraitCache = {};
+        let c = window._pwNpcPortraitCache[npcId];
+        if (c) return c;
+        if (c === undefined) {
+            let { gmUid, worldId } = _pwWorldIds();
+            if (gmUid && worldId && window.apxAuth?.loadNpcPortraitForPlayer) {
+                window._pwNpcPortraitCache[npcId] = null;
+                window.apxAuth.loadNpcPortraitForPlayer(gmUid, worldId, npcId)
+                    .then(d => { window._pwNpcPortraitCache[npcId] = d?.portrait || ''; if (d?.portrait && cb) cb(); })
+                    .catch(() => { window._pwNpcPortraitCache[npcId] = ''; });
+            }
+        }
+        let n = (window._playerWorldData?.notesV2?.npcs || []).find(x => x.id === npcId);
+        return n?.portrait || '';
+    }
+    function _pwFloatWin(winId, headerHtml, bodyHtml, width) {
         document.getElementById(winId)?.remove();
         window.apxFloatingZTop = (window.apxFloatingZTop||2000)+1;
         let win = document.createElement('div');
         win.id = winId;
-        win.style.cssText = `position:fixed;right:20px;top:120px;width:280px;max-height:60vh;
-            background:#1e293b;border:1px solid #334155;border-radius:0.5rem;z-index:${window.apxFloatingZTop};
-            box-shadow:0 10px 40px rgba(0,0,0,.85);display:flex;flex-direction:column;`;
-        let linkedMapBtns = (tok.linkedOtherMapIds||[])
-            .filter(mid=>revealedMapIds.has(mid))
-            .map(mid=>{
-                let lm = (world?.notesV2?.otherMaps||[]).find(m=>m.id===mid);
-                return lm ? `<button onclick="window.openPlayerOtherMapWindow('${lm.id}')"
-                    style="width:100%;text-align:left;background:#0f172a;border:1px solid #2563eb;color:#93c5fd;
-                    font-size:0.7rem;font-weight:700;padding:0.35rem 0.5rem;border-radius:0.25rem;cursor:pointer;margin-bottom:0.2rem;">[Map] ${lm.name}</button>` : '';
-            }).join('');
-        let snHtml = (tok.subnotes||[]).map(sn=>`<div style="background:#0f172a;border:1px solid #1e293b;border-radius:0.3rem;padding:0.35rem;margin-top:0.2rem;">
-            ${sn.title?`<div style="font-size:0.65rem;font-weight:700;color:#e2e8f0;">${sn.title}</div>`:''}
-            ${sn.content?`<div style="font-size:0.6rem;color:#94a3b8;">${_fmtText(sn.content)}</div>`:''}
-        </div>`).join('');
-        win.innerHTML = `<div id="${winId}_hdr" style="background:#1e3a5f;padding:0.5rem 0.65rem;border-radius:0.5rem 0.5rem 0 0;
-            display:flex;align-items:center;gap:0.4rem;cursor:grab;user-select:none;">
-            <div style="width:20px;height:20px;background:#dc2626;border:2px solid #fff;border-radius:50%;
-                display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;color:#fff;">${tok.letter}</div>
-            <span style="font-size:0.75rem;font-weight:700;color:#e2e8f0;flex:1;">${tok.name||'Area '+tok.letter}</span>
-            <button onclick="document.getElementById('${winId}').remove()" style="background:none;border:none;color:#94a3b8;font-size:1rem;cursor:pointer;">X</button>
-        </div>
-        <div style="padding:0.65rem;overflow-y:auto;flex:1;">
-            ${tok.description?`<div style="font-size:0.7rem;color:#cbd5e1;margin-bottom:0.4rem;">${_fmtText(tok.description)}</div>`:''}
-            ${linkedMapBtns}${snHtml}
-        </div>`;
+        win.className = 'apx-pw-pop';
+        win.style.cssText = `position:fixed;right:24px;top:110px;width:${width||300}px;max-height:70vh;z-index:${window.apxFloatingZTop};display:flex;flex-direction:column;`;
+        win.innerHTML = `<div id="${winId}_hdr" class="apx-pw-pop-hdr">${headerHtml}<button data-x title="Close">X</button></div><div class="apx-pw-pop-body">${bodyHtml}</div>`;
         document.body.appendChild(win);
-        win.addEventListener('mousedown',()=>{ window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; win.style.zIndex=window.apxFloatingZTop; });
-        let hdr=document.getElementById(winId+'_hdr'), wDrag=false, wOX=0, wOY=0;
-        hdr.addEventListener('mousedown',e=>{ if(e.target.tagName==='BUTTON')return; wDrag=true; let r=win.getBoundingClientRect(); wOX=e.clientX-r.left; wOY=e.clientY-r.top; e.preventDefault(); });
-        document.addEventListener('mousemove',e=>{ if(!wDrag)return; win.style.left=Math.max(0,e.clientX-wOX)+'px'; win.style.top=Math.max(0,e.clientY-wOY)+'px'; win.style.right='auto'; });
-        document.addEventListener('mouseup',()=>wDrag=false);
+        win.querySelector('[data-x]').onclick = () => win.remove();
+        win.addEventListener('mousedown', () => { window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; win.style.zIndex=window.apxFloatingZTop; });
+        if (window.apxMakeDraggable) window.apxMakeDraggable(win, document.getElementById(winId+'_hdr'));
+        return win;
+    }
+    function _pwPinBody(info) {
+        let world = window._playerWorldData;
+        let revealedMaps = world?.notesV2?.otherMaps || [];
+        let npcs = world?.notesV2?.npcs || [];
+        let maps = (info.mapIds||[]).map(id => revealedMaps.find(m => m.id === id)).filter(Boolean);
+        let linkedNpcs = (info.npcIds||[]).map(id => npcs.find(n => n.id === id)).filter(Boolean);
+        let html = '';
+        if (info.description) html += `<div class="apx-pw-pop-desc">${_fmtText(info.description)}</div>`;
+        if (maps.length) html += `<div class="apx-pw-pop-sec">Maps</div>` + maps.map(m =>
+            `<button class="apx-pw-pop-map" onclick="window.openPlayerOtherMapWindow('${m.id}')">Open map: ${_pwEsc(m.name)}</button>`).join('');
+        if (linkedNpcs.length) html += `<div class="apx-pw-pop-sec">People here</div><div class="apx-pw-pop-npcs">` + linkedNpcs.map(n => {
+            let pic = _pwNpcPortrait(n.id, info.redraw);
+            return `<button class="apx-pw-pop-npc" onclick="window.pwOpenNpcInfo('${n.id}')" title="Show ${_pwEsc(n.name)}">
+                ${pic ? `<img src="${pic}" alt="">` : `<span class="apx-pw-pop-ini">${_pwEsc((n.name||'?')[0].toUpperCase())}</span>`}
+                <span class="apx-pw-pop-npcname">${_pwEsc(n.name||'NPC')}</span>${n.role ? `<span class="apx-pw-pop-role">${_pwEsc(n.role)}</span>` : ''}</button>`;
+        }).join('') + `</div>`;
+        let sub = (info.subnotes||[]);
+        if (sub.length) html += `<div class="apx-pw-pop-sec">Notes</div>` + sub.map(sn => `<div class="apx-pw-pop-note">
+            ${sn.title ? `<div class="apx-pw-pop-notet">${_pwEsc(sn.title)}</div>` : ''}${sn.content ? `<div>${_fmtText(sn.content)}</div>` : ''}</div>`).join('');
+        if (info.pinBtn) html += info.pinBtn;
+        return html || '<div class="apx-pw-pop-desc" style="opacity:.6">Nothing else is known about this place yet.</div>';
+    }
+    window.pwOpenLocationInfo = function(locationId) {
+        let world = window._playerWorldData;
+        let loc = (world?.notesV2?.locations||[]).find(l => l.id === locationId); if (!loc) return;
+        let mapIds = (loc.linkedOtherMapIds && loc.linkedOtherMapIds.length) ? loc.linkedOtherMapIds : (loc.linkedOtherMapId ? [loc.linkedOtherMapId] : []);
+        let col = loc.pinColor || '#ef4444';
+        let info = { description: loc.description, mapIds, npcIds: loc.linkedNpcIds || [], subnotes: loc.notes || [],
+            redraw: () => { if (document.getElementById('pLocInfo_'+locationId)) window.pwOpenLocationInfo(locationId); } };
+        _pwFloatWin('pLocInfo_'+locationId,
+            `<span style="width:12px;height:12px;border-radius:3px;background:${col};flex-shrink:0;"></span><span class="apx-pw-pop-title">${_pwEsc(loc.name||'Location')}</span>`,
+            _pwPinBody(info));
+    };
+    window.openPlayerTokenInfo = function(mapId, tokenId) {
+        let world = window._playerWorldData;
+        let om = (world?.notesV2?.otherMaps||[]).find(m=>m.id===mapId);
+        let tok = om?.tokens?.find(t=>t.id===tokenId); if(!tok) return;
+        let info = { description: tok.description, mapIds: tok.linkedOtherMapIds || [], npcIds: tok.linkedNpcs || [], subnotes: tok.subnotes || [],
+            redraw: () => { if (document.getElementById('ptokInfo_'+tokenId)) window.openPlayerTokenInfo(mapId, tokenId); } };
+        _pwFloatWin('ptokInfo_'+tokenId,
+            `<span class="apx-pw-pop-letter">${_pwEsc(tok.letter)}</span><span class="apx-pw-pop-title">${_pwEsc(tok.name||'Area '+tok.letter)}</span>`,
+            _pwPinBody(info));
+    };
+    window.pwOpenNpcInfo = function(npcId) {
+        let n = (window._playerWorldData?.notesV2?.npcs||[]).find(x => x.id === npcId); if (!n) return;
+        let pic = _pwNpcPortrait(npcId, () => { if (document.getElementById('pNpcInfo_'+npcId)) window.pwOpenNpcInfo(npcId); });
+        let notes = (n.notes||[]).map(sn => `<div class="apx-pw-pop-note">${sn.title ? `<div class="apx-pw-pop-notet">${_pwEsc(sn.title)}</div>` : ''}${sn.content ? `<div>${_fmtText(sn.content)}</div>` : ''}</div>`).join('');
+        let win = _pwFloatWin('pNpcInfo_'+npcId, `<span class="apx-pw-pop-title">${_pwEsc(n.name||'NPC')}</span>`,
+            `${pic ? `<img src="${pic}" alt="" class="apx-pw-pop-portrait" data-name="${_pwEsc(n.name||'')}" onclick="window.pwShowPortrait && window.pwShowPortrait(this.src, this.dataset.name)">` : ''}
+             ${n.role ? `<div class="apx-pw-pop-role" style="text-align:center;margin-bottom:.35rem">${_pwEsc(n.role)}</div>` : ''}
+             ${n.description ? `<div class="apx-pw-pop-desc">${_fmtText(n.description)}</div>` : ''}${notes}`, 280);
+        win.style.right = '340px';
     };
     window.pwOmZoom = function(winId, factor) {
         let win=document.getElementById(winId); if(!win) return;
@@ -3786,6 +3941,8 @@
         let area = document.getElementById(winId+'_area');
         let img  = document.getElementById(winId+'_img');
         if (!area || !window.APXBattle) return;
+        let mBtn = document.getElementById(winId+'_measureBtn');
+        if (mBtn) mBtn.style.display = map?.battleMapEnabled ? '' : 'none';
         if (!img || !img.naturalWidth || !map?.battleMapEnabled) { window.APXBattle.clear(winId); return; }
         let g = window.APXBattle.grid(map.battleGrid);
         let posOf = t => window.APXBattle.posOf(map.id, t);
@@ -3848,6 +4005,10 @@
                 opacity: isDead ? 0.7 : 1,
                 filter: isDead ? 'grayscale(1)' : isBleedingOut ? 'saturate(0.4)' : 'none',
                 badge: (isBleedingOut && t._bleedTurns != null) ? t._bleedTurns : null,
+                num: t.type === 'player' ? null : window.APXBattle.numberOf(t.name),
+                numColor: factionBorder,
+                layer: t.layer == null ? 1 : t.layer,
+                conds: t._conds || [],
                 portrait,
                 title: t.name || '',
                 draggable: mine, interactive: true,
@@ -3863,8 +4024,25 @@
             return dest;
         };
 
+        // Movable images the GM has revealed (carts, tower floors …)
+        if (!window._pwBtImgCache) window._pwBtImgCache = {};
+        let props = (map.battleImages||[]).map(im => {
+            let src = im.src || window._pwBtImgCache[im.id] || '';
+            if (!src && window._pwBtImgCache[im.id] === undefined && gmUid && worldId && window.apxAuth?.loadBattleImageForPlayer) {
+                window._pwBtImgCache[im.id] = null;
+                window.apxAuth.loadBattleImageForPlayer(gmUid, worldId, im.id)
+                    .then(d => { window._pwBtImgCache[im.id] = d || ''; if (d) _pwRefreshBattleWindows(); })
+                    .catch(e => { window._pwBtImgCache[im.id] = ''; console.warn('Battle image (player):', e.message); });
+            }
+            return { id: im.id, src, x: im.x, y: im.y, w: im.w, h: im.h, layer: im.layer || 0,
+                     opacity: im.opacity == null ? 1 : im.opacity, title: im.name || '', draggable: false, interactive: false };
+        });
+        let mineIds = new Set(visible.filter(isMine).map(t => t.id));
+
         window.APXBattle.render({
-            winId, win, area, grid: g, tokens: vms,
+            winId, win, area, grid: g, tokens: vms, props,
+            fogId: winId + '_fog', aboveFog: mineIds,
+            onMeasureChange: (on) => { let b = document.getElementById(winId+'_measureBtn'); if (b) { b.style.background = on ? '#a16207' : '#1e293b'; b.style.color = on ? '#fff' : '#fde68a'; } },
             previewBlocked: (vm, gx, gy) => _pwCellUnderFog(winId, gx, gy, g) ||
                 !!window.APXBattle.findBlocker(visible, {id: vm.id, size: vm.size}, gx, gy, posOf),
             resolveDrop: landing,
@@ -3993,11 +4171,20 @@
     }
 
     // Load fog PNG onto a player-side canvas (solid black, opacity:1)
+    // Every GM brush stroke arrives as a new fog snapshot. Two things used to make
+    // freshly revealed areas flicker away: (1) resizing the canvas on EVERY
+    // snapshot wiped it before the new image was drawn, and (2) an older snapshot
+    // that finished decoding late could paint over a newer one. Now the canvas is
+    // only resized when the map size really changes, and stale decodes are ignored.
     function _pwLoadFog(canvasId, base64png, refImg, onDone) {
         let fc = document.getElementById(canvasId); if (!fc) return;
-        if (refImg) { fc.width = refImg.naturalWidth; fc.height = refImg.naturalHeight; }
+        let seq = fc._fogSeq = (fc._fogSeq||0) + 1;
         let fimg = new Image();
         fimg.onload = () => {
+            if (seq !== fc._fogSeq) return;   // superseded by a newer snapshot
+            if (refImg && refImg.naturalWidth && (fc.width !== refImg.naturalWidth || fc.height !== refImg.naturalHeight)) {
+                fc.width = refImg.naturalWidth; fc.height = refImg.naturalHeight;
+            }
             let ctx=fc.getContext('2d',{willReadFrequently:true});
             ctx.clearRect(0,0,fc.width,fc.height); ctx.drawImage(fimg,0,0,fc.width,fc.height);
             fc._fogLoaded = true;
@@ -4079,29 +4266,46 @@
                         }
                     }
                 }
-                // XP grant from end of combat
-                // (On load, only if granted after this sheet last saved — otherwise it was
-                //  already applied and re-applying on every page load would double-pay.)
-                let xpGrant = data._xpGrant;
-                if (xpGrant?.amount && xpGrant.at && isThisWorld) {
-                    let xpAt = xpGrant.at?.toMillis?.() || 0;
+                // XP grants from the GM (combat, discovery, role play…). Each grant is paid
+                // once, with this character's own bonuses (Educated, Expertise, INT), logged,
+                // then removed from the queue.
+                if (isThisWorld && window.state) {
+                    let st = window.state;
                     let savedAt = data.updatedAt?.toMillis?.() || 0;
-                    if (!window._lastXpAt) window._lastXpAt = 0;
-                    if (xpAt > window._lastXpAt && (!first || xpAt > savedAt)) {
-                        window._lastXpAt = xpAt;
-                        let gained = xpGrant.amount;
-                        if (window.state) {
-                            window.state.unspentXp = (window.state.unspentXp || 0) + gained;
-                            if (typeof window.recalculateMath === 'function') window.recalculateMath();
-                            if (typeof window.scheduleSave === 'function') window.scheduleSave();
-                        }
+                    let pending = Object.values(data._xpGrants || {}).filter(g => g && g.id && g.amount);
+                    // Legacy single-slot grant (older GM builds)
+                    let lg = data._xpGrant;
+                    if (lg?.amount && lg.at) pending.push({ id: 'legacy_' + (lg.at.toMillis?.() || 0), amount: lg.amount, category: 'combat', name: 'Combat', at: lg.at });
+                    if (!Array.isArray(st.appliedXpGrants)) {
+                        // First time this character sees the queue: anything older than its last
+                        // save was meant for whoever was here before — don't pay it twice.
+                        st.appliedXpGrants = pending.filter(g => (g.at?.toMillis?.() || 0) && (g.at.toMillis() <= savedAt)).map(g => g.id);
+                    }
+                    let fresh = pending.filter(g => !st.appliedXpGrants.includes(g.id) && (g.at?.toMillis?.() || Date.now()) > (window._lastXpAt || 0) - 1);
+                    let paidIds = [];
+                    fresh.forEach(g => {
+                        if (st.appliedXpGrants.includes(g.id)) return;
+                        let b = window.apxXpBonus ? window.apxXpBonus(st, g.category || 'other', g.amount, (typeof calc !== 'undefined' && calc.mods) ? calc.mods.INT : undefined) : { bonus: 0, parts: [] };
+                        let total = g.amount + b.bonus;
+                        st.unspentXp = (st.unspentXp || 0) + total;
+                        st.appliedXpGrants.push(g.id);
+                        (st.xpLog = st.xpLog || []).unshift({ id: g.id, name: g.name || XP_CATEGORY_LABELS[g.category] || 'XP', desc: g.description || '',
+                            category: g.category || 'other', date: g.date || new Date().toISOString().slice(0, 10), session: g.session || null,
+                            base: g.amount, bonus: b.bonus, bonusParts: b.parts, total });
+                        if (!String(g.id).startsWith('legacy_')) paidIds.push(g.id);
                         let toast = document.createElement('div');
-                        toast.textContent = `+${gained} XP from combat!`;
-                        toast.style.cssText = 'position:fixed;bottom:4rem;right:1.5rem;z-index:99999;background:#064e3b;color:#6ee7b7;font-size:0.8rem;font-weight:900;padding:0.6rem 1.2rem;border-radius:0.5rem;border:1px solid #10b981;pointer-events:none;';
+                        toast.textContent = `+${total} XP: ${g.name || XP_CATEGORY_LABELS[g.category] || 'XP'}` + (b.bonus ? ` (${g.amount} + ${b.parts.map(p => p.label + ' ' + p.amount).join(' + ')})` : '');
+                        toast.style.cssText = 'position:fixed;bottom:4rem;right:1.5rem;z-index:99999;background:#064e3b;color:#6ee7b7;font-size:0.8rem;font-weight:900;padding:0.6rem 1.2rem;border-radius:0.5rem;border:1px solid #10b981;pointer-events:none;max-width:420px;';
                         document.body.appendChild(toast);
-                        setTimeout(() => toast.remove(), 5000);
-                    } else if (xpAt > window._lastXpAt) {
-                        window._lastXpAt = xpAt;   // already applied before this load
+                        setTimeout(() => toast.remove(), 6000);
+                    });
+                    if (lg?.at) window._lastXpAt = Math.max(window._lastXpAt || 0, lg.at.toMillis?.() || 0);
+                    // Only remember grants that are still queued (removed ones can never be paid again)
+                    let queued = new Set(pending.map(g => g.id));
+                    st.appliedXpGrants = st.appliedXpGrants.filter(id => queued.has(id));
+                    if (fresh.length) {
+                        if (typeof window.recalculateMath === 'function') window.recalculateMath();   // also saves
+                        if (paidIds.length && window.apxAuth?.ackXpGrants) setTimeout(() => window.apxAuth.ackXpGrants(inviteCode, paidIds), 1500);
                     }
                 }
                 first = false;
@@ -4120,9 +4324,15 @@
     // loadCharacterState: the roster system already has this logic — reuse it
     window.loadCharacterState = function(state) {
         if (!state) return;
-        Object.assign(window.state, JSON.parse(JSON.stringify(state)));
+        let incoming = JSON.parse(JSON.stringify(state));
+        if (window.apxPrepareLoadedState) window.apxPrepareLoadedState(incoming);
+        // Start from a clean slate so nothing from the previously open character
+        // (XP log, Omen dice, AP spent…) leaks into this one when its save lacks a field.
+        Object.keys(window.state).forEach(k => delete window.state[k]);
+        Object.assign(window.state, getInitialState(), incoming);
         if (typeof window.recalculateMath === 'function') window.recalculateMath();
         if (typeof window.syncDOM === 'function') window.syncDOM();
+        if (typeof window.apxMaybeShowRulesNotices === 'function') window.apxMaybeShowRulesNotices();
     };
 
     // ── Sidebar account section ──────────────────────────────
@@ -4165,6 +4375,7 @@
             } catch(e) { console.warn('Auto-save failed:', e.message); }
         }, 500);
     }
+    window.scheduleAutoSave = scheduleAutoSave;
     // Patch recalculateMath to trigger auto-save after each calculation
     let _origRecalc = null;
     function patchRecalc() {
@@ -4274,7 +4485,7 @@
                             window._playerWorldsData[w.code] = world;
                             if (!window._playerWorldData) window._playerWorldData = world;
                             if (world.races?.length && Array.isArray(window.gmRaces)) {
-                                world.races.forEach(r => { if (!window.gmRaces.find(x=>x.id===r.id)) window.gmRaces.push(r); });
+                                world.races.forEach(r => { if (!window.gmRaces.find(x=>x.id===r.id)) window.gmRaces.push(window.apxMigrateRace ? window.apxMigrateRace(r) : r); });
                                 if (typeof window.renderImportedRaceList === 'function') window.renderImportedRaceList();
                             }
                             document.getElementById('playerWorldBtn')?.classList.remove('hidden');

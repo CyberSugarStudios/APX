@@ -223,6 +223,9 @@
             display: flex;
             flex-direction: column;
         }
+        .apx-cond-chip { display:inline-flex; align-items:center; gap:2px; font-size:9px; font-weight:800; padding:0 2px 0 5px; border-radius:9px;
+            background:rgba(194,65,12,.25); border:1px solid #c2410c; color:#fed7aa; line-height:14px; }
+        .apx-cond-chip button { background:none; border:none; color:#fdba74; cursor:pointer; font-weight:900; padding:0 2px; line-height:1; }
         .floating-stat-window-header {
             cursor: grab;
             user-select: none;
@@ -373,6 +376,7 @@
             <div class="flex gap-2">
                 <button onclick="window.openModal('settingsModal')" title="Settings" class="px-3 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold shadow">Settings</button>
                 <button onclick="window.openLoadPartyModal()" class="px-3 py-2 rounded bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold shadow">Load Party</button>
+                <button onclick="window.openGrantXpModal()" class="px-3 py-2 rounded bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shadow" title="Give XP to the party for discovery or role play">Grant XP</button>
                 <button onclick="window.openGmRaceRosterModal()" class="px-3 py-2 rounded bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-bold shadow">Race Templates</button>
                 <button onclick="window.openGmNpcRosterModal()" class="px-3 py-2 rounded bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold shadow">NPCs &amp; Enemies</button>
                 <button onclick="window.openModal('gmWorldModal')" class="px-3 py-2 rounded bg-amber-700 hover:bg-amber-600 text-white text-xs font-bold shadow">World</button>
@@ -946,7 +950,7 @@
 
             <div id="pcStep4" class="wizard-step">
                 <h4 class="text-sm font-bold text-purple-400 mb-2">Step 4: Damage or Healing</h4>
-                <p class="text-[10px] text-slate-400 mb-3">Optional -- skip if your power neither damages nor heals. Max 12 dice per die step.</p>
+                <p class="text-[10px] text-slate-400 mb-3">Optional -- skip if your power neither damages nor heals. Max 8 dice per die step.</p>
                 <div id="pcStep4Dice" class="space-y-1.5 mb-3"><!-- JS injected --></div>
                 <div id="pcStep4Extras" class="space-y-1.5"><!-- JS injected --></div>
             </div>
@@ -1320,8 +1324,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     <script src="js/apx-dialogs.js"></script>
+    <script src="js/apx-dice.js"></script>
     <script src="js/apx-data.js"></script>
     <script src="js/apx-perks-db.js"></script>
+    <script src="js/apx-migrations.js"></script>
     <script src="js/apx-state.js"></script>
     <script src="js/apx-craft-shared.js"></script>
     <script src="js/apx-armor-forge.js"></script>
@@ -1347,7 +1353,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!window.apxAuth?.enabled) return;
         try {
             let cloudRaces = await window.apxAuth.loadGmRaces();
-            cloudRaces.forEach(r => { if (!window.gmRaces.find(x => x.id === r.id)) window.gmRaces.push(r); });
+            cloudRaces.forEach(r => { if (!window.gmRaces.find(x => x.id === r.id)) window.gmRaces.push(window.apxMigrateRace ? window.apxMigrateRace(r) : r); });
             if (typeof window.renderGmRaceList === 'function') window.renderGmRaceList();
         } catch(e) { console.warn('Cloud GM race load failed:', e.message); }
         try {
@@ -1467,6 +1473,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 otherMaps:       priv.otherMaps        || [],
                 worldMapSaved:   priv.worldMapSaved   || false,
                 worldMapDataUrl: priv.worldMapDataUrl || null,
+                xpLog:           priv.xpLog || [],
                 // ALWAYS load from private data first — priv contains the full unfiltered
                 // list. publicNotes only holds revealed items and is player-facing only.
                 // Using pub.locations first would silently delete every hidden location.
@@ -1551,7 +1558,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     .map(l => {
                         let ids = l.linkedOtherMapIds||[];
                         if (!ids.length && l.linkedOtherMapId) ids=[l.linkedOtherMapId];
-                        return { ...l, notes: (l.notes||[]).filter(n => n.revealed), linkedOtherMapIds: ids };
+                        let shownNpcs = new Set((_wNotes.npcs||[]).filter(n=>n.revealed).map(n=>n.id));
+                        return { ...l, notes: (l.notes||[]).filter(n => n.revealed), linkedOtherMapIds: ids,
+                                 linkedNpcIds: (l.linkedNpcIds||[]).filter(id => shownNpcs.has(id)) };
                     }),
                 npcs: (_wNotes.npcs||[])
                     .filter(n => n.revealed)
@@ -1570,6 +1579,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             id:m.id, name:m.name, revealed:!!m.revealed,
                             battleMapEnabled: !!m.battleMapEnabled,
                             battleGrid: m.battleGrid||{cellSize:50,offsetX:0,offsetY:0},
+                            battleImages: (m.battleImages||[]).map(i => i.src && window.apxAuth?.enabled ? (({src, ...r}) => r)(i) : i),
                             battleTokens: (m.battleTokens||[]).map(t=>{
                                 // Persist the live position (player tokens: from the position authority)
                                 let {_gmMoveAtMs, ...rest} = t;
@@ -1585,6 +1595,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             })
                         })),
                         worldMapSaved: w.notesV2.worldMapSaved || false,
+                        xpLog: (w.notesV2.xpLog || []).slice(0, 100),
                     }
                 };
                 let publicData = {
@@ -1617,9 +1628,15 @@ document.addEventListener('DOMContentLoaded', () => {
                                         _dead:        isDead,
                                         _bleedingOut: isBO,
                                         _bleedTurns:  (isBO && entry?.bleedOutTurns != null) ? entry.bleedOutTurns : null,
-                                        _faction:     t.faction || entry?.faction  || null
+                                        _faction:     t.faction || entry?.faction  || null,
+                                        layer:        t.layer == null ? 1 : t.layer,
+                                        _conds:       t.type === 'player' ? [] : (t.conditions || []).map(c => window._gmCondName ? window._gmCondName(c) : c)
                                     };
                                 });
+                                let btImages = (m.battleImages||[]).filter(i=>i.revealed!==false).map(i=>({
+                                    id: i.id, name: i.name || '', x: i.x || 0, y: i.y || 0, w: i.w || 50, h: i.h || 50,
+                                    layer: i.layer || 0, opacity: i.opacity == null ? 1 : i.opacity
+                                }));
                                 let tokens = (m.tokens||[]).filter(t=>t.revealed).map(t=>{
                                     let mapIds = t.linkedOtherMapIds||[];
                                     if (!mapIds.length && t.linkedOtherMapId) mapIds=[t.linkedOtherMapId];
@@ -1632,6 +1649,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         name:             t.name          || '',
                                         description:      t.description   || '',
                                         linkedOtherMapIds: mapIds,
+                                        linkedNpcs:       (t.linkedNpcs||[]).filter(id => (_wNotes.npcs||[]).some(n => n.id===id && n.revealed)),
                                         subnotes:         (t.subnotes||[]).filter(s=>s.revealed).map(s=>({
                                             id:       s.id      || '',
                                             title:    s.title   || '',
@@ -1644,7 +1662,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                     battleMapEnabled:!!m.battleMapEnabled,
                                     battleGrid:m.battleGrid||{cellSize:50,offsetX:0,offsetY:0},
                                     battleTokens: btTokens,
-                                    _currentInitId: curEntry?.id || null,
+                                    battleImages: btImages,
+                                    _currentInitId: window.gmCombatStarted ? (curEntry?.id || null) : null,
+                                    _turnNo: window.gmTurnNumber || 0,
                                     tokens };
                             }),
                     }
@@ -1654,7 +1674,13 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 if (_mapImg && _mapImg.src && _mapImg.src.startsWith('data:'))
                     w.notesV2.worldMapDataUrl = _mapImg.src;
-                localStorage.setItem('apxLocalWorlds', JSON.stringify(_gmWorlds));
+                try { localStorage.setItem('apxLocalWorlds', JSON.stringify(_gmWorlds)); }
+                catch (e) {
+                    // Browser storage is full (usually big offline map images). Don't lose the edit silently.
+                    if (!window._apxLocalFullWarned) { window._apxLocalFullWarned = true;
+                        window.apxAlert('This browser is out of space for offline worlds (large images use a lot). Sign in to save to the cloud, or remove some battle-map images.', { title: 'Not Saved' }); }
+                    console.warn('Local world save failed:', e.message);
+                }
             }
         }
     }
@@ -2236,6 +2262,10 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
             <button onclick="window.openLocMapPicker()" class="w-full text-[10px] font-bold px-2 py-1 rounded" style="background:#1e3a5f;border:1px solid #2563eb;color:#93c5fd;">[Map] Link Maps…</button>
             </div>
+            <div><label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Linked NPCs <span class="normal-case font-normal text-slate-500">(players see revealed ones when they click the pin)</span></label>
+            <div id="nfLinkedNpcsDisplay" class="flex flex-wrap gap-1 mb-1">${window._buildLocNpcDisplay ? window._buildLocNpcDisplay(n.linkedNpcIds||[]) : ''}</div>
+            <button onclick="window.openLocNpcPicker()" class="w-full text-[10px] font-bold px-2 py-1 rounded" style="background:#312e81;border:1px solid #6366f1;color:#c7d2fe;">Link NPCs…</button>
+            </div>
             ${subNotesSection()}`,
         note: (n={}) => `
             <div><label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Note Title</label>
@@ -2259,6 +2289,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let ids = existing?.linkedOtherMapIds||[];
             if (!ids.length && existing?.linkedOtherMapId) ids = [existing.linkedOtherMapId];
             window._locLinkedMapIds = [...ids];
+            window._locLinkedNpcIds = [...(existing?.linkedNpcIds||[])];
         }
         let titles = { session:'Session Note', npc:'NPC', location:'Location', note:'Note' };
         document.getElementById('noteDetailTitle').innerText = (id?'Edit ':'Add ')+titles[type];
@@ -2280,7 +2311,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let note = existing || { id: type+'_'+Date.now() };
         if (type==='session')  { note.title=g('nfTitle')?.value||''; note.date=g('nfDate')?.value||''; note.content=g('nfContent')?.value||''; }
         if (type==='npc')      { note.name=g('nfName')?.value||''; note.role=g('nfRole')?.value||''; note.description=g('nfContent')?.value||''; note.revealed=!!(g('nfRevealed')?.checked); note.notes=_editingSubNotes.map(({_open,...sn})=>sn); }
-        if (type==='location') { note.name=g('nfName')?.value||''; note.description=g('nfContent')?.value||''; note.pinColor=g('nfPinColor')?.value||'#ef4444'; note.revealed=!!(g('nfRevealed')?.checked); note.linkedOtherMapIds=window._locLinkedMapIds||[]; if(!note.linkedOtherMapIds.length&&note.linkedOtherMapId) note.linkedOtherMapIds=[note.linkedOtherMapId]; note.notes=_editingSubNotes.map(({_open,...sn})=>sn); }
+        if (type==='location') { note.name=g('nfName')?.value||''; note.description=g('nfContent')?.value||''; note.pinColor=g('nfPinColor')?.value||'#ef4444'; note.revealed=!!(g('nfRevealed')?.checked); note.linkedOtherMapIds=window._locLinkedMapIds||[]; if(!note.linkedOtherMapIds.length&&note.linkedOtherMapId) note.linkedOtherMapIds=[note.linkedOtherMapId]; note.linkedNpcIds=[...(window._locLinkedNpcIds||[])]; note.notes=_editingSubNotes.map(({_open,...sn})=>sn); }
         if (type==='note')     { note.title=g('nfTitle')?.value||''; note.content=g('nfContent')?.value||''; note.revealed=!!(g('nfRevealed')?.checked); }
 
         if (!existing) arr.push(note);
@@ -2359,6 +2390,48 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (loc) loc.linkedOtherMapIds = [...new Set([...(loc.linkedOtherMapIds||[]), newId])];
             }
         });
+    };
+    // ── Location → NPC links ─────────────────────────────────────────
+    window._buildLocNpcDisplay = function(ids) {
+        ids = ids || window._locLinkedNpcIds || [];
+        let esc = t => String(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+        return ids.map(nid => {
+            let n = (_wNotes.npcs||[]).find(x=>x.id===nid); if (!n) return '';
+            return `<span class="inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded" style="background:#0f172a;border:1px solid #6366f1;color:#c7d2fe;">${esc(n.name||'NPC')}${n.revealed?'':' <span style="color:#64748b;font-weight:600;">(hidden)</span>'}<button onclick="window._unlinkLocNpc('${n.id}')" style="background:none;border:none;color:#64748b;cursor:pointer;">X</button></span>`;
+        }).join('');
+    };
+    window._unlinkLocNpc = function(npcId) {
+        window._locLinkedNpcIds = (window._locLinkedNpcIds||[]).filter(id=>id!==npcId);
+        let d = document.getElementById('nfLinkedNpcsDisplay'); if (d) d.innerHTML = window._buildLocNpcDisplay();
+    };
+    window.openLocNpcPicker = function() {
+        document.getElementById('locNpcPickerOverlay')?.remove();
+        let esc = t => String(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+        let overlay = document.createElement('div');
+        overlay.id = 'locNpcPickerOverlay';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;';
+        let draw = () => {
+            let ids = window._locLinkedNpcIds || [];
+            let npcs = _wNotes.npcs || [];
+            overlay.innerHTML = `<div style="background:#1e293b;border:1px solid #475569;border-radius:0.75rem;padding:1.25rem;min-width:280px;max-width:360px;max-height:70vh;display:flex;flex-direction:column;gap:0.35rem;">
+                <div style="font-size:0.8rem;font-weight:700;color:#f8fafc;margin-bottom:0.25rem;">Link NPCs to Location</div>
+                <div style="overflow-y:auto;display:flex;flex-direction:column;gap:0.3rem;max-height:50vh;">
+                    ${npcs.length ? npcs.map(n => { let on = ids.includes(n.id); return `<button data-npc="${n.id}" style="text-align:left;background:#0f172a;border:1px solid ${on?'#6366f1':'#334155'};color:${on?'#c7d2fe':'#e2e8f0'};font-size:0.75rem;font-weight:700;padding:0.4rem 0.6rem;border-radius:0.375rem;cursor:pointer;display:flex;justify-content:space-between;gap:.5rem;"><span>${esc(n.name||'NPC')}${n.revealed?'':' <span style="color:#64748b;font-weight:600">(hidden)</span>'}</span><span style="font-size:0.65rem;color:${on?'#4ade80':'#64748b'};">${on?'Linked':'–'}</span></button>`; }).join('') : '<div style="font-size:0.7rem;color:#64748b;">No NPCs yet. Add them in the NPCs tab.</div>'}
+                </div>
+                <button data-done style="background:#334155;border:none;color:#e2e8f0;font-size:0.7rem;font-weight:700;padding:0.4rem 0.75rem;border-radius:0.375rem;cursor:pointer;margin-top:.25rem;">Done</button>
+            </div>`;
+            overlay.querySelectorAll('[data-npc]').forEach(b => b.onclick = () => {
+                let id = b.dataset.npc, cur = window._locLinkedNpcIds || [];
+                window._locLinkedNpcIds = cur.includes(id) ? cur.filter(x=>x!==id) : [...cur, id];
+                draw();
+            });
+            overlay.querySelector('[data-done]').onclick = () => {
+                overlay.remove();
+                let d = document.getElementById('nfLinkedNpcsDisplay'); if (d) d.innerHTML = window._buildLocNpcDisplay();
+            };
+        };
+        draw();
+        document.body.appendChild(overlay);
     };
     window._toggleLocMapLink = function(mapId) {
         window._locLinkedMapIds = window._locLinkedMapIds||[];
@@ -2591,6 +2664,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <!-- Battle Map controls: always rendered, shown only while Battle is ON -->
                 <span id="${winId}_battleBtns" style="display:${map.battleMapEnabled ? 'inline-flex' : 'none'};align-items:center;gap:0.35rem;">
                 <button onclick="window.openBattleTokenPanel('${mapId}','${winId}')" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#065f46;border:1px solid #10b981;color:#6ee7b7;border-radius:0.2rem;cursor:pointer;white-space:nowrap;">+ Token</button>
+                <button onclick="window._btPickImage('${mapId}','${winId}')" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#312e81;border:1px solid #6366f1;color:#c7d2fe;border-radius:0.2rem;cursor:pointer;white-space:nowrap;" title="Add a movable image (cart, tower floor, overlay). Right-click it for layers, size, lock, hide.">+ Image</button>
+                <button id="${winId}_measureBtn" onclick="window.APXBattle.toggleMeasure('${winId}')" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#1e293b;border:1px solid #a16207;color:#fde68a;border-radius:0.2rem;cursor:pointer;white-space:nowrap;" title="Measure squares between two points or tokens (hotkey M)">Measure</button>
                 <button onclick="window._btAddAllToInitiative('${mapId}')" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#1e3a5f;border:1px solid #3b82f6;color:#93c5fd;border-radius:0.2rem;cursor:pointer;white-space:nowrap;" title="Add all revealed tokens to initiative">All to Init</button>
                 <button onclick="let s=document.getElementById('${winId}_battleControls'); s.style.display=s.style.display==='none'?'flex':'none';" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#1e293b;border:1px solid #334155;color:#94a3b8;border-radius:0.2rem;cursor:pointer;white-space:nowrap;">Grid</button>
                 </span>
@@ -2821,9 +2896,14 @@ document.addEventListener('DOMContentLoaded', () => {
             let mapId = winId.replace('omWin_','');
             let fc = document.getElementById(winId+'_fog');
             if (fc) {
-                fc.width  = img.naturalWidth;
-                fc.height = img.naturalHeight;
-                _fogLoad(mapId);
+                // Resizing a canvas wipes it, so only do it (and reload) when the size really changes
+                if (fc.width !== img.naturalWidth || fc.height !== img.naturalHeight || !fc._fogInit) {
+                    fc.width  = img.naturalWidth;
+                    fc.height = img.naturalHeight;
+                    fc._fogInit = true;
+                    fc._fogReady = false;          // no painting until the saved fog is on the canvas
+                    _fogLoad(mapId);
+                }
             }
             _omAttachFogEvents(mapId, winId, win);
             // Auto-draw battle grid and tokens if this map has battle mode enabled
@@ -3305,6 +3385,16 @@ document.addEventListener('DOMContentLoaded', () => {
         let curInitId = window.gmInitiative?.[window.gmCurrentTurnIdx??0]?.id || null;
         let interactive = (_fogMode !== mapId);   // fog painting mode: tokens must not eat clicks
 
+        // Player tokens always match the character's size on their sheet
+        let sizeChanged = false;
+        (map.battleTokens||[]).forEach(t => {
+            if (t.type !== 'player' || !t.playerUid) return;
+            let pm = (window.gmParty||[]).find(p=>p.fileName===t.playerUid||p.summary?.playerUid===t.playerUid);
+            let sz = window.APXBattle.sizeFromCharState(pm?.state);
+            if (sz && sz !== (t.size || 'medium')) { t.size = sz; sizeChanged = true; }
+        });
+        if (sizeChanged) saveWorldNotes();
+
         let vms = (map.battleTokens||[]).map(t => {
             let pos = _btPos(mapId, t);
             let isActive = !!(t.initiativeId && curInitId && t.initiativeId === curInitId);
@@ -3342,6 +3432,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 opacity: isHidden ? 0.45 : isDead ? 0.7 : 1,
                 filter: isDead ? 'grayscale(1)' : isBleedingOut ? 'saturate(0.4)' : 'none',
                 badge: (isBleedingOut && linkedEntry?.bleedOutTurns != null) ? linkedEntry.bleedOutTurns : null,
+                num: t.type === 'player' ? null : window.APXBattle.numberOf(linkedEntry?.name || t.name),
+                layer: t.layer == null ? 1 : t.layer,
+                conds: (t.type === 'player' ? [] : (t.conditions || [])).map(_condName),
+                numColor: factionBorder,
                 portrait,
                 title: `${t.name} (${t.size||'medium'})${isHidden?' [Hidden]':''} — dbl-click for stat block, right-click for options`,
                 draggable: interactive, interactive,
@@ -3349,13 +3443,38 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         });
 
+        _btPruneSel(map);
+        // Movable images (props): carts, tower floors, overlays…
+        let props = (map.battleImages||[]).map(im => ({
+            id: im.id, src: _btImgSrc(im, mapId, winId), x: im.x, y: im.y, w: im.w, h: im.h,
+            layer: im.layer || 0, opacity: (im.revealed === false ? 0.55 : 1) * (im.opacity == null ? 1 : im.opacity),
+            hiddenMark: im.revealed === false,
+            title: `${im.name||'Image'}${im.revealed===false?' [Hidden]':''}${im.locked?' [Locked]':''} (layer ${im.layer||0}) — right-click for options`,
+            draggable: interactive, locked: !!im.locked, resizable: true, interactive
+        }));
+
         window.APXBattle.render({
-            winId, win, area, grid: map.battleGrid, tokens: vms,
+            winId, win, area, grid: map.battleGrid, tokens: vms, props,
+            fogId: winId + '_fog',
+            selection: _btSelFor(mapId),
+            marquee: true,
+            marqueeAllowed: () => _fogMode !== mapId,
+            onSelect: (ids, mode) => _btSelect(mapId, winId, ids, mode),
+            canGroupMove: (list) => _btCanGroupMove(map, list),
+            onGroupMove: (list) => _btCommitGroupMove(mapId, winId, list),
+            onPropMove: (pvm, x, y) => { let im = (map.battleImages||[]).find(i=>i.id===pvm.id); if (!im) return; im.x = Math.round(x); im.y = Math.round(y); window.saveWorldNotesNow(); _btRenderTokens(mapId, winId); },
+            onPropResize: (pvm, w, h) => { let im = (map.battleImages||[]).find(i=>i.id===pvm.id); if (!im) return; im.w = w; im.h = h; window.saveWorldNotesNow(); _btRenderTokens(mapId, winId); },
+            onPropContextMenu: (pvm, e) => window._btShowImageMenu(mapId, winId, pvm.id, e),
             previewBlocked: (vm, gx, gy) => !_btCanPlace(map, vm.id, gx, gy),
             // Occupied by a same-size token -> null -> token returns to its last spot
             resolveDrop:    (vm, gx, gy) => _btCanPlace(map, vm.id, gx, gy) ? {gridX:gx, gridY:gy} : null,
             onMove:         (vm, gx, gy) => _btCommitMove(mapId, winId, vm.id, gx, gy),
-            onContextMenu:  (vm, e) => window._btShowTokenMenu(mapId, winId, vm.id, e),
+            onContextMenu:  (vm, e) => {
+                let sel = _btSelFor(mapId);
+                if (sel.size > 1 && sel.has(vm.id)) window._btShowGroupMenu(mapId, winId, e);
+                else window._btShowTokenMenu(mapId, winId, vm.id, e);
+            },
+            onMeasureChange: (on) => { let b = document.getElementById(winId+'_measureBtn'); if (b) { b.style.background = on ? '#a16207' : '#1e293b'; b.style.color = on ? '#fff' : '#fde68a'; } },
             onDblClick:     (vm) => {
                 if (vm.type === 'npc' && vm.worldNpcId) {
                     let wn = (_wNotes.npcs||[]).find(n=>n.id===vm.worldNpcId);
@@ -3369,6 +3488,324 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    // ── Selection (tokens + images), per map ─────────────────────────────
+    window._btSel = window._btSel || {};
+    function _btSelFor(mapId) { return window._btSel[mapId] || (window._btSel[mapId] = new Set()); }
+    function _btSelect(mapId, winId, ids, mode) {
+        let sel = _btSelFor(mapId);
+        if (mode === 'toggle') ids.forEach(id => sel.has(id) ? sel.delete(id) : sel.add(id));
+        else if (mode === true) ids.forEach(id => sel.add(id));      // marquee adds
+        else { sel.clear(); ids.forEach(id => sel.add(id)); }
+        _btRenderTokens(mapId, winId);
+    }
+    // Only real, still-present things stay selected
+    function _btPruneSel(map) {
+        let sel = _btSelFor(map.id);
+        let live = new Set([...(map.battleTokens||[]).map(t=>t.id), ...(map.battleImages||[]).map(i=>i.id)]);
+        [...sel].forEach(id => { if (!live.has(id)) sel.delete(id); });
+        return sel;
+    }
+
+    // A group move is allowed only if no moved token lands on a same-size token
+    // that ISN'T moving with it. Otherwise the whole group returns to its spots.
+    function _btCanGroupMove(map, list) {
+        let moving = new Set(list.map(m => m.vm.id));
+        let others = (map.battleTokens||[]).filter(t => !moving.has(t.id));
+        return list.every(m => m.kind !== 'token' ||
+            !window.APXBattle.findBlocker(others, {id: m.vm.id, size: m.vm.size}, m.gx, m.gy, t=>_btPos(map.id, t)));
+    }
+    function _btCommitGroupMove(mapId, winId, list) {
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId); if (!map) return;
+        let code = getActiveWorld()?.inviteCode;
+        list.forEach(mv => {
+            if (mv.kind === 'prop') {
+                let im = (map.battleImages||[]).find(i=>i.id===mv.vm.id);
+                if (im) { im.x = Math.round(mv.x); im.y = Math.round(mv.y); }
+            } else {
+                let tok = (map.battleTokens||[]).find(t=>t.id===mv.vm.id); if (!tok) return;
+                tok.gridX = mv.gx; tok.gridY = mv.gy;
+                if (tok.type === 'player' && tok.playerUid) window.APXBattle.move(code, tok.playerUid, mapId, tok.id, mv.gx, mv.gy);
+            }
+        });
+        window.saveWorldNotesNow();
+        _btRenderTokens(mapId, winId);
+    }
+
+    // ── Movable images (props) ───────────────────────────────────────────
+    window._btImgCache = window._btImgCache || {};
+    function _btImgSrc(im, mapId, winId) {
+        if (im.src) return im.src;                              // offline / local copy
+        let c = window._btImgCache[im.id];
+        if (c) return c;
+        if (c === undefined && window.apxAuth?.enabled && _activeWorldId) {
+            window._btImgCache[im.id] = null;                   // loading
+            window.apxAuth.loadBattleImage(_activeWorldId, im.id).then(data => {
+                window._btImgCache[im.id] = data || '';
+                if (data) _btRenderTokens(mapId, winId);
+            }).catch(e => { window._btImgCache[im.id] = ''; console.warn('Battle image load:', e.message); });
+        }
+        return '';
+    }
+
+    window._btPickImage = function(mapId, winId) {
+        let inp = document.createElement('input');
+        inp.type = 'file'; inp.accept = 'image/*';
+        inp.onchange = () => { if (inp.files && inp.files[0]) window._btAddImage(mapId, winId, inp.files[0]); };
+        inp.click();
+    };
+    window._btAddImage = async function(mapId, winId, file) {
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId); if (!map) return;
+        let area = document.getElementById(winId+'_area');
+        let pic;
+        try { pic = await window.APXBattle.compressImage(file, 1600); }
+        catch (e) { window.apxAlert(e.message, { title: 'Add Image' }); return; }
+        let g = window.APXBattle.grid(map.battleGrid);
+        // Start about 5 squares across on its long side, centred where the GM is looking
+        let scale = (5 * g.cellSize) / Math.max(pic.w, pic.h);
+        let w = Math.round(pic.w * scale), h = Math.round(pic.h * scale);
+        let win = document.getElementById(winId);
+        let sc = win?._scale||1, ox = win?._offX||0, oy = win?._offY||0;
+        let cx = (-ox/sc) + (area?.clientWidth||640)/2/sc, cy = (-oy/sc) + (area?.clientHeight||480)/2/sc;
+        let o = window.APXBattle.origin(g);
+        let x = o.ox + Math.round((cx - w/2 - o.ox) / g.cellSize) * g.cellSize;
+        let y = o.oy + Math.round((cy - h/2 - o.oy) / g.cellSize) * g.cellSize;
+        let id = 'bimg_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+        let layers = (map.battleImages||[]).map(i=>i.layer||0);
+        let im = { id, name: (file.name||'Image').replace(/\.[^.]+$/, '').slice(0,40), x, y, w, h,
+                   layer: layers.length ? Math.min(0, Math.min(...layers)) : 0, revealed: false, locked: false, opacity: 1 };
+        if (window.apxAuth?.enabled && _activeWorldId) {
+            window._btImgCache[id] = pic.src;
+            try { await window.apxAuth.saveBattleImage(_activeWorldId, id, pic.src); }
+            catch (e) { window.apxAlert('Could not save that image: ' + e.message, { title: 'Add Image' }); return; }
+        } else {
+            im.src = pic.src;   // no cloud: keep it with the map
+        }
+        (map.battleImages = map.battleImages || []).push(im);
+        _btSelect(mapId, winId, [id], false);
+        window.saveWorldNotesNow();
+        window.APXBattle.toast(area, 'Image added (hidden from players). Right-click it for options.', 'info');
+    };
+
+    function _btImgMut(mapId, winId, imgId, fn) {
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId); if (!map) return;
+        let im = (map.battleImages||[]).find(i=>i.id===imgId); if (!im) return;
+        fn(im, map);
+        window.saveWorldNotesNow();
+        _btRenderTokens(mapId, winId);
+    }
+    // Layers are shared by images AND tokens, so a token can sit between two floors
+    function _btAllLayers(map) {
+        return [...(map.battleImages||[]).map(i=>i.layer||0), ...(map.battleTokens||[]).map(t=>t.layer==null?1:t.layer)];
+    }
+    window._btImgLayer = function(mapId, winId, imgId, how) {
+        _btImgMut(mapId, winId, imgId, (im, map) => {
+            let all = _btAllLayers(map), cur = im.layer || 0;
+            if (how === 'up') im.layer = cur + 1;
+            else if (how === 'down') im.layer = cur - 1;
+            else if (how === 'front') im.layer = Math.max(...all) + 1;
+            else if (how === 'back') im.layer = Math.min(...all) - 1;
+        });
+    };
+    window._btTokLayer = function(mapId, winId, tokenIds, how) {
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId); if (!map) return;
+        let ids = Array.isArray(tokenIds) ? tokenIds : [tokenIds];
+        let all = _btAllLayers(map);
+        (map.battleTokens||[]).filter(t=>ids.includes(t.id)).forEach(t => {
+            let cur = t.layer == null ? 1 : t.layer;
+            t.layer = how === 'up' ? cur + 1 : how === 'down' ? cur - 1 : how === 'front' ? Math.max(...all) + 1 : Math.min(...all) - 1;
+        });
+        saveWorldNotes(); _btRenderTokens(mapId, winId);
+    };
+    window._btImgToggle = function(mapId, winId, imgId, key) {
+        _btImgMut(mapId, winId, imgId, im => {
+            if (key === 'revealed') im.revealed = im.revealed === false ? true : false;
+            else if (key === 'locked') im.locked = !im.locked;
+            else if (key === 'opacity') im.opacity = ({1:0.75, 0.75:0.5, 0.5:1})[im.opacity == null ? 1 : im.opacity] || 1;
+        });
+    };
+    window._btImgScale = function(mapId, winId, imgId, f) {
+        _btImgMut(mapId, winId, imgId, im => { im.w = Math.max(10, Math.round(im.w * f)); im.h = Math.max(10, Math.round(im.h * f)); });
+    };
+    window._btImgRename = async function(mapId, winId, imgId) {
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+        let im = (map?.battleImages||[]).find(i=>i.id===imgId); if (!im) return;
+        let v = await window.apxPrompt('Image name:', im.name || '', { title: 'Rename Image' });
+        if (v === null) return;
+        _btImgMut(mapId, winId, imgId, x => { x.name = v.trim().slice(0,40) || 'Image'; });
+    };
+    window._btImgDelete = async function(mapId, winId, imgId) {
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+        let im = (map?.battleImages||[]).find(i=>i.id===imgId); if (!im) return;
+        let ok = await window.apxConfirm(`Delete the image "${im.name||'Image'}" from this map?`, { title: 'Delete Image', okLabel: 'Delete', danger: true });
+        if (!ok) return;
+        map.battleImages = map.battleImages.filter(i=>i.id!==imgId);
+        _btSelFor(mapId).delete(imgId);
+        if (window.apxAuth?.enabled && _activeWorldId) window.apxAuth.deleteBattleImage(_activeWorldId, imgId);
+        delete window._btImgCache[imgId];
+        window.saveWorldNotesNow();
+        _btRenderTokens(mapId, winId);
+    };
+
+    // Shared compact menu shell (same look as the token menu)
+    function _btMenuShell(e, headerHtml, bodyHtml, headerBg) {
+        document.getElementById('btContextMenu')?.remove();
+        let menu = document.createElement('div');
+        menu.id = 'btContextMenu';
+        menu.style.cssText = `position:fixed;left:0;top:0;visibility:hidden;z-index:2147483647;background:#1e293b;border:1px solid #334155;border-radius:0.35rem;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.9);width:210px;`;
+        menu.innerHTML = `<div style="background:${headerBg||'#1e3a5f'};padding:3px 6px;font-size:0.62rem;font-weight:700;color:#93c5fd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${headerHtml}</div>${bodyHtml}`;
+        document.body.appendChild(menu);
+        let r = menu.getBoundingClientRect(), pad = 6;
+        let x = e.clientX, y = e.clientY;
+        if (x + r.width  > window.innerWidth  - pad) x = Math.max(pad, e.clientX - r.width);
+        if (y + r.height > window.innerHeight - pad) y = Math.max(pad, e.clientY - r.height);
+        menu.style.left = x + 'px'; menu.style.top = y + 'px'; menu.style.visibility = 'visible';
+        setTimeout(()=>document.addEventListener('mousedown',function cls(ev){if(!menu.contains(ev.target)){menu.remove();document.removeEventListener('mousedown',cls);}},100));
+        return menu;
+    }
+    const _bmRow = 'display:flex;align-items:center;gap:2px;padding:2px 4px;border-top:1px solid #0f172a;';
+    const _bmLbl = 'font-size:0.55rem;color:#64748b;width:34px;flex-shrink:0;';
+    const _bmBtn = (label, onclick, color, active, disabled, title) =>
+        `<button ${disabled?'disabled':''} ${title?`title="${title}"`:''} onclick="${disabled?'':onclick}" style="flex:1;background:${active?'#334155':'none'};border:none;border-radius:3px;color:${disabled?'#334155':color};font-size:0.6rem;font-weight:${active?800:600};padding:3px 2px;cursor:${disabled?'default':'pointer'};white-space:nowrap;">${label}</button>`;
+    const _bmClose = `;document.getElementById('btContextMenu')?.remove()`;
+
+    window._btShowImageMenu = function(mapId, winId, imgId, e) {
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+        let im = (map?.battleImages||[]).find(i=>i.id===imgId); if (!im) return;
+        let a = `'${mapId}','${winId}','${imgId}'`;
+        let esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+        let hidden = im.revealed === false;
+        let op = im.opacity == null ? 1 : im.opacity;
+        _btMenuShell(e, `${esc(im.name||'Image')} <span style="font-size:0.52rem;color:#64748b;">image · layer ${im.layer||0}</span>`, `
+            <div style="${_bmRow}">${_bmBtn(hidden?'Reveal to Players':'Hide from Players', `window._btImgToggle(${a},'revealed')${_bmClose}`, hidden?'#6ee7b7':'#94a3b8')}</div>
+            <div style="${_bmRow}"><span style="${_bmLbl}">Layer</span>${_bmBtn('Back', `window._btImgLayer(${a},'back')${_bmClose}`, '#c4b5fd', false, false, 'Send behind everything')}${_bmBtn('Down', `window._btImgLayer(${a},'down')${_bmClose}`, '#c4b5fd')}${_bmBtn('Up', `window._btImgLayer(${a},'up')${_bmClose}`, '#c4b5fd')}${_bmBtn('Front', `window._btImgLayer(${a},'front')${_bmClose}`, '#c4b5fd', false, false, 'Bring in front of everything')}</div>
+            <div style="${_bmRow}"><span style="${_bmLbl}">Size</span>${_bmBtn('−10%', `window._btImgScale(${a},0.9)${_bmClose}`, '#93c5fd')}${_bmBtn('+10%', `window._btImgScale(${a},1.1)${_bmClose}`, '#93c5fd')}</div>
+            <div style="${_bmRow}"><span style="${_bmLbl}">Look</span>${_bmBtn(`Opacity ${Math.round(op*100)}%`, `window._btImgToggle(${a},'opacity')${_bmClose}`, '#e2e8f0', false, false, 'Cycle 100% / 75% / 50%')}${_bmBtn(im.locked?'Unlock':'Lock', `window._btImgToggle(${a},'locked')${_bmClose}`, '#fde68a', !!im.locked, false, 'Locked images cannot be moved, and clicks pass through to the map')}</div>
+            <div style="${_bmRow}">${_bmBtn('Rename', `window._btImgRename(${a})${_bmClose}`, '#e2e8f0')}${_bmBtn('Delete', `window._btImgDelete(${a})${_bmClose}`, '#f87171')}</div>`);
+    };
+
+    // Right-click on a token that's part of a multi-selection
+    window._btShowGroupMenu = function(mapId, winId, e) {
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId); if (!map) return;
+        let sel = _btPruneSel(map);
+        let toks = (map.battleTokens||[]).filter(t=>sel.has(t.id));
+        let imgs = (map.battleImages||[]).filter(i=>sel.has(i.id));
+        let npcs = toks.filter(t=>t.type!=='player');
+        let notInInit = toks.filter(t=>!t._explicitDead && !(t.initiativeId && (window.gmInitiative||[]).some(x=>x.id===t.initiativeId)));
+        let parts = [toks.length ? `${toks.length} token${toks.length>1?'s':''}` : '', imgs.length ? `${imgs.length} image${imgs.length>1?'s':''}` : ''].filter(Boolean).join(' + ');
+        let m = `'${mapId}','${winId}'`;
+        _btMenuShell(e, `${parts} selected <span style="font-size:0.52rem;color:#64748b;">Esc clears</span>`, `
+            <div style="${_bmRow}">${_bmBtn('Reveal All', `window._btGroupAct(${m},'reveal')${_bmClose}`, '#6ee7b7')}${_bmBtn('Hide All', `window._btGroupAct(${m},'hide')${_bmClose}`, '#94a3b8')}</div>
+            ${npcs.length ? `<div style="${_bmRow}"><span style="${_bmLbl}">Side</span>${_bmBtn('Enemy', `window._btGroupAct(${m},'side','enemy')${_bmClose}`, '#fca5a5')}${_bmBtn('Neutral', `window._btGroupAct(${m},'side','neutral')${_bmClose}`, '#fde68a')}${_bmBtn('Ally', `window._btGroupAct(${m},'side','ally')${_bmClose}`, '#6ee7b7')}</div>` : ''}
+            ${notInInit.length ? `<div style="${_bmRow}">${_bmBtn(`Add ${notInInit.length} to Initiative`, `window._btGroupAct(${m},'init')${_bmClose}`, '#93c5fd')}</div>` : ''}
+            <div style="${_bmRow}"><span style="${_bmLbl}">Layer</span>${_bmBtn('Down', `window._btGroupAct(${m},'layer','down')${_bmClose}`, '#c4b5fd')}${_bmBtn('Up', `window._btGroupAct(${m},'layer','up')${_bmClose}`, '#c4b5fd')}</div>
+            <div style="${_bmRow}">${_bmBtn('Clear Selection', `window._btGroupAct(${m},'clear')${_bmClose}`, '#e2e8f0')}${_bmBtn('Remove All', `window._btGroupAct(${m},'remove')${_bmClose}`, '#f87171')}</div>`);
+    };
+
+    window._btGroupAct = async function(mapId, winId, act, arg) {
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId); if (!map) return;
+        let sel = _btPruneSel(map);
+        let toks = (map.battleTokens||[]).filter(t=>sel.has(t.id));
+        let imgs = (map.battleImages||[]).filter(i=>sel.has(i.id));
+        if (act === 'clear') { sel.clear(); _btRenderTokens(mapId, winId); return; }
+        if (act === 'reveal' || act === 'hide') {
+            toks.forEach(t => t.revealed = act === 'reveal');
+            imgs.forEach(i => i.revealed = act === 'reveal');
+        } else if (act === 'side') {
+            toks.filter(t=>t.type!=='player').forEach(t => window._btSetFaction(mapId, winId, t.id, arg));
+        } else if (act === 'layer') {
+            let all = _btAllLayers(map);
+            toks.forEach(t => { let c = t.layer == null ? 1 : t.layer; t.layer = arg === 'up' ? c + 1 : c - 1; });
+            imgs.forEach(i => { let c = i.layer || 0; i.layer = arg === 'up' ? c + 1 : c - 1; });
+        } else if (act === 'init') {
+            toks.forEach(t => {
+                if (t._explicitDead || (t.initiativeId && (window.gmInitiative||[]).some(x=>x.id===t.initiativeId))) return;
+                window._btMenuAddInit(mapId, winId, t.id, t.type === 'player' ? undefined : (t.faction || 'enemy'));
+            });
+        } else if (act === 'remove') {
+            let ok = await window.apxConfirm(`Remove ${toks.length + imgs.length} selected item(s) from this map?`, { title: 'Remove Selected', okLabel: 'Remove', danger: true });
+            if (!ok) return;
+            let ids = new Set([...toks.map(t=>t.id), ...imgs.map(i=>i.id)]);
+            map.battleTokens = (map.battleTokens||[]).filter(t=>!ids.has(t.id));
+            map.battleImages = (map.battleImages||[]).filter(i=>!ids.has(i.id));
+            if (window.apxAuth?.enabled && _activeWorldId) imgs.forEach(i => window.apxAuth.deleteBattleImage(_activeWorldId, i.id));
+            sel.clear();
+            window._gmRenumber();
+            if (typeof window.renderInitiativeTracker === 'function') window.renderInitiativeTracker();
+        }
+        window.saveWorldNotesNow();
+        _btRenderTokens(mapId, winId);
+    };
+
+    // ── Conditions on tokens (NPCs) ──────────────────────────────────────
+    // Stored on the token (so players see them too). An initiative entry shows
+    // the conditions of its linked token; entries with no token keep their own.
+    function _condName(id) { return (typeof CONDITIONS !== 'undefined' ? CONDITIONS : []).find(c=>c.id===id)?.name || id; }
+    window._gmCondHolder = function(entryId) {
+        let tok = null;
+        (_wNotes.otherMaps||[]).some(m => (tok = (m.battleTokens||[]).find(t=>t.initiativeId===entryId && t.type!=='player')) );
+        if (tok) return tok;
+        return (window.gmInitiative||[]).find(e=>e.id===entryId) || null;
+    };
+    window._gmEntryConditions = function(entryId) {
+        let h = window._gmCondHolder(entryId);
+        return (h?.conditions || []).slice();
+    };
+    // Picker: a checklist that stays open so several conditions can be toggled at once
+    window._apxCondPicker = function(x, y, getIds, onToggle, title) {
+        document.getElementById('apxCondPicker')?.remove();
+        let box = document.createElement('div');
+        box.id = 'apxCondPicker';
+        box.style.cssText = 'position:fixed;left:0;top:0;visibility:hidden;z-index:2147483647;background:var(--c-surface,#1e293b);border:1px solid var(--c-border2,#475569);border-radius:.45rem;box-shadow:0 10px 30px rgba(0,0,0,.85);width:230px;max-height:70vh;display:flex;flex-direction:column;';
+        let draw = () => {
+            let cur = new Set(getIds());
+            box.innerHTML = `<div style="padding:5px 8px;font-size:.66rem;font-weight:800;color:var(--c-text,#fff);border-bottom:1px solid var(--c-border,#334155);display:flex;justify-content:space-between;align-items:center;">
+                    <span>${title||'Conditions'}</span><button data-close style="background:none;border:none;color:var(--c-text-dimmer,#94a3b8);cursor:pointer;font-weight:800;">X</button></div>
+                <div style="overflow-y:auto;padding:3px;">${(typeof CONDITIONS!=='undefined'?CONDITIONS:[]).map(c => `
+                    <label title="${String(c.desc||'').replace(/"/g,'&quot;')}" style="display:flex;align-items:center;gap:6px;padding:3px 5px;border-radius:4px;cursor:pointer;font-size:.68rem;color:${cur.has(c.id)?'#fed7aa':'var(--c-text-dimmer,#cbd5e1)'};background:${cur.has(c.id)?'rgba(194,65,12,.25)':'transparent'};">
+                        <input type="checkbox" data-cond="${c.id}" ${cur.has(c.id)?'checked':''} style="width:12px;height:12px;"> ${c.name}</label>`).join('')}</div>`;
+            box.querySelector('[data-close]').onclick = () => box.remove();
+            box.querySelectorAll('[data-cond]').forEach(cb => cb.onchange = () => { onToggle(cb.dataset.cond, cb.checked); draw(); });
+        };
+        draw();
+        document.body.appendChild(box);
+        let r = box.getBoundingClientRect(), pad = 6;
+        if (x + r.width > window.innerWidth - pad) x = Math.max(pad, window.innerWidth - r.width - pad);
+        if (y + r.height > window.innerHeight - pad) y = Math.max(pad, window.innerHeight - r.height - pad);
+        box.style.left = x + 'px'; box.style.top = y + 'px'; box.style.visibility = 'visible';
+        setTimeout(()=>document.addEventListener('mousedown',function cls(ev){if(!box.contains(ev.target)){box.remove();document.removeEventListener('mousedown',cls);}},100));
+    };
+    function _toggleIn(holder, condId, on) {
+        let list = holder.conditions = (holder.conditions || []).filter(c => c !== condId);
+        if (on) list.push(condId);
+    }
+    window._btTokenCondPicker = function(mapId, winId, tokenId, x, y) {
+        document.getElementById('btContextMenu')?.remove();
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+        let tok = (map?.battleTokens||[]).find(t=>t.id===tokenId); if (!tok) return;
+        window._apxCondPicker(x, y, () => tok.conditions || [], (id, on) => {
+            _toggleIn(tok, id, on);
+            saveWorldNotes(); _btRenderTokens(mapId, winId);
+            if (typeof window.renderInitiativeTracker === 'function') window.renderInitiativeTracker();
+        }, 'Conditions: ' + (tok.name||'Token'));
+    };
+    window._gmEntryCondPicker = function(entryId, ev) {
+        let entry = (window.gmInitiative||[]).find(e=>e.id===entryId); if (!entry) return;
+        let r = ev?.target?.getBoundingClientRect?.() || { left: 200, bottom: 200 };
+        window._apxCondPicker(r.left, r.bottom + 4, () => window._gmEntryConditions(entryId), (id, on) => {
+            let h = window._gmCondHolder(entryId); if (!h) return;
+            _toggleIn(h, id, on);
+            if (h !== entry) { saveWorldNotes(); window._btRefreshAllOpenMaps(); }
+            if (typeof window.renderInitiativeTracker === 'function') window.renderInitiativeTracker();
+        }, 'Conditions: ' + (entry.name||''));
+    };
+    window._gmRemoveEntryCondition = function(entryId, condId) {
+        let h = window._gmCondHolder(entryId); if (!h) return;
+        _toggleIn(h, condId, false);
+        saveWorldNotes(); window._btRefreshAllOpenMaps();
+        if (typeof window.renderInitiativeTracker === 'function') window.renderInitiativeTracker();
+    };
+    window._gmCondName = _condName;
 
     // ── Token ↔ initiative linking (automatic — no manual picker needed) ──────
     function _btIsLiveEntry(id) { return !!id && (window.gmInitiative||[]).some(e=>e.id===id); }
@@ -3395,6 +3832,7 @@ document.addEventListener('DOMContentLoaded', () => {
                  : [cands.find(t => t.name === entry.name) || cands[0]];
         pick.forEach(t => {
             t.initiativeId = entry.id; t._explicitDead = false;
+            if (entry.conditions?.length && t.type !== 'player') { t.conditions = [...new Set([...(t.conditions||[]), ...entry.conditions])]; entry.conditions = []; }
             if (t.type !== 'player' && entry.faction) {
                 t.faction = entry.faction;
                 t.color = {enemy:'#d97706', neutral:'#64748b', ally:'#16a34a'}[entry.faction] || t.color;
@@ -3491,7 +3929,9 @@ document.addEventListener('DOMContentLoaded', () => {
             <div style="${row}">${btn(isHidden?'Reveal to Players':'Hide from Players', `window._btToggleReveal(${a})${close}`, isHidden?'#6ee7b7':'#94a3b8')}</div>
             ${isPlayer ? '' : `<div style="${row}"><span style="${lbl}">Side</span>${btn('Enemy', `window._btSetFaction(${a},'enemy')${close}`, '#fca5a5', curFaction==='enemy')}${btn('Neutral', `window._btSetFaction(${a},'neutral')${close}`, '#fde68a', curFaction==='neutral')}${btn('Ally', `window._btSetFaction(${a},'ally')${close}`, '#6ee7b7', curFaction==='ally')}</div>`}
             ${initRow}
+            ${isPlayer ? '' : `<div style="${row}"><span style="${lbl}">Cond</span><span style="flex:1;font-size:0.56rem;color:#fdba74;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px;" title="${esc((tok.conditions||[]).map(_condName).join(', '))}">${(tok.conditions||[]).length ? esc((tok.conditions||[]).map(_condName).join(', ')) : '<span style=\'color:#475569\'>none</span>'}</span><button onclick="window._btTokenCondPicker(${a}, event.clientX, event.clientY)" style="background:none;border:none;color:#fdba74;font-size:0.6rem;font-weight:800;cursor:pointer;padding:0 4px;">Edit</button></div>`}
             <div style="${row}"><span style="${lbl}">Size</span>${btn('−', `window._btResizeToken(${a},-1)${close}`, '#c4b5fd', false, sizeIdx<=0)}${btn('+', `window._btResizeToken(${a},1)${close}`, '#c4b5fd', false, sizeIdx>=BT_SIZE_LIST.length-1)}</div>
+            <div style="${row}"><span style="${lbl}">Layer ${tok.layer==null?1:tok.layer}</span>${btn('Down', `window._btTokLayer('${mapId}','${winId}','${tokenId}','down')${close}`, '#c4b5fd', false, false, 'Move under images on higher layers')}${btn('Up', `window._btTokLayer('${mapId}','${winId}','${tokenId}','up')${close}`, '#c4b5fd', false, false, 'Move above images on lower layers')}</div>
             <div style="${row}">${btn('Remove Token', `window.removeBattleToken(${a})${close}`, '#f87171')}</div>`;
         document.body.appendChild(menu);
 
@@ -3521,6 +3961,20 @@ document.addEventListener('DOMContentLoaded', () => {
         _btRenderTokens(mapId, winId);
     };
 
+    // One click: every party member without a token on this map gets one, side by side
+    window._btAddParty = function(mapId, winId) {
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId); if (!map) return;
+        let party = (_wNotes.gmParty||window.gmParty||[]);
+        let added = 0;
+        party.forEach(p => {
+            let uid = p.fileName || '';
+            if (uid && (map.battleTokens||[]).some(t => t.type === 'player' && t.playerUid === uid)) return;
+            let tok = window._btAddToken(mapId, winId, (p.summary?.name||'Player').replace(/'/g,''), 'player', '#4f46e5', null, uid);
+            if (tok) added++;
+        });
+        window.APXBattle.toast(document.getElementById(winId+'_area'), added ? `Added ${added} party token${added>1?'s':''}` : 'Everyone in the party is already on this map', 'info');
+    };
+
     window.openBattleTokenPanel = function(mapId, winId) {
         let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return;
         let existing = document.getElementById('btPickerPanel');
@@ -3534,6 +3988,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return `<button onclick="window._btPickFactionThenAdd('${mapId}','${winId}','${safeName}','npc','${n.id}',null)" style="width:100%;text-align:left;background:#0f172a;border:none;border-bottom:1px solid #1e293b;color:#fde68a;font-size:0.7rem;padding:0.4rem 0.6rem;cursor:pointer;"> ${n.name||'NPC'}</button>`;
         }).join('');
         panel.innerHTML=`<div id="btPickerPanelHdr" title="Drag to move" style="background:#065f46;padding:0.5rem 0.75rem;font-size:0.75rem;font-weight:700;color:#6ee7b7;display:flex;align-items:center;justify-content:space-between;">Add Token <button onclick="document.getElementById('btPickerPanel').remove()" style="background:none;border:none;color:#6ee7b7;font-size:1rem;cursor:pointer;">X</button></div>
+            ${partyRows ? `<button onclick="window._btAddParty('${mapId}','${winId}')" title="Add every party member who isn't on this map yet" style="width:100%;background:#1e3a8a;border:none;border-bottom:1px solid #334155;color:#bfdbfe;font-size:0.72rem;font-weight:800;padding:0.45rem 0.6rem;cursor:pointer;">+ Add Party</button>` : ''}
             <div style="max-height:60vh;overflow-y:auto;">${partyRows||'<div style="padding:0.5rem;font-size:0.65rem;color:#475569;">No party members found</div>'}${npcRows||'<div style="padding:0.5rem;font-size:0.65rem;color:#475569;">No world NPCs</div>'}</div>`;
         document.body.appendChild(panel);
         window.apxMakeDraggable(panel, document.getElementById('btPickerPanelHdr'));
@@ -3615,6 +4070,10 @@ document.addEventListener('DOMContentLoaded', () => {
         let {gridX,gridY}=_btPixelToGrid(Math.round(imgX),Math.round(imgY),g);
         // Infer size from linked stat block
         let size = 'medium';
+        if (type === 'player' && playerUid) {
+            let pm = (window.gmParty||[]).find(p=>p.fileName===playerUid||p.summary?.playerUid===playerUid);
+            size = window.APXBattle.sizeFromCharState(pm?.state) || 'medium';
+        }
         if (worldNpcId) {
             let wn = (_wNotes.npcs||[]).find(n=>n.id===worldNpcId);
             if (wn?.statBlockId) {
@@ -3643,7 +4102,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof window.renderInitiativeTracker === 'function') window.renderInitiativeTracker();
         saveWorldNotes(); _btRenderTokens(mapId,winId);
     };
-    window.linkBattleTokenToInit = function(mapId,tokenId,initId){ let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); let tok=(map?.battleTokens||[]).find(t=>t.id===tokenId); if(tok){tok.initiativeId=initId;tok._explicitDead=false;window._gmRenumber();saveWorldNotes();} };
+    window.linkBattleTokenToInit = function(mapId,tokenId,initId){ let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); let tok=(map?.battleTokens||[]).find(t=>t.id===tokenId); if(tok){tok.initiativeId=initId;tok._explicitDead=false;let en=(window.gmInitiative||[]).find(x=>x.id===initId);if(en?.conditions?.length&&tok.type!=='player'){tok.conditions=[...new Set([...(tok.conditions||[]),...en.conditions])];en.conditions=[];}window._gmRenumber();saveWorldNotes();} };
     window._btToggleReveal = function(mapId,winId,tokenId){ let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); let tok=(map?.battleTokens||[]).find(t=>t.id===tokenId); if(!tok) return; tok.revealed=tok.revealed===false?true:false; saveWorldNotes(); _btRenderTokens(mapId,winId); };
     window._btRefreshAllOpenMaps = function(){ (_wNotes.otherMaps||[]).forEach(m=>{if(m.battleMapEnabled){let wid='omWin_'+m.id;if(document.getElementById(wid))_btRenderTokens(m.id,wid);}}); };
 
@@ -4824,6 +5283,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function _fogPaint(e, mapId) {
         _fogBrushSize = window._fogBrushSize || _fogBrushSize; // keep in sync with slider
         let fc = _fogCanvas(mapId); if (!fc || !fc.width) return;
+        if (fc._fogReady === false) return;   // saved fog still loading — painting now would overwrite it
         let container = mapId==='worldmap'
             ? document.getElementById('mapContainer')
             : document.getElementById('omWin_'+mapId+'_area');
@@ -4844,6 +5304,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.arc(cx, cy, brushR, 0, Math.PI * 2);
         ctx.fill();
         ctx.globalCompositeOperation = 'source-over';
+        fc._fogPaintedAt = Date.now();
     }
 
     window._fogClearAll = async function() {
@@ -4854,13 +5315,24 @@ document.addEventListener('DOMContentLoaded', () => {
         await _fogSave(_fogMode);
     };
 
+    // Loads are sequenced: an older image that finishes decoding late can never
+    // overwrite a newer one, and nothing loaded ever overwrites strokes the GM
+    // painted after the load started (that was the "revealed circle flickers
+    // away until you reopen the map" bug).
     function _fogLoadOntoCanvas(mapId, base64png) {
         let fc = _fogCanvas(mapId); if (!fc||!fc.width) return;
+        let seq = fc._fogSeq = (fc._fogSeq||0) + 1;
+        let startedAt = Date.now();
         let img = new Image();
         img.onload = () => {
-            fc.getContext('2d').clearRect(0,0,fc.width,fc.height);
-            fc.getContext('2d').drawImage(img, 0, 0, fc.width, fc.height);
+            if (seq !== fc._fogSeq) return;                       // a newer load superseded this one
+            if (fc._fogReady && (fc._fogPaintedAt||0) > startedAt) return;   // GM painted meanwhile — keep the live canvas
+            let ctx = fc.getContext('2d');
+            ctx.clearRect(0,0,fc.width,fc.height);
+            ctx.drawImage(img, 0, 0, fc.width, fc.height);
+            fc._fogReady = true;
         };
+        img.onerror = () => { fc._fogReady = true; };
         img.src = base64png;
     }
 
@@ -4881,12 +5353,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function _fogLoad(mapId) {
         let _ck = (_activeWorldId||'?')+':'+mapId;
+        let fc = _fogCanvas(mapId);
+        let ready = () => { if (fc) fc._fogReady = true; };
         if (_fogCache[_ck]) { _fogLoadOntoCanvas(mapId, _fogCache[_ck]); return; }
-        if (!window.apxAuth?.enabled||!_activeWorldId) return;
+        if (!window.apxAuth?.enabled||!_activeWorldId) { ready(); return; }
         try {
             let data = await window.apxAuth.loadFogData(_activeWorldId, mapId);
-            if (data) { _fogCache[mapId]=data; _fogLoadOntoCanvas(mapId, data); }
-        } catch(e) { console.warn('Fog load:', e.message); }
+            if (data && !_fogCache[_ck]) { _fogCache[_ck]=data; _fogLoadOntoCanvas(mapId, data); }
+            else ready();
+        } catch(e) { console.warn('Fog load:', e.message); ready(); }
     }
 
     // Attach fog events to Other Map windows

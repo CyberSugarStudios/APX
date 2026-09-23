@@ -930,6 +930,7 @@
                 // Point Buy/Standard Array allocation, not part of a race.
                 let entry = {
                     id: ancRaceEditId || crypto.randomUUID(),
+                    rulesVersion: window.APX_RULES_VERSION || 2,
                     name: window.state.ancestry.name,
                     ancestry: JSON.parse(JSON.stringify(window.state.ancestry)),
                     ancestryBonusPerks: JSON.parse(JSON.stringify(window.state.ancestryBonusPerks)),
@@ -1128,7 +1129,7 @@
                             if (!entry || !entry.ancestry) return; // not a recognizable race file, skip silently
                             entry.id = entry.id || crypto.randomUUID();
                             if (window.gmRaces.some(r => r.id === entry.id)) entry.id = crypto.randomUUID();
-                            window.gmRaces.push(entry);
+                            window.gmRaces.push(window.apxMigrateRace ? window.apxMigrateRace(entry) : entry);
                         });
                     } catch (err) {
                         console.error("Failed to parse race file:", file.name, err);

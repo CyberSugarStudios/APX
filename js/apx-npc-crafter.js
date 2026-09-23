@@ -1385,7 +1385,9 @@ function buildStatBlockHtml(sb, editable) {
         <div class="text-[10px] font-black ${titleCls} uppercase mb-1">${title}</div>${body}</div>`;
     let innate = sb.innateAttacks || [];
     let resist = [`DR ${sb.dr} (physical)`, `ER ${sb.er} (energy)`].concat((sb.damageResistances || []).map(t => `${t} +5`));
-    return `
+    // Click-to-roll hooks (APXDice). NPC rolls never use the player's perks.
+    let R = o => window.APXDice ? ` data-apx-roll='${window.APXDice.attr(Object.assign({ who: sb.name, perks: false, gambleAllowed: false }, o))}' title="Click to roll"` : '';
+    return `<div class="apx-dice-scope" data-roll-who="${esc(sb.name)}">
         <div class="grid grid-cols-5 gap-2 mb-3 bg-slate-900 border border-purple-800/50 rounded-lg p-2">
             <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">Tier</div><div class="text-lg font-black text-white">${sb.tier}</div></div>
             <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">AC</div><div class="text-lg font-black text-white">${sb.ac}</div></div>
@@ -1398,23 +1400,23 @@ function buildStatBlockHtml(sb, editable) {
             ${hpControls}
         </div>
         <div class="grid grid-cols-7 gap-1 mb-3">
-            ${ATTRIBUTES.map(a => `<div class="text-center bg-slate-900 border border-slate-700 rounded p-1"><div class="text-[9px] text-slate-500 font-bold">${a}</div><div class="text-xs font-black text-white">${sb.mods[a]>=0?'+':''}${sb.mods[a]}</div></div>`).join('')}
+            ${ATTRIBUTES.map(a => `<div class="text-center bg-slate-900 border border-slate-700 rounded p-1"${R({ type: 'check', label: a + ' check', bonus: sb.mods[a] || 0 })}><div class="text-[9px] text-slate-500 font-bold">${a}</div><div class="text-xs font-black text-white">${sb.mods[a]>=0?'+':''}${sb.mods[a]}</div></div>`).join('')}
         </div>
         <div class="bg-slate-900 border border-slate-700 rounded p-2 mb-2">
             <div class="text-[10px] font-black text-amber-400 uppercase mb-1">Innate Attacks <span class="text-slate-500 normal-case font-bold">(always trained, 3 AP each)</span></div>
             ${innate.length ? innate.map(w => `
-                <div class="text-xs text-slate-200 ${innate.length > 1 ? 'mb-1' : ''}"><span class="font-bold text-slate-200">${esc(w.name)}:</span> +${w.attackBonus} to hit, ${w.dmgText} ${esc(w.typeText)}, Range ${w.range} sq</div>
+                <div class="text-xs text-slate-200 ${innate.length > 1 ? 'mb-1' : ''}" data-roll-label="${esc(w.name)} damage"><span class="font-bold text-slate-200">${esc(w.name)}:</span> <span class="apxd-atk"${R({ type: 'attack', label: w.name, bonus: w.attackBonus, dice: w.dmgText, dmgType: w.typeText })}>+${w.attackBonus} to hit</span>, ${w.dmgText} ${esc(w.typeText)}, Range ${w.range} sq</div>
                 ${w.propNames.length ? `<div class="text-[10px] text-slate-500 -mt-0.5 mb-1">${w.propNames.map(esc).join(', ')}</div>` : ''}`).join('')
               : '<div class="text-[10px] text-slate-600">No innate weapons</div>'}
         </div>
         ${(sb.equippedWeapons.length || sb.equippedArmorName) ? `<div class="bg-slate-900 border border-orange-800/50 rounded p-2 mb-2">
             <div class="text-[10px] font-black text-orange-400 uppercase mb-1">Equipped Gear</div>
-            ${sb.equippedWeapons.length ? sb.equippedWeapons.map(w => `<div class="text-xs text-slate-200">${esc(w.name)}: +${w.atk} to hit, ${w.dmg} damage, ${w.ap} AP <span class="text-[10px] text-slate-500">(${w.typeLabel})</span></div>`).join('') : ''}
+            ${sb.equippedWeapons.length ? sb.equippedWeapons.map(w => `<div class="text-xs text-slate-200" data-roll-label="${esc(w.name)} damage">${esc(w.name)}: <span class="apxd-atk"${R({ type: 'attack', label: w.name, bonus: w.atk, dice: String(w.dmg), critMult: w.critMult || 2 })}>+${w.atk} to hit</span>, ${w.dmg} damage, ${w.ap} AP <span class="text-[10px] text-slate-500">(${w.typeLabel})</span></div>`).join('') : ''}
             ${sb.equippedArmorName ? `<div class="text-xs text-slate-200 mt-1">Armor: ${esc(sb.equippedArmorName)}</div>` : ''}
         </div>` : ''}
         <div class="bg-slate-900 border border-emerald-800/50 rounded p-2 mb-2">
             <div class="text-[10px] font-black text-emerald-400 uppercase mb-1">Trained Skills <span class="text-slate-500 normal-case font-bold">(Training +${sb.trainingBonus})</span></div>
-            <div class="grid grid-cols-2 gap-x-3">${sb.trainedSkills.length ? sb.trainedSkills.map(s => `<div class="text-xs text-slate-200">${esc(s.name)} (${s.total >= 0 ? '+' : ''}${s.total})</div>`).join('') : '<div class="text-[10px] text-slate-600 col-span-2">No skills trained</div>'}</div>
+            <div class="grid grid-cols-2 gap-x-3">${sb.trainedSkills.length ? sb.trainedSkills.map(s => `<div class="text-xs text-slate-200"${R({ type: 'check', label: s.name, bonus: s.total })}>${esc(s.name)} (${s.total >= 0 ? '+' : ''}${s.total})</div>`).join('') : '<div class="text-[10px] text-slate-600 col-span-2">No skills trained</div>'}</div>
         </div>
         <div class="grid grid-cols-2 gap-2 mb-2">
             ${defBox('Size / Movement', 'text-blue-400', `<div class="text-[10px] text-slate-300">${sb.size}${sb.swarm ? ' (Swarm)' : ''} · Speed ${sb.speed}</div>
@@ -1458,14 +1460,14 @@ function buildStatBlockHtml(sb, editable) {
             </div>
             ${sb.powerCards.map(p => powerCardHtml(p)).join('')}
         </div>` : ''}
-    `;
+    </div>`;
 }
 function powerCardHtml(p) {
     let usageLabel = '';
     if (p.usageType === 'charges') usageLabel = `Charges: ${p.maxCharges}/day`;
     else if (p.usageType === 'recharge') usageLabel = `Recharge ${p.rechargeOn === 6 ? '6' : p.rechargeOn + '-6'}`;
     return `
-        <div class="bg-slate-800 p-1.5 rounded border border-slate-700 mb-1">
+        <div class="bg-slate-800 p-1.5 rounded border border-slate-700 mb-1" data-roll-label="${String(p.name||'Power').replace(/"/g,'&quot;')}">
             <div class="flex justify-between items-center mb-0.5">
                 <span class="font-bold text-[10px] text-purple-300">${p.name}</span>
                 <span class="text-[8px] bg-slate-900 px-1.5 py-0.5 rounded border border-slate-600 text-slate-400 font-bold">Lvl ${p.lvl} | ${p.ap} AP</span>
@@ -1803,6 +1805,7 @@ function ncRenderStep6() {
                 </div>
             </div>
             <div class="text-[9px] text-slate-500 mt-1">${p.desc || ''}</div>
+            ${window.apxRecraftBadge ? window.apxRecraftBadge(p, `window.openPowerEditor(${i}, ncTarget)`) : ''}
         </div>
     `).join('');
     let slotRows = [1,2,3,4,5].map(lvl => `

@@ -90,7 +90,7 @@
         };
 
         window.createNewCharacter = function() {
-            window.state = getInitialState();
+            window.state = window.apxStampNewCharacter(getInitialState());
             activeCharId = crypto.randomUUID();
             window.state.id = activeCharId;
             localRoster[activeCharId] = { ...window.state };
@@ -101,7 +101,7 @@
 
         window.loadCharacter = async function(id) {
             if (localRoster[id]) {
-                window.state = { ...getInitialState(), ...localRoster[id] };
+                window.state = { ...getInitialState(), ...window.apxPrepareLoadedState({ ...localRoster[id] }) };
                 activeCharId = id;
                 window.recalculateMath();
                 window.renderLocalRoster();
@@ -169,7 +169,7 @@
             reader.onload = function(e) {
                 try {
                     const importedState = JSON.parse(e.target.result);
-                    window.state = { ...getInitialState(), ...importedState };
+                    window.state = { ...getInitialState(), ...window.apxPrepareLoadedState(importedState) };
                     activeCharId = window.state.id || crypto.randomUUID();
                     window.state.id = activeCharId;
                     localRoster[activeCharId] = { ...window.state };

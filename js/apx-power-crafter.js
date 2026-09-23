@@ -154,7 +154,29 @@ window.pcCalcXP = function(draft) {
 // ------------------------------------------------------------------
 // Open / navigate
 // ------------------------------------------------------------------
+// Shows why a power built under older Power Crafting rules should be rebuilt.
+function pcRenderRecraftBanner() {
+    let free = document.getElementById('pcFreeBanner');
+    if (!free) return;
+    let el = document.getElementById('pcRecraftBanner');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'pcRecraftBanner';
+        el.className = 'apx-recraft-banner';
+        el.style.cssText = 'border:1px solid var(--c-amber,#d97706);background:color-mix(in srgb, var(--c-amber,#d97706) 14%, transparent);color:var(--c-text,#fff);border-radius:.5rem;padding:.5rem .7rem;font-size:11px;margin-bottom:.5rem;line-height:1.4';
+        free.parentNode.insertBefore(el, free);
+    }
+    let reasons = pcRecraftReasons;
+    if (!reasons.length) { el.style.display = 'none'; return; }
+    el.style.display = '';
+    el.innerHTML = `<div style="font-weight:800;margin-bottom:.2rem">Rules changed: Recraft this power (Free)</div>
+        <ul style="margin:0 0 .25rem 1rem;list-style:disc">${reasons.map(r => `<li>${r}</li>`).join('')}</ul>
+        <div style="opacity:.8">Rebuild it under the new rules. If it ends up cheaper, the difference is refunded. Re-saving at the same cost is free.</div>`;
+}
+let pcRecraftReasons = [];
+
 function pcOpenCommon() {
+    pcRenderRecraftBanner();
     pcStep = 1;
     for (let i = 1; i <= PC_LAST_STEP; i++) {
         document.getElementById(`pcStep${i}`).classList.toggle('active', i === 1);
@@ -235,6 +257,7 @@ window.openPowerCrafter = function(freeMode, target) {
         return;
     }
     pcEditIndex = null;
+    pcRecraftReasons = [];
     // Free mode (banked free-power credits) is a player-only concept tied
     // to Int/Cha Powers rank-ups -- companions never have one.
     pcFreeMode = pcTarget === 'player' && !!freeMode && (window.state.freePowersOwed || 0) > 0;
@@ -258,6 +281,7 @@ window.openPowerEditor = function(idx, target) {
         return;
     }
     pcEditIndex = idx;
+    pcRecraftReasons = window.apxPowerRecraftReasons ? window.apxPowerRecraftReasons(power) : [];
     pcFreeMode = false; // only relevant to the "Save as New" path; "Save Changes" follows the power's own wasFree flag
     pcIsLairAction = !!power.isLairAction; // preserve whichever section this power already belongs to
     pcDraft = JSON.parse(JSON.stringify(power.draft));
@@ -392,7 +416,10 @@ window.pcSetStep2 = function(val) { pcDraft.step2 = val; pcRenderAll(); };
 window.pcSetAoe = function(val) { pcDraft.aoe = val; pcRenderAll(); };
 window.pcSetDie = function(step, delta) {
     let cur = pcDraft.dmg[step] || 0;
-    let next = Math.max(0, Math.min(12, cur + delta));
+    // Max 8 dice per die step. A power built under the old 12-dice rule can
+    // still step DOWN from above 8, it just can't go up.
+    let next = delta > 0 ? Math.min(POWER_MAX_DICE_PER_STEP, cur + delta) : Math.max(0, cur + delta);
+    if (delta > 0 && cur >= POWER_MAX_DICE_PER_STEP) next = cur;
     pcDraft.dmg[step] = next;
     pcRenderAll();
 };
@@ -492,7 +519,7 @@ function pcRenderStep4() {
             <span class="text-xs font-bold text-white">${step} <span class="text-[10px] text-slate-500">(${pcIsNpc() ? 'next die: ' + pcCost(0, d => { d.dmg[step] = (d.dmg[step] || 0) + 1; }) : POWER_DIE_COSTS[step] + ' XP/die' + (pcDraft.step1 === 'guaranteed' ? ', x2 Guaranteed Hit' : '')})</span></span>
             <div class="flex items-center gap-2">
                 <button onclick="window.pcSetDie('${step}', -1)" class="w-6 h-6 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">-</button>
-                <span class="w-6 text-center font-bold text-sm text-white">${pcDraft.dmg[step]}</span>
+                <span class="w-6 text-center font-bold text-sm ${pcDraft.dmg[step] > POWER_MAX_DICE_PER_STEP ? 'text-red-400' : 'text-white'}" ${pcDraft.dmg[step] > POWER_MAX_DICE_PER_STEP ? `data-tip="Max ${POWER_MAX_DICE_PER_STEP} dice per die step. Lower this to save."` : ''}>${pcDraft.dmg[step]}</span>
                 <button onclick="window.pcSetDie('${step}', 1)" class="w-6 h-6 rounded bg-amber-700 hover:bg-amber-600 text-white font-bold">+</button>
             </div>
         </div>
@@ -637,7 +664,8 @@ function pcStyleBtn(btn) {
 function pcRenderSummary() {
     let t = window.pcCalcXP(pcDraft);
     let maxLevel = pcTarget !== 'player' ? 5 : pcMaxUnlockedLevel();
-    let overCap = t.level > maxLevel;
+    let diceOver = POWER_DIE_STEPS.filter(st => (pcDraft.dmg[st] || 0) > POWER_MAX_DICE_PER_STEP);
+    let overCap = t.level > maxLevel || diceOver.length > 0;
     let sumXpEl = document.getElementById('pcSumXp');
     let sumXpLbl = sumXpEl.previousElementSibling;
     if (pcIsNpc()) {
@@ -656,11 +684,14 @@ function pcRenderSummary() {
             p.textContent = pcIsNpc() ? npcTxt : p.dataset.playerText;
         });
     document.getElementById('pcSumLevel').innerText = 'Level ' + t.level;
-    document.getElementById('pcSumLevel').className = overCap ? 'text-lg font-black text-red-400' : 'text-lg font-black text-white';
+    document.getElementById('pcSumLevel').className = t.level > maxLevel ? 'text-lg font-black text-red-400' : 'text-lg font-black text-white';
     document.getElementById('pcSumAp').innerText = t.ap + ' AP';
 
     let capNote = document.getElementById('pcCapNote');
-    if (overCap) {
+    if (diceOver.length) {
+        capNote.classList.remove('hidden');
+        capNote.innerText = `Max ${POWER_MAX_DICE_PER_STEP} dice per die step. Lower ${diceOver.map(st => pcDraft.dmg[st] + st).join(', ')} in Step 4 to save this power.`;
+    } else if (overCap) {
         capNote.classList.remove('hidden');
         capNote.innerText = `This power is Level ${t.level}, but you can only use up to Level ${maxLevel} Powers. Reduce its XP total to ${POWER_LEVEL_TABLE[maxLevel-1] ? POWER_LEVEL_TABLE[maxLevel-1].max : 0} or less.`;
     } else {
@@ -687,19 +718,20 @@ function pcRenderSummary() {
         let tpGates = pcTarget !== 'gm';
         if (showFinish) {
             finishBtn.innerText = `Add Power (${tpCost} TP)`;
-            finishBtn.disabled = tpGates && tpCost > remaining;
+            finishBtn.disabled = (tpGates && tpCost > remaining) || diceOver.length > 0;
             pcStyleBtn(finishBtn);
         }
         if (showEditPair) {
             let power = getTargetPowers()[pcEditIndex];
             let delta = tpCost - (power.tp || 0);
-            if (delta > 0) saveChangesBtn.innerText = `Save Changes (+${delta} TP)`;
-            else if (delta < 0) saveChangesBtn.innerText = `Save Changes (${delta} TP refund)`;
-            else saveChangesBtn.innerText = 'Save Changes (No Cost Change)';
-            saveChangesBtn.disabled = tpGates && delta > remaining;
+            let verb = pcRecraftReasons.length ? 'Recraft' : 'Save Changes';
+            if (delta > 0) saveChangesBtn.innerText = `${verb} (+${delta} TP)`;
+            else if (delta < 0) saveChangesBtn.innerText = `${verb} (${-delta} TP refund)`;
+            else saveChangesBtn.innerText = pcRecraftReasons.length ? 'Recraft (Free)' : 'Save Changes (No Cost Change)';
+            saveChangesBtn.disabled = (tpGates && delta > remaining) || diceOver.length > 0;
             pcStyleBtn(saveChangesBtn);
             saveAsNewBtn.innerText = `Save as New (${tpCost} TP)`;
-            saveAsNewBtn.disabled = tpGates && tpCost > remaining;
+            saveAsNewBtn.disabled = (tpGates && tpCost > remaining) || diceOver.length > 0;
             pcStyleBtn(saveAsNewBtn);
         }
         return;
@@ -729,9 +761,10 @@ function pcRenderSummary() {
             saveChangesBtn.disabled = overCap;
         } else {
             let delta = t.total - (power.paidXP || 0);
-            if (delta > 0) saveChangesBtn.innerText = `Save Changes (+${delta} XP)`;
-            else if (delta < 0) saveChangesBtn.innerText = `Save Changes (${delta} XP refund)`;
-            else saveChangesBtn.innerText = 'Save Changes (No Cost Change)';
+            let verb = pcRecraftReasons.length ? 'Recraft' : 'Save Changes';
+            if (delta > 0) saveChangesBtn.innerText = `${verb} (+${delta} XP)`;
+            else if (delta < 0) saveChangesBtn.innerText = `${verb} (${-delta} XP refund)`;
+            else saveChangesBtn.innerText = pcRecraftReasons.length ? 'Recraft (Free)' : 'Save Changes (No Cost Change)';
             saveChangesBtn.disabled = overCap || (delta > 0 && unspent < delta);
         }
         pcStyleBtn(saveChangesBtn);
@@ -835,7 +868,7 @@ window.finishPowerCrafter = function() {
         if (tp === null) return;
         getTargetPowers().push({
             name, lvl: t.level, ap: t.ap, atk: summary.atk, rng: summary.rng, dmg: summary.dmg, desc: finalDesc,
-            draft: JSON.parse(JSON.stringify(pcDraft)), tp, isLairAction: pcIsLairAction,
+            draft: JSON.parse(JSON.stringify(pcDraft)), rulesRev: window.APX_POWER_RULES_REV || 1, tp, isLairAction: pcIsLairAction,
             usageType: pcDraft.usageType, maxCharges: pcDraft.maxCharges, rechargeOn: pcDraft.rechargeOn
         });
         pcIsLairAction = false;
@@ -865,7 +898,7 @@ window.finishPowerCrafter = function() {
 
     window.state.powers.push({
         name, lvl: t.level, ap: t.ap, atk: summary.atk, rng: summary.rng, dmg: summary.dmg, desc: finalDesc,
-        draft: JSON.parse(JSON.stringify(pcDraft)), wasFree: useFree || useChaFree, paidXP
+        draft: JSON.parse(JSON.stringify(pcDraft)), rulesRev: window.APX_POWER_RULES_REV || 1, wasFree: useFree || useChaFree, paidXP
     });
 
     window.closeModal('powerCrafterModal');
@@ -919,6 +952,7 @@ window.savePowerChanges = function() {
         power.lvl = t.level; power.ap = t.ap;
         power.atk = summary.atk; power.rng = summary.rng; power.dmg = summary.dmg; power.desc = finalDesc;
         power.draft = JSON.parse(JSON.stringify(pcDraft));
+        power.rulesRev = window.APX_POWER_RULES_REV || 1;
         power.usageType = pcDraft.usageType; power.maxCharges = pcDraft.maxCharges; power.rechargeOn = pcDraft.rechargeOn;
         window.closeModal('powerCrafterModal');
         window.recalculateMath();
@@ -963,6 +997,7 @@ window.savePowerChanges = function() {
     power.lvl = t.level; power.ap = t.ap;
     power.atk = summary.atk; power.rng = summary.rng; power.dmg = summary.dmg; power.desc = finalDesc;
     power.draft = JSON.parse(JSON.stringify(pcDraft));
+    power.rulesRev = window.APX_POWER_RULES_REV || 1;
 
     window.closeModal('powerCrafterModal');
     window.recalculateMath();
@@ -982,7 +1017,7 @@ window.savePowerAsNew = function() {
         if (tp === null) return;
         getTargetPowers().push({
             name, lvl: t.level, ap: t.ap, atk: summary.atk, rng: summary.rng, dmg: summary.dmg, desc: finalDesc,
-            draft: JSON.parse(JSON.stringify(pcDraft)), tp, isLairAction: pcIsLairAction,
+            draft: JSON.parse(JSON.stringify(pcDraft)), rulesRev: window.APX_POWER_RULES_REV || 1, tp, isLairAction: pcIsLairAction,
             usageType: pcDraft.usageType, maxCharges: pcDraft.maxCharges, rechargeOn: pcDraft.rechargeOn
         });
         window.closeModal('powerCrafterModal');
@@ -1012,7 +1047,7 @@ window.savePowerAsNew = function() {
 
     window.state.powers.push({
         name, lvl: t.level, ap: t.ap, atk: summary.atk, rng: summary.rng, dmg: summary.dmg, desc: finalDesc,
-        draft: JSON.parse(JSON.stringify(pcDraft)), wasFree: useFree || useChaFreeUpgrade, paidXP
+        draft: JSON.parse(JSON.stringify(pcDraft)), rulesRev: window.APX_POWER_RULES_REV || 1, wasFree: useFree || useChaFreeUpgrade, paidXP
     });
 
     window.closeModal('powerCrafterModal');

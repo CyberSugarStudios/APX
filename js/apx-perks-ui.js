@@ -25,6 +25,28 @@
             `;
         }
 
+        // Omen: the stored d20s, and the roll after a Full Rest
+        function omenPanelHtml(rank) {
+            // First time with the perk: let them roll right away (after that, Full Rest re-arms it)
+            if (window.state.omenDice === undefined && window.state.omenRollPending === undefined) window.state.omenRollPending = true;
+            let dice = window.state.omenDice || [];
+            let per = rank >= 5 ? '1, 10 and 20 (no roll)' : (rank >= 4 ? 3 : rank >= 3 ? 2 : 1) + ' per Full Rest';
+            return `<div class="apx-perk-tool" style="margin:-0.35rem 0 0.5rem;padding:.4rem .55rem;border:1px solid #7e22ce;border-top:none;border-radius:0 0 .4rem .4rem;background:rgba(88,28,135,.18);display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;">
+                <span style="font-size:10px;font-weight:800;color:#e9d5ff;">Omen Dice:</span>
+                ${dice.length ? dice.map(v => `<span style="min-width:20px;height:20px;padding:0 3px;border-radius:50% 50% 5px 5px;background:#3b0764;border:1px solid #c084fc;color:#fff;font-size:10px;font-weight:900;display:inline-flex;align-items:center;justify-content:center;">${v}</span>`).join('') : '<span style="font-size:10px;color:#c4b5fd;opacity:.8">none stored</span>'}
+                <span style="font-size:9px;color:#c4b5fd;opacity:.8;">(${per}; use them from the dice tray)</span>
+                ${window.state.omenRollPending ? `<button onclick="window.APXDice && window.APXDice.rollOmen()" style="margin-left:auto;font-size:9px;font-weight:800;padding:.15rem .45rem;border-radius:.3rem;border:1px solid #a855f7;background:#581c87;color:#fff;cursor:pointer;">Roll Omen Dice</button>`
+ : ''}
+            </div>`;
+        }
+        function highRollerPanelHtml(rank) {
+            let bits = ['Gamble is offered on every weapon attack'];
+            if (rank >= 2) bits.push('1s and 2s on damage are rerolled automatically');
+            if (rank >= 3) bits.push('Luck reroll buttons appear on d20 rolls');
+            if (rank >= 5) bits.push('Exploding dice: ' + (window.state.hrExplodeUsed ? 'used (back after a Full Rest)' : 'ready, tick it in the dice tray'));
+            return `<div style="margin:-0.35rem 0 0.5rem;padding:.35rem .55rem;border:1px solid #065f46;border-top:none;border-radius:0 0 .4rem .4rem;background:rgba(6,95,70,.15);font-size:9px;color:#a7f3d0;">${bits.join(' · ')}</div>`;
+        }
+
         function renderActivePerks() {
             let html = '';
 
@@ -153,6 +175,8 @@
                     `;
                 } else {
                     html += window.renderPerkCard(p, currentRank, choiceText);
+                    if (id === 'luc_omen' && currentRank > 0) html += omenPanelHtml(currentRank);
+                    if (id === 'luc_highroller' && currentRank > 0) html += highRollerPanelHtml(currentRank);
                 }
             });
 
@@ -174,12 +198,14 @@
         window.renderPerkList = function() {
             let filter = document.getElementById('perkFilter').value;
             let search = (document.getElementById('perkSearch').value || '').trim().toLowerCase();
+            let ownedOnly = !!document.getElementById('perkOwnedOnly')?.checked;
             let unspent = parseInt(document.getElementById('unspentXp').value) || 0;
             document.getElementById('modalDispUnspent').innerText = unspent;
 
             let html = '';
             PERKS_DB.filter(p => filter === 'ALL' || p.attr === filter)
                 .filter(p => !search || p.name.toLowerCase().includes(search) || p.baseDesc.toLowerCase().includes(search))
+                .filter(p => !ownedOnly || (window.state.perks[p.id] || 0) > 0 || (p.attr === 'GEN' && (window.state.ancestryBonusPerks || []).some(bp => bp.perkId === p.id)))
                 .forEach(p => {
                 let currentRank = window.state.perks[p.id] || 0;
                 // A General Perk gained for free via an Ancestry Bonus Perk
@@ -254,6 +280,7 @@
                     </div>
                 `;
             });
+            if (!html) html = `<div class="text-xs text-slate-500 italic text-center py-6">${ownedOnly ? 'No owned perks match this filter.' : 'No perks match this search.'}</div>`;
             document.getElementById('perkListContainer').innerHTML = html;
         }
 

@@ -1,7 +1,16 @@
 // ============================================================
 // APX Character Sheet — Derived Stat Engine
 // ============================================================
+        // Click-to-roll attribute for the dice roller (see js/apx-dice.js)
+        function apxRollAttr(o) {
+            if (!window.APXDice) return '';
+            return ` data-apx-roll='${window.APXDice.attr(Object.assign({ who: window.state?.name || '' }, o))}'`;
+        }
+        window.apxRollAttr = apxRollAttr;
+
         window.recalculateMath = function() {
+            // Bring older saves up to the current rules (non-destructive, runs once per character)
+            if (typeof window.apxMigrateCharacter === 'function') window.apxMigrateCharacter(window.state);
             window.syncDOM();
             
             if (!window.state.pwrIntRanks) {
@@ -212,6 +221,7 @@
             let vitalHpRank = window.state.perks['con_vitality'] || 0;
             let maxHp = (calc.scores.CON * 5) + (vitalHpRank * 5) + window.state.xpHpBought - calc.maxHpPenalty;
             maxHp = Math.max(5, maxHp);
+            calc.maxHp = maxHp;
             // Whenever Max HP changes -- up from leveling CON, buying
             // Vitality, XP-bought HP, or down from a Fragile-type flaw,
             // penalty, etc. -- Current HP shifts by the same delta rather
@@ -467,13 +477,14 @@
             let tirelessRank = window.state.perks['gen_tireless'] || 0;
             let effectiveFatigue = Math.max(0, window.state.fatigue - tirelessRank);
             calc.effectiveFatigue = effectiveFatigue;
-            calc.maxAp = calc.apForcedZero ? 0 : Math.max(6, 6 + calc.mods.AGI) - effectiveFatigue;
+            calc.maxAp = calc.apForcedZero ? 0 : Math.max(6, 6 + Math.floor(calc.mods.AGI / 2)) - effectiveFatigue;   // 6 + half AGI mod (round down), min 6 — Sept 23, 2026 update
             
             window.syncInitStatCheckboxes(); // may revert state.initStat if its perk was removed, so this runs before calc.init uses it
             calc.init = 10 + (calc.mods[window.state.initStat] || 0) + (calc.init - 10); 
 
             document.getElementById('dispGlobalTb').innerText = window.state.trainingBonus;
             document.getElementById('dispAp').innerText = calc.maxAp;
+            window.apxRenderApPips && window.apxRenderApPips();
             document.getElementById('dispInit').innerText = calc.init;
             document.getElementById('dispSpeed').innerText = calc.speedForcedZero ? 0 : Math.max(0, calc.speed);
             document.getElementById('dispMaxRest').innerText = calc.maxRestDice;
@@ -489,6 +500,7 @@
             window.state.lastKnownMaxRestDice = calc.maxRestDice;
             document.getElementById('dispWt').innerText = (calc.scores.CON * 2) + calc.wtBoost;
             let newMaxLuck = Math.max(1, calc.mods.LUC);
+            calc.maxLuck = newMaxLuck;
             document.getElementById('dispMaxLuck').innerText = newMaxLuck;
             // Auto-adjust current luckPts when LUC changes (same pattern as restDice)
             if (window.state.lastKnownMaxLuck !== undefined && newMaxLuck !== window.state.lastKnownMaxLuck) {
@@ -531,10 +543,10 @@
                             <div class="text-lg font-black text-slate-200 w-12">${attr}</div>
                             <div class="w-10 text-center text-sm font-bold text-slate-400 mx-2 bg-slate-900 rounded p-1 border border-slate-700">${sc}</div>
                             <div class="flex-1 flex justify-end">
-                                <div class="w-10 h-8 flex items-center justify-center font-black text-lg rounded shadow-inner border ${bgClass}">${mod >= 0 ? '+'+mod : mod}</div>
+                                <div class="w-10 h-8 flex items-center justify-center font-black text-lg rounded shadow-inner border ${bgClass} apx-rollable" title="Click to roll a ${attr} check"${apxRollAttr({ type: 'check', label: attr + ' check', bonus: mod, disSources: calc.disadv.checkByAttr[attr] || [] })}>${mod >= 0 ? '+'+mod : mod}</div>
                             </div>
                         </div>
-                        <div class="flex items-center justify-between px-2 py-1 bg-slate-800/60 border-b border-slate-700/50 text-[10px]">
+                        <div class="flex items-center justify-between px-2 py-1 bg-slate-800/60 border-b border-slate-700/50 text-[10px] apx-rollable" title="Click to roll a ${attr} save"${apxRollAttr({ type: 'check', kind: 'save', label: attr + ' Save', bonus: saveBonus, disSources: saveDisadvSources, autoFail: saveAutoFailSources.join(', ') || undefined })}>
                             <div class="flex items-center gap-1.5">
                                 <div class="power-bubble static ${saveTrained ? 'filled' : ''}"></div>
                                 <span class="text-slate-500 font-bold uppercase tracking-wide">Save</span>
@@ -584,9 +596,9 @@
                             ${skill.isCustom && !skill.name.startsWith('Encyclopedia') ? `<button onclick="window.deleteCustomSkill('${skill.id}')" class="absolute -left-1 text-red-500 hover:text-red-400 opacity-0 group-hover:opacity-100">&times;</button>` : ''}
                             <div class="flex items-center gap-2 flex-1 ${indent ? 'pl-5' : (skill.isCustom ? 'pl-3' : '')}">
                                 <input type="checkbox" ${isTr ? 'checked' : ''} disabled title="Trained via Origin, Ancestry, or Spend XP -- not manually toggled here" class="w-3 h-3 cursor-not-allowed opacity-70">
-                                <span class="${isTr ? 'text-blue-300 font-bold' : 'text-slate-300'}" ${isTr && window.state.skillSource[skill.id] ? `data-tip="Trained via: ${window.state.skillSource[skill.id]}"` : ''}>${displayName}</span>
+                                <span class="${isTr ? 'text-blue-300 font-bold' : 'text-slate-300'} apx-rollable" ${isTr && window.state.skillSource[skill.id] ? `data-tip="Trained via: ${window.state.skillSource[skill.id]}"` : ''}${apxRollAttr({ type: 'check', label: displayName + ' (' + attr + ')', bonus: total, disSources: checkDisadvSources })}>${displayName}</span>
                             </div>
-                            <div class="w-auto text-center font-bold ${total < 0 ? 'skill-mod-negative' : (isTr ? 'text-blue-400' : 'text-slate-500')} text-xs">${total >= 0 ? '+'+total : total}${disadvHtml}</div>
+                            <div class="w-auto text-center font-bold ${total < 0 ? 'skill-mod-negative' : (isTr ? 'text-blue-400' : 'text-slate-500')} text-xs apx-rollable"${apxRollAttr({ type: 'check', label: displayName + ' (' + attr + ')', bonus: total, disSources: checkDisadvSources })}>${total >= 0 ? '+'+total : total}${disadvHtml}</div>
                             <div class="w-10 text-right ${pasText === '--' ? 'text-slate-600' : 'text-slate-500 font-bold'}">${pasText}</div>
                         </div>
                     `;
@@ -913,6 +925,11 @@
             let cat = weaponCategory(w);
             let disadvSources = calc.disadv.atkGeneral.concat(cat === 'melee' ? calc.disadv.atkMelee : []);
             let advSources = cat === 'ranged' ? calc.disadv.atkRangedAdv : [];
+            // Fortunate Fighter Rank 4: crit multiplier +1
+            let critMult = (w.critMult || 2) + ((window.state.perks['luc_fortunatefighter'] || 0) >= 4 ? 1 : 0);
+            let rollName = (w.name || 'Weapon') + (opts.label ? (opts.attr === 'STR' && /2-Handed/.test(opts.label) ? ' (2-Handed)' : /Aimed/.test(opts.label) ? ' (Aimed)' : '') : '');
+            let atkRoll = apxRollAttr({ type: 'attack', label: rollName, bonus: atk, dice: opts.dice, dmgMod, critMult, dmgType: w.elemental || w.dmgType || '', disSources: disadvSources, advSources });
+            let dmgRoll = apxRollAttr({ type: 'damage', label: rollName + ' damage', formula: opts.dice + (dmgMod ? (dmgMod > 0 ? '+' : '') + dmgMod : ''), dmgType: w.elemental || w.dmgType || '' });
             let disadvHtml = disadvSources.length
                 ? `<span class="text-[8px] text-red-400 block -mt-1 leading-none" title="${disadvSources.join(', ')}">(Disadv)</span>`
                 : (advSources.length ? `<span class="text-[8px] text-emerald-400 block -mt-1 leading-none" title="${advSources.join(', ')}">(Adv)</span>` : '');
@@ -924,10 +941,10 @@
                         <td class="px-1 py-1 text-[10px] text-slate-400 text-center font-bold">${opts.attr||'STR'}</td>
                         <td class="px-1 py-1"></td>
                         <td class="px-1 py-1 text-center">
-                            <div class="font-black text-emerald-400/80 text-xs bg-slate-900 rounded border border-slate-700 py-0.5">${atk >= 0 ? '+' + atk : atk}</div>
+                            <div class="font-black text-emerald-400/80 text-xs bg-slate-900 rounded border border-slate-700 py-0.5 apx-rollable" title="Roll attack + damage"${atkRoll}>${atk >= 0 ? '+' + atk : atk}</div>
                             ${disadvHtml}
                         </td>
-                        <td class="px-1 py-1 text-center text-[11px] text-slate-300 font-bold">${dmgText}</td>
+                        <td class="px-1 py-1 text-center text-[11px] text-slate-300 font-bold apx-rollable" title="Roll damage only"${dmgRoll}>${dmgText}</td>
                         <td class="px-1 py-1 text-center text-[11px] text-blue-400 font-bold">${opts.ap}</td>
                         <td class="px-1 py-1"></td>
                     </tr>
@@ -972,10 +989,10 @@
                     </td>
                     <td class="px-1 py-2 text-center"><input type="checkbox" ${weaponIsTrained(w) ? 'checked' : ''} ${w.isUnarmed || w.isAncestry || window.state.trainedWeaponTypes.includes(companionWeaponTypeLabel(w)) ? `disabled title="${(w.isUnarmed || w.isAncestry) ? 'All creatures are inherently trained in their innate weapons' : 'Trained via Weapon Type training'}"` : ''} onchange="window.updateWeaponTr(${idx}, this.checked)" class="w-4 h-4"></td>
                     <td class="px-1 py-2 text-center">
-                        <div class="font-black text-emerald-400 text-sm bg-slate-900 rounded border border-slate-700 py-0.5">${atk >= 0 ? '+' + atk : atk}</div>
+                        <div class="font-black text-emerald-400 text-sm bg-slate-900 rounded border border-slate-700 py-0.5 apx-rollable" title="Roll attack + damage"${atkRoll}>${atk >= 0 ? '+' + atk : atk}</div>
                         ${disadvHtml}
                     </td>
-                    <td class="px-1 py-2 text-center text-[11px] text-slate-300 font-bold">${dmgText}</td>
+                    <td class="px-1 py-2 text-center text-[11px] text-slate-300 font-bold apx-rollable" title="Roll damage only"${dmgRoll}>${dmgText}</td>
                     <td class="px-1 py-2"><div class="text-xs font-bold text-blue-400 text-center p-1 h-7 flex items-center justify-center" data-tip="AP cost is fixed by weapon category and weight class, not freely editable.">${opts.ap}</div></td>
                     <td class="px-1 py-2 text-center">
                         ${!w.isUnarmed && !w.isAncestry ? `<button onclick="window.unequipWeapon(${idx})" class="text-[9px] text-cyan-400 hover:text-cyan-300 font-bold mr-1" title="Move to inventory">Unequip</button>` : ''}
@@ -1036,8 +1053,8 @@
                             </td>
                             <td class="px-1 py-2 text-center text-[10px] text-slate-400">--</td>
                             <td class="px-1 py-2 text-center"><input type="checkbox" checked disabled class="w-4 h-4 opacity-50"></td>
-                            <td class="px-1 py-2 text-center"><div class="font-black text-emerald-400/80 text-sm bg-slate-900 rounded border border-slate-700 py-0.5">+${ia.attackBonus}</div></td>
-                            <td class="px-1 py-2 text-center text-[11px] text-slate-300 font-bold">${ia.dmgText}</td>
+                            <td class="px-1 py-2 text-center"><div class="font-black text-emerald-400/80 text-sm bg-slate-900 rounded border border-slate-700 py-0.5 apx-rollable" title="Roll attack + damage"${apxRollAttr({ type: 'attack', who: sb.name, label: ia.name, bonus: ia.attackBonus, dice: ia.dmgText, dmgType: ia.typeText, perks: false, gambleAllowed: false })}>+${ia.attackBonus}</div></td>
+                            <td class="px-1 py-2 text-center text-[11px] text-slate-300 font-bold apx-rollable" title="Roll damage only"${apxRollAttr({ type: 'damage', who: sb.name, label: ia.name + ' damage', formula: ia.dmgText, perks: false })}>${ia.dmgText}</td>
                             <td class="px-1 py-2 text-center text-[11px] text-blue-400 font-bold">3</td>
                             <td class="px-1 py-2"></td>
                         </tr>
@@ -1053,8 +1070,8 @@
                                 </td>
                                 <td class="px-1 py-2 text-center text-[10px] text-slate-400">${w.attr || '--'}</td>
                                 <td class="px-1 py-2 text-center"><input type="checkbox" ${w.trained ? 'checked' : ''} disabled class="w-4 h-4 opacity-50" title="Trained: ${w.trained}"></td>
-                                <td class="px-1 py-2 text-center"><div class="font-black text-emerald-400/80 text-sm bg-slate-900 rounded border border-slate-700 py-0.5">+${w.atk}</div></td>
-                                <td class="px-1 py-2 text-center text-[11px] text-slate-300 font-bold">${w.dmg}</td>
+                                <td class="px-1 py-2 text-center"><div class="font-black text-emerald-400/80 text-sm bg-slate-900 rounded border border-slate-700 py-0.5 apx-rollable" title="Roll attack + damage"${apxRollAttr({ type: 'attack', who: sb.name, label: w.name, bonus: w.atk, dice: String(w.dmg), critMult: w.critMult || 2, perks: false, gambleAllowed: false })}>+${w.atk}</div></td>
+                                <td class="px-1 py-2 text-center text-[11px] text-slate-300 font-bold apx-rollable" title="Roll damage only"${apxRollAttr({ type: 'damage', who: sb.name, label: w.name + ' damage', formula: String(w.dmg), perks: false })}>${w.dmg}</td>
                                 <td class="px-1 py-2 text-center text-[11px] text-blue-400 font-bold">${w.ap}</td>
                                 <td class="px-1 py-2"></td>
                             </tr>
@@ -1232,7 +1249,7 @@
 
         function renderPowers() {
             let html = window.state.powers.map((p, idx) => `
-                <div class="bg-slate-900 p-2 rounded border border-slate-700 relative group shadow-inner">
+                <div class="bg-slate-900 p-2 rounded border border-slate-700 relative group shadow-inner" data-roll-label="${String(p.name||'Power').replace(/"/g,'&quot;')}">
                     <button onclick="window.deletePower(${idx})" class="absolute top-1 right-1 text-red-500 hover:text-red-400 font-bold opacity-0 group-hover:opacity-100">&times;</button>
                     <div class="flex justify-between items-center mb-1">
                         <span class="font-bold text-sm text-indigo-300">${p.name}</span>
@@ -1245,8 +1262,11 @@
                     </div>
                     <div class="text-[10px] text-slate-500 leading-tight font-medium">${p.desc}</div>
                     ${p.draft ? `<button onclick="window.openPowerEditor(${idx})" class="text-[9px] text-purple-400 hover:text-purple-300 font-bold mt-1">Edit in Power Crafter${p.wasFree ? ' (Free)' : ''}</button>` : ''}
+                    ${window.apxRecraftBadge ? window.apxRecraftBadge(p, `window.openPowerEditor(${idx})`) : ''}
                 </div>
             `).join('');
-            document.getElementById('powersContainer').innerHTML = html;
+            let pc = document.getElementById('powersContainer');
+            pc.classList.add('apx-dice-scope');
+            pc.innerHTML = html;
         }
 
