@@ -56,7 +56,22 @@
     const auth = firebase.auth();
     const db   = firebase.firestore();
     // Never let a stray `undefined` anywhere in a payload kill a save.
-    try { db.settings({ ignoreUndefinedProperties: true }); } catch (e) { console.warn('Firestore settings:', e.message); }
+    try { db.settings({ ignoreUndefinedProperties: true, merge: true }); } catch (e) { console.warn('Firestore settings:', e.message); }
+
+    // Skip writes whose content hasn't changed since the last write to that document.
+    // The sheet recalculates (and asks to save) very often; re-sending an identical
+    // 100 KB+ character over and over is what filled Firestore's write queue
+    // ("Write stream exhausted maximum allowed queued writes"), especially when a
+    // browser blocker slows the connection.
+    const _lastWrite = new Map();
+    function _sameAsLast(key, data) {
+        let sig;
+        try { sig = JSON.stringify(data, (k, v) => (k === 'updatedAt' ? undefined : v)); } catch (e) { return false; }
+        if (_lastWrite.get(key) === sig) return true;
+        _lastWrite.set(key, sig);
+        return false;
+    }
+    function _forgetWrite(key) { _lastWrite.delete(key); }
 
     // Deep-clean a plain-data object for Firestore: drops undefined / functions,
     // turns undefined array slots into null, and NaN/Infinity into 0.
@@ -119,20 +134,28 @@
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         };
         if (meta) Object.assign(doc, meta); // folderId, worldCode, etc.
-        await db.collection('users').doc(user.uid)
-            .collection('characters').doc(charId).set(doc, { merge: true });
+        let ckey = 'char:' + user.uid + ':' + charId;
+        if (!_sameAsLast(ckey, doc)) {
+            try {
+                await db.collection('users').doc(user.uid)
+                    .collection('characters').doc(charId).set(doc, { merge: true });
+            } catch (e) { _forgetWrite(ckey); throw e; }
+        }
 
         // Sync character state into the world players sub-collection so the GM's
         // party panel can display live stats without needing cross-user Firestore access.
         let worldCode = meta?.worldCode || stateObj.worldCode;
         if (worldCode) {
-            await db.collection('worldCodes').doc(worldCode)
-                .collection('players').doc(user.uid).set({
-                    uid:       user.uid,
-                    charName:  (stateObj.name || 'Unknown Player').slice(0, 60),
-                    charState: stateObj,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                }, { merge: true }).catch(e => console.warn('World char sync:', e.message));
+            // The GM only needs the character, not the sheet's undo history
+            let { _undoStack, _redoStack, ...pub } = stateObj;
+            let wdoc = { uid: user.uid, charName: (stateObj.name || 'Unknown Player').slice(0, 60), charState: pub,
+                         updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+            let wkey = 'wplayer:' + worldCode + ':' + user.uid;
+            if (!_sameAsLast(wkey, wdoc)) {
+                await db.collection('worldCodes').doc(worldCode)
+                    .collection('players').doc(user.uid).set(wdoc, { merge: true })
+                    .catch(e => { _forgetWrite(wkey); console.warn('World char sync:', e.message); });
+            }
         }
     }
 
@@ -545,19 +568,29 @@
             .delete().catch(() => {}); // ignore "not found"
     }
 
+    const _inviteCodeCache = {};
     async function saveWorld(worldId, gmPrivateData, publicData) {
         let user = currentUser();
         if (!user) return;
-        if (gmPrivateData && Object.keys(gmPrivateData).length)
-            await db.collection('users').doc(user.uid).collection('worlds').doc(worldId).set(apxClean(gmPrivateData), { merge: true });
+        if (gmPrivateData && Object.keys(gmPrivateData).length) {
+            let priv = apxClean(gmPrivateData), pkey = 'wpriv:' + user.uid + ':' + worldId;
+            if (!_sameAsLast(pkey, priv)) {
+                try { await db.collection('users').doc(user.uid).collection('worlds').doc(worldId).set(priv, { merge: true }); }
+                catch (e) { _forgetWrite(pkey); throw e; }
+            }
+        }
         if (publicData && Object.keys(publicData).length) {
-            let worldDoc = await db.collection('users').doc(user.uid).collection('worlds').doc(worldId).get();
-            let inviteCode = worldDoc.exists ? worldDoc.data().inviteCode : null;
-            if (inviteCode) await db.collection('worldCodes').doc(inviteCode).set({
-                ...apxClean(publicData),
-                gmUid: user.uid,
-                worldId   // players need this to load portraits from users/{gmUid}/worlds/{worldId}/npcPortraits
-            }, { merge: true });
+            let pub = { ...apxClean(publicData), gmUid: user.uid, worldId };  // worldId: players load portraits from users/{gmUid}/worlds/{worldId}/npcPortraits
+            let qkey = 'wpub:' + user.uid + ':' + worldId;
+            if (_sameAsLast(qkey, pub)) return;
+            try {
+                if (!_inviteCodeCache[worldId]) {
+                    let worldDoc = await db.collection('users').doc(user.uid).collection('worlds').doc(worldId).get();
+                    _inviteCodeCache[worldId] = worldDoc.exists ? worldDoc.data().inviteCode : null;
+                }
+                let inviteCode = _inviteCodeCache[worldId];
+                if (inviteCode) await db.collection('worldCodes').doc(inviteCode).set(pub, { merge: true });
+            } catch (e) { _forgetWrite(qkey); throw e; }
         }
     }
 

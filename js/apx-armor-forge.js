@@ -208,6 +208,10 @@ window.renderArmorForge = function() {
             </div>
         </div>
     `;
+    if (armorForgeTarget !== 'player' && window.npcArmorTp) {
+        let tpNow = window.npcArmorTp({ name: 'x', ac: totals.ac, dr: totals.dr, er: totals.er }).tp;
+        html = `<div class="text-[11px] font-bold rounded border px-2 py-1 mb-2" style="border-color:#a16207;color:#fde68a;background:rgba(161,98,7,.12)">Threat Point cost for this ${armorForgeTarget === 'gm' ? 'NPC' : 'companion'}: <b>${tpNow} TP</b> <span style="font-weight:600;opacity:.8">(1 per AC, +1 per 2 DR/ER)</span></div>` + html;
+    }
     document.getElementById('armorForgeBody').innerHTML = html;
 };
 
@@ -246,6 +250,17 @@ function applyArmorForgeFinal(finalMods) {
     if ((armorForgeTarget === 'companion' || armorForgeTarget === 'gm') && typeof ncRenderAll === 'function') ncRenderAll();
 }
 
+// Loyal Companions have a fixed TP budget: armor has to fit in it
+function armorGearFitsCompanion() {
+    if (armorForgeTarget !== 'companion' || !window.npcArmorTp || !window.companionRemainingTp) return true;
+    let t = window.armorForgeCalcTotals(armorForgeDraft);
+    let newTp = window.npcArmorTp({ name: 'x', ac: t.ac, dr: t.dr, er: t.er }).tp;
+    let oldTp = window.npcArmorTp(getTargetArmor()).tp;
+    let need = newTp - oldTp, left = window.companionRemainingTp();
+    if (need > left) { window.showConfirm(`Not enough Threat Points: this armor costs ${newTp} TP (${need} more than now), and your companion has ${left} TP left. Buy more TP in the NPC Crafter, or pick fewer upgrades.`, null, true); return false; }
+    return true;
+}
+
 // A GM designing an NPC isn't buying or crafting anything -- no Currency,
 // no Crafting Materials, no roll. This just finalizes whatever's currently
 // configured directly onto the NPC for free.
@@ -260,6 +275,7 @@ window.gmAddArmorFree = function() {
 // discarded (not refunded) since Purchase never invested materials.
 // ------------------------------------------------------------------
 window.purchaseArmor = function() {
+    if (!armorGearFitsCompanion()) return;
     let totals = window.armorForgeCalcTotals(armorForgeDraft);
     let delta = Math.max(0, totals.cost - armorForgeBasePaid);
     let { decreased } = armorForgeSessionDelta();
@@ -288,6 +304,7 @@ window.purchaseArmor = function() {
 // Artisan 2 halves materials if this is a chosen specialization.
 // ------------------------------------------------------------------
 window.openArmorCraftModal = function() {
+    if (!armorGearFitsCompanion()) return;
     armorForgeSpecialized = false;
     window.renderArmorCraftBody();
     window.openModal('armorCraftModal');

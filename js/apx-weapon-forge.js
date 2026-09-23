@@ -367,6 +367,30 @@ function renderWeaponForgeSummary() {
     document.getElementById('wpnSumCost').innerText = `${t.cost} Cu`;
     document.getElementById('wpnSumPaid').innerText = `${weaponForgeBasePaid} Cu`;
     document.getElementById('wpnSumCostNow').innerText = `${delta} Cu`;
+    // NPC / companion weapons also cost Threat Points
+    let host = document.getElementById('wpnSumCostNow').parentElement.parentElement;
+    let tpEl = document.getElementById('wpnSumTp');
+    if (weaponForgeTarget !== 'player' && window.npcWeaponTp) {
+        if (!tpEl) { tpEl = document.createElement('div'); tpEl.id = 'wpnSumTp'; tpEl.className = 'text-[11px] font-bold mt-1'; tpEl.style.color = '#fde68a'; host.parentElement.insertBefore(tpEl, host.nextSibling); }
+        let r = window.npcWeaponTp(weaponDraftAsObject(weaponForgeDraft));
+        tpEl.style.display = '';
+        tpEl.textContent = `Threat Point cost for this ${weaponForgeTarget === 'gm' ? 'NPC' : 'companion'}: ${r.tp} TP` + (r.parts.length ? ` (${r.parts.map(p => p.label + ' ' + p.tp).join(', ')})` : '');
+    } else if (tpEl) tpEl.style.display = 'none';
+}
+
+// A weapon object from the current draft, for TP pricing before it's made
+function weaponDraftAsObject(d) {
+    let t = window.weaponForgeCalcTotals(d);
+    return { forged: true, dmg: t.dice, critMult: t.critMult, range: t.range, elemental: d.elemental, properties: { ...d.properties }, category: d.category };
+}
+// Loyal Companions have a fixed TP budget: the weapon has to fit in it
+function weaponGearFitsCompanion() {
+    if (weaponForgeTarget !== 'companion' || !window.npcWeaponTp || !window.companionRemainingTp) return true;
+    let newTp = window.npcWeaponTp(weaponDraftAsObject(weaponForgeDraft)).tp;
+    let old = weaponForgeEditIndex !== null ? getTargetWeapons()[weaponForgeEditIndex] : null;
+    let need = newTp - (old ? window.npcWeaponTp(old).tp : 0), left = window.companionRemainingTp();
+    if (need > left) { window.showConfirm(`Not enough Threat Points: this weapon costs ${newTp} TP${old ? ` (${need} more than now)` : ''}, and your companion has ${left} TP left. Buy more TP in the NPC Crafter, or pick fewer upgrades.`, null, true); return false; }
+    return true;
 }
 
 // ------------------------------------------------------------------
@@ -519,6 +543,7 @@ window.gmAddWeaponFree = function() {
 // discarded (not refunded) since Purchase never invested materials.
 // ------------------------------------------------------------------
 window.purchaseWeapon = function() {
+    if (!weaponGearFitsCompanion()) return;
     let totals = window.weaponForgeCalcTotals();
     let delta = Math.max(0, totals.cost - weaponForgeBasePaid);
     let deltas = weaponForgeComponentDeltas();
@@ -549,6 +574,7 @@ window.purchaseWeapon = function() {
 // mirroring the Armor Forge (see apx-craft-shared.js).
 // ------------------------------------------------------------------
 window.openWeaponCraftModal = function() {
+    if (!weaponGearFitsCompanion()) return;
     weaponForgeSpecialized = false;
     window.renderWeaponCraftBody();
     window.openModal('weaponCraftModal');

@@ -609,3 +609,57 @@
         }
         window.apxXpBonus = apxXpBonus;
         const XP_CATEGORY_LABELS = { combat: 'Combat', discovery: 'Discovery', roleplay: 'Role Play', other: 'Other' };
+
+        // ------------------------------------------------------------------
+        // Gear Threat Points (NPCs and Loyal Companions)
+        // Manufactured gear is priced like the innate weapon it imitates, so a
+        // creature with a 2d6 sword is exactly as threatening as one with 2d6 claws.
+        //   Damage:   2d4 = 2, 2d6 = 5, 2d8 = 6, 3d10 = 11, 4d12 = 19 TP
+        //   Critical: x3 = +4, x4 = +8 TP
+        //   Properties that innate weapons can have use the innate price
+        //   (Grappling 2, Tearing 2, Crushing 4, Flurry 4, Stunning 4)
+        //   Elemental: +2 TP (same as an innate weapon's energy damage)
+        //   Anything else (Concealed, Reach, Thrown, Sturdy, range upgrades):
+        //   1 TP per full 100 Currency of its price
+        //   Items not built in a forge: 1 TP per full 100 Currency of their value
+        //   Armor: 1 TP per point of AC, +1 TP per 2 points of DR and ER combined
+        // ------------------------------------------------------------------
+        const NPC_GEAR_DMG_TP = { '2d4': 2, '2d6': 5, '2d8': 6, '3d10': 11, '4d12': 19 };
+        const NPC_GEAR_CRIT_TP = { 2: 0, 3: 4, 4: 8 };
+        const NPC_GEAR_INNATE_PROPS = { grappling: 2, tearing: 2, crushing: 4, flurry: 4, stunning: 4 };
+        function npcWeaponTp(w) {
+            let parts = [];
+            if (!w) return { tp: 0, parts };
+            let dmgTp = NPC_GEAR_DMG_TP[String(w.dmg || '').replace(/\s+/g, '')];
+            if (!w.forged && dmgTp === undefined) {
+                let tp = Math.floor((w.paidCost || w.cost || 0) / 100);
+                if (tp) parts.push({ label: 'Value (' + (w.paidCost || w.cost) + ' Cu)', tp });
+                return { tp, parts };
+            }
+            if (dmgTp) parts.push({ label: 'Damage ' + w.dmg, tp: dmgTp });
+            let critTp = NPC_GEAR_CRIT_TP[w.critMult || 2] || 0;
+            if (critTp) parts.push({ label: 'Crit x' + w.critMult, tp: critTp });
+            let cu = 0;
+            Object.entries(w.properties || {}).forEach(([k, v]) => {
+                let count = typeof v === 'number' ? v : (v ? 1 : 0);
+                if (!count) return;
+                let def = WEAPON_PROPERTIES.find(p => p.key === k);
+                if (NPC_GEAR_INNATE_PROPS[k] !== undefined) parts.push({ label: def ? def.name : k, tp: NPC_GEAR_INNATE_PROPS[k] * count });
+                else if (def) cu += def.cost * count;
+            });
+            if (w.range) { let rt = WEAPON_RANGE_TIERS.find(t => t.range === w.range); if (rt) cu += rt.cost; }
+            if (w.elemental) parts.push({ label: 'Elemental (' + w.elemental + ')', tp: 2 });
+            let cuTp = Math.floor(cu / 100);
+            if (cuTp) parts.push({ label: 'Other upgrades (' + cu + ' Cu)', tp: cuTp });
+            return { tp: parts.reduce((a, p) => a + p.tp, 0), parts };
+        }
+        function npcArmorTp(a) {
+            if (!a || !a.name) return { tp: 0, parts: [] };
+            let parts = [];
+            let ac = Math.max(0, a.ac || 0), drEr = Math.max(0, a.dr || 0) + Math.max(0, a.er || 0);
+            if (ac) parts.push({ label: 'AC +' + ac, tp: ac });
+            if (Math.floor(drEr / 2)) parts.push({ label: 'DR/ER +' + drEr, tp: Math.floor(drEr / 2) });
+            return { tp: parts.reduce((s, p) => s + p.tp, 0), parts };
+        }
+        window.npcWeaponTp = npcWeaponTp;
+        window.npcArmorTp = npcArmorTp;

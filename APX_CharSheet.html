@@ -567,7 +567,7 @@
                 </div>
                 <div class="grid grid-cols-2 gap-2 mt-2">
                     <button onclick="window.apxShortRest()" class="py-1.5 rounded text-[11px] font-black border transition" style="background:var(--c-surface2,#0f172a);border-color:var(--c-emerald,#059669);color:var(--c-emerald-lt,#6ee7b7);" title="1 hour: spend Rest Dice to heal (die + CON mod each), CHA power slots come back">Short Rest</button>
-                    <button onclick="window.apxFullRest()" class="py-1.5 rounded text-[11px] font-black border transition" style="background:var(--c-surface2,#0f172a);border-color:var(--c-indigo,#4f46e5);color:var(--c-indigo-lt,#a5b4fc);" title="8 hours: full HP, half your spent Rest Dice, all Power Slots, Luck, -1 Fatigue">Full Rest</button>
+                    <button onclick="window.apxFullRest()" class="py-1.5 rounded text-[11px] font-black border transition" style="background:var(--c-surface2,#0f172a);border-color:var(--c-indigo,#4f46e5);color:var(--c-indigo-lt,#a5b4fc);" title="8 hours: full HP, half your max Rest Dice, all Power Slots, Luck, -1 Fatigue">Full Rest</button>
                 </div>
 
                 <div class="flex-1 flex flex-col mt-2">
@@ -4354,26 +4354,30 @@
     }
 
     // ── Auto-save ────────────────────────────────────────────
-    let _autoSaveTimer = null;
+    let _autoSaveTimer = null, _autoSaveBusy = false, _autoSaveAgain = false;
     function scheduleAutoSave() {
         if (!window.apxAuth || !window.apxAuth.enabled) return;
         if (!window._activeCloudCharId || !window.state) return;
         clearTimeout(_autoSaveTimer);
-        // 500ms debounce -- fast enough to feel instant, long enough to
-        // batch rapid changes (typing a character name, adjusting stats)
-        // into a single write rather than one per keystroke.
+        // Debounced, and never more than one save in flight: changes made while a save is
+        // still going out are folded into ONE follow-up save instead of piling up in
+        // Firestore's write queue. Unchanged saves are skipped in apx-firebase.js.
         _autoSaveTimer = setTimeout(async () => {
+            if (_autoSaveBusy) { _autoSaveAgain = true; return; }
+            _autoSaveBusy = true;
             try {
                 let saveData = Object.assign({}, window.state);
-                if (window.undoStack) saveData._undoStack = window.undoStack;
-                if (window.redoStack) saveData._redoStack = window.redoStack;
                 window.apxAuth?.setActiveCharId(window._activeCloudCharId);
                 // Include folder and world metadata so the roster reloads correctly
                 let charMeta = window._sidebarChars.find(c => c.id === window._activeCloudCharId);
                 let meta = { folderId: charMeta?.folderId || null, worldCode: charMeta?.worldCode || null };
                 await window.apxAuth.saveCharacter(window._activeCloudCharId, saveData, meta);
             } catch(e) { console.warn('Auto-save failed:', e.message); }
-        }, 500);
+            finally {
+                _autoSaveBusy = false;
+                if (_autoSaveAgain) { _autoSaveAgain = false; scheduleAutoSave(); }
+            }
+        }, 800);
     }
     window.scheduleAutoSave = scheduleAutoSave;
     // Patch recalculateMath to trigger auto-save after each calculation

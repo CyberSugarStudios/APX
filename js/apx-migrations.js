@@ -93,6 +93,16 @@
                     notes.push({ title: 'Regenerative', text: 'Full replacement: at the beginning of your turn in combat you can expend a Rest Die, rolling it, and heal for the result (the "Regen" button under your AP). It no longer heals your CON modifier each turn.' });
                 return notes;
             }
+        },
+        {
+            v: 4, label: 'Companion gear update (Sept 23, 2026)',
+            run(s) {
+                let c = s.companion;
+                if (!c || !window.companionGearTp || !((c.weapons || []).length || (c.equippedArmor && c.equippedArmor.name))) return [];
+                let g = window.companionGearTp(c);
+                if (!g.total) return [];
+                return [{ title: 'Companion gear now costs Threat Points', text: `Manufactured weapons and armor now count against your companion's TP, priced like the innate weapon they imitate. ${c.name || 'Your companion'}'s gear is worth ${g.total} TP. Nothing was removed: if that puts it over budget, its TP total shows in red in the NPC Crafter until you buy more TP or change its gear.` }];
+            }
         }
     ];
     window.APX_RULES_VERSION = Math.max(...CHARACTER_MIGRATIONS.map(m => m.v));

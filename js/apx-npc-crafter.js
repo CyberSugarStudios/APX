@@ -186,15 +186,25 @@ window.companionTotalTp = function() {
     return lcGrantedTp() + c.extraTpPurchased;
 };
 
+// TP used by manufactured weapons and armor (armor: AC + half of DR/ER)
+window.companionGearTp = function(c) {
+    c = c || ncActiveCompanion();
+    let out = { total: 0, armor: { tp: 0, parts: [] }, weapons: [] };
+    if (!c) return out;
+    out.armor = window.npcArmorTp(c.equippedArmor);
+    out.weapons = (c.weapons || []).map(w => Object.assign({ name: w.name }, window.npcWeaponTp(w)));
+    out.total = out.armor.tp + out.weapons.reduce((a, w) => a + w.tp, 0);
+    return out;
+};
+
 window.companionTpSpent = function() {
     let c = ncActiveCompanion();
     if (!c) return 0;
     let spent = 0;
     ATTRIBUTES.forEach(a => { spent += c.attrBonuses[a]; }); // negative bonuses refund automatically via sum
     spent += c.hpTierBonus;
-    // "If the NPC wears manufactured armor... use the armor's stats at
-    // cost of 1 TP per AC the armor provides." (Ch.15 Step 4)
-    if (c.equippedArmor && c.equippedArmor.ac) spent += Math.max(0, c.equippedArmor.ac);
+    // Manufactured gear (Sept 23, 2026 rule): priced like the innate equivalent -- see npcWeaponTp / npcArmorTp in apx-data.js
+    spent += window.companionGearTp(c).total;
     spent += c.apBonus * 3;
     let sizeDef = NPC_SIZES.find(s => s.key === c.size);
     spent += sizeDef ? sizeDef.tp : 0;
@@ -622,9 +632,8 @@ window.ncRemoveOtherTraining = function(idx) {
     ncSpend(-1, () => { c.otherTrainings.splice(idx, 1); });
 };
 window.ncRemoveCompanionWeapon = function(idx) {
-    // Manufactured gear is bought with Currency/Crafting Materials, not TP
-    // (unlike everything else in this wizard), so removing it doesn't run
-    // through ncSpend -- there's no TP to refund.
+    // Gear's TP is counted live from what's equipped (companionGearTp), so
+    // removing it frees that TP automatically -- no ncSpend bookkeeping needed.
     let c = ncActiveCompanion();
     if (!c || !c.weapons[idx]) return;
     window.showConfirm(`Remove ${c.weapons[idx].name}?`, () => {
@@ -1078,6 +1087,8 @@ window.importGmNpc = function(event) {
 window.companionStatBlock = function() {
     let c = ncActiveCompanion();
     if (!c) return null;
+    // GM NPCs: the budget always covers what's spent (gear now costs TP, so older NPCs may need a higher tier)
+    if (ncTarget === 'gm') ncEnsureTierForSpend(window.companionTpSpent());
     let totalTp = window.companionTotalTp();
     let tierInfo = npcTierForTP(totalTp);
     let tier = tierInfo.tier;
@@ -1519,6 +1530,7 @@ window.ncRenderPreview = ncRenderPreview;
 
 function ncRenderSummary() {
     let c = ncActiveCompanion();
+    if (ncTarget === 'gm') ncEnsureTierForSpend(window.companionTpSpent());
     let total = window.companionTotalTp();
     let spent = window.companionTpSpent();
     let remaining = total - spent;
@@ -1674,7 +1686,7 @@ function ncRenderStep4() {
         heading('Armor') +
         `<div class="bg-slate-900 border border-slate-700 rounded p-2">
             <div class="flex items-center justify-between mb-1">
-                <span class="text-xs font-bold text-white">Equipped Armor <span class="text-yellow-500 text-[10px]">[1 TP per point of AC it grants]</span></span>
+                <span class="text-xs font-bold text-white">Equipped Armor <span class="text-yellow-500 text-[10px]">[1 TP per AC, +1 TP per 2 DR/ER${c.equippedArmor.name ? ` = ${window.npcArmorTp(c.equippedArmor).tp} TP` : ''}]</span></span>
                 <button onclick="window.openArmorForge(ncTarget)" class="text-[10px] text-orange-400 hover:text-orange-300 font-bold">${c.equippedArmor.name ? 'Edit' : '+ Forge Armor'}</button>
             </div>
             ${c.equippedArmor.name ? `<div class="text-[10px] text-slate-300">${c.equippedArmor.name} (AC +${c.equippedArmor.ac}, DR +${c.equippedArmor.dr}, ER +${c.equippedArmor.er})</div>` : '<div class="text-[10px] text-slate-600">None equipped — use natural defenses below, or forge armor.</div>'}
@@ -1775,7 +1787,7 @@ function ncRenderStep5() {
             <button onclick="window.ncAddInnateWeapon()" class="px-2 py-1 rounded bg-purple-700 hover:bg-purple-600 text-white text-[10px] font-bold">+ Add Innate Weapon</button>
         </div>
         <div class="space-y-2">${(c.innateWeapons || []).map((w, i) => ncRenderInnateWeapon(w, i, tier)).join('') || '<div class="text-[10px] text-slate-600 bg-slate-900 border border-slate-700 rounded p-2">No innate weapons. Add claws, fangs, horns, a tail…</div>'}</div>
-        ${heading('Manufactured Weapons <span class="normal-case">(built with Currency/Crafting Materials, not TP)</span>')}
+        ${heading(`Manufactured Weapons <span class="normal-case">(cost TP like the matching innate weapon${ncTarget === 'gm' ? '' : ', plus the Currency/Crafting Materials to make them'})</span>`)}
         <div class="bg-slate-900 border border-slate-700 rounded p-2">
             <div class="flex items-center justify-between mb-1">
                 <span class="text-xs font-bold text-white">Equipped Weapons</span>
@@ -1783,7 +1795,7 @@ function ncRenderStep5() {
             </div>
             ${c.weapons.length ? c.weapons.map((w, i) => `
                 <div class="flex items-center justify-between text-[10px] text-slate-300 py-0.5">
-                    <span>${w.name} (${w.dmg}, ${w.ap} AP)</span>
+                    <span title="${window.npcWeaponTp(w).parts.map(p => p.label + ': ' + p.tp + ' TP').join('\n')}">${w.name} (${w.dmg}, ${w.ap} AP) <b class="text-yellow-500">${window.npcWeaponTp(w).tp} TP</b></span>
                     <div class="flex gap-1">
                         <button onclick="window.openWeaponForge(${i}, ncTarget)" class="text-orange-400 hover:text-orange-300 font-bold">Edit</button>
                         <button onclick="window.ncRemoveCompanionWeapon(${i})" class="text-red-400 hover:text-red-300 font-bold">Remove</button>

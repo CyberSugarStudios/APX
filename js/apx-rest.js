@@ -6,7 +6,7 @@
 //   (Well Rested: roll twice, keep the higher). Spent dice stay spent until a Full Rest.
 //   CHA-based Power Slots come back.
 // Full Rest (8 hours, need at least 1 HP)
-//   All HP, -1 Fatigue, half of the spent Rest Dice back (rounded down), all Power
+//   All HP, -1 Fatigue, half your MAX Rest Dice back (rounded down, up to max), all Power
 //   Slots (INT and CHA), Luck Points refilled, companion slots/charges/HP, High
 //   Roller's Exploding Dice, and new Omen Dice (or keep unused ones).
 // Other perk features that recharge on rests are tracked by the player for now.
@@ -117,7 +117,7 @@
         let mh = maxHp();
         let maxDice = c.maxRestDice || s.restDice || 0;
         let spent = Math.max(0, maxDice - (s.restDice || 0));
-        let diceBack = Math.floor(spent / 2);
+        let diceBack = Math.min(spent, Math.floor(maxDice / 2));   // half of the max pool, rounded down
         let slotsUsed = Object.values(s.usedPowerSlots || {}).reduce((a, b) => a + (b || 0), 0);
         let maxLuck = c.maxLuck || Math.max(1, (c.mods && c.mods.LUC) || 0);
         let omenRank = (s.perks || {}).luc_omen || 0;
@@ -125,7 +125,7 @@
         let lines = [
             `HP back to full (${s.currentHp} → ${mh})`,
             s.fatigue > 0 ? `Fatigue ${s.fatigue} → ${s.fatigue - 1}` : null,
-            `Rest Dice +${diceBack} (half of the ${spent} spent) → ${Math.min(maxDice, (s.restDice || 0) + diceBack)} / ${maxDice}`,
+            `Rest Dice +${diceBack} (half your max of ${maxDice}, rounded down) → ${Math.min(maxDice, (s.restDice || 0) + diceBack)} / ${maxDice}`,
             slotsUsed ? `All Power Slots restored (${slotsUsed} used)` : 'Power Slots: all available',
             `Luck Points → ${maxLuck}`,
             s.companion ? `Companion: full HP, power slots and charges` : null,
