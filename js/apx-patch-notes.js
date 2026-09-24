@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.9.24.0505',
-        released: '2026-09-24T04:55:00',
-        releasedText: 'September 24, 2026 · 5:05 AM',
+        version: 'v2026.9.24.0610',
+        released: '2026-09-24T06:10:00',
+        releasedText: 'September 24, 2026 · 6:10 AM',
         title: 'Playtest Update',
         intro: 'A big round of fixes and features from the latest playtests. Your characters and worlds update automatically. Nothing is lost, and anything whose rules changed tells you what changed when you open it.',
         index: [
@@ -29,7 +29,7 @@
             ['Rules Updates', [
                 'High Roller and Fortunate Fighter (Rank 1) rewritten; Regenerative and Mobile updated; Power Crafting now allows at most 8 dice per die step and adds Mythic Utilities (130 XP).',
                 'Wound Threshold reminders with the CON save DC, and Permanent Injuries.',
-                'NPC manufactured weapons and armor now cost Threat Points.'
+                'NPC manufactured weapons and armor now cost Threat Points, and XP rewards for defeating NPCs follow the new Threat table (1 / 5 / 10 / 15 / 25 / 35 XP for Tiers 0–5, +10 per Tier after).'
             ]],
             ['Everything Else', [
                 'Larger small text everywhere (and a bit more for the Fantasy theme), XP bonuses from INT, Educated and Expertise, conditions that apply their linked conditions, and many fixes.',
@@ -105,6 +105,7 @@
                 'Races stay with their own world; locations can link NPCs; Add Party brings in your players.'
             ]],
             ['NPC Crafter', [
+                'New XP rewards per Tier: 1 / 5 / 10 / 15 / 25 / 35 XP for Tiers 0–5, then +10 per Tier (divided evenly among the players). Combats already in the tracker use the new values too.',
                 'Manufactured weapons and armor cost Threat Points, priced like the innate features they imitate.',
                 'Power Crafter: at most 8 dice per die step, a warning when Sacrifice is combined with healing, Step 5 utilities in two columns, and the new Mythic Utilities (a flat 130 XP, not multiplied by Area of Effect).'
             ]],

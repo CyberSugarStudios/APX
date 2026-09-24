@@ -4364,7 +4364,7 @@ document.addEventListener('DOMContentLoaded', () => {
         (_wNotes.otherMaps||[]).forEach(m => (m.battleTokens||[]).forEach(t => {
             if (t.initiativeId !== entryId) return;
             t._explicitDead = true;
-            t._deathXp = (entry && entry.faction !== 'player') ? (entry.tpValue || 0) : 0;
+            t._deathXp = (entry && entry.faction !== 'player') ? (window._gmEntryXp ? window._gmEntryXp(entry) : (entry.tpValue || 0)) : 0;
             t.initiativeId = null;
         }));
     };

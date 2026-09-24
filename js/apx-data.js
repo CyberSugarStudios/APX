@@ -106,10 +106,11 @@
         // XP awarded for defeating an NPC scales by Tier, not TP -- a
         // separate progression from the TP-budget table above. Straight
         // from the book's Threat System table.
-        const NPC_TIER_XP = [5, 15, 30, 50, 75, 105];
+        // (Updated Sept 24, 2026: 1 / 5 / 10 / 15 / 25 / 35, then +10 per Tier above 5.)
+        const NPC_TIER_XP = [1, 5, 10, 15, 25, 35];
         function npcXpForTier(tier) {
             if (tier <= 5) return NPC_TIER_XP[Math.max(0, tier)];
-            return 105 + 35 * (tier - 5);
+            return 35 + 10 * (tier - 5);
         }
         window.npcXpForTier = npcXpForTier;
 

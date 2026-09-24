@@ -763,6 +763,19 @@ function _gmSetPlayerCondition(entry, condId, on) {
 }
 window._gmSetPlayerCondition = _gmSetPlayerCondition;
 
+// XP for defeating an initiative entry: from its stat block's current Tier (so older
+// combats pick up XP table changes); quick-add NPCs keep their stored value (0).
+window._gmEntryXp = function(entry) {
+    if (!entry || entry.faction === 'player') return 0;
+    let n = entry.sourceNpcId && (window.gmNpcs || []).find(x => x.id === entry.sourceNpcId);
+    if (n && window.npcXpForTier) {
+        let xp = window.npcXpForTier(npcTierForTP(n.npc.gmTpBudget || 0).tier);
+        entry.tpValue = xp;
+        return xp;
+    }
+    return entry.tpValue || 0;
+};
+
 // Shared after-change handling: 0 HP → bleed out (players) / killed (NPCs); healed → clear bleed-out
 function _afterHpChange(entry, wasAboveZero) {
     if (entry.currentHp !== null && entry.currentHp <= 0 && wasAboveZero) {
@@ -770,7 +783,7 @@ function _afterHpChange(entry, wasAboveZero) {
             _syncHpToPlayer(entry);
             window.openBleedOutModal(entry.id);
         } else {
-            window.gmPendingXp += (entry.tpValue || 0);
+            window.gmPendingXp += window._gmEntryXp(entry);
             window.removeFromInitiative(entry.id, { dead: true });
             return;
         }
