@@ -100,10 +100,12 @@ function computeCharSummary(state) {
     if (amRank >= 4 && amChoice === 'Moderately' && armorClass === 'Moderately') agiCap += 1;
     if (!meetsStr) { agiCap = 0; calc.speed -= 2; }
 
+    // Fortunate Fighter Rank 1: LUC may replace AGI for AC -- the higher one is used
+    let acAttrMod = calc.lucAc ? Math.max(calc.mods.AGI || 0, calc.mods.LUC || 0) : (calc.mods.AGI || 0);
     let allowedAgi;
     if (isHeavy) allowedAgi = 0;
-    else if (calc.mods.AGI < 0) allowedAgi = calc.mods.AGI;
-    else allowedAgi = Math.min(calc.mods.AGI, agiCap);
+    else if (acAttrMod < 0) allowedAgi = acAttrMod;
+    else allowedAgi = Math.min(acAttrMod, agiCap);
 
     if (amRank >= 2 && amMatchesChoice) { calc.ac += 1; calc.dr += 1; }
     if (amRank >= 3 && armorClass !== null) calc.speed += 1;
@@ -115,8 +117,6 @@ function computeCharSummary(state) {
         calc.dr += state.perks["con_defensive"];
         calc.er += state.perks["con_defensive"];
     }
-    if (calc.lucAc) calc.ac += Math.max(1, calc.mods.LUC);
-
     calc.ac += allowedAgi + armorAc;
     calc.dr += Math.max(0, calc.mods.CON) + armorDr;
     let baseErMods = [calc.mods.AGI, calc.mods.PER, calc.mods.INT, calc.mods.CHA, calc.mods.LUC].map(v => Math.max(v, 0));

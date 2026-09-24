@@ -128,7 +128,7 @@
             let pi = (st.permanentInjuries || []).find(x => x.id === id); if (!pi) return;
             let ask = window.APXDice && window.APXDice.ask;
             let v = ask ? await ask('Remove Permanent Injury',
-                `Permanent Injury${pi.limb ? ' (' + pi.limb + ')' : ''}: ${pi.attr} −1.\n\nHealed (Relaxation downtime, a Medical plot or a Power): ${pi.attr} goes back up by 1.\nAlready raised ${pi.attr} again with XP: just remove the entry.`,
+                `Permanent Injury${pi.limb ? ' (' + pi.limb + ')' : ''}: ${pi.attr} −1.\n\nHealed (Relaxation downtime, a Medical plot or a Power): ${pi.attr} goes back up by 1.`,
                 [['keep', 'Remove only'], ['heal', `Healed: ${pi.attr} +1`, 'ok']]) : 'heal';
             if (!v) return;
             if (v === 'heal') st.baseStats[pi.attr] = (st.baseStats[pi.attr] || 0) + 1;
@@ -390,14 +390,18 @@
             let g = ADVENTURING_GEAR.find(x => x.name === name);
             if (!g) return;
             window.askPayOrGrant(g.name, g.cost, (paid) => {
-                let existing = window.state.items.find(i => i.name === g.name && i.wt === g.wt && i.val === g.cost && !i.isConsumable);
-                if (existing) {
-                    existing.ct += (g.cat === 'Ammo' ? 20 : 1);
+                if (g.cat === 'Ammo') {
+                    // Ammo is bought in bundles of 20 but kept as one stack of rounds per type
+                    // ("Medium Ammo"), with per-round weight and value.
+                    window.apxNormalizeAmmo?.(window.state);
+                    let name = g.stack || g.name.replace(/\s*\(20\)\s*$/, '');
+                    let existing = window.state.items.find(i => i.name === name && !i.isConsumable);
+                    if (existing) existing.ct = (parseInt(existing.ct) || 0) + 20;
+                    else window.state.items.push({ name, wt: g.wt / 20, ct: 20, val: g.cost / 20, desc: g.desc });
                 } else {
-                    let defaultCt = g.cat === 'Ammo' ? 20 : 1;
-                    // Ammo: wt in data is STACK weight (20 rounds). Store per-round weight so ct×wt = correct total.
-                    let itemWt = g.cat === 'Ammo' ? g.wt / 20 : g.wt;
-                    window.state.items.push({ name: g.name, wt: itemWt, ct: defaultCt, val: g.cost, desc: g.desc });
+                    let existing = window.state.items.find(i => i.name === g.name && i.wt === g.wt && i.val === g.cost && !i.isConsumable);
+                    if (existing) existing.ct += 1;
+                    else window.state.items.push({ name: g.name, wt: g.wt, ct: 1, val: g.cost, desc: g.desc });
                 }
                 if (paid) window.state.currency = (window.state.currency || 0) - g.cost;
                 window.recalculateMath();

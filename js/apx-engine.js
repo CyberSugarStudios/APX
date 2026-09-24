@@ -364,13 +364,16 @@
 
             if (!meetsStr) { agiCap = 0; calc.speed -= 2; }
 
+            // Fortunate Fighter Rank 1: LUC may replace AGI for AC -- the higher one is used
+            let acAttr = (calc.lucAc && (calc.mods.LUC || 0) > (calc.mods.AGI || 0)) ? 'LUC' : 'AGI';
+            let acAttrMod = calc.mods[acAttr] || 0;
             let allowedAgi;
             if (isHeavy) {
                 allowedAgi = 0; // Heavy Armor: AGI modifier never applies to AC, positive or negative
-            } else if (calc.mods.AGI < 0) {
-                allowedAgi = calc.mods.AGI; // negative AGI is never capped outside Heavy Armor
+            } else if (acAttrMod < 0) {
+                allowedAgi = acAttrMod; // negative AGI is never capped outside Heavy Armor
             } else {
-                allowedAgi = Math.min(calc.mods.AGI, agiCap);
+                allowedAgi = Math.min(acAttrMod, agiCap);
             }
 
             if (amRank >= 2 && amMatchesChoice) {
@@ -390,8 +393,6 @@
                 calc.dr += window.state.perks["con_defensive"];
                 calc.er += window.state.perks["con_defensive"];
             }
-            if (calc.lucAc) calc.ac += Math.max(1, calc.mods.LUC);
-
             calc.ac += allowedAgi + armorAc;
             document.getElementById('dispAc').innerText = calc.ac;
             // Update AC label tooltip dynamically
@@ -403,13 +404,13 @@
                     if (defRank >= 1 && armorWt === 0) {
                         acLabel.setAttribute('data-tip', 'Unarmored with Defensive perk: 10 + AGI mod + CON mod. Equipping armor/shield removes the CON bonus.');
                     } else if (ffRank >= 1) {
-                        acLabel.setAttribute('data-tip', '10 + AGI modifier (Fortunate Fighter: use LUC instead if higher) + Armor + Shield + bonuses');
+                        acLabel.setAttribute('data-tip', '10 + AGI or LUC modifier, whichever is higher (Fortunate Fighter) + Armor + Shield + bonuses');
                     } else {
                         acLabel.setAttribute('data-tip', '10 + AGI modifier + Armor + Shield + other bonuses');
                     }
                 }
             }
-            document.getElementById('dispAcCalc').innerText = `10+${allowedAgi}(AGI)+${armorAc}`;
+            document.getElementById('dispAcCalc').innerText = `10+${allowedAgi}(${acAttr})+${armorAc}`;
             {
                 let s = window.state.equippedShield, h = window.state.equippedHelmet;
                 let shieldStatusEl = document.getElementById('shieldStatus');

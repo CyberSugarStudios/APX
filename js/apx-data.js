@@ -179,9 +179,9 @@
             { cat: "Storage", name: "Backpack", cost: 20, wt: 5, desc: "Holds 50 lbs within 1 cubic foot of space." },
             { cat: "Storage", name: "Bandolier/Utility Belt", cost: 10, wt: 2, desc: "10 slots for small items. Halves the AP required to draw or stow an item on the belt." },
             // Ammo (20-round bundles)
-            { cat: "Ammo", name: "Light Ammo (20)", cost: 5, wt: 1, desc: "For pistols, short bows, hand crossbows, and small throwers." },
-            { cat: "Ammo", name: "Medium Ammo (20)", cost: 10, wt: 2, desc: "For hunting rifles, longbows, and tactical carbines." },
-            { cat: "Ammo", name: "Heavy Ammo (20)", cost: 20, wt: 4, desc: "For heavy machine guns, massive crossbows, and anti-material rifles." },
+            { cat: "Ammo", name: "Light Ammo (20)", stack: "Light Ammo", cost: 5, wt: 1, desc: "For pistols, short bows, hand crossbows, and small throwers." },
+            { cat: "Ammo", name: "Medium Ammo (20)", stack: "Medium Ammo", cost: 10, wt: 2, desc: "For hunting rifles, longbows, and tactical carbines." },
+            { cat: "Ammo", name: "Heavy Ammo (20)", stack: "Heavy Ammo", cost: 20, wt: 4, desc: "For heavy machine guns, massive crossbows, and anti-material rifles." },
             // Survival and Travel
             { cat: "Survival & Travel", name: "Bedroll", cost: 10, wt: 7, desc: "Sleeps a creature. Automatically succeed on saves against extreme cold while resting in it." },
             { cat: "Survival & Travel", name: "Blanket", cost: 5, wt: 3, desc: "Advantage on saves against extreme cold while wrapped in it." },
@@ -538,6 +538,10 @@
                 { key: "banish", label: "Teleport the target to a harmless location (up to 1 mile/Power Level) for the duration; permanent if extradimensional.", cost: 50 },
                 { key: "polymorph", label: "Change a target's physical form entirely into another creature/object (CR <= Power's Level).", cost: 50 },
                 { key: "storedItem", label: "Power is stored as a scroll/rune/data drive on use; triggered later with 3 AP or a set condition.", cost: 50 }
+            ],
+            // Mythic Utility (130 XP each, rulebook p.39). The tier only shows in the Power
+            // Crafter once it has entries; add them here as { key, label, cost: 130 }.
+            mythic: [
             ]
         };
 

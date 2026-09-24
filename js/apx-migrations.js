@@ -112,8 +112,36 @@
                 if (s.ancestry && s.ancestry.gpLimit === undefined) s.ancestry.gpLimit = Math.max(15, s.ancestry.gpUsed || 0);
                 return [];
             }
+        },
+        {
+            v: 6, label: 'Ammo stacks, High Roller and Fortunate Fighter (Sept 24, 2026)',
+            run(s) {
+                let notes = [];
+                window.apxNormalizeAmmo(s);
+                let p = s.perks || {};
+                if (p.luc_highroller) notes.push({ title: 'High Roller', text: 'Updated: a Gamble that hits adds +5 damage (+10 from Rank 4, which also gives you 1 AP). Rank 3 now lets you roll a Luck Point reroll with Advantage or Disadvantage. Rank 5 is a Dice Explosion you declare before rolling damage: each die that rolls its maximum is rolled once more and added.' });
+                if (p.luc_fortunatefighter) notes.push({ title: 'Fortunate Fighter (Rank 1)', text: 'Now: when determining your AC, you may replace your AGI with your LUC. It no longer adds LUC on top of AGI. Your sheet uses whichever is higher, so your AC may be lower than before.' });
+                return notes;
+            }
         }
     ];
+
+    // Ammo is one stack per type ("Medium Ammo"), counted in rounds, with per-round weight
+    // and value. Older sheets could have "Medium Ammo (20)" stacks (sometimes several).
+    window.apxNormalizeAmmo = function (s) {
+        let gear = (typeof ADVENTURING_GEAR !== 'undefined' ? ADVENTURING_GEAR : []).filter(g => g.cat === 'Ammo');
+        if (!gear.length || !Array.isArray(s.items)) return;
+        gear.forEach(g => {
+            let base = g.name.replace(/\s*\(20\)\s*$/, '');
+            let stacks = s.items.filter(i => i && !i.isConsumable && (i.name === g.name || i.name === base));
+            if (!stacks.length) return;
+            let keep = stacks[0];
+            let rounds = stacks.reduce((t, i) => t + (parseInt(i.ct) || 0), 0);
+            keep.name = base; keep.ct = rounds;
+            keep.wt = g.wt / 20; keep.val = g.cost / 20;
+            s.items = s.items.filter(i => i === keep || !stacks.includes(i));
+        });
+    };
     window.APX_RULES_VERSION = Math.max(...CHARACTER_MIGRATIONS.map(m => m.v));
 
     // Runs any migrations this state hasn't had. Safe to call as often as you like.

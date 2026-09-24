@@ -76,7 +76,7 @@ function getBlankPowerDraft() {
         dmg: { d4: 0, d6: 0, d8: 0, d10: 0, d12: 0 },
         isHealing: false, dmgType: 'Fire',
         addSecondType: false, secondDmgType: 'Cold', addFlatDmgPerDie: false, addAttrToDmg: false,
-        utility: { minor: {}, moderate: {}, major: {}, master: {} },
+        utility: { minor: {}, moderate: {}, major: {}, master: {}, mythic: {} },
         duration: 'instant', durationMods: { dmgInterrupt: false, actionInterrupt: false },
         apMod: 'ap4',
         refunds: { minorRestriction: 0, concentration: false, overexertion: false, sacrifice: false, costly: 0 },
@@ -117,10 +117,10 @@ window.pcCalcXP = function(draft) {
     // tier's per-selection price by 10, floored at 0, before that multiply).
     let step5Cost = 0;
     let step5Count = 0;
-    ['minor', 'moderate', 'major', 'master'].forEach(tier => {
-        let basePrice = { minor: 5, moderate: 15, major: 30, master: 50 }[tier];
+    ['minor', 'moderate', 'major', 'master', 'mythic'].forEach(tier => {
+        let basePrice = { minor: 5, moderate: 15, major: 30, master: 50, mythic: 130 }[tier];
         if (draft.step1 === 'hpPool') basePrice = Math.max(0, basePrice - 10);
-        Object.keys(draft.utility[tier]).forEach(key => {
+        Object.keys(draft.utility[tier] || {}).forEach(key => {
             let count = draft.utility[tier][key] || 0;
             step5Cost += count * basePrice * aoeDef.mult;
             step5Count += count;
@@ -431,6 +431,7 @@ window.pcToggleFlatDmg = function(checked) { pcDraft.addFlatDmgPerDie = checked;
 window.pcToggleAttrToDmg = function(checked) { pcDraft.addAttrToDmg = checked; pcRenderAll(); };
 
 window.pcSetUtilityCount = function(tier, key, delta) {
+    if (!pcDraft.utility[tier]) pcDraft.utility[tier] = {};
     let cur = pcDraft.utility[tier][key] || 0;
     let entry = POWER_UTILITY[tier].find(u => u.key === key);
     let max = entry.rep ? 20 : 1;
@@ -559,6 +560,8 @@ function pcRenderStep4() {
 }
 
 function pcRenderUtilityTier(tier, label, colorClass) {
+    if (!(POWER_UTILITY[tier] || []).length) return '';
+    if (!pcDraft.utility[tier]) pcDraft.utility[tier] = {};
     let rows = POWER_UTILITY[tier].map(u => {
         let count = pcDraft.utility[tier][u.key] || 0;
         return `
@@ -572,17 +575,22 @@ function pcRenderUtilityTier(tier, label, colorClass) {
             </div>
         `;
     }).join('');
-    return `<div class="mb-3"><div class="text-xs font-black ${colorClass} mb-1.5">${label}</div><div class="space-y-1">${rows}</div></div>`;
+    return `<div class="mb-3" style="break-inside:avoid-column"><div class="text-xs font-black ${colorClass} mb-1.5">${label}</div><div class="space-y-1">${rows}</div></div>`;
 }
 
 function pcRenderStep5() {
     let npc = pcIsNpc();
     let discountNote = pcDraft.step1 === 'hpPool' ? `<div class="text-[10px] text-emerald-400 mb-2">HP Capacity Pool: each Utility selection is ${npc ? 'cheaper' : 'costs 10 XP less (min 0)'} before the AoE multiplier.</div>` : '';
+    // Two columns: Minor on the left; Moderate, Major, Master and Mythic on the right
     document.getElementById('pcStep5List').innerHTML = discountNote +
+        `<div class="grid grid-cols-1 md:grid-cols-2 gap-x-3 items-start"><div>` +
         pcRenderUtilityTier('minor', npc ? 'Minor Utility' : 'Minor Utility (5 XP each)', 'text-emerald-400') +
+        `</div><div>` +
         pcRenderUtilityTier('moderate', npc ? 'Moderate Utility' : 'Moderate Utility (15 XP each)', 'text-blue-400') +
         pcRenderUtilityTier('major', npc ? 'Major Utility' : 'Major Utility (30 XP each)', 'text-purple-400') +
-        pcRenderUtilityTier('master', npc ? 'Master Utility' : 'Master Utility (50 XP each)', 'text-red-400');
+        pcRenderUtilityTier('master', npc ? 'Master Utility' : 'Master Utility (50 XP each)', 'text-red-400') +
+        pcRenderUtilityTier('mythic', npc ? 'Mythic Utility' : 'Mythic Utility (130 XP each)', 'text-amber-300') +
+        `</div></div>`;
 }
 
 function pcRenderStep6() {
@@ -818,9 +826,10 @@ function pcBuildTextSummary() {
     }
 
     let utilityBits = [];
-    ['minor', 'moderate', 'major', 'master'].forEach(tier => {
-        Object.keys(pcDraft.utility[tier]).forEach(key => {
-            let entry = POWER_UTILITY[tier].find(u => u.key === key);
+    ['minor', 'moderate', 'major', 'master', 'mythic'].forEach(tier => {
+        Object.keys(pcDraft.utility[tier] || {}).forEach(key => {
+            let entry = (POWER_UTILITY[tier] || []).find(u => u.key === key);
+            if (!entry) return;
             let count = pcDraft.utility[tier][key];
             utilityBits.push(count > 1 ? `${entry.label} (x${count})` : entry.label);
         });

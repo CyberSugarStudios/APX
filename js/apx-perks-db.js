@@ -265,7 +265,7 @@
                 "Rank 5. Once/session: Miraculously pull needed mundane item from bag."
             ], effect: (c, r) => { c.skills.Loot = (c.skills.Loot||0)+r; } },
             { id: "luc_fortunatefighter", name: "Fortunate Fighter", attr: "LUC", max: 5, baseDesc: "Luck keeps you alive.", ranks: [
-                "Rank 1. +AC equal to LUC mod (min 1).",
+                "Rank 1. When determining your AC, you may replace your AGI with your LUC. (The sheet uses whichever is higher.)",
                 "Rank 2. Once/turn: Add LUC mod to damage.",
                 "Rank 3. Substitute LUC mod for attack AND damage rolls with weapons you're untrained in. Once/combat: add LUC to a missed attack roll, possibly turning it into a hit.",
                 "Rank 4. Crit multiplier increased by 1.",
