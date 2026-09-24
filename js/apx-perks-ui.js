@@ -40,10 +40,10 @@
             </div>`;
         }
         function highRollerPanelHtml(rank) {
-            let bits = ['Gamble is offered on every weapon attack'];
+            let bits = [`Gamble is offered on every weapon attack (+${rank >= 4 ? 10 : 5} damage on a hit${rank >= 4 ? ', +1 AP button' : ''})`];
             if (rank >= 2) bits.push('1s and 2s on damage are rerolled automatically');
-            if (rank >= 3) bits.push('Luck reroll buttons appear on d20 rolls');
-            if (rank >= 5) bits.push('Exploding dice: ' + (window.state.hrExplodeUsed ? 'used (back after a Full Rest)' : 'ready, tick it in the dice tray'));
+            if (rank >= 3) bits.push('Luck rerolls can use Advantage or Disadvantage');
+            if (rank >= 5) bits.push('Dice Explosion: ' + (window.state.hrExplodeUsed ? 'used (back after a Full Rest)' : 'ready, tick it in the dice tray before rolling damage'));
             return `<div style="margin:-0.35rem 0 0.5rem;padding:.35rem .55rem;border:1px solid #065f46;border-top:none;border-radius:0 0 .4rem .4rem;background:rgba(6,95,70,.15);font-size:9px;color:#a7f3d0;">${bits.join(' · ')}</div>`;
         }
 

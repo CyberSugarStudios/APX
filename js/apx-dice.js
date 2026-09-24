@@ -10,7 +10,7 @@
 //   APXDice.linkify(element)      turn "2d6+3" text into clickable rolls
 //
 // Perks (character sheet only, when perks:true):
-//   High Roller  R1 Gamble (forced Disadvantage, +10 damage on a hit)
+//   High Roller  R1 Gamble (forced Disadvantage, +5 damage on a hit; +10 and +1 AP from R4)
 //                R2 reroll 1s and 2s on damage   R3 Luck Point reroll of the d20
 //                R4 landing a Gamble grants +1 AP R5 Exploding dice once per Full Rest
 //   Omen         stored d20s that can replace any d20 roll (R2 ±LUC mod,
@@ -56,16 +56,64 @@
         for (let i = 0; i < n; i++) {
             let v = rnd(s), d = { v, s };
             if (opt.reroll12 && v <= 2) { d.from = v; d.v = rnd(s); }            // High Roller R2
-            if (opt.explode) {                                                    // High Roller R5
-                let extra = [], cur = d.v, guard = 0;
-                while (cur === s && guard++ < 20) { cur = rnd(s); extra.push(cur); }
-                if (extra.length) d.boom = extra;
+            if (opt.explode && d.v === s) {                                       // High Roller R5: max → roll it again, add it
+                let x = rnd(s);
+                if (opt.reroll12 && x <= 2) x = rnd(s);
+                d.boom = [x];
             }
             dice.push(d);
         }
         return dice;
     }
     function dieSum(d) { return d.v + (d.boom ? d.boom.reduce((a, b) => a + b, 0) : 0); }
+
+    // Damage perks that change the dice (character sheet only):
+    //   High Roller R2 reroll 1s/2s, R5 Dice Explosion; Melee Prowess R2 / Sharpshooter R2
+    //   roll damage twice keep the higher total; Melee Prowess R5 / Sharpshooter R5 crit
+    //   confirm roll → maximum critical damage; Instigator R3 vs a Frightened/Provoked
+    //   target: +1 damage die and crit multiplier +1.
+    function damagePerks(o, usePerks) {
+        let cat = o.wcat || '';
+        let mp = usePerks ? perk('str_meleeprowess') : 0, ss = usePerks ? perk('per_sharpshooter') : 0;
+        return {
+            hr: usePerks ? perk('luc_highroller') : 0,
+            keepBest: (cat === 'melee' && mp >= 2) || (cat === 'ranged' && ss >= 2),
+            keepSrc: cat === 'ranged' ? 'Sharpshooter' : 'Melee Prowess',
+            maxConfirm: (cat === 'melee' && mp >= 5) || (cat === 'ranged' && ss >= 5),
+            confirmSrc: cat === 'ranged' ? 'Sharpshooter' : 'Melee Prowess',
+            instig: usePerks && (cat === 'melee' || cat === 'ranged') && perk('cha_instigator') >= 3
+        };
+    }
+    // Rolls every die the damage could need up front (crit extras, Instigator's die, a second
+    // set for keep-the-higher), so the card can be re-settled later (Omen 20, toggles) without rerolling.
+    function makeDamage(formula, opt) {
+        let p = parse(formula || '0');
+        let critMult = opt.critMult || 2, mmax = critMult + (opt.instig ? 1 : 0);
+        let sets = (opt.keepBest ? [0, 1] : [0]).map(() => p.dice.map((g, i) => rollGroup((g.n + (i === 0 && opt.instig ? 1 : 0)) * Math.max(1, mmax), g.s, opt)));
+        function evalSet(pools, st) {
+            let mult = st.crit ? critMult + (st.inst ? 1 : 0) : 1;
+            let base = [], extra = [];
+            p.dice.forEach((g, i) => {
+                let n = g.n + (st.inst && i === 0 ? 1 : 0);
+                let bd = pools[i].slice(0, n), ed = pools[i].slice(n, n * mult);
+                if (st.maxed) { bd = bd.map(d => ({ v: d.s, s: d.s })); ed = ed.map(d => ({ v: d.s, s: d.s })); }
+                base.push({ sign: g.sign, s: g.s, dice: bd });
+                if (ed.length) extra.push({ sign: g.sign, s: g.s, crit: true, dice: ed });
+            });
+            let groups = base.concat(extra);
+            let diceTotal = groups.reduce((t, g) => t + g.sign * g.dice.reduce((a, d) => a + dieSum(d), 0), 0);
+            return { groups, flat: p.flat, diceTotal, mult };
+        }
+        return {
+            parsed: p,
+            settle(st) {
+                let rs = sets.map(pl => evalSet(pl, st));
+                let k = rs.length > 1 && rs[1].diceTotal > rs[0].diceTotal ? 1 : 0;
+                return { roll: rs[k], other: rs.length > 1 ? rs[1 - k] : null };
+            },
+            rerolled() { return sets.some(pl => pl.some(g => g.some(d => d.from))); }
+        };
+    }
 
     function rollFormula(formula, opt) {
         let p = parse(formula);
@@ -159,7 +207,7 @@
         [data-apx-roll]:hover{filter:brightness(1.25)}
         .apxd-ask{position:fixed;inset:0;z-index:2147483646;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px}
         .apxd-ask>div{background:var(--c-surface,#1e293b);border:1px solid var(--c-border2,#475569);border-radius:.7rem;padding:1rem 1.1rem;width:min(360px,100%);color:var(--c-text,#fff)}
-        .apxd-ask h4{margin:0 0 .3rem;font-size:.9rem;font-weight:800} .apxd-ask p{margin:0 0 .8rem;font-size:.74rem;color:var(--c-text-dimmer,#cbd5e1);line-height:1.4}
+        .apxd-ask h4{margin:0 0 .3rem;font-size:.9rem;font-weight:800} .apxd-ask p{margin:0 0 .8rem;white-space:pre-line;font-size:.74rem;color:var(--c-text-dimmer,#cbd5e1);line-height:1.4}
         .apxd-ask .row{display:flex;gap:.4rem;justify-content:flex-end;flex-wrap:wrap}
         .apxd-ask button{border:none;border-radius:.4rem;padding:.45rem .8rem;font-size:.74rem;font-weight:800;cursor:pointer;background:var(--c-border,#334155);color:var(--c-text,#fff)}
         .apxd-ask button.pri{background:var(--c-amber,#d97706)} .apxd-ask button.ok{background:var(--c-emerald,#059669)}`;
@@ -184,8 +232,8 @@
             <div class="apxd-bar">
                 <div class="apxd-seg" title="Applies to the next d20 roll (conditions are added automatically)">
                     <button data-mode="dis">Disadv</button><button data-mode="normal" class="on">Normal</button><button data-mode="adv">Adv</button></div>
-                <label data-explode-wrap style="display:none;font-size:.67rem;font-weight:800;align-items:center;gap:.2rem;cursor:pointer" title="High Roller Rank 5: once per Full Rest">
-                    <input type="checkbox" data-explode> Exploding dice</label>
+                <label data-explode-wrap style="display:none;font-size:.67rem;font-weight:800;align-items:center;gap:.2rem;cursor:pointer" title="High Roller Rank 5: once per Full Rest, declare before rolling damage">
+                    <input type="checkbox" data-explode> Dice Explosion</label>
             </div>
             <div class="apxd-omen" data-omen style="display:none"></div>
             <div class="apxd-q">
@@ -322,7 +370,7 @@
             }
             if (p.kind === 'dmg') {
                 if (p.none) return `<div class="apxd-part"><span class="apxd-plabel">${esc(p.title)}</span><span class="apxd-mod">— (natural 1)</span><span class="apxd-tot">-</span></div>`;
-                let mods = (p.roll.flat ? `<span class="apxd-mod">${fmtNum(p.roll.flat)}</span>` : '') + (p.gamble ? `<span class="apxd-mod" title="High Roller Gamble: +10 on a hit">+10</span>` : '');
+                let mods = (p.roll.flat ? `<span class="apxd-mod">${fmtNum(p.roll.flat)}</span>` : '') + (p.gamble ? `<span class="apxd-mod" title="High Roller Gamble: +5 on a hit (+10 from Rank 4)">+${p.gamble}</span>` : '');
                 let critTxt = p.crit ? `<span class="apxd-mod" title="Critical hit: ×${p.mult} dice">(×${p.mult} dice)</span>` : '';
                 return `<div class="apxd-part"><span class="apxd-plabel">${esc(p.title)}</span>${groupsHtml(p.roll, spin)}${mods}${critTxt}<span class="apxd-tot">${p.total}</span></div>`;
             }
@@ -392,10 +440,15 @@
                 let st = S(); st.omenDice = (st.omenDice || []).concat([p.nat]); p.banked = true; onChange(); save(); refreshPerkBar(); refreshAllActions();
             } });
         }
-        if (perk('luc_highroller') >= 3 && !p.luckUsed) {
+        if (!p.luckUsed && window.state && document.getElementById('luckPtsInput')) {
             let pts = S().luckPts || 0;
-            ['adv', 'dis'].forEach(m => acts.push({
-                label: `Luck reroll (${m === 'adv' ? 'Adv' : 'Disadv'})`, cls: 'luck', title: `High Roller Rank 3: spend 1 Luck Point (${pts} left)`,
+            let r3 = perk('luc_highroller') >= 3;
+            let orig = p.origMode || 'normal';
+            let modes = c.gamble ? ['dis'] : r3 ? ['adv', 'dis'] : [orig];
+            modes.forEach(m => acts.push({
+                label: c.gamble ? 'Luck reroll (Gamble: Disadv)' : r3 ? `Luck reroll (${m === 'adv' ? 'Adv' : 'Disadv'})` : 'Luck reroll',
+                cls: 'luck',
+                title: `Spend 1 Luck Point to reroll this d20 (${pts} left)` + (r3 && !c.gamble ? '. High Roller Rank 3: roll it with Advantage or Disadvantage' : c.gamble ? '. A Gamble keeps its Disadvantage' : ''),
                 hidden: pts <= 0,
                 run: () => {
                     let st = S(); if ((st.luckPts || 0) <= 0) return;
@@ -436,7 +489,7 @@
             if ((o.disSources || []).length || o.adv === 'dis') list.push('dis');
             let mode = combineMode(list);
             let r = d20(mode);
-            let p = { kind: 'd20', title: o.kind === 'save' ? 'Save' : 'd20', r, bonus: o.bonus || 0, canCrit: false };
+            let p = { kind: 'd20', title: o.kind === 'save' ? 'Save' : 'd20', r, bonus: o.bonus || 0, canCrit: false, origMode: mode };
             settleD20(p);
             let c = { label: o.label || 'Check', who: o.who, parts: [p], perks: o.perks !== false && !!(window.state?.perks), badges: modeBadges(mode, o.advSources, o.disSources) };
             if (o.autoFail) c.badges.push(['fum', 'Auto-fail', o.autoFail]);
@@ -454,7 +507,7 @@
             let hr = usePerks ? perk('luc_highroller') : 0;
             let gamble = false;
             if (hr >= 1 && o.gambleAllowed !== false) {
-                let ans = await ask('High Roller: Gamble?', 'Gamble: this attack has Disadvantage that can\'t be cancelled, but deals +10 damage if it hits.' + (hr >= 4 ? ' Landing it also grants +1 AP.' : ''),
+                let ans = await ask('High Roller: Gamble?', `Gamble: this attack has Disadvantage that no Advantage can cancel, but deals +${hr >= 4 ? 10 : 5} damage if it hits.` + (hr >= 4 ? ' Landing it also gives you 1 AP.' : ''),
                     [['normal', 'Normal attack', 'ok'], ['gamble', 'Gamble', 'pri']]);
                 if (!ans) return;
                 gamble = ans === 'gamble';
@@ -475,37 +528,56 @@
             if ((o.disSources || []).length || o.adv === 'dis') list.push('dis');
             let mode = combineMode(list, gamble ? 'dis' : null);
             let r = d20(mode);
-            let atk = { kind: 'd20', title: 'Attack', r, bonus: o.bonus || 0 };
+            let atk = { kind: 'd20', title: 'Attack', r, bonus: o.bonus || 0, origMode: mode };
             settleD20(atk);
             let explode = usePerks && tray.explodeNext && hr >= 5 && !S().hrExplodeUsed;
-            let roll = rollFormula(o.dice || '0', { reroll12: usePerks && hr >= 2, explode });
             if (explode) { S().hrExplodeUsed = true; tray.explodeNext = false; refreshPerkBar(); }
             let critMult = o.critMult || 2;
-            // The extra crit dice are rolled now and only shown if the attack turns out to crit
+            let dp = damagePerks(o, usePerks);
+            // The crit dice are rolled now and only shown if the attack turns out to crit
             // (it can become a crit later, e.g. by using a stored Omen 20).
-            let extra = rollFormula(o.dice || '0', { reroll12: usePerks && hr >= 2, explode, countMult: critMult - 1, critExtra: true });
-            let flat = (roll.flat || 0) + (o.dmgMod || 0);
-            let dmg = { kind: 'dmg', title: 'Damage', roll: { groups: roll.groups, flat, diceTotal: roll.diceTotal }, gamble, mult: critMult };
-            let c = { label: o.label || 'Attack', who: o.who, parts: [atk, dmg], perks: usePerks };
+            let dm = makeDamage(o.dice, { reroll12: usePerks && hr >= 2, explode, critMult, keepBest: dp.keepBest, instig: dp.instig });
+            let flat = (dm.parsed.flat || 0) + (o.dmgMod || 0);
+            let gambleBonus = gamble ? (hr >= 4 ? 10 : 5) : 0;   // High Roller: +5 on a Gamble that hits (+10 from Rank 4)
+            let dst = { crit: false, inst: false, maxed: false };
+            let dmg = { kind: 'dmg', title: 'Damage', gamble: gambleBonus, mult: critMult };
+            let c = { label: o.label || 'Attack', who: o.who, parts: [atk, dmg], perks: usePerks, gamble };
             let settleDmg = () => {
                 dmg.crit = atk.crit; dmg.none = atk.fumble;
-                dmg.roll = dmg.crit
-                    ? { groups: roll.groups.concat(extra.groups), flat, diceTotal: roll.diceTotal + extra.diceTotal }
-                    : { groups: roll.groups, flat, diceTotal: roll.diceTotal };
+                dst.crit = atk.crit;
+                let res = dm.settle(dst);
+                dmg.roll = { groups: res.roll.groups, flat, diceTotal: res.roll.diceTotal };
+                dmg.mult = res.roll.mult;
                 let total = dmg.roll.diceTotal + dmg.roll.flat;
-                if (gamble) total += 10;
+                if (gamble) total += gambleBonus;
                 dmg.total = Math.max(0, total);
                 c.badges = modeBadges(atk.badgeMode || mode, o.advSources, o.disSources, gamble);
                 if (o.dmgType) c.badges.push(['info', o.dmgType]);
-                if (gamble && !atk.fumble) c.badges.push(['info', 'Gamble: +10 is included, only if it hits' + (hr >= 4 ? '. Hit = +1 AP' : '')]);
-                if (roll.groups.some(g => g.dice.some(d => d.from))) c.badges.push(['info', 'High Roller: rerolled 1s & 2s (*)']);
-                if (explode) c.badges.push(['info', 'Exploding dice used']);
+                if (gamble && !atk.fumble) c.badges.push(['info', `Gamble: +${gambleBonus} is included, only if it hits` + (hr >= 4 ? '. Hit = +1 AP' : '')]);
+                if (res.other) c.badges.push(['info', `${dp.keepSrc}: rolled damage twice, kept ${res.roll.diceTotal + flat} (other ${res.other.diceTotal + flat})`, 'Rank 2: roll damage twice and keep the highest total']);
+                if (dm.rerolled()) c.badges.push(['info', 'High Roller: rerolled 1s & 2s (*)']);
+                if (explode) c.badges.push(['info', 'Dice Explosion: max rolls rolled again and added']);
+                if (dst.inst) c.badges.push(['info', 'Instigator: +1 damage die' + (atk.crit ? ', crit ×' + dmg.mult : '')]);
+                if (dst.confirm) c.badges.push([dst.maxed ? 'crit' : 'info', `${dp.confirmSrc} R5 second attack roll: ${dst.confirm.total} (d20 ${dst.confirm.nat})` + (dst.maxed ? ' · max critical damage' : '')]);
                 if (apNote) c.badges.push(apNote);
             };
-            let redo = (full) => { settleDmg(); c.actions = d20Actions(c, atk, redo); renderCard(c); };
+            let extraActs = () => {
+                let acts = [];
+                if (dp.instig) acts.push({ label: dst.inst ? 'Instigator: on' : 'Target Frightened/Provoked?', cls: dst.inst ? 'luck' : '', title: 'Instigator Rank 3: a Frightened or Provoked target takes an extra damage die, and your crit multiplier is +1', run: () => { dst.inst = !dst.inst; redo(); } });
+                if (dp.maxConfirm && atk.crit && !dst.confirm) acts.push({ label: `${dp.confirmSrc} R5: roll again`, cls: 'luck', title: 'Rank 5: on a critical hit, roll the attack again; if it hits, deal maximum critical damage', run: () => {
+                    let r2 = d20(mode === 'dis' || gamble ? 'dis' : mode); let nat = r2.rolls[r2.kept];
+                    dst.confirm = { nat, total: nat + (atk.bonus || 0) }; redo();
+                } });
+                if (dst.confirm && !dst.maxed) acts.push({ label: 'It hit: max damage', cls: 'luck', title: 'The second attack roll hit: deal maximum critical damage', run: () => { dst.maxed = true; redo(); } });
+                if (gamble && hr >= 4 && !atk.fumble && !dst.apGained && typeof window.apxSetApValue === 'function') acts.push({ label: 'Gamble hit: +1 AP', cls: 'luck', title: 'High Roller Rank 4: landing a Gamble gives you 1 AP', run: () => {
+                    dst.apGained = true; window.apxSetApValue((window.apxApCurrent ? window.apxApCurrent() : 0) + 1); redo();
+                } });
+                return acts;
+            };
+            let redo = (full) => { settleDmg(); c.actions = d20Actions(c, atk, redo).concat(extraActs()); renderCard(c); };
             c._redo = redo;
             settleDmg();
-            c.actions = d20Actions(c, atk, redo);
+            c.actions = d20Actions(c, atk, redo).concat(extraActs());
             setMode('normal');
             return addCard(c);
         },
@@ -514,13 +586,27 @@
             o = o || {};
             let usePerks = o.perks !== false && !!(window.state?.perks);
             let hr = usePerks ? perk('luc_highroller') : 0;
-            let explode = usePerks && tray.explodeNext && hr >= 5 && !S().hrExplodeUsed;
-            let roll = rollFormula(o.formula, { reroll12: !o.heal && usePerks && hr >= 2, explode, countMult: (o.mult && o.mult > 1) ? o.mult : 1 });
+            let explode = usePerks && !o.heal && tray.explodeNext && hr >= 5 && !S().hrExplodeUsed;
             if (explode) { S().hrExplodeUsed = true; tray.explodeNext = false; refreshPerkBar(); }
-            let p = { kind: 'dmg', title: o.heal ? 'Heal' : 'Damage', roll, total: Math.max(0, roll.total), crit: !!(o.mult && o.mult > 1), mult: o.mult };
+            let dp = o.heal ? {} : damagePerks(o, usePerks);
+            let mult = (o.mult && o.mult > 1) ? o.mult : 2;
+            let dm = makeDamage(o.formula, { reroll12: !o.heal && usePerks && hr >= 2, explode, critMult: mult, keepBest: dp.keepBest, instig: dp.instig });
+            let dst = { crit: !!(o.mult && o.mult > 1), inst: false, maxed: false };
+            let p = { kind: 'dmg', title: o.heal ? 'Heal' : 'Damage' };
             let c = { label: o.label || 'Damage', who: o.who, parts: [p], badges: [] };
-            if (o.dmgType) c.badges.push(['info', o.dmgType]);
-            if (roll.groups.some(g => g.dice.some(d => d.from))) c.badges.push(['info', 'High Roller: rerolled 1s & 2s (*)']);
+            let settle = () => {
+                let res = dm.settle(dst);
+                p.roll = { groups: res.roll.groups, flat: dm.parsed.flat, diceTotal: res.roll.diceTotal };
+                p.total = Math.max(0, res.roll.diceTotal + dm.parsed.flat); p.crit = dst.crit; p.mult = res.roll.mult;
+                c.badges = [];
+                if (o.dmgType) c.badges.push(['info', o.dmgType]);
+                if (res.other) c.badges.push(['info', `${dp.keepSrc}: rolled damage twice, kept ${p.total} (other ${res.other.diceTotal + dm.parsed.flat})`]);
+                if (dm.rerolled()) c.badges.push(['info', 'High Roller: rerolled 1s & 2s (*)']);
+                if (explode) c.badges.push(['info', 'Dice Explosion: max rolls rolled again and added']);
+                if (dst.inst) c.badges.push(['info', 'Instigator: +1 damage die']);
+                c.actions = dp.instig ? [{ label: dst.inst ? 'Instigator: on' : 'Target Frightened/Provoked?', cls: dst.inst ? 'luck' : '', title: 'Instigator Rank 3: a Frightened or Provoked target takes an extra damage die', run: () => { dst.inst = !dst.inst; settle(); renderCard(c); } }] : [];
+            };
+            settle();
             return addCard(c);
         },
 

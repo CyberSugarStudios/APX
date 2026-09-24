@@ -271,12 +271,12 @@
                 "Rank 4. Crit multiplier increased by 1.",
                 "Rank 5. Once/turn: Spend Luck Point to auto-crit on hit."
             ], effect: (c, r) => { c.lucAc = true; } },
-            { id: "luc_highroller", name: "High Roller", attr: "LUC", max: 5, baseDesc: "Massive risks for massive rewards.", ranks: [
-                "Rank 1. Gamble: Attack with uncancelable Disadvantage. +10 damage on hit.",
-                "Rank 2. Reroll 1s and 2s on all damage.",
-                "Rank 3. Spend Luck Point to reroll d20 with Advantage/Disadvantage.",
-                "Rank 4. Landing a Gamble (Rank 1) grants +1 AP.",
-                "Rank 5. Once/Full Rest: Exploding Dice (max rolls roll again and add)."
+            { id: "luc_highroller", name: "High Roller", attr: "LUC", max: 5, baseDesc: "Fortune favors the reckless.", ranks: [
+                "Rank 1. Before you make an attack roll, you can declare a Gamble. The attack is made with Disadvantage, and no amount of Advantage can cancel it. If it still hits, add +5 to the damage roll.",
+                "Rank 2. Whenever you roll damage, reroll any die that shows a 1 or 2. You must use the new result.",
+                "Rank 3. Whenever you spend a Luck Point to reroll a d20, you can choose to roll it with Advantage or Disadvantage.",
+                "Rank 4. When a Gamble hits, you immediately gain 1 AP, and its damage bonus increases from +5 to +10.",
+                "Rank 5. Once per Full Rest, you can declare a Dice Explosion before you roll damage. Each die that rolls its maximum is rolled once more, and the new roll is added to the total."
             ]},
             { id: "luc_foolsluck", name: "Fool's Luck", attr: "LUC", max: 5, baseDesc: "Fail forward.", ranks: [
                 "Rank 1. Natural 1 grants 1 Luck Point.",

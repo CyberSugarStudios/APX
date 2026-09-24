@@ -1039,9 +1039,9 @@
             let rollName = (w.name || 'Weapon') + (opts.label ? (opts.attr === 'STR' && /2-Handed/.test(opts.label) ? ' (2-Handed)' : /Aimed/.test(opts.label) ? ' (Aimed)' : '') : '');
             // pcAttack/apCost/aimed: the sheet's AP hook (apxBeforeAttack) spends AP for this attack
             let atkRoll = apxRollAttr({ type: 'attack', label: rollName, bonus: atk, dice: opts.dice, dmgMod, critMult, dmgType: w.elemental || w.dmgType || '', disSources: disadvSources, advSources,
-                pcAttack: true, apCost: parseInt(opts.ap) || 0, ranged: cat === 'ranged', aimed: cat === 'ranged' && !!w.aimed, unarmed: !!w.isUnarmed,
+                pcAttack: true, wcat: cat, apCost: parseInt(opts.ap) || 0, ranged: cat === 'ranged', aimed: cat === 'ranged' && !!w.aimed, unarmed: !!w.isUnarmed,
                 wFlurry: !!(w.properties && w.properties.flurry) || undefined });
-            let dmgRoll = apxRollAttr({ type: 'damage', label: rollName + ' damage', formula: opts.dice + (dmgMod ? (dmgMod > 0 ? '+' : '') + dmgMod : ''), dmgType: w.elemental || w.dmgType || '' });
+            let dmgRoll = apxRollAttr({ type: 'damage', label: rollName + ' damage', formula: opts.dice + (dmgMod ? (dmgMod > 0 ? '+' : '') + dmgMod : ''), dmgType: w.elemental || w.dmgType || '', wcat: cat });
             let disadvHtml = disadvSources.length
                 ? `<span class="text-[8px] text-red-400 block -mt-1 leading-none" title="${disadvSources.join(', ')}">(Disadv)</span>`
                 : (advSources.length ? `<span class="text-[8px] text-emerald-400 block -mt-1 leading-none" title="${advSources.join(', ')}">(Adv)</span>` : '');
@@ -1359,6 +1359,16 @@
             document.getElementById('powerSlotsContainer').innerHTML = html;
         }
 
+        // A power's D/H value rolls as damage (so High Roller's damage perks apply) or as healing
+        function apxPowerDmgHtml(p) {
+            let txt = String(p.dmg || '');
+            let m = txt.match(/^\s*((?:\d*d\d+)(?:\s*[+-]\s*(?:\d*d\d+|\d+))*)\s*(.*)$/i);
+            if (!m || !window.APXDice) return txt;
+            let heal = /heal/i.test(m[2]);
+            let attr = apxRollAttr({ type: 'damage', label: (p.name || 'Power') + (heal ? ' healing' : ' damage'), formula: m[1].replace(/\s+/g, ''), dmgType: heal ? '' : m[2].trim(), heal: heal || undefined, wcat: 'power' });
+            return `<span class="apx-rollable" style="text-decoration:underline dotted;text-underline-offset:2px" title="Click to roll"${attr}>${m[1]}</span> ${m[2]}`;
+        }
+
         function renderPowers() {
             let html = window.state.powers.map((p, idx) => `
                 <div class="bg-slate-900 p-2 rounded border border-slate-700 relative group shadow-inner" data-roll-label="${String(p.name||'Power').replace(/"/g,'&quot;')}">
@@ -1370,7 +1380,7 @@
                     <div class="grid grid-cols-3 gap-1 mb-1 text-[10px] text-slate-400">
                         <div><span class="text-slate-500">A/S:</span> ${p.atk}</div>
                         <div><span class="text-slate-500">R/A:</span> ${p.rng}</div>
-                        <div><span class="text-slate-500">D/H:</span> ${p.dmg}</div>
+                        <div><span class="text-slate-500">D/H:</span> ${apxPowerDmgHtml(p)}</div>
                     </div>
                     <div class="text-[10px] text-slate-500 leading-tight font-medium">${p.desc}</div>
                     ${p.draft ? `<button onclick="window.openPowerEditor(${idx})" class="text-[9px] text-purple-400 hover:text-purple-300 font-bold mt-1">Edit in Power Crafter${p.wasFree ? ' (Free)' : ''}</button>` : ''}

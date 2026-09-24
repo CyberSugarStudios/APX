@@ -101,6 +101,41 @@
             document.getElementById('fatigueLevelDisplay').innerText = next;
         };
 
+        // ── Permanent Injuries ──────────────────────────────────────
+        // A Wounded limb that is Wounded again before it heals suffers permanent damage:
+        // the player reduces a Core Attribute of their choice by 1 (the score itself, so
+        // raising it again with XP costs XP at the new, lower score). It stays listed until
+        // healed (Relaxation downtime, a Medical plot or a Power), and can be removed like
+        // a condition, giving the point back, or not if it was already bought back with XP.
+        const ATTR_NAMES = { STR: 'Strength', AGI: 'Agility', CON: 'Constitution', PER: 'Perception', INT: 'Intelligence', CHA: 'Charisma', LUC: 'Luck' };
+        window.apxPermanentInjury = async function(limb) {
+            let st = window.state; if (!st) return;
+            let ask = window.APXDice && window.APXDice.ask;
+            if (!ask) return;
+            let area = /head/i.test(limb) ? 'Head' : /torso|chest|body/i.test(limb) ? 'Torso' : 'Limbs';
+            let attrs = (typeof ATTRIBUTES !== 'undefined' ? ATTRIBUTES : Object.keys(ATTR_NAMES));
+            let score = a => (st.baseStats[a] || 0) + ((st.ancestry && st.ancestry.bonuses && st.ancestry.bonuses[a]) || 0);
+            let pick = await ask('Permanent Injury: ' + limb,
+                `Your ${limb} was Wounded again before it healed, so it suffers permanent damage (${area}). Choose a Core Attribute to permanently reduce by 1.\n\nYou can raise it again with XP (at the new, lower cost), or heal the injury with the Relaxation downtime activity, a Medical plot or a Power.`,
+                attrs.filter(a => score(a) > 1).map(a => [a, `${a} ${score(a)} → ${score(a) - 1}`, 'pri']));
+            if (!pick) return;
+            st.baseStats[pick] = (st.baseStats[pick] || 0) - 1;
+            st.permanentInjuries = (st.permanentInjuries || []).concat([{ id: 'pi_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), limb, attr: pick, at: new Date().toISOString().slice(0, 10) }]);
+            window.recalculateMath();
+        };
+        window.apxRemovePermanentInjury = async function(id) {
+            let st = window.state; if (!st) return;
+            let pi = (st.permanentInjuries || []).find(x => x.id === id); if (!pi) return;
+            let ask = window.APXDice && window.APXDice.ask;
+            let v = ask ? await ask('Remove Permanent Injury',
+                `Permanent Injury${pi.limb ? ' (' + pi.limb + ')' : ''}: ${pi.attr} −1.\n\nHealed (Relaxation downtime, a Medical plot or a Power): ${pi.attr} goes back up by 1.\nAlready raised ${pi.attr} again with XP: just remove the entry.`,
+                [['keep', 'Remove only'], ['heal', `Healed: ${pi.attr} +1`, 'ok']]) : 'heal';
+            if (!v) return;
+            if (v === 'heal') st.baseStats[pi.attr] = (st.baseStats[pi.attr] || 0) + 1;
+            st.permanentInjuries = (st.permanentInjuries || []).filter(x => x.id !== id);
+            window.recalculateMath();
+        };
+
         window.renderActiveConditions = function() {
             let el = document.getElementById('activeConditionsDisplay');
             if (!el) return;
@@ -116,12 +151,15 @@
                 return `<span class="inline-flex items-center text-[9px] ${from ? 'bg-red-900/20 text-red-300/80 border-dashed' : 'bg-red-900/40 text-red-300'} border border-red-800/50 px-1.5 py-0.5 rounded font-bold" title="${String(c.desc).replace(/"/g, '&quot;')}${from ? ' (from ' + from + ' — remove ' + from + ' to clear)' : ''}">${c.name}${x}</span>`;
             });
             let limbTags = window.state.woundedLimbs.map(limb =>
-                `<span class="inline-flex items-center text-[9px] bg-red-900/40 text-red-300 border border-red-800/50 px-1.5 py-0.5 rounded font-bold">Wounded: ${limb}${xBtn(`window.toggleWoundedLimb(decodeURIComponent('${encodeURIComponent(limb)}'), false)`, 'Remove Wounded: ' + limb)}</span>`
+                `<span class="inline-flex items-center text-[9px] bg-red-900/40 text-red-300 border border-red-800/50 px-1.5 py-0.5 rounded font-bold">Wounded: ${limb}<button type="button" class="apx-perm-btn ml-1 px-1 rounded border border-fuchsia-700/70 text-fuchsia-300 hover:text-white hover:bg-fuchsia-900/60 leading-none" title="Wounded again before it healed? Record a Permanent Injury (−1 to an attribute)" onclick="event.stopPropagation();window.apxPermanentInjury(decodeURIComponent('${encodeURIComponent(limb)}'))">Re-wounded</button>${xBtn(`window.toggleWoundedLimb(decodeURIComponent('${encodeURIComponent(limb)}'), false)`, 'Remove Wounded: ' + limb)}</span>`
+            );
+            let permTags = (window.state.permanentInjuries || []).map(pi =>
+                `<span class="inline-flex items-center text-[9px] bg-fuchsia-900/40 text-fuchsia-200 border border-fuchsia-700/60 px-1.5 py-0.5 rounded font-bold" title="Permanent Injury${pi.limb ? ' (' + pi.limb + ')' : ''}: ${pi.attr} reduced by 1. Heal it with Relaxation downtime, a Medical plot or a Power, or raise ${pi.attr} again with XP.">Permanent Injury${pi.limb ? ': ' + pi.limb : ''} (−1 ${pi.attr})<button type="button" class="apx-cond-x ml-1 -mr-0.5 text-fuchsia-300/70 hover:text-white leading-none" title="Remove this Permanent Injury" onclick="event.stopPropagation();window.apxRemovePermanentInjury('${pi.id}')">&times;</button></span>`
             );
             let fatigueTag = window.state.fatigue > 0
                 ? [`<span class="inline-flex items-center text-[9px] bg-amber-900/40 text-amber-300 border border-amber-800/50 px-1.5 py-0.5 rounded font-bold">Fatigue ${window.state.fatigue}<button type="button" class="apx-cond-x ml-1 -mr-0.5 text-amber-300/70 hover:text-white leading-none" title="Reduce Fatigue by 1" onclick="event.stopPropagation();window.updateState('fatigue', Math.max(0,(window.state.fatigue||0)-1))">&times;</button></span>`]
                 : [];
-            let allTags = condTags.concat(limbTags).concat(fatigueTag);
+            let allTags = condTags.concat(limbTags).concat(permTags).concat(fatigueTag);
             el.innerHTML = allTags.length ? allTags.join(' ') : '<span class="text-[10px] text-slate-600">No active conditions.</span>';
         };
 
