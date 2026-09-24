@@ -376,11 +376,12 @@
                         // Basic public info for the players' Party view (no stats)
                         profile: {
                             name: data.charName || cs.name || '',
+                            portraitFull: cs.charPortraitFull || '',
                             ancestry: cs.ancestry?.name || '',
                             origin: cs.origin?.name || '',
                             age: cs.charAge || '',
                             size: cs.ancestry?.size || null,
-                            companion: cs.companion ? { name: cs.companion.name || 'Companion', portrait: cs.companion.portrait || '', size: cs.companion.size || 'medium' } : null
+                            companion: cs.companion ? { name: cs.companion.name || 'Companion', portrait: cs.companion.portrait || '', portraitFull: cs.companion.portraitFull || '', size: cs.companion.size || 'medium' } : null
                         }
                     };
                 }));

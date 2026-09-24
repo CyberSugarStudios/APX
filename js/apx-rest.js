@@ -102,12 +102,21 @@
         let back = panel('Short Rest', '');
         let draw = () => {
             let s = st(), mh = maxHp(), dice = s.restDice || 0, cm = conMod();
+            // The companion heals from your Rest Dice too, so you can keep spending while it's hurt
+            let csb = companionSb();
+            let compHp = csb ? (s.companion.currentHp ?? csb.maxHp) : null, compMax = csb ? csb.maxHp : null;
+            let compHurt = csb && compHp < compMax;
+            let canSpend = dice > 0 && (s.currentHp < mh || compHurt);
+            let spendLabel = dice <= 0 ? 'No Rest Dice left' : !canSpend ? (csb ? 'Everyone is at full HP' : 'HP is full') : (s.currentHp >= mh ? `Spend a Rest Die (heals ${esc(csb.name || 'your companion')})` : 'Spend a Rest Die');
             back.querySelector('[data-body]').innerHTML = `
                 <div class="apxdlg-msg" style="margin-bottom:.6rem">Spend Rest Dice one at a time. Each heals <b>${dieStep()} ${cm >= 0 ? '+' : '−'} ${Math.abs(cm)}</b> (CON)${wellRested() ? ', rolled twice keeping the higher (Well Rested)' : ''}.${s.companion ? ` ${esc(s.companion.name || 'Your companion')} heals the roll + its CON modifier too.` : ''} Spent dice come back on a Full Rest.</div>
                 <div style="display:flex;gap:.5rem;margin-bottom:.6rem">
                     <div style="flex:1;border:1px solid var(--c-border);background:var(--c-surface2);border-radius:.45rem;padding:.45rem;text-align:center">
                         <div style="font-size:.6rem;font-weight:800;text-transform:uppercase;color:var(--c-text-muted)">HP</div>
                         <div style="font-size:1.2rem;font-weight:900;color:var(--c-emerald-lt,#6ee7b7)">${s.currentHp}<span style="font-size:.75rem;color:var(--c-text-muted)"> / ${mh}</span></div></div>
+                    ${csb ? `<div style="flex:1;border:1px solid #16a34a;background:var(--c-surface2);border-radius:.45rem;padding:.45rem;text-align:center">
+                        <div style="font-size:.6rem;font-weight:800;text-transform:uppercase;color:#86efac;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(csb.name || 'Companion')} HP</div>
+                        <div style="font-size:1.2rem;font-weight:900;color:#bbf7d0">${compHp}<span style="font-size:.75rem;color:var(--c-text-muted)"> / ${compMax}</span></div></div>` : ''}
                     <div style="flex:1;border:1px solid var(--c-border);background:var(--c-surface2);border-radius:.45rem;padding:.45rem;text-align:center">
                         <div style="font-size:.6rem;font-weight:800;text-transform:uppercase;color:var(--c-text-muted)">Rest Dice</div>
                         <div style="font-size:1.2rem;font-weight:900;color:var(--c-text)">${dice}<span style="font-size:.75rem;color:var(--c-text-muted)"> ${dieStep()}</span></div></div>
@@ -115,7 +124,7 @@
                 ${log.length ? `<div style="font-size:.7rem;color:var(--c-text-dimmer);margin-bottom:.6rem;max-height:110px;overflow-y:auto">${log.map(l => `<div>${esc(l)}</div>`).join('')}</div>` : ''}
                 <div class="apxdlg-row" style="flex-wrap:wrap">
                     <button class="apxdlg-btn apxdlg-cancel" data-cancel>Cancel</button>
-                    <button class="apxdlg-btn apxdlg-ok" data-spend ${dice <= 0 || s.currentHp >= mh ? 'disabled style="opacity:.45;cursor:default"' : ''}>${dice <= 0 ? 'No Rest Dice left' : s.currentHp >= mh ? 'HP is full' : 'Spend a Rest Die'}</button>
+                    <button class="apxdlg-btn apxdlg-ok" data-spend ${!canSpend ? 'disabled style="opacity:.45;cursor:default"' : ''}>${spendLabel}</button>
                     <button class="apxdlg-btn apxdlg-ok" data-finish style="background:var(--c-indigo,#4f46e5)">Finish Short Rest</button>
                 </div>`;
             back.querySelector('[data-cancel]').onclick = () => {

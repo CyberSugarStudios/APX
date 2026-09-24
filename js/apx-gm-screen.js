@@ -872,36 +872,75 @@ function _gmCaptureLoot(entry) {
 }
 window._gmCaptureLoot = _gmCaptureLoot;
 
+// Loot panel. What the GM picked in each dropdown (and the Cu box) is remembered, so
+// handing one item out doesn't reset the others.
+window._gmLootSel = window._gmLootSel || {};
+window._gmLootCuForm = window._gmLootCuForm || { amt: '', to: '' };
 window.renderGmLoot = function() {
     let el = document.getElementById('gmLootBody'); if (!el) return;
     let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
     let list = _gmLootList();
     let party = (window.gmParty || []).map(p => ({ uid: p.fileName, name: p.summary?.name || p.state?.name || 'Player' }));
-    let opts = party.map(p => `<option value="${esc(p.uid)}">${esc(p.name)}</option>`).join('');
+    let sel = window._gmLootSel, form = window._gmLootCuForm;
+    let partyIds = new Set(party.map(p => p.uid));
+    let opts = cur => party.map(p => `<option value="${esc(p.uid)}" ${p.uid === cur ? 'selected' : ''}>${esc(p.name)}</option>`).join('');
     let cnt = document.getElementById('gmLootCount'); if (cnt) cnt.textContent = list.length ? `(${list.length})` : '';
     let rolls = (window._gmLootRolls || []).slice(-8);
     let defeated = _gmLootDefeated();
     let cuFor = t => Math.max(0, Math.floor((t || 0) * defeated / 2));
+    let kind = it => it.isWeapon ? 'Weapon' : it.isArmor ? 'Armor' : it.isShield ? 'Shield' : it.isHelmet ? 'Helmet' : 'Item';
+    let stats = it => it.isWeapon ? `${it.weaponData?.dmg || ''}, ${it.weaponData?.ap || '?'} AP`
+        : it.isArmor ? `+${it.armorData?.ac || 0} AC, +${it.armorData?.dr || 0} DR, +${it.armorData?.er || 0} ER`
+        : it.isShield ? '+2 AC/DR/ER' : it.isHelmet ? '+1 AC/DR/ER' : (it.desc || '');
+    // Group items by the creature they came from
+    let groups = [];
+    list.forEach(l => { let g = groups.find(x => x.from === (l.from || '')); if (!g) groups.push(g = { from: l.from || '', items: [] }); g.items.push(l); });
+    let selCls = 'bg-slate-800 border border-slate-600 rounded text-[10px] text-white px-1 py-0.5';
+    let head = t => `<div class="text-[9px] font-black uppercase tracking-wider text-slate-500 mb-1">${t}</div>`;
+    let itemsHtml = list.length ? groups.map(g => `
+        <div class="mb-2">
+            <div class="text-[10px] font-bold text-slate-400 mb-0.5">${g.from ? 'From ' + esc(g.from) : 'Other'}</div>
+            ${g.items.map(l => {
+                let cur = partyIds.has(sel[l.id]) ? sel[l.id] : '';
+                return `<div class="grid items-center gap-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 mb-1" style="grid-template-columns:minmax(0,1fr) auto auto auto" data-loot="${esc(l.id)}">
+                    <div class="min-w-0 leading-tight">
+                        <span class="text-[11px] font-bold text-amber-200">${esc(l.item.name)}${l.item.ct > 1 ? ` ×${l.item.ct}` : ''}</span>
+                        <span class="text-[9px] text-slate-500 ml-1">${kind(l.item)} · ${esc(stats(l.item))}</span>
+                    </div>
+                    <select class="gm-loot-to ${selCls}" style="width:6.5rem" onchange="window._gmLootSel['${esc(l.id)}']=this.value" ${party.length ? '' : 'disabled'}>
+                        <option value="">Give to…</option>${opts(cur)}</select>
+                    <button onclick="window.gmGiveLoot('${esc(l.id)}', this)" class="text-[10px] px-2 py-0.5 rounded bg-emerald-700 hover:bg-emerald-600 text-white font-bold">Give</button>
+                    <button onclick="window.gmDiscardLoot('${esc(l.id)}')" title="Not salvageable: remove it from the list" class="text-[10px] w-5 h-5 rounded bg-slate-700 hover:bg-red-800 text-slate-300 font-bold leading-none">✕</button>
+                </div>`;
+            }).join('')}
+        </div>`).join('') : '<div class="text-[10px] text-slate-500 mb-2">Nothing yet. When an enemy dies, its weapons, armor, shield and helmet appear here.</div>';
+    let cuTo = form.to === '__split' || partyIds.has(form.to) ? form.to : '';
     el.innerHTML = `
-        ${list.length ? list.map(l => `<div class="flex items-center gap-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 mb-1" data-loot="${esc(l.id)}">
-            <div class="flex-1 min-w-0"><div class="text-[11px] font-bold text-amber-200 truncate">${esc(l.item.name)}${l.item.ct > 1 ? ` ×${l.item.ct}` : ''}</div>
-                <div class="text-[9px] text-slate-500 truncate">${esc(l.item.desc || '')}${l.from ? ` · from ${esc(l.from)}` : ''}</div></div>
-            <select class="gm-loot-to bg-slate-800 border border-slate-600 rounded text-[10px] text-white px-1 py-0.5" style="width:auto;max-width:6.5rem;flex:0 0 auto" ${party.length ? '' : 'disabled'}>
-                <option value="">Give to…</option>${opts}</select>
-            <button onclick="window.gmGiveLoot('${esc(l.id)}', this)" class="text-[10px] px-2 py-0.5 rounded bg-emerald-700 hover:bg-emerald-600 text-white font-bold">Give</button>
-            <button onclick="window.gmDiscardLoot('${esc(l.id)}')" title="Remove from the Loot list" class="text-[10px] px-1.5 py-0.5 rounded bg-slate-700 hover:bg-red-800 text-slate-300 font-bold">✕</button>
-        </div>`).join('') : '<div class="text-[10px] text-slate-500 mb-1">Nothing yet. Enemies\' gear shows up here when they die.</div>'}
-        <div class="flex flex-wrap items-center gap-1 mt-2 pt-2 border-t border-slate-700">
-            <div class="text-[10px] text-slate-300" style="flex:1 1 100%">Currency: the party finds <b>LUC (Loot) × enemies defeated ÷ 2</b> (rounded down).
-                Enemies defeated <input type="number" min="0" value="${defeated}" onchange="window.gmSetLootDefeated(this.value)" style="width:3.5rem" class="bg-slate-800 border border-slate-600 rounded text-[10px] text-white px-1 py-0.5 ml-1"></div>
-            <button onclick="window.gmAskLootCheck()" style="flex:1 1 100%" class="text-[10px] px-2 py-1 rounded bg-amber-700 hover:bg-amber-600 text-white font-bold" title="Every player's sheet asks them to roll LUC (Loot)">Ask for LUC (Loot) check</button>
-            <input id="gmLootCu" type="number" min="0" placeholder="Cu" style="width:4.5rem;flex:0 0 auto" class="bg-slate-800 border border-slate-600 rounded text-[10px] text-white px-1 py-0.5">
-            <select id="gmLootCuTo" style="width:auto;max-width:8rem;flex:0 0 auto" class="bg-slate-800 border border-slate-600 rounded text-[10px] text-white px-1 py-0.5" ${party.length ? '' : 'disabled'}><option value="">Give Cu to…</option><option value="__split">Split among party</option>${opts}</select>
-            <button onclick="window.gmGiveLootCu()" class="text-[10px] px-2 py-1 rounded bg-emerald-700 hover:bg-emerald-600 text-white font-bold">Give Cu</button>
+        ${head('Gear')}
+        ${itemsHtml}
+        <div class="border-t border-slate-700 pt-2 mt-1">
+            ${head('Currency')}
+            <div class="text-[10px] text-slate-400 mb-1.5">The party finds <b class="text-slate-200">LUC (Loot) × enemies defeated ÷ 2</b>, rounded down.</div>
+            <div class="flex items-center gap-1.5 mb-1.5">
+                <label class="text-[10px] text-slate-300 flex items-center gap-1">Enemies defeated
+                    <input type="number" min="0" value="${defeated}" onchange="window.gmSetLootDefeated(this.value)" style="width:3.2rem" class="${selCls} text-center"></label>
+                <button onclick="window.gmAskLootCheck()" class="ml-auto text-[10px] px-2 py-1 rounded bg-amber-700 hover:bg-amber-600 text-white font-bold" title="Every player's sheet opens the LUC (Loot) roll with this enemy count">Ask players to roll</button>
+            </div>
+            ${rolls.length ? `<div class="mb-1.5">${rolls.map(r => `<div class="flex items-center gap-1 text-[10px] text-slate-400 py-0.5">
+                <b class="text-amber-300">${esc(r.name)}</b> rolled ${esc(r.total)} <span class="text-slate-600">→</span> <b class="text-yellow-300">${cuFor(r.total)} Cu</b>
+                <button onclick="window.gmUseLootRoll(${cuFor(r.total)})" class="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold" title="Put this amount in the Cu box">Use</button></div>`).join('')}</div>` : ''}
+            <div class="grid items-center gap-1" style="grid-template-columns:4.2rem minmax(0,1fr) auto">
+                <input id="gmLootCu" type="number" min="0" placeholder="Cu" value="${esc(form.amt)}" oninput="window._gmLootCuForm.amt=this.value" class="${selCls} text-center">
+                <select id="gmLootCuTo" onchange="window._gmLootCuForm.to=this.value" class="${selCls}" ${party.length ? '' : 'disabled'}>
+                    <option value="">Give Cu to…</option><option value="__split" ${cuTo === '__split' ? 'selected' : ''}>Split among the party</option>${opts(cuTo)}</select>
+                <button onclick="window.gmGiveLootCu()" class="text-[10px] px-2 py-1 rounded bg-emerald-700 hover:bg-emerald-600 text-white font-bold">Give Cu</button>
+            </div>
         </div>
-        ${rolls.length ? `<div class="mt-2 text-[10px] text-slate-400">LUC (Loot) rolls:${rolls.map(r => `<div class="flex items-center gap-1 mt-0.5"><b class="text-amber-300">${esc(r.name)}</b> rolled ${esc(r.total)} → <b class="text-yellow-300">${cuFor(r.total)} Cu</b>
-                <button onclick="document.getElementById('gmLootCu').value='${cuFor(r.total)}'" class="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold" title="Put this amount in the Cu box">Use</button></div>`).join('')}</div>` : ''}
-        ${party.length ? '' : '<div class="text-[9px] text-slate-500 mt-1">Load the party to hand out loot.</div>'}`;
+        ${party.length ? '' : '<div class="text-[9px] text-slate-500 mt-1.5">Load the party to hand out loot.</div>'}`;
+};
+window.gmUseLootRoll = function(amt) {
+    window._gmLootCuForm.amt = String(amt);
+    let i = document.getElementById('gmLootCu'); if (i) i.value = amt;
 };
 function _gmSendGift(uid, gift) {
     let code = _gmActiveCode();
@@ -915,11 +954,11 @@ function _gmSendGift(uid, gift) {
 function _gmPartyName(uid) { let p = (window.gmParty || []).find(x => x.fileName === uid); return p?.summary?.name || 'player'; }
 window.gmGiveLoot = function(id, btn) {
     let list = _gmLootList(), i = list.findIndex(l => l.id === id); if (i < 0) return;
-    let uid = btn?.parentElement?.querySelector('.gm-loot-to')?.value;
+    let uid = btn?.parentElement?.querySelector('.gm-loot-to')?.value || window._gmLootSel[id];
     if (!uid) { window.apxAlert && window.apxAlert('Pick who gets it first.'); return; }
     let l = list[i];
     if (!_gmSendGift(uid, { id: crypto.randomUUID(), item: l.item, from: 'GM', at: Date.now() })) return;
-    list.splice(i, 1);
+    list.splice(i, 1); delete window._gmLootSel[id];
     if (typeof gmLog === 'function') gmLog({ text: `${_gmPartyName(uid)} received ${l.item.name}.`, kind: 'loot', force: true });
     window.renderGmLoot();
     if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
@@ -945,6 +984,7 @@ window.gmGiveLootCu = function() {
         if (!_gmSendGift(to, { id: crypto.randomUUID(), cu: amt, from: 'GM', at: Date.now() })) return;
         if (typeof gmLog === 'function') gmLog({ text: `${_gmPartyName(to)} found ${amt} Cu.`, kind: 'loot', force: true });
     }
+    window._gmLootCuForm.amt = '';
     document.getElementById('gmLootCu').value = '';
 };
 window.gmAskLootCheck = function() {

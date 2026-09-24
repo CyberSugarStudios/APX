@@ -1282,17 +1282,37 @@ window.refreshOpenStatBlocks = function() {
     });
 };
 
-// Companion token picture: a small circle-friendly image (kept small so it syncs quickly)
+// Companion token picture: uploaded through the same zoom-circle cropper as the character
+// portrait. The circle is the token (battle maps, Party tab); the full image opens in the viewer.
 window.ncSetPortrait = async function(input) {
     let c = ncActiveCompanion(); if (!c) return;
-    if (!input) { delete c.portrait; ncRenderAll(); window.recalculateMath?.(); return; }
+    let done = () => { ncRenderAll(); if (typeof window.recalculateMath === 'function') window.recalculateMath(); };   // saves, so the GM and party see it
+    if (!input) { delete c.portrait; delete c.portraitFull; done(); return; }
     let file = input.files && input.files[0]; input.value = '';
     if (!file) return;
-    try {
-        c.portrait = (await window.APXBattle.compressImage(file, 160)).src;
-        ncRenderAll();
-        if (typeof window.recalculateMath === 'function') window.recalculateMath();   // saves, so the GM and party see it
-    } catch (e) { window.APXDice?.notify('Token image: ' + e.message, { kind: 'warn', open: true }); }
+    if (typeof window._cpfShowCropUI === 'function') {
+        let reader = new FileReader();
+        reader.onload = ev => window._cpfShowCropUI(ev.target.result, {
+            title: 'Adjust Companion Token', saveLabel: 'Save Token',
+            onSave: (circle, full) => { let cc = ncActiveCompanion(); if (!cc) return; cc.portrait = circle; cc.portraitFull = full; done(); }
+        });
+        reader.readAsDataURL(file);
+        return;
+    }
+    try { c.portrait = (await window.APXBattle.compressImage(file, 160)).src; done(); }
+    catch (e) { window.APXDice?.notify('Token image: ' + e.message, { kind: 'warn', open: true }); }
+};
+// Re-crop the saved companion image
+window.ncAdjustPortrait = function() {
+    let c = ncActiveCompanion(); if (!c || !c.portraitFull || typeof window._cpfShowCropUI !== 'function') return;
+    window._cpfShowCropUI(c.portraitFull, {
+        title: 'Adjust Companion Token', saveLabel: 'Save Token',
+        onSave: (circle, full) => { let cc = ncActiveCompanion(); if (!cc) return; cc.portrait = circle; cc.portraitFull = full; ncRenderAll(); window.recalculateMath?.(); }
+    });
+};
+window.ncViewPortrait = function() {
+    let c = ncActiveCompanion(); if (!c || !c.portrait) return;
+    window.pwShowPortrait ? window.pwShowPortrait(c.portraitFull || c.portrait, c.name || 'Companion', !!c.portraitFull) : null;
 };
 
 window.adjustCompanionHp = function(delta) {
@@ -1629,9 +1649,10 @@ function ncRenderSummary() {
         }
         if (row) {
             row.style.display = ncTarget === 'gm' ? 'none' : 'flex';
-            let pic = c.portrait ? `<img src="${c.portrait}" alt="" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid #16a34a">`
+            let pic = c.portrait ? `<img src="${c.portrait}" alt="" onclick="window.ncViewPortrait()" title="View the full image" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid #16a34a;cursor:zoom-in">`
                 : `<div style="width:40px;height:40px;border-radius:50%;background:#14532d;border:2px solid #16a34a;display:flex;align-items:center;justify-content:center;font-weight:900;color:#bbf7d0">${String(c.name || '?')[0].toUpperCase()}</div>`;
             row.innerHTML = `${pic}<label class="text-[10px] font-bold px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white cursor-pointer">Token Image<input type="file" accept="image/*" class="hidden" onchange="window.ncSetPortrait(this)"></label>
+                ${c.portraitFull ? `<button type="button" onclick="window.ncAdjustPortrait()" class="text-[10px] font-bold px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white">Adjust</button>` : ''}
                 ${c.portrait ? `<button type="button" onclick="window.ncSetPortrait(null)" class="text-[10px] text-red-400 hover:text-red-300 font-bold">Remove</button>` : ''}
                 <span class="text-[10px] text-slate-500">Shown on battle map tokens and in the Party tab.</span>`;
         }

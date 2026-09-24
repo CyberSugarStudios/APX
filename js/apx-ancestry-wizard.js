@@ -398,10 +398,40 @@
         }
         window.apxAttrMode = attrMode;
         function readBases() { let o = {}; ATTRIBUTES.forEach(a => { o[a] = parseInt(document.getElementById(`wizBase_${a}`)?.value) || 0; }); return o; }
-        // Standard Array: dropdowns stand in for the number boxes (which keep the value)
+        // Standard Array: dropdowns stand in for the number boxes (which keep the value).
+        // Each starts on "Choose"; a value picked for one attribute disappears from the
+        // others until it's freed again. Choose puts the attribute's saved value back.
+        function isFullArray(vals) {
+            return vals.slice().sort((x, y) => y - x).join(',') === STANDARD_ARRAY.slice().sort((x, y) => y - x).join(',');
+        }
+        function arrayPicks() {
+            let o = {};
+            ATTRIBUTES.forEach(a => { let v = document.getElementById(`wizBaseSel_${a}`)?.value; o[a] = v ? parseInt(v) : null; });
+            return o;
+        }
+        function refreshArrayOptions() {
+            let picks = arrayPicks();
+            ATTRIBUTES.forEach(a => {
+                let sel = document.getElementById(`wizBaseSel_${a}`); if (!sel) return;
+                // What's left for this attribute: the array minus what the others took
+                let left = STANDARD_ARRAY.slice();
+                ATTRIBUTES.forEach(o => { if (o !== a && picks[o] != null) { let i = left.indexOf(picks[o]); if (i >= 0) left.splice(i, 1); } });
+                let opts = [...new Set(left)].sort((x, y) => y - x);
+                let cur = picks[a];
+                sel.innerHTML = `<option value="">Choose</option>` + opts.map(v => `<option value="${v}" ${v === cur ? 'selected' : ''}>${v}</option>`).join('');
+                sel.value = cur != null && opts.includes(cur) ? String(cur) : '';
+                sel.classList.toggle('apx-array-empty', !sel.value);
+            });
+        }
         function applyAttrModeUi() {
             let mode = attrMode();
-            ATTRIBUTES.forEach(a => {
+            let start = null;
+            if (mode === 'array') {
+                // A character already built with the Standard Array keeps its choices; anyone else starts on Choose
+                let saved = ATTRIBUTES.map(a => parseInt(document.getElementById(`wizBase_${a}`)?.value) || 0);
+                start = isFullArray(saved) ? saved : null;
+            }
+            ATTRIBUTES.forEach((a, i) => {
                 let input = document.getElementById(`wizBase_${a}`); if (!input) return;
                 let sel = document.getElementById(`wizBaseSel_${a}`);
                 if (mode === 'array') {
@@ -409,12 +439,16 @@
                         sel = document.createElement('select');
                         sel.id = `wizBaseSel_${a}`;
                         sel.className = 'w-full text-center bg-slate-900 font-bold text-sm';
-                        sel.onchange = () => { input.value = sel.value; window.calcAncestryGp(); };
+                        sel.onchange = () => {
+                            let inp = document.getElementById(`wizBase_${a}`);
+                            inp.value = sel.value ? sel.value : (window.state.baseStats[a] || 5);
+                            refreshArrayOptions();
+                            window.calcAncestryGp();
+                        };
                         input.parentNode.insertBefore(sel, input.nextSibling);
                     }
-                    let cur = parseInt(input.value) || 0;
-                    let opts = [...new Set(STANDARD_ARRAY)];
-                    sel.innerHTML = (opts.includes(cur) ? '' : `<option value="${cur}">${cur} (current)</option>`) + opts.map(v => `<option value="${v}" ${v === cur ? 'selected' : ''}>${v}</option>`).join('');
+                    sel.innerHTML = `<option value="">Choose</option>` + (start ? `<option value="${start[i]}" selected>${start[i]}</option>` : '');
+                    sel.value = start ? String(start[i]) : '';
                     sel.classList.remove('hidden'); input.classList.add('hidden');
                 } else {
                     if (sel) sel.classList.add('hidden');
@@ -422,6 +456,7 @@
                     input.max = mode === 'pointBuy' || mode === 'free' ? PB_MAX : 10;
                 }
             });
+            if (mode === 'array') refreshArrayOptions();
         }
         window.apxApplyAttrModeUi = applyAttrModeUi;
         // Returns an error message (blocks saving) or null; also fills the guide note
@@ -432,9 +467,15 @@
             let changed = ATTRIBUTES.some(a => b[a] !== (window.state.baseStats[a] || 5));   // untouched older characters aren't blocked
             let msg = null, err = false;
             if (mode === 'array') {
-                let used = ATTRIBUTES.map(a => b[a]).sort((x, y) => y - x);
-                let ok = used.join(',') === STANDARD_ARRAY.slice().sort((x, y) => y - x).join(',');
-                if (!ok) { msg = 'Standard Array: give each of 7, 6, 5, 5, 5, 4 and 3 to one attribute.'; err = changed; }
+                let picks = arrayPicks();
+                let chosen = ATTRIBUTES.filter(a => picks[a] != null);
+                if (chosen.length < ATTRIBUTES.length) {
+                    msg = `Standard Array: choose 7, 6, 5, 5, 5, 4 or 3 for each attribute (${ATTRIBUTES.length - chosen.length} left).`;
+                    // New characters must choose; older characters aren't blocked until they start changing
+                    let st0 = window.state || {};
+                    let fresh = !(st0.spentXp > 0) && !Object.keys(st0.perks || {}).length;
+                    err = chosen.length > 0 || fresh;
+                } else if (!isFullArray(ATTRIBUTES.map(a => picks[a]))) { msg = 'Standard Array: use each of 7, 6, 5, 5, 5, 4 and 3 once.'; err = true; }
             } else {
                 let spent = ATTRIBUTES.reduce((t, a) => t + (b[a] - PB_BASE), 0);
                 let out = ATTRIBUTES.filter(a => b[a] < PB_MIN || b[a] > PB_MAX);

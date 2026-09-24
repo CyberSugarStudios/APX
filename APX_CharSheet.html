@@ -3093,7 +3093,10 @@
         reader.readAsDataURL(file);
     };
 
-    window._cpfShowCropUI = function(dataUrl) {
+    // opts (optional): { title, saveLabel, onSave(circleDataUrl, fullDataUrl) } — used for companion tokens
+    window._cpfShowCropUI = function(dataUrl, opts) {
+        opts = opts || {};
+        window._cpfOnSave = typeof opts.onSave === 'function' ? opts.onSave : null;
         let existing = document.getElementById('cpfCropOverlay'); if(existing) existing.remove();
         let cs  = getComputedStyle(document.documentElement);
         let bg  = cs.getPropertyValue('--c-surface').trim()  || '#1e293b';
@@ -3110,7 +3113,7 @@
         overlay.innerHTML = `<div style="background:${bg};border:1px solid ${bdr};border-radius:0.75rem;
             padding:0;overflow:hidden;width:${CROP_W}px;box-shadow:0 20px 60px rgba(0,0,0,.9);">
             <div style="padding:0.6rem 0.75rem;background:${bg2};border-bottom:1px solid ${bdr};display:flex;align-items:center;gap:0.5rem;">
-                <span style="font-size:0.75rem;font-weight:700;color:${txt};flex:1;">Adjust Portrait</span>
+                <span style="font-size:0.75rem;font-weight:700;color:${txt};flex:1;">${opts.title || 'Adjust Portrait'}</span>
                 <span style="font-size:0.6rem;color:${txt};opacity:0.6;">Drag image · Scroll to zoom</span>
             </div>
             <!-- Crop stage -->
@@ -3137,7 +3140,7 @@
                     oninput="window._cpfZoom(+this.value)">
                 <span style="font-size:0.65rem;color:${txt};opacity:0.7;"></span>
                 <button onclick="window._cpfCancelCrop()" style="padding:0.3rem 0.65rem;background:none;border:1px solid ${bdr};color:${txt};border-radius:0.25rem;font-size:0.7rem;cursor:pointer;font-weight:700;">Cancel</button>
-                <button onclick="window._cpfConfirmCrop(${CROP_W},${CROP_H},${RADIUS})" style="padding:0.3rem 0.75rem;background:${em};border:none;color:#fff;border-radius:0.25rem;font-size:0.7rem;font-weight:700;cursor:pointer;">Save Portrait</button>
+                <button onclick="window._cpfConfirmCrop(${CROP_W},${CROP_H},${RADIUS})" style="padding:0.3rem 0.75rem;background:${em};border:none;color:#fff;border-radius:0.25rem;font-size:0.7rem;font-weight:700;cursor:pointer;">${opts.saveLabel || 'Save Portrait'}</button>
             </div>
         </div>`;
         document.body.appendChild(overlay);
@@ -3182,7 +3185,7 @@
         cs.x=(cs.x-W/2)*ratio+W/2; cs.y=(cs.y-H/2)*ratio+H/2;
         cs.scale=val; window._cpfApplyCropTransform();
     };
-    window._cpfCancelCrop = function() { document.getElementById('cpfCropOverlay')?.remove(); };
+    window._cpfCancelCrop = function() { window._cpfOnSave = null; document.getElementById('cpfCropOverlay')?.remove(); };
     window._cpfConfirmCrop = function(W, H, R) {
         let img = window._cpfCropImg; let cs = window._cpfCropState;
         if (!img || !cs) return;
@@ -3195,7 +3198,7 @@
         let scale = cs.scale * (OUT / W);
         let ox = cs.x * (OUT / W), oy = cs.y * (OUT / H);
         ctx.drawImage(img, ox, oy, img.naturalWidth * scale, img.naturalHeight * scale);
-        window.state.charPortrait = c.toDataURL('image/jpeg', 0.90);
+        let circle = c.toDataURL('image/jpeg', 0.90);
 
         // Full image → charPortraitFull (popup window): cap at 512px to keep writes manageable
         let fc = document.createElement('canvas');
@@ -3204,7 +3207,11 @@
         fc.width = Math.round(img.naturalWidth * fscale);
         fc.height = Math.round(img.naturalHeight * fscale);
         fc.getContext('2d').drawImage(img, 0, 0, fc.width, fc.height);
-        window.state.charPortraitFull = fc.toDataURL('image/jpeg', 0.78);
+        let full = fc.toDataURL('image/jpeg', 0.78);
+        let onSave = window._cpfOnSave; window._cpfOnSave = null;
+        if (onSave) { document.getElementById('cpfCropOverlay')?.remove(); onSave(circle, full); return; }
+        window.state.charPortrait = circle;
+        window.state.charPortraitFull = full;
 
         document.getElementById('cpfCropOverlay')?.remove();
         window.renderCharPortrait();
@@ -3431,13 +3438,13 @@
         let esc = t => String(t ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         let party = (window.APXBattle?.party?.() || []).filter(p => p.name && !gone.has(p.uid));
         if (!party.some(p => p.uid === myUid) && window.state?.name) {
-            party.push({ uid: myUid, name: window.state.name, portrait: window.state.charPortrait || '', ancestry: window.state.ancestry?.name || '', origin: window.state.origin?.name || '', age: window.state.charAge || '',
-                companion: window.state.companion ? { name: window.state.companion.name, portrait: window.state.companion.portrait || '' } : null });
+            party.push({ uid: myUid, name: window.state.name, portrait: window.state.charPortrait || '', portraitFull: window.state.charPortraitFull || '', ancestry: window.state.ancestry?.name || '', origin: window.state.origin?.name || '', age: window.state.charAge || '',
+                companion: window.state.companion ? { name: window.state.companion.name, portrait: window.state.companion.portrait || '', portraitFull: window.state.companion.portraitFull || '' } : null });
         }
         // Loyal Companions are party members too (listed after their owner)
         party = party.flatMap(p => {
-            let comp = p.uid === myUid && window.state?.companion ? { name: window.state.companion.name, portrait: window.state.companion.portrait || '' } : p.companion;
-            return comp ? [p, { uid: p.uid + ':companion', name: comp.name || 'Companion', portrait: comp.portrait || '', origin: `${p.name}'s Loyal Companion`, isCompanion: true, ownerUid: p.uid }] : [p];
+            let comp = p.uid === myUid && window.state?.companion ? { name: window.state.companion.name, portrait: window.state.companion.portrait || '', portraitFull: window.state.companion.portraitFull || '' } : p.companion;
+            return comp ? [p, { uid: p.uid + ':companion', name: comp.name || 'Companion', portrait: comp.portrait || '', portraitFull: comp.portraitFull || '', origin: `${p.uid === myUid ? 'Your' : p.name + "'s"} Loyal Companion`, isCompanion: true, ownerUid: p.uid }] : [p];
         });
         // You first, each companion right after its owner
         let ownerOf = p => p.isCompanion ? p.ownerUid : p.uid;
@@ -3446,7 +3453,7 @@
         el.innerHTML = `<div class="apx-party-grid">${party.map(p => {
             let bits = [p.ancestry, p.origin, p.age ? 'Age ' + p.age : ''].filter(Boolean).map(esc).join(' · ');
             let pic = p.portrait
-                ? `<img src="${p.portrait}" alt="" class="apx-party-pic" data-name="${esc(p.name)}" onclick="window.pwShowPortrait(this.src, this.dataset.name)" title="Click to enlarge">`
+                ? `<img src="${p.portrait}" alt="" class="apx-party-pic" data-name="${esc(p.name)}" data-pk="${esc(p.uid)}" onclick="window.pwShowPartyImage(this.dataset.pk)" title="Click to view the full image"${p.isCompanion ? ' style="border-color:#16a34a"' : ''}>`
                 : `<div class="apx-party-pic apx-party-initial">${esc((p.name || '?')[0].toUpperCase())}</div>`;
             return `<div class="apx-party-card${p.uid === myUid ? ' is-me' : ''}"${p.isCompanion ? ' style="border-color:#16a34a"' : ''}>
                 ${pic}
@@ -3456,6 +3463,21 @@
         }).join('')}</div>`;
     }
     window.renderPlayerParty = renderPlayerParty;
+    // Party image viewer: the full picture (falls back to the token)
+    window.pwShowPartyImage = function(key) {
+        let myUid = window.apxAuth?.user?.uid || 'me';
+        let isComp = String(key).endsWith(':companion'), uid = isComp ? String(key).slice(0, -10) : key;
+        let src = '', full = '', name = '';
+        if (uid === myUid && window.state) {
+            let o = isComp ? (window.state.companion || {}) : { name: window.state.name, portrait: window.state.charPortrait, portraitFull: window.state.charPortraitFull };
+            name = o.name; src = o.portrait || ''; full = o.portraitFull || '';
+        } else {
+            let p = (window.APXBattle?.party?.() || []).find(x => x.uid === uid) || {};
+            let o = isComp ? (p.companion || {}) : p;
+            name = o.name; src = o.portrait || ''; full = o.portraitFull || '';
+        }
+        if (full || src) window.pwShowPortrait(full || src, name || '', !!full);
+    };
 
     // ── Trading: give inventory items to party members; receive loot from the GM ──
     // The world this character belongs to, if its live party listener is running
@@ -3610,10 +3632,12 @@
             if (p && !p.classList.contains('hidden')) renderPlayerParty();
         });
     }
-    window.pwShowPortrait = function(src, name) {
+    // Image viewer: the full uploaded picture when there is one (the round token otherwise)
+    window.pwShowPortrait = function(src, name, isFull) {
         let back = document.createElement('div');
+        back.className = 'apx-portrait-viewer';
         back.style.cssText = 'position:fixed;inset:0;z-index:2147483646;background:rgba(0,0,0,.8);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;cursor:zoom-out;';
-        back.innerHTML = `<img style="max-width:min(420px,90vw);max-height:75vh;border-radius:50%;border:3px solid var(--c-border2,#475569);box-shadow:0 20px 60px rgba(0,0,0,.8);"><div style="color:#fff;font-weight:800;font-size:1rem;"></div>`;
+        back.innerHTML = `<img style="max-width:${isFull ? 'min(640px,92vw)' : 'min(420px,90vw)'};max-height:78vh;border-radius:${isFull ? '.75rem' : '50%'};border:3px solid var(--c-border2,#475569);box-shadow:0 20px 60px rgba(0,0,0,.8);"><div style="color:#fff;font-weight:800;font-size:1rem;"></div>`;
         back.querySelector('img').src = src;
         back.querySelector('div').textContent = name || '';
         back.onclick = () => back.remove();
