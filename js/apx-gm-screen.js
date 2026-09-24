@@ -310,6 +310,10 @@ function startPartyListener(inviteCode) {
     _partyUnsubscribe = window.apxAuth.listenWorldPlayers(inviteCode, players => {
         let changed = false;
         players.forEach(p => {
+            if (Array.isArray(p._rollLog)) {
+                window._gmPlayerRollLogs[p.uid] = p._rollLog;
+                p._rollLog.forEach(ev => _gmHandleRollEvent(p.uid, ev));
+            }
             let state = p.charState || p.state;
             // Battle token positions are handled by APXBattle's own listener (js/apx-battlemap.js)
             if (!state) return;
@@ -349,13 +353,21 @@ function startPartyListener(inviteCode) {
                             else return;
                         }
                         let wasUp = e.currentHp === null || e.currentHp > 0;
+                        let before = (e.currentHp || 0) + (e.tempHp || 0), after = (newHp || 0) + (newTempHp || 0);
+                        let hpChanged = e.currentHp !== null && (e.currentHp !== newHp || (e.tempHp || 0) !== newTempHp);
                         // Player's own sheet took them to 0 → start bleeding out (not dead)
-                        if (wasUp && newHp <= 0 && e.faction === 'player' && e.bleedOutTurns == null) {
-                            setTimeout(() => window.openBleedOutModal(e.id), 0);
-                        }
+                        let dropped = wasUp && newHp <= 0 && e.faction === 'player' && e.bleedOutTurns == null;
+                        if (dropped) setTimeout(() => window.openBleedOutModal(e.id), 0);
                         if (newHp > 0) { if (e.bleedOutTurns != null) _gmSetPlayerCondition(e, 'bleedingout', false); e.bleedOutTurns = null; e.stabilized = false; }
                         e.currentHp = newHp;
                         e.tempHp    = newTempHp;
+                        // Damage the player applied on their own sheet: log it, and check their
+                        // Wound Threshold (queued before the Bleed Out roll)
+                        if (hpChanged && before !== after) {
+                            _gmLogHpChange(e, before, after, wasUp);
+                            if (before > after) _gmCheckWoundThreshold(e, before - after);   // Wound Threshold first,
+                            if (dropped) _gmQueueBleed(e);                                     // then Bleed Out
+                        }
                         e.maxHp     = computeCharSummary(state).maxHp;
                         changed     = true;
                     }
@@ -763,6 +775,144 @@ function _gmSetPlayerCondition(entry, condId, on) {
 }
 window._gmSetPlayerCondition = _gmSetPlayerCondition;
 
+// ── Combat log ─────────────────────────────────────────────────────────────
+// While combat is running, the dice tray doubles as a combat log. Damage and
+// healing (from the tracker or a player's own sheet) go to everyone; players'
+// checks and saves go to the GM only. Wound Threshold and Bleed Out CON rolls
+// are matched up automatically: each player has a queue (Wound Threshold save
+// first, then the Bleed Out check), and their next matching CON roll resolves
+// the item at the front. Luck rerolls update the result live.
+window.gmCombatLog = [];
+let _gmLogSession = null, _gmLogPubT = 0;
+window._gmPendingSaves = {};      // entryId -> [{ type: 'wt'|'bleed', dc, dmg, known:Set }]
+window._gmResolvedSaves = {};     // player roll id -> { item, entryId }
+window._gmPlayerRollLogs = {};    // uid -> latest _rollLog
+let _gmSeenRoll = {};             // roll id -> signature (skip repeats)
+
+function _gmInviteCode() {
+    let worlds = typeof _gmWorlds !== 'undefined' ? _gmWorlds : [];
+    let w = worlds.find(x => (x.worldId || x.id) === (typeof _activeWorldId !== 'undefined' ? _activeWorldId : null));
+    return w?.inviteCode || null;
+}
+// Name players see: hidden (unrevealed) tokens stay anonymous
+function _gmPublicName(entry) {
+    if (!entry) return 'Someone';
+    if (entry.faction !== 'player') {
+        let maps = (typeof _wNotes !== 'undefined' && _wNotes.otherMaps) || [];
+        for (let m of maps) {
+            let t = (m.battleTokens || []).find(t => t.initiativeId === entry.id);
+            if (t && t.revealed === false) return 'an unseen creature';
+        }
+    }
+    return entry.name || 'Someone';
+}
+function gmLog(e) {
+    if (!e || (!window.gmCombatStarted && !e.force)) return null;
+    e.id = e.id || 'L' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    e.t = e.t || Date.now();
+    let i = window.gmCombatLog.findIndex(x => x.id === e.id);
+    if (i >= 0) window.gmCombatLog[i] = Object.assign({}, window.gmCombatLog[i], e, { t: window.gmCombatLog[i].t });
+    else window.gmCombatLog.push(e);
+    window.gmCombatLog = window.gmCombatLog.slice(-80);
+    let shown = window.gmCombatLog.find(x => x.id === e.id);
+    if (window.APXDice && window.APXDice.logEntry) window.APXDice.logEntry(shown);
+    if (!e.gmOnly) _gmPublishLogSoon();
+    return e.id;
+}
+window.gmLog = gmLog;
+function _gmPublishLogSoon() {
+    clearTimeout(_gmLogPubT);
+    _gmLogPubT = setTimeout(() => {
+        let code = _gmInviteCode();
+        if (!code || !window.apxAuth?.enabled || typeof window.apxAuth.publishCombatLog !== 'function') return;
+        let pub = window.gmCombatLog.filter(x => !x.gmOnly).slice(-40).map(x => ({ id: x.id, t: x.t, text: x.text, kind: x.kind || 'info' }));
+        window.apxAuth.publishCombatLog(code, pub, _gmLogSession).catch(err => console.warn('Combat log:', err.message));
+    }, 400);
+}
+// HP change on a tracker entry → "<active creature> dealt X damage to <target>."
+function _gmLogHpChange(entry, before, after, wasAboveZero, rawDmg) {
+    let d = before - after;
+    if (d > 0 && rawDmg > d) d = rawDmg;   // the whole hit, even past 0 HP
+    if (!d || !window.gmCombatStarted) return;
+    let cur = window.gmInitiative[window.gmCurrentTurnIdx];
+    let tgt = _gmPublicName(entry);
+    let text = d > 0
+        ? (cur && cur !== entry ? `${_gmPublicName(cur)} dealt ${d} damage to ${tgt}.` : `${tgt} took ${d} damage.`)
+        : `${tgt} regained ${-d} HP.`;
+    if (d > 0 && wasAboveZero && entry.currentHp !== null && entry.currentHp <= 0) text += ` ${tgt} is down!`;
+    gmLog({ text, kind: d > 0 ? 'dmg' : 'heal' });
+}
+window._gmLogHpChange = _gmLogHpChange;
+
+// Queue a CON roll the player owes: Wound Threshold saves always go before Bleed Out
+function _gmQueueSave(entry, item) {
+    if (!entry || !entry.playerUid) return;
+    let q = window._gmPendingSaves[entry.id] || (window._gmPendingSaves[entry.id] = []);
+    item.known = new Set((window._gmPlayerRollLogs[entry.playerUid] || []).map(x => x.id));
+    if (item.type === 'wt') {
+        let i = q.findIndex(x => x.type === 'bleed');
+        if (i < 0) q.push(item); else q.splice(i, 0, item);
+    } else if (!q.some(x => x.type === 'bleed')) q.push(item);
+}
+window._gmQueueSave = _gmQueueSave;
+
+function _gmResolveText(entry, item, ev) {
+    let name = entry ? entry.name : (ev.who || 'A player');
+    if (item.type === 'wt') {
+        let ok = !ev.autoFail && ev.total >= item.dc;
+        return { text: `${name} rolled a ${ev.total} on a DC ${item.dc} check to resist being wounded. They ${ok ? 'succeeded' : 'failed'}.` + (ok ? '' : ' The GM chooses a limb to become Wounded.'), kind: 'wt' };
+    }
+    let turns = Math.max(1, Math.floor(ev.total / 2));
+    return { text: `${name} rolled a ${ev.total} on their Bleed Out CON check: they will bleed out in ${turns} round${turns === 1 ? '' : 's'} unless stabilized or healed.`, kind: 'bleed', turns };
+}
+function _gmApplyBleed(entry, turns) {
+    if (!entry) return;
+    entry.bleedOutTurns = turns;
+    _gmSetPlayerCondition(entry, 'bleedingout', true);
+    let m = document.getElementById('bleedOutModal');
+    if (m && m.dataset.entryId === entry.id && m.classList.contains('active')) window.closeModal('bleedOutModal');
+    window.renderInitiativeTracker();
+    if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
+    if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
+}
+// One of a player's check/save rolls arrived (new, or updated by a Luck reroll / Omen)
+function _gmHandleRollEvent(uid, ev) {
+    if (!ev || !ev.id) return;
+    let sig = [ev.nat, ev.total, ev.luck, ev.omen].join('|');
+    if (_gmSeenRoll[ev.id] === sig) return;
+    let firstSeen = !(ev.id in _gmSeenRoll);
+    _gmSeenRoll[ev.id] = sig;
+    if (!window.gmCombatStarted) return;
+    let entry = (window.gmInitiative || []).find(e => e.playerUid === uid);
+    let name = entry ? entry.name : (ev.who || 'A player');
+    // Everything a player rolls shows for the GM (updates in place)
+    let mode = ev.mode === 'adv' ? ', Advantage' : ev.mode === 'dis' ? ', Disadvantage' : '';
+    gmLog({ id: 'ev_' + ev.id, gmOnly: true, kind: 'roll',
+        text: `${name} rolled ${ev.label || 'a d20'}: ${ev.total} (d20 ${ev.nat}${ev.bonus ? (ev.bonus > 0 ? ' +' : ' −') + Math.abs(ev.bonus) : ''}${mode})${ev.luck ? ' · Luck reroll' : ''}${ev.omen ? ' · Omen' : ''}${ev.autoFail ? ' · auto-fail' : ''}` });
+    // Already matched to a Wound Threshold / Bleed Out roll: update the result
+    let done = window._gmResolvedSaves[ev.id];
+    if (done) {
+        let en = window.gmInitiative.find(e => e.id === done.entryId);
+        let r = _gmResolveText(en, done.item, ev);
+        gmLog({ id: 'res_' + ev.id, text: r.text + ' (rerolled)', kind: r.kind });
+        if (done.item.type === 'bleed' && en && en.bleedOutTurns != null) _gmApplyBleed(en, r.turns);
+        return;
+    }
+    if (!firstSeen || !entry) return;
+    let q = window._gmPendingSaves[entry.id];
+    if (!q || !q.length) return;
+    let head = q[0];
+    if (head.known.has(ev.id) || ev.attr !== 'CON') return;
+    let fits = head.type === 'wt' ? ev.kind === 'save' : (ev.kind === 'save' || ev.skill === 'Survive');
+    if (!fits) return;
+    q.shift();
+    window._gmResolvedSaves[ev.id] = { item: head, entryId: entry.id };
+    let r = _gmResolveText(entry, head, ev);
+    gmLog({ id: 'res_' + ev.id, text: r.text, kind: r.kind });
+    if (head.type === 'bleed' && entry.currentHp !== null && entry.currentHp <= 0) _gmApplyBleed(entry, r.turns);
+}
+window._gmHandleRollEvent = _gmHandleRollEvent;
+
 // XP for defeating an initiative entry: from its stat block's current Tier (so older
 // combats pick up XP table changes); quick-add NPCs keep their stored value (0).
 window._gmEntryXp = function(entry) {
@@ -776,11 +926,18 @@ window._gmEntryXp = function(entry) {
     return entry.tpValue || 0;
 };
 
+function _gmQueueBleed(entry) {
+    if (!entry || entry.faction !== 'player' || entry.bleedOutTurns != null) return;
+    _gmQueueSave(entry, { type: 'bleed' });
+    if (entry.playerUid) gmLog({ text: `${entry.name} is Bleeding Out. Their next CON (Survive) check sets how many rounds they have.`, kind: 'bleed' });
+}
+
 // Shared after-change handling: 0 HP → bleed out (players) / killed (NPCs); healed → clear bleed-out
 function _afterHpChange(entry, wasAboveZero) {
     if (entry.currentHp !== null && entry.currentHp <= 0 && wasAboveZero) {
         if (entry.faction === 'player') {
             _syncHpToPlayer(entry);
+            _gmQueueBleed(entry);
             window.openBleedOutModal(entry.id);
         } else {
             window.gmPendingXp += window._gmEntryXp(entry);
@@ -825,6 +982,8 @@ function _gmCheckWoundThreshold(entry, dmg) {
         + (already.length ? `\n\nAlready Wounded: ${already.join(', ')}.` : '')
         + `\n\n(Check that the damage you entered was after their DR or ER.)`;
     if (window.apxAlert) window.apxAlert(msg, { title: `Wound! CON save DC ${dc}` });
+    _gmQueueSave(entry, { type: 'wt', dc, dmg });
+    gmLog({ text: `${who} took ${dmg} damage, more than their Wound Threshold (${wt}). They must make a DC ${dc} CON save to resist being wounded.`, kind: 'wt' });
 }
 window._gmCheckWoundThreshold = _gmCheckWoundThreshold;
 // Damage typed as "-N" (or a lower value) in the tracker
@@ -849,9 +1008,11 @@ window.setInitiativeTempHp = function(id, value) {
     } else {
         entry.tempHp = result;
     }
-    let tmpDmg = _gmDamageFrom(value, before, (entry.currentHp || 0) + (entry.tempHp || 0));
+    let tmpAfter = (entry.currentHp || 0) + (entry.tempHp || 0);
+    let tmpDmg = _gmDamageFrom(value, before, tmpAfter);
+    _gmLogHpChange(entry, before, tmpAfter, wasAboveZero, tmpDmg);
+    _gmCheckWoundThreshold(entry, tmpDmg);       // Wound Threshold first, then Bleed Out
     _afterHpChange(entry, wasAboveZero);
-    _gmCheckWoundThreshold(entry, tmpDmg);
 };
 
 // HP box: "-N" damage hits Temp HP first, leftover carries to HP; "+N" heals; "N" sets.
@@ -865,9 +1026,11 @@ window.updateInitiativeHp = function(id, value) {
     let before = (entry.currentHp || 0) + (entry.tempHp || 0);
     entry.currentHp = r.currentHp;
     entry.tempHp = r.tempHp;
-    let dmg = _gmDamageFrom(value, before, (entry.currentHp || 0) + (entry.tempHp || 0));
+    let after = (entry.currentHp || 0) + (entry.tempHp || 0);
+    let dmg = _gmDamageFrom(value, before, after);
+    _gmLogHpChange(entry, before, after, wasAboveZero, dmg);
+    _gmCheckWoundThreshold(entry, dmg);          // Wound Threshold first, then Bleed Out
     _afterHpChange(entry, wasAboveZero);
-    _gmCheckWoundThreshold(entry, dmg);
 };
 
 window.toggleSurprised = function(id, checked) {
@@ -923,7 +1086,8 @@ window.adjustBleedOutTurns = function(id, delta) {
 window.openBleedOutModal = function(id) {
     let entry = window.gmInitiative.find(e => e.id === id);
     if (!entry) return;
-    document.getElementById('bleedOutModalName').innerText = `${entry.name} has dropped to 0 HP.`;
+    document.getElementById('bleedOutModalName').innerText = `${entry.name} has dropped to 0 HP.` +
+        (entry.playerUid && window.gmCombatStarted ? ` Their CON (Survive) check sets the rounds (half the result, rounded down, min 1). It fills in automatically when they roll it${(window._gmPendingSaves[entry.id] || []).some(x => x.type === 'wt') ? ', after their Wound Threshold save' : ''}, or type it here.` : '');
     document.getElementById('bleedOutTurnsInput').value = '';
     document.getElementById('bleedOutModal').dataset.entryId = id;
     window.openModal('bleedOutModal');
@@ -1008,6 +1172,7 @@ window.endCombat = function() {
         ? `Combat ended. ${totalXp} XP earned — ${perPlayer} XP each, split between ${split}.`
         : `Combat ended. ${totalXp} XP earned, but no surviving players or allies to split it.`;
     window.showConfirm(message, () => {
+        gmLog({ text: 'Combat ended.', kind: 'info' });
         // Distribute XP to each surviving player via their initiative entry
         if (perPlayer > 0) {
             let worlds = typeof _gmWorlds !== 'undefined' ? _gmWorlds : [];
@@ -1048,6 +1213,9 @@ window.startCombat = function() {
     window.gmRoundNumber = 1;
     window.gmTurnNumber = 1;
     window.gmInitiative.forEach(x => { x.apCur = 0; x._apTurns = 0; x._apFirstSurprised = false; });
+    window.gmCombatLog = []; window._gmPendingSaves = {}; window._gmResolvedSaves = {};
+    _gmLogSession = 'c' + Date.now().toString(36);
+    gmLog({ text: 'Combat started. Round 1.', kind: 'info' });
     if (window.gmInitiative[0]) gmStartTurnAp(window.gmInitiative[0]);
     window.renderInitiativeTracker();
     if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
@@ -1060,6 +1228,7 @@ window.nextInitiativeTurn = function() {
     if (window.gmCurrentTurnIdx >= window.gmInitiative.length) {
         window.gmCurrentTurnIdx = 0;
         window.gmRoundNumber++;
+        gmLog({ text: `Round ${window.gmRoundNumber}.`, kind: 'info' });
     }
     window.gmTurnNumber++;
     let current = window.gmInitiative[window.gmCurrentTurnIdx];

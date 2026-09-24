@@ -3258,9 +3258,18 @@
                 otherMaps: data.publicNotes?.otherMaps || [],
                 worldMapDataUrl: cachedMap
             };
+            // Combat log from the GM (shown in the dice tray)
+            try {
+                let cl = data.combatLog;
+                if (cl && Array.isArray(cl.entries) && window.APXDice && window.APXDice.logEntry) {
+                    let fresh = Date.now() - 3 * 3600 * 1000;   // skip stale logs from long-finished fights
+                    cl.entries.forEach(e => { if ((e.t || 0) > fresh || window.APXDice.hasLogEntry(e.id)) window.APXDice.logEntry(e); });
+                }
+            } catch (e) { }
             // Combat just started -> your AP pool empties; you gain AP when your turn comes up
             try {
                 let inCombat = (world.notesV2.otherMaps || []).some(m => m._currentInitId);
+                window._pwCombatCode = inCombat ? code : null;
                 if (inCombat && window._pwWasInCombat === false && window.state) { window.state.apCurrent = 0; window._pwLastTurnKey = null; window.apxRenderApPips?.(); window.scheduleAutoSave?.(); }
                 window._pwWasInCombat = inCombat;
             } catch (e) { }
@@ -3286,6 +3295,22 @@
             renderPlayerWorld();
         });
     }
+
+    // Your checks and saves go to the GM's combat log while combat is running
+    // (a Luck reroll or Omen updates the same entry)
+    window._pwRollLog = [];
+    window.apxOnRollEvent = function(ev) {
+        let code = window._pwCombatCode, uid = window.apxAuth?.user?.uid;
+        if (!code || !uid || typeof window.apxAuth?.writeRollLog !== 'function') return;
+        let prev = window._pwRollLog.find(x => x.id === ev.id);
+        if (prev && prev.nat === ev.nat && prev.total === ev.total && prev.luck === ev.luck && prev.omen === ev.omen) return;
+        ev = Object.assign({}, ev, { who: window.state?.name || ev.who || '', t: prev ? prev.t : Date.now() });
+        window._pwRollLog = window._pwRollLog.filter(x => x.id !== ev.id).concat([ev]).slice(-12);
+        clearTimeout(window._pwRollLogT);
+        window._pwRollLogT = setTimeout(() => {
+            window.apxAuth.writeRollLog(code, uid, window._pwRollLog).catch(e => console.warn('Roll log:', e.message));
+        }, 250);
+    };
 
     // ── Player World View ────────────────────────────────────
     window._playerWorldData = null;

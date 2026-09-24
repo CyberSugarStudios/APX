@@ -414,6 +414,22 @@
             .set({ _gmConds: { [condId]: { on: !!on, at: firebase.firestore.FieldValue.serverTimestamp() } } }, { merge: true });
     }
 
+    // --- Combat log ---------------------------------------------------------------
+    // The GM publishes the shared combat log on the world's invite-code doc (players
+    // already listen to it). Players post their own check/save rolls to their player
+    // doc (_rollLog), which the GM already listens to. No new Firestore rules needed.
+    async function publishCombatLog(inviteCode, entries, sessionId) {
+        if (!inviteCode) return;
+        await db.collection('worldCodes').doc(inviteCode.toUpperCase().trim())
+            .set({ combatLog: { session: sessionId || null, entries: apxClean(entries || []), at: Date.now() } }, { merge: true });
+    }
+    async function writeRollLog(inviteCode, uid, entries) {
+        if (!inviteCode || !uid) return;
+        await db.collection('worldCodes').doc(inviteCode.toUpperCase().trim())
+            .collection('players').doc(uid)
+            .set({ _rollLog: apxClean(entries || []) }, { merge: true });
+    }
+
     // --- NPC portraits (stored separately to keep world doc under 1MB limit) ---
     // Path: users/{uid}/worlds/{worldId}/npcPortraits/{npcId}
     async function saveNpcPortrait(worldId, npcId, circleData, fullData) {
@@ -758,7 +774,7 @@
         writeBattlePosition, listenBattlePositions,
         saveOtherMapImage, loadOtherMapImage, loadOtherMapImageForPlayer, deleteOtherMapImage,
         saveBattleImage, loadBattleImage, loadBattleImageForPlayer, deleteBattleImage,
-        addXpGrant, ackXpGrants, setGmCondition,
+        addXpGrant, ackXpGrants, setGmCondition, publishCombatLog, writeRollLog,
         saveFogData, loadFogData, loadFogDataForPlayer, listenFogDataForPlayer,
         listenWorldPlayers, listenPublicWorldNotes, kickWorldPlayer,
         scheduleAutoSave, setActiveCharId,

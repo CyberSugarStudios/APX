@@ -172,6 +172,13 @@
         .apxd-pool .go{margin-left:auto;background:var(--c-emerald,#059669);border:none;color:#fff;font-size:.7rem;font-weight:900;padding:.22rem .7rem;border-radius:.3rem;cursor:pointer}
         .apxd-pool .go:disabled{opacity:.4;cursor:default}
         .apxd-pool .clr{background:none;border:none;color:var(--c-text-muted,#94a3b8);font-size:.67rem;font-weight:800;cursor:pointer}
+        .apxd-card.log{padding:.3rem .5rem;border-left:3px solid var(--c-indigo,#6366f1);font-size:.74rem;line-height:1.35;color:var(--c-text-dimmer,#cbd5e1)}
+        .apxd-card.log.k-dmg{border-left-color:#ef4444} .apxd-card.log.k-heal{border-left-color:#10b981}
+        .apxd-card.log.k-wt{border-left-color:#f59e0b} .apxd-card.log.k-bleed{border-left-color:#b91c1c}
+        .apxd-card.log.k-roll{border-left-color:#818cf8} .apxd-card.log.k-info{border-left-color:#64748b}
+        .apxd-card.log .lt{font-size:.62rem;color:var(--c-text-muted,#94a3b8);margin-right:.35rem}
+        .apxd-card.log .lg{font-size:.58rem;font-weight:800;text-transform:uppercase;color:var(--c-text-muted,#94a3b8);margin-right:.3rem}
+        .apxd-fab.unseen::after{content:'';position:absolute;top:2px;right:2px;width:11px;height:11px;border-radius:50%;background:#ef4444;border:2px solid var(--c-surface,#1e293b)}
         .apxd-log{overflow-y:auto;padding:.5rem .6rem;display:flex;flex-direction:column;gap:.45rem;min-height:90px}
         .apxd-empty{font-size:.7rem;color:var(--c-text-muted,#64748b);text-align:center;padding:1rem .5rem}
         .apxd-card{border:1px solid var(--c-border,#334155);background:var(--c-surface2,#0f172a);border-radius:.55rem;padding:.45rem .55rem}
@@ -246,7 +253,7 @@
         document.body.appendChild(el);
         tray.el = el; tray.fab = fab; tray.log = el.querySelector('.apxd-log');
         el.querySelector('[data-close]').onclick = () => toggle(false);
-        el.querySelector('[data-clear]').onclick = () => { cards = []; tray.log.innerHTML = '<div class="apxd-empty">Log cleared.</div>'; };
+        el.querySelector('[data-clear]').onclick = () => { cards = []; logCards = {}; tray.log.innerHTML = '<div class="apxd-empty">Log cleared.</div>'; };
         el.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => setMode(b.dataset.mode));
         // Die buttons add to a pool; Roll rolls the pool (plus the text field) and clears both
         tray.pool = {};
@@ -317,6 +324,7 @@
         build();
         tray.open = force === undefined ? !tray.open : !!force;
         tray.el.classList.toggle('open', tray.open);
+        if (tray.open) tray.fab.classList.remove('unseen');
         if (tray.open) refreshPerkBar();
     }
 
@@ -356,6 +364,13 @@
 
     function renderCard(c, spin) {
         let el = c.el || (c.el = document.createElement('div'));
+        if (c.log) {
+            let d = new Date(c.log.t || Date.now());
+            let hh = d.getHours() % 12 || 12, mm = String(d.getMinutes()).padStart(2, '0');
+            el.className = 'apxd-card log k-' + (c.log.kind || 'info');
+            el.innerHTML = `<span class="lt">${hh}:${mm}</span>${c.log.gmOnly ? '<span class="lg" title="Only you (the GM) see this">GM</span>' : ''}${esc(c.log.text)}`;
+            return;
+        }
         let crit = c.parts.some(p => p.crit), fum = c.parts.some(p => p.fumble);
         el.className = 'apxd-card' + (crit ? ' crit' : fum ? ' fumble' : '');
         let partsHtml = c.parts.map((p, pi) => {
@@ -494,11 +509,21 @@
             let c = { label: o.label || 'Check', who: o.who, parts: [p], perks: o.perks !== false && !!(window.state?.perks), badges: modeBadges(mode, o.advSources, o.disSources) };
             if (o.autoFail) c.badges.push(['fum', 'Auto-fail', o.autoFail]);
             if (o.note) c.badges.push(['info', o.note]);
-            let redo = () => { c.badges = modeBadges(p.badgeMode || mode, o.advSources, o.disSources).concat(o.autoFail ? [['fum', 'Auto-fail', o.autoFail]] : []); c.actions = d20Actions(c, p, redo); renderCard(c); };
+            c.id = 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+            let emit = () => {
+                if (typeof window.apxOnRollEvent !== 'function' || !c.perks) return;
+                try {
+                    window.apxOnRollEvent({ id: c.id, kind: o.kind === 'save' ? 'save' : 'check', attr: o.attr || '', skill: o.skill || '', label: c.label, who: o.who || '',
+                        nat: p.nat, total: p.total, bonus: p.bonus || 0, mode: p.badgeMode || mode, luck: !!p.luckUsed, omen: p.omenAt !== undefined, autoFail: !!o.autoFail });
+                } catch (e) { }
+            };
+            let redo = () => { c.badges = modeBadges(p.badgeMode || mode, o.advSources, o.disSources).concat(o.autoFail ? [['fum', 'Auto-fail', o.autoFail]] : []); c.actions = d20Actions(c, p, redo); renderCard(c); emit(); };
             c._redo = redo;
             c.actions = d20Actions(c, p, redo);
             setMode('normal');
-            return addCard(c);
+            let out = addCard(c);
+            emit();
+            return out;
         },
 
         async attack(o) {
@@ -707,6 +732,27 @@
         });
     }
     APXDice.ask = ask;
+
+    // ── Combat log lines (from the GM's combat log) ──────────────
+    // Adds or updates (same id) a one-line card. Doesn't pop the tray open; a red
+    // dot on the dice button shows there's something new.
+    let logCards = {};
+    APXDice.logEntry = function (e) {
+        if (!e || !e.id) return;
+        build();
+        let c = logCards[e.id];
+        if (c && c.log.text === e.text && c.log.kind === e.kind) return;
+        if (c) { c.log = e; renderCard(c); return; }
+        c = { log: e, parts: [] };
+        logCards[e.id] = c;
+        let empty = tray.log.querySelector('.apxd-empty'); if (empty) empty.remove();
+        cards.unshift(c);
+        renderCard(c);
+        tray.log.insertBefore(c.el, tray.log.firstChild);
+        while (cards.length > 60) { let old = cards.pop(); old.el?.remove(); if (old.log) delete logCards[old.log.id]; }
+        if (!tray.open) tray.fab.classList.add('unseen');
+    };
+    APXDice.hasLogEntry = id => !!logCards[id];
     APXDice.css = css;
     // Safe attribute value for data-apx-roll (use inside single quotes: data-apx-roll='${APXDice.attr({...})}')
     APXDice.attr = function (o) { return JSON.stringify(o).replace(/&/g, '&amp;').replace(/'/g, '&#39;').replace(/</g, '&lt;'); };
