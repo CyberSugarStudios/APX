@@ -40,10 +40,10 @@
             { id: "frightened", name: "Frightened", desc: "Disadvantage on all attribute checks and attack rolls while the fear source is visible/audible. Can't willingly move toward it.",
               atkDisadvantage: 'general', checkDisadvantage: 'all' },
             { id: "incapacitated", name: "Incapacitated", desc: "AP reduced to 0; can't take actions, Free Actions, or Reactions. Completely exposed: any hit against you is a Critical Hit and bypasses all your resistances.",
-              apZero: true },
+              apZero: true, noActions: true },
             { id: "infected", name: "Infected", desc: "Carries a disease with no symptoms or penalties yet. Becomes Diseased after the incubation period." },
             { id: "paralyzed", name: "Paralyzed", desc: "Also Incapacitated. Can't move or speak. Auto-fail STR/AGI saves. Melee hits within 1 square are automatic Critical Hits.",
-              apZero: true, autoFailSaves: ['STR','AGI'] },
+              apZero: true, autoFailSaves: ['STR','AGI'], autoFailChecks: ['STR','AGI'] },
             { id: "poisoned", name: "Poisoned", desc: "Disadvantage on all attack rolls and attribute checks. Specific poisons may add further effects.",
               atkDisadvantage: 'general', checkDisadvantage: 'all' },
             { id: "prone", name: "Prone", desc: "Disadvantage on melee attack rolls, Advantage on ranged attack rolls. Crawling costs 2x AP; standing costs 2 AP and ends this.",
@@ -57,7 +57,7 @@
               autoFailSaves: ['STR','AGI'], speedZero: true },
             { id: "suffocating", name: "Suffocating", desc: "Can't regain HP. Gain 2 levels of Fatigue at the start of each of your turns." },
             { id: "unconscious", name: "Unconscious", desc: "Drops held items, falls Prone. Also Incapacitated. Auto-fail STR/AGI saves. Melee hits within 1 square are automatic Critical Hits.",
-              apZero: true, autoFailSaves: ['STR','AGI'] }
+              apZero: true, autoFailSaves: ['STR','AGI'], autoFailChecks: ['STR','AGI','PER','INT','CHA'] }
         ];
 
         // Base 6 body parts for the Wounded condition. Traits that grant

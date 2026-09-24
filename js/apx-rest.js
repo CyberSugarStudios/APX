@@ -39,6 +39,7 @@
         return false;
     }
     function toast(msg) {
+        if (window.APXDice && window.APXDice.notify) { window.APXDice.notify(msg, { kind: 'note' }); return; }
         document.getElementById('apxRestToast')?.remove();
         let t = document.createElement('div');
         t.id = 'apxRestToast';
@@ -251,6 +252,25 @@
             });
         };
         draw();
+    };
+
+    // ── Burning: 1d10 Fire damage at the start of each of your turns (bypasses ER) ──
+    // Called when your turn starts in the GM's initiative. Immune to Fire: no damage.
+    window.apxBurnTick = function () {
+        let s = st(); if (!s) return;
+        let eff = (window.apxEffectiveConditions ? window.apxEffectiveConditions(s.conditions || [], s) : (s.conditions || []).map(id => ({ id }))).map(c => c.id);
+        if (!eff.includes('burning')) return;
+        let immune = (s.ancestryEnvResistances || []).some(e => e.type === 'Fire' && e.immune);
+        if (immune) { window.APXDice?.notify('Burning: you\'re immune to Fire damage, so it deals nothing.', { kind: 'note' }); return; }
+        let vuln = 5 * (s.ancestryEnvVulnerabilities || []).filter(e => e.type === 'Fire').length;
+        let card = window.APXDice ? window.APXDice.damage({ label: 'Burning (start of your turn)', who: s.name || '', formula: '1d10', dmgType: 'Fire', perks: false }) : null;
+        let rolled = card && card.parts && card.parts[0] ? card.parts[0].total : Math.floor(Math.random() * 10) + 1;
+        let dmg = rolled + vuln;
+        let r = window.apxApplyHpInput ? window.apxApplyHpInput('-' + dmg, s.currentHp, s.tempHp || 0, maxHp()) : null;
+        if (r) { s.currentHp = r.currentHp; s.tempHp = r.tempHp; } else s.currentHp = Math.max(0, (s.currentHp || 0) - dmg);
+        refresh();
+        window.APXDice?.notify(`Burning: you took ${dmg} Fire damage${vuln ? ` (${rolled} + ${vuln} Fire Vulnerability)` : ''}, ignoring ER. Spend 3 AP to put it out (you or an adjacent ally).`, { kind: 'warn' });
+        if (typeof window.apxOnRollEvent === 'function') window.apxOnRollEvent({ id: 'burn' + Date.now().toString(36), kind: 'burn', attr: '', label: 'Burning', nat: rolled, total: dmg, bonus: vuln, mode: 'normal', luck: false, omen: false });
     };
 
     // ── Regenerative (ancestry trait) ────────────────────────────

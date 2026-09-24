@@ -149,7 +149,8 @@
                     atkGeneral: [], atkMelee: [], atkRangedAdv: [],
                     saveByAttr: { STR: [], AGI: [], CON: [], PER: [], INT: [], CHA: [], LUC: [] },
                     checkByAttr: { STR: [], AGI: [], CON: [], PER: [], INT: [], CHA: [], LUC: [] },
-                    autoFailSaveByAttr: { STR: [], AGI: [], CON: [], PER: [], INT: [], CHA: [], LUC: [] }
+                    autoFailSaveByAttr: { STR: [], AGI: [], CON: [], PER: [], INT: [], CHA: [], LUC: [] },
+                    autoFailCheckByAttr: { STR: [], AGI: [], CON: [], PER: [], INT: [], CHA: [], LUC: [] }
                 }
             };
 
@@ -164,8 +165,10 @@
                 if (def.checkDisadvantage === 'all') ATTRIBUTES.forEach(a => calc.disadv.checkByAttr[a].push(label));
                 else if (Array.isArray(def.checkDisadvantage)) def.checkDisadvantage.forEach(a => calc.disadv.checkByAttr[a] && calc.disadv.checkByAttr[a].push(label));
                 if (Array.isArray(def.autoFailSaves)) def.autoFailSaves.forEach(a => calc.disadv.autoFailSaveByAttr[a] && calc.disadv.autoFailSaveByAttr[a].push(label));
+                if (Array.isArray(def.autoFailChecks)) def.autoFailChecks.forEach(a => calc.disadv.autoFailCheckByAttr[a] && calc.disadv.autoFailCheckByAttr[a].push(label));
                 if (def.speedZero) calc.speedForcedZero = true;
                 if (def.apZero) calc.apForcedZero = true;
+                if (def.noActions) calc.cantAct = true;
             }
 
             if(window.state.ancestry.traits.includes('t_sens')) calc.skills['Notice'] = (calc.skills['Notice']||0) + 5;
@@ -327,6 +330,12 @@
                 let cDef = CONDITIONS.find(c => c.id === ec.id);
                 if (cDef) applyEffectSource(ec.from ? `${cDef.name} (from ${(CONDITIONS.find(c => c.id === ec.from) || {}).name || ec.from})` : cDef.name, cDef);
             });
+            // Can't act at all (Incapacitated, and what brings it): attacks show why instead of "(Disadv)" and don't roll
+            {
+                let ids = effConds.map(c => c.id);
+                calc.cantAct = ids.includes('incapacitated');
+                calc.cantActLabel = !calc.cantAct ? '' : ids.includes('unconscious') ? 'Unconscious' : ids.includes('paralyzed') ? 'Paralyzed' : 'Incapacitated';
+            }
 
             let legWoundCount = 0;
             (window.state.woundedLimbs || []).forEach(limb => {
@@ -556,7 +565,7 @@
                             <div class="text-lg font-black text-slate-200 w-12">${attr}</div>
                             <div class="w-10 text-center text-sm font-bold text-slate-400 mx-2 bg-slate-900 rounded p-1 border border-slate-700">${sc}</div>
                             <div class="flex-1 flex justify-end">
-                                <div class="w-10 h-8 flex items-center justify-center font-black text-lg rounded shadow-inner border ${bgClass} apx-rollable" title="Click to roll a ${attr} check"${apxRollAttr({ type: 'check', label: attr + ' check', bonus: mod, attr, disSources: calc.disadv.checkByAttr[attr] || [] })}>${mod >= 0 ? '+'+mod : mod}</div>
+                                <div class="w-10 h-8 flex items-center justify-center font-black text-lg rounded shadow-inner border ${bgClass} apx-rollable" title="Click to roll a ${attr} check"${apxRollAttr({ type: 'check', label: attr + ' check', bonus: mod, attr, disSources: calc.disadv.checkByAttr[attr] || [], autoFail: (calc.disadv.autoFailCheckByAttr[attr] || []).join(', ') || undefined })}>${mod >= 0 ? '+'+mod : mod}</div>
                             </div>
                         </div>
                         <div class="flex items-center justify-between px-2 py-1 bg-slate-800/60 border-b border-slate-700/50 text-[10px] apx-rollable" title="Click to roll a ${attr} save"${apxRollAttr({ type: 'check', kind: 'save', attr, label: attr + ' Save', bonus: saveBonus, disSources: saveDisadvSources, autoFail: saveAutoFailSources.join(', ') || undefined })}>
@@ -601,7 +610,9 @@
                     }
 
                     let checkDisadvSources = calc.disadv.checkByAttr[attr] || [];
-                    let disadvHtml = checkDisadvSources.length ? `<span class="text-[8px] text-red-400 ml-1" title="${checkDisadvSources.join(', ')}">(Disadv)</span>` : '';
+                    let checkAutoFail = (calc.disadv.autoFailCheckByAttr[attr] || []).join(', ') || undefined;
+                    let disadvHtml = checkAutoFail ? `<span class="text-[8px] text-red-500 font-black ml-1" title="${checkAutoFail}">(Auto-Fail)</span>`
+                        : checkDisadvSources.length ? `<span class="text-[8px] text-red-400 ml-1" title="${checkDisadvSources.join(', ')}">(Disadv)</span>` : '';
                     let displayName = skill.name.startsWith('Encyclopedia (') ? skill.name.replace('Encyclopedia (', '').replace(')', '') : skill.name;
 
                     return `
@@ -609,9 +620,9 @@
                             ${skill.isCustom && !skill.name.startsWith('Encyclopedia') ? `<button onclick="window.deleteCustomSkill('${skill.id}')" class="absolute -left-1 text-red-500 hover:text-red-400 opacity-0 group-hover:opacity-100">&times;</button>` : ''}
                             <div class="flex items-center gap-2 flex-1 ${indent ? 'pl-5' : (skill.isCustom ? 'pl-3' : '')}">
                                 <input type="checkbox" ${isTr ? 'checked' : ''} disabled title="Trained via Origin, Ancestry, or Spend XP -- not manually toggled here" class="w-3 h-3 cursor-not-allowed opacity-70">
-                                <span class="${isTr ? 'text-blue-300 font-bold' : 'text-slate-300'} apx-rollable" ${isTr && window.state.skillSource[skill.id] ? `data-tip="Trained via: ${window.state.skillSource[skill.id]}"` : ''}${apxRollAttr({ type: 'check', label: displayName + ' (' + attr + ')', bonus: total, attr, skill: skill.id, disSources: checkDisadvSources })}>${displayName}</span>
+                                <span class="${isTr ? 'text-blue-300 font-bold' : 'text-slate-300'} apx-rollable" ${isTr && window.state.skillSource[skill.id] ? `data-tip="Trained via: ${window.state.skillSource[skill.id]}"` : ''}${apxRollAttr({ type: 'check', label: displayName + ' (' + attr + ')', bonus: total, attr, skill: skill.id, disSources: checkDisadvSources, autoFail: checkAutoFail })}>${displayName}</span>
                             </div>
-                            <div class="w-auto text-center font-bold ${total < 0 ? 'skill-mod-negative' : (isTr ? 'text-blue-400' : 'text-slate-500')} text-xs apx-rollable"${apxRollAttr({ type: 'check', label: displayName + ' (' + attr + ')', bonus: total, attr, skill: skill.id, disSources: checkDisadvSources })}>${total >= 0 ? '+'+total : total}${disadvHtml}</div>
+                            <div class="w-auto text-center font-bold ${total < 0 ? 'skill-mod-negative' : (isTr ? 'text-blue-400' : 'text-slate-500')} text-xs apx-rollable"${apxRollAttr({ type: 'check', label: displayName + ' (' + attr + ')', bonus: total, attr, skill: skill.id, disSources: checkDisadvSources, autoFail: checkAutoFail })}>${total >= 0 ? '+'+total : total}${disadvHtml}</div>
                             <div class="w-10 text-right ${pasText === '--' ? 'text-slate-600' : 'text-slate-500 font-bold'}">${pasText}</div>
                         </div>
                     `;
@@ -1042,8 +1053,16 @@
             let atkRoll = apxRollAttr({ type: 'attack', label: rollName, bonus: atk, dice: opts.dice, dmgMod, critMult, dmgType: w.elemental || w.dmgType || '', disSources: disadvSources, advSources,
                 pcAttack: true, wcat: cat, apCost: parseInt(opts.ap) || 0, ranged: cat === 'ranged', aimed: cat === 'ranged' && !!w.aimed, unarmed: !!w.isUnarmed,
                 wFlurry: !!(w.properties && w.properties.flurry) || undefined });
+            if (calc.cantAct) {
+                // Incapacitated / Unconscious: no attacking until it ends
+                let why = calc.cantActLabel;
+                atkRoll = ` data-no-roll data-apx-blocked="${why}" title="You're ${why} and can't attack until that ends"`;
+            }
             let dmgRoll = apxRollAttr({ type: 'damage', label: rollName + ' damage', formula: opts.dice + (dmgMod ? (dmgMod > 0 ? '+' : '') + dmgMod : ''), dmgType: w.elemental || w.dmgType || '', wcat: cat });
-            let disadvHtml = disadvSources.length
+            if (calc.cantAct) dmgRoll = ` data-no-roll data-apx-blocked="${calc.cantActLabel}" title="You're ${calc.cantActLabel} and can't attack until that ends"`;
+            let disadvHtml = calc.cantAct
+                ? `<span class="text-[8px] text-red-500 font-black block -mt-1 leading-none" title="You can't take actions">(${calc.cantActLabel})</span>`
+                : disadvSources.length
                 ? `<span class="text-[8px] text-red-400 block -mt-1 leading-none" title="${disadvSources.join(', ')}">(Disadv)</span>`
                 : (advSources.length ? `<span class="text-[8px] text-emerald-400 block -mt-1 leading-none" title="${advSources.join(', ')}">(Adv)</span>` : '');
 
@@ -1366,7 +1385,8 @@
             let m = txt.match(/^\s*((?:\d*d\d+)(?:\s*[+-]\s*(?:\d*d\d+|\d+))*)\s*(.*)$/i);
             if (!m || !window.APXDice) return txt;
             let heal = /heal/i.test(m[2]);
-            let attr = apxRollAttr({ type: 'damage', label: (p.name || 'Power') + (heal ? ' healing' : ' damage'), formula: m[1].replace(/\s+/g, ''), dmgType: heal ? '' : m[2].trim(), heal: heal || undefined, wcat: 'power' });
+            let attr = calc.cantAct ? ` data-no-roll data-apx-blocked="${calc.cantActLabel}"`
+                : apxRollAttr({ type: 'damage', label: (p.name || 'Power') + (heal ? ' healing' : ' damage'), formula: m[1].replace(/\s+/g, ''), dmgType: heal ? '' : m[2].trim(), heal: heal || undefined, wcat: 'power' });
             return `<span class="apx-rollable" style="text-decoration:underline dotted;text-underline-offset:2px" title="Click to roll"${attr}>${m[1]}</span> ${m[2]}`;
         }
 

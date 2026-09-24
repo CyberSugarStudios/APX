@@ -913,6 +913,7 @@
     });
 
     function toast(area, msg, kind) {
+        if (window.APXDice && window.APXDice.notify) { window.APXDice.notify(msg, { kind: kind === 'info' ? 'note' : 'warn' }); return; }
         if (!area) return;
         let t = document.createElement('div');
         t.textContent = msg;

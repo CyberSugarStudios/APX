@@ -577,7 +577,7 @@ window.addToInitiative = function(sourceIdx, sourceType, faction, displayName) {
         let resolvedFaction = faction || nextAddFaction();
         // Use displayName (world NPC name) if provided, otherwise fall back to stat block name
         let entryName = displayName || sb.name;
-        entry = { id: crypto.randomUUID(), name: entryName, baseInitiative: sb.initiative, surprised: false, currentHp: sb.currentHp, maxHp: sb.maxHp, tempHp: 0, ap: sb.ap, ac: sb.ac, dr: sb.dr, er: sb.er, faction: resolvedFaction, bleedOutTurns: null, tpValue: window.npcXpForTier(npcTierForTP(n.npc.gmTpBudget || 0).tier), sourceNpcId: n.id, hasLairActions: !!n.npc.lairActions, lairTraitNote: null, powerUsage: {} };
+        entry = { id: crypto.randomUUID(), name: entryName, baseInitiative: sb.initiative, surprised: false, currentHp: sb.maxHp, maxHp: sb.maxHp, tempHp: 0, ap: sb.ap, ac: sb.ac, dr: sb.dr, er: sb.er, faction: resolvedFaction, bleedOutTurns: null, tpValue: window.npcXpForTier(npcTierForTP(n.npc.gmTpBudget || 0).tier), sourceNpcId: n.id, hasLairActions: !!n.npc.lairActions, lairTraitNote: null, powerUsage: {} };
         // Limited-use powers (Charges or Recharge) get their own tracked
         // usage on the initiative entry itself, independent of the NPC's
         // own saved data -- so two copies of the same monster in the same
@@ -787,6 +787,7 @@ let _gmLogSession = null, _gmLogPubT = 0;
 window._gmPendingSaves = {};      // entryId -> [{ type: 'wt'|'bleed', dc, dmg, known:Set }]
 window._gmResolvedSaves = {};     // player roll id -> { item, entryId }
 window._gmPlayerRollLogs = {};    // uid -> latest _rollLog
+window._gmRecentBurn = {};        // uid -> { amt, t } (skip the duplicate plain damage line)
 let _gmSeenRoll = {};             // roll id -> signature (skip repeats)
 
 function _gmInviteCode() {
@@ -834,6 +835,8 @@ function _gmLogHpChange(entry, before, after, wasAboveZero, rawDmg) {
     let d = before - after;
     if (d > 0 && rawDmg > d) d = rawDmg;   // the whole hit, even past 0 HP
     if (!d || !window.gmCombatStarted) return;
+    let burn = entry.playerUid && window._gmRecentBurn[entry.playerUid];
+    if (burn && d > 0 && Date.now() - burn.t < 15000 && (burn.amt === d || burn.amt === before - after)) { delete window._gmRecentBurn[entry.playerUid]; return; }
     let cur = window.gmInitiative[window.gmCurrentTurnIdx];
     let tgt = _gmPublicName(entry);
     let text = d > 0
@@ -885,6 +888,13 @@ function _gmHandleRollEvent(uid, ev) {
     if (!window.gmCombatStarted) return;
     let entry = (window.gmInitiative || []).find(e => e.playerUid === uid);
     let name = entry ? entry.name : (ev.who || 'A player');
+    // Burning ticked at the start of their turn: say why they lost HP (instead of a plain damage line)
+    if (ev.kind === 'burn') {
+        if (!firstSeen) return;
+        window._gmRecentBurn[uid] = { amt: ev.total, t: Date.now() };
+        gmLog({ id: 'burn_' + ev.id, text: `${name} burns for ${ev.total} Fire damage.`, kind: 'dmg' });
+        return;
+    }
     // Everything a player rolls shows for the GM (updates in place)
     let mode = ev.mode === 'adv' ? ', Advantage' : ev.mode === 'dis' ? ', Disadvantage' : '';
     gmLog({ id: 'ev_' + ev.id, gmOnly: true, kind: 'roll',
@@ -942,6 +952,10 @@ function _afterHpChange(entry, wasAboveZero) {
         } else {
             window.gmPendingXp += window._gmEntryXp(entry);
             window.removeFromInitiative(entry.id, { dead: true });
+            let foesLeft = window.gmInitiative.some(e => e.faction === 'enemy');
+            let bleeding = _gmBleedingPlayers();
+            if (!foesLeft && bleeding.length && window.gmCombatStarted)
+                gmLog({ text: `All enemies are down, but ${bleeding.map(e => e.name).join(' and ')} ${bleeding.length > 1 ? 'are' : 'is'} still Bleeding Out. Combat continues so the party can save them.`, kind: 'bleed' });
             return;
         }
     } else if (entry.currentHp > 0) {
@@ -1158,7 +1172,18 @@ window.clearInitiative = function() {
 // tracker, rounded down. Combat never ends on its own just because every
 // non-player hit 0 -- the GM might still add more, or a Mythic Awakening
 // could bring one back -- so this is the only thing that actually ends it.
-window.endCombat = function() {
+// Players at 0 HP who are still Bleeding Out (not stabilized, not dead)
+function _gmBleedingPlayers() {
+    return (window.gmInitiative || []).filter(e => e.faction === 'player' && e.currentHp !== null && e.currentHp <= 0 && !e.stabilized);
+}
+window.endCombat = async function(force) {
+    // Someone still Bleeding Out: the fight isn't over until they're saved (or lost)
+    let bleeding = force === true ? [] : _gmBleedingPlayers();
+    if (bleeding.length && window.gmCombatStarted) {
+        let names = bleeding.map(e => e.name + (e.bleedOutTurns != null ? ` (${e.bleedOutTurns} round${e.bleedOutTurns === 1 ? '' : 's'} left)` : '')).join(', ');
+        let ok = window.apxConfirm ? await window.apxConfirm(`${names} ${bleeding.length > 1 ? 'are' : 'is'} still Bleeding Out. Combat keeps going so the party can stabilize or heal them. End combat anyway?`, { title: 'Someone is Bleeding Out', okLabel: 'End anyway', danger: true }) : true;
+        if (!ok) return;
+    }
     // XP is split evenly between EVERY survivor on the party's side: players and allies.
     // Anyone still in the tracker is alive (the dead are removed), including players
     // who are bleeding out. Allies take a share but, being NPCs, their share isn't paid out.
@@ -1172,7 +1197,7 @@ window.endCombat = function() {
         ? `Combat ended. ${totalXp} XP earned — ${perPlayer} XP each, split between ${split}.`
         : `Combat ended. ${totalXp} XP earned, but no surviving players or allies to split it.`;
     window.showConfirm(message, () => {
-        gmLog({ text: 'Combat ended.', kind: 'info' });
+        gmLog({ text: message, kind: 'xp' });
         // Distribute XP to each surviving player via their initiative entry
         if (perPlayer > 0) {
             let worlds = typeof _gmWorlds !== 'undefined' ? _gmWorlds : [];

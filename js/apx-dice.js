@@ -176,6 +176,8 @@
         .apxd-card.log.k-dmg{border-left-color:#ef4444} .apxd-card.log.k-heal{border-left-color:#10b981}
         .apxd-card.log.k-wt{border-left-color:#f59e0b} .apxd-card.log.k-bleed{border-left-color:#b91c1c}
         .apxd-card.log.k-roll{border-left-color:#818cf8} .apxd-card.log.k-info{border-left-color:#64748b}
+        .apxd-card.log.k-note{border-left-color:#38bdf8} .apxd-card.log.k-warn{border-left-color:#f87171;color:var(--c-text,#fff)}
+        .apxd-card.log.k-xp{border-left-color:#34d399}
         .apxd-card.log .lt{font-size:.62rem;color:var(--c-text-muted,#94a3b8);margin-right:.35rem}
         .apxd-card.log .lg{font-size:.58rem;font-weight:800;text-transform:uppercase;color:var(--c-text-muted,#94a3b8);margin-right:.3rem}
         .apxd-fab.unseen::after{content:'';position:absolute;top:2px;right:2px;width:11px;height:11px;border-radius:50%;background:#ef4444;border:2px solid var(--c-surface,#1e293b)}
@@ -228,14 +230,14 @@
         css();
         let fab = document.createElement('button');
         fab.className = 'apxd-fab';
-        fab.title = 'Dice roller';
+        fab.title = 'Dice and Notifications';
         fab.innerHTML = D20_SVG;
         fab.onclick = () => toggle();
         let el = document.createElement('div');
         el.className = 'apxd-tray';
         el.innerHTML = `
-            <div class="apxd-hdr" id="apxdHdr">${D20_SVG.replace('<svg', '<svg width="18" height="18"')}<b>Dice</b>
-                <button class="apxd-x" data-clear title="Clear the log">Clear</button><button class="apxd-x" data-close title="Close">X</button></div>
+            <div class="apxd-hdr" id="apxdHdr">${D20_SVG.replace('<svg', '<svg width="18" height="18"')}<b>Dice and Notifications</b>
+                <button class="apxd-x" data-clear title="Clear the dice and notifications (cleared entries don't come back)">Clear</button><button class="apxd-x" data-close title="Close">X</button></div>
             <div class="apxd-bar">
                 <div class="apxd-seg" title="Applies to the next d20 roll (conditions are added automatically)">
                     <button data-mode="dis">Disadv</button><button data-mode="normal" class="on">Normal</button><button data-mode="adv">Adv</button></div>
@@ -248,12 +250,12 @@
                 <input data-free placeholder="+3 or 2d6+3" title="A number is added to the dice pool as a modifier. Any other roll (like 2d6+3) is rolled with the pool. Enter rolls.">
             </div>
             <div class="apxd-pool" data-pool></div>
-            <div class="apxd-log"><div class="apxd-empty">Click a skill, save, weapon, power or any dice in a stat block to roll. Or use the buttons above.</div></div>`;
+            <div class="apxd-log"><div class="apxd-empty">Click a skill, save, weapon, power or any dice in a stat block to roll, or use the buttons above. Notifications and the combat log show up here too.</div></div>`;
         document.body.appendChild(fab);
         document.body.appendChild(el);
         tray.el = el; tray.fab = fab; tray.log = el.querySelector('.apxd-log');
         el.querySelector('[data-close]').onclick = () => toggle(false);
-        el.querySelector('[data-clear]').onclick = () => { cards = []; logCards = {}; tray.log.innerHTML = '<div class="apxd-empty">Log cleared.</div>'; };
+        el.querySelector('[data-clear]').onclick = () => { cards = []; logCards = {}; tray.clearedAt = Date.now(); try { localStorage.setItem('apx_tray_cleared_' + trayKey(), String(tray.clearedAt)); } catch (e) { } tray.log.innerHTML = '<div class="apxd-empty">Log cleared.</div>'; };
         el.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => setMode(b.dataset.mode));
         // Die buttons add to a pool; Roll rolls the pool (plus the text field) and clears both
         tray.pool = {};
@@ -737,10 +739,16 @@
     // Adds or updates (same id) a one-line card. Doesn't pop the tray open; a red
     // dot on the dice button shows there's something new.
     let logCards = {};
+    function trayKey() { return (location.pathname.split('/').pop() || 'index').toLowerCase(); }
+    function clearedAt() {
+        if (tray.clearedAt === undefined) { let v = 0; try { v = parseInt(localStorage.getItem('apx_tray_cleared_' + trayKey())) || 0; } catch (e) { } tray.clearedAt = v; }
+        return tray.clearedAt || 0;
+    }
     APXDice.logEntry = function (e) {
         if (!e || !e.id) return;
         build();
         let c = logCards[e.id];
+        if (!c && (e.t || 0) <= clearedAt()) return;   // cleared entries stay cleared
         if (c && c.log.text === e.text && c.log.kind === e.kind) return;
         if (c) { c.log = e; renderCard(c); return; }
         c = { log: e, parts: [] };
@@ -753,6 +761,15 @@
         if (!tray.open) tray.fab.classList.add('unseen');
     };
     APXDice.hasLogEntry = id => !!logCards[id];
+    // Notifications go in the same list (only on this device). open: pop the tray open
+    // (for messages about something you just tried to do).
+    APXDice.notify = function (text, opts) {
+        opts = opts || {};
+        let e = { id: opts.id || ('n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)), t: Date.now() + 1, text: String(text ?? ''), kind: opts.kind || 'note' };
+        APXDice.logEntry(e);
+        if (opts.open && !tray.open) toggle(true);
+        return e.id;
+    };
     APXDice.css = css;
     // Safe attribute value for data-apx-roll (use inside single quotes: data-apx-roll='${APXDice.attr({...})}')
     APXDice.attr = function (o) { return JSON.stringify(o).replace(/&/g, '&amp;').replace(/'/g, '&#39;').replace(/</g, '&lt;'); };
@@ -765,6 +782,12 @@
             let ctx = link.dataset.label || link.closest('[data-roll-label]')?.dataset.rollLabel || 'Roll';
             let who = link.closest('[data-roll-who]')?.dataset.rollWho || '';
             APXDice.formula(ctx, link.dataset.formula, who);
+            return;
+        }
+        let blocked = e.target.closest && e.target.closest('[data-apx-blocked]');
+        if (blocked) {
+            e.preventDefault(); e.stopPropagation();
+            APXDice.notify(`You're ${blocked.getAttribute('data-apx-blocked')}, so you can't attack or take actions until that ends.`, { kind: 'warn', open: true });
             return;
         }
         let el = e.target.closest && e.target.closest('[data-apx-roll]');

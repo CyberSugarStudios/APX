@@ -932,6 +932,8 @@ function pcApplyXpDelta(delta) {
     if (spentEl) spentEl.value = Math.max(0, spent + delta);
     window.updateState('unspentXp', unspent - delta);
     window.updateState('spentXp', Math.max(0, spent + delta));
+    let pname = (document.getElementById('pcName')?.value || '').trim() || 'a Power';
+    window.apxLogXpSpend?.(delta, delta > 0 ? `Power: ${pname}` : `Power refund: ${pname}`);
     return true;
 }
 

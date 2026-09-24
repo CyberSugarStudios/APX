@@ -395,6 +395,7 @@
                 if(spentEl) spentEl.value = spent + cost;
                 window.updateState('unspentXp', unspent - cost);
                 window.updateState('spentXp', spent + cost);
+                window.apxLogXpSpend?.(cost, `${p ? p.name : 'Perk'} (Rank ${rank})${choice ? ': ' + choice : ''}`);
 
                 // "The first time you take a new Rank of this perk, you can
                 // make a Power you are capable of using for free" (Ch.7).
@@ -479,6 +480,7 @@
         }
 
         window.updateXpCosts = function() {
+            window.apxRenderXpLog?.();
             let unspent = window.state.unspentXp;
             document.getElementById('modalXpDisp').innerText = unspent;
 
@@ -554,6 +556,7 @@
                     window.updateState('unspentXp', unspent - 1);
                     window.updateState('spentXp', spent + 1);
                     window.state.xpHpBought += 1;
+                    window.apxLogXpSpend?.(1, '+1 Max HP');
                 }
             } else if(type === 'tb') {
                 // 25 XP x current Training Bonus (Ch.6: +2 -> +3 costs 50, +3 -> +4 costs 75, ...)
@@ -564,6 +567,7 @@
                     window.updateState('unspentXp', unspent - cost);
                     window.updateState('spentXp', spent + cost);
                     window.state.trainingBonus += 1;
+                    window.apxLogXpSpend?.(cost, `Training Bonus +${window.state.trainingBonus}`);
                 }
             } else if(type === 'attr') {
                 let attr = document.getElementById('xpAttrSelect').value;
@@ -579,6 +583,7 @@
                     window.updateState('unspentXp', unspent - cost);
                     window.updateState('spentXp', spent + cost);
                     window.state.baseStats[attr] += 1;
+                    window.apxLogXpSpend?.(cost, `${attr} ${totalSc} → ${totalSc + 1}`);
                 }
             } else if(type === 'skill') {
                 // 5 XP x the number of skills already trained (Ch.6: trained
@@ -594,6 +599,7 @@
                 window.openSkillTrainPicker(() => {
                     window.updateState('unspentXp', (parseInt(document.getElementById('unspentXp').value) || 0) - cost);
                     window.updateState('spentXp', (parseInt(document.getElementById('spentXp').value) || 0) + cost);
+                    window.apxLogXpSpend?.(cost, 'New skill training');
                     window.updateXpCosts();
                 }, 'Choose a Skill to Train (Spend XP)', 'Spend XP');
                 return; // cost is only paid once a skill is actually chosen, inside the callback above
@@ -609,6 +615,7 @@
                 window.openSaveTrainPicker(() => {
                     window.updateState('unspentXp', (parseInt(document.getElementById('unspentXp').value) || 0) - cost);
                     window.updateState('spentXp', (parseInt(document.getElementById('spentXp').value) || 0) + cost);
+                    window.apxLogXpSpend?.(cost, 'New Saving Throw training');
                     window.updateXpCosts();
                 });
                 return;
@@ -670,6 +677,7 @@
             window.state.unspentXp -= cost;
             window.state.spentXp = (window.state.spentXp || 0) + cost;
             window.state.trainedWeaponTypes.push(type);
+            window.apxLogXpSpend?.(cost, `Weapon training: ${type}`);
             window.closeModal('weaponTypePickerModal');
             window.recalculateMath();
             window.updateXpCosts();

@@ -11,13 +11,14 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.9.24.0705',
-        released: '2026-09-24T07:05:00',
-        releasedText: 'September 24, 2026 · 7:05 AM',
+        version: 'v2026.9.24.0805',
+        released: '2026-09-24T08:05:00',
+        releasedText: 'September 24, 2026 · 8:05 AM',
         title: 'Playtest Update',
         intro: 'A big round of fixes and features from the latest playtests. Your characters and worlds update automatically. Nothing is lost, and anything whose rules changed tells you what changed when you open it.',
         index: [
             ['Combat', [
+                'The dice roller is now "Dice and Notifications": messages that used to pop up (rests, XP, warnings) appear there instead, and Clear really clears them.',
                 'Combat log: while combat is running, the dice tray shows who dealt how much damage to whom, and resolves Wound Threshold saves and Bleed Out checks for everyone to see.',
                 'AP now follows the new rule (6 + half your AGI modifier, rounded down) and is tracked for everyone. Unspent AP carries over, attacks spend it automatically, and Surprised creatures get just 1 AP on their first turn.',
                 'A dice roller on every page: click skills, saves, weapons, powers and stat block dice to roll, with perks, Advantage/Disadvantage, crits and Luck rerolls built in.',
@@ -45,6 +46,7 @@
                 'Attacks spend their AP automatically. You get a popup when you Aim (Aim AP + attack AP), when a perk or feature might change the cost (Martial Arts, Flurry), or when you don\'t have enough AP.'
             ]],
             ['Dice Roller', [
+                'It\'s now called Dice and Notifications: rest results, XP you receive, HP changes from the GM and warnings show up here instead of popping up. A red dot on the dice button means something new. Cleared entries stay cleared.',
                 'Combat log: during combat your dice tray also shows the fight ("Goblin dealt 7 damage to Ari"). Your checks and saves are sent to the GM, and a Luck reroll updates them.',
                 'Wound Threshold and Bleed Out: when you\'re hit past your Wound Threshold, your next CON save is your roll to resist being Wounded. If you\'re also Bleeding Out, the CON (Survive) check after that sets how many rounds you have. Both results go to the whole table.',
                 'Click any skill, save, attribute, weapon attack, damage, power or dice in a stat block to roll it. Conditions add Advantage or Disadvantage automatically.',
@@ -59,12 +61,15 @@
                 'Regenerative now costs 3 GP: at the start of your turn in combat, press Regen to expend a Rest Die and heal the roll.'
             ]],
             ['Conditions and Injuries', [
+                'While Unconscious, Paralyzed or Incapacitated, your attacks and powers show why (for example "(Unconscious)") and can\'t be rolled. Unconscious also auto-fails STR, AGI, PER, INT and CHA checks (CON checks still work, for your Bleed Out roll); Paralyzed auto-fails STR and AGI checks.',
+                'Burning now deals its 1d10 Fire damage automatically at the start of your turn in combat (ignoring ER), unless you\'re immune to Fire.',
                 'Remove any condition with the × on its tag under Vitals.',
                 'Conditions apply the ones they include: Bleeding Out → Unconscious → Incapacitated (and you fall Prone), Paralyzed → Incapacitated, Diseased → Infected. Frenzy Rank 5 keeps you conscious while Provoked.',
                 'Bleeding Out now shows on your sheet. Burning deals 1d10.',
                 'Permanent Injuries: if a Wounded limb is Wounded again, press Re-wounded to choose an attribute to lower by 1. Remove it when it heals to get the point back.'
             ]],
             ['XP', [
+                'The Spend XP window now has an XP Log: what you gained (reason, session, date and bonuses) and what you spent it on.',
                 'XP from your GM arrives automatically with your bonuses: your INT modifier, Educated and Expertise. See it all in the new XP Log.'
             ]],
             ['Rules Changes', [
@@ -88,6 +93,9 @@
         ],
         gm: [
             ['Initiative and Combat', [
+                'End Combat checks for players who are still Bleeding Out first, and the log notes when the last enemy falls while someone is still bleeding. The XP award is the last line of the combat log.',
+                'Messages that used to pop up now go to Dice and Notifications (Wound Threshold reminders included).',
+                'Saved NPC stat blocks keep their current HP in step with a higher max HP, and NPCs added to initiative start at full HP.',
                 'Combat log in the dice tray: damage and healing from the tracker or a player\'s sheet ("Goblin dealt 7 damage to Ari") for everyone, and every player check and save for you only (marked GM), updated live when they use Luck or Omen. Hidden tokens show as "an unseen creature".',
                 'Wound Threshold and Bleed Out rolls are matched automatically, Wound Threshold first: the player\'s next CON save resolves the wound (success or failure against the DC), then their CON (Survive) check sets the Bleed Out rounds (half the result, min 1), filling in the tracker for you.',
                 'Click a party member\'s name for their full stat block; the Party panel shows stat blocks too.',

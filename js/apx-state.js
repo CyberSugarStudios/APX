@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.9.24.0705';
+window.APX_VERSION = 'v2026.9.24.0805';
 
         window.state = getInitialState();
 
@@ -399,21 +399,43 @@ window.APX_VERSION = 'v2026.9.24.0705';
         window.apxSetApValue = function(v) { apxSetAp(v); };
 
         // XP history (grants from the GM, with the bonuses this character earned)
-        window.apxShowXpLog = function() {
+        // ── XP log: XP gained (from the GM, with reason, session and date) and XP spent ──
+        window.apxLogXpSpend = function(amount, what) {
+            if (!window.state || !amount) return;
+            let refund = amount < 0;
+            (window.state.xpLog = window.state.xpLog || []).unshift({ id: 'sp' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+                type: refund ? 'refund' : 'spent', amount: Math.abs(amount), what: what || '', date: new Date().toISOString().slice(0, 10), t: Date.now() });
+            window.apxRenderXpLog?.();
+        };
+        // Same look as the combat log: one line per entry with a coloured edge
+        window.apxXpLogHtml = function() {
             let log = window.state.xpLog || [];
             let esc = t => String(t ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;');
             let cat = c => (typeof XP_CATEGORY_LABELS !== 'undefined' && XP_CATEGORY_LABELS[c]) || c || '';
+            if (!log.length) return '<div style="font-size:.72rem;color:var(--c-text-muted);padding:.4rem 0">No XP gained or spent yet.</div>';
+            let line = (color, amt, main, meta, desc) => `<div style="border:1px solid var(--c-border);border-left:3px solid ${color};background:var(--c-surface2);border-radius:.45rem;padding:.35rem .55rem;margin-bottom:.3rem;font-size:.74rem;line-height:1.35;color:var(--c-text-dimmer)">
+                <div style="display:flex;justify-content:space-between;gap:.5rem"><span style="font-weight:800;color:var(--c-text)">${main}</span><span style="font-weight:900;color:${color};white-space:nowrap">${amt}</span></div>
+                ${meta ? `<div style="font-size:.64rem;color:var(--c-text-muted)">${meta}</div>` : ''}
+                ${desc ? `<div style="font-size:.7rem;margin-top:.15rem;white-space:pre-wrap">${desc}</div>` : ''}</div>`;
+            return log.map(e => {
+                if (e.type === 'spent') return line('#f59e0b', `−${e.amount} XP`, 'Spent: ' + esc(e.what), esc(e.date || ''), '');
+                if (e.type === 'refund') return line('#38bdf8', `+${e.amount} XP`, 'Refund: ' + esc(e.what), esc(e.date || ''), '');
+                return line('#34d399', `+${e.total} XP`, 'Gained: ' + esc(e.name),
+                    [esc(cat(e.category)), e.session ? 'Session ' + esc(e.session) : '', esc(e.date || ''), e.bonus ? `${e.base} + ${(e.bonusParts || []).map(p => esc(p.label) + ' ' + p.amount).join(' + ')}` : ''].filter(Boolean).join(' · '),
+                    esc(e.desc || ''));
+            }).join('');
+        };
+        window.apxRenderXpLog = function() {
+            let el = document.getElementById('spendXpLog');
+            if (el) el.innerHTML = window.apxXpLogHtml();
+        };
+        window.apxShowXpLog = function() {
             if (window.apxInjectDialogStyles) window.apxInjectDialogStyles();
             let back = document.createElement('div');
             back.className = 'apxdlg-back';
             back.innerHTML = `<div class="apxdlg" style="width:min(520px,100%);max-height:80vh;display:flex;flex-direction:column">
                 <div class="apxdlg-title">XP Log</div>
-                <div style="overflow-y:auto;flex:1;margin-bottom:.7rem">${log.length ? log.map(e => `
-                    <div style="border:1px solid var(--c-border);background:var(--c-surface2);border-radius:.45rem;padding:.45rem .6rem;margin-bottom:.35rem">
-                        <div style="display:flex;justify-content:space-between;gap:.5rem;font-size:.76rem;font-weight:800;color:var(--c-text)"><span>${esc(e.name)}</span><span style="color:var(--c-emerald-lt,#6ee7b7)">+${e.total} XP</span></div>
-                        <div style="font-size:.64rem;color:var(--c-text-muted)">${esc(cat(e.category))}${e.session ? ' · Session ' + esc(e.session) : ''}${e.date ? ' · ' + esc(e.date) : ''}${e.bonus ? ` · ${e.base} + ${(e.bonusParts||[]).map(p => esc(p.label) + ' ' + p.amount).join(' + ')}` : ''}</div>
-                        ${e.desc ? `<div style="font-size:.7rem;color:var(--c-text-dimmer);margin-top:.2rem;white-space:pre-wrap">${esc(e.desc)}</div>` : ''}
-                    </div>`).join('') : '<div class="apxdlg-msg">No XP from your GM yet.</div>'}</div>
+                <div style="overflow-y:auto;flex:1;margin-bottom:.7rem">${window.apxXpLogHtml()}</div>
                 <div class="apxdlg-row"><button class="apxdlg-btn apxdlg-ok" data-ok>Close</button></div></div>`;
             back.querySelector('[data-ok]').onclick = () => back.remove();
             back.addEventListener('mousedown', e => { if (e.target === back) back.remove(); });
@@ -457,6 +479,12 @@ window.APX_VERSION = 'v2026.9.24.0705';
         let pendingConfirmCallback = null;
         let confirmReopenedByCallback = false;
         window.showConfirm = function(msg, callback, alertOnly = false) {
+            // Plain messages (OK only) are notifications: they go to the Dice and Notifications tray
+            if (alertOnly && window.APXDice && window.APXDice.notify) {
+                window.APXDice.notify(msg, { kind: 'note', open: true });
+                if (callback) callback();
+                return;
+            }
             document.getElementById('confirmMessage').innerText = msg;
             pendingConfirmCallback = callback;
             document.getElementById('btnConfirmNo').style.display = alertOnly ? 'none' : 'block';

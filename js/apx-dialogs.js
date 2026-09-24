@@ -111,7 +111,17 @@
     };
 
     window.apxInjectDialogStyles = injectStyles;
-    window.apxAlert   = (msg, opts) => open('alert', msg, opts);
+    // Alerts are notifications: they go to the Dice and Notifications tray (which opens so
+    // it's seen). apxAlertDialog still shows a real dialog where one is needed.
+    window.apxAlertDialog = (msg, opts) => open('alert', msg, opts);
+    window.apxAlert   = (msg, opts) => {
+        if (window.APXDice && window.APXDice.notify) {
+            opts = opts || {};
+            window.APXDice.notify((opts.title ? opts.title + ': ' : '') + String(msg ?? ''), { kind: opts.kind || 'note', open: opts.open !== false });
+            return Promise.resolve();
+        }
+        return open('alert', msg, opts);
+    };
     window.apxConfirm = (msg, opts) => open('confirm', msg, opts);
     window.apxPrompt  = (msg, defaultValue, opts) => open('prompt', msg, Object.assign({ defaultValue }, opts || {}));
 

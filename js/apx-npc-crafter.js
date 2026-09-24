@@ -311,6 +311,7 @@ window.ncBuyExtraTp = function(amount) {
     }
     window.updateState('unspentXp', unspent - cost);
     c.extraTpPurchased += amount;
+    window.apxLogXpSpend?.(cost, `${amount} TP for ${c.name || 'your companion'}`);
     ncRenderAll();
 };
 
@@ -1203,6 +1204,15 @@ window.companionStatBlock = function() {
     });
 
     if (c.currentHp === null || c.currentHp === undefined) c.currentHp = maxHp;
+    // Max HP changed since the last time (Tier / CON / TP changes): a creature that was at
+    // full HP stays at full HP. Stat blocks saved before this was tracked had no record of
+    // their old max, so they're treated as full (their current HP was never lowered on purpose).
+    if (c._hpMax !== maxHp) {
+        let legacy = c._hpMax === undefined;
+        // (a player's Loyal Companion may really be hurt, so only GM stat blocks get the legacy reset)
+        if ((legacy && typeof ncTarget !== 'undefined' && ncTarget === 'gm') || (!legacy && c.currentHp >= c._hpMax)) c.currentHp = maxHp;
+        c._hpMax = maxHp;
+    }
     c.currentHp = Math.min(c.currentHp, maxHp);
 
     return {
