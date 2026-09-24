@@ -123,15 +123,18 @@ window.pcCalcXP = function(draft) {
 
     // Step 5: Utility (AoE-multiplied; HP Capacity Pool discounts each
     // tier's per-selection price by 10, floored at 0, before that multiply).
+    // Mythic Tier utilities are excluded from both: always a flat 130 XP.
     let step5Cost = 0;
     let step5Count = 0;
     ['minor', 'moderate', 'major', 'master', 'mythic'].forEach(tier => {
         let basePrice = { minor: 5, moderate: 15, major: 30, master: 50, mythic: 130 }[tier];
-        if (draft.step1 === 'hpPool') basePrice = Math.max(0, basePrice - 10);
+        // Mythic Utilities are a flat 130 XP: no HP Capacity Pool discount and no AoE multiplier
+        if (draft.step1 === 'hpPool' && tier !== 'mythic') basePrice = Math.max(0, basePrice - 10);
+        let mult = tier === 'mythic' ? 1 : aoeDef.mult;
         if (pcMythic(draft) && tier !== 'mythic') return;   // Mythic: no other utilities
         Object.keys(draft.utility[tier] || {}).forEach(key => {
             let count = draft.utility[tier][key] || 0;
-            step5Cost += count * basePrice * aoeDef.mult;
+            step5Cost += count * basePrice * mult;
             step5Count += count;
         });
     });
@@ -609,7 +612,7 @@ function pcRenderUtilityTier(tier, label, colorClass) {
 
 function pcRenderStep5() {
     let npc = pcIsNpc();
-    let discountNote = pcDraft.step1 === 'hpPool' ? `<div class="text-[10px] text-emerald-400 mb-2">HP Capacity Pool: each Utility selection is ${npc ? 'cheaper' : 'costs 10 XP less (min 0)'} before the AoE multiplier.</div>` : '';
+    let discountNote = pcDraft.step1 === 'hpPool' ? `<div class="text-[10px] text-emerald-400 mb-2">HP Capacity Pool: each Utility selection (except Mythic) is ${npc ? 'cheaper' : 'costs 10 XP less (min 0)'} before the AoE multiplier.</div>` : '';
     // Two columns: Minor on the left; Moderate, Major, Master and Mythic on the right
     document.getElementById('pcStep5List').innerHTML = discountNote +
         `<div class="grid grid-cols-1 md:grid-cols-2 gap-x-3 items-start"><div>` +
@@ -619,7 +622,7 @@ function pcRenderStep5() {
         pcRenderUtilityTier('major', npc ? 'Major Utility' : 'Major Utility (30 XP each)', 'text-purple-400') +
         pcRenderUtilityTier('master', npc ? 'Master Utility' : 'Master Utility (50 XP each)', 'text-red-400') +
         pcRenderUtilityTier('mythic', npc ? 'Mythic Utility' : 'Mythic Utility (130 XP)', 'text-amber-300') +
-        `<div class="text-[10px] text-amber-200/80 -mt-2 mb-2 leading-tight">A Mythic power can't contain any other utilities, gets no XP refunded from Steps 6, 7 or 8, and pays double for Duration and AP Modifications.</div>` +
+        `<div class="text-[10px] text-amber-200/80 -mt-2 mb-2 leading-tight">A flat 130 XP (not multiplied by Area of Effect or discounted by HP Capacity Pool). A Mythic power can't contain any other utilities, gets no XP refunded from Steps 6, 7 or 8, and pays double for Duration and AP Modifications.</div>` +
         `</div></div>`;
 }
 

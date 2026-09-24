@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.9.24.0430',
-        released: '2026-09-24T04:30:00',
-        releasedText: 'September 24, 2026 · 4:30 AM',
+        version: 'v2026.9.24.0505',
+        released: '2026-09-24T04:55:00',
+        releasedText: 'September 24, 2026 · 5:05 AM',
         title: 'Playtest Update',
         intro: 'A big round of fixes and features from the latest playtests. Your characters and worlds update automatically. Nothing is lost, and anything whose rules changed tells you what changed when you open it.',
         index: [
@@ -69,7 +69,7 @@
                 'Fortunate Fighter Rank 1: when determining your AC, you may replace your AGI with your LUC. The sheet uses whichever is higher.',
                 'Mobile Rank 1: each time you spend AP to move, it costs 1 less (minimum 0), and you ignore difficult terrain.',
                 'Power Crafting: at most 8 dice per die step, and Sacrifice now also stops you regaining HP until your next turn. Affected powers show "Recraft (Free)".',
-                'New Mythic Utilities (130 XP) in Power Crafter Step 5, now shown in two columns: Dominate, Vehicle Scale, Wish, Create a Sentient Being and Stop Time. A Mythic power can\'t have other utilities, gets no refunds from Steps 6–8, pays double for Duration and AP, and skips Step 6 or 7 where the utility says so.',
+                'New Mythic Utilities in Power Crafter Step 5 (now shown in two columns): Dominate, Vehicle Scale, Wish, Create a Sentient Being and Stop Time. Each is a flat 130 XP, not multiplied by Area of Effect or discounted by HP Capacity Pool. A Mythic power can\'t have other utilities, gets no refunds from Steps 6–8, pays double for Duration and AP, and skips Step 6 or 7 where the utility says so.',
                 'Loyal Companions: manufactured weapons and armor now count against your companion\'s TP.',
                 'Heavy ranged weapons show AGI in the ATT column.'
             ]],
@@ -106,7 +106,7 @@
             ]],
             ['NPC Crafter', [
                 'Manufactured weapons and armor cost Threat Points, priced like the innate features they imitate.',
-                'Power Crafter: at most 8 dice per die step, a warning when Sacrifice is combined with healing, Step 5 utilities in two columns, and the new Mythic Utilities (130 XP).'
+                'Power Crafter: at most 8 dice per die step, a warning when Sacrifice is combined with healing, Step 5 utilities in two columns, and the new Mythic Utilities (a flat 130 XP, not multiplied by Area of Effect).'
             ]],
             ['Fixes', [
                 'Fixed auto-save errors (including on Brave) and the "write stream exhausted" error during long sessions.'
