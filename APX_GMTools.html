@@ -1345,6 +1345,7 @@ document.addEventListener('DOMContentLoaded', () => {
     <script src="js/apx-inventory-ui.js"></script>
     <script src="js/apx-ancestry-wizard.js"></script>
     <script src="js/apx-gm-screen.js"></script>
+    <script src="js/apx-loot-maker.js"></script>
     <script src="js/apx-gmtools-main.js"></script>
 
     <!-- Firebase (cloud sync) -->
@@ -1602,7 +1603,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 let mapIds = t.linkedOtherMapIds||[];
                                 if (!mapIds.length && t.linkedOtherMapId) mapIds=[t.linkedOtherMapId];
                                 return {id:t.id,type:t.type||'area',letter:t.letter,x:t.x,y:t.y,name:t.name||'',description:t.description||'',
-                                    revealed:!!t.revealed,linkedNpcs:t.linkedNpcs||[],linkedOtherMapIds:mapIds,subnotes:t.subnotes||[]};
+                                    revealed:!!t.revealed,linkedNpcs:t.linkedNpcs||[],linkedOtherMapIds:mapIds,subnotes:t.subnotes||[],
+                                    ...(t.loot&&((t.loot.items||[]).length||t.loot.cu)?{loot:t.loot}:{})};
                             })
                         })),
                         worldMapSaved: w.notesV2.worldMapSaved || false,
@@ -4535,6 +4537,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${!readOnly?`<button onclick="window.openMapPickerForToken('${mapId}','${tokenId}','${winId}')"
                     style="width:100%;background:#1e3a5f;border:1px solid #2563eb;color:#93c5fd;font-size:0.65rem;font-weight:700;padding:0.25rem;border-radius:0.25rem;cursor:pointer;margin-bottom:0.25rem;">[Map] Link Maps…</button>`:''}
                 <div id="${winId}_subnotes" style="margin-bottom:0.15rem;">${_buildTokenSubnotes(tok, winId, readOnly, mapId, tokenId)}</div>
+                ${tok.type!=='special'&&window.apxAreaLootHtml?`<div id="${winId}_loot" style="border:1px solid #78350f;background:rgba(120,53,15,.12);border-radius:0.35rem;padding:0.4rem;margin-bottom:0.25rem;">${window.apxAreaLootHtml(mapId, tokenId)}</div>`:''}
                 ${!readOnly?`<button onclick="window.addTokenSubnote('${mapId}','${tokenId}','${winId}')"
                     style="width:100%;background:#1e293b;border:1px solid #334155;color:#64748b;font-size:0.65rem;font-weight:700;padding:0.2rem;border-radius:0.25rem;cursor:pointer;margin-bottom:0.25rem;">+ Add Sub-note</button>`:''}
                 ${!readOnly?`<div style="display:flex;gap:0.5rem;">

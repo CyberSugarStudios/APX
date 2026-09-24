@@ -18,6 +18,7 @@ let armorForgeTarget = 'player';     // 'player', 'companion', or 'gm' -- who th
 
 // Returns whichever equippedArmor object this session is targeting.
 function getTargetArmor() {
+    if (armorForgeTarget === 'loot') return (window._lootForgeArmor = window._lootForgeArmor || JSON.parse(JSON.stringify(getInitialState().equippedArmor)));   // GM Loot Maker
     if (armorForgeTarget === 'gm') return ncActiveCompanion().equippedArmor;
     return armorForgeTarget === 'companion' ? window.state.companion.equippedArmor : window.state.equippedArmor;
 }
@@ -54,15 +55,18 @@ function armorForgeEffectiveMax(m) {
 // Open / reset / edit
 // ------------------------------------------------------------------
 window.openArmorForge = function(target) {
-    armorForgeTarget = (target === 'companion' || target === 'gm') ? target : 'player';
+    armorForgeTarget = (target === 'companion' || target === 'gm' || target === 'loot') ? target : 'player';
+    if (armorForgeTarget === 'loot') window._lootForgeArmor = null;   // every loot armor starts blank
     armorForgeDraft = JSON.parse(JSON.stringify(getTargetArmor()));
     armorForgeOriginalMods = { ...armorForgeDraft.mods };
     armorForgeBasePaid = armorForgeDraft.paidCost || 0;
     if (!armorForgeDraft.name) armorForgeDraft.name = "";
     document.getElementById('armorForgeName').value = armorForgeDraft.name;
-    document.getElementById('armorBtnPurchase').classList.toggle('hidden', armorForgeTarget === 'gm');
-    document.getElementById('armorBtnCraft').classList.toggle('hidden', armorForgeTarget === 'gm');
-    document.getElementById('armorBtnGmAdd').classList.toggle('hidden', armorForgeTarget !== 'gm');
+    let gmMade = armorForgeTarget === 'gm' || armorForgeTarget === 'loot';
+    document.getElementById('armorBtnPurchase').classList.toggle('hidden', gmMade);
+    document.getElementById('armorBtnCraft').classList.toggle('hidden', gmMade);
+    document.getElementById('armorBtnGmAdd').classList.toggle('hidden', !gmMade);
+    document.getElementById('armorBtnGmAdd').textContent = armorForgeTarget === 'loot' ? 'Add to Loot' : 'Equip on NPC (Free)';
     window.renderArmorForge();
     window.openModal('armorForgeModal');
 };
@@ -156,8 +160,8 @@ window.renderArmorForge = function() {
 
     // Include equipped shield and helmet only if they are genuinely equipped (have a name)
     let totalWt = totals.wt;
-    let eqShield = (armorForgeTarget === 'gm') ? window._ncGetCompanion?.()?.equippedShield : (armorForgeTarget === 'companion' ? window.state?.companion?.equippedShield : window.state?.equippedShield);
-    let eqHelmet = (armorForgeTarget === 'gm') ? window._ncGetCompanion?.()?.equippedHelmet : (armorForgeTarget === 'companion' ? window.state?.companion?.equippedHelmet : window.state?.equippedHelmet);
+    let eqShield = (armorForgeTarget === 'loot') ? null : (armorForgeTarget === 'gm') ? window._ncGetCompanion?.()?.equippedShield : (armorForgeTarget === 'companion' ? window.state?.companion?.equippedShield : window.state?.equippedShield);
+    let eqHelmet = (armorForgeTarget === 'loot') ? null : (armorForgeTarget === 'gm') ? window._ncGetCompanion?.()?.equippedHelmet : (armorForgeTarget === 'companion' ? window.state?.companion?.equippedHelmet : window.state?.equippedHelmet);
     // Only count shield/helmet if the equipped flag is true (set when player purchases them)
     if (eqShield?.equipped && eqShield.wt) totalWt += eqShield.wt;
     else eqShield = null;
@@ -208,7 +212,7 @@ window.renderArmorForge = function() {
             </div>
         </div>
     `;
-    if (armorForgeTarget !== 'player' && window.npcArmorTp) {
+    if (armorForgeTarget !== 'player' && armorForgeTarget !== 'loot' && window.npcArmorTp) {
         let tpNow = window.npcArmorTp({ name: 'x', ac: totals.ac, dr: totals.dr, er: totals.er }).tp;
         html = `<div class="text-[11px] font-bold rounded border px-2 py-1 mb-2" style="border-color:#a16207;color:#fde68a;background:rgba(161,98,7,.12)">Threat Point cost for this ${armorForgeTarget === 'gm' ? 'NPC' : 'companion'}: <b>${tpNow} TP</b> <span style="font-weight:600;opacity:.8">(1 per AC, +1 per 2 DR/ER)</span></div>` + html;
     }
@@ -246,6 +250,13 @@ function applyArmorForgeFinal(finalMods) {
     getTargetArmor().paidCost = totals.cost;
     window.closeModal('armorCraftModal');
     window.closeModal('armorForgeModal');
+    // GM Loot Maker: hand the finished armor over as a loot item
+    if (armorForgeTarget === 'loot') {
+        let made = JSON.parse(JSON.stringify(getTargetArmor()));
+        window._lootForgeArmor = null;
+        if (typeof window._lootMakerReceive === 'function') window._lootMakerReceive({ armor: made });
+        return;
+    }
     window.recalculateMath();
     if ((armorForgeTarget === 'companion' || armorForgeTarget === 'gm') && typeof ncRenderAll === 'function') ncRenderAll();
 }

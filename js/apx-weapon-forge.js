@@ -18,6 +18,7 @@ let weaponForgeTarget = 'player';    // 'player', 'companion', or 'gm' -- whose 
 
 // Returns whichever weapons array this session is targeting.
 function getTargetWeapons() {
+    if (weaponForgeTarget === 'loot') return (window._lootForgeWeapons = window._lootForgeWeapons || []);   // GM Loot Maker
     if (weaponForgeTarget === 'gm') return ncActiveCompanion().weapons;
     return weaponForgeTarget === 'companion' ? window.state.companion.weapons : window.state.weapons;
 }
@@ -108,7 +109,10 @@ function draftFromWeapon(w) {
 // since those define the item's identity; only tiers/properties/elemental
 // can be added to or removed from an already-crafted weapon.
 window.openWeaponForge = function(idx, target) {
-    weaponForgeTarget = (target === 'companion' || target === 'gm') ? target : 'player';
+    weaponForgeTarget = (target === 'companion' || target === 'gm' || target === 'loot') ? target : 'player';
+    if (weaponForgeTarget === 'loot') window._lootForgeWeapons = [];
+    let gmBtn = document.getElementById('wpnBtnGmAdd');
+    if (gmBtn) gmBtn.textContent = weaponForgeTarget === 'loot' ? 'Add to Loot' : 'Add to NPC (Free)';
     weaponForgeEditIndex = (typeof idx === 'number') ? idx : null;
 
     if (weaponForgeEditIndex !== null) {
@@ -174,9 +178,10 @@ window.jumpToWpnStep = function(n) {
     document.getElementById('wpnBtnPrev').style.display = currentWeaponStep > 1 ? 'block' : 'none';
     document.getElementById('wpnBtnNext').style.display = currentWeaponStep < 3 ? 'block' : 'none';
     let atLastStep = currentWeaponStep === 3;
-    document.getElementById('wpnBtnPurchase').style.display = (atLastStep && weaponForgeTarget !== 'gm') ? 'block' : 'none';
-    document.getElementById('wpnBtnCraft').style.display = (atLastStep && weaponForgeTarget !== 'gm') ? 'block' : 'none';
-    document.getElementById('wpnBtnGmAdd').style.display = (atLastStep && weaponForgeTarget === 'gm') ? 'block' : 'none';
+    let gmMade = weaponForgeTarget === 'gm' || weaponForgeTarget === 'loot';
+    document.getElementById('wpnBtnPurchase').style.display = (atLastStep && !gmMade) ? 'block' : 'none';
+    document.getElementById('wpnBtnCraft').style.display = (atLastStep && !gmMade) ? 'block' : 'none';
+    document.getElementById('wpnBtnGmAdd').style.display = (atLastStep && gmMade) ? 'block' : 'none';
 
     if (currentWeaponStep === 2) renderWeaponForgeStep2();
     if (currentWeaponStep === 3) renderWeaponForgeStep3();
@@ -370,7 +375,7 @@ function renderWeaponForgeSummary() {
     // NPC / companion weapons also cost Threat Points
     let host = document.getElementById('wpnSumCostNow').parentElement.parentElement;
     let tpEl = document.getElementById('wpnSumTp');
-    if (weaponForgeTarget !== 'player' && window.npcWeaponTp) {
+    if (weaponForgeTarget !== 'player' && weaponForgeTarget !== 'loot' && window.npcWeaponTp) {
         if (!tpEl) { tpEl = document.createElement('div'); tpEl.id = 'wpnSumTp'; tpEl.className = 'text-[11px] font-bold mt-1'; tpEl.style.color = '#fde68a'; host.parentElement.insertBefore(tpEl, host.nextSibling); }
         let r = window.npcWeaponTp(weaponDraftAsObject(weaponForgeDraft));
         tpEl.style.display = '';
@@ -520,6 +525,13 @@ function applyWeaponForgeFinal(finalDraft, batches) {
 
     window.closeModal('weaponCraftModal');
     window.closeModal('weaponForgeModal');
+    // GM Loot Maker: hand the finished weapon over as a loot item
+    if (weaponForgeTarget === 'loot') {
+        let made = (window._lootForgeWeapons || []).pop();
+        window._lootForgeWeapons = [];
+        if (made && typeof window._lootMakerReceive === 'function') window._lootMakerReceive({ weapon: made });
+        return;
+    }
     window.recalculateMath();
     // The underlying NPC Crafter modal (still open behind this one when
     // target is 'companion' or 'gm') has its own independent render cycle

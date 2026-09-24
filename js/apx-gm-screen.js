@@ -913,10 +913,11 @@ window.renderGmLoot = function() {
                     <button onclick="window.gmDiscardLoot('${esc(l.id)}')" title="Not salvageable: remove it from the list" class="text-[10px] w-5 h-5 rounded bg-slate-700 hover:bg-red-800 text-slate-300 font-bold leading-none">✕</button>
                 </div>`;
             }).join('')}
-        </div>`).join('') : '<div class="text-[10px] text-slate-500 mb-2">Nothing yet. When an enemy dies, its weapons, armor, shield and helmet appear here.</div>';
+        </div>`).join('') : '<div class="text-[10px] text-slate-500 mb-2">Nothing yet. When an enemy dies, its weapons, armor, shield and helmet appear here. Use Loot Maker to create your own.</div>';
     let cuTo = form.to === '__split' || partyIds.has(form.to) ? form.to : '';
     el.innerHTML = `
-        ${head('Gear')}
+        <div class="flex items-center justify-between mb-1">${head('Gear').replace('mb-1', 'mb-0')}
+            <button onclick="window.openLootMaker({ kind: 'pool' })" class="text-[10px] px-2 py-0.5 rounded bg-indigo-700 hover:bg-indigo-600 text-white font-bold" title="Forge weapons and armor, pick gear or make custom items">+ Loot Maker</button></div>
         ${itemsHtml}
         <div class="border-t border-slate-700 pt-2 mt-1">
             ${head('Currency')}
@@ -951,6 +952,7 @@ function _gmSendGift(uid, gift) {
     window.apxAuth.gmGiveToPlayer(code, uid, gift).catch(e => console.warn('Give loot:', e.message));
     return true;
 }
+// (_gmSendGift and _gmLootList are top-level functions, so the Loot Maker can call them directly)
 function _gmPartyName(uid) { let p = (window.gmParty || []).find(x => x.fileName === uid); return p?.summary?.name || 'player'; }
 window.gmGiveLoot = function(id, btn) {
     let list = _gmLootList(), i = list.findIndex(l => l.id === id); if (i < 0) return;
@@ -968,22 +970,30 @@ window.gmDiscardLoot = function(id) {
     list.splice(i, 1); window.renderGmLoot();
     if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
 };
-window.gmGiveLootCu = function() {
-    let amt = parseInt(document.getElementById('gmLootCu')?.value) || 0;
-    let to = document.getElementById('gmLootCuTo')?.value;
-    if (amt <= 0 || !to) { window.apxAlert && window.apxAlert('Enter an amount of Cu and who gets it.'); return; }
+// Give Cu to one party member, or split it evenly (the first few get any remainder).
+// `where` names the source for the log ("from Area B"). Returns true when sent.
+window._gmGiveCu = function(amt, to, where) {
+    amt = parseInt(amt) || 0;
+    if (amt <= 0 || !to) { window.apxAlert && window.apxAlert('Enter an amount of Cu and who gets it.'); return false; }
     let party = (window.gmParty || []).map(p => p.fileName);
+    let src = where ? ` ${where}` : '';
     if (to === '__split') {
-        if (!party.length) return;
+        if (!party.length) return false;
         let each = Math.floor(amt / party.length), extra = amt - each * party.length;
         let ok = true;
         party.forEach((uid, k) => { let n = each + (k < extra ? 1 : 0); if (n > 0 && ok) ok = _gmSendGift(uid, { id: crypto.randomUUID(), cu: n, from: 'GM', at: Date.now() }); });
-        if (!ok) return;
-        if (typeof gmLog === 'function') gmLog({ text: `The party split ${amt} Cu of loot.`, kind: 'loot', force: true });
+        if (!ok) return false;
+        if (typeof gmLog === 'function') gmLog({ text: `The party split ${amt} Cu${src}.`, kind: 'loot', force: true });
     } else {
-        if (!_gmSendGift(to, { id: crypto.randomUUID(), cu: amt, from: 'GM', at: Date.now() })) return;
-        if (typeof gmLog === 'function') gmLog({ text: `${_gmPartyName(to)} found ${amt} Cu.`, kind: 'loot', force: true });
+        if (!_gmSendGift(to, { id: crypto.randomUUID(), cu: amt, from: 'GM', at: Date.now() })) return false;
+        if (typeof gmLog === 'function') gmLog({ text: `${_gmPartyName(to)} found ${amt} Cu${src}.`, kind: 'loot', force: true });
     }
+    return true;
+};
+window.gmGiveLootCu = function() {
+    let amt = parseInt(document.getElementById('gmLootCu')?.value) || 0;
+    let to = document.getElementById('gmLootCuTo')?.value;
+    if (!window._gmGiveCu(amt, to)) return;
     window._gmLootCuForm.amt = '';
     document.getElementById('gmLootCu').value = '';
 };
