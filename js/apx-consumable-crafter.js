@@ -80,7 +80,13 @@ window.ccCalcXP = function(draft) {
     };
 };
 
-window.openConsumableCrafter = function() {
+// target: omitted = the player's own inventory (pay or GM-grant).
+// { onMade(item), label } = GM Tools (Loot Maker, NPC gear): free, the finished item goes to onMade.
+let ccTarget = null;
+window.openConsumableCrafter = function(target) {
+    ccTarget = (target && typeof target.onMade === 'function') ? target : null;
+    let fin = document.getElementById('ccBtnFinish');
+    if (fin) fin.textContent = ccTarget ? (ccTarget.label || 'Add to Loot') : 'Add to Inventory';
     ccDraft = getBlankConsumableDraft();
     ccStep = 1;
     document.getElementById('ccName').value = '';
@@ -337,7 +343,7 @@ function ccRenderSummary() {
 
     let btn = document.getElementById('ccBtnFinish');
     btn.disabled = t.overCap;
-    btn.innerText = `Add to Inventory (${t.totalCost} Cu, ${t.weight} lb)`;
+    btn.innerText = ccTarget ? `${ccTarget.label || 'Add to Loot'} (${t.weight} lb)` : `Add to Inventory (${t.totalCost} Cu, ${t.weight} lb)`;
     btn.className = btn.disabled
         ? 'px-6 py-2 rounded bg-slate-700 text-slate-500 cursor-not-allowed text-sm font-bold transition'
         : 'px-6 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition shadow-lg';
@@ -438,18 +444,20 @@ window.finishConsumableCrafter = function() {
     let flavorText = (ccDraft.flavorText || '').trim() || summary.desc;
 
     window.closeModal('consumableCrafterModal');
+    let item = {
+        name, wt: t.weight, ct: 1, val: t.totalCost,
+        isConsumable: true,
+        draft: JSON.parse(JSON.stringify(ccDraft)),
+        charges: t.charges,
+        chargesRemaining: t.charges,
+        desc: flavorText
+    };
+    if (ccTarget) { let tg = ccTarget; ccTarget = null; tg.onMade(item); return; }
     // Crafting a consumable still represents acquiring it -- ask whether
     // it's paid for out of Currency or GM-granted, same as any other
     // item added to inventory.
     window.askPayOrGrant(name, t.totalCost, (paid) => {
-        window.state.items.push({
-            name, wt: t.weight, ct: 1, val: t.totalCost,
-            isConsumable: true,
-            draft: JSON.parse(JSON.stringify(ccDraft)),
-            charges: t.charges,
-            chargesRemaining: t.charges,
-            desc: flavorText
-        });
+        window.state.items.push(item);
         if (paid) window.state.currency = (window.state.currency || 0) - t.totalCost;
         window.recalculateMath();
     });

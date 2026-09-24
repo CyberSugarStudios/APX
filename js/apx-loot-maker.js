@@ -22,13 +22,18 @@
 
     // ── Item helpers ─────────────────────────────────────────────
     function kindOf(it) {
-        return it.isWeapon ? 'Weapon' : it.isArmor ? 'Armor' : it.isShield ? 'Shield' : it.isHelmet ? 'Helmet' : it.isCustomEquippable ? 'Equippable' : 'Item';
+        return it.isWeapon ? 'Weapon' : it.isArmor ? 'Armor' : it.isShield ? 'Shield' : it.isHelmet ? 'Helmet' : it.isConsumable ? 'Consumable' : it.isCustomEquippable ? 'Equippable' : 'Item';
     }
     function statsOf(it) {
         if (it.isWeapon) { let w = it.weaponData || {}; return `${w.dmg || '?'}${w.dmgType ? ' ' + w.dmgType : ''}, ${w.ap || '?'} AP`; }
         if (it.isArmor) { let a = it.armorData || {}; return `+${a.ac || 0} AC, +${a.dr || 0} DR, +${a.er || 0} ER`; }
         if (it.isShield) return '+2 AC/DR/ER';
         if (it.isHelmet) return '+1 AC/DR/ER';
+        if (it.isConsumable) {
+            let sum = null; try { sum = it.draft && window.ccBuildTextSummary ? window.ccBuildTextSummary(it.draft) : null; } catch (e) { }
+            let ch = it.charges > 1 ? `${it.chargesRemaining ?? it.charges}/${it.charges} charges` : '1 use';
+            return [ch, sum && sum.dmg && sum.dmg !== '-' ? sum.dmg : '', sum && sum.utilityBits && sum.utilityBits.length ? sum.utilityBits.join(', ') : ''].filter(Boolean).join(' · ');
+        }
         let b = it.bonuses || {};
         let bits = [b.ac ? `+${b.ac} AC` : '', b.dr ? `+${b.dr} DR` : '', b.er ? `+${b.er} ER` : '', b.speedBonus ? `+${b.speedBonus} Speed` : ''].filter(Boolean);
         return bits.length ? bits.join(', ') : (it.desc || '');
@@ -56,22 +61,46 @@
         return tok.loot;
     }
     function areaLabel(tok) { return `Area ${tok.letter}${tok.name ? ' (' + tok.name + ')' : ''}`; }
+    // NPC stat blocks (NPC Crafter) carry their own gear: npc.carriedItems = [{ id, item }], npc.carriedCu
+    function npcOf(npcId) { return (window.gmNpcs || []).find(n => n.id === npcId)?.npc || null; }
+    function npcLoot(c) {
+        if (!Array.isArray(c.carriedItems)) c.carriedItems = [];
+        c.carriedCu = Math.max(0, parseInt(c.carriedCu) || 0);
+        return c;
+    }
+    window.apxNpcCarried = npcLoot;
+    function saveNpcs() {
+        if (window.apxAuth?.enabled && window.apxAuth.saveGmNpcs) window.apxAuth.saveGmNpcs(window.gmNpcs || []).catch(e => console.warn('NPC save failed:', e.message));
+    }
     function resolve(t) {
         if (t && t.kind === 'area') {
             let tok = areaTok(t.mapId, t.tokId); if (!tok) return null;
-            return { items: areaLoot(tok).items, tok, label: areaLabel(tok) };
+            let loot = areaLoot(tok);
+            return { items: loot.items, tok, label: areaLabel(tok), cu: () => loot.cu, setCu: v => { loot.cu = v; }, save };
         }
-        return { items: window._gmLootList ? window._gmLootList() : [], tok: null, label: 'the Loot list' };
+        if (t && t.kind === 'npc') {
+            let c = npcOf(t.npcId); if (!c) return null;
+            npcLoot(c);
+            return { items: c.carriedItems, npc: c, label: `${c.name || 'this NPC'}'s gear`, cu: () => c.carriedCu, setCu: v => { c.carriedCu = v; }, save: saveNpcs };
+        }
+        return { items: window._gmLootList ? window._gmLootList() : [], tok: null, label: 'the Loot list', save };
     }
     function refreshAll(t) {
         window.renderGmLoot && window.renderGmLoot();
         if (t && t.kind === 'area') window.apxRefreshAreaLoot(t.mapId, t.tokId);
+        if (t && t.kind === 'npc') refreshNpcViews(t.npcId);
         renderMaker();
+    }
+    function refreshNpcViews(npcId) {
+        // NPC Crafter (if this NPC is open), stat blocks, and world NPC windows linked to it
+        try { if (typeof ncTarget !== 'undefined' && ncTarget === 'gm' && typeof ncActiveGmNpcId !== 'undefined' && ncActiveGmNpcId === npcId && document.getElementById('npcCrafterModal')?.classList.contains('active')) ncRenderAll(); } catch (e) { }
+        window.refreshOpenStatBlocks && window.refreshOpenStatBlocks();
+        document.querySelectorAll(`[data-npc-loot="${npcId}"]`).forEach(el => { el.innerHTML = window.apxNpcLootHtml(npcId); });
     }
     function addTo(t, item) {
         let r = resolve(t); if (!r) return;
-        r.items.push(r.tok ? { id: uid(), item } : { id: uid(), from: 'Loot Maker', item });
-        save(); refreshAll(t);
+        r.items.push(r.tok || r.npc ? { id: uid(), item } : { id: uid(), from: 'Loot Maker', item });
+        r.save(); refreshAll(t);
         window.APXDice?.notify(`${item.ct > 1 ? item.ct + '× ' : ''}${item.name} added to ${r.label}.`, { kind: 'loot' });
     }
     window.apxAddLoot = addTo;
@@ -160,6 +189,7 @@
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.4rem;margin-bottom:.7rem">
                 ${sourceBtn('wforge', 'Weapon Forge', 'Build a weapon step by step', '#fca5a5')}
                 ${sourceBtn('aforge', 'Armor Forge', 'Build armor from mods', '#93c5fd')}
+                ${sourceBtn('consumable', 'Consumable', 'Potions, grenades, scrolls…', '#f0abfc')}
                 ${sourceBtn('gear', 'Adventuring Gear', 'Pick from the gear list', '#fde68a')}
                 ${sourceBtn('cweapon', 'Custom Weapon', 'Quick weapon: damage, AP, weight', '#fdba74')}
                 ${sourceBtn('citem', 'Custom Item', 'Anything else, equippable or not', '#c4b5fd')}
@@ -169,24 +199,25 @@
             ${form ? `<div style="border:1px solid #334155;border-radius:.5rem;padding:.6rem;margin-bottom:.8rem;background:rgba(15,23,42,.6)">${form}</div>` : ''}
             <div style="${lbl};margin-bottom:.35rem">In ${esc(r.label)} (${items.length})</div>
             ${listHtml}
-            ${r.tok ? `<div style="display:flex;align-items:center;gap:.5rem;margin-top:.6rem;font-size:.72rem;color:#cbd5e1">
-                <label style="display:flex;align-items:center;gap:.35rem">Currency here <input data-lm-cu type="number" min="0" value="${areaLoot(r.tok).cu}" style="${inCss};width:5rem;text-align:center"> Cu</label>
-                <span style="color:#64748b;font-size:.65rem">Hand it out from the area's popup.</span></div>` : ''}`;
+            ${r.cu ? `<div style="display:flex;align-items:center;gap:.5rem;margin-top:.6rem;font-size:.72rem;color:#cbd5e1">
+                <label style="display:flex;align-items:center;gap:.35rem">${r.npc ? 'Currency carried' : 'Currency here'} <input data-lm-cu type="number" min="0" value="${r.cu()}" style="${inCss};width:5rem;text-align:center"> Cu</label>
+                <span style="color:#64748b;font-size:.65rem">${r.npc ? 'Dropped with its gear when it dies.' : 'Hand it out from the area\'s popup.'}</span></div>` : ''}`;
         // Wire up
         body.querySelectorAll('[data-lm-view]').forEach(b => b.onclick = () => {
             let v = b.dataset.lmView;
             if (v === 'wforge') return openForge('weapon');
             if (v === 'aforge') return openForge('armor');
+            if (v === 'consumable') return openForge('consumable');
             if (v === 'shield') return addTo(maker.target, SHIELD());
             if (v === 'helmet') return addTo(maker.target, HELMET());
             maker.view = maker.view === v ? 'home' : v; renderMaker();
         });
         body.querySelectorAll('[data-lm-del]').forEach(b => b.onclick = () => {
             let r2 = resolve(maker.target); let i = r2.items.findIndex(x => x.id === b.dataset.lmDel);
-            if (i >= 0) { r2.items.splice(i, 1); save(); refreshAll(maker.target); }
+            if (i >= 0) { r2.items.splice(i, 1); r2.save(); refreshAll(maker.target); }
         });
         let cu = body.querySelector('[data-lm-cu]');
-        if (cu) cu.onchange = () => { let r2 = resolve(maker.target); areaLoot(r2.tok).cu = Math.max(0, parseInt(cu.value) || 0); save(); refreshAll(maker.target); };
+        if (cu) cu.onchange = () => { let r2 = resolve(maker.target); r2.setCu(Math.max(0, parseInt(cu.value) || 0)); r2.save(); refreshAll(maker.target); };
         let gq = body.querySelector('[data-lm-gearq]');
         if (gq) { gq.oninput = () => { maker.gearQ = gq.value; let pos = gq.selectionStart; renderMaker(); let n = document.querySelector('#apxLootMaker [data-lm-gearq]'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }; }
         body.querySelectorAll('[data-lm-gadd]').forEach(b => b.onclick = () => {
@@ -229,15 +260,21 @@
     function openForge(which) {
         if (!maker) return;
         window._lootMakerTarget = maker.target;
-        let id = which === 'weapon' ? 'weaponForgeModal' : 'armorForgeModal';
-        ['weaponForgeModal', 'weaponCraftModal', 'armorForgeModal', 'armorCraftModal'].forEach(m => { let el = document.getElementById(m); if (el) { el.dataset.lmZ = el.dataset.lmZ || el.style.zIndex; el.style.zIndex = 2147482500; } });
-        if (which === 'weapon') window.openWeaponForge(null, 'loot'); else window.openArmorForge('loot');
+        let id = which === 'weapon' ? 'weaponForgeModal' : which === 'armor' ? 'armorForgeModal' : 'consumableCrafterModal';
+        const MODALS = ['weaponForgeModal', 'weaponCraftModal', 'armorForgeModal', 'armorCraftModal', 'consumableCrafterModal'];
+        MODALS.forEach(m => { let el = document.getElementById(m); if (el) { el.dataset.lmZ = el.dataset.lmZ || el.style.zIndex; el.style.zIndex = 2147482500; } });
+        if (which === 'weapon') window.openWeaponForge(null, 'loot');
+        else if (which === 'armor') window.openArmorForge('loot');
+        else {
+            let t = maker.target;
+            window.openConsumableCrafter({ label: t.kind === 'npc' ? 'Give to NPC' : 'Add to Loot', onMade: item => addTo(t, item) });
+        }
         // Put the z-order back once the forge closes (made something or cancelled)
         let el = document.getElementById(id);
         let watch = setInterval(() => {
             if (el && el.classList.contains('active')) return;
             clearInterval(watch);
-            ['weaponForgeModal', 'weaponCraftModal', 'armorForgeModal', 'armorCraftModal'].forEach(m => { let e = document.getElementById(m); if (e && e.dataset.lmZ !== undefined) { e.style.zIndex = e.dataset.lmZ; delete e.dataset.lmZ; } });
+            MODALS.forEach(m => { let e = document.getElementById(m); if (e && e.dataset.lmZ !== undefined) { e.style.zIndex = e.dataset.lmZ; delete e.dataset.lmZ; } });
         }, 300);
     }
     window._lootMakerReceive = function (made) {
@@ -246,86 +283,112 @@
         if (made.armor) addTo(t, armorItem(made.armor));
     };
 
-    // ── Area Circle loot section (GM popup) ──────────────────────
-    window.apxAreaLootHtml = function (mapId, tokId) {
-        let tok = areaTok(mapId, tokId); if (!tok) return '';
-        let loot = areaLoot(tok);
+    // ── Loot section (Area Circle popups, world NPC windows) ──────
+    // Targets are named by a key so the inline handlers stay simple:
+    //   'area|<mapId>|<tokId>'  or  'npc|<gmNpcId>'
+    function keyOf(t) { return t.kind === 'area' ? `area|${t.mapId}|${t.tokId}` : `npc|${t.npcId}`; }
+    function fromKey(k) { let p = String(k).split('|'); return p[0] === 'area' ? { kind: 'area', mapId: p[1], tokId: p[2] } : { kind: 'npc', npcId: p[1] }; }
+    function sectionHtml(t) {
+        let r = resolve(t); if (!r) return '';
+        let key = keyOf(t);
         let pl = party(), ids = new Set(pl.map(p => p.uid)), sel = window._gmLootSel;
         let opts = cur => pl.map(p => `<option value="${esc(p.uid)}" ${p.uid === cur ? 'selected' : ''}>${esc(p.name)}</option>`).join('');
         let s = 'background:#0f172a;border:1px solid #334155;color:#e2e8f0;font-size:.65rem;border-radius:.25rem;padding:.15rem .25rem';
         let btn = (bg, bd, c) => `background:${bg};border:1px solid ${bd};color:${c};font-size:.62rem;font-weight:800;padding:.18rem .45rem;border-radius:.25rem;cursor:pointer`;
-        let pool = window._gmLootList ? window._gmLootList() : [];
-        let cuTo = sel['cu_' + tokId] === '__split' || ids.has(sel['cu_' + tokId]) ? sel['cu_' + tokId] : '';
-        let a = `'${esc(mapId)}','${esc(tokId)}'`;
+        let pool = t.kind === 'area' && window._gmLootList ? window._gmLootList() : [];
+        let cuKey = 'cu_' + key;
+        let cuTo = sel[cuKey] === '__split' || ids.has(sel[cuKey]) ? sel[cuKey] : '';
+        let k = esc(key), cu = r.cu();
+        let targetJs = t.kind === 'area' ? `{kind:'area',mapId:'${esc(t.mapId)}',tokId:'${esc(t.tokId)}'}` : `{kind:'npc',npcId:'${esc(t.npcId)}'}`;
         return `
             <div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.3rem">
-                <span style="font-size:.65rem;color:#fcd34d;font-weight:800;text-transform:uppercase;flex:1">Loot${loot.items.length ? ` (${loot.items.length})` : ''}</span>
-                <button onclick="window.openLootMaker({kind:'area',mapId:'${esc(mapId)}',tokId:'${esc(tokId)}'})" style="${btn('#312e81', '#4f46e5', '#c7d2fe')}">+ Loot Maker</button>
+                <span style="font-size:.65rem;color:#fcd34d;font-weight:800;text-transform:uppercase;flex:1">${t.kind === 'npc' ? 'Carried Loot' : 'Loot'}${r.items.length ? ` (${r.items.length})` : ''}</span>
+                <button onclick="window.openLootMaker(${targetJs})" style="${btn('#312e81', '#4f46e5', '#c7d2fe')}">+ Loot Maker</button>
             </div>
-            ${loot.items.map(l => {
+            ${r.items.map(l => {
                 let cur = ids.has(sel[l.id]) ? sel[l.id] : '';
                 return `<div style="border:1px solid #334155;background:#0f172a;border-radius:.3rem;padding:.3rem .4rem;margin-bottom:.25rem">
                     <div style="font-size:.7rem;font-weight:800;color:#fde68a;line-height:1.2">${esc(l.item.name)}${l.item.ct > 1 ? ` ×${l.item.ct}` : ''}</div>
                     <div title="${esc(statsOf(l.item))}" style="font-size:.58rem;color:#94a3b8;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${kindOf(l.item)} · ${esc(statsOf(l.item))}</div>
                     <div style="display:flex;gap:.25rem;margin-top:.25rem">
                         <select onchange="window._gmLootSel['${esc(l.id)}']=this.value" style="${s};flex:1;min-width:0" ${pl.length ? '' : 'disabled'}><option value="">Give to…</option>${opts(cur)}</select>
-                        <button onclick="window.apxGiveAreaLoot(${a},'${esc(l.id)}',this)" style="${btn('#047857', '#059669', '#fff')}">Give</button>
-                        <button onclick="window.apxRemoveAreaLoot(${a},'${esc(l.id)}')" title="Remove" style="${btn('#1e293b', '#475569', '#cbd5e1')}">✕</button>
+                        <button onclick="window.apxGiveSectionLoot('${k}','${esc(l.id)}',this)" style="${btn('#047857', '#059669', '#fff')}">Give</button>
+                        <button onclick="window.apxRemoveSectionLoot('${k}','${esc(l.id)}')" title="Remove" style="${btn('#1e293b', '#475569', '#cbd5e1')}">✕</button>
                     </div></div>`;
-            }).join('') || '<div style="font-size:.62rem;color:#64748b;margin-bottom:.25rem">No items. Use Loot Maker to stock this area.</div>'}
-            ${pool.length ? `<select onchange="if(this.value){window.apxMoveLootToArea(${a},this.value)}" style="${s};width:100%;margin-bottom:.3rem;color:#94a3b8">
+            }).join('') || `<div style="font-size:.62rem;color:#64748b;margin-bottom:.25rem">${t.kind === 'npc' ? 'Nothing carried. Items added here drop as loot when this NPC dies.' : 'No items. Use Loot Maker to stock this area.'}</div>`}
+            ${pool.length ? `<select onchange="if(this.value){window.apxMoveLootToArea('${esc(t.mapId)}','${esc(t.tokId)}',this.value)}" style="${s};width:100%;margin-bottom:.3rem;color:#94a3b8">
                 <option value="">Move an item here from the Loot list…</option>${pool.map(l => `<option value="${esc(l.id)}">${esc(l.item.name)}${l.from ? ' (' + esc(l.from) + ')' : ''}</option>`).join('')}</select>` : ''}
             <div style="display:flex;align-items:center;gap:.25rem;margin-top:.15rem">
-                <input type="number" min="0" value="${loot.cu || ''}" placeholder="0" title="Currency found here"
-                    onchange="window.apxSetAreaCu(${a},this.value)" style="${s};width:3.6rem;text-align:center">
+                <input type="number" min="0" value="${cu || ''}" placeholder="0" title="${t.kind === 'npc' ? 'Currency carried' : 'Currency found here'}"
+                    onchange="window.apxSetSectionCu('${k}',this.value)" style="${s};width:3.6rem;text-align:center">
                 <span style="font-size:.62rem;color:#fcd34d;font-weight:800">Cu</span>
-                <select onchange="window._gmLootSel['cu_${esc(tokId)}']=this.value" style="${s};flex:1;min-width:0" ${pl.length ? '' : 'disabled'}>
+                <select onchange="window._gmLootSel['${esc(cuKey)}']=this.value" style="${s};flex:1;min-width:0" ${pl.length ? '' : 'disabled'}>
                     <option value="">Give to…</option><option value="__split" ${cuTo === '__split' ? 'selected' : ''}>Split among the party</option>${opts(cuTo)}</select>
-                <button onclick="window.apxGiveAreaCu(${a},this)" style="${btn('#047857', '#059669', '#fff')}" ${loot.cu > 0 ? '' : 'disabled'}>Give</button>
+                <button onclick="window.apxGiveSectionCu('${k}',this)" style="${btn('#047857', '#059669', '#fff')}" ${cu > 0 ? '' : 'disabled'}>Give</button>
             </div>
             ${pl.length ? '' : '<div style="font-size:.58rem;color:#64748b;margin-top:.2rem">Load the party to hand loot out.</div>'}`;
+    }
+    window.apxAreaLootHtml = (mapId, tokId) => sectionHtml({ kind: 'area', mapId, tokId });
+    // Area Circle popup: loot lives on the NPCs linked to the area (their stat block's carried
+    // gear), so a chest, a corpse or a merchant is simply an NPC placed there. Areas that
+    // already had loot of their own keep it (shown below the NPCs).
+    window.apxAreaLinkedLootHtml = function (mapId, tokId, winId) {
+        let tok = areaTok(mapId, tokId); if (!tok) return '';
+        let n = notes();
+        let linked = (tok.linkedNpcs || []).map(id => (n?.npcs || []).find(w => w.id === id)).filter(Boolean);
+        let withSb = linked.filter(w => w.statBlockId && (window.gmNpcs || []).some(g => g.id === w.statBlockId));
+        let own = tok.loot && ((tok.loot.items || []).length || tok.loot.cu);
+        let box = (inner, color) => `<div style="border:1px solid ${color};background:rgba(15,23,42,.35);border-radius:.35rem;padding:.4rem;margin-bottom:.35rem">${inner}</div>`;
+        let parts = withSb.map(w => box(`<div style="font-size:.6rem;color:#f0abfc;font-weight:800;margin-bottom:.2rem">${esc(w.name || 'NPC')}</div>
+            <div data-npc-loot="${esc(w.statBlockId)}">${window.apxNpcLootHtml(w.statBlockId)}</div>`, '#701a75'));
+        if (own) parts.push(box(`<div id="${esc(winId)}_loot">${sectionHtml({ kind: 'area', mapId, tokId })}</div>`, '#78350f'));
+        if (!parts.length) {
+            let why = linked.length ? 'Give a linked NPC a stat block to place loot here.' : 'Loot is carried by NPCs: link an NPC (with a stat block) to this area, then add its loot.';
+            return `<div style="font-size:.62rem;color:#64748b;margin-bottom:.25rem">${why}</div>`;
+        }
+        return `<div style="font-size:.65rem;color:#fcd34d;font-weight:800;text-transform:uppercase;margin-bottom:.3rem">Loot here</div>` + parts.join('');
     };
+    window.apxNpcLootHtml = npcId => sectionHtml({ kind: 'npc', npcId });
     window.apxRefreshAreaLoot = function (mapId, tokId) {
         let el = document.getElementById(`omTok_${tokId}_loot`);
         if (el) el.innerHTML = window.apxAreaLootHtml(mapId, tokId);
     };
-    window.apxGiveAreaLoot = function (mapId, tokId, id, btn) {
-        let tok = areaTok(mapId, tokId); if (!tok) return;
-        let loot = areaLoot(tok), i = loot.items.findIndex(l => l.id === id); if (i < 0) return;
+    window.apxGiveSectionLoot = function (key, id, btn) {
+        let t = fromKey(key), r = resolve(t); if (!r) return;
+        let i = r.items.findIndex(l => l.id === id); if (i < 0) return;
         let to = btn?.parentElement?.querySelector('select')?.value || window._gmLootSel[id];
         if (!to) { window.apxAlert && window.apxAlert('Pick who gets it first.'); return; }
-        let l = loot.items[i];
-        if (!window._gmSendGift || !window._gmSendGift(to, { id: uid(), item: l.item, from: 'GM', at: Date.now() })) return;
-        loot.items.splice(i, 1); delete window._gmLootSel[id];
+        let l = r.items[i];
+        if (typeof _gmSendGift !== 'function' || !_gmSendGift(to, { id: uid(), item: l.item, from: 'GM', at: Date.now() })) return;
+        r.items.splice(i, 1); delete window._gmLootSel[id];
         let who = party().find(p => p.uid === to)?.name || 'A player';
-        if (typeof window.gmLog === 'function') window.gmLog({ text: `${who} took ${l.item.name} from ${areaLabel(tok)}.`, kind: 'loot', force: true });
-        save(); refreshAll({ kind: 'area', mapId, tokId });
+        let from = t.kind === 'npc' ? (r.npc.name || 'an NPC') : areaLabel(r.tok);
+        if (typeof window.gmLog === 'function') window.gmLog({ text: `${who} took ${l.item.name} from ${from}.`, kind: 'loot', force: true });
+        r.save(); refreshAll(t);
     };
-    window.apxRemoveAreaLoot = function (mapId, tokId, id) {
-        let tok = areaTok(mapId, tokId); if (!tok) return;
-        let loot = areaLoot(tok), i = loot.items.findIndex(l => l.id === id); if (i < 0) return;
-        loot.items.splice(i, 1); save(); refreshAll({ kind: 'area', mapId, tokId });
+    window.apxRemoveSectionLoot = function (key, id) {
+        let t = fromKey(key), r = resolve(t); if (!r) return;
+        let i = r.items.findIndex(l => l.id === id); if (i < 0) return;
+        r.items.splice(i, 1); r.save(); refreshAll(t);
+    };
+    window.apxSetSectionCu = function (key, v) {
+        let t = fromKey(key), r = resolve(t); if (!r) return;
+        r.setCu(Math.max(0, parseInt(v) || 0)); r.save(); refreshAll(t);
+    };
+    window.apxGiveSectionCu = function (key, btn) {
+        let t = fromKey(key), r = resolve(t); if (!r) return;
+        let amt = r.cu(); if (!amt) return;
+        let to = btn?.parentElement?.querySelector('select')?.value || window._gmLootSel['cu_' + key];
+        if (!to) { window.apxAlert && window.apxAlert('Pick who gets the Cu, or split it among the party.'); return; }
+        let where = t.kind === 'npc' ? `from ${r.npc.name || 'an NPC'}` : `in ${areaLabel(r.tok)}`;
+        if (!window._gmGiveCu || !window._gmGiveCu(amt, to, where)) return;
+        r.setCu(0); r.save(); refreshAll(t);
     };
     window.apxMoveLootToArea = function (mapId, tokId, poolId) {
-        let tok = areaTok(mapId, tokId); if (!tok || !window._gmLootList) return;
-        let pool = window._gmLootList(), i = pool.findIndex(l => l.id === poolId); if (i < 0) return;
+        let tok = areaTok(mapId, tokId); if (!tok || typeof _gmLootList !== 'function') return;
+        let pool = _gmLootList(), i = pool.findIndex(l => l.id === poolId); if (i < 0) return;
         let l = pool.splice(i, 1)[0];
         areaLoot(tok).items.push({ id: l.id, item: l.item });
-        save(); refreshAll({ kind: 'area', mapId, tokId });
-    };
-    window.apxSetAreaCu = function (mapId, tokId, v) {
-        let tok = areaTok(mapId, tokId); if (!tok) return;
-        areaLoot(tok).cu = Math.max(0, parseInt(v) || 0);
-        save(); refreshAll({ kind: 'area', mapId, tokId });
-    };
-    window.apxGiveAreaCu = function (mapId, tokId, btn) {
-        let tok = areaTok(mapId, tokId); if (!tok) return;
-        let loot = areaLoot(tok);
-        let to = btn?.parentElement?.querySelector('select')?.value || window._gmLootSel['cu_' + tokId];
-        if (!loot.cu) return;
-        if (!to) { window.apxAlert && window.apxAlert('Pick who gets the Cu, or split it among the party.'); return; }
-        if (!window._gmGiveCu || !window._gmGiveCu(loot.cu, to, `in ${areaLabel(tok)}`)) return;
-        loot.cu = 0;
         save(); refreshAll({ kind: 'area', mapId, tokId });
     };
 })();

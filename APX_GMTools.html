@@ -891,6 +891,92 @@
         </div>
     </div>
 
+<!-- Consumable Crafter (Loot Maker and NPC gear) -->
+    <div class="modal-overlay" id="consumableCrafterModal" style="z-index:1500;">
+        <div class="modal-content max-w-[850px]">
+            <div class="flex justify-between items-center mb-1 border-b border-purple-600 pb-2">
+                <h3 class="text-xl font-black text-white">The Consumable Crafter</h3>
+                <div class="text-[10px] text-slate-500">Chapter 8: Consumable Items</div>
+            </div>
+            <div class="mb-3">
+                <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Item Name</label>
+                <input type="text" id="ccName" placeholder="e.g. Healing Salve" class="bg-slate-900 border-purple-900/50 text-purple-300 font-bold">
+            </div>
+            <div class="flex gap-1 mb-3 flex-wrap text-[10px]">
+                <span id="ccTab1" onclick="window.jumpToCcStep(1)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">1. Targeting</span>
+                <span id="ccTab2" onclick="window.jumpToCcStep(2)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">2. Range</span>
+                <span id="ccTab3" onclick="window.jumpToCcStep(3)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">3. Area of Effect</span>
+                <span id="ccTab4" onclick="window.jumpToCcStep(4)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">4. Damage/Healing</span>
+                <span id="ccTab5" onclick="window.jumpToCcStep(5)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">5. Utility</span>
+                <span id="ccTab6" onclick="window.jumpToCcStep(6)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">6. Duration</span>
+                <span id="ccTab7" onclick="window.jumpToCcStep(7)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">7. Refunds/Charges</span>
+            </div>
+
+            <div id="ccStep1" class="wizard-step active">
+                <h4 class="text-sm font-bold text-purple-400 mb-2">Step 1: Targeting and Delivery</h4>
+                <p class="text-[10px] text-slate-400 mb-3">How does the item's effect reach the target, and how do they resist it?</p>
+                <div id="ccStep1Options" class="space-y-1.5"><!-- JS injected --></div>
+            </div>
+
+            <div id="ccStep2" class="wizard-step">
+                <h4 class="text-sm font-bold text-purple-400 mb-2">Step 2: Range</h4>
+                <div id="ccStep2Options" class="space-y-1.5"><!-- JS injected --></div>
+            </div>
+
+            <div id="ccStep3" class="wizard-step">
+                <h4 class="text-sm font-bold text-purple-400 mb-2">Step 3: Area of Effect</h4>
+                <div id="ccStep3Options" class="space-y-1.5"><!-- JS injected --></div>
+            </div>
+
+            <div id="ccStep4" class="wizard-step">
+                <h4 class="text-sm font-bold text-purple-400 mb-2">Step 4: Damage or Healing</h4>
+                <p class="text-[10px] text-slate-400 mb-3">Optional -- skip if this item neither damages nor heals.</p>
+                <div id="ccStep4Dice" class="space-y-1.5 mb-3"><!-- JS injected --></div>
+                <div id="ccStep4Extras" class="space-y-1.5"><!-- JS injected --></div>
+            </div>
+
+            <div id="ccStep5" class="wizard-step">
+                <h4 class="text-sm font-bold text-purple-400 mb-2">Step 5: Utility</h4>
+                <div id="ccStep5List" class="max-h-[40vh] overflow-y-auto pr-1"><!-- JS injected --></div>
+            </div>
+
+            <div id="ccStep6" class="wizard-step">
+                <h4 class="text-sm font-bold text-purple-400 mb-2">Step 6: Duration</h4>
+                <div id="ccStep6Options" class="space-y-1.5 mb-3"><!-- JS injected --></div>
+                <div class="text-xs font-black text-slate-300 mb-2">Duration Modifiers</div>
+                <div id="ccStep6Mods" class="space-y-1.5"><!-- JS injected --></div>
+            </div>
+
+            <div id="ccStep7" class="wizard-step">
+                <h4 class="text-sm font-bold text-purple-400 mb-2">Step 7: Refunds, Charges & Flavor Text</h4>
+                <p class="text-[10px] text-slate-400 mb-2">Consumables always cost a flat 3 AP to use -- there is no AP-modification step.</p>
+                <div id="ccStep7Refunds" class="space-y-1.5 mb-3"><!-- JS injected --></div>
+                <div class="flex items-center gap-2 mb-3 bg-slate-900 border border-slate-700 rounded p-2">
+                    <label class="text-xs font-bold text-slate-200">Charges (1st is full price, each after is half):</label>
+                    <input type="number" id="ccChargesInput" value="1" min="1" onchange="window.ccSetCharges(this.value)" class="bg-slate-800 text-xs w-16 text-center ml-auto">
+                </div>
+                <div class="bg-slate-900 border border-slate-700 rounded p-2 text-[10px] text-slate-500 leading-relaxed mb-3" id="ccStep7Reference"><!-- JS injected --></div>
+                <textarea id="ccFlavorText" onchange="window.ccSetFlavorText(this.value)" class="bg-slate-900 border-purple-900/50 text-xs text-slate-200 h-20 resize-none w-full" placeholder="A thick red fluid that smells sickeningly sweet..."></textarea>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2 mt-4 bg-slate-900 border border-purple-800/50 rounded-lg p-3">
+                <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">XP Spent</div><div class="text-lg font-black text-white" id="ccSumXp">0 / 30 XP</div></div>
+                <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">Weight</div><div class="text-lg font-black text-white" id="ccSumWeight">0 lb</div></div>
+                <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">Total Cost</div><div class="text-lg font-black text-yellow-400" id="ccSumCost">0 Cu</div></div>
+            </div>
+            <div id="ccCapNote" class="text-[10px] text-red-400 font-bold mt-2 text-center hidden"></div>
+
+            <div class="flex justify-between items-center mt-4 pt-3 border-t border-slate-600">
+                <button onclick="window.closeModal('consumableCrafterModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Cancel</button>
+                <div class="flex gap-2">
+                    <button id="ccBtnPrev" onclick="window.navConsumableCrafter(-1)" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition hidden">Back</button>
+                    <button id="ccBtnNext" onclick="window.navConsumableCrafter(1)" class="px-4 py-2 rounded bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold transition">Next Step</button>
+                    <button id="ccBtnFinish" onclick="window.finishConsumableCrafter()" class="px-6 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition hidden shadow-lg">Add to Inventory</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 <div class="modal-overlay" id="powerCrafterModal" style="z-index:1500;">
         <div class="modal-content max-w-[850px]">
             <div class="flex justify-between items-center mb-1 border-b border-purple-600 pb-2">
@@ -1339,6 +1425,7 @@ document.addEventListener('DOMContentLoaded', () => {
     <script src="js/apx-craft-shared.js"></script>
     <script src="js/apx-armor-forge.js"></script>
     <script src="js/apx-weapon-forge.js"></script>
+    <script src="js/apx-consumable-crafter.js"></script>
     <script src="js/apx-perks-ui.js"></script>
     <script src="js/apx-power-crafter.js"></script>
     <script src="js/apx-npc-crafter.js"></script>
@@ -1833,6 +1920,14 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // NPC floating info window — shows portrait, description, sub-notes, with Edit button
+    // A world NPC's carried loot lives on its linked stat block (NPC Crafter). GM-only.
+    function _npcLootBox(n) {
+        if (!n || !window.apxNpcLootHtml) return '';
+        let linked = n.statBlockId && (window.gmNpcs||[]).some(x=>x.id===n.statBlockId);
+        if (!linked) return `<div style="font-size:0.62rem;color:#64748b;margin-top:0.5rem;">Link a stat block to this NPC to give it carried loot.</div>`;
+        return `<div data-npc-loot="${n.statBlockId}" style="border:1px solid #701a75;background:rgba(112,26,117,.12);border-radius:0.35rem;padding:0.4rem;margin-top:0.5rem;">${window.apxNpcLootHtml(n.statBlockId)}</div>`;
+    }
+    window._npcLootBox = _npcLootBox;
     window.openNpcInfoWin = function(npcId) {
         let n = (_wNotes.npcs||[]).find(x=>x.id===npcId); if(!n) return;
         let winId = 'npcInfo_'+npcId;
@@ -1857,6 +1952,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div style="padding:0.75rem;overflow-y:auto;flex:1;">
             ${portraitBlock ? `<div style="display:flex;gap:0.75rem;margin-bottom:0.5rem;">${portraitBlock}<div style="flex:1;min-width:0;">${n.role?`<div style="font-size:0.7rem;color:#818cf8;margin-bottom:0.2rem;">${n.role}</div>`:''}${n.description?`<div style="font-size:0.7rem;color:#cbd5e1;">${_fmtText(n.description)}</div>`:''}</div></div>` : `${n.role?`<div style="font-size:0.7rem;color:#818cf8;margin-bottom:0.25rem;">${n.role}</div>`:''}${n.description?`<div style="font-size:0.7rem;color:#cbd5e1;white-space:pre-wrap;margin-bottom:0.4rem;">${n.description}</div>`:''}`}
             ${snHtml}
+            ${_npcLootBox(n)}
         </div>`;
         document.getElementById('floatingWindowContainer').appendChild(win);
         win.addEventListener('mousedown',()=>{ window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; win.style.zIndex=window.apxFloatingZTop; });
@@ -4537,7 +4633,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${!readOnly?`<button onclick="window.openMapPickerForToken('${mapId}','${tokenId}','${winId}')"
                     style="width:100%;background:#1e3a5f;border:1px solid #2563eb;color:#93c5fd;font-size:0.65rem;font-weight:700;padding:0.25rem;border-radius:0.25rem;cursor:pointer;margin-bottom:0.25rem;">[Map] Link Maps…</button>`:''}
                 <div id="${winId}_subnotes" style="margin-bottom:0.15rem;">${_buildTokenSubnotes(tok, winId, readOnly, mapId, tokenId)}</div>
-                ${tok.type!=='special'&&window.apxAreaLootHtml?`<div id="${winId}_loot" style="border:1px solid #78350f;background:rgba(120,53,15,.12);border-radius:0.35rem;padding:0.4rem;margin-bottom:0.25rem;">${window.apxAreaLootHtml(mapId, tokenId)}</div>`:''}
+                ${tok.type!=='special'&&window.apxAreaLinkedLootHtml?`<div id="${winId}_lootWrap" style="margin-bottom:0.25rem;">${window.apxAreaLinkedLootHtml(mapId, tokenId, winId)}</div>`:''}
                 ${!readOnly?`<button onclick="window.addTokenSubnote('${mapId}','${tokenId}','${winId}')"
                     style="width:100%;background:#1e293b;border:1px solid #334155;color:#64748b;font-size:0.65rem;font-weight:700;padding:0.2rem;border-radius:0.25rem;cursor:pointer;margin-bottom:0.25rem;">+ Add Sub-note</button>`:''}
                 ${!readOnly?`<div style="display:flex;gap:0.5rem;">
@@ -4566,6 +4662,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Refresh the links div in-place — never close the window
         let linksDiv = document.getElementById(winId+'_npcLinks');
         if (linksDiv) linksDiv.innerHTML = _buildTokenNpcLinks(tok, mapId, tokenId, winId);
+        let lootWrap = document.getElementById(winId+'_lootWrap');
+        if (lootWrap && window.apxAreaLinkedLootHtml) lootWrap.innerHTML = window.apxAreaLinkedLootHtml(mapId, tokenId, winId);
         document.getElementById('omNpcPickerOverlay')?.remove();
     };
     window._unlinkTokenNpc = function(mapId, tokenId, npcId, winId) {
@@ -4576,6 +4674,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Refresh in-place
         let linksDiv = document.getElementById(winId+'_npcLinks');
         if (linksDiv) linksDiv.innerHTML = _buildTokenNpcLinks(tok, mapId, tokenId, winId);
+        let lootWrap = document.getElementById(winId+'_lootWrap');
+        if (lootWrap && window.apxAreaLinkedLootHtml) lootWrap.innerHTML = window.apxAreaLinkedLootHtml(mapId, tokenId, winId);
     };
 
     // Open a floating NPC list overlay instead of a dropdown
@@ -4611,7 +4711,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.apxFloatingZTop++;
         let win = document.createElement('div');
         win.id = winId;
-        win.style.cssText = `position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:260px;
+        win.style.cssText = `position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:280px;max-height:80vh;overflow-y:auto;
             background:#1e293b;border:1px solid #334155;border-radius:0.5rem;z-index:${window.apxFloatingZTop};
             box-shadow:0 10px 40px rgba(0,0,0,.8);`;
         let sbBtn = wn.statBlockId
@@ -4625,6 +4725,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ${wn.role?`<div style="font-size:0.65rem;color:#94a3b8;margin-bottom:0.4rem;">${wn.role}</div>`:''}
             ${wn.description?`<div style="font-size:0.7rem;color:#cbd5e1;">${wn.description}</div>`:''}
             ${sbBtn}
+            ${_npcLootBox(wn)}
         </div>`;
         document.getElementById('floatingWindowContainer').appendChild(win);
         win.addEventListener('mousedown', ()=>{ window.apxFloatingZTop++; win.style.zIndex=window.apxFloatingZTop; });

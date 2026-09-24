@@ -62,7 +62,8 @@ function ncMigrateCompanionFields(c) {
     if (c.lairSharedTraitKey === undefined) c.lairSharedTraitKey = null;
     if (!Array.isArray(c.damageResistances)) c.damageResistances = [];
     if (c.powerAttr === undefined) c.powerAttr = null;          // null = auto (best of INT/CHA)
-    ['conditionImmunities','conditionalDmgImmunities','energyImmunities','energyVulnerabilities','otherTrainings','weapons','powers','traits']
+    if (c.carriedCu === undefined) c.carriedCu = 0;
+    ['conditionImmunities','conditionalDmgImmunities','energyImmunities','energyVulnerabilities','otherTrainings','weapons','powers','traits','carriedItems']
         .forEach(k => { if (!Array.isArray(c[k])) c[k] = []; });
     // One innate weapon (old saves) → list of innate weapons. Same TP, same stats.
     if (!Array.isArray(c.innateWeapons)) {
@@ -122,6 +123,8 @@ function getBlankCompanion() {
         legendaryApPool: 0, // bonus AP pool for acting on other creatures' turns, purchased in +3 increments at 5 TP each
         lairActions: false, // 10 TP, requires legendaryApPool > 0
         lairActionsText: '', // GM's own description of what the lair does when it acts
+        carriedItems: [], // GM NPCs: items/consumables they carry ([{ id, item }]); dropped as loot when they die
+        carriedCu: 0,
         mythicAwakening: false, // 20 TP
         mythicAwakeningText: '', // GM's own description of the creature's second, more dangerous phase
         size: 'medium',
@@ -1241,7 +1244,8 @@ window.companionStatBlock = function() {
         powerAttrChoice, powerAttackBonus, powerSaveDc,
         conditionImmunities: c.conditionImmunities, conditionalDmgImmunities: c.conditionalDmgImmunities,
         energyImmunities: c.energyImmunities, energyVulnerabilities: c.energyVulnerabilities,
-        damageResistances: c.damageResistances || []
+        damageResistances: c.damageResistances || [],
+        carriedItems: Array.isArray(c.carriedItems) ? c.carriedItems : [], carriedCu: c.carriedCu || 0
     };
 };
 
@@ -1465,6 +1469,30 @@ window._floatAddToInit = function(winId) {
 // Shared by the builder's own detail popup (editable HP) and the GM
 // Screen's read-only floating stat-block windows -- one source of truth
 // for this markup instead of two copies drifting apart.
+// Carried items on a GM NPC's stat block: consumables can be used (3 AP, one charge;
+// tracked per creature in initiative), everything is dropped as loot when it dies.
+function npcCarriedBox(sb, esc) {
+    let items = sb.carriedItems || [];
+    if (!items.length && !sb.carriedCu) return '';
+    let entry = sb._initId ? (window.gmInitiative || []).find(e => e.id === sb._initId) : null;
+    let rows = items.map(l => {
+        let it = l.item || {};
+        if (it.isConsumable) {
+            let base = it.chargesRemaining ?? it.charges ?? 1;
+            let left = Math.max(0, base - ((entry && entry.carriedUsed && entry.carriedUsed[l.id]) || 0));
+            let sum = null; try { sum = it.draft && window.ccBuildTextSummary ? window.ccBuildTextSummary(it.draft) : null; } catch (e) { }
+            let fx = sum ? [sum.dmg !== '-' ? sum.dmg : '', (sum.utilityBits || []).join(', '), sum.rng].filter(Boolean).join(' · ') : (it.desc || '');
+            return `<div class="text-xs ${left ? 'text-slate-200' : 'text-slate-500'} flex items-start gap-2 mt-0.5" data-roll-label="${esc(it.name)}">
+                <div class="flex-1 min-w-0"><b>${esc(it.name)}</b> <span class="text-[10px] ${left ? 'text-fuchsia-300' : 'text-slate-600'}">${left}/${it.charges || 1} ${(it.charges || 1) > 1 ? 'charges' : 'use'}</span>
+                    ${fx ? `<div class="text-[10px] text-slate-400">${esc(fx)}</div>` : ''}</div>
+                <button type="button" onclick="window.npcUseCarried('${sb._npcId || ''}','${sb._initId || ''}','${esc(l.id)}')" ${left ? '' : 'disabled'} title="Use it: 3 AP, one charge" class="text-[10px] font-bold px-1.5 py-0.5 rounded ${left ? 'bg-fuchsia-800 hover:bg-fuchsia-700 text-white' : 'bg-slate-800 text-slate-600'}">Use</button></div>`;
+        }
+        return `<div class="text-xs text-slate-300 mt-0.5" data-no-roll>${esc(it.name)}${it.ct > 1 ? ' ×' + it.ct : ''} <span class="text-[10px] text-slate-500">${window.apxLootKind ? window.apxLootKind(it) : ''}</span></div>`;
+    }).join('');
+    return `<div class="bg-slate-900 border border-fuchsia-800/50 rounded p-2 mb-2">
+        <div class="text-[10px] font-black text-fuchsia-300 uppercase mb-1">Carried <span class="text-slate-500 normal-case font-bold">(dropped as loot when defeated)</span></div>
+        ${rows}${sb.carriedCu ? `<div class="text-xs text-yellow-300 mt-1" data-no-roll>${sb.carriedCu} Cu</div>` : ''}</div>`;
+}
 function buildStatBlockHtml(sb, editable) {
     if (!sb) return '';
     let esc = v => String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;');
@@ -1523,6 +1551,7 @@ function buildStatBlockHtml(sb, editable) {
                 <button type="button" onclick="window.npcToggleShieldEquipped(${sb._npcId ? `'${sb._npcId}'` : 'null'})" class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-white">${sb.shieldOn ? 'Stow' : 'Equip'}</button></div>` : ''}
             ${sb.hasHelmet ? `<div class="text-xs text-slate-200 mt-1">Helmet (+1 AC/DR/ER)</div>` : ''}
         </div>` : ''}
+        ${npcCarriedBox(sb, esc)}
         <div class="bg-slate-900 border border-emerald-800/50 rounded p-2 mb-2">
             <div class="text-[10px] font-black text-emerald-400 uppercase mb-1">Trained Skills <span class="text-slate-500 normal-case font-bold">(Training +${sb.trainingBonus})</span></div>
             <div class="grid grid-cols-2 gap-x-3">${sb.trainedSkills.length ? sb.trainedSkills.map(s => `<div class="text-xs text-slate-200"${R({ type: 'check', label: s.name, bonus: s.total })}>${esc(s.name)} (${s.total >= 0 ? '+' : ''}${s.total})</div>`).join('') : '<div class="text-[10px] text-slate-600 col-span-2">No skills trained</div>'}</div>
@@ -1928,6 +1957,9 @@ function ncRenderStep5() {
                     </div>
                 </div>`).join('') : '<div class="text-[10px] text-slate-600">None equipped. Add the matching Weapon Type training above so it gets the Training Bonus.</div>'}
         </div>
+        ${ncTarget === 'gm' && window.apxNpcLootHtml && ncActiveGmNpcId ? `
+        ${heading('Carried Items and Loot <span class="normal-case">(consumables it can use, plus anything it drops when defeated; no TP)</span>')}
+        <div class="bg-slate-900 border border-fuchsia-800/50 rounded p-2" data-npc-loot="${ncActiveGmNpcId}">${window.apxNpcLootHtml(ncActiveGmNpcId)}</div>` : ''}
     `;
 }
 

@@ -835,8 +835,20 @@ function _gmLootList() {
     if (!Array.isArray(_wNotes.loot)) _wNotes.loot = [];
     return _wNotes.loot;
 }
-function _gmNpcLootItems(npc) {
+// entry (optional): the initiative creature that died, so its used consumable charges count
+function _gmNpcLootItems(npc, entry) {
     let items = [], clone = o => JSON.parse(JSON.stringify(o));
+    // Carried items and consumables (NPC Crafter "Carried Items and Loot")
+    (npc.carriedItems || []).forEach(l => {
+        if (!l || !l.item) return;
+        let it = clone(l.item);
+        if (it.isConsumable) {
+            let used = (entry && entry.carriedUsed && entry.carriedUsed[l.id]) || 0;
+            it.chargesRemaining = Math.max(0, (it.chargesRemaining ?? it.charges ?? 1) - used);
+            if (it.chargesRemaining <= 0) return;   // used up in the fight
+        }
+        items.push(it);
+    });
     (npc.weapons || []).forEach(w => {
         let wd = clone(w); delete wd.aimed; delete wd.twoHanded;
         items.push({ name: w.name, wt: w.weight || 0, ct: 1, val: w.paidCost || 0, isWeapon: true, isLocked: true,
@@ -863,13 +875,51 @@ function _gmCaptureLoot(entry) {
     if (!entry.sourceNpcId) return;
     let n = (window.gmNpcs || []).find(x => x.id === entry.sourceNpcId);
     if (!n || !n.npc) return;
-    let items = _gmNpcLootItems(n.npc);
-    if (!items.length) return;
+    let items = _gmNpcLootItems(n.npc, entry);
+    let cu = Math.max(0, parseInt(n.npc.carriedCu) || 0);
+    if (!items.length && !cu) return;
     let list = _gmLootList();
     items.forEach(it => list.push({ id: crypto.randomUUID(), from: entry.name, item: it }));
-    if (window.APXDice && APXDice.notify) APXDice.notify(`${entry.name} dropped ${items.length} item${items.length === 1 ? '' : 's'} — see Loot.`, { kind: 'loot', force: true });
+    // Carried Currency lands in the Loot panel's Cu box, ready to give or split
+    if (cu) {
+        let form = window._gmLootCuForm || (window._gmLootCuForm = { amt: '', to: '' });
+        form.amt = String((parseInt(form.amt) || 0) + cu);
+    }
+    let bits = [items.length ? `${items.length} item${items.length === 1 ? '' : 's'}` : '', cu ? `${cu} Cu` : ''].filter(Boolean).join(' and ');
+    if (window.APXDice && APXDice.notify) APXDice.notify(`${entry.name} dropped ${bits} — see Loot.`, { kind: 'loot' });
     window.renderGmLoot();
 }
+
+// "Use" on a carried consumable (NPC stat block): 3 AP and one charge. In initiative the
+// charge comes off that creature only (several goblins can share one stat block).
+window.npcUseCarried = function(npcId, initId, itemId) {
+    let n = (window.gmNpcs || []).find(x => x.id === npcId); if (!n || !n.npc) return;
+    let l = (n.npc.carriedItems || []).find(x => x.id === itemId); if (!l || !l.item) return;
+    let it = l.item, base = it.chargesRemaining ?? it.charges ?? 1;
+    let list = (window.gmInitiative || []).filter(x => x.sourceNpcId === npcId && x.faction !== 'player');
+    let cur = window.gmInitiative[window.gmCurrentTurnIdx];
+    let e = (cur && list.includes(cur)) ? cur : (initId && list.find(x => x.id === initId)) || (list.length === 1 ? list[0] : null);
+    let note = '';
+    if (e) {
+        e.carriedUsed = e.carriedUsed || {};
+        let left = base - (e.carriedUsed[itemId] || 0);
+        if (left <= 0) { window.apxAlert && window.apxAlert(`${e.name} has no ${it.name} left.`); return; }
+        e.carriedUsed[itemId] = (e.carriedUsed[itemId] || 0) + 1;
+        if (window.gmCombatStarted) {
+            let have = gmApCurrent(e);
+            if (have >= 3) { e.apCur = have - 3; note = ` (−3 AP, ${e.apCur} left)`; } else note = ` (not enough AP: has ${have})`;
+        }
+        if (typeof gmLog === 'function') gmLog({ text: `${_gmPublicName(e)} uses ${it.name}.`, gmText: `${e.name} uses ${it.name}${note}.`, kind: 'info' });
+        window.renderInitiativeTracker();
+    } else {
+        // Outside initiative: comes off the stat block itself
+        if (base <= 0) return;
+        it.chargesRemaining = base - 1;
+        if (window.apxAuth?.enabled) window.apxAuth.saveGmNpcs(window.gmNpcs || []).catch(() => {});
+    }
+    window.APXDice?.notify(`${e ? e.name : (n.npc.name || 'NPC')} used ${it.name}${note}.`, { kind: 'note' });
+    window.refreshOpenStatBlocks && window.refreshOpenStatBlocks();
+};
 window._gmCaptureLoot = _gmCaptureLoot;
 
 // Loot panel. What the GM picked in each dropdown (and the Cu box) is remembered, so
