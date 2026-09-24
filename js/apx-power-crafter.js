@@ -85,6 +85,14 @@ function getBlankPowerDraft() {
     };
 }
 
+// ── Mythic Utility ──────────────────────────────────────────────
+// The chosen Mythic Utility (a power can only have one, and nothing else in Step 5)
+function pcMythic(draft) {
+    let k = Object.keys((draft.utility && draft.utility.mythic) || {}).find(x => draft.utility.mythic[x] > 0);
+    return k ? (POWER_UTILITY.mythic || []).find(u => u.key === k) || null : null;
+}
+function pcStepSkipped(n, draft) { let m = pcMythic(draft || pcDraft); return !!(m && (m.skip || []).includes(n)); }
+
 function pcMaxUnlockedLevel() {
     let attr = window.state.powerAttr;
     return attr === 'INT' ? (window.state.perks['pwr_int'] || 0) : (window.state.perks['pwr_cha'] || 0);
@@ -120,6 +128,7 @@ window.pcCalcXP = function(draft) {
     ['minor', 'moderate', 'major', 'master', 'mythic'].forEach(tier => {
         let basePrice = { minor: 5, moderate: 15, major: 30, master: 50, mythic: 130 }[tier];
         if (draft.step1 === 'hpPool') basePrice = Math.max(0, basePrice - 10);
+        if (pcMythic(draft) && tier !== 'mythic') return;   // Mythic: no other utilities
         Object.keys(draft.utility[tier] || {}).forEach(key => {
             let count = draft.utility[tier][key] || 0;
             step5Cost += count * basePrice * aoeDef.mult;
@@ -127,6 +136,7 @@ window.pcCalcXP = function(draft) {
         });
     });
 
+    let mythic = pcMythic(draft);
     let durationDef = POWER_DURATION.find(d => d.key === draft.duration);
     let step6Cost = durationDef.cost;
     if (draft.durationMods.dmgInterrupt) step6Cost -= 5;
@@ -134,6 +144,7 @@ window.pcCalcXP = function(draft) {
 
     let apDef = POWER_AP_MODS.find(a => a.key === draft.apMod);
     let step7Cost = apDef.cost;
+    let ap = apDef.ap;
 
     let step8Cost = 0;
     step8Cost -= 5 * (draft.refunds.minorRestriction || 0);
@@ -142,12 +153,21 @@ window.pcCalcXP = function(draft) {
     if (draft.refunds.sacrifice) step8Cost -= 20;
     if (draft.refunds.costly) step8Cost += draft.refunds.costly;
 
+    // Mythic Utility: no XP refunded from Steps 6-8; Duration and AP Modification costs doubled;
+    // a step the utility replaces costs nothing.
+    if (mythic) {
+        step6Cost = (mythic.skip || []).includes(6) ? 0 : Math.max(0, durationDef.cost) * 2;
+        if ((mythic.skip || []).includes(7)) { step7Cost = 0; ap = POWER_AP_MODS.find(a => a.key === 'ap4')?.ap ?? 4; }
+        else step7Cost = Math.max(0, step7Cost) * 2;
+        step8Cost = 0;
+    }
+
     let total = Math.max(0, step1Cost + step2Cost + step4Cost + step5Cost + step6Cost + step7Cost + step8Cost);
     let levelDef = POWER_LEVEL_TABLE.find(l => total >= l.min && total <= l.max) || POWER_LEVEL_TABLE[POWER_LEVEL_TABLE.length - 1];
 
     return {
         step1Cost, step2Cost, step4Cost, step5Cost, step6Cost, step7Cost, step8Cost, total,
-        level: levelDef.level, totalDiceCount, ap: apDef.ap, step5Count
+        level: levelDef.level, totalDiceCount, ap, step5Count, mythic: mythic ? mythic.key : null
     };
 };
 
@@ -383,7 +403,9 @@ window.pcToggleFreeMode = function(checked) {
 };
 
 window.navPowerCrafter = function(dir) {
-    window.jumpToPcStep(pcStep + dir);
+    let n = pcStep + dir;
+    while (n > 1 && n < PC_LAST_STEP && pcStepSkipped(n)) n += dir;   // Mythic Utilities skip Step 6 or 7
+    window.jumpToPcStep(n);
 };
 
 window.jumpToPcStep = function(n) {
@@ -435,7 +457,12 @@ window.pcSetUtilityCount = function(tier, key, delta) {
     let cur = pcDraft.utility[tier][key] || 0;
     let entry = POWER_UTILITY[tier].find(u => u.key === key);
     let max = entry.rep ? 20 : 1;
+    if (delta > 0 && tier !== 'mythic' && pcMythic(pcDraft)) return;   // a Mythic power can't have other utilities
     let next = Math.max(0, Math.min(max, cur + delta));
+    if (tier === 'mythic' && next > 0) {
+        // Taking a Mythic Utility replaces everything else in Step 5
+        Object.keys(pcDraft.utility).forEach(t => { pcDraft.utility[t] = {}; });
+    }
     if (next === 0) delete pcDraft.utility[tier][key];
     else pcDraft.utility[tier][key] = next;
     pcRenderAll();
@@ -562,15 +589,17 @@ function pcRenderStep4() {
 function pcRenderUtilityTier(tier, label, colorClass) {
     if (!(POWER_UTILITY[tier] || []).length) return '';
     if (!pcDraft.utility[tier]) pcDraft.utility[tier] = {};
+    let mythicOn = !!pcMythic(pcDraft);
     let rows = POWER_UTILITY[tier].map(u => {
         let count = pcDraft.utility[tier][u.key] || 0;
+        let blocked = mythicOn && tier !== 'mythic';
         return `
-            <div class="flex items-center justify-between bg-slate-900 border border-slate-700 rounded px-2 py-1.5 gap-2">
+            <div class="flex items-center justify-between bg-slate-900 border ${count && tier === 'mythic' ? 'border-amber-400' : 'border-slate-700'} rounded px-2 py-1.5 gap-2 ${blocked ? 'opacity-40' : ''}">
                 <div class="flex-1 text-[10px] text-slate-300 leading-tight">${u.label}${u.rep ? ' <span class="text-slate-600">(repeatable)</span>' : ''}${pcIsNpc() && (u.rep || count < 1) ? ` <span class="text-yellow-500 font-bold">[${pcCost(0, d => { d.utility[tier][u.key] = (d.utility[tier][u.key] || 0) + 1; })}]</span>` : ''}</div>
                 <div class="flex items-center gap-1 shrink-0">
                     <button onclick="window.pcSetUtilityCount('${tier}','${u.key}', -1)" ${count<=0?'disabled':''} class="w-5 h-5 rounded ${count<=0?'bg-slate-800 text-slate-600':'bg-slate-700 hover:bg-slate-600 text-white'} text-xs font-bold">-</button>
                     <span class="w-5 text-center text-xs font-bold text-white">${count}</span>
-                    <button onclick="window.pcSetUtilityCount('${tier}','${u.key}', 1)" ${(!u.rep && count>=1)?'disabled':''} class="w-5 h-5 rounded ${(!u.rep && count>=1)?'bg-slate-800 text-slate-600':'bg-amber-700 hover:bg-amber-600 text-white'} text-xs font-bold">+</button>
+                    <button onclick="window.pcSetUtilityCount('${tier}','${u.key}', 1)" ${((!u.rep && count>=1) || blocked)?'disabled':''} class="w-5 h-5 rounded ${((!u.rep && count>=1) || blocked)?'bg-slate-800 text-slate-600':'bg-amber-700 hover:bg-amber-600 text-white'} text-xs font-bold" ${blocked ? 'title="A power with a Mythic Utility can\'t contain any other utilities"' : tier === 'mythic' && !count ? 'title="Replaces any other utilities in this power"' : ''}>+</button>
                 </div>
             </div>
         `;
@@ -589,22 +618,43 @@ function pcRenderStep5() {
         pcRenderUtilityTier('moderate', npc ? 'Moderate Utility' : 'Moderate Utility (15 XP each)', 'text-blue-400') +
         pcRenderUtilityTier('major', npc ? 'Major Utility' : 'Major Utility (30 XP each)', 'text-purple-400') +
         pcRenderUtilityTier('master', npc ? 'Master Utility' : 'Master Utility (50 XP each)', 'text-red-400') +
-        pcRenderUtilityTier('mythic', npc ? 'Mythic Utility' : 'Mythic Utility (130 XP each)', 'text-amber-300') +
+        pcRenderUtilityTier('mythic', npc ? 'Mythic Utility' : 'Mythic Utility (130 XP)', 'text-amber-300') +
+        `<div class="text-[10px] text-amber-200/80 -mt-2 mb-2 leading-tight">A Mythic power can't contain any other utilities, gets no XP refunded from Steps 6, 7 or 8, and pays double for Duration and AP Modifications.</div>` +
         `</div></div>`;
 }
 
+// Banner shown at the top of Steps 6-8 while a Mythic Utility is chosen
+function pcMythicBanner(step) {
+    let m = pcMythic(pcDraft); if (!m) return '';
+    let skipped = (m.skip || []).includes(step);
+    let txt = skipped
+        ? (step === 6 ? `Skipped: this power's Mythic Utility sets its duration (${m.durationText}). Nothing here costs or refunds anything.` : `Skipped: this power's Mythic Utility replaces AP Modifications (${m.castText}). Nothing here costs or refunds anything.`)
+        : step === 8 ? 'Mythic Utility: restrictions can still be part of the power, but they refund no XP.'
+        : step === 6 ? 'Mythic Utility: Duration costs are doubled, and Interrupts refund no XP.'
+        : 'Mythic Utility: AP Modification costs are doubled, and taking more AP refunds no XP.';
+    return `<div class="text-[11px] font-bold text-amber-200 border border-amber-500/60 bg-amber-900/20 rounded p-2 mb-2">${txt}</div>`;
+}
+// Displayed price of a Step 6/7 option under the Mythic rules (players)
+function pcMythicPrice(cost) { return pcMythic(pcDraft) && !pcIsNpc() ? Math.max(0, cost) * 2 : cost; }
+
 function pcRenderStep6() {
+    let banner = document.getElementById('pcStep6Mythic');
+    if (!banner) { banner = document.createElement('div'); banner.id = 'pcStep6Mythic'; let o = document.getElementById('pcStep6Options'); o.parentNode.insertBefore(banner, o); }
+    banner.innerHTML = pcMythicBanner(6);
+    let skip6 = pcStepSkipped(6);
+    document.getElementById('pcStep6Options').style.display = skip6 ? 'none' : '';
+    document.getElementById('pcStep6Mods').style.display = skip6 ? 'none' : '';
     document.getElementById('pcStep6Options').innerHTML = POWER_DURATION.map(d => `
         <label class="flex items-start gap-2 bg-slate-900 border ${pcDraft.duration === d.key ? 'border-purple-500' : 'border-slate-700'} rounded p-2 cursor-pointer">
             <input type="radio" name="pcDuration" class="mt-1" ${pcDraft.duration === d.key ? 'checked' : ''} onchange="window.pcSetDuration('${d.key}')">
-            <div><div class="text-xs font-bold text-slate-200">${d.label} <span class="text-yellow-500">[${pcCost(d.cost, x => { x.duration = d.key; if (d.key === 'instant') { x.durationMods.dmgInterrupt = false; x.durationMods.actionInterrupt = false; } }, pcDraft.duration === d.key)}]</span></div>${d.desc ? `<div class="text-[10px] text-slate-500 leading-tight">${d.desc}</div>` : ''}</div>
+            <div><div class="text-xs font-bold text-slate-200">${d.label} <span class="text-yellow-500">[${pcCost(pcMythicPrice(d.cost), x => { x.duration = d.key; if (d.key === 'instant') { x.durationMods.dmgInterrupt = false; x.durationMods.actionInterrupt = false; } }, pcDraft.duration === d.key)}]</span></div>${d.desc ? `<div class="text-[10px] text-slate-500 leading-tight">${d.desc}</div>` : ''}</div>
         </label>
     `).join('');
     let interruptsAllowed = pcDurationAllowsInterrupts(pcDraft.duration);
     document.getElementById('pcStep6Mods').innerHTML = POWER_DURATION_MODS.map(m => `
         <label class="flex items-start gap-2 bg-slate-900 border border-slate-700 rounded p-2 ${interruptsAllowed ? 'cursor-pointer' : 'opacity-40'}">
             <input type="checkbox" class="mt-1" ${pcDraft.durationMods[m.key] ? 'checked' : ''} ${interruptsAllowed ? '' : 'disabled'} onchange="window.pcToggleDurationMod('${m.key}', this.checked)">
-            <div><div class="text-xs font-bold text-slate-200">${m.label} <span class="text-emerald-400">[${pcDraft.durationMods[m.key] ? pcCostOn(m.cost, x => { x.durationMods[m.key] = false; }) : pcCost(m.cost, x => { x.durationMods[m.key] = true; })}]</span></div><div class="text-[10px] text-slate-500 leading-tight">${m.desc}</div></div>
+            <div><div class="text-xs font-bold text-slate-200">${m.label} <span class="text-emerald-400">[${pcDraft.durationMods[m.key] ? pcCostOn(pcMythicPrice(m.cost), x => { x.durationMods[m.key] = false; }) : pcCost(pcMythicPrice(m.cost), x => { x.durationMods[m.key] = true; })}]</span></div><div class="text-[10px] text-slate-500 leading-tight">${m.desc}</div></div>
         </label>
     `).join('');
     if (!interruptsAllowed) {
@@ -613,11 +663,15 @@ function pcRenderStep6() {
 }
 
 function pcRenderStep7() {
+    let banner = document.getElementById('pcStep7Mythic');
+    if (!banner) { banner = document.createElement('div'); banner.id = 'pcStep7Mythic'; let o = document.getElementById('pcStep7Options'); o.parentNode.insertBefore(banner, o); }
+    banner.innerHTML = pcMythicBanner(7);
+    document.getElementById('pcStep7Options').style.display = pcStepSkipped(7) ? 'none' : '';
     document.getElementById('pcStep7Options').innerHTML = POWER_AP_MODS.map(a => `
         <label class="flex items-center gap-2 bg-slate-900 border ${pcDraft.apMod === a.key ? 'border-purple-500' : 'border-slate-700'} rounded p-2 cursor-pointer">
             <input type="radio" name="pcApMod" ${pcDraft.apMod === a.key ? 'checked' : ''} onchange="window.pcSetApMod('${a.key}')">
             <span class="text-xs font-bold text-slate-200">${a.label}</span>
-            <span class="text-[10px] ${a.cost < 0 ? 'text-slate-500' : 'text-yellow-500'} ml-auto">${pcCost(a.cost, x => { x.apMod = a.key; }, pcDraft.apMod === a.key)}</span>
+            <span class="text-[10px] ${a.cost < 0 ? 'text-slate-500' : 'text-yellow-500'} ml-auto">${pcCost(pcMythicPrice(a.cost), x => { x.apMod = a.key; }, pcDraft.apMod === a.key)}</span>
         </label>
     `).join('');
 }
@@ -651,7 +705,7 @@ function pcRenderStep8() {
             </select>
         </label>
     `;
-    document.getElementById('pcStep8Options').innerHTML = minorRestrictionRow + checkboxRows + costlyRow;
+    document.getElementById('pcStep8Options').innerHTML = pcMythicBanner(8) + minorRestrictionRow + checkboxRows + costlyRow;
 }
 
 function pcRenderStep9() {
@@ -693,7 +747,7 @@ function pcRenderSummary() {
         });
     document.getElementById('pcSumLevel').innerText = 'Level ' + t.level;
     document.getElementById('pcSumLevel').className = t.level > maxLevel ? 'text-lg font-black text-red-400' : 'text-lg font-black text-white';
-    document.getElementById('pcSumAp').innerText = t.ap + ' AP';
+    document.getElementById('pcSumAp').innerText = pcStepSkipped(7) ? '1 min cast' : t.ap + ' AP';
 
     // Sacrifice + healing: legal, but the caster can't be healed by it
     let warn = document.getElementById('pcWarnNote');
@@ -839,6 +893,9 @@ function pcBuildTextSummary() {
     let durationBits = [durationDef.label];
     if (pcDraft.durationMods.dmgInterrupt) durationBits.push('Damage Interrupt');
     if (pcDraft.durationMods.actionInterrupt) durationBits.push('Action Interrupt');
+    let mythic = pcMythic(pcDraft);
+    if (mythic && (mythic.skip || []).includes(6)) durationBits = [mythic.durationText];
+    if (mythic && mythic.castText) utilityBits.push('Casting time: ' + mythic.castText);
 
     let refundBits = [];
     let mrCount = pcDraft.refunds.minorRestriction || 0;

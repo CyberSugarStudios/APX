@@ -539,9 +539,15 @@
                 { key: "polymorph", label: "Change a target's physical form entirely into another creature/object (CR <= Power's Level).", cost: 50 },
                 { key: "storedItem", label: "Power is stored as a scroll/rune/data drive on use; triggered later with 3 AP or a set condition.", cost: 50 }
             ],
-            // Mythic Utility (130 XP each, rulebook p.39). The tier only shows in the Power
-            // Crafter once it has entries; add them here as { key, label, cost: 130 }.
+            // Mythic Utility (130 XP each, rulebook p.39). A power with a Mythic Utility can't
+            // contain any other utility, gets no XP refunded from Steps 6, 7 or 8, and pays double
+            // for Duration and AP Modifications. `skip` = steps it replaces (their cost is 0).
             mythic: [
+                { key: "dominate", label: "Gain absolute, direct control of a target. You choose exactly how it moves and what actions it takes on its turn. If the creature takes damage, or is commanded to do something that would obviously cause its death, the power ends. Lasts 10 minutes (skips Step 6).", cost: 130, skip: [6], durationText: "10 Minutes" },
+                { key: "vehicleScale", label: "This power uses Vehicle Scale instead of Player Scale. It deals double damage to vehicles, objects, and structures, and AoEs purchased for it are measured in 5x5 squares. It takes 1 full minute to cast (skips Step 7).", cost: 130, skip: [7], castText: "1 full minute to cast" },
+                { key: "wish", label: "State a desire to your GM. The GM determines how the universe bends to accommodate your request, completely or partially. Your GM may decide that after using this power, you can never do so again.", cost: 130 },
+                { key: "sentientBeing", label: "Create a permanent, truly sentient being (an AI, Homunculus, Mutant...). It develops its own desires and personality, but begins completely loyal to you. Create it as a Tier 3 NPC with 50 TP. Afterwards you can spend XP to buy it more TP (1 TP = 20 XP); the creature (your GM) chooses how to spend it.", cost: 130 },
+                { key: "timeStop", label: "Stop time entirely for 1 round. Only you can move and take actions (skips Step 6).", cost: 130, skip: [6], durationText: "1 Round (time stopped)" }
             ]
         };
 
