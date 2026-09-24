@@ -800,8 +800,18 @@ function _gmCheckWoundThreshold(entry, dmg) {
     if (!entry || entry.faction !== 'player' || !(dmg > 0)) return;
     let wt = _gmWoundThreshold(entry);
     if (wt == null || dmg <= wt) return;
-    let msg = `${entry.name || 'This character'} took ${dmg} damage, more than their Wound Threshold of ${wt}.\n\nReminder: they should gain the Wounded condition on a limb.`;
-    if (window.apxAlert) window.apxAlert(msg, { title: 'Wound Threshold exceeded' });
+    // CON save DC: 10, or half the damage taken (rounded down), whichever is higher
+    let dc = Math.max(10, Math.floor(dmg / 2));
+    let pm = (window.gmParty || []).find(p => p.fileName === entry.playerUid || p.summary?.playerUid === entry.playerUid || (p.summary?.name && p.summary.name === entry.name));
+    let already = (pm?.state?.woundedLimbs || []);
+    let who = entry.name || 'This character';
+    let msg = `${who} took ${dmg} damage from one source, more than their Wound Threshold (WT) of ${wt}. They suffer a Wound.\n\n`
+        + `They must immediately make a CON saving throw: DC ${dc}${dc > 10 ? ` (half of ${dmg})` : ''}.\n\n`
+        + `On a failure, one of their limbs becomes Wounded. You choose the most appropriate limb based on the attack.\n\n`
+        + `If that limb is already Wounded, it suffers permanent damage: they permanently reduce a Core Attribute of their choice by 1, depending on where the injury is (Head, Torso or Limbs).`
+        + (already.length ? `\n\nAlready Wounded: ${already.join(', ')}.` : '')
+        + `\n\n(Check that the damage you entered was after their DR or ER.)`;
+    if (window.apxAlert) window.apxAlert(msg, { title: `Wound! CON save DC ${dc}` });
 }
 window._gmCheckWoundThreshold = _gmCheckWoundThreshold;
 // Damage typed as "-N" (or a lower value) in the tracker

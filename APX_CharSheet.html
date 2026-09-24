@@ -566,8 +566,8 @@
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-2 mt-2">
-                    <button onclick="window.apxShortRest()" class="py-1.5 rounded text-[11px] font-black border transition" style="background:var(--c-surface2,#0f172a);border-color:var(--c-emerald,#059669);color:var(--c-emerald-lt,#6ee7b7);" title="1 hour: spend Rest Dice to heal (die + CON mod each), CHA power slots come back">Short Rest</button>
-                    <button onclick="window.apxFullRest()" class="py-1.5 rounded text-[11px] font-black border transition" style="background:var(--c-surface2,#0f172a);border-color:var(--c-indigo,#4f46e5);color:var(--c-indigo-lt,#a5b4fc);" title="8 hours: full HP, half your max Rest Dice, all Power Slots, Luck, -1 Fatigue">Full Rest</button>
+                    <button onclick="window.apxRestMenu()" class="py-1.5 rounded text-[11px] font-black border transition" style="background:var(--c-surface2,#0f172a);border-color:var(--c-emerald,#059669);color:var(--c-emerald-lt,#6ee7b7);" title="Short Rest (1 hour) or Full Rest (8 hours)">Rest</button>
+                    <button onclick="window.apxRecoverMenu()" id="recoverBtn" class="py-1.5 rounded text-[11px] font-black border transition" style="background:var(--c-surface2,#0f172a);border-color:var(--c-indigo,#4f46e5);color:var(--c-indigo-lt,#a5b4fc);" title="Shake it Off (1 AP): heal with Rest Dice. Shrug It Off (3 AP): heal a Wounded limb. Each once per Short or Full Rest.">Recover</button>
                 </div>
 
                 <div class="flex-1 flex flex-col mt-2">

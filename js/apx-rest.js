@@ -9,6 +9,7 @@
 //   All HP, -1 Fatigue, half your MAX Rest Dice back (rounded down, up to max), all Power
 //   Slots (INT and CHA), Luck Points refilled, companion slots/charges/HP, High
 //   Roller's Exploding Dice, and new Omen Dice (or keep unused ones).
+// Recover (Shake it Off 1 AP / Shrug It Off 3 AP): once each per Short or Full Rest.
 // Other perk features that recharge on rests are tracked by the player for now.
 // ============================================================
 (function () {
@@ -101,10 +102,12 @@
                 let s = st();
                 let chaBack = (s.usedPowerSlots && s.usedPowerSlots.CHA) || 0;
                 if (s.usedPowerSlots) s.usedPowerSlots.CHA = 0;
+                let recBack = recoverUsedList(s);
+                s.recoverUsed = {};
                 refresh();
                 back.remove();
                 let spent = log.length;
-                toast(`Short Rest done${spent ? `: ${spent} Rest Di${spent > 1 ? 'ce' : 'e'} spent` : ''}${chaBack ? `, ${chaBack} CHA Power use${chaBack > 1 ? 's' : ''} restored` : ''}.`);
+                toast(`Short Rest done${spent ? `: ${spent} Rest Di${spent > 1 ? 'ce' : 'e'} spent` : ''}${chaBack ? `, ${chaBack} CHA Power use${chaBack > 1 ? 's' : ''} restored` : ''}${recBack ? `, ${recBack} ready again` : ''}.`);
             };
         };
         draw();
@@ -130,7 +133,8 @@
             `Luck Points → ${maxLuck}`,
             s.companion ? `Companion: full HP, power slots and charges` : null,
             omenRank ? (unusedOmen ? `Omen Dice: you still have ${unusedOmen}. Keep them or roll new ones` : `New Omen Dice rolled`) : null,
-            (s.perks || {}).luc_highroller >= 5 ? `High Roller: Exploding Dice ready again` : null
+            (s.perks || {}).luc_highroller >= 5 ? `High Roller: Exploding Dice ready again` : null,
+            recoverUsedList(s) ? `Recover: ${recoverUsedList(s)} ready again` : null
         ].filter(Boolean);
         let back = panel('Full Rest', `<div class="apxdlg-msg" style="margin-bottom:.5rem">8 hours of rest (6 asleep). This will:</div>
             <ul style="margin:0 0 .8rem 1.1rem;padding:0;list-style:disc;font-size:.76rem;color:var(--c-text-dimmer);line-height:1.5">${lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>
@@ -147,6 +151,7 @@
             s2.restDice = Math.min(maxDice, (s2.restDice || 0) + diceBack);
             if (s2.usedPowerSlots) Object.keys(s2.usedPowerSlots).forEach(k => s2.usedPowerSlots[k] = 0);
             s2.luckPts = maxLuck;
+            s2.recoverUsed = {};
             s2.apCurrent = (typeof calc !== 'undefined' && calc.maxAp) || 6; delete s2.apUsed;
             if (s2.companion) {
                 if (s2.companion.usedPowerSlots) Object.keys(s2.companion.usedPowerSlots).forEach(k => s2.companion.usedPowerSlots[k] = 0);
@@ -158,6 +163,94 @@
             back.remove();
             toast('Full Rest done: HP full, Rest Dice, Power Slots and Luck restored.');
         });
+    };
+
+    // ── Rest button: Short or Full? ──────────────────────────────
+    window.apxRestMenu = function () {
+        let back = panel('Rest', `<div class="apxdlg-msg" style="margin-bottom:.8rem">Take a Short Rest or a Full Rest?</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:.8rem">
+                <button class="apxdlg-btn" data-r="short" style="padding:.7rem .5rem;background:var(--c-surface2,#0f172a);border:1px solid var(--c-emerald,#059669);color:var(--c-emerald-lt,#6ee7b7);text-align:left">
+                    <div style="font-weight:900;font-size:.85rem">Short Rest</div><div style="font-size:.68rem;font-weight:600;color:var(--c-text-dimmer)">1 hour. Spend Rest Dice to heal (die + CON), CHA Power Slots and Recover come back.</div></button>
+                <button class="apxdlg-btn" data-r="full" style="padding:.7rem .5rem;background:var(--c-surface2,#0f172a);border:1px solid var(--c-indigo,#4f46e5);color:var(--c-indigo-lt,#a5b4fc);text-align:left">
+                    <div style="font-weight:900;font-size:.85rem">Full Rest</div><div style="font-size:.68rem;font-weight:600;color:var(--c-text-dimmer)">8 hours. Full HP, half your max Rest Dice, all Power Slots, Luck, Recover, −1 Fatigue.</div></button>
+            </div>
+            <div class="apxdlg-row"><button class="apxdlg-btn apxdlg-cancel" data-cancel>Cancel</button></div>`, 440);
+        back.querySelector('[data-cancel]').onclick = () => back.remove();
+        back.querySelectorAll('[data-r]').forEach(b => b.onclick = () => { back.remove(); b.dataset.r === 'short' ? window.apxShortRest() : window.apxFullRest(); });
+    };
+
+    // ── Recover: Shake it Off / Shrug It Off ─────────────────────
+    // Shake it Off (1 AP): roll up to half your max Rest Dice (rounded down), each + CON mod; heal that much.
+    // Shrug It Off (3 AP): completely heal one Wounded limb of your choice.
+    // Each once per Short or Full Rest.
+    const RECOVER = { shake: { name: 'Shake it Off', ap: 1 }, shrug: { name: 'Shrug It Off', ap: 3 } };
+    function recoverUsedList(s) {
+        let u = (s || st()).recoverUsed || {};
+        let names = Object.keys(RECOVER).filter(k => u[k]).map(k => RECOVER[k].name);
+        return names.length ? names.join(' and ') : '';
+    }
+    window.apxRecoverMenu = function () {
+        let s = st(), used = s.recoverUsed || {};
+        let apHave = window.apxApCurrent ? window.apxApCurrent() : 0;
+        let maxDice = C().maxRestDice || 0, dice = s.restDice || 0;
+        let shakeMax = Math.min(Math.floor(maxDice / 2), dice);
+        let limbs = s.woundedLimbs || [];
+        let cm = conMod();
+        let back = panel('Recover', '', 460);
+        let draw = () => {
+            let apNote = cost => apHave < cost ? `<span style="color:#fca5a5">Not enough AP (you have ${apHave})</span>` : `<span style="color:var(--c-text-muted)">You have ${apHave} AP</span>`;
+            let shakeWhy = used.shake ? 'Already used. It comes back on a Short or Full Rest.'
+                : shakeMax <= 0 ? (dice <= 0 ? 'No Rest Dice left.' : 'Your max Rest Dice is too low (half of it rounds down to 0).') : '';
+            let shrugWhy = used.shrug ? 'Already used. It comes back on a Short or Full Rest.' : !limbs.length ? 'You have no Wounded limbs.' : '';
+            back.querySelector('[data-body]').innerHTML = `
+                <div class="apxdlg-msg" style="margin-bottom:.6rem">Shake it Off or Shrug It Off? Each can be used once per Short or Full Rest.</div>
+                <div style="border:1px solid var(--c-border);background:var(--c-surface2);border-radius:.5rem;padding:.6rem;margin-bottom:.5rem;${shakeWhy ? 'opacity:.6' : ''}">
+                    <div style="display:flex;align-items:baseline;gap:.4rem"><b style="font-size:.85rem">Shake it Off</b><span style="font-size:.7rem;font-weight:800;color:var(--c-indigo-lt,#a5b4fc)">1 AP</span><span style="margin-left:auto;font-size:.65rem">${apNote(1)}</span></div>
+                    <div style="font-size:.72rem;color:var(--c-text-dimmer);margin:.2rem 0 .45rem">Roll up to half your max Rest Dice (rounded down) and add your CON modifier to each die. Regain that much HP. The Rest Dice rolled are spent.</div>
+                    ${shakeWhy ? `<div style="font-size:.7rem;color:#fca5a5">${shakeWhy}</div>` : `
+                    <div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;font-size:.72rem">
+                        Roll <select data-shake-n style="width:auto;background:var(--c-surface,#1e293b);color:inherit;border:1px solid var(--c-border2,#475569);border-radius:.3rem;font-size:.75rem;padding:.1rem .3rem">
+                            ${Array.from({ length: shakeMax }, (_, i) => `<option value="${i + 1}" ${i + 1 === shakeMax ? 'selected' : ''}>${i + 1}</option>`).join('')}</select>
+                        ${dieStep()} ${cm >= 0 ? '+' : '−'} ${Math.abs(cm)} each <span style="color:var(--c-text-muted)">(up to ${shakeMax}; ${dice} Rest Dice left)</span>
+                        <button class="apxdlg-btn apxdlg-ok" data-go="shake" style="margin-left:auto">${apHave < 1 ? 'Use anyway' : 'Shake it Off'}</button></div>`}
+                </div>
+                <div style="border:1px solid var(--c-border);background:var(--c-surface2);border-radius:.5rem;padding:.6rem;margin-bottom:.8rem;${shrugWhy ? 'opacity:.6' : ''}">
+                    <div style="display:flex;align-items:baseline;gap:.4rem"><b style="font-size:.85rem">Shrug It Off</b><span style="font-size:.7rem;font-weight:800;color:var(--c-indigo-lt,#a5b4fc)">3 AP</span><span style="margin-left:auto;font-size:.65rem">${apNote(3)}</span></div>
+                    <div style="font-size:.72rem;color:var(--c-text-dimmer);margin:.2rem 0 .45rem">Completely heal one Wounded limb of your choice.</div>
+                    ${shrugWhy ? `<div style="font-size:.7rem;color:#fca5a5">${shrugWhy}</div>` : `
+                    <div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;font-size:.72rem">
+                        Heal <select data-shrug-limb style="width:auto;background:var(--c-surface,#1e293b);color:inherit;border:1px solid var(--c-border2,#475569);border-radius:.3rem;font-size:.75rem;padding:.1rem .3rem">
+                            ${limbs.map(l => `<option value="${esc(l)}">${esc(l)}</option>`).join('')}</select>
+                        <button class="apxdlg-btn apxdlg-ok" data-go="shrug" style="margin-left:auto">${apHave < 3 ? 'Use anyway' : 'Shrug It Off'}</button></div>`}
+                </div>
+                <div class="apxdlg-row"><button class="apxdlg-btn apxdlg-cancel" data-cancel>Close</button></div>`;
+            back.querySelector('[data-cancel]').onclick = () => back.remove();
+            back.querySelectorAll('[data-go]').forEach(b => b.onclick = () => {
+                let kind = b.dataset.go, cost = RECOVER[kind].ap;
+                let paid = apHave >= cost;
+                if (paid && window.apxSpendAp) window.apxSpendAp(cost);
+                let s2 = st();
+                s2.recoverUsed = Object.assign({}, s2.recoverUsed, { [kind]: true });
+                let apTxt = paid ? `${cost} AP spent` : `not enough AP, none spent`;
+                if (kind === 'shake') {
+                    let n = Math.max(1, Math.min(shakeMax, parseInt(back.querySelector('[data-shake-n]').value) || 1));
+                    let rolled = window.APXDice
+                        ? window.APXDice.rest({ label: 'Recover: Shake it Off', who: s2.name || '', dieStep: dieStep(), count: n, flat: cm, note: apTxt })
+                        : n * (Math.floor(Math.random() * (parseInt(dieStep().slice(1)) || 6)) + 1 + cm);
+                    let heal = Math.max(0, rolled), before = s2.currentHp || 0;
+                    s2.currentHp = Math.min(maxHp(), before + heal);
+                    s2.restDice = Math.max(0, (s2.restDice || 0) - n);
+                    refresh(); back.remove();
+                    toast(`Shake it Off: rolled ${rolled}, healed ${s2.currentHp - before} HP (${n} Rest Di${n > 1 ? 'ce' : 'e'} spent, ${apTxt}).`);
+                } else {
+                    let limb = back.querySelector('[data-shrug-limb]').value;
+                    s2.woundedLimbs = (s2.woundedLimbs || []).filter(l => l !== limb);
+                    refresh(); back.remove();
+                    toast(`Shrug It Off: ${limb} is no longer Wounded (${apTxt}).`);
+                }
+            });
+        };
+        draw();
     };
 
     // ── Regenerative (ancestry trait) ────────────────────────────

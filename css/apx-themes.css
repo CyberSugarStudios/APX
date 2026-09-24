@@ -852,3 +852,84 @@ h1,h2,h3,h4,h5,h6 { font-family: var(--c-heading-font); }
 [style*="background: #475569" i][style*="color:#fff" i],
 [style*="background:#475569" i][style*="color:#ffffff" i],
 [style*="background: #475569" i][style*="color:#ffffff" i] { color: var(--c-text) !important; }
+
+/* ===== Readable small text =====
+   The smallest text sizes are bumped up everywhere. Fantasy's serif (EB Garamond) runs
+   small, so it gets a little more on top. `html` in the selector beats Tailwind's own rule
+   regardless of load order; inline styles (JS-built popups) need !important. */
+html .text-\[7px\] { font-size: 9px; }
+html[data-theme="fantasy"] .text-\[7px\] { font-size: 10px; }
+html .text-\[8px\] { font-size: 9.5px; }
+html[data-theme="fantasy"] .text-\[8px\] { font-size: 10.5px; }
+html .text-\[9px\] { font-size: 10.5px; }
+html[data-theme="fantasy"] .text-\[9px\] { font-size: 11.5px; }
+html .text-\[10px\] { font-size: 11.5px; }
+html[data-theme="fantasy"] .text-\[10px\] { font-size: 12.5px; }
+html .text-\[11px\] { font-size: 12px; }
+html[data-theme="fantasy"] .text-\[11px\] { font-size: 13px; }
+html[data-theme="fantasy"] .text-xs { font-size: 0.82rem; }
+html[data-theme="fantasy"] .text-sm { font-size: 0.93rem; }
+[style*="font-size:0.45rem"] { font-size: .58rem !important; }
+[style*="font-size: 0.45rem"] { font-size: .58rem !important; }
+html[data-theme="fantasy"] [style*="font-size:0.45rem"], html[data-theme="fantasy"] [style*="font-size: 0.45rem"] { font-size: .64rem !important; }
+[style*="font-size:0.52rem"] { font-size: .62rem !important; }
+[style*="font-size: 0.52rem"] { font-size: .62rem !important; }
+html[data-theme="fantasy"] [style*="font-size:0.52rem"], html[data-theme="fantasy"] [style*="font-size: 0.52rem"] { font-size: .68rem !important; }
+[style*="font-size:0.55rem"] { font-size: .64rem !important; }
+[style*="font-size: 0.55rem"] { font-size: .64rem !important; }
+html[data-theme="fantasy"] [style*="font-size:0.55rem"], html[data-theme="fantasy"] [style*="font-size: 0.55rem"] { font-size: .7rem !important; }
+[style*="font-size:0.58rem"] { font-size: .66rem !important; }
+[style*="font-size: 0.58rem"] { font-size: .66rem !important; }
+html[data-theme="fantasy"] [style*="font-size:0.58rem"], html[data-theme="fantasy"] [style*="font-size: 0.58rem"] { font-size: .72rem !important; }
+[style*="font-size:.58rem"] { font-size: .66rem !important; }
+[style*="font-size: .58rem"] { font-size: .66rem !important; }
+html[data-theme="fantasy"] [style*="font-size:.58rem"], html[data-theme="fantasy"] [style*="font-size: .58rem"] { font-size: .72rem !important; }
+[style*="font-size:0.6rem"] { font-size: .68rem !important; }
+[style*="font-size: 0.6rem"] { font-size: .68rem !important; }
+html[data-theme="fantasy"] [style*="font-size:0.6rem"], html[data-theme="fantasy"] [style*="font-size: 0.6rem"] { font-size: .74rem !important; }
+[style*="font-size:.6rem"] { font-size: .68rem !important; }
+[style*="font-size: .6rem"] { font-size: .68rem !important; }
+html[data-theme="fantasy"] [style*="font-size:.6rem"], html[data-theme="fantasy"] [style*="font-size: .6rem"] { font-size: .74rem !important; }
+[style*="font-size:0.62rem"] { font-size: .7rem !important; }
+[style*="font-size: 0.62rem"] { font-size: .7rem !important; }
+html[data-theme="fantasy"] [style*="font-size:0.62rem"], html[data-theme="fantasy"] [style*="font-size: 0.62rem"] { font-size: .76rem !important; }
+[style*="font-size:.62rem"] { font-size: .7rem !important; }
+[style*="font-size: .62rem"] { font-size: .7rem !important; }
+html[data-theme="fantasy"] [style*="font-size:.62rem"], html[data-theme="fantasy"] [style*="font-size: .62rem"] { font-size: .76rem !important; }
+[style*="font-size:0.65rem"] { font-size: .72rem !important; }
+[style*="font-size: 0.65rem"] { font-size: .72rem !important; }
+html[data-theme="fantasy"] [style*="font-size:0.65rem"], html[data-theme="fantasy"] [style*="font-size: 0.65rem"] { font-size: .78rem !important; }
+[style*="font-size:.65rem"] { font-size: .72rem !important; }
+[style*="font-size: .65rem"] { font-size: .72rem !important; }
+html[data-theme="fantasy"] [style*="font-size:.65rem"], html[data-theme="fantasy"] [style*="font-size: .65rem"] { font-size: .78rem !important; }
+[style*="font-size:.66rem"] { font-size: .72rem !important; }
+[style*="font-size: .66rem"] { font-size: .72rem !important; }
+html[data-theme="fantasy"] [style*="font-size:.66rem"], html[data-theme="fantasy"] [style*="font-size: .66rem"] { font-size: .78rem !important; }
+[style*="font-size:.68rem"] { font-size: .74rem !important; }
+[style*="font-size: .68rem"] { font-size: .74rem !important; }
+html[data-theme="fantasy"] [style*="font-size:.68rem"], html[data-theme="fantasy"] [style*="font-size: .68rem"] { font-size: .8rem !important; }
+[style*="font-size:0.7rem"] { font-size: .75rem !important; }
+[style*="font-size: 0.7rem"] { font-size: .75rem !important; }
+html[data-theme="fantasy"] [style*="font-size:0.7rem"], html[data-theme="fantasy"] [style*="font-size: 0.7rem"] { font-size: .8rem !important; }
+[style*="font-size:.7rem"] { font-size: .75rem !important; }
+[style*="font-size: .7rem"] { font-size: .75rem !important; }
+html[data-theme="fantasy"] [style*="font-size:.7rem"], html[data-theme="fantasy"] [style*="font-size: .7rem"] { font-size: .8rem !important; }
+[style*="font-size:.72rem"] { font-size: .76rem !important; }
+[style*="font-size: .72rem"] { font-size: .76rem !important; }
+html[data-theme="fantasy"] [style*="font-size:.72rem"], html[data-theme="fantasy"] [style*="font-size: .72rem"] { font-size: .82rem !important; }
+[style*="font-size:9px"] { font-size: 10.5px !important; }
+[style*="font-size: 9px"] { font-size: 10.5px !important; }
+html[data-theme="fantasy"] [style*="font-size:9px"], html[data-theme="fantasy"] [style*="font-size: 9px"] { font-size: 11.5px !important; }
+[style*="font-size:10px"] { font-size: 11.5px !important; }
+[style*="font-size: 10px"] { font-size: 11.5px !important; }
+html[data-theme="fantasy"] [style*="font-size:10px"], html[data-theme="fantasy"] [style*="font-size: 10px"] { font-size: 12.5px !important; }
+[style*="font-size:11px"] { font-size: 12px !important; }
+[style*="font-size: 11px"] { font-size: 12px !important; }
+html[data-theme="fantasy"] [style*="font-size:11px"], html[data-theme="fantasy"] [style*="font-size: 11px"] { font-size: 13px !important; }
+html[data-theme="fantasy"] [style*="font-size:0.75rem"], html[data-theme="fantasy"] [style*="font-size: 0.75rem"] { font-size: .8rem !important; }
+html[data-theme="fantasy"] [style*="font-size:.75rem"], html[data-theme="fantasy"] [style*="font-size: .75rem"] { font-size: .8rem !important; }
+html[data-theme="fantasy"] [style*="font-size:.76rem"], html[data-theme="fantasy"] [style*="font-size: .76rem"] { font-size: .81rem !important; }
+html[data-theme="fantasy"] [style*="font-size:.78rem"], html[data-theme="fantasy"] [style*="font-size: .78rem"] { font-size: .83rem !important; }
+html[data-theme="fantasy"] [style*="font-size:0.8rem"], html[data-theme="fantasy"] [style*="font-size: 0.8rem"] { font-size: .85rem !important; }
+html[data-theme="fantasy"] [style*="font-size:.8rem"], html[data-theme="fantasy"] [style*="font-size: .8rem"] { font-size: .85rem !important; }
+html[data-theme="fantasy"] :is(.apxd-b,.apxd-title span,.apxd-acts button,.apxd-q button,.apxd-q input,.apxd-seg button,.apxd-pool .chip,.apxd-pool .ph,.apxd-mod,.apxd-empty,.apxd-omen,.apxdlg-msg) { font-size: 0.76rem !important; }
