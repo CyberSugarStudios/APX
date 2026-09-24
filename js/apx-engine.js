@@ -654,6 +654,8 @@
             // weapons, and actual gear (including anything just unequipped)
             // together and easy to scan, rather than crafting materials
             // popping up wherever they happen to sit in the array.
+            let giveTargets = [];
+            try { giveTargets = (typeof window.apxGiveTargets === 'function' && window.apxGiveTargets()) || []; } catch (e) { }
             let sortedIndices = window.state.items.map((_, i) => i).sort((a, b) => {
                 let aIsMats = window.state.items[a].name.endsWith('Crafting Materials');
                 let bIsMats = window.state.items[b].name.endsWith('Crafting Materials');
@@ -677,6 +679,8 @@
                 ` : '';
 
                 let delBtn = item.isLocked ? '' : `<button onclick="window.deleteItem(${idx})" class="text-red-500 font-bold hover:text-red-400">&times;</button>`;
+                // Give to a party member (only for characters in a world with other players)
+                let giveSel = giveTargets.length ? `<button onclick="window.apxGiveMenu(${idx}, this)" title="Give to a party member" class="text-[9px] text-emerald-400 hover:text-emerald-300 font-bold mr-1">Give</button>` : '';
                 let equipBtn = item.isArmor ? `<button onclick="window.equipArmorFromInventory(${idx})" class="text-[9px] text-cyan-400 hover:text-cyan-300 font-bold mr-1" title="Equip this armor">Equip</button>` : '';
                 if (item.isWeapon) {
                     equipBtn = `<button onclick="window.equipWeaponFromInventory(${idx})" class="text-[9px] text-cyan-400 hover:text-cyan-300 font-bold mr-1" title="Equip this weapon">Equip</button>`;
@@ -719,6 +723,7 @@
                         <td class="px-1 py-1 text-center">${valHtml}</td>
                         <td class="px-1 py-1 text-center">
                             ${equipBtn}
+                            ${giveSel}
                             <button onclick="window.openItemDetail(${idx})" class="text-blue-400 hover:text-blue-300 font-bold mr-1" title="${item.isLocked ? 'View description' : 'View / edit details'}">&#128269;</button>
                             ${delBtn}
                         </td>
@@ -1192,7 +1197,10 @@
                         </tr>
                     `;
                     });
+                    if (sb.hasShield) html += `<tr class="bg-purple-900/10 border-b border-purple-800/40"><td colspan="8" class="px-2 py-1 text-[10px] text-purple-200">${sb.name}'s shield is <b>${sb.shieldOn ? 'held' : 'stowed'}</b> (${sb.freeHands} of ${sb.hands} hands free)
+                        <button onclick="window.npcToggleShieldEquipped(null)" class="ml-2 px-1.5 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">${sb.shieldOn ? 'Stow shield' : 'Equip shield'}</button></td></tr>`;
                     sb.equippedWeapons.forEach(w => {
+                        if ((w.hands || 1) > sb.freeHands) return;   // two-handed attacks need 2 free hands (shield held)
                         html += `
                             <tr class="bg-purple-900/20 border-b border-purple-800/50">
                                 <td class="px-1 py-2 ${w.isTwoHanded ? 'pl-4' : ''}">

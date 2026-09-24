@@ -310,6 +310,21 @@ function startPartyListener(inviteCode) {
     _partyUnsubscribe = window.apxAuth.listenWorldPlayers(inviteCode, players => {
         let changed = false;
         players.forEach(p => {
+            // Loyal Companion HP from the player's sheet
+            {
+                let cs = (p.charState || p.state || {}).companion;
+                if (cs && cs.currentHp !== undefined && cs.currentHp !== null) {
+                    let gmC = p._gmCompHp, gmAt = gmC?.at?.toMillis ? gmC.at.toMillis() : 0, savAt = p.updatedAt?.toMillis ? p.updatedAt.toMillis() : 0;
+                    let hp = (gmC && gmC.hp !== undefined && gmAt >= savAt) ? gmC.hp : cs.currentHp;
+                    (window.gmInitiative || []).forEach(e => {
+                        if (e.companionOf !== p.uid || e.currentHp === hp) return;
+                        let before = e.currentHp || 0, wasUp = before > 0;
+                        e.currentHp = Math.max(0, Math.min(e.maxHp || hp, hp));
+                        _gmLogHpChange(e, before, e.currentHp, wasUp);
+                        if (typeof window.renderInitiativeTracker === 'function') window.renderInitiativeTracker();
+                    });
+                }
+            }
             if (Array.isArray(p._rollLog)) {
                 window._gmPlayerRollLogs[p.uid] = p._rollLog;
                 p._rollLog.forEach(ev => _gmHandleRollEvent(p.uid, ev));
@@ -386,7 +401,30 @@ function statBadge(label, value, colorClass) {
     return `<div class="text-center bg-slate-900 rounded border border-slate-700 py-1"><div class="text-[8px] text-slate-500 uppercase font-bold">${label}</div><div class="text-sm font-black ${colorClass || 'text-white'}">${value}</div></div>`;
 }
 
+// Loyal Companion strip under its owner in the party panel
+function _gmCompanionRow(p, idx) {
+    let csb = gmCompanionSb(p); if (!csb) return '';
+    let uid = String(p.fileName || '').replace(/'/g, '');
+    let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    let img = csb.portrait ? `<img src="${csb.portrait}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;border:2px solid #16a34a;">`
+        : `<div style="width:28px;height:28px;border-radius:50%;background:#14532d;border:2px solid #16a34a;display:flex;align-items:center;justify-content:center;font-weight:900;color:#bbf7d0;font-size:.75rem">${esc((csb.name || 'C')[0])}</div>`;
+    return `<div style="border-top:1px solid #1e293b;background:#052e16;padding:0.4rem 0.75rem;display:flex;align-items:center;gap:0.5rem;">
+        ${img}
+        <div style="flex:1;min-width:0;cursor:pointer" onclick="window.gmOpenCompanionStatBlock('${uid}')" title="Open the companion's stat block">
+            <div style="font-size:0.75rem;font-weight:900;color:#bbf7d0">${esc(csb.name)} <span style="font-size:.58rem;color:#86efac;font-weight:700">Loyal Companion · Tier ${csb.tier}</span></div>
+            <div style="font-size:0.6rem;color:#a7f3d0">HP ${csb.currentHp}/${csb.maxHp} · AC ${csb.ac} · DR ${csb.dr} / ER ${csb.er} · AP ${csb.ap}</div>
+        </div>
+        <button onclick="window.addToInitiative(${idx}, 'companion')" class="text-[9px] px-2 py-1 rounded bg-emerald-700 hover:bg-emerald-600 text-white font-bold">+ Initiative</button>
+    </div>`;
+}
+window.gmOpenCompanionStatBlock = function(uid) {
+    let p = (window.gmParty || []).find(x => x.fileName === uid); if (!p) return;
+    let csb = gmCompanionSb(p); if (!csb || !window.openFloatingStatBlockRaw) return;
+    window.openFloatingStatBlockRaw('comp_' + uid, `${csb.name} (${p.summary?.name || 'player'}'s companion)`, window.buildStatBlockHtml(csb, false));
+};
+
 window.renderGmScreen = function() {
+    try { window.renderGmLoot && window.renderGmLoot(); } catch (e) { }
     let body = document.getElementById('gmScreenBody');
     if (!body) return;
     if (!window.gmParty.length) {
@@ -410,6 +448,7 @@ window.renderGmScreen = function() {
                     <button onclick="window.addToInitiative(${idx}, 'party')" class="text-[9px] px-2 py-1 rounded bg-indigo-700 hover:bg-indigo-600 text-white font-bold">+ Initiative</button>
                 </div>
                 ${sb.body}
+                ${_gmCompanionRow(p, idx)}
             </div>`;
         }
         let hpPct = s.maxHp > 0 ? Math.max(0, Math.min(100, (s.currentHp / s.maxHp) * 100)) : 0;
@@ -562,9 +601,34 @@ window.toggleInLair = function(checked) {
     window.recomputeLairTraitNotes();
 };
 
+// A player's Loyal Companion, built from their sheet (the stat math reads window.state,
+// so it's pointed at that player's character for the moment it takes)
+function gmCompanionSb(pm) {
+    if (!pm || !pm.state || !pm.state.companion || typeof window.companionStatBlock !== 'function') return null;
+    let keepState = window.state, keepT = typeof ncTarget !== 'undefined' ? ncTarget : null;
+    try {
+        window.state = JSON.parse(JSON.stringify(pm.state));
+        ncTarget = 'companion';
+        let sb = window.companionStatBlock();
+        if (sb) sb.portrait = pm.state.companion.portrait || '';
+        return sb;
+    } catch (e) { console.warn('Companion stat block:', e); return null; }
+    finally { window.state = keepState; if (keepT !== null) ncTarget = keepT; }
+}
+window.gmCompanionSb = gmCompanionSb;
+
 window.addToInitiative = function(sourceIdx, sourceType, faction, displayName) {
     let entry;
-    if (sourceType === 'party') {
+    if (sourceType === 'companion') {
+        // A player's Loyal Companion: fights on the party's side, HP lives on the player's sheet
+        let p = window.gmParty[sourceIdx];
+        let sb = gmCompanionSb(p);
+        if (!sb) return;
+        let hp = p.state.companion.currentHp ?? sb.maxHp;
+        entry = { id: crypto.randomUUID(), name: sb.name || 'Companion', baseInitiative: sb.initiative, surprised: false,
+            currentHp: Math.min(hp, sb.maxHp), maxHp: sb.maxHp, tempHp: 0, ap: sb.ap, ac: sb.ac, dr: sb.dr, er: sb.er,
+            faction: 'ally', bleedOutTurns: null, tpValue: 0, lairTraitNote: null, companionOf: p.fileName };
+    } else if (sourceType === 'party') {
         let p = window.gmParty[sourceIdx];
         entry = { id: crypto.randomUUID(), name: p.summary.name, baseInitiative: p.summary.initiative, surprised: false,
             currentHp: p.summary.currentHp, maxHp: p.summary.maxHp, tempHp: p.summary.tempHp || 0,
@@ -727,7 +791,10 @@ window.removeFromInitiative = function(id, opts) {
     let idx = window.gmInitiative.findIndex(e => e.id === id);
     if (idx === -1) return;
     let wasCurrent = (idx === window.gmCurrentTurnIdx) && window.gmCombatStarted;
-    if (opts?.dead) { if (typeof window._gmMarkTokenDead === 'function') window._gmMarkTokenDead(id); }
+    if (opts?.dead) {
+        if (typeof window._gmMarkTokenDead === 'function') window._gmMarkTokenDead(id);
+        try { _gmCaptureLoot(window.gmInitiative[idx]); } catch (e) { console.warn('Loot capture:', e); }
+    }
     else if (typeof window._gmUnlinkEntry === 'function') window._gmUnlinkEntry(id);
     window.gmInitiative.splice(idx, 1);
     if (typeof window._gmRenumber === 'function') window._gmRenumber();
@@ -751,6 +818,148 @@ window.removeFromInitiative = function(id, opts) {
 // Directly editing the Temp HP field itself, not damage passing through
 // it -- same overflow-to-current-HP behavior as the character sheet's own
 // Temp HP field for consistency.
+// ---------------------------------------------------------------------------
+// Loot: when a non-player NPC dies, everything it was carrying (weapons,
+// armor, shield, helmet) goes on the GM's Loot list. From there the GM
+// hands items (and Cu) out to party members, or asks the party for a
+// LUC (Loot) check.
+// ---------------------------------------------------------------------------
+function _gmActiveCode() {
+    let worlds = typeof _gmWorlds !== 'undefined' ? _gmWorlds : [];
+    let w = worlds.find(w => (w.worldId||w.id) === (typeof _activeWorldId !== 'undefined' ? _activeWorldId : null));
+    return w?.inviteCode || null;
+}
+window._gmActiveCode = _gmActiveCode;
+function _gmLootList() {
+    if (typeof _wNotes === 'undefined' || !_wNotes) return (window._gmLootFallback = window._gmLootFallback || []);
+    if (!Array.isArray(_wNotes.loot)) _wNotes.loot = [];
+    return _wNotes.loot;
+}
+function _gmNpcLootItems(npc) {
+    let items = [], clone = o => JSON.parse(JSON.stringify(o));
+    (npc.weapons || []).forEach(w => {
+        let wd = clone(w); delete wd.aimed; delete wd.twoHanded;
+        items.push({ name: w.name, wt: w.weight || 0, ct: 1, val: w.paidCost || 0, isWeapon: true, isLocked: true,
+            weaponData: wd, desc: `Weapon: ${w.dmg} damage, ${w.ap} AP` });
+    });
+    let a = npc.equippedArmor;
+    if (a && a.name) items.push({ name: a.name, wt: a.wt || 0, ct: 1, val: a.paidCost || 0, isArmor: true, isLocked: true,
+        armorData: clone(a), desc: `Armor: +${a.ac} AC, +${a.dr} DR, +${a.er} ER` });
+    if (npc.shield && npc.shield.owned) items.push({ name: 'Shield', wt: 6, ct: 1, val: 50, isShield: true, isLocked: true, desc: 'Shield: +2 AC/DR/ER' });
+    if (npc.helmet && npc.helmet.owned) items.push({ name: 'Helmet', wt: 3, ct: 1, val: 30, isHelmet: true, isLocked: true, desc: 'Helmet: +1 AC/DR/ER' });
+    return items;
+}
+window._gmNpcLootItems = _gmNpcLootItems;
+// Enemies defeated since combat started (for the Currency loot roll: LUC × enemies ÷ 2)
+function _gmLootDefeated() { return (typeof _wNotes !== 'undefined' && _wNotes) ? (_wNotes.lootDefeated || 0) : (window._gmLootDefeatedFb || 0); }
+function _gmSetLootDefeated(n) {
+    n = Math.max(0, parseInt(n) || 0);
+    if (typeof _wNotes !== 'undefined' && _wNotes) _wNotes.lootDefeated = n; else window._gmLootDefeatedFb = n;
+}
+window.gmSetLootDefeated = function(n) { _gmSetLootDefeated(n); window.renderGmLoot(); if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes(); };
+function _gmCaptureLoot(entry) {
+    if (!entry || entry.faction === 'player' || entry.companionOf) return;
+    if (entry.faction === 'enemy') { _gmSetLootDefeated(_gmLootDefeated() + 1); window.renderGmLoot(); }
+    if (!entry.sourceNpcId) return;
+    let n = (window.gmNpcs || []).find(x => x.id === entry.sourceNpcId);
+    if (!n || !n.npc) return;
+    let items = _gmNpcLootItems(n.npc);
+    if (!items.length) return;
+    let list = _gmLootList();
+    items.forEach(it => list.push({ id: crypto.randomUUID(), from: entry.name, item: it }));
+    if (window.APXDice && APXDice.notify) APXDice.notify(`${entry.name} dropped ${items.length} item${items.length === 1 ? '' : 's'} — see Loot.`, { kind: 'loot', force: true });
+    window.renderGmLoot();
+}
+window._gmCaptureLoot = _gmCaptureLoot;
+
+window.renderGmLoot = function() {
+    let el = document.getElementById('gmLootBody'); if (!el) return;
+    let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    let list = _gmLootList();
+    let party = (window.gmParty || []).map(p => ({ uid: p.fileName, name: p.summary?.name || p.state?.name || 'Player' }));
+    let opts = party.map(p => `<option value="${esc(p.uid)}">${esc(p.name)}</option>`).join('');
+    let cnt = document.getElementById('gmLootCount'); if (cnt) cnt.textContent = list.length ? `(${list.length})` : '';
+    let rolls = (window._gmLootRolls || []).slice(-8);
+    let defeated = _gmLootDefeated();
+    let cuFor = t => Math.max(0, Math.floor((t || 0) * defeated / 2));
+    el.innerHTML = `
+        ${list.length ? list.map(l => `<div class="flex items-center gap-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 mb-1" data-loot="${esc(l.id)}">
+            <div class="flex-1 min-w-0"><div class="text-[11px] font-bold text-amber-200 truncate">${esc(l.item.name)}${l.item.ct > 1 ? ` ×${l.item.ct}` : ''}</div>
+                <div class="text-[9px] text-slate-500 truncate">${esc(l.item.desc || '')}${l.from ? ` · from ${esc(l.from)}` : ''}</div></div>
+            <select class="gm-loot-to bg-slate-800 border border-slate-600 rounded text-[10px] text-white px-1 py-0.5" style="width:auto;max-width:6.5rem;flex:0 0 auto" ${party.length ? '' : 'disabled'}>
+                <option value="">Give to…</option>${opts}</select>
+            <button onclick="window.gmGiveLoot('${esc(l.id)}', this)" class="text-[10px] px-2 py-0.5 rounded bg-emerald-700 hover:bg-emerald-600 text-white font-bold">Give</button>
+            <button onclick="window.gmDiscardLoot('${esc(l.id)}')" title="Remove from the Loot list" class="text-[10px] px-1.5 py-0.5 rounded bg-slate-700 hover:bg-red-800 text-slate-300 font-bold">✕</button>
+        </div>`).join('') : '<div class="text-[10px] text-slate-500 mb-1">Nothing yet. Enemies\' gear shows up here when they die.</div>'}
+        <div class="flex flex-wrap items-center gap-1 mt-2 pt-2 border-t border-slate-700">
+            <div class="text-[10px] text-slate-300" style="flex:1 1 100%">Currency: the party finds <b>LUC (Loot) × enemies defeated ÷ 2</b> (rounded down).
+                Enemies defeated <input type="number" min="0" value="${defeated}" onchange="window.gmSetLootDefeated(this.value)" style="width:3.5rem" class="bg-slate-800 border border-slate-600 rounded text-[10px] text-white px-1 py-0.5 ml-1"></div>
+            <button onclick="window.gmAskLootCheck()" style="flex:1 1 100%" class="text-[10px] px-2 py-1 rounded bg-amber-700 hover:bg-amber-600 text-white font-bold" title="Every player's sheet asks them to roll LUC (Loot)">Ask for LUC (Loot) check</button>
+            <input id="gmLootCu" type="number" min="0" placeholder="Cu" style="width:4.5rem;flex:0 0 auto" class="bg-slate-800 border border-slate-600 rounded text-[10px] text-white px-1 py-0.5">
+            <select id="gmLootCuTo" style="width:auto;max-width:8rem;flex:0 0 auto" class="bg-slate-800 border border-slate-600 rounded text-[10px] text-white px-1 py-0.5" ${party.length ? '' : 'disabled'}><option value="">Give Cu to…</option><option value="__split">Split among party</option>${opts}</select>
+            <button onclick="window.gmGiveLootCu()" class="text-[10px] px-2 py-1 rounded bg-emerald-700 hover:bg-emerald-600 text-white font-bold">Give Cu</button>
+        </div>
+        ${rolls.length ? `<div class="mt-2 text-[10px] text-slate-400">LUC (Loot) rolls:${rolls.map(r => `<div class="flex items-center gap-1 mt-0.5"><b class="text-amber-300">${esc(r.name)}</b> rolled ${esc(r.total)} → <b class="text-yellow-300">${cuFor(r.total)} Cu</b>
+                <button onclick="document.getElementById('gmLootCu').value='${cuFor(r.total)}'" class="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold" title="Put this amount in the Cu box">Use</button></div>`).join('')}</div>` : ''}
+        ${party.length ? '' : '<div class="text-[9px] text-slate-500 mt-1">Load the party to hand out loot.</div>'}`;
+};
+function _gmSendGift(uid, gift) {
+    let code = _gmActiveCode();
+    if (!code || !window.apxAuth?.enabled || typeof window.apxAuth.gmGiveToPlayer !== 'function') {
+        window.apxAlert ? window.apxAlert('Loot can only be handed out while an online world is active.') : alert('Loot needs an active online world.');
+        return false;
+    }
+    window.apxAuth.gmGiveToPlayer(code, uid, gift).catch(e => console.warn('Give loot:', e.message));
+    return true;
+}
+function _gmPartyName(uid) { let p = (window.gmParty || []).find(x => x.fileName === uid); return p?.summary?.name || 'player'; }
+window.gmGiveLoot = function(id, btn) {
+    let list = _gmLootList(), i = list.findIndex(l => l.id === id); if (i < 0) return;
+    let uid = btn?.parentElement?.querySelector('.gm-loot-to')?.value;
+    if (!uid) { window.apxAlert && window.apxAlert('Pick who gets it first.'); return; }
+    let l = list[i];
+    if (!_gmSendGift(uid, { id: crypto.randomUUID(), item: l.item, from: 'GM', at: Date.now() })) return;
+    list.splice(i, 1);
+    if (typeof gmLog === 'function') gmLog({ text: `${_gmPartyName(uid)} received ${l.item.name}.`, kind: 'loot', force: true });
+    window.renderGmLoot();
+    if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
+};
+window.gmDiscardLoot = function(id) {
+    let list = _gmLootList(), i = list.findIndex(l => l.id === id); if (i < 0) return;
+    list.splice(i, 1); window.renderGmLoot();
+    if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
+};
+window.gmGiveLootCu = function() {
+    let amt = parseInt(document.getElementById('gmLootCu')?.value) || 0;
+    let to = document.getElementById('gmLootCuTo')?.value;
+    if (amt <= 0 || !to) { window.apxAlert && window.apxAlert('Enter an amount of Cu and who gets it.'); return; }
+    let party = (window.gmParty || []).map(p => p.fileName);
+    if (to === '__split') {
+        if (!party.length) return;
+        let each = Math.floor(amt / party.length), extra = amt - each * party.length;
+        let ok = true;
+        party.forEach((uid, k) => { let n = each + (k < extra ? 1 : 0); if (n > 0 && ok) ok = _gmSendGift(uid, { id: crypto.randomUUID(), cu: n, from: 'GM', at: Date.now() }); });
+        if (!ok) return;
+        if (typeof gmLog === 'function') gmLog({ text: `The party split ${amt} Cu of loot.`, kind: 'loot', force: true });
+    } else {
+        if (!_gmSendGift(to, { id: crypto.randomUUID(), cu: amt, from: 'GM', at: Date.now() })) return;
+        if (typeof gmLog === 'function') gmLog({ text: `${_gmPartyName(to)} found ${amt} Cu.`, kind: 'loot', force: true });
+    }
+    document.getElementById('gmLootCu').value = '';
+};
+window.gmAskLootCheck = function() {
+    let code = _gmActiveCode();
+    if (!code || !window.apxAuth?.enabled || typeof window.apxAuth.publishLootRequest !== 'function') {
+        window.apxAlert && window.apxAlert('Asking for a Loot check needs an active online world.'); return;
+    }
+    window._gmLootRequestAt = Date.now();
+    window._gmLootRolls = [];
+    let defeated = _gmLootDefeated();
+    window.apxAuth.publishLootRequest(code, { id: crypto.randomUUID(), at: Date.now(), defeated }).catch(e => console.warn('Loot request:', e.message));
+    if (typeof gmLog === 'function') gmLog({ text: `The GM asks for a LUC (Loot) check to find Currency (${defeated} ${defeated === 1 ? 'enemy' : 'enemies'} defeated).`, kind: 'loot', force: true });
+    window.renderGmLoot();
+};
+
 // Push the tracker's HP + Temp HP for a party member to their character sheet
 function _syncHpToPlayer(entry) {
     if (!entry || entry.faction !== 'player' || !entry.playerUid) return;
@@ -816,7 +1025,8 @@ function gmLog(e) {
     else window.gmCombatLog.push(e);
     window.gmCombatLog = window.gmCombatLog.slice(-80);
     let shown = window.gmCombatLog.find(x => x.id === e.id);
-    if (window.APXDice && window.APXDice.logEntry) window.APXDice.logEntry(shown);
+    // gmText: what the GM sees (players get text)
+    if (window.APXDice && window.APXDice.logEntry) window.APXDice.logEntry(shown.gmText ? Object.assign({}, shown, { text: shown.gmText }) : shown);
     if (!e.gmOnly) _gmPublishLogSoon();
     return e.id;
 }
@@ -839,11 +1049,16 @@ function _gmLogHpChange(entry, before, after, wasAboveZero, rawDmg) {
     if (burn && d > 0 && Date.now() - burn.t < 15000 && (burn.amt === d || burn.amt === before - after)) { delete window._gmRecentBurn[entry.playerUid]; return; }
     let cur = window.gmInitiative[window.gmCurrentTurnIdx];
     let tgt = _gmPublicName(entry);
+    // A player hurting an NPC doesn't reveal the amount (players could work out its DR/ER);
+    // damage to players, and anything NPCs do, is shown in full.
+    let hideAmt = entry.faction !== 'player' && cur && (cur.faction === 'player' || !!cur.companionOf);
     let text = d > 0
-        ? (cur && cur !== entry ? `${_gmPublicName(cur)} dealt ${d} damage to ${tgt}.` : `${tgt} took ${d} damage.`)
-        : `${tgt} regained ${-d} HP.`;
-    if (d > 0 && wasAboveZero && entry.currentHp !== null && entry.currentHp <= 0) text += ` ${tgt} is down!`;
-    gmLog({ text, kind: d > 0 ? 'dmg' : 'heal' });
+        ? (cur && cur !== entry ? (hideAmt ? `${_gmPublicName(cur)} dealt damage to ${tgt}.` : `${_gmPublicName(cur)} dealt ${d} damage to ${tgt}.`) : `${tgt} took ${entry.faction !== 'player' ? 'damage' : d + ' damage'}.`)
+        : (entry.faction !== 'player' ? `${tgt} regained HP.` : `${tgt} regained ${-d} HP.`);
+    let gmText = null;
+    if (entry.faction !== 'player') gmText = d > 0 ? `${cur && cur !== entry ? _gmPublicName(cur) + ' dealt ' + d + ' damage to ' + tgt : tgt + ' took ' + d + ' damage'}.` : `${tgt} regained ${-d} HP.`;
+    if (d > 0 && wasAboveZero && entry.currentHp !== null && entry.currentHp <= 0) { text += ` ${tgt} is down!`; if (gmText) gmText += ` ${tgt} is down!`; }
+    gmLog({ text, gmText, kind: d > 0 ? 'dmg' : 'heal' });
 }
 window._gmLogHpChange = _gmLogHpChange;
 
@@ -885,6 +1100,17 @@ function _gmHandleRollEvent(uid, ev) {
     if (_gmSeenRoll[ev.id] === sig) return;
     let firstSeen = !(ev.id in _gmSeenRoll);
     _gmSeenRoll[ev.id] = sig;
+    // LUC (Loot) checks answer the GM's Loot request, in or out of combat
+    if (ev.skill === 'Loot' && (ev.purpose === 'cu' || !ev.purpose) && window._gmLootRequestAt && (ev.t || Date.now()) >= window._gmLootRequestAt - 60000) {
+        let who = ((window.gmParty || []).find(p => p.fileName === uid)?.summary?.name) || ev.who || 'A player';
+        let rs = window._gmLootRolls = window._gmLootRolls || [];
+        let prev = rs.find(r => r.evId === ev.id);
+        if (prev) prev.total = ev.total; else rs.push({ evId: ev.id, name: who, total: ev.total });
+        let cu = Math.max(0, Math.floor((ev.total || 0) * _gmLootDefeated() / 2));
+        gmLog({ id: 'loot_' + ev.id, gmOnly: true, kind: 'roll', force: true, text: `${who} rolled LUC (Loot): ${ev.total} (d20 ${ev.nat})${ev.luck ? ' · Luck reroll' : ''} → ${cu} Cu for the party` });
+        window.renderGmLoot && window.renderGmLoot();
+        return;
+    }
     if (!window.gmCombatStarted) return;
     let entry = (window.gmInitiative || []).find(e => e.playerUid === uid);
     let name = entry ? entry.name : (ev.who || 'A player');
@@ -944,6 +1170,15 @@ function _gmQueueBleed(entry) {
 
 // Shared after-change handling: 0 HP → bleed out (players) / killed (NPCs); healed → clear bleed-out
 function _afterHpChange(entry, wasAboveZero) {
+    if (entry.companionOf) {
+        // Loyal Companion: its HP lives on the owner's sheet; at 0 HP it stays in the fight (down)
+        let code = _gmInviteCode();
+        if (code && window.apxAuth?.enabled && typeof window.apxAuth.setGmCompanionHp === 'function')
+            window.apxAuth.setGmCompanionHp(code, entry.companionOf, entry.currentHp).catch(e => console.warn('Companion HP sync:', e.message));
+        window.renderInitiativeTracker();
+        if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
+        return;
+    }
     if (entry.currentHp !== null && entry.currentHp <= 0 && wasAboveZero) {
         if (entry.faction === 'player') {
             _syncHpToPlayer(entry);
@@ -1187,7 +1422,7 @@ window.endCombat = async function(force) {
     // XP is split evenly between EVERY survivor on the party's side: players and allies.
     // Anyone still in the tracker is alive (the dead are removed), including players
     // who are bleeding out. Allies take a share but, being NPCs, their share isn't paid out.
-    let survivors = window.gmInitiative.filter(e => e.faction === 'player' || e.faction === 'ally');
+    let survivors = window.gmInitiative.filter(e => (e.faction === 'player' || e.faction === 'ally') && !e.companionOf);   // Loyal Companions don't take a share
     let players   = survivors.filter(e => e.faction === 'player');
     let allyCount = survivors.length - players.length;
     let totalXp = window.gmPendingXp;
@@ -1239,6 +1474,7 @@ window.startCombat = function() {
     window.gmTurnNumber = 1;
     window.gmInitiative.forEach(x => { x.apCur = 0; x._apTurns = 0; x._apFirstSurprised = false; });
     window.gmCombatLog = []; window._gmPendingSaves = {}; window._gmResolvedSaves = {};
+    _gmSetLootDefeated(0); window.renderGmLoot && window.renderGmLoot();   // counts the enemies of this fight
     _gmLogSession = 'c' + Date.now().toString(36);
     gmLog({ text: 'Combat started. Round 1.', kind: 'info' });
     if (window.gmInitiative[0]) gmStartTurnAp(window.gmInitiative[0]);
@@ -1476,13 +1712,15 @@ window.renderInitiativeTracker = function() {
                     <input type="checkbox" ${e.surprised ? 'checked' : ''} onchange="window.toggleSurprised('${e.id}', this.checked)" title="-10 initiative, and gains only 1 AP at the start of its first turn"> Surprised (-10)
                 </label>
                 ${e.bleedOutTurns !== null && e.bleedOutTurns !== undefined ? `
-                    <div class="text-[9px] text-red-400 font-bold flex items-center gap-1">
-                        Bleeding Out:
-                        <button onclick="window.adjustBleedOutTurns('${e.id}', -2)" class="px-1 bg-red-900 hover:bg-red-800 rounded text-white font-black leading-none" title="Crit hit: -2 turns">-2</button>
-                        <button onclick="window.adjustBleedOutTurns('${e.id}', -1)" class="px-1 bg-red-900 hover:bg-red-800 rounded text-white font-black leading-none" title="Hit: -1 turn">-1</button>
-                        <span class="text-red-300 font-black mx-0.5">${e.bleedOutTurns}</span>
-                        <button onclick="window.adjustBleedOutTurns('${e.id}', +1)" class="px-1 bg-slate-700 hover:bg-slate-600 rounded text-white font-black leading-none" title="+1 turn">+1</button>
-                        <button onclick="window.stabilizeEntry('${e.id}')" class="ml-1 underline hover:text-red-300">Stabilize</button>
+                    <div class="mt-1 flex items-center gap-2 flex-wrap rounded border border-red-800/70 bg-red-950/40 px-2 py-1" title="Rounds until ${String(e.name || '').replace(/"/g, '&quot;')} bleeds out. It ticks down at the start of each of their turns.">
+                        <span class="text-[10px] font-black uppercase tracking-wide text-red-300">Bleeding Out</span>
+                        <span class="text-sm font-black text-white leading-none">${e.bleedOutTurns}</span>
+                        <span class="text-[10px] text-red-200">round${e.bleedOutTurns === 1 ? '' : 's'} left</span>
+                        <span class="flex items-center gap-1 ml-auto">
+                            <button onclick="window.adjustBleedOutTurns('${e.id}', -1)" class="px-1.5 py-0.5 text-[10px] font-bold rounded bg-red-900 hover:bg-red-800 text-white" title="Remove a round (for example, they took more damage)">− Round</button>
+                            <button onclick="window.adjustBleedOutTurns('${e.id}', +1)" class="px-1.5 py-0.5 text-[10px] font-bold rounded bg-slate-700 hover:bg-slate-600 text-white" title="Add a round">+ Round</button>
+                            <button onclick="window.stabilizeEntry('${e.id}')" class="px-1.5 py-0.5 text-[10px] font-bold rounded bg-emerald-800 hover:bg-emerald-700 text-white" title="They stop bleeding out (still at 0 HP)">Stabilize</button>
+                        </span>
                     </div>
                 ` : ''}
                 ${(e.faction !== 'player' && e.sourceNpcId) ? (() => {

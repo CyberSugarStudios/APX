@@ -436,6 +436,10 @@
                     <button onclick="window.endCombat()" class="px-2 py-1.5 rounded bg-amber-900/50 border border-amber-700/50 hover:bg-amber-900 text-amber-300 text-[10px] font-bold flex-1">End Combat &amp; Award XP</button>
                     <button onclick="window.clearInitiative()" class="px-2 py-1.5 rounded bg-red-900/50 border border-red-700/50 hover:bg-red-900 text-red-300 text-[10px] font-bold flex-1">Clear All</button>
                 </div>
+                <details id="gmLootPanel" class="mt-2 bg-slate-800/60 border border-amber-800/50 rounded p-2" ontoggle="if(this.open) window.renderGmLoot && window.renderGmLoot()">
+                    <summary class="text-[11px] font-black text-amber-300 cursor-pointer select-none">Loot <span id="gmLootCount" class="text-amber-500"></span></summary>
+                    <div id="gmLootBody" class="mt-2"></div>
+                </details>
             </div>
         </div>
     </div>
@@ -1154,6 +1158,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button onclick="window.showWorldTab('map')"       id="wTabMap"       class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">World Map</button>
                     <button onclick="window.showWorldTab('othermaps')" id="wTabOthermaps" class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Other Maps</button>
                     <button onclick="window.showWorldTab('players')"   id="wTabPlayers"   class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Players</button>
+                    <button onclick="window.showWorldTab('settings')"  id="wTabSettings"  class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">World Settings</button>
                 </div>
                 <div id="wPanelSession" class="flex-1 flex flex-col overflow-hidden min-h-0">
                     <div class="flex gap-2 mb-2 flex-shrink-0">
@@ -1233,6 +1238,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <div id="playersList" class="flex-1 overflow-y-auto space-y-2 min-h-0 pr-1"></div>
                 </div>
+                <div id="wPanelSettings" class="hidden flex-1 flex flex-col overflow-y-auto min-h-0 pr-1"></div>
             </div>
             <div id="gmWorldEmpty" class="flex-1 flex items-center justify-center text-slate-500 text-sm">Create a world to start organizing your campaign.</div>
         </div>
@@ -1475,6 +1481,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 worldMapSaved:   priv.worldMapSaved   || false,
                 worldMapDataUrl: priv.worldMapDataUrl || null,
                 xpLog:           priv.xpLog || [],
+                loot:            priv.loot || [],
+                lootDefeated:    priv.lootDefeated || 0,
+                settings:        Object.assign(window.apxDefaultWorldSettings(), priv.settings || w.worldSettings || {}),
                 // ALWAYS load from private data first — priv contains the full unfiltered
                 // list. publicNotes only holds revealed items and is player-facing only.
                 // Using pub.locations first would silently delete every hidden location.
@@ -1502,6 +1511,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }).catch(()=>{});
             });
             window.showWorldTab('session');
+            try { window.renderGmLoot && window.renderGmLoot(); } catch (e) { }
         }
     }
     function renderWorldSelector() {
@@ -1597,9 +1607,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         })),
                         worldMapSaved: w.notesV2.worldMapSaved || false,
                         xpLog: (w.notesV2.xpLog || []).slice(0, 100),
+                        loot: (w.notesV2.loot || []).slice(0, 200),
+                        lootDefeated: w.notesV2.lootDefeated || 0,
+                        settings: w.notesV2.settings || window.apxDefaultWorldSettings(),
                     }
                 };
                 let publicData = {
+                    // Rules for characters in this world (read by the character sheet)
+                    worldSettings: w.notesV2.settings || window.apxDefaultWorldSettings(),
                     publicNotes: {
                         locations: w.publicNotes.locations,
                         npcs:      w.publicNotes.npcs,
@@ -1693,9 +1708,41 @@ document.addEventListener('DOMContentLoaded', () => {
         return _doSaveWorldNotes();
     };
 
+    // ── World Settings ───────────────────────────────────────────
+    // Rules for characters in this world: Starting XP, Max GP, starting Currency, and how
+    // Core Attributes are set. Characters that aren't in a world aren't affected.
+    window.apxDefaultWorldSettings = () => ({ startingXp: 25, maxGp: 15, startingCu: 0, attrMethod: 'pointBuy' });
+    window.renderWorldSettings = function() {
+        let el = document.getElementById('wPanelSettings'); if (!el) return;
+        let st = _wNotes.settings = Object.assign(window.apxDefaultWorldSettings(), _wNotes.settings || {});
+        let num = (key, label, hint, min) => `<label class="block bg-slate-900 border border-slate-700 rounded p-3">
+                <div class="text-xs font-bold text-white mb-1">${label}</div>
+                <input type="number" min="${min}" value="${st[key]}" onchange="window.setWorldSetting('${key}', this.value)" class="bg-slate-800 text-sm w-28 text-center">
+                <div class="text-[10px] text-slate-500 mt-1 leading-tight">${hint}</div></label>`;
+        el.innerHTML = `<div class="text-[11px] text-slate-400 mb-3 leading-snug">These rules apply to every character in this world. Players can't change them on their sheets (characters outside a world are unaffected). New characters get the Starting XP and Currency once, when they join.</div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+                ${num('startingXp', 'Starting XP', 'XP a new character starts with. Players can\'t add XP themselves in this world; use Grant XP instead.', 0)}
+                ${num('maxGp', 'Max Genetic Points (GP)', 'GP budget for the Ancestry builder. Default 15.', 0)}
+                ${num('startingCu', 'Starting Currency bonus (Cu)', 'Extra Currency each new character gets.', 0)}
+            </div>
+            <div class="bg-slate-900 border border-slate-700 rounded p-3">
+                <div class="text-xs font-bold text-white mb-2">Core Attributes</div>
+                <label class="flex items-start gap-2 mb-2 cursor-pointer"><input type="radio" name="wsAttr" ${st.attrMethod !== 'standardArray' ? 'checked' : ''} onchange="window.setWorldSetting('attrMethod','pointBuy')" class="mt-0.5">
+                    <div><div class="text-xs font-bold text-slate-200">Point Buy</div><div class="text-[10px] text-slate-500 leading-tight">Every attribute starts at 4 with 7 points to spend: +1 costs a point, −1 gives one back. Each attribute stays between 2 and 7.</div></div></label>
+                <label class="flex items-start gap-2 cursor-pointer"><input type="radio" name="wsAttr" ${st.attrMethod === 'standardArray' ? 'checked' : ''} onchange="window.setWorldSetting('attrMethod','standardArray')" class="mt-0.5">
+                    <div><div class="text-xs font-bold text-slate-200">Standard Array</div><div class="text-[10px] text-slate-500 leading-tight">Assign 7, 6, 5, 5, 5, 4 and 3 to the seven attributes (dropdowns instead of number boxes).</div></div></label>
+            </div>`;
+    };
+    window.setWorldSetting = function(key, val) {
+        _wNotes.settings = Object.assign(window.apxDefaultWorldSettings(), _wNotes.settings || {});
+        _wNotes.settings[key] = key === 'attrMethod' ? val : Math.max(0, parseInt(val) || 0);
+        saveWorldNotes();
+        window.APXDice?.notify(`World Settings saved.`, { kind: 'note' });
+    };
+
     // ── Tab switching ────────────────────────────────────────────
     window.showWorldTab = function(tab) {
-        ['session','map','npcs','locations','notes','othermaps','players'].forEach(t => {
+        ['session','map','npcs','locations','notes','othermaps','players','settings'].forEach(t => {
             let panel = document.getElementById(`wPanel${t.charAt(0).toUpperCase()}${t.slice(1)}`);
             if (panel) { panel.classList.toggle('hidden', t!==tab); panel.classList.toggle('flex', t===tab && panel.style.display!=='block'); }
             let btn = document.getElementById(`wTab${t.charAt(0).toUpperCase()}${t.slice(1)}`);
@@ -1713,6 +1760,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (tab==='othermaps')  { window.renderOtherMapsList(); }
         if (tab==='players')    { window.renderPlayersList(); }
+        if (tab==='settings')   { window.renderWorldSettings(); }
     };
     window.showCampaignTab = window.showWorldTab; // alias for old refs
 
@@ -3390,7 +3438,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId); if (!map) return;
         let tok = (map.battleTokens||[]).find(t=>t.id===tokenId); if (!tok) return;
         tok.gridX = gx; tok.gridY = gy;
-        if (tok.type === 'player' && tok.playerUid) {
+        if ((tok.type === 'player' || tok.type === 'companion') && tok.playerUid) {
             window.APXBattle.move(getActiveWorld()?.inviteCode, tok.playerUid, mapId, tok.id, gx, gy);
         }
         window.saveWorldNotesNow();   // publish immediately — no debounce
@@ -3442,7 +3490,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let isHidden = t.revealed === false;
             let faction = linkedEntry?.faction || t.faction || (t.type === 'player' ? 'player' : 'enemy');
             let factionBorder = {player:'#3b82f6', ally:'#22c55e', neutral:'#e2e8f0', enemy:'#ef4444'}[faction] || '#e2e8f0';
-            let defColor = t.type==='player' ? '#1d4ed8' : '#d97706';
+            let defColor = t.type==='player' ? '#1d4ed8' : t.type==='companion' ? '#16a34a' : '#d97706';
 
             let portrait = '';
             if (t.type === 'npc' && t.worldNpcId) {
@@ -3458,6 +3506,9 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (t.type === 'player' && t.playerUid) {
                 let pm = (window.gmParty||[]).find(p=>p.fileName===t.playerUid||p.summary?.playerUid===t.playerUid);
                 portrait = pm?.state?.charPortrait || pm?.summary?.charPortrait || window.APXBattle.portraitOf(t.playerUid) || '';
+            } else if (t.type === 'companion' && t.playerUid) {
+                let pm = (window.gmParty||[]).find(p=>p.fileName===t.playerUid||p.summary?.playerUid===t.playerUid);
+                portrait = pm?.state?.companion?.portrait || window.APXBattle.companionOf(t.playerUid).portrait || '';
             }
 
             return {
@@ -3524,6 +3575,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 } else if (vm.type === 'player' && vm.playerUid) {
                     window._btOpenPlayerSummary(vm.name, vm.playerUid);
+                } else if (vm.type === 'companion' && vm.playerUid) {
+                    window.gmOpenCompanionStatBlock(vm.playerUid);
                 }
             }
         });
@@ -3565,7 +3618,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 let tok = (map.battleTokens||[]).find(t=>t.id===mv.vm.id); if (!tok) return;
                 tok.gridX = mv.gx; tok.gridY = mv.gy;
-                if (tok.type === 'player' && tok.playerUid) window.APXBattle.move(code, tok.playerUid, mapId, tok.id, mv.gx, mv.gy);
+                if ((tok.type === 'player' || tok.type === 'companion') && tok.playerUid) window.APXBattle.move(code, tok.playerUid, mapId, tok.id, mv.gx, mv.gy);
             }
         });
         window.saveWorldNotesNow();
@@ -3901,7 +3954,12 @@ document.addEventListener('DOMContentLoaded', () => {
         let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
         let tok = (map?.battleTokens||[]).find(t=>t.id===tokenId); if (!tok) return null;
         let entry = null;
-        if (tok.type === 'player') {
+        if (tok.type === 'companion') {
+            let partyIdx = (window.gmParty||[]).findIndex(p=>p.fileName===tok.playerUid);
+            if (partyIdx < 0) { if (!quiet) alert('That player isn\'t loaded in the party yet.'); return null; }
+            window._pendingTokenInitLink = { mapId, tokenId };
+            entry = window.addToInitiative(partyIdx, 'companion');
+        } else if (tok.type === 'player') {
             let partyIdx = (window.gmParty||[]).findIndex(p=>p.fileName===tok.playerUid);
             if (partyIdx < 0) { if (!quiet) alert('That player isn\'t loaded in the party yet.'); return null; }
             window._pendingTokenInitLink = { mapId, tokenId };
@@ -4026,6 +4084,13 @@ document.addEventListener('DOMContentLoaded', () => {
             let tok = window._btAddToken(mapId, winId, (p.summary?.name||'Player').replace(/'/g,''), 'player', '#4f46e5', null, uid);
             if (tok) added++;
         });
+        // ...and their Loyal Companions
+        party.forEach(p => {
+            let uid = p.fileName || '', comp = p.state?.companion;
+            if (!uid || !comp) return;
+            if ((map.battleTokens||[]).some(t => t.type === 'companion' && t.playerUid === uid)) return;
+            if (window._btAddToken(mapId, winId, (comp.name||'Companion').replace(/'/g,''), 'companion', '#16a34a', null, uid)) added++;
+        });
         window.APXBattle.toast(document.getElementById(winId+'_area'), added ? `Added ${added} party token${added>1?'s':''}` : 'Everyone in the party is already on this map', 'info');
     };
 
@@ -4036,7 +4101,8 @@ document.addEventListener('DOMContentLoaded', () => {
         let panel = document.createElement('div');
         panel.id = 'btPickerPanel';
         panel.style.cssText = `position:fixed;right:20px;top:120px;width:220px;background:#1e293b;border:1px solid #10b981;border-radius:0.5rem;z-index:2147483647;box-shadow:0 10px 40px rgba(0,0,0,0.85);overflow:hidden;`;
-        let partyRows=(_wNotes.gmParty||window.gmParty||[]).map(p=>`<button onclick="window._btAddToken('${mapId}','${winId}','${(p.summary?.name||'Player').replace(/'/g,'')}','player','#4f46e5',null,'${p.fileName||''}')" style="width:100%;text-align:left;background:#0f172a;border:none;border-bottom:1px solid #1e293b;color:#a5b4fc;font-size:0.7rem;padding:0.4rem 0.6rem;cursor:pointer;"> ${p.summary?.name||'Player'}</button>`).join('');
+        let partyRows=(_wNotes.gmParty||window.gmParty||[]).map(p=>`<button onclick="window._btAddToken('${mapId}','${winId}','${(p.summary?.name||'Player').replace(/'/g,'')}','player','#4f46e5',null,'${p.fileName||''}')" style="width:100%;text-align:left;background:#0f172a;border:none;border-bottom:1px solid #1e293b;color:#a5b4fc;font-size:0.7rem;padding:0.4rem 0.6rem;cursor:pointer;"> ${p.summary?.name||'Player'}</button>`
+            + (p.state?.companion ? `<button onclick="window._btAddToken('${mapId}','${winId}','${String(p.state.companion.name||'Companion').replace(/'/g,'').replace(/"/g,'')}','companion','#16a34a',null,'${p.fileName||''}')" style="width:100%;text-align:left;background:#0f172a;border:none;border-bottom:1px solid #1e293b;color:#86efac;font-size:0.7rem;padding:0.4rem 0.6rem 0.4rem 1.2rem;cursor:pointer;">↳ ${String(p.state.companion.name||'Companion').replace(/</g,'&lt;')} (companion)</button>` : '')).join('');
         let npcRows=(_wNotes.npcs||[]).map(n=>{
             let safeName=(n.name||'NPC').replace(/'/g,'').replace(/`/g,'');
             return `<button onclick="window._btPickFactionThenAdd('${mapId}','${winId}','${safeName}','npc','${n.id}',null)" style="width:100%;text-align:left;background:#0f172a;border:none;border-bottom:1px solid #1e293b;color:#fde68a;font-size:0.7rem;padding:0.4rem 0.6rem;cursor:pointer;"> ${n.name||'NPC'}</button>`;
@@ -4138,10 +4204,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // Never spawn on top of a same-size token — use the nearest open square
         let free = window.APXBattle.findFreeCell(map.battleTokens, {id:null, size}, gridX, gridY, t=>_btPos(mapId,t));
         if (free) { gridX = free.gridX; gridY = free.gridY; }
-        let base = type === 'player' ? name : _stripNum(name);
+        if (type === 'companion' && playerUid) {
+            let pm = (window.gmParty||[]).find(p=>p.fileName===playerUid);
+            size = String(pm?.state?.companion?.size || 'medium').toLowerCase();
+        }
+        let base = (type === 'player' || type === 'companion') ? name : _stripNum(name);
         let tok = {id:'bt_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),type,name:base,baseName:base,color,size,gridX,gridY,
             worldNpcId:worldNpcId||null,playerUid:playerUid||null,initiativeId:null,revealed:false,
-            faction: type==='player' ? 'player' : (faction||'enemy')};
+            faction: type==='player' ? 'player' : type==='companion' ? 'ally' : (faction||'enemy')};
         map.battleTokens.push(tok);
         window._gmRenumber();
         if (typeof window.renderInitiativeTracker === 'function') window.renderInitiativeTracker();

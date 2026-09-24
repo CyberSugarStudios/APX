@@ -780,9 +780,14 @@
                             </label>
                         </div>
                     </div>
+                    <div class="flex flex-col gap-1 items-end">
                     <button onclick="window.openGearPicker()" class="bg-amber-600/20 text-amber-500 hover:bg-amber-600/40 text-xs px-3 py-1 rounded border border-amber-700/50 transition font-bold">
                         + Add Item
                     </button>
+                    <button onclick="window.apxLootMenu()" title="Loot currency and ammo after a fight, or scavenge for Crafting Materials" class="bg-yellow-600/20 text-yellow-400 hover:bg-yellow-600/40 text-xs px-3 py-1 rounded border border-yellow-700/50 transition font-bold">
+                        Loot / Scavenge
+                    </button>
+                    </div>
                 </div>
                 
                 <div class="overflow-x-auto flex-1 max-h-[300px] overflow-y-auto">
@@ -2291,6 +2296,7 @@
     <script src="js/apx-engine.js"></script>
     <script src="js/apx-perks-ui.js"></script>
     <script src="js/apx-rest.js"></script>
+    <script src="js/apx-looting.js"></script>
     <script src="js/apx-main.js"></script>
 
     <!-- Firebase (cloud sync — requires firebase-config.js to be configured) -->
@@ -2527,6 +2533,7 @@
             await window.apxAuth.saveCharacter(charId, window.state, { folderId: folderId||null, worldCode: c.worldCode||null }).catch(()=>{});
         }
         window.closeModal('addToFolderModal');
+        if (charId === window._activeCloudCharId) window.apxApplyWorldRules?.();
         window.renderSidebarCharList();
     };
     window.meatballArchive = async function(charId) {
@@ -2613,12 +2620,61 @@
                 window._playerWorldsData[worldCode] = world;
                 window._playerWorldData = world;
                 window._pwSetWorldRaces(worldCode, world.races);
+                window._pwSetWorldSettings(worldCode, world.worldSettings);
                 document.getElementById('playerWorldBtn')?.classList.remove('hidden');
                 startWorldNotesListener(worldCode);
             }).catch(err => {
                 // BANNED — clean up world folder and character association
                 if (err.message?.startsWith('BANNED')) _cleanupBannedWorld(worldCode);
             });
+        }
+    };
+
+    // ── World Settings: rules for characters that belong to a world ──
+    // In a world: XP only comes from the GM (no typing XP in), the GP budget is the world's,
+    // new characters get the world's Starting XP and Currency bonus once, and attributes follow
+    // the world's Point Buy or Standard Array. Characters outside a world are unaffected.
+    window._pwWorldSettings = window._pwWorldSettings || {};
+    window._pwSetWorldSettings = function(code, ws) {
+        if (!code) return;
+        if (ws) window._pwWorldSettings[code] = ws;
+        window.apxApplyWorldRules();
+    };
+    window.apxActiveWorldCode = function() {
+        let active = (window._sidebarChars || []).find(c => c.id === window._activeCloudCharId);
+        return active?.worldCode || null;
+    };
+    window.apxActiveWorldSettings = function() {
+        let code = window.apxActiveWorldCode();
+        if (!code) return null;
+        return Object.assign({ startingXp: 25, maxGp: 15, startingCu: 0, attrMethod: 'pointBuy' }, window._pwWorldSettings[code] || {});
+    };
+    window.apxApplyWorldRules = function() {
+        let st = window.state; if (!st) return;
+        let ws = window.apxActiveWorldSettings(), code = window.apxActiveWorldCode();
+        ['unspentXp', 'spentXp'].forEach(id => {
+            let el = document.getElementById(id); if (!el) return;
+            el.readOnly = !!ws;
+            el.title = ws ? 'In this world, XP comes from your GM (Grant XP). Spend it with Spend XP.' : '';
+            el.classList.toggle('cursor-not-allowed', !!ws);
+        });
+        if (ws && st.ancestry) {
+            st.ancestry.gpLimit = ws.maxGp;
+            let gl = document.getElementById('wizGpLimit'); if (gl) { gl.value = ws.maxGp; gl.disabled = true; gl.title = 'Set by your GM for this world'; }
+            let dl = document.getElementById('dispGpLimit'); if (dl) dl.innerText = ws.maxGp;
+        } else {
+            let gl = document.getElementById('wizGpLimit'); if (gl) { gl.disabled = false; gl.title = ''; }
+        }
+        // Starting XP / Currency: once per character per world, and only for a brand-new character
+        if (ws && code && window._pwWorldSettings[code] && !(st.worldStart && st.worldStart.code === code)) {
+            let fresh = !(st.spentXp > 0) && !(st.xpLog || []).length && !Object.keys(st.perks || {}).length;
+            if (fresh) {
+                st.unspentXp = ws.startingXp;
+                st.currency = (st.currency || 0) + (ws.startingCu || 0);
+                window.APXDice?.notify(`Welcome to the world: you start with ${ws.startingXp} XP${ws.startingCu ? ` and ${ws.startingCu} bonus Cu` : ''}.`, { kind: 'xp' });
+            }
+            st.worldStart = { code, applied: fresh, at: Date.now() };
+            if (typeof window.recalculateMath === 'function') window.recalculateMath();
         }
     };
 
@@ -2652,7 +2708,7 @@
         if (typeof window.recalculateMath === 'function') window.recalculateMath();
         if (typeof window.syncDOM === 'function') window.syncDOM();
         if (typeof window.apxMaybeShowRulesNotices === 'function') window.apxMaybeShowRulesNotices();
-        setTimeout(() => window._pwApplyWorldRaces && window._pwApplyWorldRaces(), 0);
+        setTimeout(() => { window._pwApplyWorldRaces && window._pwApplyWorldRaces(); window.apxApplyWorldRules && window.apxApplyWorldRules(); }, 0);
     };
 
     // Live sidebar rename when character name field changes
@@ -3250,6 +3306,7 @@
         if (w0 && !w0.inviteCode) w0.inviteCode = code;
         // Live player-token positions (same authority the GM writes to)
         if (window.APXBattle) window.APXBattle.start(code);
+        window._pwBattleCode = code;
         if (typeof window.apxAuth.listenPublicWorldNotes !== 'function') return;
         _worldNotesUnsub = window.apxAuth.listenPublicWorldNotes(code, data => {
             let world = window._playerWorldsData?.[code] || window._playerWorldData;
@@ -3263,6 +3320,22 @@
                 otherMaps: data.publicNotes?.otherMaps || [],
                 worldMapDataUrl: cachedMap
             };
+            // World Settings (Starting XP, Max GP, starting Cu, attribute method)
+            if (data.worldSettings) window._pwSetWorldSettings(code, data.worldSettings);
+            // The GM asked for a LUC (Loot) check
+            try {
+                let lr = data.lootRequest;
+                if (lr && lr.id && (Date.now() - (lr.at || 0)) < 15 * 60 * 1000) {
+                    window._pwLootCode = code; window._pwLootUntil = (lr.at || Date.now()) + 15 * 60 * 1000; window._pwLootReq = lr;
+                    let seenKey = 'apx_loot_seen_' + code;
+                    let seen = null; try { seen = localStorage.getItem(seenKey); } catch (e) { }
+                    if (seen !== lr.id && window._pwLootAsked !== lr.id) {
+                        window._pwLootAsked = lr.id;
+                        try { localStorage.setItem(seenKey, lr.id); } catch (e) { }
+                        window.apxPromptLootCheck && window.apxPromptLootCheck();
+                    }
+                }
+            } catch (e) { }
             // Combat log from the GM (shown in the dice tray)
             try {
                 let cl = data.combatLog;
@@ -3305,8 +3378,16 @@
     // Your checks and saves go to the GM's combat log while combat is running
     // (a Luck reroll or Omen updates the same entry)
     window._pwRollLog = [];
+    window.apxPromptLootCheck = function() {
+        let req = window._pwLootReq || {};
+        let go = () => window.apxLootMenu ? window.apxLootMenu({ focus: 'cu', enemies: req.defeated }) : document.querySelector(`[data-apx-roll*='"skill":"Loot"']`)?.click();
+        let msg = `The GM asks for a LUC (Loot) check to find Currency${req.defeated ? ` (${req.defeated} ${req.defeated === 1 ? 'enemy' : 'enemies'} defeated)` : ''}.`;
+        if (typeof window.apxConfirm === 'function') window.apxConfirm(msg, { title: 'Loot', okLabel: 'Open Loot' }).then(ok => { if (ok) go(); });
+        else go();
+    };
     window.apxOnRollEvent = function(ev) {
-        let code = window._pwCombatCode, uid = window.apxAuth?.user?.uid;
+        let lootCode = (ev.skill === 'Loot' && (ev.purpose === 'cu' || !ev.purpose) && window._pwLootCode && Date.now() < (window._pwLootUntil || 0)) ? window._pwLootCode : null;
+        let code = window._pwCombatCode || lootCode, uid = window.apxAuth?.user?.uid;
         if (!code || !uid || typeof window.apxAuth?.writeRollLog !== 'function') return;
         let prev = window._pwRollLog.find(x => x.id === ev.id);
         if (prev && prev.nat === ev.nat && prev.total === ev.total && prev.luck === ev.luck && prev.omen === ev.omen) return;
@@ -3350,16 +3431,24 @@
         let esc = t => String(t ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         let party = (window.APXBattle?.party?.() || []).filter(p => p.name && !gone.has(p.uid));
         if (!party.some(p => p.uid === myUid) && window.state?.name) {
-            party.push({ uid: myUid, name: window.state.name, portrait: window.state.charPortrait || '', ancestry: window.state.ancestry?.name || '', origin: window.state.origin?.name || '', age: window.state.charAge || '' });
+            party.push({ uid: myUid, name: window.state.name, portrait: window.state.charPortrait || '', ancestry: window.state.ancestry?.name || '', origin: window.state.origin?.name || '', age: window.state.charAge || '',
+                companion: window.state.companion ? { name: window.state.companion.name, portrait: window.state.companion.portrait || '' } : null });
         }
-        party.sort((a, b) => (b.uid === myUid) - (a.uid === myUid) || a.name.localeCompare(b.name));
+        // Loyal Companions are party members too (listed after their owner)
+        party = party.flatMap(p => {
+            let comp = p.uid === myUid && window.state?.companion ? { name: window.state.companion.name, portrait: window.state.companion.portrait || '' } : p.companion;
+            return comp ? [p, { uid: p.uid + ':companion', name: comp.name || 'Companion', portrait: comp.portrait || '', origin: `${p.name}'s Loyal Companion`, isCompanion: true, ownerUid: p.uid }] : [p];
+        });
+        // You first, each companion right after its owner
+        let ownerOf = p => p.isCompanion ? p.ownerUid : p.uid;
+        party.sort((a, b) => (ownerOf(b) === myUid) - (ownerOf(a) === myUid) || String(ownerOf(a)).localeCompare(String(ownerOf(b))) || (a.isCompanion - b.isCompanion));
         if (!party.length) { el.innerHTML = '<div class="text-slate-600 text-sm text-center py-6">No one else has joined this world yet</div>'; return; }
         el.innerHTML = `<div class="apx-party-grid">${party.map(p => {
             let bits = [p.ancestry, p.origin, p.age ? 'Age ' + p.age : ''].filter(Boolean).map(esc).join(' · ');
             let pic = p.portrait
                 ? `<img src="${p.portrait}" alt="" class="apx-party-pic" data-name="${esc(p.name)}" onclick="window.pwShowPortrait(this.src, this.dataset.name)" title="Click to enlarge">`
                 : `<div class="apx-party-pic apx-party-initial">${esc((p.name || '?')[0].toUpperCase())}</div>`;
-            return `<div class="apx-party-card${p.uid === myUid ? ' is-me' : ''}">
+            return `<div class="apx-party-card${p.uid === myUid ? ' is-me' : ''}"${p.isCompanion ? ' style="border-color:#16a34a"' : ''}>
                 ${pic}
                 <div class="apx-party-name">${esc(p.name)}${p.uid === myUid ? ' <span class="apx-party-you">You</span>' : ''}</div>
                 <div class="apx-party-sub">${bits || '&nbsp;'}</div>
@@ -3367,9 +3456,156 @@
         }).join('')}</div>`;
     }
     window.renderPlayerParty = renderPlayerParty;
+
+    // ── Trading: give inventory items to party members; receive loot from the GM ──
+    // The world this character belongs to, if its live party listener is running
+    function _pwTradeCode() {
+        let code = window.apxActiveWorldCode ? window.apxActiveWorldCode() : null;
+        return (code && window._pwBattleCode === code && window.apxAuth?.enabled && window.apxAuth?.user) ? code : null;
+    }
+    // Everyone else in this world you can hand things to
+    window.apxGiveTargets = function() {
+        if (!_pwTradeCode() || !window.APXBattle?.party) return [];
+        let myUid = window.apxAuth.user.uid;
+        let world = window._playerWorldData || {};
+        let gone = new Set([...(world.kicked || []), ...(world.banned || [])]);
+        return window.APXBattle.party().filter(p => p.uid && p.uid !== myUid && p.name && !gone.has(p.uid))
+            .map(p => ({ uid: p.uid, name: p.name }));
+    };
+    // Put a received item into the inventory, stacking with an identical one
+    window.apxAddReceivedItem = function(item) {
+        let st = window.state; if (!st || !item) return;
+        st.items = st.items || [];
+        let it = JSON.parse(JSON.stringify(item));
+        it.ct = Math.max(1, parseInt(it.ct) || 1);
+        let same = st.items.find(i => {
+            if (i.name !== it.name || !!i.isArmor !== !!it.isArmor || !!i.isWeapon !== !!it.isWeapon || !!i.isShield !== !!it.isShield || !!i.isHelmet !== !!it.isHelmet) return false;
+            if (it.isArmor || it.isConsumable || i.isConsumable || i.isCustomEquippable) return false;
+            if (it.isWeapon) return window.weaponsAreStackable ? window.weaponsAreStackable(i.weaponData || {}, it.weaponData || {}) : false;
+            return (i.desc || '') === (it.desc || '') && (i.wt || 0) === (it.wt || 0);
+        });
+        if (same) same.ct = (parseInt(same.ct) || 0) + it.ct;
+        else { if (it.isCustomEquippable) it.equipped = false; st.items.push(it); }
+    };
+    // Small "Give to…" dropdown under the inventory row's Give button
+    window.apxGiveMenu = function(idx, btn) {
+        document.querySelectorAll('.apx-give-menu').forEach(m => m.remove());
+        let targets = window.apxGiveTargets(); if (!targets.length) return;
+        let item = window.state?.items?.[idx]; if (!item) return;
+        let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+        let m = document.createElement('div');
+        m.className = 'apx-give-menu';
+        m.style.cssText = 'position:fixed;z-index:2147483200;min-width:9rem;background:var(--c-surface,#1e293b);border:1px solid var(--c-border2,#475569);border-radius:.45rem;box-shadow:0 10px 30px rgba(0,0,0,.6);padding:.25rem;font-size:.75rem';
+        m.innerHTML = `<div style="padding:.25rem .5rem;color:var(--c-text-muted,#94a3b8);font-weight:800;font-size:.65rem;text-transform:uppercase">Give ${esc(item.name)} to…</div>` +
+            targets.map(t => `<button data-uid="${esc(t.uid).replace(/"/g, '&quot;')}" style="display:block;width:100%;text-align:left;padding:.35rem .5rem;border-radius:.3rem;font-weight:700;color:var(--c-text,#fff);background:none;border:none;cursor:pointer" onmouseover="this.style.background='rgba(16,185,129,.2)'" onmouseout="this.style.background='none'">${esc(t.name)}</button>`).join('');
+        document.body.appendChild(m);
+        let r = btn.getBoundingClientRect();
+        let top = r.bottom + 4; if (top + m.offsetHeight > window.innerHeight - 8) top = Math.max(8, r.top - m.offsetHeight - 4);
+        m.style.top = top + 'px'; m.style.left = Math.max(8, Math.min(window.innerWidth - m.offsetWidth - 8, r.right - m.offsetWidth)) + 'px';
+        let close = () => { m.remove(); document.removeEventListener('mousedown', out, true); };
+        let out = e => { if (!m.contains(e.target)) close(); };
+        setTimeout(() => document.addEventListener('mousedown', out, true), 0);
+        m.querySelectorAll('button[data-uid]').forEach(b => b.onclick = () => { close(); window.apxGiveItem(idx, b.dataset.uid); });
+    };
+    window.apxGiveItem = async function(idx, toUid, sel) {
+        if (sel) sel.value = '';
+        let st = window.state, item = st?.items?.[idx], code = _pwTradeCode();
+        if (!item || !toUid || !code) return;
+        let target = window.apxGiveTargets().find(t => t.uid === toUid); if (!target) return;
+        let ct = parseInt(item.ct) || 1, qty = 1;
+        if (ct > 1) {
+            let ans = await window.apxPrompt(`Give how many ${item.name} to ${target.name}? (you have ${ct})`, String(ct), { title: 'Give item', okLabel: 'Give' });
+            if (ans === null) return;
+            qty = Math.max(0, Math.min(ct, parseInt(ans) || 0));
+            if (!qty) return;
+        } else {
+            let ok = await window.apxConfirm(`Give ${item.name} to ${target.name}?`, { title: 'Give item', okLabel: 'Give' });
+            if (!ok) return;
+        }
+        if (st.items[idx] !== item) return;   // inventory changed meanwhile
+        let sent = JSON.parse(JSON.stringify(item)); sent.ct = qty;
+        if (sent.isCustomEquippable) sent.equipped = false;
+        if (qty >= ct) st.items.splice(idx, 1); else item.ct = ct - qty;
+        let entry = { id: 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7), from: window.apxAuth.user.uid, fromName: st.name || 'A party member',
+            to: toUid, toName: target.name, item: sent, at: Date.now() };
+        window.recalculateMath?.();
+        try {
+            await window.apxAuth.writeOutbox(code, entry);
+            window.APXDice?.notify(`You gave ${qty > 1 ? qty + '× ' : ''}${sent.name} to ${target.name}.`, { kind: 'loot' });
+        } catch (e) {
+            window.apxAddReceivedItem(sent); window.recalculateMath?.();
+            window.apxAlert(`Couldn't give ${sent.name}: ${e.message}`);
+        }
+    };
+    // Items other players handed to me (their outbox), and clearing what they've received from mine
+    function _pwProcessMail() {
+        let code = _pwTradeCode(); if (!code || !window.state || !window.APXBattle?.mail) return;
+        let myUid = window.apxAuth.user.uid, mail = window.APXBattle.mail(), st = window.state;
+        st.receivedGifts = Array.isArray(st.receivedGifts) ? st.receivedGifts : [];
+        let got = [];
+        Object.entries(mail).forEach(([uid, m]) => {
+            if (uid === myUid) return;
+            Object.values(m.outbox || {}).forEach(e => {
+                if (!e || e.to !== myUid || !e.id || !e.item) return;
+                if (st.receivedGifts.includes(e.id)) { window.apxAuth.ackGift(code, e.id).catch(() => {}); return; }
+                if ((window._pwGiftBusy = window._pwGiftBusy || {})[e.id]) return;
+                window._pwGiftBusy[e.id] = 1;
+                window.apxAddReceivedItem(e.item);
+                st.receivedGifts.push(e.id);
+                got.push(e);
+                window.apxAuth.ackGift(code, e.id).catch(() => {});
+            });
+        });
+        st.receivedGifts = st.receivedGifts.slice(-200);
+        if (got.length) {
+            got.forEach(e => window.APXDice?.notify(`${e.fromName || 'A party member'} gave you ${(e.item.ct || 1) > 1 ? e.item.ct + '× ' : ''}${e.item.name}.`, { kind: 'loot', id: 'gift_' + e.id }));
+            window.recalculateMath?.();
+        }
+        // My outbox entries the recipient has acknowledged can go
+        let mine = mail[myUid]?.outbox || {}, done = [];
+        Object.values(mine).forEach(e => { if (e && e.id && mail[e.to]?.giftAcks?.[e.id]) done.push(e.id); });
+        if (done.length && !window._pwClearingOutbox) {
+            window._pwClearingOutbox = true;
+            window.apxAuth.clearOutbox(code, done).catch(() => {}).finally(() => { window._pwClearingOutbox = false; });
+        }
+    }
+    window._pwProcessMail = _pwProcessMail;
+    // Loot and Cu the GM hands out (queued on my own player doc)
+    window._pwApplyGmGifts = function(code, data, first, savedAt) {
+        let st = window.state; if (!st) return;
+        let gifts = Object.entries(data._gmGifts || {}).map(([id, g]) => Object.assign({ id }, g || {}));
+        if (!gifts.length) return;
+        st.receivedGifts = Array.isArray(st.receivedGifts) ? st.receivedGifts : [];
+        let applied = [], acks = [];
+        gifts.forEach(g => {
+            acks.push(g.id);
+            if (st.receivedGifts.includes(g.id)) return;
+            st.receivedGifts.push(g.id);
+            if (g.item) {
+                window.apxAddReceivedItem(g.item);
+                applied.push(`${(g.item.ct || 1) > 1 ? g.item.ct + '× ' : ''}${g.item.name}`);
+            }
+            if (g.cu) {
+                st.currency = (parseInt(st.currency) || 0) + (parseInt(g.cu) || 0);
+                applied.push(`${g.cu} Cu`);
+            }
+        });
+        st.receivedGifts = st.receivedGifts.slice(-200);
+        if (applied.length) {
+            window.APXDice?.notify(`Loot from the GM: ${applied.join(', ')}.`, { kind: 'loot', open: true });
+            window.recalculateMath?.();
+            window.scheduleAutoSave?.();
+        }
+        if (acks.length && window.apxAuth?.ackGmGifts) setTimeout(() => window.apxAuth.ackGmGifts(code, acks), 1500);
+    };
+
     if (window.APXBattle && !window._pwPartyHooked) {
         window._pwPartyHooked = true;
         window.APXBattle.onChange(() => {
+            try { _pwProcessMail(); } catch (e) { console.warn('Trade mail:', e); }
+            // Refresh the inventory's Give menus when the party changes
+            let sig = (window.apxGiveTargets?.() || []).map(t => t.uid + t.name).join('|');
+            if (sig !== window._pwGiveSig) { window._pwGiveSig = sig; if (window.state && typeof window.recalculateMath === 'function' && document.getElementById('inventoryBody')) window.recalculateMath(); }
             let p = document.getElementById('pwPanelParty');
             if (p && !p.classList.contains('hidden')) renderPlayerParty();
         });
@@ -4010,7 +4246,8 @@
 
         let myUid  = window.apxAuth?.user?.uid || '';
         let myName = window.state?.name || '';
-        let isMine = t => t.type === 'player' && ((myUid && t.playerUid === myUid) || (!myUid && t.name === myName));
+        let isMine = t => (t.type === 'player' && ((myUid && t.playerUid === myUid) || (!myUid && t.name === myName)))
+            || (t.type === 'companion' && myUid && t.playerUid === myUid);   // your Loyal Companion moves with you
 
         let world   = window._playerWorldData;
         let gmUid   = world?.gmUid;
@@ -4046,10 +4283,12 @@
             let isDead = !!t._dead;
             let faction = t._faction || (t.type==='player' ? 'player' : 'enemy');
             let factionBorder = {player:'#3b82f6', ally:'#22c55e', neutral:'#e2e8f0', enemy:'#ef4444'}[faction] || '#e2e8f0';
-            let defColor = t.type==='player' ? '#1d4ed8' : '#d97706';
+            let defColor = t.type==='player' ? '#1d4ed8' : t.type==='companion' ? '#16a34a' : '#d97706';
             let portrait = '';
             if (t.type === 'player') {
                 portrait = mine ? (window.state?.charPortrait || '') : window.APXBattle.portraitOf(t.playerUid);
+            } else if (t.type === 'companion') {
+                portrait = mine ? (window.state?.companion?.portrait || '') : window.APXBattle.companionOf(t.playerUid).portrait;
             } else if (t.type === 'npc' && t.worldNpcId) {
                 let cached = window._pwNpcPortraitCache[t.worldNpcId];
                 if (cached) portrait = cached;
@@ -4302,6 +4541,19 @@
                 // Only touch the sheet if the loaded character belongs to THIS world
                 let activeChar = (window._sidebarChars||[]).find(c => c.id === window._activeCloudCharId);
                 let isThisWorld = !activeChar?.worldCode || activeChar.worldCode === inviteCode;
+                // Loyal Companion HP set by the GM in initiative
+                let gmC = data._gmCompHp;
+                if (gmC && isThisWorld && window.state?.companion) {
+                    let at = gmC.at?.toMillis?.() || 0, savedAt = data.updatedAt?.toMillis?.() || 0;
+                    window._lastGmCompAt = window._lastGmCompAt || {};
+                    let apply = at > (window._lastGmCompAt[inviteCode] || 0) && (!first || at >= savedAt);
+                    if (at) window._lastGmCompAt[inviteCode] = Math.max(window._lastGmCompAt[inviteCode] || 0, at);
+                    if (apply && gmC.hp !== undefined && gmC.hp !== window.state.companion.currentHp) {
+                        window.state.companion.currentHp = gmC.hp;
+                        if (typeof window.recalculateMath === 'function') window.recalculateMath();
+                        window.APXDice?.notify(`${window.state.companion.name || 'Your companion'}'s HP updated by GM: ${gmC.hp}`, { kind: 'note' });
+                    }
+                }
                 let gmHp = data._gmHp;
                 if (gmHp && isThisWorld) {
                     let at = gmHp.at?.toMillis?.() || 0;
@@ -4340,6 +4592,10 @@
                         changed = true;
                     });
                     if (changed && typeof window.recalculateMath === 'function') window.recalculateMath();
+                }
+                // Loot / Cu handed out by the GM
+                if (activeChar?.worldCode === inviteCode && window.state && data._gmGifts) {
+                    try { window._pwApplyGmGifts(inviteCode, data, first, data.updatedAt?.toMillis?.() || 0); } catch (e) { console.warn('GM gifts:', e); }
                 }
                 // XP grants from the GM (combat, discovery, role play…). Each grant is paid
                 // once, with this character's own bonuses (Educated, Expertise, INT), logged,

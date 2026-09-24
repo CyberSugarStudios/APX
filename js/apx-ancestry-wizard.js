@@ -274,7 +274,8 @@
             ATTRIBUTES.forEach(a => {
                 let input = document.getElementById(`wizBase_${a}`);
                 let note = document.getElementById(`wizBaseGmNote_${a}`);
-                if (input) input.classList.toggle('hidden', hide);
+                if (input) { input.classList.toggle('hidden', hide); input.classList.toggle('apx-gm-hidden', hide); }
+                let sel = document.getElementById(`wizBaseSel_${a}`); if (sel && hide) sel.classList.add('hidden');
                 if (note) note.classList.toggle('hidden', !hide);
             });
         }
@@ -315,6 +316,7 @@
             document.getElementById('ancestryWizardTitle').innerText = 'Ancestry & Genetics Builder';
             document.getElementById('wizBtnFinish').innerText = 'Save & Apply';
             toggleWizBaseAttrFields(false);
+            setTimeout(() => { window.apxApplyWorldRules && window.apxApplyWorldRules(); applyAttrModeUi(); window.calcAncestryGp && window.calcAncestryGp(); }, 0);
             ATTRIBUTES.forEach(a => {
                 document.getElementById(`wizBase_${a}`).value = window.state.baseStats[a] || 5;
                 document.getElementById(`wizMod_${a}`).value = window.state.ancestry.bonuses[a] || 0;
@@ -358,8 +360,9 @@
                 if (!baseEl || !modEl) return;
 
                 let base = parseInt(baseEl.value) || 5;
+                let hiCap = attrMode() === 'pointBuy' ? 7 : 10;   // world Point Buy: 2-7
                 if (base < 2) base = 2;
-                if (base > 10) base = 10;
+                if (base > hiCap) base = hiCap;
                 baseEl.value = base;
 
                 let mod = parseInt(modEl.value) || 0;
@@ -378,6 +381,71 @@
                 if (speed > 6) speed = 6;
                 speedEl.value = speed;
             }
+        }
+
+        // ── Core Attribute rules (Point Buy / Standard Array) ─────────────
+        // Point Buy: every attribute starts at 4 with 7 points to spend (+1 costs 1, -1 refunds 1),
+        // each between 2 and 7. Standard Array: 7, 6, 5, 5, 5, 4, 3, one each.
+        // Enforced for characters in a world (the GM picks the method in World Settings);
+        // outside a world it's a guide only.
+        const STANDARD_ARRAY = [7, 6, 5, 5, 5, 4, 3];
+        const PB_BASE = 4, PB_POOL = 7, PB_MIN = 2, PB_MAX = 7;
+        function attrMode() {
+            if ((window.ancTarget || 'player') !== 'player') return 'none';
+            let ws = window.apxActiveWorldSettings ? window.apxActiveWorldSettings() : null;
+            if (!ws) return 'free';
+            return ws.attrMethod === 'standardArray' ? 'array' : 'pointBuy';
+        }
+        window.apxAttrMode = attrMode;
+        function readBases() { let o = {}; ATTRIBUTES.forEach(a => { o[a] = parseInt(document.getElementById(`wizBase_${a}`)?.value) || 0; }); return o; }
+        // Standard Array: dropdowns stand in for the number boxes (which keep the value)
+        function applyAttrModeUi() {
+            let mode = attrMode();
+            ATTRIBUTES.forEach(a => {
+                let input = document.getElementById(`wizBase_${a}`); if (!input) return;
+                let sel = document.getElementById(`wizBaseSel_${a}`);
+                if (mode === 'array') {
+                    if (!sel) {
+                        sel = document.createElement('select');
+                        sel.id = `wizBaseSel_${a}`;
+                        sel.className = 'w-full text-center bg-slate-900 font-bold text-sm';
+                        sel.onchange = () => { input.value = sel.value; window.calcAncestryGp(); };
+                        input.parentNode.insertBefore(sel, input.nextSibling);
+                    }
+                    let cur = parseInt(input.value) || 0;
+                    let opts = [...new Set(STANDARD_ARRAY)];
+                    sel.innerHTML = (opts.includes(cur) ? '' : `<option value="${cur}">${cur} (current)</option>`) + opts.map(v => `<option value="${v}" ${v === cur ? 'selected' : ''}>${v}</option>`).join('');
+                    sel.classList.remove('hidden'); input.classList.add('hidden');
+                } else {
+                    if (sel) sel.classList.add('hidden');
+                    if (!input.classList.contains('apx-gm-hidden')) input.classList.remove('hidden');
+                    input.max = mode === 'pointBuy' || mode === 'free' ? PB_MAX : 10;
+                }
+            });
+        }
+        window.apxApplyAttrModeUi = applyAttrModeUi;
+        // Returns an error message (blocks saving) or null; also fills the guide note
+        function checkAttrRules() {
+            let mode = attrMode(), note = document.getElementById('wizBaseStatNote');
+            if (mode === 'none') return null;
+            let b = readBases();
+            let changed = ATTRIBUTES.some(a => b[a] !== (window.state.baseStats[a] || 5));   // untouched older characters aren't blocked
+            let msg = null, err = false;
+            if (mode === 'array') {
+                let used = ATTRIBUTES.map(a => b[a]).sort((x, y) => y - x);
+                let ok = used.join(',') === STANDARD_ARRAY.slice().sort((x, y) => y - x).join(',');
+                if (!ok) { msg = 'Standard Array: give each of 7, 6, 5, 5, 5, 4 and 3 to one attribute.'; err = changed; }
+            } else {
+                let spent = ATTRIBUTES.reduce((t, a) => t + (b[a] - PB_BASE), 0);
+                let out = ATTRIBUTES.filter(a => b[a] < PB_MIN || b[a] > PB_MAX);
+                let left = PB_POOL - spent;
+                msg = `Point Buy: ${spent} of ${PB_POOL} points spent${left > 0 ? ` (${left} left)` : left < 0 ? ` (${-left} over)` : ''}. Every attribute starts at ${PB_BASE}, between ${PB_MIN} and ${PB_MAX}.`;
+                if (out.length) msg += ` ${out.join(', ')} ${out.length > 1 ? 'are' : 'is'} out of range.`;
+                err = mode === 'pointBuy' && changed && (left < 0 || out.length > 0);
+                if (!err && mode === 'free' && spent === PB_POOL && !out.length) msg = null;   // a legal Point Buy: nothing to say
+            }
+            if (note) { note.classList.toggle('hidden', !msg); if (msg) note.innerText = msg; note.style.color = err ? '#f87171' : ''; }
+            return err ? msg : null;
         }
 
         function traitCount(id) { return window.state.ancestry.traits.filter(x => x === id).length; }
@@ -810,21 +878,11 @@
             }
             window.state.ancestry.gpUsed = gp;
 
-            // Advisory only, never blocking: Point Buy and Standard Array
-            // both redistribute points from a baseline of 5 per Core
-            // Attribute (35 total across all 7), so the modifiers should
-            // sum to 0. This varies table to table (some GMs deliberately
-            // run stronger/weaker campaigns), so this is just a heads-up.
-            let baseTotal = ATTRIBUTES.reduce((sum, a) => sum + (parseInt(document.getElementById(`wizBase_${a}`).value) || 0), 0);
-            let baseNote = document.getElementById('wizBaseStatNote');
-            if (baseNote) {
-                let diff = baseTotal - 35;
-                if (diff === 0) {
-                    baseNote.classList.add('hidden');
-                } else {
-                    baseNote.classList.remove('hidden');
-                    baseNote.innerText = `Base attributes total ${baseTotal} (${diff > 0 ? '+' : ''}${diff} vs. the standard 35 for Point Buy/Standard Array). This may be intentional for your table.`;
-                }
+            // Core Attribute rules (Point Buy / Standard Array): blocks saving in a world
+            let attrErr = checkAttrRules();
+            if (attrErr) {
+                document.getElementById('wizBtnFinish').disabled = true;
+                document.getElementById('wizBtnFinish').classList.add('opacity-50', 'cursor-not-allowed');
             }
         }
 

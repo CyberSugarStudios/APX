@@ -177,11 +177,12 @@
         .apxd-card.log.k-wt{border-left-color:#f59e0b} .apxd-card.log.k-bleed{border-left-color:#b91c1c}
         .apxd-card.log.k-roll{border-left-color:#818cf8} .apxd-card.log.k-info{border-left-color:#64748b}
         .apxd-card.log.k-note{border-left-color:#38bdf8} .apxd-card.log.k-warn{border-left-color:#f87171;color:var(--c-text,#fff)}
-        .apxd-card.log.k-xp{border-left-color:#34d399}
+        .apxd-card.log.k-xp{border-left-color:#34d399} .apxd-card.log.k-loot{border-left-color:#f59e0b}
         .apxd-card.log .lt{font-size:.62rem;color:var(--c-text-muted,#94a3b8);margin-right:.35rem}
         .apxd-card.log .lg{font-size:.58rem;font-weight:800;text-transform:uppercase;color:var(--c-text-muted,#94a3b8);margin-right:.3rem}
         .apxd-fab.unseen::after{content:'';position:absolute;top:2px;right:2px;width:11px;height:11px;border-radius:50%;background:#ef4444;border:2px solid var(--c-surface,#1e293b)}
-        .apxd-log{overflow-y:auto;padding:.5rem .6rem;display:flex;flex-direction:column;gap:.45rem;min-height:90px}
+        .apxd-tray>*{flex-shrink:0}
+        .apxd-log{overflow-y:auto;padding:.5rem .6rem;display:flex;flex-direction:column;gap:.45rem;min-height:90px;flex:1 1 auto;flex-shrink:1}
         .apxd-empty{font-size:.7rem;color:var(--c-text-muted,#64748b);text-align:center;padding:1rem .5rem}
         .apxd-card{border:1px solid var(--c-border,#334155);background:var(--c-surface2,#0f172a);border-radius:.55rem;padding:.45rem .55rem}
         .apxd-card.crit{border-color:#facc15;box-shadow:0 0 0 1px #facc15 inset}
@@ -516,11 +517,28 @@
                 if (typeof window.apxOnRollEvent !== 'function' || !c.perks) return;
                 try {
                     window.apxOnRollEvent({ id: c.id, kind: o.kind === 'save' ? 'save' : 'check', attr: o.attr || '', skill: o.skill || '', label: c.label, who: o.who || '',
-                        nat: p.nat, total: p.total, bonus: p.bonus || 0, mode: p.badgeMode || mode, luck: !!p.luckUsed, omen: p.omenAt !== undefined, autoFail: !!o.autoFail });
+                        nat: p.nat, total: p.total, bonus: p.bonus || 0, mode: p.badgeMode || mode, luck: !!p.luckUsed, omen: p.omenAt !== undefined, autoFail: !!o.autoFail,
+                        purpose: o.purpose || '', extra: c.resultExtra || null });
                 } catch (e) { }
             };
-            let redo = () => { c.badges = modeBadges(p.badgeMode || mode, o.advSources, o.disSources).concat(o.autoFail ? [['fum', 'Auto-fail', o.autoFail]] : []); c.actions = d20Actions(c, p, redo); renderCard(c); emit(); };
+            // o.onResult(result) → optional text shown on the card (e.g. what a Loot check found);
+            // called again whenever a Luck reroll or Omen changes the roll
+            let lastSig = null;
+            let result = () => {
+                if (typeof o.onResult !== 'function') return;
+                let sig = p.nat + '|' + p.total;
+                if (sig === lastSig) return;
+                lastSig = sig;
+                try {
+                    let res = o.onResult({ id: c.id, nat: p.nat, total: p.total, autoFail: !!o.autoFail, rerolled: !!p.luckUsed || p.omenAt !== undefined });
+                    if (res && typeof res === 'object') { c.resultNote = res.text || null; c.resultExtra = res.extra || null; }
+                    else c.resultNote = res || null;
+                } catch (e) { console.warn('Roll result:', e); }
+            };
+            let noteBadge = () => c.resultNote ? [['info', c.resultNote]] : [];
+            let redo = () => { result(); c.badges = modeBadges(p.badgeMode || mode, o.advSources, o.disSources).concat(o.autoFail ? [['fum', 'Auto-fail', o.autoFail]] : [], o.note ? [['info', o.note]] : [], noteBadge()); c.actions = d20Actions(c, p, redo); renderCard(c); emit(); };
             c._redo = redo;
+            result(); c.badges = c.badges.concat(noteBadge());
             c.actions = d20Actions(c, p, redo);
             setMode('normal');
             let out = addCard(c);

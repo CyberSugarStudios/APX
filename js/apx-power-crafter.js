@@ -613,12 +613,12 @@ function pcRenderUtilityTier(tier, label, colorClass) {
 function pcRenderStep5() {
     let npc = pcIsNpc();
     let discountNote = pcDraft.step1 === 'hpPool' ? `<div class="text-[10px] text-emerald-400 mb-2">HP Capacity Pool: each Utility selection (except Mythic) is ${npc ? 'cheaper' : 'costs 10 XP less (min 0)'} before the AoE multiplier.</div>` : '';
-    // Two columns: Minor on the left; Moderate, Major, Master and Mythic on the right
+    // Two columns: Minor and Moderate on the left; Major, Master and Mythic on the right
     document.getElementById('pcStep5List').innerHTML = discountNote +
         `<div class="grid grid-cols-1 md:grid-cols-2 gap-x-3 items-start"><div>` +
         pcRenderUtilityTier('minor', npc ? 'Minor Utility' : 'Minor Utility (5 XP each)', 'text-emerald-400') +
-        `</div><div>` +
         pcRenderUtilityTier('moderate', npc ? 'Moderate Utility' : 'Moderate Utility (15 XP each)', 'text-blue-400') +
+        `</div><div>` +
         pcRenderUtilityTier('major', npc ? 'Major Utility' : 'Major Utility (30 XP each)', 'text-purple-400') +
         pcRenderUtilityTier('master', npc ? 'Master Utility' : 'Master Utility (50 XP each)', 'text-red-400') +
         pcRenderUtilityTier('mythic', npc ? 'Mythic Utility' : 'Mythic Utility (130 XP)', 'text-amber-300') +

@@ -370,6 +370,7 @@
                     let cs = data.charState || {};
                     return {
                         uid: data.uid || d.id,
+                        outbox: data._outbox || {}, giftAcks: data._giftAcks || {},
                         battlePositions: data.battlePositions || {},
                         charPortrait: cs.charPortrait || '',
                         // Basic public info for the players' Party view (no stats)
@@ -378,7 +379,8 @@
                             ancestry: cs.ancestry?.name || '',
                             origin: cs.origin?.name || '',
                             age: cs.charAge || '',
-                            size: cs.ancestry?.size || null
+                            size: cs.ancestry?.size || null,
+                            companion: cs.companion ? { name: cs.companion.name || 'Companion', portrait: cs.companion.portrait || '', size: cs.companion.size || 'medium' } : null
                         }
                     };
                 }));
@@ -405,6 +407,48 @@
         await db.collection('worldCodes').doc(inviteCode)
             .collection('players').doc(uid)
             .set({ _gmHp: v }, { merge: true });
+    }
+
+    // ── Loot and item transfers ──────────────────────────────────────────────
+    // GM → player: queued gifts on the player's doc (_gmGifts.{id}), removed once applied.
+    async function gmGiveToPlayer(inviteCode, uid, gift) {
+        if (!inviteCode || !uid || !gift || !gift.id) return;
+        await db.collection('worldCodes').doc(inviteCode.toUpperCase().trim()).collection('players').doc(uid)
+            .set({ _gmGifts: { [gift.id]: apxClean(Object.assign({}, gift, { at: firebase.firestore.FieldValue.serverTimestamp() })) } }, { merge: true });
+    }
+    async function ackGmGifts(inviteCode, ids) {
+        let user = currentUser(); if (!inviteCode || !user || !ids || !ids.length) return;
+        let upd = {}; ids.forEach(id => { upd['_gmGifts.' + id] = firebase.firestore.FieldValue.delete(); });
+        await db.collection('worldCodes').doc(inviteCode.toUpperCase().trim()).collection('players').doc(user.uid).update(upd).catch(() => {});
+    }
+    // Player → player: the giver lists it in their own _outbox; the receiver adds it and
+    // writes _giftAcks.{id} on their own doc; the giver then clears the outbox entry.
+    async function writeOutbox(inviteCode, entry) {
+        let user = currentUser(); if (!inviteCode || !user || !entry || !entry.id) return;
+        await db.collection('worldCodes').doc(inviteCode.toUpperCase().trim()).collection('players').doc(user.uid)
+            .set({ _outbox: { [entry.id]: apxClean(entry) } }, { merge: true });
+    }
+    async function clearOutbox(inviteCode, ids) {
+        let user = currentUser(); if (!inviteCode || !user || !ids || !ids.length) return;
+        let upd = {}; ids.forEach(id => { upd['_outbox.' + id] = firebase.firestore.FieldValue.delete(); });
+        await db.collection('worldCodes').doc(inviteCode.toUpperCase().trim()).collection('players').doc(user.uid).update(upd).catch(() => {});
+    }
+    async function ackGift(inviteCode, id) {
+        let user = currentUser(); if (!inviteCode || !user || !id) return;
+        await db.collection('worldCodes').doc(inviteCode.toUpperCase().trim()).collection('players').doc(user.uid)
+            .set({ _giftAcks: { [id]: Date.now() } }, { merge: true });
+    }
+    // GM asks the party for a LUC (Loot) check
+    async function publishLootRequest(inviteCode, req) {
+        if (!inviteCode) return;
+        await db.collection('worldCodes').doc(inviteCode.toUpperCase().trim()).set({ lootRequest: apxClean(req) }, { merge: true });
+    }
+
+    // GM sets a player's Loyal Companion HP (initiative tracker); the sheet applies it
+    async function setGmCompanionHp(inviteCode, uid, hp) {
+        if (!inviteCode || !uid) return;
+        await db.collection('worldCodes').doc(inviteCode).collection('players').doc(uid)
+            .set({ _gmCompHp: { hp, at: firebase.firestore.FieldValue.serverTimestamp() } }, { merge: true });
     }
 
     // GM turns a condition on/off on a player's sheet (e.g. Bleeding Out at 0 HP)
@@ -674,6 +718,7 @@
             gmUid: data.gmUid, worldId: data.worldId,
             worldName: data.worldName, name: data.worldName,
             races: data.races || [],
+            worldSettings: data.worldSettings || null,
             notesV2: {
                 locations: data.publicNotes?.locations || [],
                 npcs:      data.publicNotes?.npcs      || [],
@@ -774,7 +819,8 @@
         writeBattlePosition, listenBattlePositions,
         saveOtherMapImage, loadOtherMapImage, loadOtherMapImageForPlayer, deleteOtherMapImage,
         saveBattleImage, loadBattleImage, loadBattleImageForPlayer, deleteBattleImage,
-        addXpGrant, ackXpGrants, setGmCondition, publishCombatLog, writeRollLog,
+        addXpGrant, ackXpGrants, setGmCondition, publishCombatLog, writeRollLog, setGmCompanionHp,
+        gmGiveToPlayer, ackGmGifts, writeOutbox, clearOutbox, ackGift, publishLootRequest,
         saveFogData, loadFogData, loadFogDataForPlayer, listenFogDataForPlayer,
         listenWorldPlayers, listenPublicWorldNotes, kickWorldPlayer,
         scheduleAutoSave, setActiveCharId,

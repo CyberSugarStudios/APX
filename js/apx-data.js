@@ -674,6 +674,11 @@
         }
         window.npcWeaponTp = npcWeaponTp;
         window.npcArmorTp = npcArmorTp;
+        // Shield and helmet for NPCs / companions: the player versions, priced like armor
+        // (1 TP per AC + 1 TP per 2 DR/ER): Shield +2 AC/DR/ER = 4 TP (1 hand), Helmet +1 = 2 TP.
+        const NPC_SHIELD = { name: 'Shield', ac: 2, dr: 2, er: 2, hands: 1 };
+        const NPC_HELMET = { name: 'Helmet', ac: 1, dr: 1, er: 1 };
+        window.NPC_SHIELD = NPC_SHIELD; window.NPC_HELMET = NPC_HELMET;
 
 
         // ------------------------------------------------------------------

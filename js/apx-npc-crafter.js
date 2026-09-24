@@ -193,7 +193,9 @@ window.companionGearTp = function(c) {
     if (!c) return out;
     out.armor = window.npcArmorTp(c.equippedArmor);
     out.weapons = (c.weapons || []).map(w => Object.assign({ name: w.name }, window.npcWeaponTp(w)));
-    out.total = out.armor.tp + out.weapons.reduce((a, w) => a + w.tp, 0);
+    out.shield = c.shield && c.shield.owned ? window.npcArmorTp(NPC_SHIELD) : { tp: 0, parts: [] };
+    out.helmet = c.helmet && c.helmet.owned ? window.npcArmorTp(NPC_HELMET) : { tp: 0, parts: [] };
+    out.total = out.armor.tp + out.shield.tp + out.helmet.tp + out.weapons.reduce((a, w) => a + w.tp, 0);
     return out;
 };
 
@@ -769,8 +771,7 @@ window.ncIwAdjustDie = function(i, delta) {
     let max = Math.min(NPC_DIE_STEPS.length - 1, tier);          // "max TP on this feature = Tier"
     let next = (w.dieStepIndex || 0) + delta;
     if (next < 0 || next > max) {
-        if (delta > 0) window.showConfirm(`Die step is capped at Tier (${tier}) steps for a Tier ${tier} creature.`, null, true);
-        return;
+        return;   // the + button is disabled at the cap
     }
     ncSpend(delta, () => {
         w.dieStepIndex = next;
@@ -782,10 +783,7 @@ window.ncIwAdjustDice = function(i, delta) {
     let w = ncIw(i); if (!w) return;
     let tier = npcTierForTP(window.companionTotalTp()).tier;
     let maxDice = 2 * tier;
-    if (delta > 0 && ncIwTotalDice(w) >= maxDice) {
-        window.showConfirm(`Max dice reached (2 x Tier = ${maxDice}).`, null, true);
-        return;
-    }
+    if (delta > 0 && ncIwTotalDice(w) >= maxDice) return;   // the + button is disabled at the cap
     if ((w.extraDice || 0) + delta < 0) return;
     let dieType = parseDieStep(NPC_DIE_STEPS[w.dieStepIndex || 0]).type;
     ncSpend(delta * NPC_ADDITIONAL_DIE_COST[dieType], () => { w.extraDice = (w.extraDice || 0) + delta; });
@@ -1104,9 +1102,17 @@ window.companionStatBlock = function() {
 
     let armor = c.equippedArmor || {};
     let ac = 10 + mods.AGI + c.acBonus + (armor.ac || 0);
-    let dr = mods.CON + c.drBonus + (armor.dr || 0);
+    let dr = mods.CON + c.drBonus * 2 + (armor.dr || 0);   // each +2 DR purchase (1 TP) adds 2
+    // Shield (when held) and helmet
+    let shieldOn = !!(c.shield && c.shield.owned && c.shield.equipped !== false);
+    let helmetOn = !!(c.helmet && c.helmet.owned);
+    if (shieldOn) { ac += NPC_SHIELD.ac; dr += NPC_SHIELD.dr; }
+    if (helmetOn) { ac += NPC_HELMET.ac; dr += NPC_HELMET.dr; }
+    let hands = 2, freeHands = hands - (shieldOn ? NPC_SHIELD.hands : 0);
     let nonConStr = ATTRIBUTES.filter(a => a !== 'CON' && a !== 'STR').map(a => mods[a]);
-    let er = Math.max(0, ...nonConStr, 0) + c.erBonus + (armor.er || 0);
+    let er = Math.max(0, ...nonConStr, 0) + c.erBonus * 2 + (armor.er || 0);   // each +2 ER purchase adds 2
+    if (shieldOn) er += NPC_SHIELD.er;
+    if (helmetOn) er += NPC_HELMET.er;
     let speed = 3 + c.speedBonus + (armor.speedMod || 0);
     let ap = 6 + c.apBonus * 1; // AP purchases add flat +1 each (not tied to AGI for NPCs, per Ch.15 baseline "6 AP")
     // NPCs don't get a chosen initStat like players (AGI or PER) --
@@ -1176,7 +1182,8 @@ window.companionStatBlock = function() {
         equippedWeapons.push({
             name: w.name, dmg: dmgText, ap: w.ap, weaponIdx: wIdx,
             atk: atkInfo.bonus, trained: atkInfo.trained, attr: atkInfo.attr,
-            typeLabel: companionWeaponTypeLabel(w), category: w.category, aimed: !!w.aimed, flurry: !!(w.properties && w.properties.flurry)
+            typeLabel: companionWeaponTypeLabel(w), category: w.category, aimed: !!w.aimed, flurry: !!(w.properties && w.properties.flurry),
+            hands: w.weightClass === 'heavy' ? 2 : 1
         });
         // Medium melee weapons can also be wielded 2-handed: STR only,
         // +1 AP, +1 die step -- shown as a second linked row, same as the
@@ -1198,7 +1205,8 @@ window.companionStatBlock = function() {
             equippedWeapons.push({
                 name: `${w.name} (2-Handed)`, dmg: twoHDmgText, ap: w.ap + 1,
                 atk: twoHAtkInfo.bonus, trained: twoHAtkInfo.trained, attr: twoHAtkInfo.attr,
-                typeLabel: companionWeaponTypeLabel(w), isTwoHanded: true, category: w.category, flurry: !!(w.properties && w.properties.flurry)
+                typeLabel: companionWeaponTypeLabel(w), isTwoHanded: true, category: w.category, flurry: !!(w.properties && w.properties.flurry),
+                hands: 2
             });
         }
     });
@@ -1228,12 +1236,63 @@ window.companionStatBlock = function() {
         altLocomotion: c.altLocomotion, hover: c.hover,
         mods, dmgText, attackBonus, range, propNames, innateAttacks, trainingBonus: c.trainingBonus,
         otherTrainings: c.otherTrainings, equippedWeapons, equippedArmorName: armor.name || null, trainedSkills,
+        hasShield: !!(c.shield && c.shield.owned), shieldOn, hasHelmet: helmetOn, hands, freeHands,
         senseList, traitList, powerList, powerCards, lairActionPowerCards, casterSlots: c.casterSlots,
         powerAttrChoice, powerAttackBonus, powerSaveDc,
         conditionImmunities: c.conditionImmunities, conditionalDmgImmunities: c.conditionalDmgImmunities,
         energyImmunities: c.energyImmunities, energyVulnerabilities: c.energyVulnerabilities,
         damageResistances: c.damageResistances || []
     };
+};
+
+// Shield and helmet (Step 4, and the Equip/Stow button on the stat block)
+window.ncToggleGear = function(which, own) {
+    let c = ncActiveCompanion(); if (!c) return;
+    let def = which === 'shield' ? NPC_SHIELD : NPC_HELMET;
+    let tp = window.npcArmorTp(def).tp;
+    let cur = !!(c[which] && c[which].owned);
+    if (own === cur) return;
+    ncSpend(own ? tp : -tp, () => { c[which] = { owned: own, equipped: true }; });
+};
+// Stat block button: hold the shield, or stow it to free a hand for two-handed attacks
+window.npcToggleShieldEquipped = function(npcId) {
+    let c = null;
+    if (npcId) { let n = (window.gmNpcs || []).find(x => x.id === npcId); c = n && n.npc; }
+    else if (window.state && window.state.companion) c = window.state.companion;
+    if (!c || !c.shield || !c.shield.owned) return;
+    c.shield.equipped = c.shield.equipped === false;
+    if (npcId && window.apxAuth?.enabled) window.apxAuth.saveGmNpcs(window.gmNpcs || []).catch(() => {});
+    if (!npcId && typeof window.recalculateMath === 'function') window.recalculateMath();
+    if (typeof window.refreshOpenStatBlocks === 'function') window.refreshOpenStatBlocks();
+    if (typeof ncRenderAll === 'function' && document.getElementById('npcCrafterModal')?.classList.contains('active')) ncRenderAll();
+};
+
+// Rebuild any open floating stat block (after equipping/stowing a shield, etc.)
+window.refreshOpenStatBlocks = function() {
+    Object.values(window.gmFloatingWindows || {}).forEach(win => {
+        let root = win.querySelector('[data-sb-npc]'); if (!root) return;
+        let npcId = root.getAttribute('data-sb-npc'), initId = root.getAttribute('data-sb-init');
+        let sb = null;
+        if (npcId && typeof ncStatBlockFor === 'function') sb = ncStatBlockFor(npcId);
+        else if (!npcId && window.state && window.state.companion) { let keep = ncTarget; ncTarget = 'companion'; sb = window.companionStatBlock(); ncTarget = keep; }
+        if (!sb) return;
+        if (initId) sb._initId = initId;
+        let body = win.querySelector('.floating-stat-window-body');
+        if (body) body.innerHTML = buildStatBlockHtml(sb, root.closest('[data-editable]') ? true : false);
+    });
+};
+
+// Companion token picture: a small circle-friendly image (kept small so it syncs quickly)
+window.ncSetPortrait = async function(input) {
+    let c = ncActiveCompanion(); if (!c) return;
+    if (!input) { delete c.portrait; ncRenderAll(); window.recalculateMath?.(); return; }
+    let file = input.files && input.files[0]; input.value = '';
+    if (!file) return;
+    try {
+        c.portrait = (await window.APXBattle.compressImage(file, 160)).src;
+        ncRenderAll();
+        if (typeof window.recalculateMath === 'function') window.recalculateMath();   // saves, so the GM and party see it
+    } catch (e) { window.APXDice?.notify('Token image: ' + e.message, { kind: 'warn', open: true }); }
 };
 
 window.adjustCompanionHp = function(delta) {
@@ -1408,7 +1467,7 @@ function buildStatBlockHtml(sb, editable) {
     let resist = [`DR ${sb.dr} (physical)`, `ER ${sb.er} (energy)`].concat((sb.damageResistances || []).map(t => `${t} +5`));
     // Click-to-roll hooks (APXDice). NPC rolls never use the player's perks.
     let R = o => window.APXDice ? ` data-apx-roll='${window.APXDice.attr(Object.assign({ who: sb.name, perks: false, gambleAllowed: false }, o))}' title="Click to roll"` : '';
-    return `<div class="apx-dice-scope" data-roll-who="${esc(sb.name)}">
+    return `<div class="apx-dice-scope" data-roll-who="${esc(sb.name)}" data-sb-npc="${sb._npcId || ''}" data-sb-init="${sb._initId || ''}">
         <div class="grid grid-cols-5 gap-2 mb-3 bg-slate-900 border border-purple-800/50 rounded-lg p-2">
             <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">Tier</div><div class="text-lg font-black text-white">${sb.tier}</div></div>
             <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">AC</div><div class="text-lg font-black text-white">${sb.ac}</div></div>
@@ -1430,10 +1489,19 @@ function buildStatBlockHtml(sb, editable) {
                 ${w.propNames.length ? `<div class="text-[10px] text-slate-500 -mt-0.5 mb-1">${w.propNames.map(esc).join(', ')}</div>` : ''}`).join('')
               : '<div class="text-[10px] text-slate-600">No innate weapons</div>'}
         </div>
-        ${(sb.equippedWeapons.length || sb.equippedArmorName) ? `<div class="bg-slate-900 border border-orange-800/50 rounded p-2 mb-2">
-            <div class="text-[10px] font-black text-orange-400 uppercase mb-1">Equipped Gear</div>
-            ${sb.equippedWeapons.length ? sb.equippedWeapons.map(w => `<div class="text-xs text-slate-200" data-roll-label="${esc(w.name)} damage">${esc(w.name)}: <span class="apxd-atk"${R({ type: 'attack', label: w.name, bonus: w.atk, dice: String(w.dmg), critMult: w.critMult || 2, npcId: sb._npcId || null, initId: sb._initId || null, apCost: parseInt(w.ap) || 3, flurry: w.flurry || undefined })}>+${w.atk} to hit</span>, ${w.dmg} damage, ${w.ap} AP <span class="text-[10px] text-slate-500">(${w.typeLabel})</span></div>`).join('') : ''}
+        ${(sb.equippedWeapons.length || sb.equippedArmorName || sb.hasShield || sb.hasHelmet) ? `<div class="bg-slate-900 border border-orange-800/50 rounded p-2 mb-2">
+            <div class="text-[10px] font-black text-orange-400 uppercase mb-1 flex items-center gap-2">Equipped Gear <span class="text-slate-500 normal-case font-bold">(${sb.freeHands} of ${sb.hands} hands free)</span></div>
+            ${sb.equippedWeapons.length ? sb.equippedWeapons.map(w => {
+                // Two-handed attacks need 2 free hands: with a shield held they're listed but can't be rolled
+                let blocked = (w.hands || 1) > sb.freeHands;
+                return `<div class="text-xs ${blocked ? 'text-slate-500' : 'text-slate-200'}" data-roll-label="${esc(w.name)} damage">${esc(w.name)}: ${blocked
+                    ? `<span data-no-roll title="Needs ${w.hands} free hands. Stow the shield to use it.">+${w.atk} to hit, ${w.dmg} damage</span>, ${w.ap} AP <span class="text-[10px] text-amber-500/80">(needs ${w.hands} free hands)</span>`
+                    : `<span class="apxd-atk"${R({ type: 'attack', label: w.name, bonus: w.atk, dice: String(w.dmg), critMult: w.critMult || 2, npcId: sb._npcId || null, initId: sb._initId || null, apCost: parseInt(w.ap) || 3, flurry: w.flurry || undefined })}>+${w.atk} to hit</span>, ${w.dmg} damage, ${w.ap} AP <span class="text-[10px] text-slate-500">(${w.typeLabel})</span>`}</div>`;
+            }).join('') : ''}
             ${sb.equippedArmorName ? `<div class="text-xs text-slate-200 mt-1">Armor: ${esc(sb.equippedArmorName)}</div>` : ''}
+            ${sb.hasShield ? `<div class="text-xs text-slate-200 mt-1 flex items-center gap-2">Shield (+2 AC/DR/ER, 1 hand): <b class="${sb.shieldOn ? 'text-emerald-400' : 'text-slate-500'}">${sb.shieldOn ? 'held' : 'stowed'}</b>
+                <button type="button" onclick="window.npcToggleShieldEquipped(${sb._npcId ? `'${sb._npcId}'` : 'null'})" class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-white">${sb.shieldOn ? 'Stow' : 'Equip'}</button></div>` : ''}
+            ${sb.hasHelmet ? `<div class="text-xs text-slate-200 mt-1">Helmet (+1 AC/DR/ER)</div>` : ''}
         </div>` : ''}
         <div class="bg-slate-900 border border-emerald-800/50 rounded p-2 mb-2">
             <div class="text-[10px] font-black text-emerald-400 uppercase mb-1">Trained Skills <span class="text-slate-500 normal-case font-bold">(Training +${sb.trainingBonus})</span></div>
@@ -1549,6 +1617,25 @@ function ncRenderSummary() {
     let nameLbl = document.getElementById('ncNameLabel');
     if (nameLbl) nameLbl.textContent = ncTarget === 'gm' ? 'NPC Name' : 'Companion Name';
     document.getElementById('ncName').placeholder = ncTarget === 'gm' ? 'e.g. Goblin Skirmisher' : 'e.g. Fang';
+    // Companion token picture (shown on battle maps and in the Party tab)
+    {
+        let nameEl = document.getElementById('ncName');
+        let row = document.getElementById('ncPortraitRow');
+        if (!row && nameEl) {
+            row = document.createElement('div');
+            row.id = 'ncPortraitRow';
+            row.className = 'flex items-center gap-2 mt-2';
+            nameEl.parentNode.appendChild(row);
+        }
+        if (row) {
+            row.style.display = ncTarget === 'gm' ? 'none' : 'flex';
+            let pic = c.portrait ? `<img src="${c.portrait}" alt="" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid #16a34a">`
+                : `<div style="width:40px;height:40px;border-radius:50%;background:#14532d;border:2px solid #16a34a;display:flex;align-items:center;justify-content:center;font-weight:900;color:#bbf7d0">${String(c.name || '?')[0].toUpperCase()}</div>`;
+            row.innerHTML = `${pic}<label class="text-[10px] font-bold px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white cursor-pointer">Token Image<input type="file" accept="image/*" class="hidden" onchange="window.ncSetPortrait(this)"></label>
+                ${c.portrait ? `<button type="button" onclick="window.ncSetPortrait(null)" class="text-[10px] text-red-400 hover:text-red-300 font-bold">Remove</button>` : ''}
+                <span class="text-[10px] text-slate-500">Shown on battle map tokens and in the Party tab.</span>`;
+        }
+    }
     document.getElementById('ncSumTier').innerText = tierInfo.tier;
     document.getElementById('ncSumTp').innerText = `${spent} / ${total}`;
     document.getElementById('ncSumTp').className = remaining < 0 ? 'text-lg font-black text-red-400' : 'text-lg font-black text-white';
@@ -1701,6 +1788,13 @@ function ncRenderStep4() {
             </div>
             ${c.equippedArmor.name ? `<div class="text-[10px] text-slate-300">${c.equippedArmor.name} (AC +${c.equippedArmor.ac}, DR +${c.equippedArmor.dr}, ER +${c.equippedArmor.er})</div>` : '<div class="text-[10px] text-slate-600">None equipped — use natural defenses below, or forge armor.</div>'}
         </div>` +
+        [['shield', 'Shield', '+2 AC, +2 DR, +2 ER. Takes 1 hand while held; stow it from the stat block to free the hand for two-handed attacks.', NPC_SHIELD],
+         ['helmet', 'Helmet', '+1 AC, +1 DR, +1 ER.', NPC_HELMET]].map(([key, label, desc, def]) => {
+            let own = !!(c[key] && c[key].owned), tp = window.npcArmorTp(def).tp;
+            return `<label class="flex items-start gap-2 bg-slate-900 border ${own ? 'border-orange-600' : 'border-slate-700'} rounded p-2 mt-1 cursor-pointer">
+                <input type="checkbox" class="mt-0.5" ${own ? 'checked' : ''} onchange="window.ncToggleGear('${key}', this.checked)">
+                <div><div class="text-xs font-bold text-white">${label} <span class="text-yellow-500 text-[10px]">[${tp} TP]</span></div><div class="text-[10px] text-slate-500 leading-tight">${desc}</div></div></label>`;
+        }).join('') +
         heading('Natural Defenses (no cap)') +
         statRow('+1 AC', 'acBonus', 1) +
         statRow('+2 DR', 'drBonus', 1) +
@@ -1720,13 +1814,14 @@ function ncRenderInnateWeapon(w, i, tier) {
     let dieInfo = parseDieStep(NPC_DIE_STEPS[w.dieStepIndex || 0]);
     let perDie = NPC_ADDITIONAL_DIE_COST[dieInfo.type];
     let totalDice = ncIwTotalDice(w);
-    let stepper = (label, cur, dec, inc) => `
+    // incMaxed: the + is at its limit -- a real disabled button (nothing fires, nothing behind it gets the click)
+    let stepper = (label, cur, dec, inc, incMaxed, maxTip) => `
         <div class="flex items-center justify-between bg-slate-800/60 border border-slate-700 rounded px-2 py-1.5">
             <span class="text-[11px] font-bold text-slate-200">${label}</span>
             <div class="flex items-center gap-1">
-                <button onclick="${dec}" class="w-6 h-6 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">-</button>
+                <button type="button" onclick="event.stopPropagation();${dec}" class="w-6 h-6 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">-</button>
                 <span class="w-7 text-center text-white font-bold text-xs">${cur}</span>
-                <button onclick="${inc}" class="w-6 h-6 rounded bg-amber-700 hover:bg-amber-600 text-white font-bold">+</button>
+                <button type="button" ${incMaxed ? `disabled title="${maxTip || 'Maximum reached'}"` : ''} onclick="event.stopPropagation();${inc}" class="w-6 h-6 rounded ${incMaxed ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-amber-700 hover:bg-amber-600 text-white'} font-bold">+</button>
             </div>
         </div>`;
     let tabBtn = (key, label) => `<button onclick="window.ncIwTab(${i},'${key}')" class="px-2 py-1 rounded text-[10px] font-bold ${tab === key ? 'bg-purple-700 text-white' : 'bg-slate-800 text-slate-400 hover:text-slate-200'}">${label}</button>`;
@@ -1734,8 +1829,8 @@ function ncRenderInnateWeapon(w, i, tier) {
     let body = '';
     if (tab === 'damage') {
         body = `
-            ${stepper(`Die Step <span class="text-yellow-500 text-[10px]">[1 TP each, max ${tier} steps at Tier ${tier}]</span> — ${NPC_DIE_STEPS[w.dieStepIndex || 0]}`, w.dieStepIndex || 0, `window.ncIwAdjustDie(${i},-1)`, `window.ncIwAdjustDie(${i},1)`)}
-            ${stepper(`Extra ${dieInfo.type} dice <span class="text-yellow-500 text-[10px]">[${perDie} TP each, max ${2 * tier} dice total]</span>`, w.extraDice || 0, `window.ncIwAdjustDice(${i},-1)`, `window.ncIwAdjustDice(${i},1)`)}
+            ${stepper(`Die Step <span class="text-yellow-500 text-[10px]">[1 TP each, max ${tier} steps at Tier ${tier}]</span> — ${NPC_DIE_STEPS[w.dieStepIndex || 0]}`, w.dieStepIndex || 0, `window.ncIwAdjustDie(${i},-1)`, `window.ncIwAdjustDie(${i},1)`, (w.dieStepIndex || 0) >= Math.min(NPC_DIE_STEPS.length - 1, tier), `Die step is capped at ${tier} steps for a Tier ${tier} creature`)}
+            ${stepper(`Extra ${dieInfo.type} dice <span class="text-yellow-500 text-[10px]">[${perDie} TP each, max ${2 * tier} dice total]</span>`, w.extraDice || 0, `window.ncIwAdjustDice(${i},-1)`, `window.ncIwAdjustDice(${i},1)`, ncIwTotalDice(w) >= 2 * tier, `Max dice reached (2 x Tier = ${2 * tier})`)}
             <div class="bg-slate-800/60 border border-slate-700 rounded px-2 py-1.5">
                 <div class="text-[11px] font-bold text-slate-200 mb-1">Damage Bonus <span class="text-yellow-500 text-[10px]">[2 TP]</span></div>
                 <div class="flex flex-wrap items-center gap-3 text-[10px] text-slate-300">

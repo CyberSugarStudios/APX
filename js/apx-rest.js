@@ -49,6 +49,35 @@
         setTimeout(() => t.remove(), 5000);
     }
 
+    // ── Loyal Companion ──────────────────────────────────────────
+    // "Whenever you use a Rest Die, your Companion heals for the amount rolled plus their CON mod."
+    function companionSb() {
+        let s = st(); if (!s || !s.companion || !window.companionStatBlock) return null;
+        try { if (typeof ncTarget !== 'undefined') ncTarget = 'companion'; return window.companionStatBlock(); } catch (e) { return null; }
+    }
+    function healCompanion(rawRolled, diceCount) {
+        let s = st(), sb = companionSb();
+        if (!sb || !s.companion) return '';
+        let conMod = (sb.mods && sb.mods.CON) || 0;
+        let amount = Math.max(0, rawRolled + conMod * (diceCount || 1));
+        let before = s.companion.currentHp ?? sb.maxHp;
+        s.companion.currentHp = Math.min(sb.maxHp, before + amount);
+        let healed = s.companion.currentHp - before;
+        return healed > 0 ? `${sb.name || 'Your companion'} healed ${healed} HP` : '';
+    }
+    window.apxCompanionRestHeal = healCompanion;
+    // Rests restore the companion's power slots too (Short: if it casts with CHA; Full: all)
+    function restoreCompanionSlots(fullRest) {
+        let s = st(), c = s && s.companion; if (!c || !c.usedPowerSlots) return 0;
+        let sb = companionSb();
+        let attr = sb && sb.powerAttrChoice;
+        if (!fullRest && attr !== 'CHA') return 0;
+        let n = Object.values(c.usedPowerSlots).reduce((a, b) => a + (b || 0), 0);
+        Object.keys(c.usedPowerSlots).forEach(k => c.usedPowerSlots[k] = 0);
+        if (fullRest) c.powerChargesUsed = {};
+        return n;
+    }
+
     // Roll one Rest Die (+ bonus per die) in the dice tray and heal. Returns HP healed, or null.
     function spendRestDie(label, addCon) {
         let s = st();
@@ -61,8 +90,9 @@
         let before = s.currentHp || 0;
         s.currentHp = Math.min(maxHp(), before + heal);
         s.restDice = (s.restDice || 0) - 1;
+        let comp = healCompanion(rolled - flat, 1);
         refresh();
-        return { rolled, healed: s.currentHp - before };
+        return { rolled, healed: s.currentHp - before, comp };
     }
 
     // ── Short Rest ───────────────────────────────────────────────
@@ -73,7 +103,7 @@
         let draw = () => {
             let s = st(), mh = maxHp(), dice = s.restDice || 0, cm = conMod();
             back.querySelector('[data-body]').innerHTML = `
-                <div class="apxdlg-msg" style="margin-bottom:.6rem">Spend Rest Dice one at a time. Each heals <b>${dieStep()} ${cm >= 0 ? '+' : '−'} ${Math.abs(cm)}</b> (CON)${wellRested() ? ', rolled twice keeping the higher (Well Rested)' : ''}. Spent dice come back on a Full Rest.</div>
+                <div class="apxdlg-msg" style="margin-bottom:.6rem">Spend Rest Dice one at a time. Each heals <b>${dieStep()} ${cm >= 0 ? '+' : '−'} ${Math.abs(cm)}</b> (CON)${wellRested() ? ', rolled twice keeping the higher (Well Rested)' : ''}.${s.companion ? ` ${esc(s.companion.name || 'Your companion')} heals the roll + its CON modifier too.` : ''} Spent dice come back on a Full Rest.</div>
                 <div style="display:flex;gap:.5rem;margin-bottom:.6rem">
                     <div style="flex:1;border:1px solid var(--c-border);background:var(--c-surface2);border-radius:.45rem;padding:.45rem;text-align:center">
                         <div style="font-size:.6rem;font-weight:800;text-transform:uppercase;color:var(--c-text-muted)">HP</div>
@@ -96,7 +126,7 @@
             sp.onclick = () => {
                 if (sp.disabled) return;
                 let r = spendRestDie('Short Rest: Rest Die', true);
-                if (r) log.push(`Rest Die: rolled ${r.rolled} → healed ${r.healed} HP`);
+                if (r) log.push(`Rest Die: rolled ${r.rolled} → healed ${r.healed} HP${r.comp ? ` (${r.comp})` : ''}`);
                 draw();
             };
             back.querySelector('[data-finish]').onclick = () => {
@@ -105,10 +135,11 @@
                 if (s.usedPowerSlots) s.usedPowerSlots.CHA = 0;
                 let recBack = recoverUsedList(s);
                 s.recoverUsed = {};
+                let compSlots = restoreCompanionSlots(false);
                 refresh();
                 back.remove();
                 let spent = log.length;
-                toast(`Short Rest done${spent ? `: ${spent} Rest Di${spent > 1 ? 'ce' : 'e'} spent` : ''}${chaBack ? `, ${chaBack} CHA Power use${chaBack > 1 ? 's' : ''} restored` : ''}${recBack ? `, ${recBack} ready again` : ''}.`);
+                toast(`Short Rest done${spent ? `: ${spent} Rest Di${spent > 1 ? 'ce' : 'e'} spent` : ''}${chaBack ? `, ${chaBack} CHA Power use${chaBack > 1 ? 's' : ''} restored` : ''}${recBack ? `, ${recBack} ready again` : ''}${compSlots ? `, companion's CHA power slots restored` : ''}.`);
             };
         };
         draw();
@@ -132,7 +163,7 @@
             `Rest Dice +${diceBack} (half your max of ${maxDice}, rounded down) → ${Math.min(maxDice, (s.restDice || 0) + diceBack)} / ${maxDice}`,
             slotsUsed ? `All Power Slots restored (${slotsUsed} used)` : 'Power Slots: all available',
             `Luck Points → ${maxLuck}`,
-            s.companion ? `Companion: full HP, power slots and charges` : null,
+            s.companion ? `${s.companion.name || 'Companion'}: full HP, power slots and charges` : null,
             omenRank ? (unusedOmen ? `Omen Dice: you still have ${unusedOmen}. Keep them or roll new ones` : `New Omen Dice rolled`) : null,
             (s.perks || {}).luc_highroller >= 5 ? `High Roller: Exploding Dice ready again` : null,
             recoverUsedList(s) ? `Recover: ${recoverUsedList(s)} ready again` : null
@@ -155,8 +186,7 @@
             s2.recoverUsed = {};
             s2.apCurrent = (typeof calc !== 'undefined' && calc.maxAp) || 6; delete s2.apUsed;
             if (s2.companion) {
-                if (s2.companion.usedPowerSlots) Object.keys(s2.companion.usedPowerSlots).forEach(k => s2.companion.usedPowerSlots[k] = 0);
-                s2.companion.powerChargesUsed = {};
+                restoreCompanionSlots(true);
                 try { let sb = window.companionStatBlock && window.companionStatBlock(); if (sb && sb.maxHp) s2.companion.currentHp = sb.maxHp; } catch (e) { }
             }
             if (window.APXDice) window.APXDice.onFullRest({ keepOmen });
@@ -241,8 +271,9 @@
                     let heal = Math.max(0, rolled), before = s2.currentHp || 0;
                     s2.currentHp = Math.min(maxHp(), before + heal);
                     s2.restDice = Math.max(0, (s2.restDice || 0) - n);
+                    let comp = healCompanion(rolled - cm * n, n);
                     refresh(); back.remove();
-                    toast(`Shake it Off: rolled ${rolled}, healed ${s2.currentHp - before} HP (${n} Rest Di${n > 1 ? 'ce' : 'e'} spent, ${apTxt}).`);
+                    toast(`Shake it Off: rolled ${rolled}, healed ${s2.currentHp - before} HP (${n} Rest Di${n > 1 ? 'ce' : 'e'} spent, ${apTxt})${comp ? '. ' + comp : ''}.`);
                 } else {
                     let limb = back.querySelector('[data-shrug-limb]').value;
                     s2.woundedLimbs = (s2.woundedLimbs || []).filter(l => l !== limb);
@@ -280,7 +311,7 @@
         let s = st();
         if ((s.restDice || 0) <= 0) { window.apxAlert('No Rest Dice left to expend.', { title: 'Regenerative' }); return; }
         let r = spendRestDie('Regenerative', false);
-        if (r) toast(`Regenerative: healed ${r.healed} HP (1 Rest Die spent).`);
+        if (r) toast(`Regenerative: healed ${r.healed} HP (1 Rest Die spent)${r.comp ? '. ' + r.comp : ''}.`);
     };
     // Show the Regen button only for characters with the trait
     let _orig = window.apxRenderApPips;

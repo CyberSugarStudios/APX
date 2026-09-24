@@ -92,7 +92,7 @@
     }
 
     // ── Player-position store (live from Firestore) ─────────────
-    const store = { byUid: {}, portraits: {}, profiles: {} };
+    const store = { byUid: {}, portraits: {}, profiles: {}, mail: {} };
     const changeHandlers = new Set();
     let _unsub = null, _code = null;
 
@@ -101,13 +101,14 @@
     // Effective position of any token. Player tokens read the live
     // authority first; everything else uses the GM's token data.
     function posOf(mapId, tok) {
-        if (tok && tok.type === 'player' && tok.playerUid) {
+        if (tok && (tok.type === 'player' || tok.type === 'companion') && tok.playerUid) {   // players move their own (and their companion's) tokens
             let p = store.byUid[tok.playerUid]?.[mapId]?.[tok.id];
             if (p && _num(p.gridX) && _num(p.gridY)) return { gridX: p.gridX, gridY: p.gridY };
         }
         return { gridX: parseInt(tok?.gridX, 10) || 0, gridY: parseInt(tok?.gridY, 10) || 0 };
     }
     function portraitOf(uid) { return (uid && store.portraits[uid]) || ''; }
+    function companionOf(uid) { return (uid && store.profiles[uid] && store.profiles[uid].companion) || { name: '', portrait: '' }; }
 
     function _notify() { changeHandlers.forEach(fn => { try { fn(); } catch (e) { console.warn('APXBattle handler:', e); } }); }
     function onChange(fn) { changeHandlers.add(fn); return () => changeHandlers.delete(fn); }
@@ -126,6 +127,7 @@
                 next[d.uid] = d.battlePositions || {};
                 if (d.charPortrait) store.portraits[d.uid] = d.charPortrait;
                 if (d.profile) profiles[d.uid] = Object.assign({ uid: d.uid, portrait: d.charPortrait || '' }, d.profile);
+                store.mail[d.uid] = { outbox: d.outbox || {}, giftAcks: d.giftAcks || {} };
             });
             store.byUid = next;
             store.profiles = profiles;
@@ -1039,7 +1041,7 @@
         grid, origin, mult, span, center, diameter, pointToCell,
         collides, findBlocker, findFreeCell,
         posOf, portraitOf, start, stop, move, onChange,
-        party: () => Object.values(store.profiles),
+        party: () => Object.values(store.profiles), companionOf, mail: () => store.mail,
         render, layout, clear, toast,
         numberOf, sizeFromCharState, compressImage,
         squaresBetween, enterMeasure, exitMeasure, toggleMeasure, isMeasuring
