@@ -459,6 +459,17 @@
                 if (!ans) return;
                 gamble = ans === 'gamble';
             }
+            // AP for the attack: the page decides (player sheet: spends the pool, asks about Aim
+            // and AP perks; GM: takes it from the NPC whose turn it is). Returning false cancels.
+            let apNote = null;
+            if (typeof window.apxBeforeAttack === 'function') {
+                let pre;
+                try { pre = await window.apxBeforeAttack(o); } catch (e) { console.warn('AP hook:', e); }
+                if (pre === false) return;
+                if (pre && pre.note) apNote = [pre.warn ? 'fum' : 'info', pre.note, pre.tip || ''];
+                if (pre && pre.bonus) o = Object.assign({}, o, { bonus: (o.bonus || 0) + pre.bonus });
+                if (pre && pre.label) o = Object.assign({}, o, { label: pre.label });
+            }
             let list = [tray.mode];
             if ((o.advSources || []).length || o.adv === 'adv') list.push('adv');
             if ((o.disSources || []).length || o.adv === 'dis') list.push('dis');
@@ -489,6 +500,7 @@
                 if (gamble && !atk.fumble) c.badges.push(['info', 'Gamble: +10 is included, only if it hits' + (hr >= 4 ? '. Hit = +1 AP' : '')]);
                 if (roll.groups.some(g => g.dice.some(d => d.from))) c.badges.push(['info', 'High Roller: rerolled 1s & 2s (*)']);
                 if (explode) c.badges.push(['info', 'Exploding dice used']);
+                if (apNote) c.badges.push(apNote);
             };
             let redo = (full) => { settleDmg(); c.actions = d20Actions(c, atk, redo); renderCard(c); };
             c._redo = redo;
@@ -609,6 +621,7 @@
         });
     }
     APXDice.ask = ask;
+    APXDice.css = css;
     // Safe attribute value for data-apx-roll (use inside single quotes: data-apx-roll='${APXDice.attr({...})}')
     APXDice.attr = function (o) { return JSON.stringify(o).replace(/&/g, '&amp;').replace(/'/g, '&#39;').replace(/</g, '&lt;'); };
 

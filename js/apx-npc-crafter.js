@@ -1175,7 +1175,7 @@ window.companionStatBlock = function() {
         equippedWeapons.push({
             name: w.name, dmg: dmgText, ap: w.ap, weaponIdx: wIdx,
             atk: atkInfo.bonus, trained: atkInfo.trained, attr: atkInfo.attr,
-            typeLabel: companionWeaponTypeLabel(w), category: w.category, aimed: !!w.aimed
+            typeLabel: companionWeaponTypeLabel(w), category: w.category, aimed: !!w.aimed, flurry: !!(w.properties && w.properties.flurry)
         });
         // Medium melee weapons can also be wielded 2-handed: STR only,
         // +1 AP, +1 die step -- shown as a second linked row, same as the
@@ -1197,7 +1197,7 @@ window.companionStatBlock = function() {
             equippedWeapons.push({
                 name: `${w.name} (2-Handed)`, dmg: twoHDmgText, ap: w.ap + 1,
                 atk: twoHAtkInfo.bonus, trained: twoHAtkInfo.trained, attr: twoHAtkInfo.attr,
-                typeLabel: companionWeaponTypeLabel(w), isTwoHanded: true, category: w.category
+                typeLabel: companionWeaponTypeLabel(w), isTwoHanded: true, category: w.category, flurry: !!(w.properties && w.properties.flurry)
             });
         }
     });
@@ -1416,13 +1416,13 @@ function buildStatBlockHtml(sb, editable) {
         <div class="bg-slate-900 border border-slate-700 rounded p-2 mb-2">
             <div class="text-[10px] font-black text-amber-400 uppercase mb-1">Innate Attacks <span class="text-slate-500 normal-case font-bold">(always trained, 3 AP each)</span></div>
             ${innate.length ? innate.map(w => `
-                <div class="text-xs text-slate-200 ${innate.length > 1 ? 'mb-1' : ''}" data-roll-label="${esc(w.name)} damage"><span class="font-bold text-slate-200">${esc(w.name)}:</span> <span class="apxd-atk"${R({ type: 'attack', label: w.name, bonus: w.attackBonus, dice: w.dmgText, dmgType: w.typeText })}>+${w.attackBonus} to hit</span>, ${w.dmgText} ${esc(w.typeText)}, Range ${w.range} sq</div>
+                <div class="text-xs text-slate-200 ${innate.length > 1 ? 'mb-1' : ''}" data-roll-label="${esc(w.name)} damage"><span class="font-bold text-slate-200">${esc(w.name)}:</span> <span class="apxd-atk"${R({ type: 'attack', label: w.name, bonus: w.attackBonus, dice: w.dmgText, dmgType: w.typeText, npcId: sb._npcId || null, initId: sb._initId || null, apCost: 3, flurry: (w.propNames || []).some(p => /flurry/i.test(p)) || undefined })}>+${w.attackBonus} to hit</span>, ${w.dmgText} ${esc(w.typeText)}, Range ${w.range} sq</div>
                 ${w.propNames.length ? `<div class="text-[10px] text-slate-500 -mt-0.5 mb-1">${w.propNames.map(esc).join(', ')}</div>` : ''}`).join('')
               : '<div class="text-[10px] text-slate-600">No innate weapons</div>'}
         </div>
         ${(sb.equippedWeapons.length || sb.equippedArmorName) ? `<div class="bg-slate-900 border border-orange-800/50 rounded p-2 mb-2">
             <div class="text-[10px] font-black text-orange-400 uppercase mb-1">Equipped Gear</div>
-            ${sb.equippedWeapons.length ? sb.equippedWeapons.map(w => `<div class="text-xs text-slate-200" data-roll-label="${esc(w.name)} damage">${esc(w.name)}: <span class="apxd-atk"${R({ type: 'attack', label: w.name, bonus: w.atk, dice: String(w.dmg), critMult: w.critMult || 2 })}>+${w.atk} to hit</span>, ${w.dmg} damage, ${w.ap} AP <span class="text-[10px] text-slate-500">(${w.typeLabel})</span></div>`).join('') : ''}
+            ${sb.equippedWeapons.length ? sb.equippedWeapons.map(w => `<div class="text-xs text-slate-200" data-roll-label="${esc(w.name)} damage">${esc(w.name)}: <span class="apxd-atk"${R({ type: 'attack', label: w.name, bonus: w.atk, dice: String(w.dmg), critMult: w.critMult || 2, npcId: sb._npcId || null, initId: sb._initId || null, apCost: parseInt(w.ap) || 3, flurry: w.flurry || undefined })}>+${w.atk} to hit</span>, ${w.dmg} damage, ${w.ap} AP <span class="text-[10px] text-slate-500">(${w.typeLabel})</span></div>`).join('') : ''}
             ${sb.equippedArmorName ? `<div class="text-xs text-slate-200 mt-1">Armor: ${esc(sb.equippedArmorName)}</div>` : ''}
         </div>` : ''}
         <div class="bg-slate-900 border border-emerald-800/50 rounded p-2 mb-2">

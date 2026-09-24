@@ -1665,6 +1665,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                     battleImages: btImages,
                                     _currentInitId: window.gmCombatStarted ? (curEntry?.id || null) : null,
                                     _turnNo: window.gmTurnNumber || 0,
+                                    // Surprised on its first turn of combat: gains only 1 AP
+                                    _curApGain1: !!(window.gmCombatStarted && curEntry?._apFirstSurprised),
                                     tokens };
                             }),
                     }
@@ -1787,8 +1789,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (existing) { window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; existing.style.zIndex=window.apxFloatingZTop; return; }
         window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1;
         let snHtml = (n.notes||[]).map(sn=>`<div style="background:#0f172a;border:1px solid #1e293b;border-radius:0.3rem;padding:0.35rem;margin-top:0.2rem;">
-            ${sn.title?`<div style="font-size:0.65rem;font-weight:700;color:#e2e8f0;">${sn.title}</div>`:''}
-            ${sn.content?`<div style="font-size:0.6rem;color:#94a3b8;">${_fmtText(sn.content)}</div>`:''}</div>`).join('');
+            ${_snPopupHtml('npc', n.id, sn)}</div>`).join('');
         let portraitBlock = (n.portrait || n.hasPortrait) ? window._npcPortraitHtml(npcId, n, 80) : '';
         // If portrait is loading async, kick off the load so it fills in
         if (n.hasPortrait && !n.portrait) {
@@ -2167,6 +2168,37 @@ document.addEventListener('DOMContentLoaded', () => {
         if (sn) { sn.revealed = val; saveWorldNotes(); window.renderNoteList(); }
     };
 
+    // Small Revealed/Hidden toggle shown on each sub-note in the popup windows
+    function _snRevealBtn(parentType, parentId, sn) {
+        if (!sn.id) sn.id = 'sn_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+        let on = !!sn.revealed;
+        return `<button type="button" data-sn-reveal onclick="event.stopPropagation();window._snRevealClick(this,'${parentType}','${parentId}','${sn.id}')"
+            title="${on ? 'Players can see this note. Click to hide it.' : 'Hidden from players. Click to reveal it.'}"
+            style="margin-left:auto;flex-shrink:0;font-size:0.55rem;font-weight:800;padding:0.05rem 0.35rem;border-radius:0.25rem;cursor:pointer;background:${on ? '#065f46' : '#1e293b'};border:1px solid ${on ? '#10b981' : '#475569'};color:${on ? '#6ee7b7' : '#94a3b8'};">${on ? 'Revealed' : 'Hidden'}</button>`;
+    }
+    window._snRevealBtn = _snRevealBtn;
+    function _snLookup(parentType, parentId, noteId) {
+        if (parentType === 'area') {
+            for (let m of (_wNotes.otherMaps||[])) { let tok = (m.tokens||[]).find(t=>t.id===parentId); if (tok) return (tok.subnotes||[]).find(s=>s.id===noteId); }
+            return null;
+        }
+        let arr = parentType==='location' ? (_wNotes.locations||[]) : (_wNotes.npcs||[]);
+        return ((arr.find(x=>x.id===parentId)||{}).notes||[]).find(x=>x.id===noteId);
+    }
+    window._snRevealClick = function(btn, parentType, parentId, noteId) {
+        let sn = _snLookup(parentType, parentId, noteId); if (!sn) return;
+        window.toggleSubNoteReveal(parentType, parentId, noteId, !sn.revealed);
+        let tmp = document.createElement('div'); tmp.innerHTML = _snRevealBtn(parentType, parentId, sn);
+        btn.replaceWith(tmp.firstElementChild);
+    };
+    // Sub-note body for the read-only popups: title row with the reveal toggle, then content
+    function _snPopupHtml(parentType, parentId, sn, big) {
+        return `<div style="display:flex;align-items:center;gap:0.3rem;">
+                <div style="font-size:${big ? '0.7rem' : '0.65rem'};font-weight:700;color:#e2e8f0;">${sn.title || '<span style="color:#64748b;font-weight:600;">(untitled)</span>'}</div>
+                ${_snRevealBtn(parentType, parentId, sn)}</div>
+            ${sn.content?`<div style="font-size:${big ? '0.65rem' : '0.6rem'};color:#94a3b8;">${_fmtText(sn.content)}</div>`:''}`;
+    }
+
     // ── Sub-note editor (used inside Location/NPC modal) ─────────
     let _editingSubNotes = [];
     function _snRender() {
@@ -2467,8 +2499,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 style="display:block;width:100%;text-align:left;background:#0f172a;border:1px solid #2563eb;color:#93c5fd;font-size:0.7rem;font-weight:700;padding:0.4rem 0.6rem;border-radius:0.375rem;cursor:pointer;margin-bottom:0.3rem;">[Map] Open Linked Map: ${lm.name}</button>` : '';
         }).join('');
         let snHtml = (loc.notes||[]).map(sn=>`<div style="background:#0f172a;border:1px solid #1e293b;border-radius:0.3rem;padding:0.4rem;margin-top:0.25rem;">
-            ${sn.title?`<div style="font-size:0.7rem;font-weight:700;color:#e2e8f0;">${sn.title}</div>`:''}
-            ${sn.content?`<div style="font-size:0.65rem;color:#94a3b8;">${_fmtText(sn.content)}</div>`:''}
+            ${_snPopupHtml('location', loc.id, sn, true)}
         </div>`).join('');
         let win = document.createElement('div');
         win.id = winId;
@@ -2648,7 +2679,7 @@ document.addEventListener('DOMContentLoaded', () => {
         win.style.cssText = `position:fixed;left:${170+offset}px;top:${90+offset}px;width:730px;height:540px;
             background:#0f172a;border:1px solid #334155;border-radius:0.75rem;z-index:${window.apxFloatingZTop};
             display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.85);
-            min-width:380px;min-height:300px;resize:both;overflow:hidden;contain:layout paint;`;
+            min-width:380px;min-height:300px;overflow:hidden;contain:layout paint;`;
 
         win.innerHTML = `
             <div id="${winId}_hdr" style="cursor:grab;user-select:none;background:#1e293b;padding:0.4rem 0.6rem;
@@ -2712,6 +2743,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>`;
 
         document.getElementById('floatingWindowContainer').appendChild(win);
+        window.APXBattle?.outlineResize(win, { minW: 380, minH: 300 });
         win._scale=1; win._offX=0; win._offY=0; win._dragging=false; win._didDrag=false;
         win._dragSX=0; win._dragSY=0; win._dragOX=0; win._dragOY=0;
         // Brief guard to prevent the click that opened this window from also placing a token
@@ -3060,8 +3092,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <textarea rows="2" placeholder="Content…" onchange="window._updateTokenSubnote('${winId}',${idx},'content',this.value)"
                     style="width:100%;background:#1e293b;border:1px solid #334155;color:#e2e8f0;font-size:0.65rem;border-radius:0.2rem;padding:0.2rem 0.35rem;resize:vertical;box-sizing:border-box;">${sn.content||''}</textarea>`
-                : `${sn.title?`<div style="font-size:0.65rem;font-weight:700;color:#e2e8f0;">${sn.title}</div>`:''}
-                   ${sn.content?`<div style="font-size:0.6rem;color:#94a3b8;">${_fmtText(sn.content)}</div>`:''}`
+                : _snPopupHtml('area', tokenId || tok.id, sn)
             }
         </div>`).join('');
     }
@@ -4195,7 +4226,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Wound threshold: CON score x2 (from engine: calc.scores.CON * 2)
         let conScore = (s.mods?.CON ?? 0) + 5;
-        let woundThresh = conScore * 2;
+        let woundThresh = s.woundThreshold ?? (conScore * 2);
 
         // Energy resistances
         let envSection = (s.envLines||[]).length ? hdr('Resistances & Energy')+(s.envLines||[]).map(l=>`<div style="font-size:0.6rem;padding:0.1rem 0;">${l}</div>`).join('') : '';

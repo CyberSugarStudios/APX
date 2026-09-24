@@ -930,6 +930,103 @@
             return `${dice} ${mod >= 0 ? '+' : '-'} ${Math.abs(mod)}`;
         }
 
+        // ── AP for the player's own attacks ────────────────────────
+        // Clicking an attack spends its AP from the tracker. When a perk or feature
+        // might change the cost, when Aiming, or when there isn't enough AP, the
+        // player gets a short popup first. The card shows what was spent.
+        window.apxBeforeAttack = function(o) {
+            if (!o || !o.pcAttack || typeof window.apxApCurrent !== 'function') return null;
+            let st = window.state || {}, perks = st.perks || {};
+            let have = window.apxApCurrent();
+            let base = Math.max(0, parseInt(o.apCost) || 0);
+            let aimAp = o.aimed ? Math.max(0, parseInt(st.aimAp) || 1) : 0;
+            let effIds = (window.apxEffectiveConditions ? window.apxEffectiveConditions(st.conditions || [], st) : (st.conditions || []).map(id => ({ id }))).map(c => c.id);
+            let staggered = o.aimed && effIds.includes('staggered');
+            // Modifiers that may apply (the player decides which ones do)
+            let mods = [];
+            let ma = perks['str_martialarts'] || 0;
+            if (o.unarmed && ma >= 1) mods.push({ id: 'ma', label: 'Martial Arts: unarmed attacks cost 1 AP', set: 1, on: true });
+            let fl = perks['agi_flurry'] || 0;
+            if (fl >= 1) mods.push({ id: 'flurry', label: 'Flurry perk: your last weapon attack hit', delta: -1, stack: fl >= 3 ? 2 : 1, on: false,
+                tip: fl >= 3 ? 'Rank 3: the reduction stacks up to 2 times (one per consecutive hit).' : 'Rank 1: a weapon hit reduces the AP of your next attack by 1 (min 1).' });
+            if (o.wFlurry) mods.push({ id: 'wflurry', label: 'Flurry weapon: you already hit this target this turn', delta: -1, on: false,
+                tip: 'Flurry property: each attack after a hit on the same target costs 1 less AP (min 1) until you miss or your turn ends.' });
+            let needPopup = mods.length > 0 || o.aimed;
+            let compute = (sel, aim, extra) => {
+                let cost = base;
+                let setTo = null;
+                mods.forEach(m => { if (!sel[m.id]) return; if (m.set != null) setTo = m.set; });
+                if (setTo != null) cost = setTo;
+                mods.forEach(m => { if (!sel[m.id] || m.delta == null) return; cost += m.delta * (typeof sel[m.id] === 'number' ? sel[m.id] : 1); });
+                if (mods.some(m => sel[m.id] && m.delta != null)) cost = Math.max(1, cost);
+                cost = Math.max(0, cost + (parseInt(extra) || 0));
+                return { atk: cost, aim: staggered ? 0 : aim, total: cost + (staggered ? 0 : aim) };
+            };
+            let finish = (c, spend) => {
+                let parts = c.aim ? ` (${c.atk} attack + ${c.aim} Aim)` : '';
+                if (!spend) return { note: c.total > have ? `Not enough AP: had ${have}, needed ${c.total}${parts}` : `AP not spent (${c.total} AP${parts})`, warn: c.total > have };
+                window.apxSpendAp(c.total);
+                return { note: `-${c.total} AP${parts} · ${window.apxApCurrent()} left` };
+            };
+            if (!needPopup) {
+                let c = compute({}, 0, 0);
+                if (c.total <= have) return finish(c, true);
+            }
+            // Popup
+            window.APXDice?.css?.();
+            let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+            return new Promise(res => {
+                let back = document.createElement('div');
+                back.className = 'apxd-ask';
+                back.setAttribute('data-ap-popup', '1');
+                let modRows = mods.map(m => m.stack > 1
+                    ? `<label style="display:flex;align-items:center;gap:.4rem;font-size:.72rem;margin:.25rem 0" title="${esc(m.tip || '')}"><select data-m="${m.id}" style="background:var(--c-surface2,#0f172a);color:inherit;border:1px solid var(--c-border2,#475569);border-radius:.3rem;font-size:.7rem"><option value="0">No hits</option><option value="1">1 hit (-1 AP)</option><option value="2">2 hits (-2 AP)</option></select>${esc(m.label)}</label>`
+                    : `<label style="display:flex;align-items:center;gap:.4rem;font-size:.72rem;margin:.25rem 0;cursor:pointer" title="${esc(m.tip || '')}"><input type="checkbox" data-m="${m.id}" ${m.on ? 'checked' : ''}> ${esc(m.label)}</label>`).join('');
+                back.innerHTML = `<div data-ap-box>
+                    <h4>${esc(o.label || 'Attack')}: AP</h4>
+                    <p style="margin:0 0 .5rem">Attack cost: <b>${base} AP</b>. You have <b>${have} AP</b>.</p>
+                    ${o.aimed ? `<label style="display:flex;align-items:center;gap:.4rem;font-size:.72rem;margin:.25rem 0">Aim: <input type="number" min="0" max="20" data-aim value="${aimAp}" style="width:48px;background:var(--c-surface2,#0f172a);color:inherit;border:1px solid var(--c-border2,#475569);border-radius:.3rem;font-size:.72rem;padding:.1rem .3rem"> AP <span style="color:var(--c-text-muted,#94a3b8)">(spent to Aim before the attack)</span></label>` : ''}
+                    ${staggered ? `<div style="font-size:.7rem;color:#fca5a5;margin:.25rem 0">You're Staggered: you can't spend AP to Aim, so no Aim AP is counted. Untick Aimed on the weapon for the right attack bonus.</div>` : ''}
+                    ${modRows ? `<div style="font-size:.6rem;font-weight:800;text-transform:uppercase;color:var(--c-text-muted,#94a3b8);margin-top:.5rem">Might change the cost</div>${modRows}` : ''}
+                    <label style="display:flex;align-items:center;gap:.4rem;font-size:.72rem;margin:.25rem 0">Other change: <input type="number" data-extra value="0" style="width:48px;background:var(--c-surface2,#0f172a);color:inherit;border:1px solid var(--c-border2,#475569);border-radius:.3rem;font-size:.72rem;padding:.1rem .3rem"> AP</label>
+                    <div data-ap-total style="margin:.6rem 0 .8rem;font-size:.8rem;font-weight:800"></div>
+                    <div class="row"><button data-v="cancel">Cancel</button><button data-v="free" title="Roll without taking AP from your tracker">Roll, don't spend</button><button class="ok" data-v="spend"></button></div>
+                </div>`;
+                let read = () => {
+                    let sel = {};
+                    back.querySelectorAll('[data-m]').forEach(el => { sel[el.dataset.m] = el.tagName === 'SELECT' ? (parseInt(el.value) || 0) : el.checked; });
+                    let aim = o.aimed ? Math.max(0, parseInt(back.querySelector('[data-aim]')?.value) || 0) : 0;
+                    return compute(sel, aim, back.querySelector('[data-extra]').value);
+                };
+                let upd = () => {
+                    let c = read(), short = c.total > have;
+                    back.querySelector('[data-ap-total]').innerHTML = `Total: ${c.total} AP${c.aim ? ` <span style="font-weight:600;color:var(--c-text-muted,#94a3b8)">(${c.atk} attack + ${c.aim} Aim)</span>` : ''}`
+                        + (short ? `<div style="color:#fca5a5;font-size:.72rem;margin-top:.2rem">Not enough AP: you have ${have}.</div>` : '');
+                    let b = back.querySelector('[data-v="spend"]');
+                    b.textContent = short ? 'Roll anyway' : `Spend ${c.total} AP & roll`;
+                    b.className = short ? 'pri' : 'ok';
+                    b.dataset.short = short ? '1' : '';
+                    back.querySelector('[data-v="free"]').style.display = short ? 'none' : '';
+                };
+                back.addEventListener('input', upd); back.addEventListener('change', upd);
+                let key = e => { if (e.key === 'Escape') { e.stopPropagation(); done('cancel'); } };
+                let done = v => {
+                    let c = read();
+                    back.remove(); document.removeEventListener('keydown', key, true);
+                    if (v === 'cancel') return res(false);
+                    if (o.aimed && !staggered) { window.state.aimAp = c.aim; }
+                    let short = c.total > have;
+                    res(finish(c, v === 'spend' && !short));
+                };
+                back.querySelectorAll('[data-v]').forEach(b => b.onclick = () => done(b.dataset.v));
+                back.addEventListener('mousedown', e => { if (e.target === back) done('cancel'); });
+                document.addEventListener('keydown', key, true);
+                document.body.appendChild(back);
+                upd();
+                back.querySelector('[data-v="spend"]').focus();
+            });
+        };
+
         function renderWeaponRow(w, idx, opts) {
             let dmgMod = weaponDmgModifier(w, opts.attr);
             let atk = weaponAtkBonus(w, opts.attr);
@@ -940,7 +1037,10 @@
             // Fortunate Fighter Rank 4: crit multiplier +1
             let critMult = (w.critMult || 2) + ((window.state.perks['luc_fortunatefighter'] || 0) >= 4 ? 1 : 0);
             let rollName = (w.name || 'Weapon') + (opts.label ? (opts.attr === 'STR' && /2-Handed/.test(opts.label) ? ' (2-Handed)' : /Aimed/.test(opts.label) ? ' (Aimed)' : '') : '');
-            let atkRoll = apxRollAttr({ type: 'attack', label: rollName, bonus: atk, dice: opts.dice, dmgMod, critMult, dmgType: w.elemental || w.dmgType || '', disSources: disadvSources, advSources });
+            // pcAttack/apCost/aimed: the sheet's AP hook (apxBeforeAttack) spends AP for this attack
+            let atkRoll = apxRollAttr({ type: 'attack', label: rollName, bonus: atk, dice: opts.dice, dmgMod, critMult, dmgType: w.elemental || w.dmgType || '', disSources: disadvSources, advSources,
+                pcAttack: true, apCost: parseInt(opts.ap) || 0, ranged: cat === 'ranged', aimed: cat === 'ranged' && !!w.aimed, unarmed: !!w.isUnarmed,
+                wFlurry: !!(w.properties && w.properties.flurry) || undefined });
             let dmgRoll = apxRollAttr({ type: 'damage', label: rollName + ' damage', formula: opts.dice + (dmgMod ? (dmgMod > 0 ? '+' : '') + dmgMod : ''), dmgType: w.elemental || w.dmgType || '' });
             let disadvHtml = disadvSources.length
                 ? `<span class="text-[8px] text-red-400 block -mt-1 leading-none" title="${disadvSources.join(', ')}">(Disadv)</span>`

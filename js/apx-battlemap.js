@@ -360,19 +360,37 @@
         if (layer._fog) {
             layer._fog.style.transform = `translate(${ox}px,${oy}px) scale(${s})`;
         }
-        let gridEl = layer.querySelector('[data-bt-grid]');
-        if (gridEl && o.imgSize) {
-            let g = o.grid, org = origin(g), cs = g.cellSize * s;
-            // Own GPU layer moved by a whole-pixel transform, so resizing the window or panning
-            // never repaints it (the fraction goes into the pattern offset to keep lines crisp)
-            let tx = Math.round(ox), ty = Math.round(oy);
-            gridEl.style.transform = `translate(${tx}px,${ty}px)`;
-            gridEl.style.width = (o.imgSize.w * s + 1) + 'px'; gridEl.style.height = (o.imgSize.h * s + 1) + 'px';
-            gridEl.style.backgroundSize = `${cs}px ${cs}px`;
-            gridEl.style.backgroundPosition = `${org.ox * s + (ox - tx)}px ${org.oy * s + (oy - ty)}px`;
-            gridEl.style.display = cs < 4 ? 'none' : '';   // too dense to be useful when zoomed far out
-        }
+        _drawGrid(layer);
         _layoutMeasure(layer);
+    }
+
+    // Grid: a canvas the size of the visible map area (not the whole map), redrawn only
+    // when the view changes. Nothing map-sized is repainted when the window is resized.
+    function _drawGrid(layer) {
+        let cv = layer.querySelector('[data-bt-grid]'), o = layer._opts;
+        if (!cv || !o || !o.imgSize || !o.imgSize.w) return;
+        let area = o.area || layer.parentNode, win = o.win;
+        let W = area.clientWidth, H = area.clientHeight;
+        let dpr = Math.min(3, window.devicePixelRatio || 1);
+        let pw = Math.max(1, Math.round(W * dpr)), ph = Math.max(1, Math.round(H * dpr));
+        let s = win?._scale || 1, ox = win?._offX || 0, oy = win?._offY || 0;
+        let g = o.grid, org = origin(g), cs = g.cellSize * s;
+        let key = [pw, ph, s, ox, oy, g.cellSize, org.ox, org.oy, o.imgSize.w, o.imgSize.h].join('|');
+        if (cv._key === key) return;
+        cv._key = key;
+        if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; cv.style.width = W + 'px'; cv.style.height = H + 'px'; }
+        let ctx = cv.getContext('2d');
+        ctx.clearRect(0, 0, pw, ph);
+        if (!(cs >= 4)) return;   // too dense to be useful when zoomed far out
+        let x0 = Math.max(0, ox), x1 = Math.min(W, ox + o.imgSize.w * s);
+        let y0 = Math.max(0, oy), y1 = Math.min(H, oy + o.imgSize.h * s);
+        if (x1 <= x0 || y1 <= y0) return;
+        let lw = Math.max(1, Math.round(dpr));
+        ctx.fillStyle = '#fff';
+        let startX = ox + org.ox * s; startX -= Math.ceil((startX - x0) / cs) * cs;
+        for (let x = startX; x <= x1; x += cs) { if (x < x0 - 0.01) continue; ctx.fillRect(Math.round(x * dpr), Math.round(y0 * dpr), lw, Math.round((y1 - y0) * dpr)); }
+        let startY = oy + org.oy * s; startY -= Math.ceil((startY - y0) / cs) * cs;
+        for (let y = startY; y <= y1; y += cs) { if (y < y0 - 0.01) continue; ctx.fillRect(Math.round(x0 * dpr), Math.round(y * dpr), Math.round((x1 - x0) * dpr), lw); }
     }
 
     function _imgPoint(layer, e) {
@@ -656,6 +674,12 @@
         let layer = _layer(opts.area, opts.winId);
         opts.grid = grid(opts.grid);
         layer._opts = opts;
+        // Re-lay out (grid canvas, tokens) once per frame when the map area changes size
+        if (!layer._ro && window.ResizeObserver) {
+            let raf = 0;
+            layer._ro = new ResizeObserver(() => { if (raf) return; raf = requestAnimationFrame(() => { raf = 0; layout(opts.winId); }); });
+            layer._ro.observe(opts.area);
+        }
 
         // Fog lives in this layer while the battle map is on, so it can cover props/tokens
         let fog = opts.fogId ? document.getElementById(opts.fogId) : null;
@@ -674,13 +698,14 @@
         // Grid: one screen-space element with a CSS line pattern, always 1 px and sharp
         let gridEl = layer.querySelector('[data-bt-grid]');
         if (opts.imgSize && opts.imgSize.w) {
+            if (gridEl && gridEl.tagName !== 'CANVAS') { gridEl.remove(); gridEl = null; }
             if (!gridEl) {
-                gridEl = document.createElement('div');
+                gridEl = document.createElement('canvas');
                 gridEl.setAttribute('data-bt-grid', '1');
-                gridEl.style.cssText = 'position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform;pointer-events:none;opacity:.35;z-index:50;' +
-                    'background-image:linear-gradient(to right,#fff 1px,transparent 1px),linear-gradient(to bottom,#fff 1px,transparent 1px);';
+                gridEl.style.cssText = 'position:absolute;left:0;top:0;pointer-events:none;opacity:.35;z-index:50;';
                 layer.insertBefore(gridEl, layer.firstChild);
             }
+            gridEl._key = null;
         } else if (gridEl) gridEl.remove();
 
         // Props
@@ -964,7 +989,50 @@
         el.style.backgroundImage = 'none'; el.style.width = '0px'; el.style.height = '0px';
     }
 
+    // Window resizing without live re-layout: dragging the corner grip shows an outline,
+    // and the window takes the new size once, on release. (The browser's own live
+    // resize re-renders the whole map on every frame, which lags on big maps.)
+    function outlineResize(win, opts) {
+        opts = opts || {};
+        if (!win || win._outlineResize) return;
+        win._outlineResize = true;
+        win.style.resize = 'none';
+        let grip = document.createElement('div');
+        grip.setAttribute('data-resize-grip', '1');
+        grip.title = 'Drag to resize';
+        grip.style.cssText = 'position:absolute;right:0;bottom:0;width:16px;height:16px;cursor:nwse-resize;z-index:2147480000;touch-action:none;' +
+            'background:linear-gradient(135deg,transparent 0 45%,#64748b 45% 52%,transparent 52% 65%,#64748b 65% 72%,transparent 72%);border-bottom-right-radius:inherit;';
+        win.appendChild(grip);
+        grip.addEventListener('pointerdown', e => {
+            if (e.button !== 0) return;
+            e.preventDefault(); e.stopPropagation();
+            let r = win.getBoundingClientRect(), sx = e.clientX, sy = e.clientY;
+            let minW = opts.minW || 300, minH = opts.minH || 220;
+            let ol = document.createElement('div');
+            ol.style.cssText = `position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;border:2px dashed #60a5fa;background:rgba(96,165,250,.06);border-radius:0.75rem;z-index:2147483600;pointer-events:none;box-sizing:border-box;`;
+            document.body.appendChild(ol);
+            let w = r.width, h = r.height;
+            grip.setPointerCapture(e.pointerId);
+            let move = ev => {
+                w = Math.max(minW, Math.min(window.innerWidth - r.left, r.width + ev.clientX - sx));
+                h = Math.max(minH, Math.min(window.innerHeight - r.top, r.height + ev.clientY - sy));
+                ol.style.width = w + 'px'; ol.style.height = h + 'px';
+            };
+            let up = () => {
+                grip.removeEventListener('pointermove', move); grip.removeEventListener('pointerup', up); grip.removeEventListener('pointercancel', up);
+                ol.remove();
+                win.style.width = Math.round(w) + 'px'; win.style.height = Math.round(h) + 'px';
+                if (opts.onResize) opts.onResize(w, h);
+                requestAnimationFrame(() => win.querySelectorAll('[id$="_btScreen"]').forEach(l => layout(l.id.replace(/_btScreen$/, ''))));
+            };
+            grip.addEventListener('pointermove', move);
+            grip.addEventListener('pointerup', up);
+            grip.addEventListener('pointercancel', up);
+        });
+    }
+
     window.APXBattle = {
+        outlineResize,
         sizeFogCanvas, styleGrid,
         SIZES, SIZE_LIST,
         grid, origin, mult, span, center, diameter, pointToCell,

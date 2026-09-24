@@ -194,6 +194,7 @@ function computeCharSummary(state) {
         ap: calc.maxAp, speed: dispSpeed, initiative, mods: calc.mods, saves,
         trainedSkills, hasArmorDisadvantage: calc.hasArmorDisadvantage,
         fatigue: state.fatigue || 0, luckPts: state.luckPts || 0,
+        woundThreshold: ((calc.scores.CON || 0) * 2) + (calc.wtBoost || 0),
         envLines,
     };
 }
@@ -504,6 +505,7 @@ function ncStatBlockFor(npcId) {
     let sb = window.companionStatBlock();
     ncTarget = savedTarget;
     ncActiveGmNpcId = savedId;
+    if (sb) sb._npcId = npcId;   // lets attack rolls find this creature in initiative (AP)
     return sb;
 }
 
@@ -786,6 +788,29 @@ function _afterHpChange(entry, wasAboveZero) {
     if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
 }
 
+// Wound Threshold reminder: a party member hit by more damage than their
+// Wound Threshold (CON score x2, plus perk boosts) in one go.
+function _gmWoundThreshold(entry) {
+    let pm = (window.gmParty || []).find(p => p.fileName === entry.playerUid || p.summary?.playerUid === entry.playerUid || (p.summary?.name && p.summary.name === entry.name));
+    let wt = pm?.summary?.woundThreshold;
+    if (wt == null && pm?.state && typeof computeCharSummary === 'function') { try { wt = computeCharSummary(pm.state).woundThreshold; } catch (e) {} }
+    return wt == null || isNaN(wt) ? null : wt;
+}
+function _gmCheckWoundThreshold(entry, dmg) {
+    if (!entry || entry.faction !== 'player' || !(dmg > 0)) return;
+    let wt = _gmWoundThreshold(entry);
+    if (wt == null || dmg <= wt) return;
+    let msg = `${entry.name || 'This character'} took ${dmg} damage, more than their Wound Threshold of ${wt}.\n\nReminder: they should gain the Wounded condition on a limb.`;
+    if (window.apxAlert) window.apxAlert(msg, { title: 'Wound Threshold exceeded' });
+}
+window._gmCheckWoundThreshold = _gmCheckWoundThreshold;
+// Damage typed as "-N" (or a lower value) in the tracker
+function _gmDamageFrom(value, beforeTotal, afterTotal) {
+    let m = String(value).trim().match(/^-\s*(\d+)$/);
+    if (m) return parseInt(m[1], 10);
+    return Math.max(0, beforeTotal - afterTotal);
+}
+
 // Temp HP box: typed value sets Temp HP; a negative result overflows into HP.
 window.setInitiativeTempHp = function(id, value) {
     let entry = window.gmInitiative.find(e => e.id === id);
@@ -793,6 +818,7 @@ window.setInitiativeTempHp = function(id, value) {
     let result = window.parseMathExpression(value, entry.tempHp || 0);
     if (result === null) { window.renderInitiativeTracker(); return; }
     let wasAboveZero = entry.currentHp === null || entry.currentHp > 0;
+    let before = (entry.currentHp || 0) + (entry.tempHp || 0);
     if (result < 0) {
         let r = window.apxApplyHpInput(String(result), entry.currentHp, 0, entry.maxHp);
         entry.tempHp = 0;
@@ -800,7 +826,9 @@ window.setInitiativeTempHp = function(id, value) {
     } else {
         entry.tempHp = result;
     }
+    let tmpDmg = _gmDamageFrom(value, before, (entry.currentHp || 0) + (entry.tempHp || 0));
     _afterHpChange(entry, wasAboveZero);
+    _gmCheckWoundThreshold(entry, tmpDmg);
 };
 
 // HP box: "-N" damage hits Temp HP first, leftover carries to HP; "+N" heals; "N" sets.
@@ -811,9 +839,12 @@ window.updateInitiativeHp = function(id, value) {
     let wasAboveZero = entry.currentHp === null || entry.currentHp > 0;
     let r = window.apxApplyHpInput(value, entry.currentHp, entry.tempHp, entry.maxHp);
     if (!r) { window.renderInitiativeTracker(); return; }
+    let before = (entry.currentHp || 0) + (entry.tempHp || 0);
     entry.currentHp = r.currentHp;
     entry.tempHp = r.tempHp;
+    let dmg = _gmDamageFrom(value, before, (entry.currentHp || 0) + (entry.tempHp || 0));
     _afterHpChange(entry, wasAboveZero);
+    _gmCheckWoundThreshold(entry, dmg);
 };
 
 window.toggleSurprised = function(id, checked) {
@@ -993,7 +1024,7 @@ window.startCombat = function() {
     window.gmCurrentTurnIdx = 0;
     window.gmRoundNumber = 1;
     window.gmTurnNumber = 1;
-    window.gmInitiative.forEach(x => { x.apCur = 0; });
+    window.gmInitiative.forEach(x => { x.apCur = 0; x._apTurns = 0; x._apFirstSurprised = false; });
     if (window.gmInitiative[0]) gmStartTurnAp(window.gmInitiative[0]);
     window.renderInitiativeTracker();
     if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
@@ -1090,7 +1121,7 @@ window.toggleInitiativePowerSlot = function(entryId, powerName, idx) {
 };
 
 // AP pool per creature. Unspent AP carries over between turns with no cap;
-// pips show 2x its AP and grow as the pool fills.
+// pips show its AP plus one empty stored pip, growing as the pool fills.
 // NPCs: click pips to spend/refund. Players: mirrors their sheet.
 function gmApMax(e) { return Math.max(0, parseInt(e.ap) || 0); }
 function gmApCurrent(e) {
@@ -1099,9 +1130,14 @@ function gmApCurrent(e) {
     if (cur === undefined || cur === null) cur = window.gmCombatStarted ? 0 : max;   // gains AP at the start of its first turn
     return Math.max(0, Math.floor(Number(cur) || 0));
 }
+// A Surprised creature gains only 1 AP at the start of its first turn of combat
+// (this includes creatures added mid-combat that enter Surprised).
 function gmStartTurnAp(e) {
+    let first = e._apTurns === 0 || (e._apTurns == null && e.apCur == null);   // older saved combats: only brand-new entries
+    e._apTurns = (e._apTurns || 0) + 1;
+    e._apFirstSurprised = !!(first && e.surprised);
     if (e.faction === 'player') return;   // players' sheets add their own AP when their turn starts
-    e.apCur = gmApCurrent(e) + gmApMax(e);
+    e.apCur = gmApCurrent(e) + (e._apFirstSurprised ? 1 : gmApMax(e));
 }
 function gmApPipsHtml(e) {
     let max = gmApMax(e);
@@ -1112,7 +1148,7 @@ function gmApPipsHtml(e) {
         cur = st.apCurrent !== undefined && st.apCurrent !== null ? st.apCurrent : max - (st.apUsed || 0);
         cur = Math.max(0, Math.floor(Number(cur) || 0));
     } else cur = gmApCurrent(e);
-    let pips = Array.from({ length: Math.min(500, Math.max(max * 2, isPlayer ? cur : cur + 1)) }, (_, i) => {
+    let pips = Array.from({ length: Math.min(500, Math.max(max, cur) + 1) }, (_, i) => {
         let filled = i < cur, stored = i >= max;
         let st = `width:7px;height:7px;border-radius:50%;display:inline-block;padding:0;border:1px ${stored ? 'dashed #67e8f9' : 'solid #60a5fa'};background:${filled ? (stored ? '#06b6d4' : '#3b82f6') : 'transparent'};${i === max ? 'margin-left:3px;' : ''}`;
         return isPlayer ? `<span style="${st}"></span>`
@@ -1120,6 +1156,27 @@ function gmApPipsHtml(e) {
     }).join('');
     return `<span class="flex items-center gap-0.5 flex-wrap" title="${isPlayer ? 'Tracked on the player\'s sheet' : 'AP now (gains its AP at the start of each turn; unspent AP carries over, no cap)'}"><b class="${cur === 0 ? 'text-red-400' : 'text-blue-300'}">AP ${cur}/${max}</b>${pips}</span>`;
 }
+// NPC attack rolls from a stat block spend that creature's AP. When several
+// initiative entries share the stat block, the one whose turn it is pays
+// (or the one whose stat block window was opened from its initiative card).
+// Not enough AP: the attack still rolls, with a note for the GM.
+window.apxBeforeAttack = function(o) {
+    if (!o || !o.npcId || !window.gmCombatStarted) return null;
+    let cost = Math.max(0, parseInt(o.apCost) || 3);
+    let list = (window.gmInitiative || []).filter(x => x.sourceNpcId === o.npcId && x.faction !== 'player');
+    if (!list.length) return null;
+    let cur = window.gmInitiative[window.gmCurrentTurnIdx];
+    let e = (cur && list.includes(cur)) ? cur
+        : (o.initId && list.find(x => x.id === o.initId)) || (list.length === 1 ? list[0] : null);
+    if (!e) return { note: `AP not spent: ${list.length} creatures use this stat block and none is taking its turn`, warn: true };
+    let have = gmApCurrent(e);
+    let flurryTip = o.flurry ? 'Flurry: after a hit, later attacks on that target cost 1 less AP (min 1). Click a pip to refund it.' : '';
+    if (have < cost) return { note: `Not enough AP: ${e.name} has ${have}, needs ${cost}`, warn: true, tip: flurryTip };
+    e.apCur = have - cost;
+    window.renderInitiativeTracker();
+    return { note: `${e.name}: -${cost} AP (${e.apCur} left)${o.flurry ? ' · Flurry' : ''}`, tip: flurryTip };
+};
+
 window.gmClickApPip = function(id, i) {
     let e = window.gmInitiative.find(x => x.id === id); if (!e) return;
     let cur = gmApCurrent(e);
@@ -1199,7 +1256,7 @@ window.renderInitiativeTracker = function() {
                 ${e.sourceNpcId ? renderInitiativePowerBubbles(e) : ''}
                 ${isCurrent ? '<div class="text-[9px] text-amber-300 font-bold">Current Turn</div>' : ''}
                 <label class="flex items-center gap-1 text-[9px] text-slate-400">
-                    <input type="checkbox" ${e.surprised ? 'checked' : ''} onchange="window.toggleSurprised('${e.id}', this.checked)"> Surprised (-10)
+                    <input type="checkbox" ${e.surprised ? 'checked' : ''} onchange="window.toggleSurprised('${e.id}', this.checked)" title="-10 initiative, and gains only 1 AP at the start of its first turn"> Surprised (-10)
                 </label>
                 ${e.bleedOutTurns !== null && e.bleedOutTurns !== undefined ? `
                     <div class="text-[9px] text-red-400 font-bold flex items-center gap-1">
@@ -1254,6 +1311,7 @@ window.openFloatingStatBlock = function(entryId) {
     let dispName = entry.name || 'NPC';
     if (entry.sourceNpcId && window.gmNpcs.some(n => n.id === entry.sourceNpcId)) {
         let sb   = ncStatBlockFor(entry.sourceNpcId);
+        if (sb) sb._initId = entry.id;
         let gmNpc = window.gmNpcs.find(n => n.id === entry.sourceNpcId);
         sbName   = gmNpc?.npc?.name || sbName;
         // If the initiative entry name differs from the stat block name, show "First Name (Stat Block)"
