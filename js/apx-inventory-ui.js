@@ -187,13 +187,19 @@
                     </div>
                    </div>`;
 
-            if (item.isCustomEquippable && item.bonuses && !item.isLocked) {
+            // Items from the GM (Loot Maker) keep the bonuses the GM gave them: shown, not editable
+            if (item.isCustomEquippable && item.bonuses && (item.isLocked || item.gmMade)) {
+                let txt = window.apxItemBonusText ? window.apxItemBonusText(item.bonuses) : '';
+                statsHtml += `<div class="bg-slate-900 border border-slate-700 rounded p-2 mb-3 text-xs text-cyan-300"><span class="text-[10px] text-slate-500 uppercase font-bold block mb-0.5">While equipped</span>${txt || 'No bonuses'}</div>`;
+            }
+            if (item.isCustomEquippable && item.bonuses && !item.isLocked && !item.gmMade) {
                 let b = item.bonuses;
                 let prefix = `itemDetail${idx}`;
                 window._bonusDrafts[prefix] = {
                     attr: JSON.parse(JSON.stringify(b.attrBonuses || (b.attrTarget ? [{ target: b.attrTarget, amount: b.attrBonus }] : []))),
                     skill: JSON.parse(JSON.stringify(b.skillBonuses || (b.skillTarget ? [{ target: b.skillTarget, amount: b.skillBonus }] : []))),
                     er: JSON.parse(JSON.stringify(b.erBonuses || [])),
+                    stat: JSON.parse(JSON.stringify(b.statBonuses || [])),
                 };
                 statsHtml += `
                     <div class="bg-slate-900 border border-slate-700 rounded p-2 mb-3 space-y-3">
@@ -217,6 +223,11 @@
                             <label class="block text-[10px] text-slate-500 mb-1">Energy Resistance Bonuses</label>
                             <div id="${prefix}ErBonusList" class="space-y-1 mb-1"></div>
                             <button type="button" onclick="window.addBonusDraftRow('${prefix}', 'er'); window.commitItemBonusDraft(${idx})" class="text-[10px] text-cyan-400 hover:text-cyan-300 font-bold">+ Add Energy Resistance Bonus</button>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-slate-500 mb-1">Other Bonuses <span class="text-slate-600">(Max HP, AP, Power Slots, Rest Dice, Luck, saves, attacks…)</span></label>
+                            <div id="${prefix}StatBonusList" class="space-y-1 mb-1"></div>
+                            <button type="button" onclick="window.addBonusDraftRow('${prefix}', 'stat'); window.commitItemBonusDraft(${idx})" class="text-[10px] text-cyan-400 hover:text-cyan-300 font-bold">+ Add Other Bonus</button>
                         </div>
                     </div>
                 `;
@@ -252,7 +263,7 @@
                 ? item.name
                 : `<input type="text" id="itemDetailName" value="${item.name}" onchange="window.updateItemName(${idx}, this.value)" class="bg-slate-900 text-white font-bold text-lg w-full">`;
             document.getElementById('itemDetailBody').innerHTML = body;
-            if (item.isCustomEquippable && item.bonuses && !item.isLocked) {
+            if (item.isCustomEquippable && item.bonuses && !item.isLocked && !item.gmMade) {
                 renderAllBonusDraftLists(`itemDetail${idx}`);
             }
             window.openModal('itemDetailModal');
@@ -856,13 +867,16 @@
         // ------------------------------------------------------------------
         window._bonusDrafts = {};
         function getBonusDraft(prefix) {
-            if (!window._bonusDrafts[prefix]) window._bonusDrafts[prefix] = { attr: [], skill: [], er: [] };
+            if (!window._bonusDrafts[prefix]) window._bonusDrafts[prefix] = { attr: [], skill: [], er: [], stat: [] };
+            if (!window._bonusDrafts[prefix].stat) window._bonusDrafts[prefix].stat = [];
             return window._bonusDrafts[prefix];
         }
         const BONUS_TYPE_CONFIG = {
             attr: { options: ATTRIBUTES, label: 'Attribute' },
             skill: { options: SKILLS.map(s => s.name), label: 'Skill' },
             er: { options: NPC_ENERGY_TYPES, label: 'Energy Type' },
+            // Everything else on the sheet (Max HP, AP, Power Slots, saves...): grouped dropdown
+            stat: { options: (window.APX_ITEM_STAT_GROUPS || []).flatMap(g => g[1].map(x => x[0])), label: 'Bonus', groups: window.APX_ITEM_STAT_GROUPS || [] },
         };
         window.addBonusDraftRow = function(prefix, type) {
             let draft = getBonusDraft(prefix);
@@ -896,6 +910,7 @@
             item.bonuses.attrBonuses = JSON.parse(JSON.stringify(draft.attr));
             item.bonuses.skillBonuses = JSON.parse(JSON.stringify(draft.skill));
             item.bonuses.erBonuses = JSON.parse(JSON.stringify(draft.er));
+            item.bonuses.statBonuses = JSON.parse(JSON.stringify(draft.stat || []));
             // Clear the legacy single-slot fields once edited through the
             // new list UI, so they don't double-apply alongside the array.
             delete item.bonuses.attrTarget; delete item.bonuses.attrBonus;
@@ -921,7 +936,8 @@
             container.innerHTML = draft[type].map((row, idx) => `
                 <div class="bg-slate-800 border border-slate-700 rounded p-1.5 space-y-1">
                     <select onchange="window.updateBonusDraftRow('${prefix}', '${type}', ${idx}, 'target', this.value)" class="bg-slate-900 text-xs w-full">
-                        ${cfg.options.map(o => `<option value="${o}" ${o === row.target ? 'selected' : ''}>${o}</option>`).join('')}
+                        ${cfg.groups ? cfg.groups.map(([g, list]) => `<optgroup label="${g}">${list.map(([v, l]) => `<option value="${v}" ${v === row.target ? 'selected' : ''}>${l}</option>`).join('')}</optgroup>`).join('')
+                            : cfg.options.map(o => `<option value="${o}" ${o === row.target ? 'selected' : ''}>${o}</option>`).join('')}
                     </select>
                     <div class="flex items-center gap-1">
                         <span class="text-[10px] text-slate-500" data-tip="Negative amounts are allowed, for a penalty instead of a bonus.">Amount:</span>
@@ -932,13 +948,13 @@
             `).join('');
         };
         function renderAllBonusDraftLists(prefix) {
-            ['attr', 'skill', 'er'].forEach(type => window.renderBonusDraftList(prefix, type));
+            ['attr', 'skill', 'er', 'stat'].forEach(type => window.renderBonusDraftList(prefix, type));
         }
 
         window.toggleNewItemEquippable = function(checked) {
             document.getElementById('newItemEquipFields').classList.toggle('hidden', !checked);
             if (checked) {
-                window._bonusDrafts['newItem'] = { attr: [], skill: [], er: [] };
+                window._bonusDrafts['newItem'] = { attr: [], skill: [], er: [], stat: [] };
                 renderAllBonusDraftLists('newItem');
             }
         };
@@ -973,6 +989,7 @@
                     attrBonuses: JSON.parse(JSON.stringify(draft.attr)),
                     skillBonuses: JSON.parse(JSON.stringify(draft.skill)),
                     erBonuses: JSON.parse(JSON.stringify(draft.er)),
+                    statBonuses: JSON.parse(JSON.stringify(draft.stat || [])),
                 };
             }
             window.state.items.unshift(newItem);

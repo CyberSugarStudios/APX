@@ -61,23 +61,22 @@ function computeCharSummary(state) {
 
     ATTRIBUTES.forEach(a => { calc.mods[a] = calc.scores[a] - 5; });
 
-    // Custom equippable items contribute AC/DR/ER/speed/skill/attribute bonuses
-    let customAc=0, customDr=0, customEr=0;
-    (state.items||[]).forEach(item => {
-        if (!(item.isCustomEquippable && item.equipped && item.bonuses)) return;
-        let b = item.bonuses;
-        customAc += (b.ac||0); customDr += (b.dr||0); customEr += (b.er||0);
-        if (b.speedBonus) calc.speed += b.speedBonus;
-        (b.attrBonuses||[]).forEach(r => { if(calc.scores[r.target]!==undefined) calc.scores[r.target]+=(r.amount||0); });
-        if (b.attrTarget && calc.scores[b.attrTarget]!==undefined) calc.scores[b.attrTarget]+=(b.attrBonus||0);
-        (b.skillBonuses||[]).forEach(r => { if(r.target&&r.amount) calc.skills[r.target]=(calc.skills[r.target]||0)+r.amount; });
-        if (b.skillTarget && b.skillBonus) calc.skills[b.skillTarget]=(calc.skills[b.skillTarget]||0)+b.skillBonus;
+    // Custom equippable items: everything they add (js/apx-item-effects.js)
+    let itemFx = window.apxItemEffects ? window.apxItemEffects(state) : { attr: {}, skill: {}, er: [], stat: {} };
+    let fxStat = k => (itemFx.stat && itemFx.stat[k]) || 0;
+    let customAc = fxStat('ac'), customDr = fxStat('dr'), customEr = fxStat('er');
+    calc.speed += fxStat('speed');
+    ATTRIBUTES.forEach(a => { if (itemFx.attr[a]) calc.scores[a] += itemFx.attr[a]; });
+    Object.keys(itemFx.skill).forEach(t => {
+        let sk = [...SKILLS, ...(state.customSkills || [])].find(x => x.name === t || x.id === t);
+        let key = sk ? sk.id : t;
+        calc.skills[key] = (calc.skills[key] || 0) + itemFx.skill[t];
     });
     // Recalculate mods after any attribute bonuses from items
     ATTRIBUTES.forEach(a => { calc.mods[a] = calc.scores[a] - 5; });
 
     let vitalHpRank = (state.perks || {})['con_vitality'] || 0;
-    let maxHp = Math.max(5, (calc.scores.CON * 5) + (vitalHpRank * 5) + (state.xpHpBought || 0) - calc.maxHpPenalty);
+    let maxHp = Math.max(5, (calc.scores.CON * 5) + (vitalHpRank * 5) + (state.xpHpBought || 0) - calc.maxHpPenalty + fxStat('maxHp'));
 
     let armor = state.equippedArmor || { wt: 0, ac: 0, dr: 0, er: 0 };
     let armorWt = armor.wt || 0, armorAc = (armor.ac||0)+customAc, armorDr = (armor.dr||0)+customDr, armorEr = (armor.er||0)+customEr;
@@ -124,7 +123,7 @@ function computeCharSummary(state) {
 
     let tirelessRank = (state.perks || {})['gen_tireless'] || 0;
     let effectiveFatigue = Math.max(0, (state.fatigue || 0) - tirelessRank);
-    calc.maxAp = calc.apForcedZero ? 0 : Math.max(6, 6 + Math.floor(calc.mods.AGI / 2)) - effectiveFatigue;   // 6 + half AGI mod (round down), min 6 — Sept 23, 2026 update
+    calc.maxAp = calc.apForcedZero ? 0 : Math.max(0, Math.max(6, 6 + Math.floor(calc.mods.AGI / 2)) - effectiveFatigue + fxStat('maxAp'));   // 6 + half AGI mod (round down), min 6 — Sept 23, 2026 update
 
     // Passive Initiative (Ch.9): 10 + chosen AGI-or-PER modifier, plus
     // whatever flat bonuses perks like Twitchy already added to calc.init
@@ -132,20 +131,20 @@ function computeCharSummary(state) {
     // own formula exactly (including that Tactical Mind's useIntInit flag
     // isn't actually consulted here -- that's the main sheet's existing
     // behavior, not something introduced for this summary).
-    let initiative = 10 + (calc.mods[state.initStat] || 0) + (calc.init - 10);
+    let initiative = 10 + (calc.mods[state.initStat] || 0) + (calc.init - 10) + fxStat('init');
 
     let dispSpeed = calc.speedForcedZero ? 0 : Math.max(0, calc.speed);
 
     let saves = {};
     ATTRIBUTES.forEach(a => {
         let trained = !!(state.savesTrained && state.savesTrained[a]);
-        saves[a] = calc.mods[a] + (trained ? (state.trainingBonus || 2) : 0);
+        saves[a] = calc.mods[a] + (trained ? (state.trainingBonus || 2) : 0) + (window.apxItemSaveBonus ? window.apxItemSaveBonus(itemFx, a) : 0);
     });
 
     let trainedSkills = SKILLS.filter(s => state.skillsTrained && state.skillsTrained[s.id]).map(s => {
         let perkBonus = calc.skills[s.id] || 0;
         if (s.name === 'Notice' && calc.skills['Notice']) perkBonus = calc.skills['Notice'];
-        return { name: s.name, total: calc.mods[s.attr] + (state.trainingBonus || 2) + perkBonus };
+        return { name: s.name, total: calc.mods[s.attr] + (state.trainingBonus || 2) + perkBonus + (window.apxItemCheckBonus ? window.apxItemCheckBonus(itemFx, s.attr) : 0) };
     });
     (state.customSkills || []).filter(s => state.skillsTrained && state.skillsTrained[s.id]).forEach(s => {
         let perkBonus = s.name.startsWith('Encyclopedia') ? ((state.perks || {})['int_scholar'] || 0) : 0;
@@ -194,7 +193,7 @@ function computeCharSummary(state) {
         ap: calc.maxAp, speed: dispSpeed, initiative, mods: calc.mods, saves,
         trainedSkills, hasArmorDisadvantage: calc.hasArmorDisadvantage,
         fatigue: state.fatigue || 0, luckPts: state.luckPts || 0,
-        woundThreshold: ((calc.scores.CON || 0) * 2) + (calc.wtBoost || 0),
+        woundThreshold: ((calc.scores.CON || 0) * 2) + (calc.wtBoost || 0) + fxStat('wt'),
         envLines,
     };
 }

@@ -1255,6 +1255,11 @@
                         <div id="newItemErBonusList" class="space-y-1 mb-1"><!-- JS injected --></div>
                         <button type="button" onclick="window.addBonusDraftRow('newItem', 'er')" class="text-[10px] text-cyan-400 hover:text-cyan-300 font-bold">+ Add Energy Resistance Bonus</button>
                     </div>
+                    <div>
+                        <label class="block text-[10px] text-slate-500 mb-1" data-tip="Max HP, AP, Initiative, Wound Threshold, Rest Dice, Luck Points, Power Slots, attack and damage rolls, saves, checks and more. Amounts can be negative.">Other Bonuses</label>
+                        <div id="newItemStatBonusList" class="space-y-1 mb-1"><!-- JS injected --></div>
+                        <button type="button" onclick="window.addBonusDraftRow('newItem', 'stat')" class="text-[10px] text-cyan-400 hover:text-cyan-300 font-bold">+ Add Other Bonus</button>
+                    </div>
                 </div>
             </div>
             <div class="flex justify-end gap-2 mt-6">
@@ -2280,6 +2285,7 @@
     <script src="js/apx-patch-notes.js"></script>
     <script src="js/apx-dice.js"></script>
     <script src="js/apx-data.js"></script>
+    <script src="js/apx-item-effects.js"></script>
     <script src="js/apx-perks-db.js"></script>
     <script src="js/apx-migrations.js"></script>
     <script src="js/apx-roster.js"></script>

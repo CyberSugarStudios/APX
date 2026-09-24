@@ -192,16 +192,10 @@
             // attrBonuses is the current array format; attrTarget/
             // attrBonus is kept working for items saved before this
             // became a list.
-            (window.state.items || []).forEach(item => {
-                if (!(item.isCustomEquippable && item.equipped && item.bonuses)) return;
-                let b = item.bonuses;
-                (b.attrBonuses || []).forEach(row => {
-                    if (calc.scores[row.target] !== undefined) calc.scores[row.target] += (row.amount || 0);
-                });
-                if (b.attrTarget && calc.scores[b.attrTarget] !== undefined) {
-                    calc.scores[b.attrTarget] += (b.attrBonus || 0);
-                }
-            });
+            // Everything equipped custom items add (see js/apx-item-effects.js)
+            let itemFx = calc.itemFx = window.apxItemEffects ? window.apxItemEffects(window.state) : { attr: {}, skill: {}, er: [], stat: {} };
+            let fxStat = k => (itemFx.stat && itemFx.stat[k]) || 0;
+            ATTRIBUTES.forEach(a => { if (itemFx.attr[a]) calc.scores[a] += itemFx.attr[a]; });
 
             Object.keys(window.state.perks).forEach(perkId => {
                 let pDef = PERKS_DB.find(p => p.id === perkId);
@@ -222,10 +216,11 @@
                 calc.mods[a] = calc.scores[a] - 5;
             });
 
-            calc.maxRestDice = calc.scores.CON + (calc.maxRestDice - 5); 
+            calc.maxRestDice = calc.scores.CON + (calc.maxRestDice - 5) + fxStat('maxRestDice');
+            calc.maxRestDice = Math.max(0, calc.maxRestDice);
 
             let vitalHpRank = window.state.perks['con_vitality'] || 0;
-            let maxHp = (calc.scores.CON * 5) + (vitalHpRank * 5) + window.state.xpHpBought - calc.maxHpPenalty;
+            let maxHp = (calc.scores.CON * 5) + (vitalHpRank * 5) + window.state.xpHpBought - calc.maxHpPenalty + fxStat('maxHp');
             maxHp = Math.max(5, maxHp);
             calc.maxHp = maxHp;
             // Whenever Max HP changes -- up from leveling CON, buying
@@ -244,7 +239,7 @@
 
             let sizeMult = (parseInt(window.state.ancestry.size) || 30);
             if (calc.sizeMultBoost > 0) sizeMult *= 2; 
-            calc.carryCap = calc.scores.STR * sizeMult + (calc.carryCap - 150);
+            calc.carryCap = calc.scores.STR * sizeMult + (calc.carryCap - 150) + fxStat('carryCap');
 
             let armorWt = window.state.equippedArmor.wt;
             let armorAc = window.state.equippedArmor.ac;
@@ -282,23 +277,19 @@
             // skillBonuses/erBonuses arrays; ac/dr/speedBonus stay flat
             // single values per item. Legacy skillTarget/skillBonus/er
             // (pre-array format) still applies too.
-            calc.customItemErBonuses = [];
-            (window.state.items || []).forEach(item => {
-                if (item.isCustomEquippable && item.equipped && item.bonuses) {
-                    let b = item.bonuses;
-                    armorAc += (b.ac || 0);
-                    armorDr += (b.dr || 0);
-                    armorEr += (b.er || 0); // legacy flat ER field
-                    if (b.speedBonus) calc.speed += b.speedBonus;
-                    (b.skillBonuses || []).forEach(row => {
-                        if (row.target && row.amount) calc.skills[row.target] = (calc.skills[row.target] || 0) + row.amount;
-                    });
-                    if (b.skillTarget && b.skillBonus) calc.skills[b.skillTarget] = (calc.skills[b.skillTarget] || 0) + b.skillBonus;
-                    (b.erBonuses || []).forEach(row => {
-                        if (row.target && row.amount) calc.customItemErBonuses.push({ type: row.target, amount: row.amount, source: item.name });
-                    });
-                }
+            calc.customItemErBonuses = itemFx.er.slice();
+            armorAc += fxStat('ac');
+            armorDr += fxStat('dr');
+            armorEr += fxStat('er');
+            calc.speed += fxStat('speed');
+            Object.keys(itemFx.skill).forEach(t => {
+                // Items name skills by their display name ("Animal Handling"); the sheet keys them by id
+                let sk = [...SKILLS, ...(window.state.customSkills || [])].find(x => x.name === t || x.id === t);
+                let key = sk ? sk.id : t;
+                calc.skills[key] = (calc.skills[key] || 0) + itemFx.skill[t];
             });
+            calc.bonusMeleeAtk += fxStat('meleeAtk'); calc.bonusMeleeDmg += fxStat('meleeDmg');
+            calc.bonusRangedAtk += fxStat('rangedAtk'); calc.bonusRangedDmg += fxStat('rangedDmg');
 
             // Armor Forge mods (Stealth/Athletics checks, worn Speed penalty)
             if (window.state.equippedArmor.stealthMod) calc.skills.Stealth = (calc.skills.Stealth || 0) + window.state.equippedArmor.stealthMod;
@@ -499,10 +490,10 @@
             let tirelessRank = window.state.perks['gen_tireless'] || 0;
             let effectiveFatigue = Math.max(0, window.state.fatigue - tirelessRank);
             calc.effectiveFatigue = effectiveFatigue;
-            calc.maxAp = calc.apForcedZero ? 0 : Math.max(6, 6 + Math.floor(calc.mods.AGI / 2)) - effectiveFatigue;   // 6 + half AGI mod (round down), min 6 — Sept 23, 2026 update
+            calc.maxAp = calc.apForcedZero ? 0 : Math.max(0, Math.max(6, 6 + Math.floor(calc.mods.AGI / 2)) - effectiveFatigue + fxStat('maxAp'));   // 6 + half AGI mod (round down), min 6 — Sept 23, 2026 update
             
             window.syncInitStatCheckboxes(); // may revert state.initStat if its perk was removed, so this runs before calc.init uses it
-            calc.init = 10 + (calc.mods[window.state.initStat] || 0) + (calc.init - 10); 
+            calc.init = 10 + (calc.mods[window.state.initStat] || 0) + (calc.init - 10) + fxStat('init');
 
             document.getElementById('dispGlobalTb').innerText = window.state.trainingBonus;
             document.getElementById('dispAp').innerText = calc.maxAp;
@@ -520,8 +511,9 @@
                 if (curRestEl) curRestEl.value = window.state.restDice;
             }
             window.state.lastKnownMaxRestDice = calc.maxRestDice;
-            document.getElementById('dispWt').innerText = (calc.scores.CON * 2) + calc.wtBoost;
-            let newMaxLuck = Math.max(1, calc.mods.LUC);
+            calc.woundThreshold = (calc.scores.CON * 2) + calc.wtBoost + fxStat('wt');
+            document.getElementById('dispWt').innerText = calc.woundThreshold;
+            let newMaxLuck = Math.max(0, Math.max(1, calc.mods.LUC) + fxStat('maxLuck'));
             calc.maxLuck = newMaxLuck;
             document.getElementById('dispMaxLuck').innerText = newMaxLuck;
             // Auto-adjust current luckPts when LUC changes (same pattern as restDice)
@@ -552,7 +544,8 @@
                 let attrSkills = allSkills.filter(s => s.attr === attr);
 
                 let saveTrained = !!(window.state.savesTrained && window.state.savesTrained[attr]);
-                let saveBonus = mod + (saveTrained ? window.state.trainingBonus : 0);
+                let saveBonus = mod + (saveTrained ? window.state.trainingBonus : 0) + (window.apxItemSaveBonus ? window.apxItemSaveBonus(calc.itemFx, attr) : 0);
+                let checkItemBonus = window.apxItemCheckBonus ? window.apxItemCheckBonus(calc.itemFx, attr) : 0;
                 let saveDisadvSources = calc.disadv.saveByAttr[attr] || [];
                 let saveAutoFailSources = calc.disadv.autoFailSaveByAttr[attr] || [];
                 let saveBadges = '';
@@ -565,7 +558,7 @@
                             <div class="text-lg font-black text-slate-200 w-12">${attr}</div>
                             <div class="w-10 text-center text-sm font-bold text-slate-400 mx-2 bg-slate-900 rounded p-1 border border-slate-700">${sc}</div>
                             <div class="flex-1 flex justify-end">
-                                <div class="w-10 h-8 flex items-center justify-center font-black text-lg rounded shadow-inner border ${bgClass} apx-rollable" title="Click to roll a ${attr} check"${apxRollAttr({ type: 'check', label: attr + ' check', bonus: mod, attr, disSources: calc.disadv.checkByAttr[attr] || [], autoFail: (calc.disadv.autoFailCheckByAttr[attr] || []).join(', ') || undefined })}>${mod >= 0 ? '+'+mod : mod}</div>
+                                <div class="w-10 h-8 flex items-center justify-center font-black text-lg rounded shadow-inner border ${bgClass} apx-rollable" title="Click to roll a ${attr} check"${apxRollAttr({ type: 'check', label: attr + ' check', bonus: mod + checkItemBonus, attr, disSources: calc.disadv.checkByAttr[attr] || [], autoFail: (calc.disadv.autoFailCheckByAttr[attr] || []).join(', ') || undefined })}>${(mod + checkItemBonus) >= 0 ? '+'+(mod + checkItemBonus) : (mod + checkItemBonus)}</div>
                             </div>
                         </div>
                         <div class="flex items-center justify-between px-2 py-1 bg-slate-800/60 border-b border-slate-700/50 text-[10px] apx-rollable" title="Click to roll a ${attr} save"${apxRollAttr({ type: 'check', kind: 'save', attr, label: attr + ' Save', bonus: saveBonus, disSources: saveDisadvSources, autoFail: saveAutoFailSources.join(', ') || undefined })}>
@@ -601,7 +594,7 @@
                     // Xenobiology, etc.) by the time this runs, so it's
                     // computed directly from the perk's rank here instead.
                     if (skill.name && skill.name.startsWith('Encyclopedia')) perkBonus += (window.state.perks['int_scholar'] || 0);
-                    let total = mod + (isTr ? window.state.trainingBonus : 0) + perkBonus;
+                    let total = mod + (isTr ? window.state.trainingBonus : 0) + perkBonus + checkItemBonus;
 
                     let pasText = "--";
                     if (skill.pass) {
@@ -701,7 +694,9 @@
                 // weapons, and anything forged that's currently sitting
                 // unequipped in inventory -- so this doesn't reopen the
                 // free-stat-edit exploit that isLocked exists to close).
-                let nameHtml = `<div class="text-xs ${item.isLocked ? 'text-slate-400' : 'text-slate-200'} font-bold px-1 truncate" title="${item.name}">${item.name}${item.isLocked && !window.state.craftingMatWeightEnabled ? ' <span class="text-[9px] text-slate-600">(wt off)</span>' : ''}</div>`;
+                let nameHtml = `<div class="text-xs ${item.isLocked ? 'text-slate-400' : 'text-slate-200'} font-bold px-1 truncate" title="${item.name}">${item.name}${item.isLocked && !window.state.craftingMatWeightEnabled ? ' <span class="text-[9px] text-slate-600">(wt off)</span>' : ''}</div>`
+                    + (item.isCustomEquippable && item.bonuses && window.apxItemBonusText && window.apxItemBonusText(item.bonuses)
+                        ? `<div class="text-[9px] ${item.equipped ? 'text-cyan-400' : 'text-slate-500'} px-1 truncate" title="${window.apxItemBonusText(item.bonuses).replace(/"/g, '&quot;')}">${window.apxItemBonusText(item.bonuses)}</div>` : '');
                 let wtHtml = `<div class="text-xs text-slate-500">${item.wt}</div>`;
                 let valHtml = `<div class="text-xs ${item.isLocked ? 'text-yellow-500/50' : 'text-yellow-400'}">${item.val}</div>`;
 
@@ -1287,17 +1282,14 @@
 
         function getMaxSlotsForLevel(lvl) {
             let attr = window.state.powerAttr;
+            let fx = (typeof calc !== 'undefined' && calc && calc.itemFx && calc.itemFx.stat) || {};
             if(attr === 'INT') {
                 let timesBought = (window.state.pwrIntRanks && window.state.pwrIntRanks[lvl]) ? window.state.pwrIntRanks[lvl] : 0;
-                if(lvl===1) return 3 * timesBought;
-                if(lvl===2) return 2 * timesBought;
-                if(lvl===3) return 2 * timesBought;
-                if(lvl===4) return 1 * timesBought;
-                if(lvl===5) return 1 * timesBought;
+                let per = { 1: 3, 2: 2, 3: 2, 4: 1, 5: 1 }[lvl] || 0;
+                return Math.max(0, per * timesBought + (fx['slot_' + lvl] || 0));   // + items that grant extra slots
             } else {
-                return window.state.perks["pwr_cha"] || 0;
+                return Math.max(0, (window.state.perks["pwr_cha"] || 0) + (fx.slot_CHA || 0));
             }
-            return 0;
         }
 
         // delta directly represents the change to charges REMAINING
@@ -1346,8 +1338,9 @@
             let mod = calc.mods[attr] || 0;
             let maxLvl = (attr === 'INT') ? (window.state.perks["pwr_int"] || 0) : (window.state.perks["pwr_cha"] || 0);
 
-            let atk = mod + window.state.trainingBonus + maxLvl;
-            let dc = 10 + mod + maxLvl;
+            let pfx = k => (calc.itemFx && calc.itemFx.stat && calc.itemFx.stat[k]) || 0;
+            let atk = mod + window.state.trainingBonus + maxLvl + pfx('powerAtk');
+            let dc = 10 + mod + maxLvl + pfx('powerDc');
 
             document.getElementById('dispPwrAtk').innerText = (atk >= 0 ? '+'+atk : atk);
             document.getElementById('dispPwrDc').innerText = dc;
@@ -1367,7 +1360,7 @@
                     html += `</div></div>`;
                 }
             } else if (attr === 'CHA') {
-                let slotMax = maxLvl;
+                let slotMax = Math.max(0, maxLvl + pfx('slot_CHA'));
                 let used = window.state.usedPowerSlots['CHA'] || 0;
                 if (used > slotMax) used = slotMax;
                 let available = slotMax - used;

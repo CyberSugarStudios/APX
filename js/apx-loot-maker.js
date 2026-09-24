@@ -34,9 +34,8 @@
             let ch = it.charges > 1 ? `${it.chargesRemaining ?? it.charges}/${it.charges} charges` : '1 use';
             return [ch, sum && sum.dmg && sum.dmg !== '-' ? sum.dmg : '', sum && sum.utilityBits && sum.utilityBits.length ? sum.utilityBits.join(', ') : ''].filter(Boolean).join(' · ');
         }
-        let b = it.bonuses || {};
-        let bits = [b.ac ? `+${b.ac} AC` : '', b.dr ? `+${b.dr} DR` : '', b.er ? `+${b.er} ER` : '', b.speedBonus ? `+${b.speedBonus} Speed` : ''].filter(Boolean);
-        return bits.length ? bits.join(', ') : (it.desc || '');
+        let txt = it.bonuses && window.apxItemBonusText ? window.apxItemBonusText(it.bonuses) : '';
+        return txt || (it.desc || '');
     }
     window.apxLootKind = kindOf; window.apxLootStats = statsOf;
     function weaponItem(w) {
@@ -174,8 +173,10 @@
                 ${field('Count', `<input data-ci="ct" type="number" min="1" value="1" style="${inCss}">`)}
                 <div style="grid-column:1/-1">${field('Description', `<textarea data-ci="desc" rows="2" placeholder="What is it? What does it do?" style="${inCss};resize:vertical"></textarea>`)}</div>
                 <label style="grid-column:1/-1;display:flex;align-items:center;gap:.4rem;font-size:.72rem;color:#cbd5e1;cursor:pointer"><input type="checkbox" data-ci="eq"> Equippable (gives bonuses while worn)</label>
-                <div data-ci-bonus style="grid-column:1/-1;display:none;grid-template-columns:repeat(4,1fr);gap:.5rem">
-                    ${['ac:AC', 'dr:DR', 'er:ER', 'speed:Speed'].map(x => { let [k, l] = x.split(':'); return field('+' + l, `<input data-ci="${k}" type="number" value="0" style="${inCss}">`); }).join('')}
+                <div data-ci-bonus style="grid-column:1/-1;display:none">
+                    <div style="font-size:.62rem;color:#94a3b8;margin-bottom:.3rem">Add as many bonuses as you like: Core Attributes, skills, AC/DR/ER, Max HP, AP, Initiative, Wound Threshold, Rest Dice, Luck Points, Power Slots, attack and damage rolls, saves, checks, energy resistances. Negative amounts make a cursed item.</div>
+                    <div data-ci-rows></div>
+                    <button type="button" data-ci-addrow style="background:#1e293b;border:1px dashed #475569;color:#93c5fd;font-size:.7rem;font-weight:800;border-radius:.3rem;padding:.25rem .6rem;cursor:pointer">+ Add bonus</button>
                 </div></div>
                 <div style="text-align:right;margin-top:.6rem"><button data-lm-ciadd class="apxdlg-btn apxdlg-ok">Add Item</button></div>`;
         }
@@ -241,7 +242,23 @@
             addTo(maker.target, weaponItem(w));
         };
         let ci = body.querySelector('[data-ci="eq"]');
-        if (ci) ci.onchange = () => { body.querySelector('[data-ci-bonus]').style.display = ci.checked ? 'grid' : 'none'; };
+        let addBonusRow = (key, amount) => {
+            let rows = body.querySelector('[data-ci-rows]'); if (!rows) return;
+            let row = document.createElement('div');
+            row.setAttribute('data-ci-row', '');
+            row.style.cssText = 'display:flex;gap:.35rem;align-items:center;margin-bottom:.3rem';
+            row.innerHTML = `<select data-ci-key style="${inCss};flex:1;min-width:0">${window.apxItemBonusOptions ? window.apxItemBonusOptions(key) : ''}</select>
+                <input data-ci-amt type="number" value="${amount}" style="${inCss};width:4rem;text-align:center" title="Negative for a penalty">
+                <button type="button" title="Remove" style="background:#334155;border:none;color:#cbd5e1;border-radius:.25rem;width:1.5rem;height:1.5rem;cursor:pointer;font-weight:900">✕</button>`;
+            row.querySelector('button').onclick = () => row.remove();
+            rows.appendChild(row);
+        };
+        if (ci) ci.onchange = () => {
+            body.querySelector('[data-ci-bonus]').style.display = ci.checked ? 'block' : 'none';
+            if (ci.checked && !body.querySelector('[data-ci-row]')) addBonusRow('attr:STR', 1);
+        };
+        let addRowBtn = body.querySelector('[data-ci-addrow]');
+        if (addRowBtn) addRowBtn.onclick = () => addBonusRow('stat:maxHp', 1);
         let cib = body.querySelector('[data-lm-ciadd]');
         if (cib) cib.onclick = () => {
             let v = k => body.querySelector(`[data-ci="${k}"]`);
@@ -250,7 +267,9 @@
             let item = { name, wt: parseFloat(v('wt').value) || 0, ct: Math.max(1, parseInt(v('ct').value) || 1), val: parseInt(v('val').value) || 0, desc: v('desc').value.trim() };
             if (v('eq').checked) {
                 item.isCustomEquippable = true; item.equipped = false;
-                item.bonuses = { ac: parseInt(v('ac').value) || 0, dr: parseInt(v('dr').value) || 0, er: parseInt(v('er').value) || 0, speedBonus: parseInt(v('speed').value) || 0, attrBonuses: [], skillBonuses: [], erBonuses: [] };
+                item.gmMade = true;   // players see these bonuses but can't edit them
+                let rows = [...body.querySelectorAll('[data-ci-row]')].map(r => ({ key: r.querySelector('[data-ci-key]').value, amount: r.querySelector('[data-ci-amt]').value }));
+                item.bonuses = window.apxItemBonusesFromRows ? window.apxItemBonusesFromRows(rows) : { ac: 0, dr: 0, er: 0, speedBonus: 0, attrBonuses: [], skillBonuses: [], erBonuses: [], statBonuses: [] };
             }
             addTo(maker.target, item);
         };
