@@ -266,6 +266,9 @@
             position: fixed; top: 1rem; right: 1rem; z-index: 101;
             display: flex; gap: 0.5rem;
         }
+        /* In the Roster menu: two equal buttons along the bottom */
+        .undo-redo-cluster.undo-redo-sidebar { position: static; display: grid; grid-template-columns: 1fr 1fr; }
+        .undo-redo-cluster.undo-redo-sidebar button { box-shadow: none; }
         .undo-redo-cluster button {
             background: var(--c-surface); border: 1px solid var(--c-border); padding: 0.5rem 0.75rem;
             border-radius: 0.375rem; cursor: pointer; color: var(--c-text);
@@ -400,10 +403,7 @@
     <div class="hamburger-cluster">
         <button class="hamburger-btn" onclick="window.toggleSidebar()">= Roster</button>
         <button id="playerWorldBtn" class="hamburger-btn hidden" onclick="window.openModal('playerWorldModal')" style="font-size:0.875rem;">World</button>
-    </div>    <div class="undo-redo-cluster">
-        <button id="btnUndo" onclick="window.performUndo()" title="Undo (Ctrl+Z)" disabled>↶ Undo</button>
-        <button id="btnRedo" onclick="window.performRedo()" title="Redo (Ctrl+Y)" disabled>↷ Redo</button>
-        <button onclick="window.openModal('settingsModal')" title="Settings">Settings</button>
+        <button id="settingsBtn" class="hamburger-btn" onclick="window.openModal('settingsModal')" title="Settings" style="font-size:0.875rem;">Settings</button>
     </div>
     <div id="sidebarOverlay" onclick="window.toggleSidebar()"></div>
     <div id="sidebar">
@@ -436,6 +436,11 @@
                     Delete Account
                 </button>
             </div>
+        </div>
+        <!-- Undo / Redo (bottom of the Roster menu) -->
+        <div class="undo-redo-cluster undo-redo-sidebar mt-3 pt-3 border-t border-slate-700">
+            <button id="btnUndo" onclick="window.performUndo()" title="Undo (Ctrl+Z)" disabled>↶ Undo</button>
+            <button id="btnRedo" onclick="window.performRedo()" title="Redo (Ctrl+Y)" disabled>↷ Redo</button>
         </div>
     </div>
 
@@ -3361,7 +3366,11 @@
             try {
                 let inCombat = (world.notesV2.otherMaps || []).some(m => m._currentInitId);
                 window._pwCombatCode = inCombat ? code : null;
-                if (inCombat && window._pwWasInCombat === false && window.state) { window.state.apCurrent = 0; window._pwLastTurnKey = null; window.apxRenderApPips?.(); window.scheduleAutoSave?.(); }
+                if (inCombat && window._pwWasInCombat === false && window.state) {
+                    window.state.apCurrent = 0; window._pwLastTurnKey = null; window.apxRenderApPips?.();
+                    if (window.state.companion && window.apxCompSetAp) { window._pwCompTurnKey = null; window.apxCompSetAp(0); }   // the companion too
+                    window.scheduleAutoSave?.();
+                }
                 window._pwWasInCombat = inCombat;
             } catch (e) { }
             // Your turn just started in the GM's initiative -> you gain your AP (unspent AP carries over)
@@ -3379,6 +3388,22 @@
                         if (!first && m._curApGain1 && window.apxSetApValue) window.apxSetApValue(1);
                         else if (!first && window.apxResetAp) window.apxResetAp();
                         if (!first && window.apxBurnTick) window.apxBurnTick();   // Burning: 1d10 Fire at the start of your turn
+                    }
+                });
+            } catch (e) { }
+            // Your Loyal Companion's turn just started -> it gains its AP (unspent AP carries over)
+            try {
+                let myUid = window.apxAuth?.user?.uid;
+                (world.notesV2.otherMaps || []).forEach(m => {
+                    if (!m._currentInitId || !myUid || !window.state?.companion) return;
+                    let its = m._curCompanionOf === myUid
+                        || (m.battleTokens || []).some(t => t.type === 'companion' && t.playerUid === myUid && t.initiativeId === m._currentInitId);
+                    if (!its) return;
+                    let key = m._currentInitId + ':' + (m._turnNo || 0);
+                    if (window._pwCompTurnKey !== key) {
+                        let first = window._pwCompTurnKey === undefined;
+                        window._pwCompTurnKey = key;
+                        if (!first && window.apxCompStartTurn) window.apxCompStartTurn(!!m._curApGain1);
                     }
                 });
             } catch (e) { }

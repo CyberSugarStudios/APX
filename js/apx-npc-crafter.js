@@ -1245,7 +1245,8 @@ window.companionStatBlock = function() {
         conditionImmunities: c.conditionImmunities, conditionalDmgImmunities: c.conditionalDmgImmunities,
         energyImmunities: c.energyImmunities, energyVulnerabilities: c.energyVulnerabilities,
         damageResistances: c.damageResistances || [],
-        carriedItems: Array.isArray(c.carriedItems) ? c.carriedItems : [], carriedCu: c.carriedCu || 0
+        carriedItems: Array.isArray(c.carriedItems) ? c.carriedItems : [], carriedCu: c.carriedCu || 0,
+        _isCompanion: ncTarget === 'companion'
     };
 };
 
@@ -1325,6 +1326,7 @@ window.adjustCompanionHp = function(delta) {
     let c = ncActiveCompanion();
     c.currentHp = Math.max(0, Math.min(sb.maxHp, sb.currentHp + delta));
     window.recalculateMath();
+    window.refreshCompanionDetail();
 };
 
 window.setCompanionHp = function(val) {
@@ -1335,6 +1337,57 @@ window.setCompanionHp = function(val) {
     if (isNaN(n)) n = sb.currentHp;
     c.currentHp = Math.max(0, Math.min(sb.maxHp, n));
     window.recalculateMath();
+    window.refreshCompanionDetail();
+};
+// Redraw the companion's floating stat block (HP, AP…) if it's open
+window.refreshCompanionDetail = function() {
+    let win = window.gmFloatingWindows && window.gmFloatingWindows['companion'];
+    if (!win) return;
+    let sb = window.companionStatBlock(); if (!sb) return;
+    let body = win.querySelector('.floating-stat-window-body');
+    if (body) body.innerHTML = buildStatBlockHtml(sb, true);
+    let t = win.querySelector('.floating-stat-window-header span'); if (t) t.textContent = sb.name;
+};
+
+// ── Loyal Companion AP (character sheet) ─────────────────────
+// Works like the character's own tracker: unspent AP carries over with no cap, the
+// pips show its AP plus one empty pip, and it gains its AP when its turn comes up in
+// the GM's initiative. Attacks and powers used from its stat block spend it.
+function compApMax() { let sb = window.companionStatBlock ? window.companionStatBlock() : null; return sb ? Math.max(0, sb.ap || 0) : 0; }
+function compApCur() {
+    let c = window.state && window.state.companion; if (!c) return 0;
+    let v = c.apCurrent; if (v === undefined || v === null) v = compApMax();
+    return Math.max(0, Math.floor(Number(v) || 0));
+}
+window.apxCompApCurrent = compApCur;
+window.apxCompApMax = compApMax;
+window.apxCompSetAp = function(v) {
+    let c = window.state && window.state.companion; if (!c) return;
+    c.apCurrent = Math.max(0, Math.floor(Number(v) || 0));
+    window.apxRenderCompAp();
+    window.scheduleAutoSave?.();
+};
+window.apxCompClickPip = function(i) { let cur = compApCur(); window.apxCompSetAp(i < cur ? i : i + 1); };
+window.apxCompSpendAp = function(n) { window.apxCompSetAp(compApCur() - n); };
+// Its turn: gain its AP on top of what it saved (Surprised on the first turn: just 1)
+window.apxCompStartTurn = function(surprised) { window.apxCompSetAp(surprised ? 1 : compApCur() + compApMax()); };
+window.apxCompApPipsHtml = function() {
+    let max = compApMax(), cur = compApCur();
+    let pips = Array.from({ length: Math.min(200, Math.max(max, cur) + 1) }, (_, i) => {
+        let filled = i < cur, stored = i >= max;
+        return `<button type="button" onclick="window.apxCompClickPip(${i})" title="${filled ? 'Spend' : 'Add'} AP${stored ? ' (stored from earlier turns)' : ''}" style="width:9px;height:9px;border-radius:50%;padding:0;border:1px ${stored ? 'dashed #67e8f9' : 'solid #60a5fa'};background:${filled ? (stored ? '#06b6d4' : '#3b82f6') : 'transparent'};cursor:pointer;${i === max ? 'margin-left:3px;' : ''}"></button>`;
+    }).join('');
+    return `<span class="font-black ${cur === 0 ? 'text-red-400' : cur > max ? 'text-cyan-300' : 'text-blue-400'}" style="min-width:1.2rem;text-align:right">${cur}</span><span class="text-slate-500 text-[10px] font-bold">/ ${max}</span><span class="flex flex-wrap gap-0.5 items-center">${pips}</span>`;
+};
+window.apxRenderCompAp = function() {
+    document.querySelectorAll('[data-comp-ap]').forEach(el => { el.innerHTML = window.apxCompApPipsHtml(); });
+};
+// "Use" on a companion power: spends its AP
+window.apxCompUsePower = function(ap, name) {
+    let cost = Math.max(0, parseInt(ap) || 0), have = compApCur();
+    if (have < cost) { window.APXDice?.notify(`Not enough AP: your companion has ${have}, ${name || 'that power'} needs ${cost}.`, { kind: 'warn', open: true }); return; }
+    window.apxCompSpendAp(cost);
+    window.APXDice?.notify(`${(window.state.companion && window.state.companion.name) || 'Companion'} used ${name || 'a power'}: −${cost} AP (${compApCur()} left).`, { kind: 'note' });
 };
 
 // ── Standalone floating window system ───────────────────────
@@ -1514,7 +1567,8 @@ function buildStatBlockHtml(sb, editable) {
     let innate = sb.innateAttacks || [];
     let resist = [`DR ${sb.dr} (physical)`, `ER ${sb.er} (energy)`].concat((sb.damageResistances || []).map(t => `${t} +5`));
     // Click-to-roll hooks (APXDice). NPC rolls never use the player's perks.
-    let R = o => window.APXDice ? ` data-apx-roll='${window.APXDice.attr(Object.assign({ who: sb.name, perks: false, gambleAllowed: false }, o))}' title="Click to roll"` : '';
+    let compFlags = sb._isCompanion ? { omen: true, companion: true, compOwner: sb._compOwner || null } : {};
+    let R = o => window.APXDice ? ` data-apx-roll='${window.APXDice.attr(Object.assign({ who: sb.name, perks: false, gambleAllowed: false }, compFlags, o))}' title="Click to roll"` : '';
     return `<div class="apx-dice-scope" data-roll-who="${esc(sb.name)}" data-sb-npc="${sb._npcId || ''}" data-sb-init="${sb._initId || ''}">
         <div class="grid grid-cols-5 gap-2 mb-3 bg-slate-900 border border-purple-800/50 rounded-lg p-2">
             <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">Tier</div><div class="text-lg font-black text-white">${sb.tier}</div></div>
@@ -1523,6 +1577,8 @@ function buildStatBlockHtml(sb, editable) {
             <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">Speed</div><div class="text-lg font-black text-white">${sb.speed}</div></div>
             <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">AP</div><div class="text-lg font-black text-white">${sb.ap}</div></div>
         </div>
+        ${sb._isCompanion && editable ? `<div class="flex items-center gap-1.5 bg-slate-900 border border-blue-800/50 rounded p-2 mb-3 text-xs">
+            <span class="text-[10px] font-bold text-blue-300 uppercase mr-1">AP</span><span class="flex items-center gap-1.5 flex-wrap" data-comp-ap>${window.apxCompApPipsHtml()}</span></div>` : ''}
         <div class="flex items-center justify-between bg-slate-900 border border-red-800/50 rounded p-2 mb-3">
             <span class="text-xs font-bold text-slate-200">Hit Points</span>
             ${hpControls}
@@ -1596,11 +1652,11 @@ function buildStatBlockHtml(sb, editable) {
                 <div class="text-[10px] font-black text-purple-400 uppercase">Powers</div>
                 <div class="text-[10px] text-slate-300 font-bold">Power Attack Bonus: <span class="text-white">${sb.powerAttackBonus >= 0 ? '+' : ''}${sb.powerAttackBonus}</span> &middot; Save DC: <span class="text-white">${sb.powerSaveDc}</span> <span class="text-slate-500 font-normal">(${sb.powerAttrChoice})</span></div>
             </div>
-            ${sb.powerCards.map(p => powerCardHtml(p)).join('')}
+            ${sb.powerCards.map(p => powerCardHtml(p, sb._isCompanion && editable)).join('')}
         </div>` : ''}
     </div>`;
 }
-function powerCardHtml(p) {
+function powerCardHtml(p, compUse) {
     let usageLabel = '';
     if (p.usageType === 'charges') usageLabel = `Charges: ${p.maxCharges}/day`;
     else if (p.usageType === 'recharge') usageLabel = `Recharge ${p.rechargeOn === 6 ? '6' : p.rechargeOn + '-6'}`;
@@ -1608,7 +1664,8 @@ function powerCardHtml(p) {
         <div class="bg-slate-800 p-1.5 rounded border border-slate-700 mb-1" data-roll-label="${String(p.name||'Power').replace(/"/g,'&quot;')}">
             <div class="flex justify-between items-center mb-0.5">
                 <span class="font-bold text-[10px] text-purple-300">${p.name}</span>
-                <span class="text-[8px] bg-slate-900 px-1.5 py-0.5 rounded border border-slate-600 text-slate-400 font-bold">Lvl ${p.lvl} | ${p.ap} AP</span>
+                <span class="flex items-center gap-1"><span class="text-[8px] bg-slate-900 px-1.5 py-0.5 rounded border border-slate-600 text-slate-400 font-bold">Lvl ${p.lvl} | ${p.ap} AP</span>
+                ${compUse ? `<button type="button" onclick="window.apxCompUsePower(${parseInt(p.ap) || 0}, '${String(p.name || 'Power').replace(/'/g, '').replace(/"/g, '')}')" title="Use it: spend ${p.ap} AP" class="text-[8px] font-bold px-1.5 py-0.5 rounded bg-blue-800 hover:bg-blue-700 text-white">Use</button>` : ''}</span>
             </div>
             ${usageLabel ? `<div class="text-[9px] text-amber-400 font-bold mb-0.5">${usageLabel}</div>` : ''}
             <div class="grid grid-cols-3 gap-1 mb-0.5 text-[9px] text-slate-400">

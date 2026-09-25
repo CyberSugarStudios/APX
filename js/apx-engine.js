@@ -947,6 +947,13 @@
         // might change the cost, when Aiming, or when there isn't enough AP, the
         // player gets a short popup first. The card shows what was spent.
         window.apxBeforeAttack = function(o) {
+            // Your Loyal Companion's attacks (from its stat block) spend the companion's AP
+            if (o && o.companion && typeof window.apxCompApCurrent === 'function' && window.state?.companion) {
+                let cost = Math.max(0, parseInt(o.apCost) || 3), have = window.apxCompApCurrent();
+                if (have < cost) return { note: `Not enough AP: ${window.state.companion.name || 'your companion'} has ${have}, needs ${cost}`, warn: true };
+                window.apxCompSpendAp(cost);
+                return { note: `${window.state.companion.name || 'Companion'}: −${cost} AP (${window.apxCompApCurrent()} left)` };
+            }
             if (!o || !o.pcAttack || typeof window.apxApCurrent !== 'function') return null;
             let st = window.state || {}, perks = st.perks || {};
             let have = window.apxApCurrent();

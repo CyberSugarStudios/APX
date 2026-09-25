@@ -1773,6 +1773,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                     _turnNo: window.gmTurnNumber || 0,
                                     // Surprised on its first turn of combat: gains only 1 AP
                                     _curApGain1: !!(window.gmCombatStarted && curEntry?._apFirstSurprised),
+                                    // Whose Loyal Companion is taking its turn (its owner's sheet refills its AP)
+                                    _curCompanionOf: window.gmCombatStarted ? (curEntry?.companionOf || null) : null,
                                     tokens };
                             }),
                     }

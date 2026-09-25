@@ -609,7 +609,7 @@ function gmCompanionSb(pm) {
         window.state = JSON.parse(JSON.stringify(pm.state));
         ncTarget = 'companion';
         let sb = window.companionStatBlock();
-        if (sb) sb.portrait = pm.state.companion.portrait || '';
+        if (sb) { sb.portrait = pm.state.companion.portrait || ''; sb._compOwner = pm.fileName; }
         return sb;
     } catch (e) { console.warn('Companion stat block:', e); return null; }
     finally { window.state = keepState; if (keepT !== null) ncTarget = keepT; }
@@ -1723,6 +1723,15 @@ function gmApPipsHtml(e) {
 // (or the one whose stat block window was opened from its initiative card).
 // Not enough AP: the attack still rolls, with a note for the GM.
 window.apxBeforeAttack = function(o) {
+    // A player's Loyal Companion (stat block opened from the Party panel): its initiative entry pays
+    if (o && o.companion && o.compOwner && window.gmCombatStarted) {
+        let e = (window.gmInitiative || []).find(x => x.companionOf === o.compOwner);
+        if (!e) return null;
+        let cost = Math.max(0, parseInt(o.apCost) || 3), have = gmApCurrent(e);
+        if (have < cost) return { note: `Not enough AP: ${e.name} has ${have}, needs ${cost}`, warn: true };
+        e.apCur = have - cost; window.renderInitiativeTracker();
+        return { note: `${e.name}: -${cost} AP (${e.apCur} left)` };
+    }
     if (!o || !o.npcId || !window.gmCombatStarted) return null;
     let cost = Math.max(0, parseInt(o.apCost) || 3);
     let list = (window.gmInitiative || []).filter(x => x.sourceNpcId === o.npcId && x.faction !== 'player');

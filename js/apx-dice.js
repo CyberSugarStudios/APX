@@ -455,7 +455,9 @@
                 if (typeof window.gmLog === 'function') window.gmLog({ text: `${o.who}'s Omen die turns ${c.who ? c.who + '\'s' : 'a'} roll into ${/^(8|11$|18$)/.test(String(p.total)) ? 'an' : 'a'} ${p.total}.`, gmText: `${o.who}'s Omen die (${o.value}${adjTxt}) replaces ${c.who ? c.who + '\'s' : 'a'} d20 on ${c.label || 'a roll'}: ${before} → ${p.total}.`, kind: 'info', force: true });
             } });
         });
-        if (!c.perks) return acts;
+        // Your companion's rolls don't use your perks, but your Omen dice work on them
+        let omenOnly = !c.perks && c.omenOk;
+        if (!c.perks && !omenOnly) return acts;
         // Omen dice other players passed to you: use them like your own
         if (p.omenAt === undefined) (S().giftedOmens || []).forEach(g => {
             let adjTxt = g.adj ? (g.adj > 0 ? '+' : '−') + Math.abs(g.adj) : '';
@@ -489,6 +491,7 @@
                 }
             });
         }
+        if (omenOnly) return acts;   // (banking and Luck rerolls are for your own rolls)
         if (r >= 3 && (p.nat === 20 || p.nat === 1) && !p.banked && p.omenAt === undefined && stored.length) {
             // Banking swaps: the natural 1 or 20 goes into your Omen dice, and the held die it
             // replaces becomes this roll (from Rank 2 you may add or subtract your LUC modifier)
@@ -565,7 +568,7 @@
             let r = d20(mode);
             let p = { kind: 'd20', title: o.kind === 'save' ? 'Save' : 'd20', r, bonus: o.bonus || 0, canCrit: false, origMode: mode };
             settleD20(p);
-            let c = { label: o.label || 'Check', who: o.who, parts: [p], perks: o.perks !== false && !!(window.state?.perks), badges: modeBadges(mode, o.advSources, o.disSources) };
+            let c = { label: o.label || 'Check', who: o.who, parts: [p], perks: o.perks !== false && !!(window.state?.perks), omenOk: !!o.omen && !!(window.state?.perks), badges: modeBadges(mode, o.advSources, o.disSources) };
             if (o.autoFail) c.badges.push(['fum', 'Auto-fail', o.autoFail]);
             if (o.note) c.badges.push(['info', o.note]);
             c.id = 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -642,7 +645,7 @@
             let gambleBonus = gamble ? (hr >= 4 ? 10 : 5) : 0;   // High Roller: +5 on a Gamble that hits (+10 from Rank 4)
             let dst = { crit: false, inst: false, maxed: false };
             let dmg = { kind: 'dmg', title: 'Damage', gamble: gambleBonus, mult: critMult };
-            let c = { label: o.label || 'Attack', who: o.who, parts: [atk, dmg], perks: usePerks, gamble };
+            let c = { label: o.label || 'Attack', who: o.who, parts: [atk, dmg], perks: usePerks, omenOk: !!o.omen && !!(window.state?.perks), gamble };
             let settleDmg = () => {
                 dmg.crit = atk.crit; dmg.none = atk.fumble;
                 dst.crit = atk.crit;

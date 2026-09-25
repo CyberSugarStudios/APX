@@ -48,6 +48,8 @@
         }
 
         function renderActivePerks() {
+            // Keep the companion's floating stat block (HP, AP) in step with the sheet
+            setTimeout(() => { try { window.refreshCompanionDetail && window.refreshCompanionDetail(); } catch (e) { } }, 0);
             let html = '';
 
             let keys = Object.keys(window.state.perks);
@@ -92,6 +94,10 @@
                                     <button onclick="window.adjustCompanionHp(1)" class="w-5 h-5 rounded bg-amber-700 hover:bg-amber-600 text-white text-xs font-bold">+</button>
                                 </div>
                             </div>
+                            ${window.apxCompApPipsHtml ? `<div class="flex items-center justify-between gap-2 bg-slate-800 border border-blue-800/50 rounded px-2 py-1 mt-1">
+                                <span class="text-[10px] font-bold text-blue-300 uppercase">AP</span>
+                                <div class="flex items-center gap-1.5 flex-wrap justify-end text-xs" data-comp-ap>${window.apxCompApPipsHtml()}</div>
+                            </div>` : ''}
                             ${sb.powerCards.length ? `
                             <details class="mt-1.5">
                                 <summary class="text-[10px] font-bold text-purple-400 cursor-pointer select-none">Powers (${sb.powerCards.length})</summary>
@@ -100,7 +106,8 @@
                                         <div class="bg-slate-800 p-1.5 rounded border border-slate-700">
                                             <div class="flex justify-between items-center mb-0.5">
                                                 <span class="font-bold text-[10px] text-purple-300">${p.name}</span>
-                                                <span class="text-[8px] bg-slate-900 px-1.5 py-0.5 rounded border border-slate-600 text-slate-400 font-bold">Lvl ${p.lvl} | ${p.ap} AP</span>
+                                                <span class="flex items-center gap-1"><span class="text-[8px] bg-slate-900 px-1.5 py-0.5 rounded border border-slate-600 text-slate-400 font-bold">Lvl ${p.lvl} | ${p.ap} AP</span>
+                                                <button onclick="window.apxCompUsePower(${parseInt(p.ap) || 0}, '${String(p.name || 'Power').replace(/'/g, '').replace(/"/g, '')}')" title="Use it: spend ${p.ap} AP" class="text-[8px] font-bold px-1.5 py-0.5 rounded bg-blue-800 hover:bg-blue-700 text-white">Use</button></span>
                                             </div>
                                             <div class="grid grid-cols-3 gap-1 mb-0.5 text-[9px] text-slate-400">
                                                 <div><span class="text-slate-500">A/S:</span> ${p.atk}</div>
