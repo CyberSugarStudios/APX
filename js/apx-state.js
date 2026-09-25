@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.9.25.0941';
+window.APX_VERSION = 'v2026.9.25.0957';
 
         window.state = getInitialState();
 
@@ -33,6 +33,12 @@ window.APX_VERSION = 'v2026.9.25.0941';
         // throwing off every subsequent undo/redo's sense of "top of stack".
         let undoStack = [];
         let redoStack = [];
+        // A different character was opened (or a new one started): its history starts empty,
+        // so Undo can never bring back the previous character's sheet
+        window.apxClearUndo = function() {
+            undoStack.length = 0; redoStack = [];
+            if (typeof window.updateUndoRedoButtons === 'function') window.updateUndoRedoButtons();
+        };
         window.appSettings = window.appSettings || { undoHistorySize: 60, theme: 'modern' };
         // App-level preferences (undo history size, visual theme) are
         // deliberately kept separate from window.state -- they're a

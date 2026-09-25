@@ -11,33 +11,33 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.9.25.0941',
-        released: '2026-09-25T09:41:00',
-        releasedText: 'September 25, 2026 · 9:41 AM',
+        version: 'v2026.9.25.0957',
+        released: '2026-09-25T09:57:00',
+        releasedText: 'September 25, 2026 · 9:57 AM',
         title: 'Playtest Update',
-        intro: 'Everything here comes from our playtest tables. GMs can shape their world\'s rules, arm and supply NPCs, and hand out magic items that change almost anything on a character sheet. Players get Luck and Looting, trading, Omen dice they can share, Loyal Companions that act on their own turns, and a dice roller that doubles as the combat log. Open your characters and worlds as usual: they update themselves, nothing is lost, and any rule change that affected you is explained.',
+        intro: 'A big update, driven entirely by our playtest tables. GMs get world rules, NPCs that carry and use gear, a Loot Maker and magic items that can change nearly anything on a sheet. Players get Luck and Looting, trading, shareable Omen dice, Loyal Companions that act on their own turns, and a dice roller that doubles as the combat log. Creating and switching characters is cleaner too. Your characters and worlds update when opened: nothing is lost, and anything a rule change touched is explained.',
         index: [
             ['For GMs', [
-                'World Settings: Starting XP, Max GP, starting Cu, and Point Buy or Standard Array for everyone in the world.',
-                'Loot Maker: build loot with the same forges and crafters players use (consumables included) and give it to NPCs. NPCs use their consumables in a fight and drop what\'s left when they fall.',
+                'World Settings: Starting XP, Max GP, starting Cu, and Point Buy or Standard Array for every character in the world.',
+                'Loot Maker: build loot with the same forges and crafters players use (consumables included) and give it to NPCs, who use their consumables in a fight and drop what\'s left when they fall.',
                 'Magic items can raise or lower almost anything on a sheet: Core Attributes, skills, Max HP, AP, Initiative, Wound Threshold, Rest Dice, Luck Points, Power Slots, attacks, saves and more.',
-                'Hand out loot from the Loot panel, an NPC\'s window or any Area Circle it stands in.'
+                'Hand out loot from the Loot panel, an NPC\'s window or any Area Circle the NPC stands in.'
             ]],
             ['For Players', [
-                'Luck and Looting: LUC (Loot) for Currency (LUC × enemies defeated ÷ 2) and ammunition (LUC − 3d6 rounds), or scavenge for an hour for Crafting Materials.',
-                'Omen dice can be passed to the GM (for any creature\'s roll) or to a party member, work on your companion\'s rolls, swap in natural 1s and 20s, and are rerolled one by one on a Full Rest.',
-                'Loyal Companions have their own AP that refills on their turn in initiative, token art, and healing whenever you use a Rest Die.',
-                'Trade items with your party. In a world, XP comes from the GM with your bonuses applied.'
+                'New characters start in the world you choose (with its rules, races and settings) or in no world at all.',
+                'Luck and Looting: LUC (Loot) for Currency (LUC × enemies defeated ÷ 2) and ammunition (LUC − 3d6 rounds), or an hour of scavenging for Crafting Materials.',
+                'Omen dice can go to the GM (for any creature\'s roll) or to a party member, work on your companion\'s rolls, swap in natural 1s and 20s, and are rerolled one by one on a Full Rest.',
+                'Loyal Companions have their own AP that refills on their turn, token art, and healing whenever you use a Rest Die. Trade items with your party, and receive XP from your GM with your bonuses applied.'
             ]],
             ['At the Table', [
                 'Dice and Notifications holds every roll, the combat log and your messages in one tray.',
-                'The combat log shows the whole table the fight and resolves Wound Threshold and Bleed Out rolls in order. The party\'s damage to enemies is shown without numbers, keeping DR and ER hidden.',
+                'The combat log shows the table the fight and resolves Wound Threshold and Bleed Out rolls in order. The party\'s damage to enemies is shown without numbers, keeping DR and ER hidden.',
                 'Click skills, saves, weapons, powers and stat block dice to roll them, with perks, Advantage and Disadvantage, crits and Luck rerolls built in.',
                 'Action Points are 6 + half your AGI modifier, tracked for every creature, carried between turns and spent by attacks automatically.',
                 'Rest and Recover buttons: Short and Full Rests, Shake it Off and Shrug It Off.'
             ]],
             ['Battle Maps', [
-                'Move token groups with Shift+drag, layer images on the map, and measure with M. Big maps stay smooth.'
+                'Move token groups with Shift+drag, layer images on the map, and measure with M. Large maps stay smooth.'
             ]],
             ['Rules', [
                 'Point Buy: attributes start at 4 with 7 points to spend, each between 2 and 7.',
@@ -46,31 +46,40 @@
                 'NPC weapons, armor, shields and helmets cost Threat Points, and defeated NPCs are worth 1 / 5 / 10 / 15 / 25 / 35 XP for Tiers 0–5 (+10 per Tier after).'
             ]],
             ['Also', [
-                'Easier-to-read small text, XP bonuses from INT, Educated and Expertise, linked conditions, a tidier Character Sheet toolbar, and many fixes.',
-                'The Character Sheet and GM Tools have the full details.'
+                'Easier-to-read small text, XP bonuses from INT, Educated and Expertise, linked conditions, a tidier toolbar, and many fixes.',
+                'See the Character Sheet and GM Tools for the full details.'
             ]]
         ],
         sheet: [
+            ['Characters', [
+                'New Character asks where the character plays when one of your worlds has an empty character slot: in that world (its rules, races and settings from the first moment) or in no world. The new character is saved straight away.',
+                'Deleting the character you have open takes you back to the character screen instead of leaving a half-filled sheet. Load another or start a new one from there.',
+                'Switching characters switches worlds cleanly: the sheet follows only the open character\'s world (its races, Standard Array or Point Buy, Max GP, XP rules, combat turns), and a character outside any world is never affected by one.',
+                'Undo history belongs to the character you have open. Switching characters starts it fresh, so Undo can\'t bring back a different character\'s sheet.'
+            ]],
             ['Your World', [
                 'Your GM sets the world\'s rules: Starting XP, Max GP, starting Cu, and how attributes are chosen. A brand-new character receives the Starting XP and Cu once.',
                 'XP comes from your GM with your bonuses (INT modifier, Educated, Expertise) added, and the XP fields are locked while you\'re in the world. Outside a world, XP and Max GP are yours to set.',
-                'A new character only receives XP granted after it joins the world. XP still waiting from before (for an earlier character of yours) never lands on it.',
+                'A new character only receives XP granted after it joins the world; XP still waiting from before never lands on it.',
                 'Standard Array: each attribute begins on "Choose", and a value you pick leaves the other dropdowns until you free it. Use 7, 6, 5, 5, 5, 4 and 3 once each.',
                 'Point Buy: every attribute starts at 4 with 7 points to spend. Each +1 costs a point, each −1 gives one back, and attributes stay between 2 and 7.'
             ]],
+            ['XP', [
+                'The XP Log button sits beside Spend XP: everything you gained (reason, session, date and bonuses) and everything you spent it on.'
+            ]],
             ['Loyal Companions', [
-                'Your companion has its own AP, shown as pips on its card under Perks and in its stat block popup. Click pips to spend or refund, just like your own tracker. Unspent AP carries over.',
-                'In combat, its AP empties when the fight begins and refills when its turn comes up in the GM\'s initiative (1 AP if it was Surprised).',
+                'Your companion has its own AP, shown as pips on its card under Perks and in its stat block popup. Click pips to spend or refund, like your own tracker; unspent AP carries over.',
+                'In combat its AP empties when the fight begins and refills when its turn comes up in the GM\'s initiative (1 AP if it was Surprised).',
                 'Attacks rolled from its stat block spend its AP automatically, and each of its powers has a Use button that spends the power\'s AP.',
-                'Your Omen dice work on your companion\'s rolls, including dice passed to you by other players.',
-                'Its HP stays in step everywhere: changes from the popup, the Perks card or the GM show up in both places at once.',
+                'Your Omen dice work on its rolls, including dice passed to you by other players.',
+                'Its HP stays in step everywhere: changes from the popup, the Perks card, the GM or a rest show up in both places at once.',
                 'Give it its own picture: upload one, then drag and zoom inside the circle to frame the token. Adjust re-frames it later, and clicking the token shows the full image.',
                 'Every Rest Die you use also heals your companion by the roll plus its CON modifier. The Short Rest window shows its HP, and you can keep spending dice for it while you\'re at full HP. A Full Rest restores its Power Slots and charges; so does a Short Rest if its powers use CHA.',
                 'Companions can carry a Shield (4 TP) and a Helmet (2 TP). The stat block counts free hands and has an Equip/Stow Shield button, and attacks needing more hands than are free can\'t be rolled. Each +2 DR/ER purchase adds 2, and manufactured weapons and armor use its TP.'
             ]],
             ['Omen', [
                 'Your Omen dice sit under Disadv | Normal | Adv in the dice tray. Click one to pass it on: pick the die as it is or (from Rank 2) plus or minus your LUC modifier, then pick who gets it.',
-                'The GM can use it to replace any creature\'s d20, such as an enemy\'s critical hit. A party member gets it in their dice roller (even without the Omen perk) to use on their own roll or to pass along.',
+                'The GM can use it to replace any creature\'s d20, such as an enemy\'s critical hit. A party member gets it in their dice roller (even without the Omen perk) to use on their own roll or pass along.',
                 'On your own rolls, and your companion\'s, use a die from the roll\'s buttons.',
                 'Banking a natural 1 or 20 (Rank 3) is a swap: the natural roll joins your Omen dice, and the held die you give up becomes that roll (plus or minus LUC from Rank 2).',
                 'On a Full Rest, choose which held Omen dice, if any, to roll again. The rest are kept and empty slots are filled. At Rank 5, dice rolled again come back as whichever of 1, 10 and 20 is missing.'
@@ -127,7 +136,7 @@
                 'Heavy ranged weapons show AGI in the ATT column.'
             ]],
             ['Layout and Display', [
-                'Settings now sits beside World at the top of the Character Sheet, and Undo and Redo live at the bottom of the Roster menu (Ctrl+Z and Ctrl+Y still work anywhere).',
+                'Settings sits beside World at the top of the Character Sheet, and Undo and Redo live at the bottom of the Roster menu (Ctrl+Z and Ctrl+Y still work anywhere).',
                 'Ammo is one stack per type: another bundle adds 20 rounds to your "Medium Ammo".',
                 'Power Crafter Step 5 puts Minor and Moderate Utilities in one column and Major, Master and Mythic in the other.',
                 'The perk list can show only the perks you own. Small text is larger everywhere, and slightly larger again in the Fantasy theme.'
@@ -140,7 +149,7 @@
             ['World Settings', [
                 'The World Settings tab sets your world\'s rules: Starting XP (default 25), Max GP (default 15), a starting Cu bonus, and Point Buy or Standard Array (7, 6, 5, 5, 5, 4, 3).',
                 'Players in your world can\'t edit their own XP or Max GP. Grant XP applies each player\'s bonuses and records the reason.',
-                'Starting XP and Cu go to brand-new characters once; existing characters keep what they have.'
+                'Starting XP and Cu go to brand-new characters once; existing characters keep what they have. A player\'s new character never collects XP granted before it joined.'
             ]],
             ['Loyal Companions', [
                 'Companions sit under their owner in the Party panel with their stat block, token art and a + Initiative button. Add Party places their tokens on the map too.',
