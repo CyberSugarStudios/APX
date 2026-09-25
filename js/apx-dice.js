@@ -420,13 +420,34 @@
             g.dice.map(d => dieHtml(d, '', spin)).join('')).join('');
     }
 
+    // A combat-log message can ask YOU for a roll (Wound Threshold CON save, Bleed Out CON (Survive)):
+    // it gets a button that rolls it. The page decides whether the ask is for this player (apxLogAsk).
+    tray.askDone = tray.askDone || {};
+    function askIsMine(e) { return !!(e && e.ask && typeof window.apxLogAsk === 'function' && typeof window.apxRollFromAsk === 'function' && window.apxLogAsk(e.ask)); }
+    function askBtnHtml(e) {
+        if (!askIsMine(e)) return '';
+        let done = !!tray.askDone[e.id];
+        // The Wound Threshold save comes before the Bleed Out check
+        let waitWt = !done && e.ask.roll === 'survive' && cards.some(x => x.log && x.log.id !== e.id && x.log.ask && x.log.ask.roll === 'save' && askIsMine(x.log) && !tray.askDone[x.log.id] && (x.log.t || 0) <= (e.t || 0) + 5000);
+        let label = done ? 'Rolled' : e.ask.roll === 'save' ? `Roll CON save${e.ask.dc ? ' (DC ' + e.ask.dc + ')' : ''}` : waitWt ? 'Roll your CON save first' : 'Roll CON (Survive)';
+        return `<div style="margin-top:.3rem"><button data-logask ${done || waitWt ? 'disabled' : ''} style="font-size:.66rem;font-weight:800;padding:.18rem .5rem;border-radius:.3rem;cursor:${done || waitWt ? 'default' : 'pointer'};border:1px solid ${done ? 'var(--c-border2,#475569)' : '#f59e0b'};background:${done || waitWt ? 'none' : '#b45309'};color:${done ? 'var(--c-text-muted,#94a3b8)' : '#fff'};opacity:${waitWt ? '.6' : '1'}">${label}</button></div>`;
+    }
+    function refreshAskCards() { cards.forEach(x => { if (x.log && x.log.ask) renderCard(x); }); }
+
     function renderCard(c, spin) {
         let el = c.el || (c.el = document.createElement('div'));
         if (c.log) {
             let d = new Date(c.log.t || Date.now());
             let hh = d.getHours() % 12 || 12, mm = String(d.getMinutes()).padStart(2, '0');
             el.className = 'apxd-card log k-' + (c.log.kind || 'info');
-            el.innerHTML = `<span class="lt">${hh}:${mm}</span>${c.log.gmOnly ? '<span class="lg" title="Only you (the GM) see this">GM</span>' : ''}${esc(c.log.text)}`;
+            el.innerHTML = `<span class="lt">${hh}:${mm}</span>${c.log.gmOnly ? '<span class="lg" title="Only you (the GM) see this">GM</span>' : ''}${esc(c.log.text)}${askBtnHtml(c.log)}`;
+            let ab = el.querySelector('[data-logask]');
+            if (ab) ab.onclick = () => {
+                if (ab.disabled) return;
+                tray.askDone[c.log.id] = true;
+                try { window.apxRollFromAsk(c.log.ask); } catch (e) { console.warn('Roll from message:', e); }
+                refreshAskCards();
+            };
             return;
         }
         let crit = c.parts.some(p => p.crit), fum = c.parts.some(p => p.fumble);
@@ -609,14 +630,16 @@
             if ((o.disSources || []).length || o.adv === 'dis') list.push('dis');
             let mode = combineMode(list);
             let r = d20(mode);
-            let p = { kind: 'd20', title: o.kind === 'save' ? 'Save' : 'd20', r, bonus: o.bonus || 0, canCrit: false, origMode: mode };
+            // kind 'attack': a lone attack roll (a power attack, or a weapon attack for a martial power) that can crit
+            let isAtk = o.kind === 'attack';
+            let p = { kind: 'd20', title: o.kind === 'save' ? 'Save' : isAtk ? 'Attack' : 'd20', r, bonus: o.bonus || 0, canCrit: isAtk, origMode: mode };
             settleD20(p);
             let c = { label: o.label || 'Check', who: o.who, parts: [p], perks: o.perks !== false && !!(window.state?.perks), omenOk: !!o.omen && !!(window.state?.perks), badges: modeBadges(mode, o.advSources, o.disSources) };
             if (o.autoFail) c.badges.push(['fum', 'Auto-fail', o.autoFail]);
             if (o.note) c.badges.push(['info', o.note]);
             c.id = 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
             let emit = () => {
-                if (typeof window.apxOnRollEvent !== 'function' || !c.perks) return;
+                if (typeof window.apxOnRollEvent !== 'function' || !c.perks || isAtk) return;
                 try {
                     window.apxOnRollEvent({ id: c.id, kind: o.kind === 'save' ? 'save' : 'check', attr: o.attr || '', skill: o.skill || '', label: c.label, who: o.who || '',
                         nat: p.nat, total: p.total, bonus: p.bonus || 0, mode: p.badgeMode || mode, luck: !!p.luckUsed, omen: p.omenAt !== undefined, autoFail: !!o.autoFail,
@@ -751,6 +774,7 @@
                 if (dm.rerolled()) c.badges.push(['info', 'High Roller: rerolled 1s & 2s (*)']);
                 if (explode) c.badges.push(['info', 'Dice Explosion: max rolls rolled again and added']);
                 if (dst.inst) c.badges.push(['info', 'Instigator: +1 damage die']);
+                if (o.apNote) c.badges.push([o.apWarn ? 'fum' : 'info', o.apNote]);
                 c.actions = dp.instig ? [{ label: dst.inst ? 'Instigator: on' : 'Target Frightened/Provoked?', cls: dst.inst ? 'luck' : '', title: 'Instigator Rank 3: a Frightened or Provoked target takes an extra damage die', run: () => { dst.inst = !dst.inst; settle(); renderCard(c); } }] : [];
             };
             settle();
@@ -961,7 +985,7 @@
         build();
         let c = logCards[e.id];
         if (!c && (e.t || 0) <= clearedAt()) return;   // cleared entries stay cleared
-        if (c && c.log.text === e.text && c.log.kind === e.kind) return;
+        if (c && c.log.text === e.text && c.log.kind === e.kind && !!c.log.ask === !!e.ask) return;
         if (c) { c.log = e; renderCard(c); return; }
         c = { log: e, parts: [] };
         logCards[e.id] = c;

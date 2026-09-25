@@ -1060,6 +1060,10 @@
             let atkRoll = apxRollAttr({ type: 'attack', label: rollName, bonus: atk, dice: opts.dice, dmgMod, critMult, dmgType: w.elemental || w.dmgType || '', disSources: disadvSources, advSources,
                 pcAttack: true, wcat: cat, apCost: parseInt(opts.ap) || 0, ranged: cat === 'ranged', aimed: cat === 'ranged' && !!w.aimed, unarmed: !!w.isUnarmed,
                 wFlurry: !!(w.properties && w.properties.flurry) || undefined });
+            // Remember each attack option, so martial powers can roll with the weapon they're used through
+            let variant = opts.label ? (/Aimed/.test(opts.label) ? 'aimed' : /2-Handed/.test(opts.label) ? '2h' : '') : '';
+            (calc.weaponAttacks = calc.weaponAttacks || []).push({ key: (w.name || 'Weapon') + '|' + variant, label: rollName, bonus: atk, disSources: disadvSources, advSources,
+                unarmed: !!w.isUnarmed, innate: !!w.isAncestry });
             if (calc.cantAct) {
                 // Incapacitated / Unconscious: no attacking until it ends
                 let why = calc.cantActLabel;
@@ -1143,6 +1147,7 @@
 
         function renderWeapons() {
             let html = '';
+            calc.weaponAttacks = [];
             window.state.weapons.forEach((w, idx) => {
                 let isMediumMelee = weaponCategory(w) === 'melee' && w.weightClass === 'medium';
                 let isMediumRanged = weaponCategory(w) === 'ranged' && w.weightClass === 'medium';
@@ -1350,6 +1355,20 @@
             let dc = 10 + mod + maxLvl + pfx('powerDc');
 
             document.getElementById('dispPwrAtk').innerText = (atk >= 0 ? '+'+atk : atk);
+            calc.powerAtk = atk; calc.powerDc = dc;
+            // Clicking "Atk: +X" rolls a power attack
+            let atkWrap = document.getElementById('dispPwrAtk').parentElement;
+            if (atkWrap && window.APXDice) {
+                atkWrap.classList.add('apx-rollable'); atkWrap.style.cursor = 'pointer';
+                if (calc.cantAct) {
+                    atkWrap.removeAttribute('data-apx-roll'); atkWrap.setAttribute('data-apx-blocked', calc.cantActLabel); atkWrap.title = `You're ${calc.cantActLabel}`;
+                } else {
+                    atkWrap.removeAttribute('data-apx-blocked');
+                    atkWrap.setAttribute('data-apx-roll', JSON.stringify({ type: 'check', kind: 'attack', label: 'Power Attack', who: window.state?.name || '', bonus: atk, omen: true,
+                        disSources: (calc.disadv && calc.disadv.atkGeneral) || [] }));
+                    atkWrap.title = 'Roll a power attack (d20 ' + (atk >= 0 ? '+' : '') + atk + ')';
+                }
+            }
             document.getElementById('dispPwrDc').innerText = dc;
 
             let html = '';
@@ -1398,16 +1417,83 @@
             return `<span class="apx-rollable" style="text-decoration:underline dotted;text-underline-offset:2px" title="Click to roll"${attr}>${m[1]}</span> ${m[2]}`;
         }
 
+        // ── Rolling powers ──────────────────────────────────────────────
+        // A/S: how the power lands. Attack Roll / Save Negates powers choose one (in the Power
+        // Crafter); an Attack Roll is either a Power Attack (d20 + Power Atk) or a martial
+        // improvement that rides a normal weapon attack (d20 + that weapon's attack bonus).
+        function apxPowerAtkInfo(p) {
+            let d = p.draft || {};
+            let step = d.step1 || (/save halves/i.test(p.atk || '') ? 'saveHalves' : /guaranteed/i.test(p.atk || '') ? 'guaranteed' : /friendly/i.test(p.atk || '') ? 'friendly' : /hp capacity/i.test(p.atk || '') ? 'hpPool' : 'atkSave');
+            if (step === 'saveHalves') return { kind: 'save', text: `Save Halves · DC ${calc.powerDc}` };
+            if (step !== 'atkSave') return { kind: 'none', text: p.atk || '-' };
+            if (d.atkMode === 'save') return { kind: 'save', text: `Save Negates · DC ${calc.powerDc}` };
+            if (d.atkKind === 'martial') {
+                let opts = calc.weaponAttacks || [];
+                let w = opts.find(x => x.key === d.atkWeapon) || opts.find(x => x.key.split('|')[0] === String(d.atkWeapon || '').split('|')[0]) || opts[0];
+                return { kind: 'martial', w, text: w ? `Martial · ${w.label} ${w.bonus >= 0 ? '+' : ''}${w.bonus}` : 'Martial · no weapon' };
+            }
+            return { kind: 'power', text: `Power Attack ${calc.powerAtk >= 0 ? '+' : ''}${calc.powerAtk}` };
+        }
+        function apxPowerAtkHtml(p, idx) {
+            let info = apxPowerAtkInfo(p);
+            let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+            if (info.kind === 'none' || info.kind === 'save') return esc(info.text);
+            let blocked = calc.cantAct ? ` data-no-roll data-apx-blocked="${calc.cantActLabel}"` : '';
+            let roll = info.kind === 'power'
+                ? apxRollAttr({ type: 'check', kind: 'attack', label: (p.name || 'Power') + ': Power Attack', bonus: calc.powerAtk, omen: true, disSources: (calc.disadv && calc.disadv.atkGeneral) || [] })
+                : info.w ? apxRollAttr({ type: 'check', kind: 'attack', label: (p.name || 'Power') + ': ' + info.w.label + ' attack', bonus: info.w.bonus, omen: true, disSources: info.w.disSources, advSources: info.w.advSources }) : '';
+            let span = `<span class="apx-rollable" style="text-decoration:underline dotted;text-underline-offset:2px;cursor:pointer" title="Roll the attack (d20)"${blocked || roll}>${esc(info.text)}</span>`;
+            if (info.kind !== 'martial') return span;
+            // Martial improvement: change the weapon right here (equipment changes between fights)
+            let opts = calc.weaponAttacks || [];
+            if (opts.length < 2) return span;
+            return span + `<select onchange="window.apxSetPowerWeapon(${idx}, this.value)" title="Weapon used for this power's attack" class="block mt-0.5 bg-slate-800 border-slate-700 text-[9px] py-0 w-full">${opts.map(o => `<option value="${esc(o.key)}" ${info.w && o.key === info.w.key ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}</select>`;
+        }
+        window.apxSetPowerWeapon = function(idx, key) {
+            let p = window.state.powers[idx]; if (!p) return;
+            p.draft = p.draft || {}; p.draft.atkWeapon = key;
+            window.recalculateMath();
+        };
+        window.apxWeaponAttackOptions = function() { return (calc.weaponAttacks || []).slice(); };
+        // Using a power (click "Lvl X | Y AP"): spend its AP, then roll its damage or healing
+        window.apxUsePower = async function(idx) {
+            let p = window.state.powers[idx]; if (!p || !window.APXDice) return;
+            if (calc.cantAct) { APXDice.notify(`You're ${calc.cantActLabel}, so you can't use powers until that ends.`, { kind: 'warn', open: true }); return; }
+            let cost = Math.max(0, parseInt(p.ap) || 0);
+            let have = typeof window.apxApCurrent === 'function' ? window.apxApCurrent() : cost;
+            let apNote, apWarn = false;
+            if (cost > have) {
+                let ans = APXDice.ask ? await APXDice.ask(`${p.name || 'Power'}: not enough AP`, `This power costs ${cost} AP and you have ${have}.`, [['cancel', 'Cancel'], ['roll', 'Roll without spending', 'pri']]) : 'roll';
+                if (ans !== 'roll') return;
+                apNote = `AP not spent (needs ${cost}, had ${have})`; apWarn = true;
+            } else if (cost > 0) {
+                window.apxSpendAp(cost);
+                apNote = `-${cost} AP · ${window.apxApCurrent()} left`;
+            }
+            let txt = String(p.dmg || '');
+            let m = txt.match(/^\s*((?:\d*d\d+)(?:\s*[+-]\s*(?:\d*d\d+|\d+))*)\s*(.*)$/i);
+            if (m) {
+                let heal = /heal/i.test(m[2]);
+                let formula = m[1].replace(/\s+/g, '');
+                // "+Attr": the power's attribute modifier is added
+                if (/\+\s*Attr/i.test(m[2])) { let am = calc.mods[window.state.powerAttr] || 0; if (am) formula += (am > 0 ? '+' : '') + am; }
+                let type = m[2].replace(/\+\s*Attr/i, '').replace(/\(Heal\)/i, '').trim();
+                APXDice.damage({ label: (p.name || 'Power') + (heal ? ' healing' : ' damage'), who: window.state.name || '', formula, dmgType: heal ? '' : type, heal: heal || undefined, wcat: 'power', apNote, apWarn });
+            } else {
+                APXDice.notify(`${p.name || 'Power'} used${apNote ? ': ' + apNote : ''}.`, { kind: apWarn ? 'warn' : 'note', open: true });
+            }
+        };
+
         function renderPowers() {
             let html = window.state.powers.map((p, idx) => `
                 <div class="bg-slate-900 p-2 rounded border border-slate-700 relative group shadow-inner" data-roll-label="${String(p.name||'Power').replace(/"/g,'&quot;')}">
                     <button onclick="window.deletePower(${idx})" class="absolute top-1 right-1 text-red-500 hover:text-red-400 font-bold opacity-0 group-hover:opacity-100">&times;</button>
                     <div class="flex justify-between items-center mb-1">
                         <span class="font-bold text-sm text-indigo-300">${p.name}</span>
-                        <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded border border-slate-600 text-slate-400 font-bold shadow">Lvl ${p.lvl} | ${p.ap} AP</span>
+                        <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded border border-slate-600 text-slate-400 font-bold shadow cursor-pointer hover:border-indigo-400 hover:text-indigo-200" onclick="window.apxUsePower(${idx})" title="Use this power: spend ${p.ap} AP${/\d*d\d+/.test(String(p.dmg||'')) ? ' and roll its ' + (/heal/i.test(String(p.dmg)) ? 'healing' : 'damage') : ''}">Lvl ${p.lvl} | ${p.ap} AP</span>
                     </div>
                     <div class="grid grid-cols-3 gap-1 mb-1 text-[10px] text-slate-400">
-                        <div><span class="text-slate-500">A/S:</span> ${p.atk}</div>
+                        <div><span class="text-slate-500">A/S:</span> ${apxPowerAtkHtml(p, idx)}</div>
                         <div><span class="text-slate-500">R/A:</span> ${p.rng}</div>
                         <div><span class="text-slate-500">D/H:</span> ${apxPowerDmgHtml(p)}</div>
                     </div>

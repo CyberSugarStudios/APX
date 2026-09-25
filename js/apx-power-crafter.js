@@ -516,12 +516,46 @@ function pcRenderAll() {
     pcRenderSummary();
 }
 
+// Attack Roll / Save Negates: which one this power uses. An Attack Roll is a Power Attack
+// (d20 + Power Atk) or a martial improvement (the power rides a normal weapon attack).
+function pcStep1Extra() {
+    if (pcDraft.step1 !== 'atkSave') return '';
+    let mode = pcDraft.atkMode === 'save' ? 'save' : 'attack';
+    let kind = pcDraft.atkKind === 'martial' ? 'martial' : 'power';
+    let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    let seg = (on, onclick, label, tip) => `<button type="button" onclick="${onclick}" title="${esc(tip)}" class="px-2 py-1 text-[10px] font-bold rounded border transition ${on ? 'bg-purple-700 border-purple-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}">${label}</button>`;
+    let html = `<div class="bg-slate-900/60 border border-purple-800/60 rounded p-2 mt-1 space-y-1.5">
+        <div class="flex flex-wrap items-center gap-1"><span class="text-[10px] text-slate-400 font-bold mr-1 w-20 shrink-0">Resolved by</span>
+            ${seg(mode === 'attack', "window.pcSetAtkOpt('atkMode','attack')", 'Attack Roll', 'You roll a d20 attack against the target')}
+            ${seg(mode === 'save', "window.pcSetAtkOpt('atkMode','save')", 'Save Negates', 'The target rolls a save against your Power DC; success negates it')}</div>`;
+    if (mode === 'attack' && !pcIsNpc()) {
+        html += `<div class="flex flex-wrap items-center gap-1"><span class="text-[10px] text-slate-400 font-bold mr-1 w-20 shrink-0">Attack</span>
+            ${seg(kind === 'power', "window.pcSetAtkOpt('atkKind','power')", 'Power Attack', 'd20 + your Power Atk bonus')}
+            ${seg(kind === 'martial', "window.pcSetAtkOpt('atkKind','martial')", 'Martial Improvement', 'The power triggers with a normal weapon attack: d20 + that weapon\'s attack bonus')}</div>`;
+        if (kind === 'martial') {
+            let opts = typeof window.apxWeaponAttackOptions === 'function' ? window.apxWeaponAttackOptions() : [];
+            let cur = opts.find(o => o.key === pcDraft.atkWeapon) ? pcDraft.atkWeapon : (opts[0] && opts[0].key) || '';
+            if (cur && pcDraft.atkWeapon !== cur) pcDraft.atkWeapon = cur;
+            html += `<div class="flex items-center gap-1"><span class="text-[10px] text-slate-400 font-bold mr-1 w-20 shrink-0">Weapon</span>
+                ${opts.length ? `<select onchange="window.pcSetAtkOpt('atkWeapon', this.value)" class="flex-1 min-w-0 bg-slate-800 border-slate-600 text-[10px] py-0.5">${opts.map(o => `<option value="${esc(o.key)}" ${o.key === cur ? 'selected' : ''}>${esc(o.label)} (${o.bonus >= 0 ? '+' : ''}${o.bonus})${o.unarmed ? ' · unarmed' : o.innate ? ' · innate' : ''}</option>`).join('')}</select>`
+                    : '<span class="text-[10px] text-slate-500 italic">No weapons equipped. Add one in Weapons and Attacks.</span>'}</div>
+            <div class="text-[9px] text-slate-500">You can switch the weapon later on the power itself.</div>`;
+        }
+    }
+    return html + '</div>';
+}
+window.pcSetAtkOpt = function(key, val) {
+    pcDraft[key] = val;
+    pcRenderAll();
+};
+
 function pcRenderStep1() {
     document.getElementById('pcStep1Options').innerHTML = POWER_STEP1.map(s => `
         <label class="flex items-start gap-2 bg-slate-900 border ${pcDraft.step1 === s.key ? 'border-purple-500' : 'border-slate-700'} rounded p-2 cursor-pointer">
             <input type="radio" name="pcStep1" class="mt-1" ${pcDraft.step1 === s.key ? 'checked' : ''} onchange="window.pcSetStep1('${s.key}')">
             <div><div class="text-xs font-bold text-slate-200">${s.label} <span class="text-yellow-500">[${pcCost(s.cost, d => { d.step1 = s.key; if (s.key === 'hpPool') d.addSecondType = false; }, pcDraft.step1 === s.key)}]</span></div><div class="text-[10px] text-slate-500 leading-tight">${pcIsNpc() ? String(s.desc).replace(/ XP\b/g, '') : s.desc}</div></div>
         </label>
+        ${s.key === 'atkSave' ? pcStep1Extra() : ''}
     `).join('');
 }
 
@@ -869,6 +903,13 @@ function pcBuildTextSummary() {
     let aoeDef = POWER_STEP3_AOE.find(s => s.key === pcDraft.aoe);
 
     let atk = step1Def.label;
+    if (pcDraft.step1 === 'atkSave') {
+        if (pcDraft.atkMode === 'save') atk = 'Save Negates';
+        else if (pcDraft.atkKind === 'martial' && !pcIsNpc()) {
+            let w = (typeof window.apxWeaponAttackOptions === 'function' ? window.apxWeaponAttackOptions() : []).find(o => o.key === pcDraft.atkWeapon);
+            atk = 'Attack Roll (Martial' + (w ? ': ' + w.label : '') + ')';
+        } else atk = pcIsNpc() && !pcDraft.atkMode ? step1Def.label : 'Attack Roll (Power Attack)';
+    }
 
     let rng = step2Def.label;
     if (aoeDef.key !== 'single') rng += ' / ' + aoeDef.label;

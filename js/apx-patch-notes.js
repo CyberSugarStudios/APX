@@ -11,11 +11,11 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.9.25.1350',
-        released: '2026-09-25T13:50:00',
-        releasedText: 'September 25, 2026 · 1:50 PM',
+        version: 'v2026.9.25.1606',
+        released: '2026-09-25T16:06:00',
+        releasedText: 'September 25, 2026 · 4:06 PM',
         title: 'Playtest Update',
-        intro: 'This update comes straight from our playtest tables. GMs get world rules, a Loot Maker, NPCs that carry and use gear, and magic items that can change almost anything on a sheet. Players get Luck and Looting, trading, shareable Omen dice, Loyal Companions that act on their own turns, a one-screen Origin Builder, and a dice roller with a distinct shape for every die that doubles as the combat log. Initiative runs with or without a battle map, characters are created and switched cleanly, and deleting an account removes all of its data. Your characters and worlds update when you open them. Nothing is lost, and anything a rule change touched is explained.',
+        intro: 'This update comes straight from our playtest tables. GMs get world rules, a Loot Maker, NPCs that carry and use gear, and magic items that can change almost anything on a sheet. Players get Luck and Looting, trading, shareable Omen dice, Loyal Companions that act on their own turns, powers that roll their own attacks and damage, a one-screen Origin Builder, and a dice roller with a distinct shape for every die that doubles as the combat log and asks for your Wound and Bleed Out saves. Initiative runs with or without a battle map, characters are created and switched cleanly, and deleting an account removes all of its data. Your characters and worlds update when you open them. Nothing is lost, and anything a rule change touched is explained.',
         index: [
             ['For GMs', [
                 'World Settings: Starting XP, Max GP, starting Cu, and Point Buy or Standard Array for every character in your world.',
@@ -27,6 +27,7 @@
             ]],
             ['For Players', [
                 'Each new character starts in the world you choose, with that world\'s rules, races and settings, or in no world at all.',
+                'Powers roll themselves: click a power\'s attack for the d20 and its "Lvl | AP" tag to spend the AP and roll its damage. Attack Roll / Save Negates powers choose one, and an attack can be a Power Attack or a martial improvement riding one of your weapons.',
                 'The Origin Builder fits on one screen: name, starting wealth and feature on one side, languages and competencies on the other.',
                 'Luck and Looting: LUC (Loot) for Currency (LUC × enemies defeated ÷ 2) and ammunition (LUC − 3d6 rounds), or an hour of scavenging for Crafting Materials.',
                 'Omen dice can go to the GM (for any creature\'s roll) or to a party member. They work on your companion\'s rolls, can swap in natural 1s and 20s, and are rerolled one by one on a Full Rest.',
@@ -35,9 +36,9 @@
             ['At the Table', [
                 'Dice and Notifications holds every roll, the combat log and your messages in one tray.',
                 'Every die has its own shape, on its button and in every roll: triangles for the d4 and d8, a square d6, a kite d10, a pentagon d12, a hexagon d20 and a round d100.',
-                'The combat log shows the table the fight and resolves Wound Threshold and Bleed Out rolls in order. The party\'s damage to enemies appears without numbers, so DR and ER stay hidden.',
+                'The combat log shows the table the fight and resolves Wound Threshold and Bleed Out rolls in order, with a button on your sheet to roll each save. The party\'s damage to enemies appears without numbers, so DR and ER stay hidden.',
                 'Click skills, saves, weapons, powers and stat block dice to roll them. Perks, Advantage and Disadvantage, crits and Luck rerolls are built in.',
-                'Action Points are 6 + half your AGI modifier. They are tracked for every creature, carry between turns and are spent by attacks automatically.',
+                'Action Points are 6 + half your AGI modifier. They are tracked for every creature, refill on each turn (map or no map), carry between turns, reset when a fight starts and ends, and are spent by attacks, powers and standing up from Prone.',
                 'Rest and Recover buttons cover Short and Full Rests, Shake it Off and Shrug It Off.'
             ]],
             ['Battle Maps', [
@@ -97,6 +98,13 @@
                 'Banking a natural 1 or 20 (Rank 3) is a swap: the natural roll joins your Omen dice, and the held die you give up becomes that roll (plus or minus LUC from Rank 2).',
                 'On a Full Rest, choose which held Omen dice, if any, to roll again. The rest are kept and empty slots are filled. At Rank 5, dice rolled again come back as whichever of 1, 10 and 20 is missing.'
             ]],
+            ['Powers', [
+                'Click "Atk: +X" in the Powers header to roll a power attack: d20 + your Power Atk bonus.',
+                'Each power\'s A/S shows how it lands. Click an attack to roll its d20. Save powers show the DC your target rolls against.',
+                'Click a power\'s "Lvl X | Y AP" tag to use it: it spends the AP (or asks, if you\'re short) and rolls its damage or healing, adding your power attribute where it says +Attr.',
+                'In the Power Crafter, Attack Roll / Save Negates asks which one the power uses. An Attack Roll is a Power Attack (d20 + Power Atk) or a Martial Improvement, where the power triggers with a normal attack from the equipped weapon you pick, unarmed strikes and innate weapons included.',
+                'A martial power rolls with its weapon\'s attack bonus, and its card has a dropdown to switch weapons when your gear changes. Powers made before this update roll as Power Attacks.'
+            ]],
             ['Magic and Custom Items', [
                 'Equippable items can carry any number of bonuses, or penalties for cursed items: Core Attributes, any skill, AC, DR, ER, resistance to one energy type, Max HP, Max AP, Speed, Initiative, Wound Threshold, Max Rest Dice, Max Luck Points, Carry Capacity, melee and ranged attack and damage rolls, power attack rolls and save DC, saving throws, checks, and extra Power Slots of any level or for the CHA pool.',
                 'Make them with Add Item: tick Equippable, then add Other Bonuses beside the attribute, skill and energy bonuses. Edit your own later from their details.',
@@ -117,13 +125,15 @@
             ['Action Points', [
                 'AP is 6 + half your AGI modifier (rounded down, minimum 6), minus Fatigue, plus item bonuses.',
                 'Unspent AP carries over with no cap. The tracker shows your AP plus one empty pip and grows as you bank more. Click a pip to spend or refund.',
-                'In combat your pool empties when the fight begins and refills when your turn comes up. Surprised characters get only 1 AP on their first turn.',
+                'In combat your pool empties when the fight begins (banked AP is lost) and refills when your turn comes up, whether or not your GM uses a battle map. Surprised characters get only 1 AP on their first turn. When the fight ends, your AP resets to your normal maximum.',
+                'Standing up (removing Prone) costs 2 AP during combat, or 0 with Fool\'s Luck Rank 5. If you\'re short you\'re asked first. Outside combat it\'s free.',
                 'Attacks spend their own AP. You\'re asked when you Aim (Aim AP + attack AP), when a perk might change the cost (Martial Arts, Flurry), or when you\'re short on AP.'
             ]],
             ['Dice and Notifications', [
                 'Rolls and messages share one tray: rest results, XP, loot, HP changes from the GM and warnings. A red dot on the dice button marks something new, and cleared entries stay cleared.',
                 'In combat the tray is the fight\'s log. Damage enemies deal to you shows the amount. Damage the party deals to enemies doesn\'t, so their DR and ER stay hidden. Your checks and saves reach the GM, and Luck rerolls update them.',
                 'Wound Threshold and Bleed Out: when a hit goes past your Wound Threshold, your next CON save is the roll to avoid being Wounded. If you\'re also Bleeding Out, the CON (Survive) check that follows sets how many rounds you have.',
+                'Those messages have a button to roll the save straight from the tray, with all your bonuses: "Roll CON save (DC 12)", then "Roll CON (Survive)". The Bleed Out button waits until the Wound save is rolled.',
                 'Click any skill, save, attribute, weapon attack, damage, power or stat block dice to roll it. Conditions add Advantage or Disadvantage for you.',
                 'The d4–d100 buttons build a dice pool, the box adds a modifier, and Roll rolls the pool and clears it.',
                 'Each die is drawn in its own shape, on the buttons and in the rolls: the d4 is a triangle, the d6 a square, the d8 a triangle pointing down (so it stands apart from the d4), the d10 a kite, the d12 a pentagon, the d20 a hexagon with a corner up, and the d100 a circle. Omen dice are purple hexagons.',
@@ -222,10 +232,13 @@
             ]],
             ['Initiative and Combat', [
                 'Bleed Out is one row: "Bleeding Out: N rounds left" with − Round, + Round and Stabilize.',
+                'When a player with a linked sheet drops to 0 HP in combat, there\'s no popup. Their dice tray asks for the CON (Survive) check and the rounds fill in when they roll. The popup remains for players without a sheet.',
                 'End Combat checks for anyone still Bleeding Out first, and the XP award closes the combat log.',
                 'The combat log lives in the dice tray. Everyone sees damage and healing, but players see "Ari dealt damage to Goblin" with no number, so DR and ER stay secret, while you see every amount and every real name. Damage to players shows its amount to everyone. Player checks and saves appear only for you (marked GM) and update live with Luck or Omen. Hidden tokens show as "an unseen creature".',
                 'Wound Threshold and Bleed Out rolls are matched for you, Wound Threshold first. The player\'s next CON save settles the wound against its DC (10, or half the damage), then their CON (Survive) check sets the Bleed Out rounds (half the result, minimum 1).',
                 'Every creature\'s AP is tracked and carries over. Surprised creatures gain only 1 AP on their first turn, even when added mid-fight, and attacks and consumables used from a stat block spend that creature\'s AP.',
+                'Players\' AP refills when their turn comes up even with no battle map, since the tracker tells their sheets whose turn it is. Everyone\'s banked AP is cleared when combat starts, and players return to their normal AP when it ends.',
+                'Removing Prone from an NPC during combat spends the 2 AP it takes to stand up, and your log notes it.',
                 'Conditions include their linked conditions and reach players\' sheets. Saved NPCs keep current HP in step with max HP, and NPCs join initiative at full HP.',
                 'Messages go to Dice and Notifications. Click a party member\'s name for their full stat block.'
             ]],

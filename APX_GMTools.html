@@ -1706,9 +1706,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         settings: w.notesV2.settings || window.apxDefaultWorldSettings(),
                     }
                 };
+                // Whose turn it is, for players' sheets (AP at the start of their turn). Works with no map at all.
+                let _ct = window.gmCombatStarted ? (window.gmInitiative||[])[(window.gmCurrentTurnIdx??0)] : null;
                 let publicData = {
                     // Rules for characters in this world (read by the character sheet)
                     worldSettings: w.notesV2.settings || window.apxDefaultWorldSettings(),
+                    combatTurn: window.gmCombatStarted ? {
+                        id: _ct?.id || null, turnNo: window.gmTurnNumber || 0, round: window.gmRoundNumber || 1,
+                        playerUid: _ct && _ct.faction === 'player' ? (_ct.playerUid || null) : null,
+                        companionOf: _ct?.companionOf || null,
+                        apGain1: !!_ct?._apFirstSurprised
+                    } : { id: null, ended: true },
                     publicNotes: {
                         locations: w.publicNotes.locations,
                         npcs:      w.publicNotes.npcs,
@@ -3981,7 +3989,13 @@ document.addEventListener('DOMContentLoaded', () => {
         box.style.left = x + 'px'; box.style.top = y + 'px'; box.style.visibility = 'visible';
         setTimeout(()=>document.addEventListener('mousedown',function cls(ev){if(!box.contains(ev.target)){box.remove();document.removeEventListener('mousedown',cls);}},100));
     };
-    function _toggleIn(holder, condId, on) {
+    // Standing up from Prone costs 2 AP, taken from the creature's AP when it happens during combat
+    function _standUpAp(holder, condId, on, entryId) {
+        if (on || condId !== 'prone' || !(holder.conditions || []).includes('prone')) return;
+        if (typeof window._gmStandUpAp === 'function') window._gmStandUpAp(entryId);
+    }
+    function _toggleIn(holder, condId, on, entryId) {
+        _standUpAp(holder, condId, on, entryId);
         let before = window.apxEffectiveConditions ? window.apxEffectiveConditions(holder.conditions).map(c => c.id) : [];
         let list = holder.conditions = (holder.conditions || []).filter(c => c !== condId);
         if (on) list.push(condId);
@@ -4001,7 +4015,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
         let tok = (map?.battleTokens||[]).find(t=>t.id===tokenId); if (!tok) return;
         window._apxCondPicker(x, y, () => tok.conditions || [], (id, on) => {
-            _toggleIn(tok, id, on);
+            _toggleIn(tok, id, on, tok.initiativeId);
             saveWorldNotes(); _btRenderTokens(mapId, winId);
             if (typeof window.renderInitiativeTracker === 'function') window.renderInitiativeTracker();
         }, 'Conditions: ' + (tok.name||'Token'));
@@ -4011,14 +4025,14 @@ document.addEventListener('DOMContentLoaded', () => {
         let r = ev?.target?.getBoundingClientRect?.() || { left: 200, bottom: 200 };
         window._apxCondPicker(r.left, r.bottom + 4, () => window._gmEntryConditions(entryId), (id, on) => {
             let h = window._gmCondHolder(entryId); if (!h) return;
-            _toggleIn(h, id, on);
+            _toggleIn(h, id, on, entryId);
             if (h !== entry) { saveWorldNotes(); window._btRefreshAllOpenMaps(); }
             if (typeof window.renderInitiativeTracker === 'function') window.renderInitiativeTracker();
         }, 'Conditions: ' + (entry.name||''));
     };
     window._gmRemoveEntryCondition = function(entryId, condId) {
         let h = window._gmCondHolder(entryId); if (!h) return;
-        _toggleIn(h, condId, false);
+        _toggleIn(h, condId, false, entryId);
         saveWorldNotes(); window._btRefreshAllOpenMaps();
         if (typeof window.renderInitiativeTracker === 'function') window.renderInitiativeTracker();
     };

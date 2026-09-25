@@ -3401,19 +3401,46 @@
                     cl.entries.forEach(e => { if ((e.t || 0) > fresh || window.APXDice.hasLogEntry(e.id)) window.APXDice.logEntry(e); });
                 }
             } catch (e) { }
-            // Combat just started -> your AP pool empties; you gain AP when your turn comes up
+            // Combat just started -> your AP pool empties (banked AP is lost); you gain AP when your turn comes up.
+            // Combat just ended -> your AP resets to your normal maximum (banked AP is lost).
+            // combatTurn comes from the GM's tracker itself, so this works with or without a battle map.
+            let ct = data.combatTurn && typeof data.combatTurn === 'object' ? data.combatTurn : null;
             try {
-                let inCombat = (world.notesV2.otherMaps || []).some(m => m._currentInitId);
+                let inCombat = ct ? !!ct.id : (world.notesV2.otherMaps || []).some(m => m._currentInitId);
                 window._pwCombatCode = inCombat ? code : null;
                 if (inCombat && window._pwWasInCombat === false && window.state) {
                     window.state.apCurrent = 0; window._pwLastTurnKey = null; window.apxRenderApPips?.();
                     if (window.state.companion && window.apxCompSetAp) { window._pwCompTurnKey = null; window.apxCompSetAp(0); }   // the companion too
                     window.scheduleAutoSave?.();
                 }
+                if (!inCombat && window._pwWasInCombat === true && window.state) {
+                    window.apxFillAp?.();
+                    if (window.state.companion && window.apxCompFillAp) window.apxCompFillAp();
+                    window._pwLastTurnKey = null; window._pwCompTurnKey = null;
+                    window.scheduleAutoSave?.();
+                }
                 window._pwWasInCombat = inCombat;
             } catch (e) { }
+            // The GM's tracker says whose turn it is (newer GM Tools): no map or token needed
+            if (ct && ct.id) try {
+                let myUid = window.apxAuth?.user?.uid;
+                let key = ct.id + ':' + (ct.turnNo || 0);
+                if (myUid && ct.playerUid === myUid && window._pwLastTurnKey !== key) {
+                    let first = window._pwLastTurnKey === undefined;
+                    window._pwLastTurnKey = key;
+                    if (!first && ct.apGain1 && window.apxSetApValue) window.apxSetApValue(1);   // Surprised on your first turn: just 1 AP
+                    else if (!first && window.apxResetAp) window.apxResetAp();
+                    if (!first && window.apxBurnTick) window.apxBurnTick();   // Burning: 1d10 Fire at the start of your turn
+                }
+                if (myUid && ct.companionOf === myUid && window.state?.companion && window._pwCompTurnKey !== key) {
+                    let first = window._pwCompTurnKey === undefined;
+                    window._pwCompTurnKey = key;
+                    if (!first && window.apxCompStartTurn) window.apxCompStartTurn(!!ct.apGain1);
+                }
+            } catch (e) { }
             // Your turn just started in the GM's initiative -> you gain your AP (unspent AP carries over)
-            try {
+            // (older GM Tools: the turn comes from the battle map instead)
+            if (!ct) try {
                 let myUid = window.apxAuth?.user?.uid;
                 (world.notesV2.otherMaps || []).forEach(m => {
                     if (!m._currentInitId || !myUid) return;
@@ -3431,7 +3458,7 @@
                 });
             } catch (e) { }
             // Your Loyal Companion's turn just started -> it gains its AP (unspent AP carries over)
-            try {
+            if (!ct) try {
                 let myUid = window.apxAuth?.user?.uid;
                 (world.notesV2.otherMaps || []).forEach(m => {
                     if (!m._currentInitId || !myUid || !window.state?.companion) return;
@@ -3451,6 +3478,18 @@
             renderPlayerWorld();
         });
     }
+
+    // The GM's combat log can ask you for a roll (Wound Threshold CON save, Bleed Out CON (Survive));
+    // the message gets a button that rolls it from your sheet, with all your bonuses.
+    window.apxLogAsk = function(ask) { let uid = window.apxAuth?.user?.uid; return !!(ask && uid && ask.uid === uid); };
+    window.apxRollFromAsk = function(ask) {
+        if (!ask) return;
+        let sel = ask.roll === 'survive' ? `[data-apx-roll*='"skill":"Survive"']` : `[data-apx-roll*='"kind":"save"'][data-apx-roll*='"attr":"CON"']`;
+        let el = document.querySelector(sel);
+        if (el) { el.click(); return; }
+        // Fallback (no sheet element found): a plain d20 with the right label
+        window.APXDice?.check({ kind: ask.roll === 'survive' ? 'check' : 'save', attr: 'CON', skill: ask.roll === 'survive' ? 'Survive' : '', label: ask.roll === 'survive' ? 'CON (Survive)' : 'CON Save', who: window.state?.name || '', bonus: 0 });
+    };
 
     // Your checks and saves go to the GM's combat log while combat is running
     // (a Luck reroll or Omen updates the same entry)

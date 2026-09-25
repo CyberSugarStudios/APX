@@ -1370,6 +1370,7 @@ window.apxCompSetAp = function(v) {
 window.apxCompClickPip = function(i) { let cur = compApCur(); window.apxCompSetAp(i < cur ? i : i + 1); };
 window.apxCompSpendAp = function(n) { window.apxCompSetAp(compApCur() - n); };
 // Its turn: gain its AP on top of what it saved (Surprised on the first turn: just 1)
+window.apxCompFillAp = function() { window.apxCompSetAp(compApMax()); };
 window.apxCompStartTurn = function(surprised) { window.apxCompSetAp(surprised ? 1 : compApCur() + compApMax()); };
 window.apxCompApPipsHtml = function() {
     let max = compApMax(), cur = compApCur();

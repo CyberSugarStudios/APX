@@ -371,7 +371,8 @@ function startPartyListener(inviteCode) {
                         let hpChanged = e.currentHp !== null && (e.currentHp !== newHp || (e.tempHp || 0) !== newTempHp);
                         // Player's own sheet took them to 0 → start bleeding out (not dead)
                         let dropped = wasUp && newHp <= 0 && e.faction === 'player' && e.bleedOutTurns == null;
-                        if (dropped) setTimeout(() => window.openBleedOutModal(e.id), 0);
+                        // (their sheet's roller asks for the CON (Survive) check; the popup is only for untracked players)
+                        if (dropped && !(e.playerUid && window.gmCombatStarted)) setTimeout(() => window.openBleedOutModal(e.id), 0);
                         if (newHp > 0) { if (e.bleedOutTurns != null) _gmSetPlayerCondition(e, 'bleedingout', false); e.bleedOutTurns = null; e.stabilized = false; }
                         e.currentHp = newHp;
                         e.tempHp    = newTempHp;
@@ -1177,7 +1178,7 @@ function _gmPublishLogSoon() {
     _gmLogPubT = setTimeout(() => {
         let code = _gmInviteCode();
         if (!code || !window.apxAuth?.enabled || typeof window.apxAuth.publishCombatLog !== 'function') return;
-        let pub = window.gmCombatLog.filter(x => !x.gmOnly).slice(-40).map(x => ({ id: x.id, t: x.t, text: x.text, kind: x.kind || 'info' }));
+        let pub = window.gmCombatLog.filter(x => !x.gmOnly).slice(-40).map(x => ({ id: x.id, t: x.t, text: x.text, kind: x.kind || 'info', ask: x.ask || null }));
         window.apxAuth.publishCombatLog(code, pub, _gmLogSession).catch(err => console.warn('Combat log:', err.message));
     }, 400);
 }
@@ -1320,7 +1321,8 @@ window._gmEntryXp = function(entry) {
 function _gmQueueBleed(entry) {
     if (!entry || entry.faction !== 'player' || entry.bleedOutTurns != null) return;
     _gmQueueSave(entry, { type: 'bleed' });
-    if (entry.playerUid) gmLog({ text: `${entry.name} is Bleeding Out. Their next CON (Survive) check sets how many rounds they have.`, kind: 'bleed' });
+    // ask: the player's roller shows a button to roll the check straight from this message
+    if (entry.playerUid) gmLog({ text: `${entry.name} is Bleeding Out. Their next CON (Survive) check sets how many rounds they have.`, kind: 'bleed', ask: { uid: entry.playerUid, roll: 'survive' } });
 }
 
 // Shared after-change handling: 0 HP → bleed out (players) / killed (NPCs); healed → clear bleed-out
@@ -1338,7 +1340,9 @@ function _afterHpChange(entry, wasAboveZero) {
         if (entry.faction === 'player') {
             _syncHpToPlayer(entry);
             _gmQueueBleed(entry);
-            window.openBleedOutModal(entry.id);
+            // A player with a sheet rolls their Bleed Out check from their dice roller, and the rounds fill in here
+            // on their own. The popup is only for players without a linked sheet (or outside combat).
+            if (!(entry.playerUid && window.gmCombatStarted)) window.openBleedOutModal(entry.id);
         } else {
             window.gmPendingXp += window._gmEntryXp(entry);
             window.removeFromInitiative(entry.id, { dead: true });
@@ -1387,7 +1391,8 @@ function _gmCheckWoundThreshold(entry, dmg) {
         + `\n\n(Check that the damage you entered was after their DR or ER.)`;
     if (window.apxAlert) window.apxAlert(msg, { title: `Wound! CON save DC ${dc}` });
     _gmQueueSave(entry, { type: 'wt', dc, dmg });
-    gmLog({ text: `${who} took ${dmg} damage, more than their Wound Threshold (${wt}). They must make a DC ${dc} CON save to resist being wounded.`, kind: 'wt' });
+    gmLog({ text: `${who} took ${dmg} damage, more than their Wound Threshold (${wt}). They must make a DC ${dc} CON save to resist being wounded.`, kind: 'wt',
+        ask: entry.playerUid ? { uid: entry.playerUid, roll: 'save', dc } : null });
 }
 window._gmCheckWoundThreshold = _gmCheckWoundThreshold;
 // Damage typed as "-N" (or a lower value) in the tracker
@@ -1771,6 +1776,14 @@ function gmStartTurnAp(e) {
     if (e.faction === 'player') return;   // players' sheets add their own AP when their turn starts
     e.apCur = gmApCurrent(e) + (e._apFirstSurprised ? 1 : gmApMax(e));
 }
+// Prone removed during combat: standing up cost the creature 2 AP (NPCs; players' sheets handle their own)
+window._gmStandUpAp = function(entryId) {
+    let e = (window.gmInitiative || []).find(x => x.id === entryId);
+    if (!e || !window.gmCombatStarted || e.faction === 'player') return;
+    let have = gmApCurrent(e), cost = 2;
+    e.apCur = Math.max(0, have - cost);
+    gmLog({ text: `${e.name} stands up.`, gmText: `${e.name} stands up (−${Math.min(have, cost)} AP${have < cost ? `, had only ${have}` : ''}, ${e.apCur} left).`, kind: 'info' });
+};
 function gmApPipsHtml(e) {
     let max = gmApMax(e);
     let cur, isPlayer = e.faction === 'player' && e.playerUid;
