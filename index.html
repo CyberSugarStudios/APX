@@ -202,7 +202,7 @@
             </button>
         </div>
         <div class="text-center">
-            <span id="landingVersion" class="text-[10px]" style="color:var(--c-text-dimmer,#334155);">v2026.9.25.0957</span>
+            <span id="landingVersion" class="text-[10px]" style="color:var(--c-text-dimmer,#334155);">v2026.9.25.1243</span>
         </div>
 
         <!-- Delete account (shown only when signed in) -->
@@ -411,57 +411,10 @@
         try {
             let user = window.apxAuth.user;
             if (!user) return;
-            let uid = user.uid;
+            // Removes every character, world (with maps, fog, portraits and images),
+            // invite code, world membership, folder, race, NPC and profile, then local data.
             errEl.innerText = 'Deleting all account data… this may take a moment.';
-
-            let db = window._apxDb || (window.FIREBASE_ENABLED ? firebase.firestore() : null);
-            if (db) {
-                // ── 1. Worlds the user created as GM ──────────────────────────
-                let wSnap = await db.collection('users').doc(uid).collection('worlds').get().catch(()=>({docs:[]}));
-                for (let wDoc of wSnap.docs) {
-                    let code = wDoc.data().inviteCode;
-                    if (code) {
-                        // Delete all players in this world's invite code
-                        let pSnap = await db.collection('worldCodes').doc(code).collection('players').get().catch(()=>({docs:[]}));
-                        for (let p of pSnap.docs) await p.ref.delete().catch(()=>{});
-                        // Delete public map sub-doc
-                        await db.collection('worldCodes').doc(code).collection('mapImage').doc('data').delete().catch(()=>{});
-                        // Delete the worldCode document itself
-                        await db.collection('worldCodes').doc(code).delete().catch(()=>{});
-                    }
-                    // Delete private map sub-doc
-                    await db.collection('users').doc(uid).collection('worlds').doc(wDoc.id)
-                        .collection('mapImage').doc('data').delete().catch(()=>{});
-                    // Delete the world document
-                    await wDoc.ref.delete().catch(()=>{});
-                }
-
-                // ── 2. Characters ─────────────────────────────────────────────
-                let cSnap = await db.collection('users').doc(uid).collection('characters').get().catch(()=>({docs:[]}));
-                for (let d of cSnap.docs) await d.ref.delete().catch(()=>{});
-
-                // ── 3. Folders ────────────────────────────────────────────────
-                let fSnap = await db.collection('users').doc(uid).collection('folders').get().catch(()=>({docs:[]}));
-                for (let d of fSnap.docs) await d.ref.delete().catch(()=>{});
-
-                // ── 4. GM assets (races, NPCs, profile) ───────────────────────
-                await db.collection('users').doc(uid).collection('gmRaces').doc('all').delete().catch(()=>{});
-                await db.collection('users').doc(uid).collection('gmNpcs').doc('all').delete().catch(()=>{});
-                await db.collection('users').doc(uid).collection('profile').doc('info').delete().catch(()=>{});
-
-                // ── 5. Player entries in worlds the user JOINED (not owned) ───
-                let joinedWorlds = JSON.parse(localStorage.getItem('apxConnectedWorlds') || '[]');
-                for (let w of joinedWorlds) {
-                    if (!w.code) continue;
-                    await db.collection('worldCodes').doc(w.code)
-                        .collection('players').doc(uid).delete().catch(()=>{});
-                }
-            }
-
-            // ── 6. Clear ALL localStorage keys for this app ───────────────────
-            Object.keys(localStorage)
-                .filter(k => k.startsWith('apx'))
-                .forEach(k => localStorage.removeItem(k));
+            await window.apxAuth.deleteAllUserData(t => { errEl.innerText = t; });
 
             errEl.innerText = 'Deleting account…';
             await user.delete();

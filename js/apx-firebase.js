@@ -23,7 +23,7 @@
             deleteFolder: () => Promise.resolve(),
             createWorld: () => Promise.resolve(null), loadWorlds: () => Promise.resolve([]),
             saveWorld: () => Promise.resolve(), saveWorldRaces: () => Promise.resolve(),
-            saveRacesToAllWorlds: () => Promise.resolve(), deleteWorld: () => Promise.resolve(), joinWorldByCode: () => Promise.resolve(null),
+            saveRacesToAllWorlds: () => Promise.resolve(), deleteWorld: () => Promise.resolve(), deleteAllUserData: () => Promise.resolve(), joinWorldByCode: () => Promise.resolve(null),
             loadWorldPlayers: () => Promise.resolve([]),
             listenWorldPlayers: () => (() => {}),
             listenPublicWorldNotes: () => (() => {}),
@@ -686,11 +686,86 @@
         }));
     }
 
+    // ── Deleting data ───────────────────────────────────────────────────
+    // Firestore doesn't delete a document's sub-collections with it, so every place
+    // data is kept is listed here. ADD NEW STORAGE LOCATIONS TO THESE LISTS, or they
+    // will be left behind when a world or an account is deleted.
+    const WORLD_PRIVATE_SUBCOLLECTIONS = ['mapImage', 'otherMaps', 'npcPortraits', 'battleImages', 'fogData'];   // users/{uid}/worlds/{worldId}/…
+    const WORLD_PUBLIC_SUBCOLLECTIONS  = ['players', 'mapImage'];                                               // worldCodes/{code}/…
+    const USER_SUBCOLLECTIONS          = ['characters', 'folders', 'gmRaces', 'gmNpcs', 'profile'];             // users/{uid}/… (plus worlds)
+
+    // Delete every document in a collection, in batches
+    async function _purgeCollection(ref) {
+        let n = 0;
+        for (;;) {
+            let snap = await ref.limit(300).get().catch(() => null);
+            if (!snap || snap.empty) return n;
+            let batch = db.batch();
+            snap.docs.forEach(d => batch.delete(d.ref));
+            await batch.commit().catch(async () => { for (let d of snap.docs) await d.ref.delete().catch(() => {}); });
+            n += snap.size;
+            if (snap.size < 300) return n;
+        }
+    }
+    // A GM's world: its private data, its public record and everyone's player records in it.
+    // (The public record goes last: the rules check it to allow the other deletes.)
+    async function _purgeWorld(uid, worldId, inviteCode) {
+        let wref = db.collection('users').doc(uid).collection('worlds').doc(worldId);
+        for (let sub of WORLD_PRIVATE_SUBCOLLECTIONS) await _purgeCollection(wref.collection(sub));
+        let code = inviteCode ? String(inviteCode).toUpperCase().trim() : null;
+        if (!code) { let d = await wref.get().catch(() => null); code = d && d.exists ? (d.data().inviteCode || null) : null; }
+        if (code) {
+            let cref = db.collection('worldCodes').doc(code);
+            let cdoc = await cref.get().catch(() => null);
+            if (cdoc && cdoc.exists && cdoc.data().gmUid === uid) {
+                for (let sub of WORLD_PUBLIC_SUBCOLLECTIONS) await _purgeCollection(cref.collection(sub));
+                await cref.delete().catch(() => {});
+            }
+        }
+        await wref.delete().catch(() => {});
+    }
+
     async function deleteWorld(worldId, inviteCode) {
         let user = currentUser();
         if (!user) return;
-        await db.collection('users').doc(user.uid).collection('worlds').doc(worldId).delete();
-        if (inviteCode) await db.collection('worldCodes').doc(inviteCode).delete().catch(() => {});
+        await _purgeWorld(user.uid, worldId, inviteCode);
+    }
+
+    // Delete EVERYTHING tied to the signed-in account (call before deleting the login itself):
+    // characters, folders, GM races and NPCs, profile, every world it runs (with maps, fog,
+    // portraits, images, player records), its player record in every world it joined, and
+    // this browser's saved APX settings. onProgress(text) reports each stage.
+    async function deleteAllUserData(onProgress) {
+        let user = currentUser(); if (!user) return;
+        let uid = user.uid, say = t => { try { onProgress && onProgress(t); } catch (e) { } };
+        let uref = db.collection('users').doc(uid);
+        // Worlds joined as a player: from this browser, saved characters and world folders
+        let joined = new Set();
+        try { (JSON.parse(localStorage.getItem('apxConnectedWorlds') || '[]') || []).forEach(w => w && w.code && joined.add(String(w.code).toUpperCase())); } catch (e) { }
+        let chars = await uref.collection('characters').get().catch(() => ({ docs: [] }));
+        chars.docs.forEach(d => { let c = d.data().worldCode; if (c) joined.add(String(c).toUpperCase()); });
+        let folders = await uref.collection('folders').get().catch(() => ({ docs: [] }));
+        folders.docs.forEach(d => { let c = d.data().worldCode; if (c) joined.add(String(c).toUpperCase()); });
+        // 1. Worlds this account runs as GM
+        say('Deleting your worlds…');
+        let worlds = await uref.collection('worlds').get().catch(() => ({ docs: [] }));
+        for (let w of worlds.docs) {
+            let code = w.data().inviteCode;
+            if (code) joined.delete(String(code).toUpperCase());
+            await _purgeWorld(uid, w.id, code);
+        }
+        // 2. Its player record in every world it joined
+        say('Leaving the worlds you joined…');
+        for (let code of joined) {
+            await db.collection('worldCodes').doc(code).collection('players').doc(uid).delete().catch(() => {});
+        }
+        // 3. Everything else under the account
+        say('Deleting characters and settings…');
+        for (let sub of USER_SUBCOLLECTIONS) await _purgeCollection(uref.collection(sub));
+        await uref.delete().catch(() => {});
+        // 4. This browser's saved APX data (worlds, folders, preferences, tray history…)
+        try { Object.keys(localStorage).filter(k => /^apx/i.test(k)).forEach(k => localStorage.removeItem(k)); } catch (e) { }
+        try { Object.keys(sessionStorage).filter(k => /^apx/i.test(k)).forEach(k => sessionStorage.removeItem(k)); } catch (e) { }
     }
 
     async function joinWorldByCode(inviteCode, playerState) {
@@ -812,7 +887,7 @@
         enabled: true,
         get user() { return currentUser(); },
         signIn, signUp, signOut, onAuthChange,
-        saveCharacter, loadCharacters, deleteCharacter,
+        saveCharacter, loadCharacters, deleteCharacter, deleteAllUserData,
         loadFolders, saveFolder, deleteFolder,
         saveGmRaces, loadGmRaces, saveGmNpcs, loadGmNpcs,
         getShareCode, connectToGm,

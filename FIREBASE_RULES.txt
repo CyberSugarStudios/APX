@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// APX FIRESTORE RULES  (v2026.9.23)
+// APX FIRESTORE RULES  (v2026.9.25)
 // Paste into: Firebase Console > Firestore Database > Rules tab
 // ─────────────────────────────────────────────────────────────────────────────
 // No Firebase Storage or Blaze plan required.
@@ -72,6 +72,8 @@ service cloud.firestore {
           && request.auth.uid == playerId
           && !(request.auth.uid in get(/databases/$(database)/documents/worldCodes/$(inviteCode)).data.get('banned', []))
           && !(request.auth.uid in get(/databases/$(database)/documents/worldCodes/$(inviteCode)).data.get('kicked', []));
+      // A player may always remove their own record (leaving a world, deleting their account)
+      allow delete: if request.auth != null && request.auth.uid == playerId;
     }
 
   }

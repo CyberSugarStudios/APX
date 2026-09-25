@@ -834,42 +834,29 @@
 
     <!-- Origin Builder Modal -->
     <div class="modal-overlay" id="originModal">
-        <div class="modal-content max-w-[600px]">
-            <div class="flex justify-between items-center mb-4 border-b border-pink-600 pb-2">
+        <div class="modal-content max-w-[920px]">
+            <div class="flex justify-between items-end mb-4 border-b border-pink-600 pb-2">
                 <h3 class="text-xl font-black text-white">Origin Builder</h3>
-            </div>
-            <div class="flex gap-1 mb-3 flex-wrap text-[10px]">
-                <span id="origTab1" onclick="window.jumpToOrigStep(1)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">1. Background</span>
-                <span id="origTab2" onclick="window.jumpToOrigStep(2)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">2. Wealth & Feature</span>
+                <span class="text-[10px] text-slate-500">Who you were before the adventure began</span>
             </div>
 
-            <div id="origStep1" class="wizard-step active">
-                <h4 class="text-sm font-bold text-pink-400 mb-2">Step 1: Background & Competencies</h4>
-                <p class="text-[10px] text-slate-400 mb-4">Your origin grants you knowledge of the primary language of the setting. You may choose up to 4 additional Languages. For every language you don't choose, you can gain training in one Skill or Weapon Type of your choice instead. Note your choices below.</p>
-                <div class="mb-3">
-                    <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Common/Basic Language of the Setting</label>
-                    <input type="text" id="origCommonLanguage" onchange="window.origSetCommonLanguage(this.value)" placeholder="e.g. Common" class="bg-slate-900 text-xs w-full">
-                </div>
-                <div class="bg-slate-800 p-3 rounded-lg border border-slate-700 shadow-inner">
-                    <div class="grid grid-cols-[24px_24px_24px_1fr] gap-2 text-[9px] text-slate-500 font-bold uppercase text-center mb-1 max-w-md">
-                        <div>Lang</div><div>Skill</div><div>Wpn</div><div></div>
-                    </div>
-                    <div id="origCompsGrid" class="max-w-md"><!-- JS injected --></div>
-                </div>
-            </div>
-
-            <div id="origStep2" class="wizard-step">
-                <h4 class="text-sm font-bold text-pink-400 mb-2">Step 2: Wealth & Feature</h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Left: identity, wealth, feature -->
                 <div class="space-y-3">
-                    <div class="bg-slate-800 p-3 rounded border border-slate-700">
-                        <label class="block text-xs font-bold text-slate-300 mb-1">Origin Name</label>
-                        <input type="text" id="origName" placeholder="e.g. Space Wizard Apprentice" class="bg-slate-900 font-bold text-pink-300 w-full mb-3">
+                    <div class="bg-slate-800 p-3 rounded-lg border border-slate-700">
+                        <label class="block text-[10px] text-slate-400 uppercase tracking-wider font-bold mb-1">Origin Name</label>
+                        <input type="text" id="origName" placeholder="e.g. Space Wizard Apprentice" class="bg-slate-900 font-bold text-pink-300 w-full">
+                    </div>
 
-                        <label class="block text-xs font-bold text-slate-300 mb-1">Starting Wealth</label>
-                        <div id="origWealthBubbles" class="grid grid-cols-2 gap-2 mb-1">
+                    <div class="bg-slate-800 p-3 rounded-lg border border-slate-700">
+                        <div class="flex items-baseline justify-between mb-1">
+                            <label class="text-[10px] text-slate-400 uppercase tracking-wider font-bold whitespace-nowrap mr-2">Starting Wealth</label>
+                            <span id="origWealthNote" class="text-[9px] text-slate-500 text-right">Added to your Currency when you save. Chosen once.</span>
+                        </div>
+                        <div id="origWealthBubbles" class="grid grid-cols-2 gap-2">
                             <label for="origWealthNone" class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded p-2 cursor-pointer hover:border-slate-500 orig-wealth-option">
                                 <input type="radio" name="origWealth" id="origWealthNone" value="0" class="accent-pink-500 w-3.5 h-3.5">
-                                <div><div class="text-xs font-bold text-slate-200">None</div><div class="text-[9px] text-slate-500">Already applied or skip</div></div>
+                                <div><div class="text-xs font-bold text-slate-200">None</div><div class="text-[9px] text-slate-500">No starting wealth</div></div>
                             </label>
                             <label for="origWealthImpov" class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded p-2 cursor-pointer hover:border-slate-500 orig-wealth-option">
                                 <input type="radio" name="origWealth" id="origWealthImpov" value="150" class="accent-pink-500 w-3.5 h-3.5">
@@ -884,22 +871,28 @@
                                 <div><div class="text-xs font-bold text-slate-200">Wealthy / Funded</div><div class="text-[9px] text-slate-500">+600 Currency</div></div>
                             </label>
                         </div>
-                        <p class="text-[9px] text-slate-500 mb-3">! Cannot be changed after saving origin. Currency is added immediately.</p>
-
-                        <label class="block text-xs font-bold text-slate-300 mb-1">Origin Feature</label>
-                        <p class="text-[9px] text-slate-500 mb-1">Describe your unique social access, specialized knowledge, or shelter.</p>
-                        <textarea id="origFeature" class="bg-slate-900 text-xs w-full h-24 resize-none" placeholder="e.g. Sanctuary of the Order: You can always find free healing and basic lodgings at any temple..."></textarea>
                     </div>
+
+                    <div class="bg-slate-800 p-3 rounded-lg border border-slate-700">
+                        <label class="block text-[10px] text-slate-400 uppercase tracking-wider font-bold mb-1">Origin Feature</label>
+                        <p class="text-[9px] text-slate-500 mb-1">Your unique social access, specialized knowledge, or shelter.</p>
+                        <textarea id="origFeature" class="bg-slate-900 text-xs w-full h-28 resize-y" placeholder="e.g. Sanctuary of the Order: You can always find free healing and basic lodgings at any temple..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Right: languages and competencies -->
+                <div class="bg-slate-800 p-3 rounded-lg border border-slate-700 flex flex-col">
+                    <label class="block text-[10px] text-slate-400 uppercase tracking-wider font-bold mb-1">Languages and Competencies</label>
+                    <p class="text-[9px] text-slate-500 mb-3">You know the setting's common language. Each of your four competencies is an extra Language, or, in its place, training in one Skill or Weapon Type.</p>
+                    <label class="block text-[10px] text-slate-400 mb-1">Common language of the setting</label>
+                    <input type="text" id="origCommonLanguage" onchange="window.origSetCommonLanguage(this.value)" placeholder="e.g. Common" class="bg-slate-900 text-xs w-full mb-3">
+                    <div id="origCompsGrid" class="space-y-2"><!-- JS injected --></div>
                 </div>
             </div>
 
-            <div class="flex justify-between items-center mt-6 pt-4 border-t border-slate-600">
-                <div class="flex gap-2 w-full justify-end">
-                    <button onclick="window.closeModal('originModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition mr-auto">Cancel</button>
-                    <button id="origBtnPrev" onclick="window.navOriginWizard(-1)" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition hidden">Back</button>
-                    <button id="origBtnNext" onclick="window.navOriginWizard(1)" class="px-4 py-2 rounded bg-pink-600 hover:bg-pink-500 text-white text-sm font-bold transition">Next Step</button>
-                    <button id="origBtnFinish" onclick="window.finishOrigin()" class="px-6 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition hidden shadow-lg">Save Origin</button>
-                </div>
+            <div class="flex items-center gap-2 mt-5 pt-4 border-t border-slate-600">
+                <button onclick="window.closeModal('originModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition mr-auto">Cancel</button>
+                <button id="origBtnFinish" onclick="window.finishOrigin()" class="px-6 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition shadow-lg">Save Origin</button>
             </div>
         </div>
     </div>
@@ -4881,30 +4874,11 @@
         try {
             let user = window.apxAuth.user;
             if (!user) return;
-            errEl.innerText = 'Deleting account data...';
-            try {
-                let uid = user.uid;
-                let db = window._apxDb || (window.FIREBASE_ENABLED ? firebase.firestore() : null);
-                if (db) {
-                    // Delete all characters
-                    let cSnap = await db.collection('users').doc(uid).collection('characters').get().catch(()=>({docs:[]}));
-                    for (let d of cSnap.docs) await d.ref.delete().catch(()=>{});
-                    // Delete all worlds (and their worldCodes)
-                    let wSnap = await db.collection('users').doc(uid).collection('worlds').get().catch(()=>({docs:[]}));
-                    for (let d of wSnap.docs) {
-                        let code = d.data().inviteCode;
-                        if (code) await db.collection('worldCodes').doc(code).delete().catch(()=>{});
-                        await d.ref.delete().catch(()=>{});
-                    }
-                    // Delete singleton docs
-                    await db.collection('users').doc(uid).collection('gmRaces').doc('all').delete().catch(()=>{});
-                    await db.collection('users').doc(uid).collection('gmNpcs').doc('all').delete().catch(()=>{});
-                    await db.collection('users').doc(uid).collection('profile').doc('info').delete().catch(()=>{});
-                    // Delete folders
-                    let fSnap = await db.collection('users').doc(uid).collection('folders').get().catch(()=>({docs:[]}));
-                    for (let d of fSnap.docs) await d.ref.delete().catch(()=>{});
-                }
-            } catch(e) { console.warn('Data cleanup error:', e.message); }
+            // Removes every character, world (with maps, fog, portraits and images),
+            // invite code, world membership, folder, race, NPC and profile, then local data.
+            errEl.innerText = 'Deleting all account data… this may take a moment.';
+            await window.apxAuth.deleteAllUserData(t => { errEl.innerText = t; });
+            errEl.innerText = 'Deleting account…';
             await user.delete();
             window.closeModal('deleteAccountModal');
             window.location.href = 'index.html';

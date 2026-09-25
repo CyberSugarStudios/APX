@@ -1,40 +1,26 @@
 // ============================================================
 // APX Character Sheet — Origin Wizard
 // ============================================================
-        let currentOriginStep = 1;
-
-        window.navOriginWizard = function(dir) {
-            window.jumpToOrigStep(currentOriginStep + dir);
-        }
-
-        window.jumpToOrigStep = function(n) {
-            if (n < 1 || n > 2) return;
-            document.getElementById(`origStep${currentOriginStep}`).classList.remove('active');
-            currentOriginStep = n;
-            document.getElementById(`origStep${currentOriginStep}`).classList.add('active');
-            
-            document.getElementById('origBtnPrev').style.display = currentOriginStep > 1 ? 'block' : 'none';
-            document.getElementById('origBtnNext').style.display = currentOriginStep < 2 ? 'block' : 'none';
-            document.getElementById('origBtnFinish').style.display = 'block';
-            window.updateWizardTabs('origTab', currentOriginStep, 2);
-        }
+        // One screen: identity, wealth and feature beside languages and competencies.
+        // (Kept for anything that still calls the old step navigation.)
+        window.navOriginWizard = function() {};
+        window.jumpToOrigStep = function() {};
 
         window.syncOriginWizard = function() {
             document.getElementById('origName').value = window.state.origin.name !== "Unknown" ? window.state.origin.name : "";
             document.getElementById('origCommonLanguage').value = window.state.origin.commonLanguage || "";
             renderOrigCompsGrid();
             document.getElementById('origFeature').value = window.state.origin.feature || "";
-            document.getElementById('origWealthNone').checked = false;
-            // Lock radios if wealth already applied
-            setTimeout(() => {
-                let radios = document.querySelectorAll('.orig-wealth-option input[type="radio"]');
-                radios.forEach(r => {
-                    r.disabled = !!window.state.origin.wealthApplied;
-                    r.closest('label').style.opacity = window.state.origin.wealthApplied ? '0.5' : '';
-                    r.closest('label').style.cursor = window.state.origin.wealthApplied ? 'not-allowed' : 'pointer';
-                });
-            }, 50);
-            window.jumpToOrigStep(1);
+            document.querySelectorAll('input[name="origWealth"]').forEach(r => { r.checked = false; });
+            // Wealth is chosen once: after that the choices are locked
+            let applied = !!window.state.origin.wealthApplied;
+            document.querySelectorAll('.orig-wealth-option input[type="radio"]').forEach(r => {
+                r.disabled = applied;
+                r.closest('label').style.opacity = applied ? '0.5' : '';
+                r.closest('label').style.cursor = applied ? 'not-allowed' : 'pointer';
+            });
+            let note = document.getElementById('origWealthNote');
+            if (note) note.textContent = applied ? 'Already added to your Currency.' : 'Added to your Currency when you save. Chosen once.';
         }
 
         window.origSetCommonLanguage = function(val) {
@@ -104,34 +90,41 @@
             window.state.origin.comps[idx].value = val;
         };
 
+        // Each competency slot: pick Language, Skill or Weapon Type (click the active one again to clear it)
         function renderOrigCompsGrid() {
             let body = document.getElementById('origCompsGrid');
             if (!body) return;
+            let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+            let seg = (idx, comp, type, label) => {
+                let on = comp.type === type;
+                return `<button type="button" onclick="window.origToggleCompType(${idx}, '${type}', ${!on})"
+                    class="px-2 py-1 text-[10px] font-bold rounded border transition ${on ? 'bg-pink-700 border-pink-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}">${label}</button>`;
+            };
             body.innerHTML = window.state.origin.comps.map((comp, idx) => {
-                let detail = '';
+                let detail = '<div class="text-[10px] text-slate-600 italic">Choose what this competency is.</div>';
                 if (comp.type === 'language') {
-                    detail = `<input type="text" value="${comp.value || ''}" onchange="window.origSetCompLanguage(${idx}, this.value)" placeholder="Language name..." class="bg-slate-900 text-xs w-full">`;
+                    detail = `<input type="text" value="${esc(comp.value)}" onchange="window.origSetCompLanguage(${idx}, this.value)" placeholder="Language name..." class="bg-slate-900 text-xs w-full">`;
                 } else if (comp.type === 'skill') {
-                    detail = `<span class="text-xs text-slate-200">${comp.value || ''}</span>`;
+                    detail = comp.value ? `<div class="text-xs text-blue-300 font-bold">${esc(comp.value)} <span class="text-[9px] text-slate-500 font-normal">(trained)</span></div>`
+                        : `<button type="button" onclick="window.origToggleCompType(${idx}, 'skill', true)" class="text-[10px] text-cyan-400 hover:text-cyan-300 font-bold">Choose a skill…</button>`;
                 } else if (comp.type === 'weapon') {
                     let isCustom = comp.value === '__custom__';
                     detail = `
                         <select onchange="window.origSetCompWeaponType(${idx}, this.value)" class="bg-slate-900 text-xs w-full">
-                            <option value="">Choose...</option>
-                            ${WEAPON_TYPE_TRAININGS.map(w => `<option value="${w}" ${comp.value === w ? 'selected' : ''}>${w}</option>`).join('')}
+                            <option value="">Choose a weapon type...</option>
+                            ${WEAPON_TYPE_TRAININGS.map(w => `<option value="${esc(w)}" ${comp.value === w ? 'selected' : ''}>${esc(w)}</option>`).join('')}
                             <option value="__custom__" ${isCustom ? 'selected' : ''}>Custom...</option>
                         </select>
-                        ${isCustom ? `<input type="text" value="${comp.customValue || ''}" onchange="window.origSetCompCustomWeapon(${idx}, this.value)" placeholder="Custom weapon type..." class="bg-slate-900 text-xs w-full mt-1">` : ''}
-                    `;
+                        ${isCustom ? `<input type="text" value="${esc(comp.customValue)}" onchange="window.origSetCompCustomWeapon(${idx}, this.value)" placeholder="Custom weapon type..." class="bg-slate-900 text-xs w-full mt-1">` : ''}`;
                 }
                 return `
-                    <div class="grid grid-cols-[24px_24px_24px_1fr] gap-2 items-start mb-1.5">
-                        <input type="checkbox" class="mt-1" ${comp.type === 'language' ? 'checked' : ''} onchange="window.origToggleCompType(${idx}, 'language', this.checked)">
-                        <input type="checkbox" class="mt-1" ${comp.type === 'skill' ? 'checked' : ''} onchange="window.origToggleCompType(${idx}, 'skill', this.checked)">
-                        <input type="checkbox" class="mt-1" ${comp.type === 'weapon' ? 'checked' : ''} onchange="window.origToggleCompType(${idx}, 'weapon', this.checked)">
-                        <div>${detail}</div>
-                    </div>
-                `;
+                    <div class="bg-slate-900/60 border border-slate-700 rounded p-2">
+                        <div class="flex items-center gap-1 mb-1.5">
+                            <span class="text-[9px] text-slate-500 font-black uppercase mr-1">Competency ${idx + 1}</span>
+                            ${seg(idx, comp, 'language', 'Language')}${seg(idx, comp, 'skill', 'Skill')}${seg(idx, comp, 'weapon', 'Weapon Type')}
+                        </div>
+                        ${detail}
+                    </div>`;
             }).join('');
         }
 

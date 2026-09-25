@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.9.25.0957';
+window.APX_VERSION = 'v2026.9.25.1243';
 
         window.state = getInitialState();
 
@@ -244,14 +244,7 @@ window.APX_VERSION = 'v2026.9.25.0957';
             if(id === 'ancestryModal') window.syncAncestryWizard();
             if(id === 'spendXpModal') window.updateXpCosts();
             if(id === 'settingsModal') window.applyAppSettingsToUI();
-            if(id === 'originModal') {
-                currentOriginStep = 1;
-                document.getElementById('origStep1').classList.add('active');
-                document.getElementById('origStep2').classList.remove('active');
-                document.getElementById('origBtnPrev').style.display = 'none';
-                document.getElementById('origBtnNext').style.display = 'block';
-                window.syncOriginWizard();
-            }
+            if(id === 'originModal') window.syncOriginWizard();
         }
         
         window.closeModal = function(id) {
