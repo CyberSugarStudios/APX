@@ -343,13 +343,26 @@
         box.checked = tray.explodeNext && !S().hrExplodeUsed;
         wrap.title = S().hrExplodeUsed ? 'Used — comes back after a Full Rest' : 'High Roller Rank 5: once per Full Rest';
         let om = tray.el.querySelector('[data-omen]');
+        let ext = tray.extOmens || [];
+        if (!isSheet && ext.length) {
+            // GM: Omen dice players have spent, waiting to be applied to a roll (or dismissed)
+            om.style.display = 'flex';
+            om.innerHTML = `Omen spent: ${ext.map((o, i) => `<span class="apxd-die omen" title="${esc(o.who)}: apply it from a d20 roll's buttons">${o.value}${o.adj ? `<small>${o.adj > 0 ? '+' : '−'}${Math.abs(o.adj)}</small>` : ''}</span><span style="font-size:.62rem;opacity:.85">${esc(o.who)}</span><button data-omendrop="${i}" title="Dismiss (already used)" style="font-size:.62rem;border:none;background:none;color:#e9d5ff;cursor:pointer">✕</button>`).join('')}`;
+            om.querySelectorAll('[data-omendrop]').forEach(b => b.onclick = () => { tray.extOmens.splice(parseInt(b.dataset.omendrop), 1); refreshPerkBar(); refreshAllActions(); });
+            return;
+        }
         let r = isSheet ? perk('luc_omen') : 0;
-        if (!r) { om.style.display = 'none'; return; }
-        let dice = S().omenDice || [];
+        let gifts = isSheet ? (S().giftedOmens || []) : [];
+        if (!r && !gifts.length) { om.style.display = 'none'; return; }
+        let dice = r ? (S().omenDice || []) : [];
+        let adjS = a => a ? `<small>${a > 0 ? '+' : '−'}${Math.abs(a)}</small>` : '';
         om.style.display = 'flex';
-        om.innerHTML = `Omen: ${dice.length ? dice.map(v => `<span class="apxd-die omen">${v}</span>`).join('') : '<span style="opacity:.7;font-weight:600">none stored</span>'}
+        om.innerHTML = `Omen: ${dice.length ? dice.map((v, i) => `<span class="apxd-die omen" data-omenspend="${i}" style="cursor:pointer" title="Pass this Omen die to the GM (for another creature's roll) or to a party member">${v}</span>`).join('') : (r ? '<span style="opacity:.7;font-weight:600">none stored</span>' : '')}
+            ${gifts.map(g => `<span class="apxd-die omen" data-omengift="${esc(g.id)}" style="cursor:pointer;border-style:dashed" title="From ${esc(g.from)}. Use it from a d20 roll's buttons, or click to pass it on">${g.value}${adjS(g.adj)}</span>`).join('')}
             ${S().omenRollPending ? `<button data-omenroll style="margin-left:auto;font-size:.67rem;font-weight:800;padding:.1rem .4rem;border-radius:.3rem;border:1px solid #a855f7;background:none;color:#e9d5ff;cursor:pointer">Roll Omen Dice</button>` : ''}`;
         let b = om.querySelector('[data-omenroll]'); if (b) b.onclick = () => APXDice.rollOmen();
+        om.querySelectorAll('[data-omenspend]').forEach(el => el.onclick = () => APXDice.spendOmenOnOther(parseInt(el.dataset.omenspend)));
+        om.querySelectorAll('[data-omengift]').forEach(el => el.onclick = () => APXDice.passGiftedOmen(el.dataset.omengift));
     }
 
     // ── Card rendering ───────────────────────────────────────────
@@ -430,7 +443,30 @@
     // Omen + High Roller buttons for any card with a d20 part
     function d20Actions(c, p, onChange) {
         let acts = [];
+        // Omen dice another player spent on "someone else's roll": the GM applies them here
+        if (p.omenAt === undefined) (tray.extOmens || []).forEach(o => {
+            let adjTxt = o.adj ? (o.adj > 0 ? '+' : '−') + Math.abs(o.adj) : '';
+            acts.push({ label: `${o.who}'s Omen ${o.value}${adjTxt}`, cls: 'omen', title: `Replace this d20 with the Omen die ${o.who} spent (${o.value}${adjTxt})`, run: () => {
+                let i = (tray.extOmens || []).indexOf(o); if (i < 0) { renderCard(c); return; }
+                tray.extOmens.splice(i, 1);
+                let before = p.total;
+                p.r.rolls.push(o.value); p.r.kept = p.r.rolls.length - 1; p.omenAt = p.r.kept; p.omenAdj = o.adj || 0;
+                settleD20(p); onChange(); refreshPerkBar(); refreshAllActions();
+                if (typeof window.gmLog === 'function') window.gmLog({ text: `${o.who}'s Omen die turns ${c.who ? c.who + '\'s' : 'a'} roll into ${/^(8|11$|18$)/.test(String(p.total)) ? 'an' : 'a'} ${p.total}.`, gmText: `${o.who}'s Omen die (${o.value}${adjTxt}) replaces ${c.who ? c.who + '\'s' : 'a'} d20 on ${c.label || 'a roll'}: ${before} → ${p.total}.`, kind: 'info', force: true });
+            } });
+        });
         if (!c.perks) return acts;
+        // Omen dice other players passed to you: use them like your own
+        if (p.omenAt === undefined) (S().giftedOmens || []).forEach(g => {
+            let adjTxt = g.adj ? (g.adj > 0 ? '+' : '−') + Math.abs(g.adj) : '';
+            acts.push({ label: `${g.from}'s Omen ${g.value}${adjTxt}`, cls: 'omen', title: `Replace this d20 with the Omen die ${g.from} passed you`, run: () => {
+                let list = (S().giftedOmens || []).slice(), i = list.findIndex(x => x.id === g.id);
+                if (i < 0) { renderCard(c); return; }
+                list.splice(i, 1); S().giftedOmens = list;
+                p.r.rolls.push(g.value); p.r.kept = p.r.rolls.length - 1; p.omenAt = p.r.kept; p.omenAdj = g.adj || 0;
+                settleD20(p); onChange(); save(); refreshPerkBar(); refreshAllActions();
+            } });
+        });
         let r = perk('luc_omen');
         let stored = S().omenDice || [];
         if (r && stored.length && p.omenAt === undefined) {
@@ -453,9 +489,29 @@
                 }
             });
         }
-        if (r >= 3 && (p.nat === 20 || p.nat === 1) && !p.banked && p.omenAt === undefined) {
-            acts.push({ label: `Bank ${p.nat} as Omen`, cls: 'omen', title: 'Omen Rank 3: store this natural roll as an Omen die', run: () => {
-                let st = S(); st.omenDice = (st.omenDice || []).concat([p.nat]); p.banked = true; onChange(); save(); refreshPerkBar(); refreshAllActions();
+        if (r >= 3 && (p.nat === 20 || p.nat === 1) && !p.banked && p.omenAt === undefined && stored.length) {
+            // Banking swaps: the natural 1 or 20 goes into your Omen dice, and the held die it
+            // replaces becomes this roll (from Rank 2 you may add or subtract your LUC modifier)
+            acts.push({ label: `Bank ${p.nat} as Omen`, cls: 'omen', title: 'Omen Rank 3: store this natural roll as an Omen die; one of your held dice takes its place as the roll', run: async () => {
+                let cur = (S().omenDice || []).slice(); if (!cur.length) return;
+                let m = Math.abs(lucMod());
+                let choices = [];
+                cur.forEach((v, i) => {
+                    choices.push(['i' + i + ':0', `Roll becomes ${v}`, 'pri']);
+                    if (r >= 2 && m) { choices.push(['i' + i + ':+', `${v} + ${m}`, 'pri']); choices.push(['i' + i + ':-', `${v} − ${m}`, 'pri']); }
+                });
+                let ans = await ask(`Bank the ${p.nat}`, `The ${p.nat} goes into your Omen dice, and the die it replaces becomes this roll${r >= 2 && m ? ' (add or subtract your LUC modifier if you like)' : ''}. Which one?`, choices);
+                if (!ans || p.banked || p.omenAt !== undefined) return;
+                let [iPart, sign] = ans.split(':'), i = parseInt(iPart.slice(1));
+                let now = (S().omenDice || []).slice(), v = cur[i];
+                let at = now[i] === v ? i : now.indexOf(v); if (at < 0) { renderCard(c); return; }
+                let adj = sign === '+' ? m : sign === '-' ? -m : 0;
+                now[at] = p.nat; S().omenDice = now;
+                p.banked = p.nat;
+                p.r.rolls.push(v); p.r.kept = p.r.rolls.length - 1; p.omenAt = p.r.kept; p.omenAdj = adj;
+                settleD20(p);
+                if (c.badges) c.badges.push(['info', `Banked the ${p.banked}; the roll is now the Omen ${v}${adj ? (adj > 0 ? '+' : '−') + Math.abs(adj) : ''}`]);
+                onChange(); save(); refreshPerkBar(); refreshAllActions();
             } });
         }
         if (!p.luckUsed && window.state && document.getElementById('luckPtsInput')) {
@@ -682,20 +738,77 @@
         },
 
         // Omen: roll the dice for this rest (Rank 5 gets 1, 10 and 20 without rolling)
-        rollOmen() {
+        // keep: Omen dice to hold on to; only the empty slots are filled
+        rollOmen(keep) {
             let r = perk('luc_omen'); if (!r) return;
-            let vals = r >= 5 ? [1, 10, 20] : Array.from({ length: omenPerRest(r) }, () => rnd(20));
+            keep = Array.isArray(keep) ? keep.slice() : [];
+            let need = Math.max(0, omenPerRest(r) - keep.length);
+            let fresh;
+            if (r >= 5) {
+                // Rank 5: no roll, the missing ones of 1, 10 and 20
+                let pool = [1, 10, 20];
+                keep.forEach(v => { let i = pool.indexOf(v); if (i >= 0) pool.splice(i, 1); });
+                fresh = pool.slice(0, need);
+                while (fresh.length < need) fresh.push([1, 10, 20][fresh.length % 3]);
+            } else fresh = Array.from({ length: need }, () => rnd(20));
+            let vals = keep.concat(fresh);
             let st = S(); st.omenDice = vals; st.omenRollPending = false;
             setTimeout(refreshAllActions, 0);
-            addCard({ label: 'Omen Dice', parts: [{ kind: 'text', html: vals.map(v => `<span class="apxd-die omen">${v}</span>`).join(' ') }], badges: [['info', r >= 5 ? 'Rank 5: no roll needed' : `${vals.length} stored until used`]] });
+            addCard({ label: 'Omen Dice', parts: [{ kind: 'text', html: keep.map(v => `<span class="apxd-die omen" style="opacity:.55" title="Kept from before">${v}</span>`).join(' ') + (keep.length && fresh.length ? ' ' : '') + fresh.map(v => `<span class="apxd-die omen">${v}</span>`).join(' ') }],
+                badges: [['info', (r >= 5 ? 'Rank 5: no roll needed' : fresh.length ? `${fresh.length} rolled` : 'nothing rolled') + (keep.length ? `, ${keep.length} kept` : '') + ` · ${vals.length} stored until used`]] });
             refreshPerkBar(); save();
+        },
+
+        // Spend one of your Omen dice on another creature's roll (a foe's crit, an ally's save…).
+        // The GM applies it to that roll from their dice tray.
+        // Pass one of your Omen dice on: to the GM (for any creature's roll: a foe's crit, an
+        // NPC's save) or to a party member, who can then use it on their own rolls.
+        async spendOmenOnOther(idx) {
+            let st = S(), cur = (st.omenDice || []).slice(), v = cur[idx];
+            if (v === undefined) return;
+            let r = perk('luc_omen'), m = Math.abs(lucMod());
+            let choices = [['s0', `Use the ${v}`, 'pri']];
+            if (r >= 2 && m) { choices.push(['s+', `${v} + ${m} (LUC)`, 'pri']); choices.push(['s-', `${v} − ${m} (LUC)`, 'pri']); }
+            let ans = await ask(`Omen die: ${v}`, `Pass this die on? Whoever receives it replaces a d20 with it${r >= 2 && m ? '. Add or subtract your LUC modifier now if you like' : ''}. (To use it on your own roll, use the roll's buttons instead.)`, choices);
+            if (!ans) return;
+            let adj = ans === 's+' ? m : ans === 's-' ? -m : 0;
+            let to = await pickOmenTarget(v, adj);
+            if (!to) return;
+            let now = (S().omenDice || []).slice(), at = now[idx] === v ? idx : now.indexOf(v);
+            if (at < 0) return;
+            now.splice(at, 1); S().omenDice = now;
+            refreshPerkBar(); refreshAllActions(); save();
+            sendOmen(to, v, adj);
+        },
+        // A die someone passed you can be passed on again (its LUC adjustment stays as it is)
+        async passGiftedOmen(id) {
+            let g = (S().giftedOmens || []).find(x => x.id === id); if (!g) return;
+            let to = await pickOmenTarget(g.value, g.adj || 0, `From ${g.from}. Use it from any d20 roll's buttons, or pass it on:`);
+            if (!to) return;
+            let list = (S().giftedOmens || []).filter(x => x.id !== id); S().giftedOmens = list;
+            refreshPerkBar(); refreshAllActions(); save();
+            sendOmen(to, g.value, g.adj || 0);
+        },
+        // GM: a player spent an Omen die; it shows on d20 rolls until applied or dismissed
+        offerOmen(o) {
+            if (!o || !o.id) return;
+            tray.extOmens = tray.extOmens || [];
+            if (tray.extOmens.some(x => x.id === o.id)) return;
+            tray.extOmens.push({ id: o.id, value: o.value, adj: o.adj || 0, who: o.who || 'A player' });
+            refreshPerkBar(); refreshAllActions();
         },
 
         // After a Full Rest: Omen dice are re-rolled, High Roller's exploding dice come back
         onFullRest(opts) {
             let st = S();
             st.hrExplodeUsed = false;
-            if (perk('luc_omen') && !(opts && opts.keepOmen)) { st.omenRollPending = true; APXDice.rollOmen(); }
+            if (perk('luc_omen')) {
+                // opts.reroll: which held Omen dice to roll again (by position); the rest are kept
+                let cur = (st.omenDice || []).slice();
+                let keep = opts && Array.isArray(opts.reroll) ? cur.filter((v, i) => !opts.reroll.includes(i))
+                    : (opts && opts.keepOmen) ? cur : [];
+                st.omenRollPending = true; APXDice.rollOmen(keep);
+            }
             refreshPerkBar();
         },
 
@@ -752,6 +865,41 @@
         });
     }
     APXDice.ask = ask;
+
+    // Who gets an Omen die: the GM (another creature's roll) or a party member
+    async function pickOmenTarget(v, adj, lead) {
+        let adjTxt = adj ? (adj > 0 ? ' + ' : ' − ') + Math.abs(adj) : '';
+        let party = typeof window.apxGiveTargets === 'function' ? (window.apxGiveTargets() || []) : [];
+        let choices = [['gm', 'The GM (any creature\'s roll)', 'pri']].concat(party.map(p => ['p:' + p.uid, p.name, 'pri']));
+        let ans = await ask(`Omen die: ${v}${adjTxt}`, (lead ? lead + ' ' : '') + `Who gets it? The GM can put it on any creature's roll (an enemy's critical hit, for one). A party member gets it in their dice roller to use on their own roll.`, choices);
+        if (!ans) return null;
+        if (ans === 'gm') return { kind: 'gm' };
+        let p = party.find(x => 'p:' + x.uid === ans);
+        return p ? { kind: 'player', uid: p.uid, name: p.name } : null;
+    }
+    function sendOmen(to, v, adj) {
+        let adjTxt = adj ? (adj > 0 ? '+' : '−') + Math.abs(adj) : '';
+        if (to.kind === 'player') {
+            let ok = typeof window.apxSendOmenToPlayer === 'function' && window.apxSendOmenToPlayer(to.uid, to.name, v, adj);
+            APXDice.notify(ok ? `You passed an Omen die (${v}${adjTxt}) to ${to.name}.` : `Couldn't reach ${to.name}; the Omen die (${v}${adjTxt}) is spent. Tell them to use it.`, { kind: 'note', open: true });
+            return;
+        }
+        if (typeof window.apxOnRollEvent === 'function') {
+            try { window.apxOnRollEvent({ id: 'om' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), kind: 'omen', value: v, adj, label: 'Omen', who: S().name || '', nat: v, total: v + adj }); } catch (e) { }
+        }
+        APXDice.notify(`You spent an Omen die (${v}${adjTxt}) on another creature's roll.` + (window._pwOmenSent ? ' Your GM can apply it to that roll.' : ' Tell your GM which roll it replaces.'), { kind: 'note', open: true });
+    }
+    // An Omen die passed to you by another player
+    APXDice.receiveOmen = function (g) {
+        if (!g || !g.id) return;
+        let list = (S().giftedOmens || []).slice();
+        if (list.some(x => x.id === g.id)) return;
+        list.push({ id: g.id, value: g.value, adj: g.adj || 0, from: g.from || 'A party member' });
+        S().giftedOmens = list;
+        refreshPerkBar(); refreshAllActions(); save();
+        let adjTxt = g.adj ? (g.adj > 0 ? '+' : '−') + Math.abs(g.adj) : '';
+        APXDice.notify(`${g.from || 'A party member'} passed you an Omen die: ${g.value}${adjTxt}. Use it from any d20 roll's buttons.`, { kind: 'note', open: true, id: 'omen_' + g.id });
+    };
 
     // ── Combat log lines (from the GM's combat log) ──────────────
     // Adds or updates (same id) a one-line card. Doesn't pop the tray open; a red

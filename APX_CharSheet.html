@@ -3400,8 +3400,11 @@
     };
     window.apxOnRollEvent = function(ev) {
         let lootCode = (ev.skill === 'Loot' && (ev.purpose === 'cu' || !ev.purpose) && window._pwLootCode && Date.now() < (window._pwLootUntil || 0)) ? window._pwLootCode : null;
-        let code = window._pwCombatCode || lootCode, uid = window.apxAuth?.user?.uid;
-        if (!code || !uid || typeof window.apxAuth?.writeRollLog !== 'function') return;
+        // An Omen die spent on another creature's roll goes to the GM whenever you're in a world
+        let omenCode = ev.kind === 'omen' && window.apxActiveWorldCode && window.apxActiveWorldCode() === window._pwBattleCode ? window._pwBattleCode : null;
+        let code = window._pwCombatCode || lootCode || omenCode, uid = window.apxAuth?.user?.uid;
+        if (ev.kind === 'omen') window._pwOmenSent = !!(code && uid && typeof window.apxAuth?.writeRollLog === 'function');
+        if (!code || !uid || typeof window.apxAuth?.writeRollLog !== 'function') return false;
         let prev = window._pwRollLog.find(x => x.id === ev.id);
         if (prev && prev.nat === ev.nat && prev.total === ev.total && prev.luck === ev.luck && prev.omen === ev.omen) return;
         ev = Object.assign({}, ev, { who: window.state?.name || ev.who || '', t: prev ? prev.t : Date.now() });
@@ -3565,6 +3568,14 @@
             window.apxAlert(`Couldn't give ${sent.name}: ${e.message}`);
         }
     };
+    // Pass an Omen die to a party member (same delivery as items)
+    window.apxSendOmenToPlayer = function(toUid, toName, value, adj) {
+        let code = _pwTradeCode(); if (!code || typeof window.apxAuth?.writeOutbox !== 'function') return false;
+        let entry = { id: 'o' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7), from: window.apxAuth.user.uid, fromName: window.state?.name || 'A party member',
+            to: toUid, toName, omen: { value, adj: adj || 0 }, at: Date.now() };
+        window.apxAuth.writeOutbox(code, entry).catch(e => window.apxAlert && window.apxAlert(`Couldn't pass the Omen die: ${e.message}`));
+        return true;
+    };
     // Items other players handed to me (their outbox), and clearing what they've received from mine
     function _pwProcessMail() {
         let code = _pwTradeCode(); if (!code || !window.state || !window.APXBattle?.mail) return;
@@ -3574,12 +3585,18 @@
         Object.entries(mail).forEach(([uid, m]) => {
             if (uid === myUid) return;
             Object.values(m.outbox || {}).forEach(e => {
-                if (!e || e.to !== myUid || !e.id || !e.item) return;
+                if (!e || e.to !== myUid || !e.id || !(e.item || e.omen)) return;
                 if (st.receivedGifts.includes(e.id)) { window.apxAuth.ackGift(code, e.id).catch(() => {}); return; }
                 if ((window._pwGiftBusy = window._pwGiftBusy || {})[e.id]) return;
                 window._pwGiftBusy[e.id] = 1;
-                window.apxAddReceivedItem(e.item);
                 st.receivedGifts.push(e.id);
+                if (e.omen) {
+                    // An Omen die: it goes into my dice roller
+                    window.APXDice?.receiveOmen?.({ id: e.id, value: e.omen.value, adj: e.omen.adj || 0, from: e.fromName || 'A party member' });
+                    window.apxAuth.ackGift(code, e.id).catch(() => {});
+                    return;
+                }
+                window.apxAddReceivedItem(e.item);
                 got.push(e);
                 window.apxAuth.ackGift(code, e.id).catch(() => {});
             });

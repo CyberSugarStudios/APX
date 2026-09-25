@@ -173,19 +173,27 @@
             slotsUsed ? `All Power Slots restored (${slotsUsed} used)` : 'Power Slots: all available',
             `Luck Points → ${maxLuck}`,
             s.companion ? `${s.companion.name || 'Companion'}: full HP, power slots and charges` : null,
-            omenRank ? (unusedOmen ? `Omen Dice: you still have ${unusedOmen}. Keep them or roll new ones` : `New Omen Dice rolled`) : null,
+            omenRank && !unusedOmen ? `New Omen Dice ${omenRank >= 5 ? '(1, 10 and 20)' : 'rolled'}` : null,
             (s.perks || {}).luc_highroller >= 5 ? `High Roller: Exploding Dice ready again` : null,
             recoverUsedList(s) ? `Recover: ${recoverUsedList(s)} ready again` : null
         ].filter(Boolean);
+        // Omen: each held die can be kept or rolled again; empty slots are always filled
+        let omenCap = omenRank >= 4 ? 3 : omenRank >= 3 ? 2 : omenRank >= 1 ? 1 : 0;
+        let omenHtml = omenRank && unusedOmen ? `<div style="border:1px solid #7e22ce;background:rgba(88,28,135,.18);border-radius:.45rem;padding:.5rem .6rem;margin-bottom:.8rem">
+                <div style="font-size:.74rem;font-weight:800;color:#e9d5ff;margin-bottom:.35rem">Which, if any, of your Omen Dice would you like to roll again for this rest?</div>
+                <div style="display:flex;flex-wrap:wrap;gap:.5rem">${(s.omenDice || []).map((v, i) => `<label style="display:flex;align-items:center;gap:.3rem;cursor:pointer;font-size:.8rem;font-weight:800;color:#f3e8ff">
+                    <input type="checkbox" data-omen-reroll="${i}"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:1.7rem;height:1.7rem;border-radius:.35rem;background:#3b0764;border:1px solid #c084fc">${v}</span></label>`).join('')}</div>
+                <div style="font-size:.66rem;color:var(--c-text-dimmer);margin-top:.35rem">Unchecked dice are kept.${Math.max(0, omenCap - unusedOmen) ? ` ${omenCap - unusedOmen} empty slot${omenCap - unusedOmen > 1 ? 's are' : ' is'} filled with ${omenRank >= 5 ? 'the missing 1, 10 or 20' : 'a new roll'}.` : ''}${omenRank >= 5 ? ' Rank 5: rolled-again dice come back as the missing 1, 10 or 20.' : ''}</div>
+            </div>` : '';
         let back = panel('Full Rest', `<div class="apxdlg-msg" style="margin-bottom:.5rem">8 hours of rest (6 asleep). This will:</div>
             <ul style="margin:0 0 .8rem 1.1rem;padding:0;list-style:disc;font-size:.76rem;color:var(--c-text-dimmer);line-height:1.5">${lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>
+            ${omenHtml}
             <div class="apxdlg-msg" style="font-size:.68rem;margin-bottom:.8rem">Other perk features that recharge on a rest: update those yourself for now.</div>
             <div class="apxdlg-row" style="flex-wrap:wrap"><button class="apxdlg-btn apxdlg-cancel" data-cancel>Cancel</button>
-                ${omenRank && unusedOmen ? `<button class="apxdlg-btn apxdlg-ok" data-go="keep" style="background:#6b21a8">Rest, keep Omen Dice</button><button class="apxdlg-btn apxdlg-ok" data-go="roll">Rest, roll new Omen Dice</button>`
-                    : `<button class="apxdlg-btn apxdlg-ok" data-go="roll">Take Full Rest</button>`}</div>`, 440);
+                <button class="apxdlg-btn apxdlg-ok" data-go="rest">Take Full Rest</button></div>`, 440);
         back.querySelector('[data-cancel]').onclick = () => back.remove();
         back.querySelectorAll('[data-go]').forEach(b => b.onclick = () => {
-            let keepOmen = b.dataset.go === 'keep';
+            let reroll = [...back.querySelectorAll('[data-omen-reroll]')].filter(x => x.checked).map(x => parseInt(x.dataset.omenReroll));
             let s2 = st();
             s2.currentHp = mh;
             if ((s2.fatigue || 0) > 0) s2.fatigue -= 1;
@@ -198,7 +206,7 @@
                 restoreCompanionSlots(true);
                 try { let sb = window.companionStatBlock && window.companionStatBlock(); if (sb && sb.maxHp) s2.companion.currentHp = sb.maxHp; } catch (e) { }
             }
-            if (window.APXDice) window.APXDice.onFullRest({ keepOmen });
+            if (window.APXDice) window.APXDice.onFullRest({ reroll });
             refresh();
             back.remove();
             toast('Full Rest done: HP full, Rest Dice, Power Slots and Luck restored.');

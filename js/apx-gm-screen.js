@@ -1199,6 +1199,16 @@ function _gmHandleRollEvent(uid, ev) {
     if (_gmSeenRoll[ev.id] === sig) return;
     let firstSeen = !(ev.id in _gmSeenRoll);
     _gmSeenRoll[ev.id] = sig;
+    // A player spent an Omen die on someone else's roll: it waits in the GM's dice tray
+    if (ev.kind === 'omen') {
+        if (!firstSeen) return;
+        let who = ((window.gmParty || []).find(p => p.fileName === uid)?.summary?.name) || ev.who || 'A player';
+        let adjTxt = ev.adj ? (ev.adj > 0 ? '+' : '−') + Math.abs(ev.adj) : '';
+        if (window.APXDice && APXDice.offerOmen) APXDice.offerOmen({ id: ev.id, value: ev.value, adj: ev.adj || 0, who });
+        gmLog({ id: 'omen_' + ev.id, text: `${who} spends an Omen die (${ev.value}${adjTxt}) on another creature's roll.`, kind: 'info', force: true });
+        if (window.APXDice && APXDice.notify) APXDice.notify(`${who} spent an Omen die (${ev.value}${adjTxt}). Apply it from the roll it replaces, using the "${who}'s Omen" button.`, { kind: 'note', open: true });
+        return;
+    }
     // LUC (Loot) checks answer the GM's Loot request, in or out of combat
     if (ev.skill === 'Loot' && (ev.purpose === 'cu' || !ev.purpose) && window._gmLootRequestAt && (ev.t || Date.now()) >= window._gmLootRequestAt - 60000) {
         let who = ((window.gmParty || []).find(p => p.fileName === uid)?.summary?.name) || ev.who || 'A player';
