@@ -3380,7 +3380,9 @@
             // The GM asked for a LUC (Loot) check
             try {
                 let lr = data.lootRequest;
-                if (lr && lr.id && (Date.now() - (lr.at || 0)) < 15 * 60 * 1000) {
+                // (a request aimed at one player is ignored by everyone else)
+                let myUid = window.apxAuth?.user?.uid;
+                if (lr && lr.id && (Date.now() - (lr.at || 0)) < 15 * 60 * 1000 && (!lr.to || lr.to === myUid)) {
                     window._pwLootCode = code; window._pwLootUntil = (lr.at || Date.now()) + 15 * 60 * 1000; window._pwLootReq = lr;
                     let seenKey = 'apx_loot_seen_' + code;
                     let seen = null; try { seen = localStorage.getItem(seenKey); } catch (e) { }

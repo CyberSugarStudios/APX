@@ -11,17 +11,19 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.9.25.1243',
-        released: '2026-09-25T12:43:00',
-        releasedText: 'September 25, 2026 · 12:43 PM',
+        version: 'v2026.9.25.1350',
+        released: '2026-09-25T13:50:00',
+        releasedText: 'September 25, 2026 · 1:50 PM',
         title: 'Playtest Update',
-        intro: 'This update comes straight from our playtest tables. GMs get world rules, a Loot Maker, NPCs that carry and use gear, and magic items that can change almost anything on a sheet. Players get Luck and Looting, trading, shareable Omen dice, Loyal Companions that act on their own turns, a one-screen Origin Builder, and a dice roller that doubles as the combat log. Characters are created and switched cleanly, and deleting an account now removes all of its data. Your characters and worlds update when you open them. Nothing is lost, and anything a rule change touched is explained.',
+        intro: 'This update comes straight from our playtest tables. GMs get world rules, a Loot Maker, NPCs that carry and use gear, and magic items that can change almost anything on a sheet. Players get Luck and Looting, trading, shareable Omen dice, Loyal Companions that act on their own turns, a one-screen Origin Builder, and a dice roller with a distinct shape for every die that doubles as the combat log. Initiative runs with or without a battle map, characters are created and switched cleanly, and deleting an account removes all of its data. Your characters and worlds update when you open them. Nothing is lost, and anything a rule change touched is explained.',
         index: [
             ['For GMs', [
                 'World Settings: Starting XP, Max GP, starting Cu, and Point Buy or Standard Array for every character in your world.',
                 'Loot Maker: build loot with the same forges and crafters players use, consumables included. Give it to NPCs, who use their consumables in a fight and drop whatever is left when they fall.',
                 'Magic items can raise or lower almost anything on a sheet: Core Attributes, skills, Max HP, AP, Initiative, Wound Threshold, Rest Dice, Luck Points, Power Slots, attacks, saves and more.',
-                'Hand out loot from the Loot panel, an NPC\'s window or any Area Circle the NPC stands in.'
+                'Hand out loot from the Loot panel, an NPC\'s window or any Area Circle the NPC stands in. Ask the whole party or a single player for the Loot roll.',
+                'Initiative works on its own. It uses a battle map only when that map is open or picked as the fight\'s Battle map, so a quick fight never turns into "an unseen creature".',
+                'Saved NPC sorting flips direction with a second click (A–Z to Z–A, highest to lowest), with an arrow on the active sort.'
             ]],
             ['For Players', [
                 'Each new character starts in the world you choose, with that world\'s rules, races and settings, or in no world at all.',
@@ -32,6 +34,7 @@
             ]],
             ['At the Table', [
                 'Dice and Notifications holds every roll, the combat log and your messages in one tray.',
+                'Every die has its own shape, on its button and in every roll: triangles for the d4 and d8, a square d6, a kite d10, a pentagon d12, a hexagon d20 and a round d100.',
                 'The combat log shows the table the fight and resolves Wound Threshold and Bleed Out rolls in order. The party\'s damage to enemies appears without numbers, so DR and ER stay hidden.',
                 'Click skills, saves, weapons, powers and stat block dice to roll them. Perks, Advantage and Disadvantage, crits and Luck rerolls are built in.',
                 'Action Points are 6 + half your AGI modifier. They are tracked for every creature, carry between turns and are spent by attacks automatically.',
@@ -104,7 +107,7 @@
                 'Currency: LUC (Loot) × enemies defeated, halved and rounded down, is what the party finds. A 16 after twelve mercenaries turns up 96 Cu.',
                 'Ammunition: LUC (Loot) − 3d6 rounds (or arrows or energy cells) are recovered and added to your Light, Medium or Heavy Ammo.',
                 'Scavenging takes about an hour with LUC (Loot), PER (Notice), CON (Survive) or INT (Encyclopedia). Hunting for Crafting Materials rolls the table for you: 2–10 finds 1d4 Common and 1d4−1 Uncommon, 11–15 adds Rare, 16+ finds more, a natural 20 finds the most, and a natural 1 sets off a trap or hazard.',
-                'Luck rerolls and Omens update what you found. When the GM asks for a Loot check, the Currency roll opens with the enemy count filled in and your result goes to the GM.'
+                'Luck rerolls and Omens update what you found. When the GM asks for a Loot check (from the whole party or from you alone), the Currency roll opens with the enemy count filled in and your result goes to the GM.'
             ]],
             ['Party, Trading and Gifts', [
                 'The Party tab lists everyone in your world, with each Loyal Companion right after its owner. Click a portrait to see the full picture.',
@@ -123,6 +126,7 @@
                 'Wound Threshold and Bleed Out: when a hit goes past your Wound Threshold, your next CON save is the roll to avoid being Wounded. If you\'re also Bleeding Out, the CON (Survive) check that follows sets how many rounds you have.',
                 'Click any skill, save, attribute, weapon attack, damage, power or stat block dice to roll it. Conditions add Advantage or Disadvantage for you.',
                 'The d4–d100 buttons build a dice pool, the box adds a modifier, and Roll rolls the pool and clears it.',
+                'Each die is drawn in its own shape, on the buttons and in the rolls: the d4 is a triangle, the d6 a square, the d8 a triangle pointing down (so it stands apart from the d4), the d10 a kite, the d12 a pentagon, the d20 a hexagon with a corner up, and the d100 a circle. Omen dice are purple hexagons.',
                 'Critical hits multiply the damage dice. A Luck Point rerolls a d20 right from the roll.',
                 'Damage perks apply themselves: High Roller, Melee Prowess and Sharpshooter (Rank 2 rolls damage twice and keeps the higher, Rank 5 maximizes damage on a confirmed crit), plus a toggle for Instigator.'
             ]],
@@ -170,6 +174,15 @@
                 'Deleting your account does the same for every world you run, and also removes your characters, folders, races, NPCs, profile and your place in worlds you joined as a player.',
                 'Update your Firestore rules from FIREBASE_RULES.txt (v2026.9.25) so players, including kicked or banned ones, can remove their own place in a world.'
             ]],
+            ['Initiative and Battle Maps', [
+                'The initiative tracker works on its own. Adding creatures no longer reaches into a closed map, so a quick fight never shows "an unseen creature" or asks for tokens.',
+                'A map is used when you have it open, or when you pick it under Battle map in the tracker. Picking or opening a map links everyone in initiative to their matching tokens there, and hidden tokens stay anonymous to players.',
+                'The + Token button appears only while a battle map is open. The Battle map choice resets when you end combat or clear the tracker.',
+                'Your own combat log always shows real names and amounts, marking creatures players can\'t see as "(hidden)".'
+            ]],
+            ['Saved NPCs', [
+                'Sort the Saved NPC list by Name, AP, Threat Level or any Core Attribute. Click the active sort again to reverse it (A–Z to Z–A, highest to lowest). An arrow marks the active sort and its direction.'
+            ]],
             ['Loyal Companions', [
                 'Companions sit under their owner in the Party panel with their stat block, token art and a + Initiative button. Add Party places their tokens on the map too.',
                 'In initiative a companion is an ally with its own AP. Attacks rolled from its stat block spend it, and when its turn comes up its owner\'s sheet refills the companion\'s AP pips as well.',
@@ -200,7 +213,8 @@
                 'Defeated enemies\' gear appears in the Loot panel under the tracker, grouped by who dropped it.',
                 'Choose a party member beside each item and press Give, and it goes straight into their inventory. Your other picks stay put while you hand things out, and ✕ removes anything that didn\'t survive the fight.',
                 'Currency: the party finds LUC (Loot) × enemies defeated ÷ 2, rounded down. The panel counts this combat\'s defeated enemies (you can change the count), and Currency carried by fallen NPCs is added to the Cu box.',
-                'Ask players to roll: their sheets open the Loot roll with the enemy count ready, and each result arrives with its Cu. Press Use, then give it to one player or split it across the party.',
+                'Ask to roll: choose the whole party or one player, and their sheets open the Loot roll with the enemy count ready. Each result arrives with its Cu (only from the player you asked, when you chose one).',
+                'Press Use on a result to put its Cu in the Cu box, and the result leaves the list. Then give it to one player or split it across the party.',
                 'Players can also trade items among themselves.'
             ]],
             ['Party', [
@@ -209,7 +223,7 @@
             ['Initiative and Combat', [
                 'Bleed Out is one row: "Bleeding Out: N rounds left" with − Round, + Round and Stabilize.',
                 'End Combat checks for anyone still Bleeding Out first, and the XP award closes the combat log.',
-                'The combat log lives in the dice tray. Everyone sees damage and healing, but players see "Ari dealt damage to Goblin" with no number, so DR and ER stay secret, while you see every amount. Damage to players shows its amount to everyone. Player checks and saves appear only for you (marked GM) and update live with Luck or Omen. Hidden tokens show as "an unseen creature".',
+                'The combat log lives in the dice tray. Everyone sees damage and healing, but players see "Ari dealt damage to Goblin" with no number, so DR and ER stay secret, while you see every amount and every real name. Damage to players shows its amount to everyone. Player checks and saves appear only for you (marked GM) and update live with Luck or Omen. Hidden tokens show as "an unseen creature".',
                 'Wound Threshold and Bleed Out rolls are matched for you, Wound Threshold first. The player\'s next CON save settles the wound against its DC (10, or half the damage), then their CON (Survive) check sets the Bleed Out rounds (half the result, minimum 1).',
                 'Every creature\'s AP is tracked and carries over. Surprised creatures gain only 1 AP on their first turn, even when added mid-fight, and attacks and consumables used from a stat block spend that creature\'s AP.',
                 'Conditions include their linked conditions and reach players\' sheets. Saved NPCs keep current HP in step with max HP, and NPCs join initiative at full HP.',
@@ -222,6 +236,9 @@
                 'XP rewards per Tier: 1 / 5 / 10 / 15 / 25 / 35 XP for Tiers 0–5, then +10 per Tier, divided among the players.',
                 'Manufactured weapons and armor cost Threat Points, priced like the innate features they imitate.',
                 'Power Crafter: at most 8 dice per die step, a warning when Sacrifice meets healing, Minor and Moderate utilities in one column, and Mythic Utilities (a flat 130 XP).'
+            ]],
+            ['Dice', [
+                'Each die has its own shape on the buttons and in rolls: d4 and d8 triangles (the d8 points down), a square d6, a kite d10, a pentagon d12, a hexagon d20 and a round d100.'
             ]],
             ['Battle Maps', [
                 'Shift+drag selects several tokens to move together, and right-click gives group options.',

@@ -714,19 +714,33 @@ window.addQuickNpc = function() {
 // Saved NPC picker: a searchable/sortable popup rather than a dropdown,
 // since a GM's NPC roster can grow large.
 // ------------------------------------------------------------------
-let savedNpcSort = 'name';
+// Clicking the active sort again reverses it; an arrow marks the active sort and its direction.
+let savedNpcSort = 'name', savedNpcSortDir = 1;   // 1 = natural order (A–Z, highest first), -1 = reversed
 
 window.openSavedNpcPickerModal = function() {
-    savedNpcSort = 'name';
+    savedNpcSort = 'name'; savedNpcSortDir = 1;
     document.getElementById('savedNpcSearch').value = '';
     window.renderSavedNpcPickerList();
     window.openModal('savedNpcPickerModal');
 };
 
 window.setSavedNpcSort = function(mode) {
-    savedNpcSort = mode;
+    if (savedNpcSort === mode) savedNpcSortDir = -savedNpcSortDir;
+    else { savedNpcSort = mode; savedNpcSortDir = 1; }
     window.renderSavedNpcPickerList();
 };
+
+function _markSavedNpcSortButtons() {
+    document.querySelectorAll('#savedNpcPickerModal .npc-sort-btn').forEach(b => {
+        if (!b.dataset.label) b.dataset.label = b.textContent.trim();
+        let on = b.dataset.sort === savedNpcSort;
+        // Name reads A→Z first; numbers read highest first
+        let arrow = !on ? '' : (b.dataset.sort === 'name' ? (savedNpcSortDir === 1 ? ' ▲' : ' ▼') : (savedNpcSortDir === 1 ? ' ▼' : ' ▲'));
+        b.textContent = b.dataset.label + arrow;
+        b.title = on ? (b.dataset.sort === 'name' ? (savedNpcSortDir === 1 ? 'A to Z (click for Z to A)' : 'Z to A (click for A to Z)') : (savedNpcSortDir === 1 ? 'Highest first (click for lowest first)' : 'Lowest first (click for highest first)')) : 'Sort by ' + b.dataset.label;
+        b.style.background = on ? '#0e7490' : ''; b.style.boxShadow = on ? '0 0 0 1px #22d3ee inset' : '';
+    });
+}
 
 window.renderSavedNpcPickerList = function() {
     let body = document.getElementById('savedNpcPickerList');
@@ -752,7 +766,9 @@ window.renderSavedNpcPickerList = function() {
         CHA: (a, b) => b.sb.mods.CHA - a.sb.mods.CHA,
         LUC: (a, b) => b.sb.mods.LUC - a.sb.mods.LUC,
     };
-    rows.sort(sortFns[savedNpcSort] || sortFns.name);
+    let sortFn = sortFns[savedNpcSort] || sortFns.name;
+    rows.sort((a, b) => savedNpcSortDir * sortFn(a, b) || (a.npc.name || '').localeCompare(b.npc.name || ''));
+    _markSavedNpcSortButtons();
 
     if (!rows.length) {
         body.innerHTML = '<div class="text-xs text-slate-500 text-center py-6">No NPCs match that search.</div>';
@@ -974,11 +990,15 @@ window.renderGmLoot = function() {
             <div class="flex items-center gap-1.5 mb-1.5">
                 <label class="text-[10px] text-slate-300 flex items-center gap-1">Enemies defeated
                     <input type="number" min="0" value="${defeated}" onchange="window.gmSetLootDefeated(this.value)" style="width:3.2rem" class="${selCls} text-center"></label>
-                <button onclick="window.gmAskLootCheck()" class="ml-auto text-[10px] px-2 py-1 rounded bg-amber-700 hover:bg-amber-600 text-white font-bold" title="Every player's sheet opens the LUC (Loot) roll with this enemy count">Ask players to roll</button>
+            </div>
+            <div class="flex items-center gap-1.5 mb-1.5">
+                <select id="gmLootAskWho" onchange="window._gmLootAskWho=this.value" class="${selCls} flex-1 min-w-0" ${party.length ? '' : 'disabled'} title="Who is asked to roll">
+                    <option value="">Everyone in the party</option>${opts(partyIds.has(window._gmLootAskWho) ? window._gmLootAskWho : '')}</select>
+                <button onclick="window.gmAskLootCheck()" class="text-[10px] px-2 py-1 rounded bg-amber-700 hover:bg-amber-600 text-white font-bold whitespace-nowrap" title="The chosen player's sheet (or everyone's) opens the LUC (Loot) roll with this enemy count">Ask to roll</button>
             </div>
             ${rolls.length ? `<div class="mb-1.5">${rolls.map(r => `<div class="flex items-center gap-1 text-[10px] text-slate-400 py-0.5">
                 <b class="text-amber-300">${esc(r.name)}</b> rolled ${esc(r.total)} <span class="text-slate-600">→</span> <b class="text-yellow-300">${cuFor(r.total)} Cu</b>
-                <button onclick="window.gmUseLootRoll(${cuFor(r.total)})" class="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold" title="Put this amount in the Cu box">Use</button></div>`).join('')}</div>` : ''}
+                <button onclick="window.gmUseLootRoll(${cuFor(r.total)}, '${esc(r.evId)}')" class="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold" title="Put this amount in the Cu box (the roll is then cleared)">Use</button></div>`).join('')}</div>` : ''}
             <div class="grid items-center gap-1" style="grid-template-columns:4.2rem minmax(0,1fr) auto">
                 <input id="gmLootCu" type="number" min="0" placeholder="Cu" value="${esc(form.amt)}" oninput="window._gmLootCuForm.amt=this.value" class="${selCls} text-center">
                 <select id="gmLootCuTo" onchange="window._gmLootCuForm.to=this.value" class="${selCls}" ${party.length ? '' : 'disabled'}>
@@ -988,9 +1008,16 @@ window.renderGmLoot = function() {
         </div>
         ${party.length ? '' : '<div class="text-[9px] text-slate-500 mt-1.5">Load the party to hand out loot.</div>'}`;
 };
-window.gmUseLootRoll = function(amt) {
+// Use a player's Loot roll: its Cu goes in the Cu box and the roll is cleared from the list
+window._gmLootUsed = new Set();
+window.gmUseLootRoll = function(amt, evId) {
     window._gmLootCuForm.amt = String(amt);
-    let i = document.getElementById('gmLootCu'); if (i) i.value = amt;
+    if (evId) {
+        window._gmLootUsed.add(evId);
+        window._gmLootRolls = (window._gmLootRolls || []).filter(r => r.evId !== evId);
+    }
+    window.renderGmLoot();
+    let i = document.getElementById('gmLootCu'); if (i) { i.value = amt; i.focus(); }
 };
 function _gmSendGift(uid, gift) {
     let code = _gmActiveCode();
@@ -1051,11 +1078,16 @@ window.gmAskLootCheck = function() {
     if (!code || !window.apxAuth?.enabled || typeof window.apxAuth.publishLootRequest !== 'function') {
         window.apxAlert && window.apxAlert('Asking for a Loot check needs an active online world.'); return;
     }
+    let who = document.getElementById('gmLootAskWho')?.value || '';
+    if (who && !(window.gmParty || []).some(p => p.fileName === who)) who = '';
+    window._gmLootAskWho = who;
     window._gmLootRequestAt = Date.now();
+    window._gmLootRequestTo = who || null;
     window._gmLootRolls = [];
     let defeated = _gmLootDefeated();
-    window.apxAuth.publishLootRequest(code, { id: crypto.randomUUID(), at: Date.now(), defeated }).catch(e => console.warn('Loot request:', e.message));
-    if (typeof gmLog === 'function') gmLog({ text: `The GM asks for a LUC (Loot) check to find Currency (${defeated} ${defeated === 1 ? 'enemy' : 'enemies'} defeated).`, kind: 'loot', force: true });
+    window.apxAuth.publishLootRequest(code, { id: crypto.randomUUID(), at: Date.now(), defeated, to: who || null }).catch(e => console.warn('Loot request:', e.message));
+    let foes = `${defeated} ${defeated === 1 ? 'enemy' : 'enemies'} defeated`;
+    if (typeof gmLog === 'function') gmLog({ text: who ? `The GM asks ${_gmPartyName(who)} for a LUC (Loot) check to find Currency (${foes}).` : `The GM asks for a LUC (Loot) check to find Currency (${foes}).`, kind: 'loot', force: true });
     window.renderGmLoot();
 };
 
@@ -1104,6 +1136,16 @@ function _gmInviteCode() {
     return w?.inviteCode || null;
 }
 // Name players see: hidden (unrevealed) tokens stay anonymous
+function _gmIsHidden(entry) {
+    if (!entry || entry.faction === 'player') return false;
+    let maps = (typeof _wNotes !== 'undefined' && _wNotes.otherMaps) || [];
+    return maps.some(m => (m.battleTokens || []).some(t => t.initiativeId === entry.id && t.revealed === false));
+}
+// Name the GM sees: always the real name, marked when players can't see the token
+function _gmGmName(entry) {
+    if (!entry) return 'Someone';
+    return (entry.name || 'Someone') + (_gmIsHidden(entry) ? ' (hidden)' : '');
+}
 function _gmPublicName(entry) {
     if (!entry) return 'Someone';
     if (entry.faction !== 'player') {
@@ -1154,9 +1196,11 @@ function _gmLogHpChange(entry, before, after, wasAboveZero, rawDmg) {
     let text = d > 0
         ? (cur && cur !== entry ? (hideAmt ? `${_gmPublicName(cur)} dealt damage to ${tgt}.` : `${_gmPublicName(cur)} dealt ${d} damage to ${tgt}.`) : `${tgt} took ${entry.faction !== 'player' ? 'damage' : d + ' damage'}.`)
         : (entry.faction !== 'player' ? `${tgt} regained HP.` : `${tgt} regained ${-d} HP.`);
-    let gmText = null;
-    if (entry.faction !== 'player') gmText = d > 0 ? `${cur && cur !== entry ? _gmPublicName(cur) + ' dealt ' + d + ' damage to ' + tgt : tgt + ' took ' + d + ' damage'}.` : `${tgt} regained ${-d} HP.`;
-    if (d > 0 && wasAboveZero && entry.currentHp !== null && entry.currentHp <= 0) { text += ` ${tgt} is down!`; if (gmText) gmText += ` ${tgt} is down!`; }
+    // The GM always sees real names and amounts (hidden tokens are marked as such)
+    let gTgt = _gmGmName(entry);
+    let gmText = d > 0 ? `${cur && cur !== entry ? _gmGmName(cur) + ' dealt ' + d + ' damage to ' + gTgt : gTgt + ' took ' + d + ' damage'}.` : `${gTgt} regained ${-d} HP.`;
+    if (gmText === text) gmText = null;
+    if (d > 0 && wasAboveZero && entry.currentHp !== null && entry.currentHp <= 0) { text += ` ${tgt} is down!`; if (gmText) gmText += ` ${gTgt} is down!`; }
     gmLog({ text, gmText, kind: d > 0 ? 'dmg' : 'heal' });
 }
 window._gmLogHpChange = _gmLogHpChange;
@@ -1210,7 +1254,9 @@ function _gmHandleRollEvent(uid, ev) {
         return;
     }
     // LUC (Loot) checks answer the GM's Loot request, in or out of combat
-    if (ev.skill === 'Loot' && (ev.purpose === 'cu' || !ev.purpose) && window._gmLootRequestAt && (ev.t || Date.now()) >= window._gmLootRequestAt - 60000) {
+    if (ev.skill === 'Loot' && (ev.purpose === 'cu' || !ev.purpose) && window._gmLootRequestAt && (ev.t || Date.now()) >= window._gmLootRequestAt - 60000
+        && (!window._gmLootRequestTo || window._gmLootRequestTo === uid)) {
+        if (window._gmLootUsed && window._gmLootUsed.has(ev.id)) return;   // already used
         let who = ((window.gmParty || []).find(p => p.fileName === uid)?.summary?.name) || ev.who || 'A player';
         let rs = window._gmLootRolls = window._gmLootRolls || [];
         let prev = rs.find(r => r.evId === ev.id);
@@ -1492,6 +1538,28 @@ window.moveInitiativeEntry = function(id, dir) {
     window.renderInitiativeTracker();
 };
 
+// ── Battle map for this fight (optional) ─────────────────────────────
+// null = only maps the GM has open. Picking a map links the tracker to its tokens
+// even while it's closed. Cleared when the tracker is cleared or combat ends.
+window.gmCombatMapId = null;
+function _gmRenderCombatMapSel() {
+    let sel = document.getElementById('gmCombatMapSel'); if (!sel) return;
+    let maps = (typeof _wNotes !== 'undefined' && _wNotes.otherMaps) || [];
+    if (window.gmCombatMapId && !maps.some(m => m.id === window.gmCombatMapId)) window.gmCombatMapId = null;
+    let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    let html = `<option value="">No map (or whichever map is open)</option>` +
+        maps.map(m => `<option value="${esc(m.id)}" ${m.id === window.gmCombatMapId ? 'selected' : ''}>${esc(m.name || 'Untitled map')}</option>`).join('');
+    if (sel.innerHTML !== html) sel.innerHTML = html;
+    sel.value = window.gmCombatMapId || '';
+}
+window.setCombatMap = function(mapId) {
+    window.gmCombatMapId = mapId || null;
+    if (window.gmCombatMapId && typeof window._btLinkUnlinked === 'function') window._btLinkUnlinked(window.gmCombatMapId);
+    window.renderInitiativeTracker();
+    if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
+    if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
+};
+
 window.clearInitiative = function() {
     window.showConfirm("Clear the entire initiative tracker? This also ends combat and discards any unpaid XP.", () => {
         window.gmInitiative = [];
@@ -1502,6 +1570,7 @@ window.clearInitiative = function() {
         window.gmPendingXp = 0;
         window.gmLairSharedTraitKey = null;
         window.gmInLair = false;
+        window.gmCombatMapId = null;
         window.closeAllFloatingStatBlocks();
         window.renderInitiativeTracker();
         // Push cleared state to maps so gold highlights disappear on GM and player maps
@@ -1565,6 +1634,7 @@ window.endCombat = async function(force) {
         window.gmPendingXp = 0;
         window.gmLairSharedTraitKey = null;
         window.gmInLair = false;
+        window.gmCombatMapId = null;
         window.closeAllFloatingStatBlocks();
         window.renderInitiativeTracker();
         if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
@@ -1768,6 +1838,7 @@ window.renderInitiativeTracker = function() {
         document.getElementById('inLairToggle').checked = window.gmInLair;
     }
 
+    _gmRenderCombatMapSel();
     if (!window.gmInitiative.length) {
         body.innerHTML = '<div class="text-xs text-slate-500 text-center py-4">No one in the initiative order yet. Add party members, NPCs, or a quick NPC above.</div>';
         return;
@@ -1843,6 +1914,9 @@ window.renderInitiativeTracker = function() {
                 ` : ''}
                 ${(e.faction !== 'player' && e.sourceNpcId) ? (() => {
                     // Show +Token button if this NPC doesn't have a battle token on any open map
+                    // (only when a battle map is open to put it on: a map-free fight has no token buttons)
+                    let mapOpen = typeof _wNotes !== 'undefined' && (_wNotes.otherMaps||[]).some(m => m.battleMapEnabled && document.getElementById('omWin_'+m.id));
+                    if (!mapOpen) return '';
                     let hasToken = false;
                     if (typeof _wNotes !== 'undefined') {
                         (_wNotes.otherMaps||[]).forEach(m => {

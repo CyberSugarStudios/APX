@@ -425,6 +425,10 @@
                     <span class="text-[9px] text-slate-500">Shared Trait only applies to enemies while this is checked.</span>
                 </div>
 
+                <div class="flex items-center gap-2 mb-2">
+                    <label for="gmCombatMapSel" class="text-[10px] text-slate-400 font-bold whitespace-nowrap">Battle map</label>
+                    <select id="gmCombatMapSel" onchange="window.setCombatMap(this.value)" title="Initiative links to tokens only on maps you have open, or on the map picked here. With no map, the tracker runs on its own." class="flex-1 min-w-0 bg-slate-800 border-slate-600 text-[10px] py-1"></select>
+                </div>
                 <div id="initiativeTrackerBody" class="max-h-[40vh] overflow-y-auto pr-1 space-y-1.5 mb-2"><!-- JS injected --></div>
                 <div id="pendingXpDisplay" class="text-[10px] text-amber-400 font-bold mb-1"></div>
                 <div class="flex flex-wrap gap-1">
@@ -453,16 +457,16 @@
             <input type="text" id="savedNpcSearch" placeholder="Search NPCs..." oninput="window.renderSavedNpcPickerList()" class="w-full bg-slate-900 border-slate-600 text-xs mb-2">
             <div class="flex flex-wrap gap-1 mb-2">
                 <span class="text-[9px] text-slate-500 mr-1 self-center">Sort by:</span>
-                <button onclick="window.setSavedNpcSort('name')" class="text-[9px] px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">Name</button>
-                <button onclick="window.setSavedNpcSort('ap')" class="text-[9px] px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">AP</button>
-                <button onclick="window.setSavedNpcSort('tier')" class="text-[9px] px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">Threat Level</button>
-                <button onclick="window.setSavedNpcSort('STR')" class="text-[9px] px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">STR</button>
-                <button onclick="window.setSavedNpcSort('AGI')" class="text-[9px] px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">AGI</button>
-                <button onclick="window.setSavedNpcSort('CON')" class="text-[9px] px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">CON</button>
-                <button onclick="window.setSavedNpcSort('PER')" class="text-[9px] px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">PER</button>
-                <button onclick="window.setSavedNpcSort('INT')" class="text-[9px] px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">INT</button>
-                <button onclick="window.setSavedNpcSort('CHA')" class="text-[9px] px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">CHA</button>
-                <button onclick="window.setSavedNpcSort('LUC')" class="text-[9px] px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">LUC</button>
+                <button data-sort="name" onclick="window.setSavedNpcSort('name')" class="npc-sort-btn text-[9px] px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">Name</button>
+                <button data-sort="ap" onclick="window.setSavedNpcSort('ap')" class="npc-sort-btn text-[9px] px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">AP</button>
+                <button data-sort="tier" onclick="window.setSavedNpcSort('tier')" class="npc-sort-btn text-[9px] px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">Threat Level</button>
+                <button data-sort="STR" onclick="window.setSavedNpcSort('STR')" class="npc-sort-btn text-[9px] px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">STR</button>
+                <button data-sort="AGI" onclick="window.setSavedNpcSort('AGI')" class="npc-sort-btn text-[9px] px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">AGI</button>
+                <button data-sort="CON" onclick="window.setSavedNpcSort('CON')" class="npc-sort-btn text-[9px] px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">CON</button>
+                <button data-sort="PER" onclick="window.setSavedNpcSort('PER')" class="npc-sort-btn text-[9px] px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">PER</button>
+                <button data-sort="INT" onclick="window.setSavedNpcSort('INT')" class="npc-sort-btn text-[9px] px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">INT</button>
+                <button data-sort="CHA" onclick="window.setSavedNpcSort('CHA')" class="npc-sort-btn text-[9px] px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">CHA</button>
+                <button data-sort="LUC" onclick="window.setSavedNpcSort('LUC')" class="npc-sort-btn text-[9px] px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">LUC</button>
             </div>
             <div id="savedNpcPickerList" class="max-h-[50vh] overflow-y-auto pr-1 space-y-2"><!-- JS injected --></div>
         </div>
@@ -2822,6 +2826,11 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // Opening a map puts it in use: anyone in initiative without a token links to theirs here
+        if ((window.gmInitiative||[]).length && typeof window._btLinkUnlinked === 'function') {
+            window._btLinkUnlinked(mapId);
+            setTimeout(() => window.renderInitiativeTracker && window.renderInitiativeTracker(), 0);
+        }
         window.apxFloatingZTop++;
         let offset = document.querySelectorAll('[id^="omWin_"]').length * 30;
         let win = document.createElement('div');
@@ -2873,7 +2882,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <button onclick="document.getElementById('${winId}_fileInput').click()"
                     style="background:#1d4ed8;border:none;color:#fff;font-size:0.65rem;font-weight:700;padding:0.15rem 0.5rem;border-radius:0.2rem;cursor:pointer;">Upload Image</button>
-                <button onclick="document.getElementById('${winId}').remove()"
+                <button onclick="document.getElementById('${winId}').remove();window.renderInitiativeTracker&&window.renderInitiativeTracker()"
                     style="background:none;border:none;color:#94a3b8;font-size:1.1rem;font-weight:700;cursor:pointer;line-height:1;padding:0 0.15rem;">X</button>
             </div>
             <input type="file" id="${winId}_fileInput" accept="image/*" style="display:none"
@@ -4022,10 +4031,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // tracker panel (not from a token). Players: link every token that player owns.
     // NPCs: link one unlinked, living token of that creature — same name first, then any.
     // The token takes the side chosen in the panel.
-    window._btAutoLinkEntry = function(entry) {
+    // Maps the fight is using: any map window that's open, plus the map the GM picked
+    // under "Battle map" in the tracker. Initiative never reaches into a closed map on
+    // its own, so a quick fight with no map stays a plain initiative tracker.
+    window._btMapsInUse = function(onlyMapId) {
+        return (_wNotes.otherMaps||[]).filter(m => onlyMapId ? m.id === onlyMapId
+            : (document.getElementById('omWin_'+m.id) || m.id === window.gmCombatMapId));
+    };
+    // Link every tracker entry that has no token yet to a matching token on the map(s) in use
+    window._btLinkUnlinked = function(onlyMapId) {
+        let linked = new Set();
+        (_wNotes.otherMaps||[]).forEach(m => (m.battleTokens||[]).forEach(t => { if (t.initiativeId) linked.add(t.initiativeId); }));
+        let any = false;
+        (window.gmInitiative||[]).forEach(e => { if (!linked.has(e.id) && window._btAutoLinkEntry(e, onlyMapId)) any = true; });
+        return any;
+    };
+    window._btAutoLinkEntry = function(entry, onlyMapId) {
         let cands = [];
-        let openFirst = (_wNotes.otherMaps||[]).slice().sort((a,b) =>
-            (document.getElementById('omWin_'+b.id)?1:0) - (document.getElementById('omWin_'+a.id)?1:0));
+        let openFirst = window._btMapsInUse(onlyMapId);
         openFirst.forEach(m => (m.battleTokens||[]).forEach(t => {
             if (t._explicitDead || _btIsLiveEntry(t.initiativeId)) return;
             if (entry.faction === 'player' && entry.playerUid) {

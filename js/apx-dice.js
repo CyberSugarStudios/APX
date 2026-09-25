@@ -194,7 +194,21 @@
         .apxd-die{min-width:22px;height:22px;padding:0 3px;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;font-size:.74rem;font-weight:900;
             background:var(--c-surface,#1e293b);border:1px solid var(--c-border2,#475569);color:var(--c-text,#fff);position:relative}
         .apxd-die.d20{border-radius:50% 50% 6px 6px;border-color:var(--c-indigo-lt,#818cf8)}
-        .apxd-die.drop{opacity:.35;text-decoration:line-through}
+        .apxd-die.sh{background:none;border:none;border-radius:0;width:28px;height:28px;min-width:28px;padding:0}
+        .apxd-die.sh.w3{width:32px;min-width:32px}
+        .dsh{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+        .dsh *{fill:var(--c-surface,#1e293b);stroke:var(--c-border2,#475569);stroke-width:1.3;vector-effect:non-scaling-stroke;stroke-linejoin:round}
+        .apxd-die .dn,.dq .dn{position:relative;display:inline-flex;align-items:baseline;line-height:1}
+        .apxd-die.s4 .dn,.dq.s4 .dn{transform:translateY(3px)} .apxd-die.s8 .dn,.dq.s8 .dn{transform:translateY(-3px)}
+        .apxd-die.s4,.apxd-die.s8{font-size:.66rem}
+        .apxd-die.s20 .dsh *{stroke:var(--c-indigo-lt,#818cf8)}
+        .apxd-die.max .dsh *{stroke:#facc15} .apxd-die.min .dsh *{stroke:#f87171}
+        .apxd-die.omen.sh{background:none} .apxd-die.omen .dsh *{fill:#3b0764;stroke:#c084fc}
+        .apxd-die.dashed .dsh *{stroke-dasharray:3 2}
+        .apxd-q button.dq{position:relative;width:36px;height:34px;padding:0;background:none;border:none;display:inline-flex;align-items:center;justify-content:center;font-size:.64rem}
+        .apxd-q button.dq .dsh *{fill:var(--c-surface2,#0f172a);stroke:var(--c-border2,#475569)}
+        .apxd-q button.dq:hover .dsh *{stroke:var(--c-indigo,#6366f1);stroke-width:1.8}
+        .apxd-die.drop{opacity:.35;text-decoration:line-through} .apxd-die.drop .dn{text-decoration:line-through}
         .apxd-die.max{color:#facc15;border-color:#facc15} .apxd-die.min{color:#f87171;border-color:#f87171}
         .apxd-die.omen{background:#3b0764;border-color:#c084fc}
         .apxd-die small{font-size:.57rem;opacity:.7;margin-left:1px}
@@ -247,7 +261,7 @@
             </div>
             <div class="apxd-omen" data-omen style="display:none"></div>
             <div class="apxd-q">
-                ${[4, 6, 8, 10, 12, 20, 100].map(s => `<button data-q="${s}">d${s}</button>`).join('')}
+                ${[4, 6, 8, 10, 12, 20, 100].map(s => `<button data-q="${s}" class="dq s${s}">${shapeSvg(s)}<span class="dn">d${s}</span></button>`).join('')}
                 <input data-free placeholder="+3 or 2d6+3" title="A number is added to the dice pool as a modifier. Any other roll (like 2d6+3) is rolled with the pool. Enter rolls.">
             </div>
             <div class="apxd-pool" data-pool></div>
@@ -348,6 +362,7 @@
             // GM: Omen dice players have spent, waiting to be applied to a roll (or dismissed)
             om.style.display = 'flex';
             om.innerHTML = `Omen spent: ${ext.map((o, i) => `<span class="apxd-die omen" title="${esc(o.who)}: apply it from a d20 roll's buttons">${o.value}${o.adj ? `<small>${o.adj > 0 ? '+' : '−'}${Math.abs(o.adj)}</small>` : ''}</span><span style="font-size:.62rem;opacity:.85">${esc(o.who)}</span><button data-omendrop="${i}" title="Dismiss (already used)" style="font-size:.62rem;border:none;background:none;color:#e9d5ff;cursor:pointer">✕</button>`).join('')}`;
+            shapeDice(om);
             om.querySelectorAll('[data-omendrop]').forEach(b => b.onclick = () => { tray.extOmens.splice(parseInt(b.dataset.omendrop), 1); refreshPerkBar(); refreshAllActions(); });
             return;
         }
@@ -360,18 +375,45 @@
         om.innerHTML = `Omen: ${dice.length ? dice.map((v, i) => `<span class="apxd-die omen" data-omenspend="${i}" style="cursor:pointer" title="Pass this Omen die to the GM (for another creature's roll) or to a party member">${v}</span>`).join('') : (r ? '<span style="opacity:.7;font-weight:600">none stored</span>' : '')}
             ${gifts.map(g => `<span class="apxd-die omen" data-omengift="${esc(g.id)}" style="cursor:pointer;border-style:dashed" title="From ${esc(g.from)}. Use it from a d20 roll's buttons, or click to pass it on">${g.value}${adjS(g.adj)}</span>`).join('')}
             ${S().omenRollPending ? `<button data-omenroll style="margin-left:auto;font-size:.67rem;font-weight:800;padding:.1rem .4rem;border-radius:.3rem;border:1px solid #a855f7;background:none;color:#e9d5ff;cursor:pointer">Roll Omen Dice</button>` : ''}`;
+        shapeDice(om);
         let b = om.querySelector('[data-omenroll]'); if (b) b.onclick = () => APXDice.rollOmen();
         om.querySelectorAll('[data-omenspend]').forEach(el => el.onclick = () => APXDice.spendOmenOnOther(parseInt(el.dataset.omenspend)));
         om.querySelectorAll('[data-omengift]').forEach(el => el.onclick = () => APXDice.passGiftedOmen(el.dataset.omengift));
     }
 
     // ── Card rendering ───────────────────────────────────────────
+    // Each die has its own outline: d4 triangle, d6 square, d8 triangle (point down, to tell it
+    // from the d4), d10 kite, d12 pentagon, d20 hexagon (corner up), d100 circle.
+    const DIE_SHAPES = {
+        4: '<polygon points="50,6 97,88 3,88"/>',
+        6: '<rect x="8" y="8" width="84" height="84" rx="12"/>',
+        8: '<polygon points="3,12 97,12 50,94"/>',
+        10: '<polygon points="50,3 93,40 50,97 7,40"/>',
+        12: '<polygon points="50,3 95,36 78,92 22,92 5,36"/>',
+        20: '<polygon points="50,2 92,26 92,74 50,98 8,74 8,26"/>',
+        100: '<circle cx="50" cy="50" r="47"/>'
+    };
+    function shapeSvg(sides) {
+        return `<svg class="dsh" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${DIE_SHAPES[sides] || DIE_SHAPES[6]}</svg>`;
+    }
+    // Give every plain die in `root` its outline (dice are d20s unless marked data-s)
+    function shapeDice(root) {
+        if (!root) return;
+        root.querySelectorAll('.apxd-die:not(.sh)').forEach(el => {
+            let s = parseInt(el.dataset.s) || 20;
+            if (!DIE_SHAPES[s]) s = 6;
+            if (el.style.borderStyle === 'dashed') { el.classList.add('dashed'); el.style.borderStyle = ''; }
+            el.classList.add('sh', 's' + s);
+            if (el.textContent.trim().length >= 3) el.classList.add('w3');
+            el.innerHTML = shapeSvg(s) + `<span class="dn">${el.innerHTML}</span>`;
+        });
+    }
     function dieHtml(d, extraCls, spin) {
         let cls = 'apxd-die' + (extraCls ? ' ' + extraCls : '') + (spin ? ' spin' : '');
         if (d.v === d.s && d.s > 1 && !extraCls) cls += ' max';
         if (d.v === 1 && !extraCls) cls += ' min';
         let tip = [d.from ? `rerolled a ${d.from}` : '', d.boom ? `exploded: +${d.boom.join(' +')}` : ''].filter(Boolean).join('; ');
-        return `<span class="${cls}" ${tip ? `title="${esc(tip)}"` : ''}>${d.v}${d.boom ? `<small>+${d.boom.join('+')}</small>` : ''}${d.from ? '<small>*</small>' : ''}</span>`;
+        return `<span class="${cls}" data-s="${d.s || 6}" ${tip ? `title="${esc(tip)}"` : ''}>${d.v}${d.boom ? `<small>+${d.boom.join('+')}</small>` : ''}${d.from ? '<small>*</small>' : ''}</span>`;
     }
     function groupsHtml(roll, spin) {
         return roll.groups.map((g, i) => (i || g.sign < 0 ? `<span class="apxd-mod" ${g.crit ? 'title="Critical hit: extra dice"' : ''}>${g.sign < 0 ? '−' : g.crit ? '+crit' : '+'}</span>` : '') +
@@ -417,6 +459,7 @@
             ${badges.length ? `<div class="apxd-badges">${badges.map(b => `<span class="apxd-b ${b[0]}" ${b[2] ? `title="${esc(b[2])}"` : ''}>${esc(b[1])}</span>`).join('')}</div>` : ''}
             ${acts.length ? `<div class="apxd-acts">${acts.map((a, i) => `<button class="${a.cls || ''}" data-act="${i}" title="${esc(a.title || '')}">${esc(a.label)}</button>`).join('')}</div>` : ''}`;
         el.querySelectorAll('[data-act]').forEach(b => b.onclick = () => { let a = acts[+b.dataset.act]; if (a) a.run(); });
+        shapeDice(el);
     }
 
     function addCard(c) {
