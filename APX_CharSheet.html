@@ -4600,6 +4600,7 @@
     // This listener picks that up and updates the player's sheet immediately.
     let _lastGmHpAt = {};   // per world
     let _hpListeners = {};
+    window._pwStartPlayerHpListener = (c, u) => startPlayerHpListener(c, u);   // (tests)
     function startPlayerHpListener(inviteCode, uid) {
         if (!inviteCode || !uid || !window.apxAuth?.enabled || !window._apxDb) return;
         if (_hpListeners[inviteCode]) return;   // one listener per world
@@ -4679,6 +4680,22 @@
                     // Legacy single-slot grant (older GM builds)
                     let lg = data._xpGrant;
                     if (lg?.amount && lg.at) pending.push({ id: 'legacy_' + (lg.at.toMillis?.() || 0), amount: lg.amount, category: 'combat', name: 'Combat', at: lg.at });
+                    // XP grants belong to the player's record in the world, not to one character. A
+                    // brand-new character only takes grants issued after it joined; anything already
+                    // queued (for a previous character, or an old single-slot grant) isn't its XP.
+                    st.xpGrantsSince = st.xpGrantsSince || {};
+                    if (st.xpGrantsSince[inviteCode] === undefined) {
+                        let fresh = !(st.spentXp > 0) && !(st.xpLog || []).length && !Object.keys(st.perks || {}).length;
+                        st.xpGrantsSince[inviteCode] = fresh ? Date.now() : 0;
+                    }
+                    let since = st.xpGrantsSince[inviteCode] || 0;
+                    let grantMs = g => g.at?.toMillis?.() || (String(g.id).match(/^(?:legacy_|xp_)(\d{12,})/) || [])[1] * 1 || 0;
+                    if (since) {
+                        let old = pending.filter(g => { let ms = grantMs(g); return ms && ms <= since; });
+                        // Not this character's: skip them (left in the queue in case they belong to
+                        // another of this player's characters in the same world)
+                        if (old.length) pending = pending.filter(g => !old.includes(g));
+                    }
                     if (!Array.isArray(st.appliedXpGrants)) {
                         // First time this character sees the queue: anything older than its last
                         // save was meant for whoever was here before — don't pay it twice.
@@ -4695,7 +4712,7 @@
                         (st.xpLog = st.xpLog || []).unshift({ id: g.id, name: g.name || XP_CATEGORY_LABELS[g.category] || 'XP', desc: g.description || '',
                             category: g.category || 'other', date: g.date || new Date().toISOString().slice(0, 10), session: g.session || null,
                             base: g.amount, bonus: b.bonus, bonusParts: b.parts, total });
-                        if (!String(g.id).startsWith('legacy_')) paidIds.push(g.id);
+                        paidIds.push(g.id);   // (an old single-slot grant is cleared too, so it can't pay out again)
                         let xpMsg = `+${total} XP: ${g.name || XP_CATEGORY_LABELS[g.category] || 'XP'}` + (b.bonus ? ` (${g.amount} + ${b.parts.map(p => p.label + ' ' + p.amount).join(' + ')})` : '');
                         if (window.APXDice && window.APXDice.notify) window.APXDice.notify(xpMsg, { kind: 'xp', id: 'xp_' + g.id });
                     });

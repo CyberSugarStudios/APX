@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.9.25.0900',
-        released: '2026-09-25T09:00:00',
-        releasedText: 'September 25, 2026 · 9:00 AM',
+        version: 'v2026.9.25.0941',
+        released: '2026-09-25T09:41:00',
+        releasedText: 'September 25, 2026 · 9:41 AM',
         title: 'Playtest Update',
         intro: 'Everything here comes from our playtest tables. GMs can shape their world\'s rules, arm and supply NPCs, and hand out magic items that change almost anything on a character sheet. Players get Luck and Looting, trading, Omen dice they can share, Loyal Companions that act on their own turns, and a dice roller that doubles as the combat log. Open your characters and worlds as usual: they update themselves, nothing is lost, and any rule change that affected you is explained.',
         index: [
@@ -54,6 +54,7 @@
             ['Your World', [
                 'Your GM sets the world\'s rules: Starting XP, Max GP, starting Cu, and how attributes are chosen. A brand-new character receives the Starting XP and Cu once.',
                 'XP comes from your GM with your bonuses (INT modifier, Educated, Expertise) added, and the XP fields are locked while you\'re in the world. Outside a world, XP and Max GP are yours to set.',
+                'A new character only receives XP granted after it joins the world. XP still waiting from before (for an earlier character of yours) never lands on it.',
                 'Standard Array: each attribute begins on "Choose", and a value you pick leaves the other dropdowns until you free it. Use 7, 6, 5, 5, 5, 4 and 3 once each.',
                 'Point Buy: every attribute starts at 4 with 7 points to spend. Each +1 costs a point, each −1 gives one back, and attributes stay between 2 and 7.'
             ]],

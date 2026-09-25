@@ -329,7 +329,11 @@
     async function ackXpGrants(inviteCode, ids) {
         let user = currentUser(); if (!user || !inviteCode || !ids || !ids.length) return;
         let upd = {};
-        ids.forEach(id => { upd['_xpGrants.' + id] = firebase.firestore.FieldValue.delete(); });
+        ids.forEach(id => {
+            // Old GM builds used one slot (_xpGrant); once it's been paid it is removed for good
+            if (String(id).startsWith('legacy_')) upd['_xpGrant'] = firebase.firestore.FieldValue.delete();
+            else upd['_xpGrants.' + id] = firebase.firestore.FieldValue.delete();
+        });
         await db.collection('worldCodes').doc(inviteCode).collection('players').doc(user.uid).update(upd).catch(() => {});
     }
 
