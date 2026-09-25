@@ -39,6 +39,7 @@
             loadOtherMapImage: () => Promise.resolve(null),
             loadOtherMapImageForPlayer: () => Promise.resolve(null),
             deleteOtherMapImage: () => Promise.resolve(),
+            saveMapTile: () => Promise.resolve(), loadMapTile: () => Promise.resolve(null), deleteMapTiles: () => Promise.resolve(),
             saveBattleImage: () => Promise.resolve(), loadBattleImage: () => Promise.resolve(null),
             setActiveCharId: () => {}, setGmCondition: () => Promise.resolve(),
             addXpGrant: () => Promise.resolve(), ackXpGrants: () => Promise.resolve(), addXpToPlayer: () => Promise.resolve(),
@@ -531,6 +532,34 @@
         await db.collection('users').doc(user.uid)
             .collection('worlds').doc(worldId)
             .collection('otherMaps').doc(mapId).delete().catch(()=>{});
+        await deleteMapTiles(worldId, mapId, null);   // and its full-resolution tiles
+    }
+
+    // Full-resolution map tiles (see js/apx-map-tiles.js): one image per document.
+    // Path: users/{uid}/worlds/{worldId}/mapTiles/{tileId} — players may READ.
+    // mapKey ('worldmap' or an Other Map's id) and v (the upload's version) let old tiles be cleaned up.
+    function _tiles(uid, worldId) { return db.collection('users').doc(uid).collection('worlds').doc(worldId).collection('mapTiles'); }
+    async function saveMapTile(worldId, tileId, dataUrl, mapKey, v) {
+        let user = currentUser(); if (!user || !worldId) return;
+        await _tiles(user.uid, worldId).doc(tileId).set({ imageData: dataUrl, mapKey: String(mapKey), v: String(v) });
+    }
+    async function loadMapTile(gmUid, worldId, tileId) {
+        if (!gmUid || !worldId || !tileId) return null;
+        let snap = await _tiles(gmUid, worldId).doc(tileId).get();
+        return snap.exists ? (snap.data().imageData || null) : null;
+    }
+    // Delete a map's tiles, except those of version keepV (null = all of them)
+    async function deleteMapTiles(worldId, mapKey, keepV) {
+        let user = currentUser(); if (!user || !worldId || !mapKey) return;
+        let key = String(mapKey).replace(/[^\w-]/g, '_');
+        let snap = await _tiles(user.uid, worldId).where('mapKey', '==', key).get().catch(() => null);
+        if (!snap) return;
+        let old = snap.docs.filter(d => keepV == null || d.data().v !== String(keepV));
+        for (let i = 0; i < old.length; i += 100) {
+            let batch = db.batch();
+            old.slice(i, i + 100).forEach(d => batch.delete(d.ref));
+            await batch.commit().catch(async () => { for (let d of old.slice(i, i + 100)) await d.ref.delete().catch(() => {}); });
+        }
     }
 
     // Battle-map props (carts, tower floors, overlays): one image per document.
@@ -690,7 +719,7 @@
     // Firestore doesn't delete a document's sub-collections with it, so every place
     // data is kept is listed here. ADD NEW STORAGE LOCATIONS TO THESE LISTS, or they
     // will be left behind when a world or an account is deleted.
-    const WORLD_PRIVATE_SUBCOLLECTIONS = ['mapImage', 'otherMaps', 'npcPortraits', 'battleImages', 'fogData'];   // users/{uid}/worlds/{worldId}/…
+    const WORLD_PRIVATE_SUBCOLLECTIONS = ['mapImage', 'otherMaps', 'mapTiles', 'npcPortraits', 'battleImages', 'fogData'];   // users/{uid}/worlds/{worldId}/…
     const WORLD_PUBLIC_SUBCOLLECTIONS  = ['players', 'mapImage'];                                               // worldCodes/{code}/…
     const USER_SUBCOLLECTIONS          = ['characters', 'folders', 'gmRaces', 'gmNpcs', 'profile'];             // users/{uid}/… (plus worlds)
 
@@ -898,6 +927,7 @@
         savePublicWorldMap, loadPublicWorldMap, loadWorldMapForPlayer, setGmHpOverride, updatePlayerBattlePos,
         writeBattlePosition, listenBattlePositions,
         saveOtherMapImage, loadOtherMapImage, loadOtherMapImageForPlayer, deleteOtherMapImage,
+        saveMapTile, loadMapTile, deleteMapTiles,
         saveBattleImage, loadBattleImage, loadBattleImageForPlayer, deleteBattleImage,
         addXpGrant, ackXpGrants, setGmCondition, publishCombatLog, writeRollLog, setGmCompanionHp,
         gmGiveToPlayer, ackGmGifts, writeOutbox, clearOutbox, ackGift, publishLootRequest,

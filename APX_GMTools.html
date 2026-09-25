@@ -1447,6 +1447,7 @@ document.addEventListener('DOMContentLoaded', () => {
     <script src="js/firebase-config.js"></script>
     <script src="js/apx-firebase.js"></script>
     <script src="js/apx-battlemap.js"></script>
+    <script src="js/apx-map-tiles.js"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -1681,6 +1682,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         notes:         w.notesV2.notes         || [],
                         otherMaps:     (w.notesV2.otherMaps||[]).map(m=>({
                             id:m.id, name:m.name, revealed:!!m.revealed,
+                            tiles: m.tiles || null,   // full-resolution tile list (large maps)
                             battleMapEnabled: !!m.battleMapEnabled,
                             battleGrid: m.battleGrid||{cellSize:50,offsetX:0,offsetY:0},
                             battleImages: (m.battleImages||[]).map(i => i.src && window.apxAuth?.enabled ? (({src, ...r}) => r)(i) : i),
@@ -1700,6 +1702,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             })
                         })),
                         worldMapSaved: w.notesV2.worldMapSaved || false,
+                        worldMapTiles: w.notesV2.worldMapTiles || null,
                         xpLog: (w.notesV2.xpLog || []).slice(0, 100),
                         loot: (w.notesV2.loot || []).slice(0, 200),
                         lootDefeated: w.notesV2.lootDefeated || 0,
@@ -1718,6 +1721,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         apGain1: !!_ct?._apFirstSurprised
                     } : { id: null, ended: true },
                     publicNotes: {
+                        worldMapTiles: w.notesV2.worldMapTiles || null,
                         locations: w.publicNotes.locations,
                         npcs:      w.publicNotes.npcs,
                         notes:     w.publicNotes.notes,
@@ -1777,6 +1781,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     };
                                 });
                                 return { id:m.id, name:m.name,
+                                    tiles: m.tiles || null,
                                     battleMapEnabled:!!m.battleMapEnabled,
                                     battleGrid:m.battleGrid||{cellSize:50,offsetX:0,offsetY:0},
                                     battleTokens: btTokens,
@@ -3102,10 +3107,15 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch(e){ console.warn('Other map load:', e.message); }
     }
 
-    function _omShowImg(winId, win, src) {
+    function _omShowImg(winId, win, src, manifest) {
         let img=document.getElementById(winId+'_img'); if(!img) return;
         let empty=document.getElementById(winId+'_empty');
         img.src=src; img.style.display='block';
+        {   // full-resolution tiles for large maps
+            let mid = winId.replace('omWin_','');
+            let mm = manifest !== undefined ? manifest : (_wNotes.otherMaps||[]).find(m=>m.id===mid)?.tiles;
+            window._gmAttachTiles(img, document.getElementById(winId+'_area'), mm);
+        }
         if(empty) empty.style.display='none';
         img.onload=()=>{
             window.omReset(winId);
@@ -3148,16 +3158,39 @@ document.addEventListener('DOMContentLoaded', () => {
         area.addEventListener('mouseleave', ()=>{ _fogPainting=false; });
     }
 
+    // Small status line in a map window while its image uploads
+    function _omTileStatus(winId) {
+        return t => {
+            let area=document.getElementById(winId+'_area'); if(!area) return;
+            let el=document.getElementById(winId+'_upStatus');
+            if (t===null) { el?.remove(); return; }
+            if (!el) { el=document.createElement('div'); el.id=winId+'_upStatus';
+                el.style.cssText='position:absolute;left:8px;bottom:8px;z-index:60;background:rgba(15,23,42,.85);border:1px solid #334155;color:#cbd5e1;font-size:.65rem;font-weight:700;padding:.2rem .5rem;border-radius:.3rem;pointer-events:none;';
+                area.appendChild(el); }
+            el.textContent='Map: '+t;
+        };
+    }
     window._omHandleUpload = async function(mapId, winId, input) {
         if(!input.files[0]) return;
         let file=input.files[0]; input.value='';
         let reader=new FileReader();
         reader.onload=async e=>{
             let dataUrl=e.target.result;
-            if(window.apxAuth?.enabled&&_activeWorldId) {
-                // Compress FIRST and show the GM exactly the image players will load.
-                // Grid cells and token positions are in image pixels, so the GM and
-                // players must use the same image dimensions or tokens won't line up.
+            if(window.apxAuth?.enabled&&_activeWorldId&&window.APXTiles) {
+                // Show the GM exactly the preview players load first. Grid cells and token
+                // positions are in preview pixels, so everyone must use the same preview.
+                let wid=_activeWorldId, map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+                let status=_omTileStatus(winId);
+                if (map) { map.tiles=null; saveWorldNotes(); }
+                try {
+                    let res=await _gmUploadMapFile(file, mapId, wid,
+                        (preview, m) => { _omImageCache[mapId]=preview; if (document.getElementById(winId)) _omShowImg(winId, document.getElementById(winId), preview, m); },
+                        preview => window.apxAuth.saveOtherMapImage(wid, mapId, preview),
+                        t => status(t));
+                    if (map) { map.tiles=res.manifest||null; if (_activeWorldId===wid) saveWorldNotes(); }
+                    status(null);
+                } catch(err){ status(null); console.warn('Other map save:', err); alert(err.message||err); }
+            } else if(window.apxAuth?.enabled&&_activeWorldId) {
                 try {
                     let compressed=await _compressForFirestore(dataUrl);
                     _omImageCache[mapId]=compressed;
@@ -5048,6 +5081,7 @@ document.addEventListener('DOMContentLoaded', () => {
         function _showMapImg(src) {
             _mapImg.src = src;
             _mapImg.style.display = 'block';
+            window._gmAttachTiles(_mapImg, document.getElementById('mapContainer'), _wNotes.worldMapTiles);
             document.getElementById('mapEmptyState').style.display = 'none';
             _mapImg.onload = function() {
                 window.mapResetView();
@@ -5166,6 +5200,71 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btn) btn.textContent = label === null ? 'Map' : ('Map — ' + label);
     }
 
+    // ── Large maps: a preview plus full-resolution tiles (js/apx-map-tiles.js) ──
+    function _gmTileOpts(wid) {
+        let uid = window.apxAuth?.user?.uid;
+        return { prefix: `${uid}/${wid}/`, fetchTile: id => window.apxAuth.loadMapTile(uid, wid, id) };
+    }
+    window._gmAttachTiles = function(img, clip, manifest) {
+        if (!window.APXTiles || !img) return;
+        if (!manifest || !window.apxAuth?.enabled || !_activeWorldId) { window.APXTiles.detach(img); return; }
+        window.APXTiles.attach(img, clip, manifest, _gmTileOpts(_activeWorldId));
+    };
+    // Upload a map file: the preview is shown and saved first, then (for a large map) its tiles.
+    // mapKey: 'worldmap' or an Other Map's id. showPreview(dataUrl, manifest) displays it.
+    async function _gmUploadMapFile(file, mapKey, wid, showPreview, savePreview, progress) {
+        let man = null;
+        let res = await window.APXTiles.processUpload(file, {
+            mapKey, cachePrefix: _gmTileOpts(wid).prefix,
+            onProgress: progress,
+            onPreview: async (preview, m) => { man = m; await showPreview(preview, m); await savePreview(preview); },
+            saveTile: (id, dataUrl) => window.apxAuth.saveMapTile(wid, id, dataUrl, man.key, man.v)
+        });
+        // Remove the tiles of any earlier upload of this map (and all of them if this one needs none)
+        window.apxAuth.deleteMapTiles(wid, mapKey, res.manifest ? res.manifest.v : null).catch(e => console.warn('Old map tiles:', e.message));
+        return res;
+    }
+    async function _gmUploadWorldMap(file) {
+        let wid = _activeWorldId, notes = _wNotes;
+        // Everything else is saved right away, never held up by the image
+        notes.worldMapSaved = true;
+        notes.worldMapTiles = null;   // the old map's tiles no longer apply
+        saveWorldNotes();
+        _setMapUploadProgress('reading…');
+        try {
+            let res = await _gmUploadMapFile(file, 'worldmap', wid,
+                (preview, m) => {
+                    if (_activeWorldId !== wid) return;
+                    notes.worldMapDataUrl = preview;
+                    _mapImg = document.getElementById('mapImage');
+                    _mapImg.src = preview;
+                    _mapImg.style.display = 'block';
+                    document.getElementById('mapEmptyState').style.display = 'none';
+                    _mapImg.onload = function() {
+                        window.mapResetView();
+                        let fc = document.getElementById('mapFogCanvas');
+                        if (fc) window.APXBattle.sizeFogCanvas(fc, _mapImg.naturalWidth, _mapImg.naturalHeight);
+                    };
+                    // The GM sees the tiles as they're made (they're cached here as they go)
+                    if (m) window.APXTiles.attach(_mapImg, document.getElementById('mapContainer'), m, _gmTileOpts(wid));
+                    else window.APXTiles.detach(_mapImg);
+                },
+                async preview => {
+                    await window.apxAuth.saveWorldMapFirestore(wid, preview);
+                    let world = (_gmWorlds || []).find(x => (x.worldId || x.id) === wid);
+                    if (world?.inviteCode) await window.apxAuth.savePublicWorldMap(world.inviteCode, preview).catch(e => console.warn('Public map save:', e.message));
+                },
+                t => _setMapUploadProgress(t));
+            notes.worldMapTiles = res.manifest || null;
+            if (_activeWorldId === wid) saveWorldNotes();
+            _setMapUploadProgress(null);
+        } catch (err) {
+            _setMapUploadProgress(null);
+            console.warn('Map upload failed:', err);
+            window.showConfirm ? window.showConfirm('Map save failed: ' + (err.message || err), () => {}) : alert('Map save failed: ' + (err.message || err));
+        }
+    }
+
     window.loadMapImage = function(input) {
         if (!input.files[0]) return;
         var file = input.files[0];
@@ -5173,6 +5272,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Unpin locations (confirmation dialog already warned the user)
         (_wNotes.locations||[]).forEach(function(l) { delete l.pinX; delete l.pinY; });
+
+        // Online: preview + tiles
+        if (window.apxAuth?.enabled && _activeWorldId && window.APXTiles) { _gmUploadWorldMap(file); return; }
 
         var reader = new FileReader();
         reader.onload = async function(e) {

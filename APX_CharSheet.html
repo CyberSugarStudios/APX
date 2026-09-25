@@ -2309,6 +2309,7 @@
     <script src="js/firebase-config.js"></script>
     <script src="js/apx-firebase.js"></script>
     <script src="js/apx-battlemap.js"></script>
+    <script src="js/apx-map-tiles.js"></script>
     <script>
     // ── Sidebar: folders, worlds, meatball menus ─────────────
     window._sidebarChars = [];
@@ -3367,12 +3368,16 @@
             let world = window._playerWorldsData?.[code] || window._playerWorldData;
             if (!world) return;
             world.inviteCode = code;
-            let cachedMap = world.notesV2?.worldMapDataUrl;
+            // A new world map upload (new tile version) makes the cached preview stale
+            let newTiles = data.publicNotes?.worldMapTiles || null;
+            let sameMap = (world.notesV2?.worldMapTiles?.v || null) === (newTiles?.v || null);
+            let cachedMap = sameMap ? world.notesV2?.worldMapDataUrl : undefined;
             world.notesV2 = {
                 locations: data.publicNotes?.locations || [],
                 npcs:      data.publicNotes?.npcs      || [],
                 notes:     data.publicNotes?.notes     || [],
                 otherMaps: data.publicNotes?.otherMaps || [],
+                worldMapTiles: newTiles,
                 worldMapDataUrl: cachedMap
             };
             // World Settings (Starting XP, Max GP, starting Cu, attribute method)
@@ -4193,6 +4198,10 @@
         let img=document.getElementById(winId+'_img'); if(!img) return;
         let e=document.getElementById(winId+'_empty');
         img.src=src; img.style.display='block'; if(e) e.style.display='none';
+        {   // full-resolution tiles for large maps
+            let fm = (window._playerWorldData?.notesV2?.otherMaps||[]).find(m=>m.id===mapId) || map;
+            _pwAttachTiles(img, document.getElementById(winId+'_area'), fm?.tiles, window._playerWorldData);
+        }
         img.onload=()=>{
             // Always refresh map from current world state — the closure's `map` may be stale
             // if the Firestore listener hadn't fired yet when the window was opened.
@@ -4547,6 +4556,16 @@
         _pwOmTransform(winId, win);
     };
 
+    // Full-resolution tiles for large maps, read from the GM's world (js/apx-map-tiles.js)
+    function _pwAttachTiles(img, clip, manifest, world) {
+        if (!window.APXTiles || !img) return;
+        let saved = _getWorlds().find(w => w.worldId === world?.worldId);
+        let gmUid = world?.gmUid || saved?.gmUid, worldId = world?.worldId;
+        if (!manifest || !gmUid || !worldId || !window.apxAuth?.enabled) { window.APXTiles.detach(img); return; }
+        window.APXTiles.attach(img, clip, manifest, { prefix: `${gmUid}/${worldId}/`, fetchTile: id => window.apxAuth.loadMapTile(gmUid, worldId, id) });
+    }
+    window._pwAttachTiles = _pwAttachTiles;
+
     async function renderPlayerMap() {
         let world  = window._playerWorldData;
         let img    = document.getElementById('pwMapImage');
@@ -4587,7 +4606,8 @@
         if (mapSrc) {
             // Keep image hidden until fog is applied — prevents players seeing the unfogged map
             img.src = mapSrc;
-            img.style.display = 'none';   // hidden until fog loads
+            img.style.display = 'none';   // hidden until fog loads (tiles stay hidden with it)
+            _pwAttachTiles(img, document.getElementById('pwMapContainer'), world?.notesV2?.worldMapTiles, world);
             if (emptyEl) emptyEl.style.display = 'none';
             img.onload = () => {
                 let saved = _getWorlds().find(w => w.worldId === world?.worldId) || _getPrimaryWorld();

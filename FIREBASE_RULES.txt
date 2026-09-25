@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// APX FIRESTORE RULES  (v2026.9.25)
+// APX FIRESTORE RULES  (v2026.9.25b)
 // Paste into: Firebase Console > Firestore Database > Rules tab
 // ─────────────────────────────────────────────────────────────────────────────
 // No Firebase Storage or Blaze plan required.
@@ -35,6 +35,11 @@ service cloud.firestore {
 
     // Battle-map images (props like carts, tower floors) — players read them too
     match /users/{userId}/worlds/{worldId}/battleImages/{imgId} {
+      allow read: if request.auth != null;
+    }
+
+    // Full-resolution map tiles (large maps are saved as a preview plus tiles)
+    match /users/{userId}/worlds/{worldId}/mapTiles/{tileId} {
       allow read: if request.auth != null;
     }
 
