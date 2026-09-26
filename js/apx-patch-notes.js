@@ -11,11 +11,11 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.9.25.2217',
-        released: '2026-09-25T22:17:00',
-        releasedText: 'September 25, 2026 · 10:17 PM',
+        version: 'v2026.9.25.2306',
+        released: '2026-09-25T23:06:00',
+        releasedText: 'September 25, 2026 · 11:06 PM',
         title: 'Playtest Update',
-        intro: 'This update comes straight from our playtest tables. GMs get world rules, a Loot Maker, NPCs that carry and use gear, and magic items that can change almost anything on a sheet. Players get Luck and Looting, trading, shareable Omen dice, Loyal Companions that act on their own turns, powers that roll like weapons and use their AP and Power Slots, weapon properties that apply themselves on a hit, a one-screen Origin Builder, full-resolution maps at any size, and a dice roller with a distinct shape for every die that doubles as the combat log and asks for your Wound and Bleed Out saves. Initiative runs with or without a battle map, characters are created and switched cleanly, pages load faster (especially on phones), and deleting an account removes all of its data. Your characters and worlds update when you open them. Nothing is lost, and anything a rule change touched is explained.',
+        intro: 'This update comes straight from our playtest tables. GMs get world rules, a Loot Maker, NPCs that carry and use gear, and magic items that can change almost anything on a sheet. Players get Luck and Looting, trading, shareable Omen dice, Loyal Companions that act on their own turns, powers that roll like weapons and use their AP and Power Slots, weapon properties that apply themselves on a hit, a one-screen Origin Builder, full-resolution maps at any size, and a dice roller with a distinct shape for every die that doubles as the combat log and asks for your Wound and Bleed Out saves. Conditions like Stunned wear off on their own when their time is up. Initiative runs with or without a battle map, characters are created and switched cleanly, pages load faster (especially on phones), and deleting an account removes all of its data. Your characters and worlds update when you open them. Nothing is lost, and anything a rule change touched is explained.',
         index: [
             ['For GMs', [
                 'World Settings: Starting XP, Max GP, starting Cu, and Point Buy or Standard Array for every character in your world.',
@@ -30,14 +30,15 @@
                 'Powers roll like weapons: click a power\'s name to spend its AP and a Power Slot and roll the attack and damage together. Attack Roll / Save Negates powers choose one, an attack can be a Power Attack or a martial improvement riding one of your weapons, and save powers tell the GM the DC.',
                 'The Origin Builder fits on one screen: name, starting wealth and feature on one side, languages and competencies on the other.',
                 'Luck and Looting: LUC (Loot) for Currency (LUC × enemies defeated ÷ 2) and ammunition (LUC − 3d6 rounds), or an hour of scavenging for Crafting Materials.',
-                'Omen dice can go to the GM (for any creature\'s roll) or to a party member. They work on your companion\'s rolls, can swap in natural 1s and 20s, and are rerolled one by one on a Full Rest.',
+                'Omen dice can go to the GM (for any creature\'s roll) or to a party member. They work on your companion\'s rolls, can trade places with a natural 1 or 20, and are kept or rerolled one by one on a Full Rest. At Rank 5 you place your Natural 1, 10 and Natural 20 in the slots you choose.',
+                'Fortunate Fighter Rank 5 is a button on your attack: spend a Luck Point to make the hit a Critical Hit, once per turn.',
                 'Loyal Companions have their own AP that refills on their turn, their own token art, and healing whenever you use a Rest Die. You can also trade items with your party and receive XP from your GM with your bonuses applied.'
             ]],
             ['At the Table', [
                 'Dice and Notifications holds every roll, the combat log and your messages in one tray.',
                 'Every die has its own shape, on its button and in every roll: triangles for the d4 and d8, a square d6, a kite d10, a pentagon d12, a hexagon d20 and a round d100.',
                 'The combat log shows the table the fight and resolves every save in order (Wound Threshold, a hit\'s own saves, then Bleed Out), with a button in the tray to roll each one. The party\'s hits on enemies show no numbers, so DR and ER stay hidden.',
-                'Weapon properties apply themselves on a hit: Crushing and Stunning ask for their saves and add Prone or Stunned on a failure, Crushing and Concealed add their extra damage die, Flurry lowers the AP of your next attacks, and every hit on an Incapacitated creature is a Critical Hit. A hit that deals no damage still counts.',
+                'Weapon properties apply themselves on a hit: Crushing and Stunning ask for their saves and add Prone or Stunned on a failure, Crushing and Concealed add their extra damage die, Flurry lowers the AP of your next attacks, and every hit on an Incapacitated creature is a Critical Hit. A hit that deals no damage still counts. Stunned lasts until the end of the stunner\'s next turn, and a Stunned creature starts its turn with 0 AP.',
                 'Click skills, saves, weapons, powers and stat block dice to roll them. Perks, Advantage and Disadvantage, crits and Luck rerolls are built in.',
                 'Action Points are 6 + half your AGI modifier. They are tracked for every creature, refill on each turn (map or no map), carry between turns, reset when a fight starts and ends, and are spent by attacks, powers and standing up from Prone.',
                 'Rest and Recover buttons cover Short and Full Rests, Shake it Off and Shrug It Off.'
@@ -58,7 +59,8 @@
             ['Also', [
                 'Small text is easier to read. XP bonuses from INT, Educated and Expertise apply automatically, conditions bring their linked conditions, the toolbar is tidier, and there are many fixes.',
                 'Pages load and respond faster, especially on phones: the styling is now one small prebuilt file instead of being generated in your browser as you use the app.',
-                'After an update, your browser always loads the new version of every file, never an old saved copy.',
+                'Phones no longer show blank or flickering patches: hidden windows no longer blur the page behind them while they\'re closed.',
+                'After an update, your browser always loads the new version of every file, never an old saved copy, and an open page checks for a newer version and reloads onto it by itself.',
                 'See the Character Sheet and GM Tools for the full details.'
             ]]
         ],
@@ -99,8 +101,9 @@
                 'Your Omen dice sit under Disadv | Normal | Adv in the dice tray. Click one to pass it on: choose the die as it is or (from Rank 2) plus or minus your LUC modifier, then choose who gets it.',
                 'The GM can use it to replace any creature\'s d20, such as an enemy\'s critical hit. A party member gets it in their dice roller, even without the Omen perk, to use on their own roll or pass along.',
                 'On your own rolls and your companion\'s, each held Omen die has its own row of buttons under the roll: [Use Omen 7] [+2] [−2], the last two adding or subtracting your LUC modifier (Rank 2).',
-                'Banking a natural 1 or 20 (Rank 3) is a swap: the natural roll joins your Omen dice, and the held die you give up becomes that roll (plus or minus LUC from Rank 2).',
-                'On a Full Rest, choose which held Omen dice, if any, to roll again. The rest are kept and empty slots are filled. At Rank 5 the results are set: there\'s nothing to choose, your dice are kept and any empty slot gets the missing 1, 10 or 20.'
+                'Rank 3: when you roll a natural 1 or 20 and hold an unspent Omen die, its buttons read "Swap for Omen 7". Swapping uses the Omen die instead of the critical result, and the natural 1 or 20 takes that die\'s place in your Omen dice. An empty slot can\'t take a critical roll.',
+                'On a Full Rest (Ranks 1–4), choose which held Omen dice, if any, to roll again. The rest are kept and empty slots are filled with new rolls.',
+                'Rank 5: nothing is rolled. The Full Rest window shows your three slots, each with what it holds, and a choice of Keep, Natural 1, 10 or Natural 20. Each result goes in one slot, filling an empty one or replacing an unspent die (picking a result another slot has swaps them). Held dice are kept and empty slots filled by default.'
             ]],
             ['Powers', [
                 'Click a power\'s name or its "Lvl X | Y AP" tag to use it. It spends its AP and a Power Slot (INT powers use a slot of their level; CHA powers take 1 from the pool), and asks first if you\'re short on either. "Use anyway" still spends what you have: the slot if one is left, the AP if there\'s enough.',
@@ -147,7 +150,9 @@
                 'The d4–d100 buttons build a dice pool, the box adds a modifier, and Roll rolls the pool and clears it.',
                 'Each die is drawn in its own shape, on the buttons and in the rolls: the d4 is a triangle, the d6 a square, the d8 a triangle pointing down (so it stands apart from the d4), the d10 a kite, the d12 a pentagon, the d20 a hexagon with a corner up, and the d100 a circle. Omen dice are purple hexagons.',
                 'Critical hits multiply the damage dice. A Luck Point rerolls a d20 right from the roll.',
-                'Damage perks apply themselves: High Roller, Melee Prowess and Sharpshooter (Rank 2 rolls damage twice and keeps the higher, Rank 5 maximizes damage on a confirmed crit), plus a toggle for Instigator.'
+                'Fortunate Fighter Rank 5: an attack that isn\'t already a critical shows "Luck Point: auto-crit". Spend the point and a hit becomes a Critical Hit, with the crit damage shown straight away. Once per turn in combat.',
+                'Damage perks apply themselves: High Roller, Melee Prowess and Sharpshooter (Rank 2 rolls damage twice and keeps the higher, Rank 5 maximizes damage on a confirmed crit), plus a toggle for Instigator. Melee Prowess and Sharpshooter follow the weapon a martial power rides, and Rank 5\'s "roll again" button appears on any critical hit, including one made with an Omen 20.',
+                'Dice Explosion (High Roller Rank 5): the die that rolled its maximum stays in the roll marked as a max, and every die the explosion adds sits beside it, dashed and amber. A new maximum explodes again.'
             ]],
             ['Rest and Recover', [
                 'Rest: a Short Rest spends Rest Dice one at a time (each heals the die + your CON modifier) and restores CHA Power Slots. A Full Rest restores all HP and Power Slots, half your max Rest Dice and your Luck, and removes 1 Fatigue.',
@@ -157,6 +162,7 @@
             ['Conditions and Injuries', [
                 'Unconscious, Paralyzed or Incapacitated characters see why their attacks and powers are unavailable, for example "(Unconscious)". Unconscious auto-fails STR, AGI, PER, INT and CHA checks (CON still works, for Bleed Out). Paralyzed auto-fails STR and AGI checks.',
                 'Burning deals 1d10 Fire damage at the start of your turn in combat, ignoring ER, unless you\'re immune to Fire.',
+                'Stunned: your turn starts with 0 AP. Stunned from a Stunning weapon ends by itself at the end of the attacker\'s next turn, unless you\'re Stunned again first.',
                 'Conditions bring the ones they include: Bleeding Out → Unconscious → Incapacitated (and Prone), Paralyzed → Incapacitated, Stunned → Incapacitated, Diseased → Infected. Frenzy Rank 5 keeps you conscious while Provoked. The × on a condition\'s tag under Vitals removes it.',
                 'Permanent Injuries: when a Wounded limb is Wounded again, press Re-wounded and pick an attribute to lower by 1. Remove the injury once it heals to get the point back.'
             ]],
@@ -171,7 +177,8 @@
             ['Layout and Display', [
                 'The sheet starts below the floating Roster and Settings buttons, so they no longer cover your name.',
                 'Faster everywhere, most of all on phones: the styling is now one small prebuilt file, so the sheet no longer rebuilds its styles in your browser every time something on it changes.',
-                'Updates arrive whole: every file carries the version number, so your browser never mixes a new page with an old saved script.',
+                'Updates arrive whole: every file carries the version number, so your browser never mixes a new page with an old saved script. An open sheet checks for a newer version when it loads and reloads onto it.',
+                'On phones, closed windows no longer blur the page behind them, which caused blank or flickering patches on Android.',
                 'Settings sits beside World at the top of the Character Sheet. Undo and Redo are at the bottom of the Roster menu, and Ctrl+Z and Ctrl+Y still work anywhere.',
                 'Ammo is one stack per type: another bundle adds 20 rounds to your "Medium Ammo".',
                 'Power Crafter Step 5 puts Minor and Moderate Utilities in one column and Major, Master and Mythic in the other.',
@@ -258,6 +265,7 @@
                 'No popups for saves. When a player passes their Wound Threshold, or drops to 0 HP with a linked sheet, their dice tray asks for the CON save or CON (Survive) check and the result fills in here. The Bleed Out popup remains for players without a sheet.',
                 'Hits: damage you enter right after an attack roll (from a player\'s sheet or your stat blocks) is that attack\'s hit, and "-0" counts when DR or ER stopped all of it. With no roll to match (dice rolled at the table), a typed "-N" or "-0" is a hit by whoever is taking their turn. Players see "Ari hit Goblin."; you see the damage, or "Ari hit Goblin, but Goblin took no damage."',
                 'The hit weapon\'s properties apply to that target. Crushing: a STR save (DC 10 + the attacker\'s STR modifier) or Prone, or +1 damage die against a Prone target. Stunning: a CON save or Stunned. Concealed: +1 damage die against a Surprised target. Extra dice go straight onto HP and count toward the Wound Threshold. Grappling is noted for you to apply, and Tearing stays manual.',
+                'Stunned from a Stunning weapon ends by itself at the end of the attacker\'s next turn, and the log says so. Being Stunned again restarts it. A Stunned creature starts its turn with 0 AP (NPCs here, players on their sheets).',
                 'Incapacitated targets (including anyone Stunned, Paralyzed or Unconscious) take every hit as a Critical Hit: a hit that didn\'t roll one gets the crit\'s extra damage dice added for you, with the attacker\'s High Roller rerolls, and the log notes it bypasses their resistances.',
                 'When a player fails their Wound Threshold save, your tray shows a button for each limb. Pick one and it\'s Wounded on their sheet. A limb that was already Wounded is marked "(again)", and their sheet asks them for the Permanent Injury.',
                 'Healing a player does on their own sheet shows where it came from: a Short Rest die, Regenerative, or Recover (Shake it Off).',
@@ -294,7 +302,8 @@
                 'Reveal toggles sit beside Edit on pins and on every sub-note in popups. Races stay with their own world, and locations can link NPCs.'
             ]],
             ['Fixes', [
-                'Faster pages: the styling is now one small prebuilt file (no more "cdn.tailwindcss.com should not be used in production" warning), and every file carries the version number so browsers never run an old saved copy after an update.',
+                'Faster pages: the styling is now one small prebuilt file (no more "cdn.tailwindcss.com should not be used in production" warning), and every file carries the version number so browsers never run an old saved copy after an update. An open page that finds a newer version reloads onto it.',
+                'Closed windows no longer blur the page behind them, which left blank or flickering patches on Android phones.',
                 'Auto-save is dependable (including on Brave), with no more "write stream exhausted" errors in long sessions.'
             ]]
         ]
@@ -394,7 +403,25 @@
         });
     }
 
+    // ── Never run an old copy ─────────────────────────────────────────────
+    // Browsers (and some web hosts) can keep serving an old copy of a page after an update.
+    // version.json is fetched fresh every time; if the site has a newer version than this page,
+    // the page reloads itself onto a fresh address (?apx=<version>), which no cache can have.
+    function checkForUpdate() {
+        if (!/^https?:/.test(location.protocol)) return;
+        fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => {
+            if (!j || !j.version || j.version === LATEST.version) return;
+            let key = 'apxReloadedFor';
+            let tried = null; try { tried = sessionStorage.getItem(key); } catch (e) { }
+            if (tried === j.version) return;   // already tried once this session: don't loop
+            try { sessionStorage.setItem(key, j.version); } catch (e) { }
+            let u = new URL(location.href);
+            u.searchParams.set('apx', j.version.replace(/^v/, ''));
+            location.replace(u.toString());
+        }).catch(() => { });
+    }
+
     window.apxPatchNotes = { show, latest: LATEST.version, notes: NOTES };
-    let go = () => { hookLabels(); autoShow(); };
+    let go = () => { hookLabels(); autoShow(); checkForUpdate(); };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
 })();

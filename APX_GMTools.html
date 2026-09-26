@@ -133,10 +133,14 @@
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
             background-color: rgba(0, 0, 0, 0.88);
             display: flex; justify-content: center; align-items: center;
-            z-index: 50; backdrop-filter: blur(4px);
-            opacity: 0; pointer-events: none; transition: opacity 0.2s;
+            z-index: 50;
+            /* Closed modals are fully hidden (not just transparent), and there's no backdrop blur:
+               dozens of invisible full-screen blur layers ran phones out of graphics memory, so
+               parts of the page stopped being drawn (blank patches, old content showing through). */
+            opacity: 0; pointer-events: none; visibility: hidden;
+            transition: opacity 0.2s, visibility 0s linear 0.2s;
         }
-        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; visibility: visible; transition: opacity 0.2s, visibility 0s; }
 
         .modal-content {
             background-color: var(--c-surface); border: 1px solid var(--c-border);
@@ -446,8 +450,8 @@
                 }
         
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20269252217">
-    <link rel="stylesheet" href="css/tailwind.css?v=20269252217">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20269252306">
+    <link rel="stylesheet" href="css/tailwind.css?v=20269252306">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
@@ -1504,35 +1508,35 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20269252217"></script>
-    <script src="js/apx-patch-notes.js?v=20269252217"></script>
-    <script src="js/apx-dice.js?v=20269252217"></script>
-    <script src="js/apx-data.js?v=20269252217"></script>
-    <script src="js/apx-item-effects.js?v=20269252217"></script>
-    <script src="js/apx-perks-db.js?v=20269252217"></script>
-    <script src="js/apx-migrations.js?v=20269252217"></script>
-    <script src="js/apx-state.js?v=20269252217"></script>
-    <script src="js/apx-craft-shared.js?v=20269252217"></script>
-    <script src="js/apx-armor-forge.js?v=20269252217"></script>
-    <script src="js/apx-weapon-forge.js?v=20269252217"></script>
-    <script src="js/apx-consumable-crafter.js?v=20269252217"></script>
-    <script src="js/apx-perks-ui.js?v=20269252217"></script>
-    <script src="js/apx-power-crafter.js?v=20269252217"></script>
-    <script src="js/apx-npc-crafter.js?v=20269252217"></script>
-    <script src="js/apx-inventory-ui.js?v=20269252217"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20269252217"></script>
-    <script src="js/apx-gm-screen.js?v=20269252217"></script>
-    <script src="js/apx-loot-maker.js?v=20269252217"></script>
-    <script src="js/apx-gmtools-main.js?v=20269252217"></script>
+    <script src="js/apx-dialogs.js?v=20269252306"></script>
+    <script src="js/apx-patch-notes.js?v=20269252306"></script>
+    <script src="js/apx-dice.js?v=20269252306"></script>
+    <script src="js/apx-data.js?v=20269252306"></script>
+    <script src="js/apx-item-effects.js?v=20269252306"></script>
+    <script src="js/apx-perks-db.js?v=20269252306"></script>
+    <script src="js/apx-migrations.js?v=20269252306"></script>
+    <script src="js/apx-state.js?v=20269252306"></script>
+    <script src="js/apx-craft-shared.js?v=20269252306"></script>
+    <script src="js/apx-armor-forge.js?v=20269252306"></script>
+    <script src="js/apx-weapon-forge.js?v=20269252306"></script>
+    <script src="js/apx-consumable-crafter.js?v=20269252306"></script>
+    <script src="js/apx-perks-ui.js?v=20269252306"></script>
+    <script src="js/apx-power-crafter.js?v=20269252306"></script>
+    <script src="js/apx-npc-crafter.js?v=20269252306"></script>
+    <script src="js/apx-inventory-ui.js?v=20269252306"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20269252306"></script>
+    <script src="js/apx-gm-screen.js?v=20269252306"></script>
+    <script src="js/apx-loot-maker.js?v=20269252306"></script>
+    <script src="js/apx-gmtools-main.js?v=20269252306"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20269252217"></script>
-    <script src="js/apx-firebase.js?v=20269252217"></script>
-    <script src="js/apx-battlemap.js?v=20269252217"></script>
-    <script src="js/apx-map-tiles.js?v=20269252217"></script>
+    <script src="js/firebase-config.js?v=20269252306"></script>
+    <script src="js/apx-firebase.js?v=20269252306"></script>
+    <script src="js/apx-battlemap.js?v=20269252306"></script>
+    <script src="js/apx-map-tiles.js?v=20269252306"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {

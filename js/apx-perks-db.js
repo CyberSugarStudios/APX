@@ -253,9 +253,9 @@
             { id: "luc_omen", name: "Omen", attr: "LUC", max: 5, baseDesc: "Manipulate fate with Omen Dice.", ranks: [
                 "Rank 1. Roll 1d20 after Full Rest. Substitute it for any roll later.",
                 "Rank 2. Can add/sub LUC mod from expended Omen Die.",
-                "Rank 3. Nat 1/20 can be banked into Omen Die. Gain 2 Omen Dice/Rest.",
+                "Rank 3. Whenever you roll a Natural 1 or Natural 20, you can choose to replace your Omen Die with the roll. Doing so means you use the Omen Die instead of gaining or suffering the results of the Critical. You must have at least one unspent Omen Die available to use this ability. You cannot replace an empty Omen Die slot with a Critical roll. Additionally, you now roll two Omen Dice at the end of a Full Rest.",
                 "Rank 4. Gain 3 Omen Dice/Rest.",
-                "Rank 5. Do not roll. Automatically get a 1, a 10, and a 20."
+                "Rank 5. You no longer roll for your Omen Dice. At the end of a Full Rest, you generate three specific results: a Natural 1, a 10, and a Natural 20. You may assign each of these to your three Omen Dice slots, filling any empty slots or replacing any unspent Omen Dice you currently hold."
             ]},
             { id: "luc_treasurehunter", name: "Treasure Hunter", attr: "LUC", max: 5, baseDesc: "+1 Loot checks per rank.", ranks: [
                 "Rank 1. Advantage on LUC (Loot).",

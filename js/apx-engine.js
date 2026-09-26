@@ -1071,7 +1071,7 @@
             // Remember each attack option, so martial powers can roll with the weapon they're used through
             let variant = opts.label ? (/Aimed/.test(opts.label) ? 'aimed' : /2-Handed/.test(opts.label) ? '2h' : '') : '';
             (calc.weaponAttacks = calc.weaponAttacks || []).push({ key: (w.name || 'Weapon') + '|' + variant, label: rollName, bonus: atk, disSources: disadvSources, advSources,
-                unarmed: !!w.isUnarmed, innate: !!w.isAncestry, dice: opts.dice, dmgMod, dmgType: w.elemental || w.dmgType || '', critMult, hit: hitMeta, ap: parseInt(opts.ap) || 0 });
+                unarmed: !!w.isUnarmed, innate: !!w.isAncestry, wcat: cat, dice: opts.dice, dmgMod, dmgType: w.elemental || w.dmgType || '', critMult, hit: hitMeta, ap: parseInt(opts.ap) || 0 });
             if (calc.cantAct) {
                 // Incapacitated / Unconscious: no attacking until it ends
                 let why = calc.cantActLabel;
@@ -1520,8 +1520,8 @@
                 // A martial improvement rides a normal weapon attack: the weapon's damage plus the power's
                 let wpn = info.kind === 'martial' && info.w && info.w.dice ? info.w : null;
                 let wf = wpn ? String(wpn.dice) + (wpn.dmgMod ? (wpn.dmgMod > 0 ? '+' : '') + wpn.dmgMod : '') : '';
-                if (dmg && !dmg.heal) { o.dice = wf ? wf + '+' + dmg.formula : dmg.formula; o.dmgType = [wpn && wpn.dmgType, dmg.type].filter(Boolean).join(' + '); o.critMult = wpn ? (wpn.critMult || 2) : 2; o.wcat = 'power'; APXDice.attack(o); }
-                else if (wpn) { o.dice = wf; o.dmgType = wpn.dmgType; o.critMult = wpn.critMult || 2; APXDice.attack(o); }
+                if (dmg && !dmg.heal) { o.dice = wf ? wf + '+' + dmg.formula : dmg.formula; o.dmgType = [wpn && wpn.dmgType, dmg.type].filter(Boolean).join(' + '); o.critMult = wpn ? (wpn.critMult || 2) : 2; o.wcat = wpn && wpn.wcat ? wpn.wcat : 'power'; APXDice.attack(o); }
+                else if (wpn) { o.dice = wf; o.dmgType = wpn.dmgType; o.critMult = wpn.critMult || 2; o.wcat = wpn.wcat || ''; APXDice.attack(o); }
                 else { o.kind = 'attack'; o.note = useNote; APXDice.check(o); }
                 tell(`${who || 'A player'} uses ${name}${via}: attack roll.`);
                 return;

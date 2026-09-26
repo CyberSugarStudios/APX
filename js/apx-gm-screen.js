@@ -1353,7 +1353,7 @@ function _gmHitEffects(target, hit, extras) {
     if (props.includes('crushing') && !hit._crushedProne)
         _gmAskSave(target, { attr: 'STR', dc: 10 + str, cond: 'prone', why: 'Crushing', failInf: 'be knocked Prone', fail: 'is knocked Prone' });
     if (props.includes('stunning'))
-        _gmAskSave(target, { attr: 'CON', dc: 10 + (h.elec ? Math.max(str, int) : str), cond: 'stunned', why: 'Stunning', failInf: `be Stunned until the end of ${_gmPublicName(a)}'s next turn`, fail: `is Stunned until the end of ${_gmPublicName(a)}'s next turn` });
+        _gmAskSave(target, { attr: 'CON', dc: 10 + (h.elec ? Math.max(str, int) : str), cond: 'stunned', why: 'Stunning', byId: a && a.id, turn: window.gmTurnNumber, failInf: `be Stunned until the end of ${_gmPublicName(a)}'s next turn`, fail: `is Stunned until the end of ${_gmPublicName(a)}'s next turn` });
     if (props.includes('grappling'))
         gmLog({ text: `${_gmPublicName(target)} is grappled by ${_gmPublicName(a)}'s ${h.weapon || 'weapon'} (Grappling).`, kind: 'info' });
     if (props.includes('flurry')) {
@@ -1374,17 +1374,56 @@ function _gmAskSave(target, item) {
         gmLog({ text, kind: 'wt', ask: { uid: target.playerUid, roll: 'save', attr: item.attr, dc: item.dc, label: `Roll ${item.attr} save (DC ${item.dc})` } });
     } else {
         gmLog({ text, gmText: `${_gmGmName(target)} must make a DC ${item.dc} ${item.attr} save or ${item.failInf || item.fail} (${item.why}).`, kind: 'wt',
-            ask: { gm: true, entryId: target.id, roll: 'save', attr: item.attr, dc: item.dc, cond: item.cond, fail: item.fail, label: `Roll ${_gmGmName(target)}'s ${item.attr} save (DC ${item.dc})` } });
+            ask: { gm: true, entryId: target.id, roll: 'save', attr: item.attr, dc: item.dc, cond: item.cond, fail: item.fail, byId: item.byId || null, turn: item.turn || null, label: `Roll ${_gmGmName(target)}'s ${item.attr} save (DC ${item.dc})` } });
     }
 }
 function _gmCondResult(entry, item, ev, again) {
     let pass = !ev.autoFail && ev.total >= item.dc;
     let name = _gmPublicName(entry);
-    if (!pass) _gmAddCondition(entry, item.cond);
-    else if (again && item.applied) { if (entry.faction === 'player') _gmSetPlayerCondition(entry, item.cond, false); else if (window._gmRemoveEntryCondition) window._gmRemoveEntryCondition(entry.id, item.cond); }
+    if (!pass) { _gmAddCondition(entry, item.cond); if (item.byId) _gmSetCondTimer(entry, item); }
+    else if (again && item.applied) { _gmClearCondTimer(entry, item); if (entry.faction === 'player') _gmSetPlayerCondition(entry, item.cond, false); else if (window._gmRemoveEntryCondition) window._gmRemoveEntryCondition(entry.id, item.cond); }
     item.applied = !pass;
     return pass ? `${name} succeeds on the ${item.attr} save (${ev.total} vs DC ${item.dc}).`
                 : `${name} fails the ${item.attr} save (${ev.total} vs DC ${item.dc}) and ${item.fail}.`;
+}
+// Conditions that last "until the end of X's next turn" (Stunning). A new one from the same
+// source replaces the old timer, so being Stunned again keeps the creature Stunned.
+function _gmSetCondTimer(entry, item) {
+    let list = (entry._condTimers || []).filter(t => t.cond !== item.cond);
+    list.push({ cond: item.cond, byId: item.byId, turn: item.turn != null ? item.turn : window.gmTurnNumber });
+    entry._condTimers = list;
+}
+function _gmClearCondTimer(entry, item) {
+    if (entry._condTimers) entry._condTimers = entry._condTimers.filter(t => !(t.cond === item.cond && t.byId === item.byId));
+}
+// The creature whose turn is ending: anything that lasted until the end of its next turn wears off
+function _gmExpireCondTimers(ending) {
+    if (!ending || !window.gmCombatStarted) return;
+    (window.gmInitiative || []).forEach(e => {
+        if (!e._condTimers || !e._condTimers.length) return;
+        let keep = [];
+        e._condTimers.forEach(t => {
+            if (t.byId !== ending.id || !(window.gmTurnNumber > t.turn)) { keep.push(t); return; }
+            let has = e.faction === 'player' ? true : (window._gmEntryConditions ? window._gmEntryConditions(e.id).includes(t.cond) : true);
+            if (!has) return;
+            if (e.faction === 'player') _gmSetPlayerCondition(e, t.cond, false);
+            else if (window._gmRemoveEntryCondition) window._gmRemoveEntryCondition(e.id, t.cond);
+            let cn = window._gmCondName ? window._gmCondName(t.cond) : t.cond;
+            gmLog({ text: `${_gmPublicName(e)} is no longer ${cn} (${_gmPublicName(ending)}'s turn ended).`, gmText: `${_gmGmName(e)} is no longer ${cn} (${_gmGmName(ending)}'s turn ended).`, kind: 'info' });
+        });
+        e._condTimers = keep;
+    });
+}
+window._gmExpireCondTimers = _gmExpireCondTimers;
+// Is this creature Stunned right now? (NPC tokens / tracker, or the player's own sheet)
+function _gmIsStunned(e) {
+    if (e.faction === 'player') {
+        let pm = (window.gmParty || []).find(p => p.fileName === e.playerUid || p.summary?.playerUid === e.playerUid);
+        let st = pm?.state || {};
+        let c = [].concat(st.conditions || [], st.gmConditions || []);
+        return c.includes('stunned');
+    }
+    return window._gmEntryConditions ? window._gmEntryConditions(e.id).includes('stunned') : false;
 }
 // NPC saves from the GM's dice tray button (the log message asks for them)
 window.apxLogAsk = function(ask) { return !!(ask && ask.gm && (window.gmInitiative || []).some(e => e.id === ask.entryId)); };
@@ -1393,7 +1432,7 @@ window.apxRollFromAsk = function(ask, choice) {
     if (ask.kind === 'limb') { if (choice) _gmApplyWound(e, choice); return; }
     let sb = e.sourceNpcId && typeof ncStatBlockFor === 'function' ? ncStatBlockFor(e.sourceNpcId) : null;
     let bonus = sb && sb.mods ? (sb.mods[ask.attr] || 0) : 0;
-    let item = { attr: ask.attr, dc: ask.dc, cond: ask.cond, fail: ask.fail };
+    let item = { attr: ask.attr, dc: ask.dc, cond: ask.cond, fail: ask.fail, byId: ask.byId || null, turn: ask.turn || null };
     let first = true;
     APXDice.check({ kind: 'save', attr: ask.attr, label: `${ask.attr} Save (DC ${ask.dc})`, who: e.name, bonus, perks: false,
         note: sb ? null : 'No stat block: add their save bonus yourself',
@@ -1939,6 +1978,7 @@ window.startCombat = function() {
 
 window.nextInitiativeTurn = function() {
     if (!window.gmInitiative.length) return;
+    _gmExpireCondTimers(window.gmInitiative[window.gmCurrentTurnIdx]);
     window.gmCurrentTurnIdx++;
     if (window.gmCurrentTurnIdx >= window.gmInitiative.length) {
         window.gmCurrentTurnIdx = 0;
@@ -2045,6 +2085,10 @@ function gmStartTurnAp(e) {
     e._apFirstSurprised = !!(first && e.surprised);
     if (e.faction === 'player') return;   // players' sheets add their own AP when their turn starts
     e.apCur = gmApCurrent(e) + (e._apFirstSurprised ? 1 : gmApMax(e));
+    if (_gmIsStunned(e)) {   // a Stunned creature starts its turn with no AP
+        e.apCur = 0;
+        gmLog({ text: `${_gmPublicName(e)} is Stunned and has no AP this turn.`, gmText: `${_gmGmName(e)} is Stunned: AP set to 0.`, kind: 'info' });
+    }
 }
 // Prone removed during combat: standing up cost the creature 2 AP (NPCs; players' sheets handle their own)
 window._gmStandUpAp = function(entryId) {

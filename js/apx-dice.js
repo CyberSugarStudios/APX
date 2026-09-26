@@ -59,9 +59,10 @@
             let fix = x => { if (x <= 2) { x = rnd(s); while (x === 1 && s > 1) x = rnd(s); } return x; };
             if (opt.reroll12 && v <= 2) { d.from = v; d.v = fix(v); }
             if (opt.explode && d.v === s) {                                       // High Roller R5: max → roll it again, add it
-                let x = rnd(s);
-                if (opt.reroll12) x = fix(x);
-                d.boom = [x];
+                // (and again, for as long as the new die is also a max)
+                d.boom = [];
+                let x, guard = 0;
+                do { x = rnd(s); if (opt.reroll12) x = fix(x); d.boom.push(x); } while (x === s && ++guard < 20);
             }
             dice.push(d);
         }
@@ -207,6 +208,7 @@
         .apxd-die.max .dsh *{stroke:#facc15} .apxd-die.min .dsh *{stroke:#f87171}
         .apxd-die.omen.sh{background:none} .apxd-die.omen .dsh *{fill:#3b0764;stroke:#c084fc}
         .apxd-die.dashed .dsh *{stroke-dasharray:3 2}
+        .apxd-die.boom .dsh *{stroke-dasharray:3 2;stroke:#f59e0b} .apxd-die.boom{color:#fcd34d}
         .apxd-q button.dq{position:relative;width:36px;height:34px;padding:0;background:none;border:none;display:inline-flex;align-items:center;justify-content:center;font-size:.64rem}
         .apxd-q button.dq .dsh *{fill:var(--c-surface2,#0f172a);stroke:var(--c-border2,#475569)}
         .apxd-q button.dq:hover .dsh *{stroke:var(--c-indigo,#6366f1);stroke-width:1.8}
@@ -414,8 +416,10 @@
         let cls = 'apxd-die' + (extraCls ? ' ' + extraCls : '') + (spin ? ' spin' : '');
         if (d.v === d.s && d.s > 1 && !extraCls) cls += ' max';
         if (d.v === 1 && !extraCls) cls += ' min';
-        let tip = [d.from ? `rerolled a ${d.from}` : '', d.boom ? `exploded: +${d.boom.join(' +')}` : ''].filter(Boolean).join('; ');
-        return `<span class="${cls}" data-s="${d.s || 6}" ${tip ? `title="${esc(tip)}"` : ''}>${d.v}${d.boom ? `<small>+${d.boom.join('+')}</small>` : ''}${d.from ? '<small>*</small>' : ''}</span>`;
+        let tip = d.from ? `rerolled a ${d.from}` : '';
+        // An exploded die stays a normal max die; the dice from the explosion sit beside it
+        let booms = (d.boom || []).map((b, i) => `<span class="apxd-die boom${b === d.s ? ' max' : ''}${spin ? ' spin' : ''}" data-s="${d.s || 6}" title="Dice Explosion: rolled again after a max${i ? ' (again)' : ''}">${b}</span>`).join('');
+        return `<span class="${cls}" data-s="${d.s || 6}" ${tip ? `title="${esc(tip)}"` : ''}>${d.v}${d.from ? '<small>*</small>' : ''}</span>${booms}`;
     }
     function groupsHtml(roll, spin) {
         return roll.groups.map((g, i) => (i || g.sign < 0 ? `<span class="apxd-mod" ${g.crit ? 'title="Critical hit: extra dice"' : ''}>${g.sign < 0 ? '−' : g.crit ? '+crit' : '+'}</span>` : '') +
@@ -520,8 +524,8 @@
         let nat = p.r.rolls[p.r.kept];
         p.nat = nat;
         p.total = nat + (p.bonus || 0) + (p.omenAdj || 0);
-        p.crit = p.canCrit !== false && nat === 20;
         p.fumble = nat === 1;
+        p.crit = p.canCrit !== false && (nat === 20 || (!!p.forceCrit && !p.fumble));   // forceCrit: Fortunate Fighter Rank 5
     }
 
     // Omen + High Roller buttons for any card with a d20 part
@@ -556,17 +560,24 @@
         let r = perk('luc_omen');
         let stored = S().omenDice || [];
         if (r && stored.length && p.omenAt === undefined) {
+            // Rank 3: on a natural 1 or 20, using an Omen die is a swap. The natural roll takes that die's
+            // place in your Omen dice, and you use the Omen die instead of the critical result.
+            let swap = !omenOnly && r >= 3 && (p.nat === 20 || p.nat === 1) && !p.banked;
             stored.forEach((v) => {
                 let use = (adj) => {
                     // Look the die up NOW — another card may have used it already
                     let st = S(), cur = (st.omenDice || []).slice(), at = cur.indexOf(v);
                     if (at < 0) { renderCard(c); return; }
-                    cur.splice(at, 1); st.omenDice = cur;
+                    let nat = p.nat;
+                    if (swap) { cur[at] = nat; p.banked = nat; p.swapNote = `Swapped: the natural ${nat} is now one of your Omen dice`; }
+                    else cur.splice(at, 1);
+                    st.omenDice = cur;
                     p.r.rolls.push(v); p.r.kept = p.r.rolls.length - 1; p.omenAt = p.r.kept; p.omenAdj = adj || 0;
                     settleD20(p); onChange(); save(); refreshPerkBar(); refreshAllActions();
                 };
                 // One row per Omen die: [Use Omen 7] [+2] [−2]
-                acts.push({ label: `Use Omen ${v}`, cls: 'omen', row: true, title: 'Replace this d20 with a stored Omen die', run: () => use(0) });
+                acts.push({ label: swap ? `Swap for Omen ${v}` : `Use Omen ${v}`, cls: 'omen', row: true,
+                    title: swap ? `Omen Rank 3: your natural ${p.nat} goes into your Omen dice, and this roll becomes the Omen ${v}` : 'Replace this d20 with a stored Omen die', run: () => use(0) });
                 if (r >= 2) {
                     let m = lucMod();
                     if (m) {
@@ -577,31 +588,7 @@
             });
         }
         if (omenOnly) return acts;   // (banking and Luck rerolls are for your own rolls)
-        if (r >= 3 && (p.nat === 20 || p.nat === 1) && !p.banked && p.omenAt === undefined && stored.length) {
-            // Banking swaps: the natural 1 or 20 goes into your Omen dice, and the held die it
-            // replaces becomes this roll (from Rank 2 you may add or subtract your LUC modifier)
-            acts.push({ label: `Bank ${p.nat} as Omen`, cls: 'omen', title: 'Omen Rank 3: store this natural roll as an Omen die; one of your held dice takes its place as the roll', run: async () => {
-                let cur = (S().omenDice || []).slice(); if (!cur.length) return;
-                let m = Math.abs(lucMod());
-                let choices = [];
-                cur.forEach((v, i) => {
-                    choices.push(['i' + i + ':0', `Roll becomes ${v}`, 'pri']);
-                    if (r >= 2 && m) { choices.push(['i' + i + ':+', `${v} + ${m}`, 'pri']); choices.push(['i' + i + ':-', `${v} − ${m}`, 'pri']); }
-                });
-                let ans = await ask(`Bank the ${p.nat}`, `The ${p.nat} goes into your Omen dice, and the die it replaces becomes this roll${r >= 2 && m ? ' (add or subtract your LUC modifier if you like)' : ''}. Which one?`, choices);
-                if (!ans || p.banked || p.omenAt !== undefined) return;
-                let [iPart, sign] = ans.split(':'), i = parseInt(iPart.slice(1));
-                let now = (S().omenDice || []).slice(), v = cur[i];
-                let at = now[i] === v ? i : now.indexOf(v); if (at < 0) { renderCard(c); return; }
-                let adj = sign === '+' ? m : sign === '-' ? -m : 0;
-                now[at] = p.nat; S().omenDice = now;
-                p.banked = p.nat;
-                p.r.rolls.push(v); p.r.kept = p.r.rolls.length - 1; p.omenAt = p.r.kept; p.omenAdj = adj;
-                settleD20(p);
-                if (c.badges) c.badges.push(['info', `Banked the ${p.banked}; the roll is now the Omen ${v}${adj ? (adj > 0 ? '+' : '−') + Math.abs(adj) : ''}`]);
-                onChange(); save(); refreshPerkBar(); refreshAllActions();
-            } });
-        }
+        // (Rank 3's swap of a natural 1 or 20 happens through the Omen buttons above)
         if (!p.luckUsed && window.state && document.getElementById('luckPtsInput')) {
             let pts = S().luckPts || 0;
             let r3 = perk('luc_highroller') >= 3;
@@ -682,7 +669,7 @@
                 } catch (e) { console.warn('Roll result:', e); }
             };
             let noteBadge = () => c.resultNote ? [['info', c.resultNote]] : [];
-            let redo = () => { result(); c.badges = modeBadges(p.badgeMode || mode, o.advSources, o.disSources).concat(o.autoFail ? [['fum', 'Auto-fail', o.autoFail]] : [], o.note ? [['info', o.note]] : [], noteBadge()); c.actions = d20Actions(c, p, redo); renderCard(c); emit(); };
+            let redo = () => { result(); c.badges = modeBadges(p.badgeMode || mode, o.advSources, o.disSources).concat(o.autoFail ? [['fum', 'Auto-fail', o.autoFail]] : [], o.note ? [['info', o.note]] : [], noteBadge(), p.swapNote ? [['info', p.swapNote]] : []); c.actions = d20Actions(c, p, redo); renderCard(c); emit(); };
             c._redo = redo;
             result(); c.badges = c.badges.concat(noteBadge());
             c.actions = d20Actions(c, p, redo);
@@ -756,6 +743,8 @@
                 if (dst.confirm) c.badges.push([dst.maxed ? 'crit' : 'info', `${dp.confirmSrc} R5 second attack roll: ${dst.confirm.total} (d20 ${dst.confirm.nat})` + (dst.maxed ? ' · max critical damage' : '')]);
                 if (apNote) c.badges.push(apNote);
                 if (o.useNote) c.badges.push([o.useWarn ? 'fum' : 'info', o.useNote]);
+                if (atk.swapNote) c.badges.push(['info', atk.swapNote]);
+                if (dst.ffCrit) c.badges.push(['crit', 'Fortunate Fighter: Luck Point spent, a hit is a critical hit']);
             };
             let extraActs = () => {
                 let acts = [];
@@ -764,6 +753,18 @@
                     let r2 = d20(mode === 'dis' || gamble ? 'dis' : mode); let nat = r2.rolls[r2.kept];
                     dst.confirm = { nat, total: nat + (atk.bonus || 0) }; redo();
                 } });
+                // Fortunate Fighter Rank 5: once per turn, spend a Luck Point to make a hit a critical hit
+                let ffKey = window._pwCombatCode ? (window._pwLastTurnKey || 'turn') : null;
+                if (usePerks && perk('luc_fortunatefighter') >= 5 && !atk.crit && !atk.fumble && window.state && document.getElementById('luckPtsInput')) {
+                    let pts = S().luckPts || 0, usedTurn = ffKey && tray.ffCritKey === ffKey;
+                    acts.push({ label: 'Luck Point: auto-crit', cls: 'luck', hidden: pts <= 0 || usedTurn,
+                        title: `Fortunate Fighter Rank 5: once per turn, spend 1 Luck Point to make this attack a critical hit if it hits (${pts} left)`, run: () => {
+                            let st = S(); if ((st.luckPts || 0) <= 0) return;
+                            st.luckPts -= 1; atk.forceCrit = true; dst.ffCrit = true; tray.ffCritKey = ffKey;
+                            settleD20(atk); redo(); save(); refreshAllActions();
+                            let li = document.getElementById('luckPtsInput'); if (li) li.value = st.luckPts;
+                        } });
+                }
                 if (dst.confirm && !dst.maxed) acts.push({ label: 'It hit: max damage', cls: 'luck', title: 'The second attack roll hit: deal maximum critical damage', run: () => { dst.maxed = true; redo(); } });
                 if (gamble && hr >= 4 && !atk.fumble && !dst.apGained && typeof window.apxSetApValue === 'function') acts.push({ label: 'Gamble hit: +1 AP', cls: 'luck', title: 'High Roller Rank 4: landing a Gamble gives you 1 AP', run: () => {
                     dst.apGained = true; window.apxSetApValue((window.apxApCurrent ? window.apxApCurrent() : 0) + 1); redo();
@@ -844,12 +845,13 @@
 
         // Omen: roll the dice for this rest (Rank 5 gets 1, 10 and 20 without rolling)
         // keep: Omen dice to hold on to; only the empty slots are filled
-        rollOmen(keep) {
+        rollOmen(keep, preset) {
             let r = perk('luc_omen'); if (!r) return;
             keep = Array.isArray(keep) ? keep.slice() : [];
             let need = Math.max(0, omenPerRest(r) - keep.length);
             let fresh;
-            if (r >= 5) {
+            if (Array.isArray(preset)) fresh = preset.slice(0, need);
+            else if (r >= 5) {
                 // Rank 5: no roll, the missing ones of 1, 10 and 20
                 let pool = [1, 10, 20];
                 keep.forEach(v => { let i = pool.indexOf(v); if (i >= 0) pool.splice(i, 1); });
@@ -909,6 +911,12 @@
             st.hrExplodeUsed = false;
             if (perk('luc_omen')) {
                 // opts.reroll: which held Omen dice to roll again (by position); the rest are kept
+                // opts.omenSet (Rank 5): the slots exactly as assigned, [{ v, kept }]
+                if (opts && Array.isArray(opts.omenSet)) {
+                    st.omenRollPending = true;
+                    APXDice.rollOmen(opts.omenSet.filter(x => x.kept).map(x => x.v), opts.omenSet.filter(x => !x.kept).map(x => x.v));
+                    refreshPerkBar(); return;
+                }
                 let cur = (st.omenDice || []).slice();
                 let keep = opts && Array.isArray(opts.reroll) ? cur.filter((v, i) => !opts.reroll.includes(i))
                     : (opts && opts.keepOmen) ? cur : [];

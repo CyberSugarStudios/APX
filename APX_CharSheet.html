@@ -168,10 +168,14 @@
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
             background-color: rgba(0, 0, 0, 0.88);
             display: flex; justify-content: center; align-items: center;
-            z-index: 1000; backdrop-filter: blur(4px);
-            opacity: 0; pointer-events: none; transition: opacity 0.2s;
+            z-index: 1000;
+            /* Closed modals are fully hidden (not just transparent), and there's no backdrop blur:
+               dozens of invisible full-screen blur layers ran phones out of graphics memory, so
+               parts of the page stopped being drawn (blank patches, old content showing through). */
+            opacity: 0; pointer-events: none; visibility: hidden;
+            transition: opacity 0.2s, visibility 0s linear 0.2s;
         }
-        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; visibility: visible; transition: opacity 0.2s, visibility 0s; }
         /* Stacked modals increment z-index so nested popups always appear on top */
         .modal-overlay.active ~ .modal-overlay.active { z-index: 1100; }
         .modal-overlay.active ~ .modal-overlay.active ~ .modal-overlay.active { z-index: 1200; }
@@ -470,8 +474,8 @@
         }
 
     </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20269252217">
-    <link rel="stylesheet" href="css/tailwind.css?v=20269252217">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20269252306">
+    <link rel="stylesheet" href="css/tailwind.css?v=20269252306">
 </head>
 <body class="p-2 md:p-6 flex justify-center text-sm ml-0 lg:ml-8 transition-all" style="padding-top:4.25rem"><!-- (room for the floating Roster / Settings buttons) -->
     <!-- Auth bar removed — account controls are in the sidebar -->
@@ -2357,38 +2361,38 @@
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20269252217"></script>
-    <script src="js/apx-patch-notes.js?v=20269252217"></script>
-    <script src="js/apx-dice.js?v=20269252217"></script>
-    <script src="js/apx-data.js?v=20269252217"></script>
-    <script src="js/apx-item-effects.js?v=20269252217"></script>
-    <script src="js/apx-perks-db.js?v=20269252217"></script>
-    <script src="js/apx-migrations.js?v=20269252217"></script>
-    <script src="js/apx-roster.js?v=20269252217"></script>
-    <script src="js/apx-state.js?v=20269252217"></script>
-    <script src="js/apx-origin-wizard.js?v=20269252217"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20269252217"></script>
-    <script src="js/apx-inventory-ui.js?v=20269252217"></script>
-    <script src="js/apx-craft-shared.js?v=20269252217"></script>
-    <script src="js/apx-armor-forge.js?v=20269252217"></script>
-    <script src="js/apx-weapon-forge.js?v=20269252217"></script>
-    <script src="js/apx-power-crafter.js?v=20269252217"></script>
-    <script src="js/apx-consumable-crafter.js?v=20269252217"></script>
-    <script src="js/apx-npc-crafter.js?v=20269252217"></script>
-    <script src="js/apx-engine.js?v=20269252217"></script>
-    <script src="js/apx-perks-ui.js?v=20269252217"></script>
-    <script src="js/apx-rest.js?v=20269252217"></script>
-    <script src="js/apx-looting.js?v=20269252217"></script>
-    <script src="js/apx-main.js?v=20269252217"></script>
+    <script src="js/apx-dialogs.js?v=20269252306"></script>
+    <script src="js/apx-patch-notes.js?v=20269252306"></script>
+    <script src="js/apx-dice.js?v=20269252306"></script>
+    <script src="js/apx-data.js?v=20269252306"></script>
+    <script src="js/apx-item-effects.js?v=20269252306"></script>
+    <script src="js/apx-perks-db.js?v=20269252306"></script>
+    <script src="js/apx-migrations.js?v=20269252306"></script>
+    <script src="js/apx-roster.js?v=20269252306"></script>
+    <script src="js/apx-state.js?v=20269252306"></script>
+    <script src="js/apx-origin-wizard.js?v=20269252306"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20269252306"></script>
+    <script src="js/apx-inventory-ui.js?v=20269252306"></script>
+    <script src="js/apx-craft-shared.js?v=20269252306"></script>
+    <script src="js/apx-armor-forge.js?v=20269252306"></script>
+    <script src="js/apx-weapon-forge.js?v=20269252306"></script>
+    <script src="js/apx-power-crafter.js?v=20269252306"></script>
+    <script src="js/apx-consumable-crafter.js?v=20269252306"></script>
+    <script src="js/apx-npc-crafter.js?v=20269252306"></script>
+    <script src="js/apx-engine.js?v=20269252306"></script>
+    <script src="js/apx-perks-ui.js?v=20269252306"></script>
+    <script src="js/apx-rest.js?v=20269252306"></script>
+    <script src="js/apx-looting.js?v=20269252306"></script>
+    <script src="js/apx-main.js?v=20269252306"></script>
 
     <!-- Firebase (cloud sync — requires firebase-config.js to be configured) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20269252217"></script>
-    <script src="js/apx-firebase.js?v=20269252217"></script>
-    <script src="js/apx-battlemap.js?v=20269252217"></script>
-    <script src="js/apx-map-tiles.js?v=20269252217"></script>
+    <script src="js/firebase-config.js?v=20269252306"></script>
+    <script src="js/apx-firebase.js?v=20269252306"></script>
+    <script src="js/apx-battlemap.js?v=20269252306"></script>
+    <script src="js/apx-map-tiles.js?v=20269252306"></script>
     <script>
     // ── Sidebar: folders, worlds, meatball menus ─────────────
     window._sidebarChars = [];
@@ -3515,6 +3519,7 @@
                     window._pwLastTurnKey = key;
                     if (!first && ct.apGain1 && window.apxSetApValue) window.apxSetApValue(1);   // Surprised on your first turn: just 1 AP
                     else if (!first && window.apxResetAp) window.apxResetAp();
+                    if (!first) window.apxStunnedTurnStart?.();   // Stunned: no AP this turn
                     if (!first && window.apxBurnTick) window.apxBurnTick();   // Burning: 1d10 Fire at the start of your turn
                 }
                 if (myUid && ct.companionOf === myUid && window.state?.companion && window._pwCompTurnKey !== key) {
@@ -3538,6 +3543,7 @@
                         // Surprised on your first turn of combat: you have just 1 AP
                         if (!first && m._curApGain1 && window.apxSetApValue) window.apxSetApValue(1);
                         else if (!first && window.apxResetAp) window.apxResetAp();
+                        if (!first) window.apxStunnedTurnStart?.();   // Stunned: no AP this turn
                         if (!first && window.apxBurnTick) window.apxBurnTick();   // Burning: 1d10 Fire at the start of your turn
                     }
                 });

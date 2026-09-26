@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.9.25.2217';
+window.APX_VERSION = 'v2026.9.25.2306';
 
         window.state = getInitialState();
 
@@ -396,6 +396,14 @@ window.APX_VERSION = 'v2026.9.25.2217';
         window.apxResetAp = function() { apxSetAp(apxApCurrent() + apxApMax()); };
         window.apxFillAp = function() { apxSetAp(apxApMax()); };
         window.apxSetApValue = function(v) { apxSetAp(v); };
+        // A Stunned character starts its turn with 0 AP (called when your turn comes up)
+        window.apxStunnedTurnStart = function() {
+            let st = window.state; if (!st) return;
+            let eff = window.apxEffectiveConditions ? window.apxEffectiveConditions(st.conditions || [], st).map(c => c.id) : (st.conditions || []);
+            if (!eff.includes('stunned')) return;
+            apxSetAp(0);
+            if (window.APXDice && window.APXDice.notify) window.APXDice.notify('You are Stunned: you have no AP this turn.', { kind: 'note' });
+        };
 
         // XP history (grants from the GM, with the bonuses this character earned)
         // ── XP log: XP gained (from the GM, with reason, session and date) and XP spent ──

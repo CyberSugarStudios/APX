@@ -174,7 +174,7 @@
             slotsUsed ? `All Power Slots restored (${slotsUsed} used)` : 'Power Slots: all available',
             `Luck Points → ${maxLuck}`,
             s.companion ? `${s.companion.name || 'Companion'}: full HP, power slots and charges` : null,
-            omenRank >= 5 ? (unusedOmen ? 'Omen Dice: yours are kept; any empty slot gets the missing 1, 10 or 20' : 'New Omen Dice: 1, 10 and 20')
+            omenRank >= 5 ? 'Omen Dice: a Natural 1, a 10 and a Natural 20 to assign to your slots (below)'
                 : omenRank && !unusedOmen ? 'New Omen Dice rolled' : null,
             (s.perks || {}).luc_highroller >= 5 ? `High Roller: Exploding Dice ready again` : null,
             recoverUsedList(s) ? `Recover: ${recoverUsedList(s)} ready again` : null
@@ -188,6 +188,23 @@
                     <input type="checkbox" data-omen-reroll="${i}"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:1.7rem;height:1.7rem;border-radius:.35rem;background:#3b0764;border:1px solid #c084fc">${v}</span></label>`).join('')}</div>
                 <div style="font-size:.66rem;color:var(--c-text-dimmer);margin-top:.35rem">Unchecked dice are kept.${Math.max(0, omenCap - unusedOmen) ? ` ${omenCap - unusedOmen} empty slot${omenCap - unusedOmen > 1 ? 's are' : ' is'} filled with ${omenRank >= 5 ? 'the missing 1, 10 or 20' : 'a new roll'}.` : ''}${omenRank >= 5 ? ' Rank 5: rolled-again dice come back as the missing 1, 10 or 20.' : ''}</div>
             </div>` : '';
+        // Rank 5: no roll. A Natural 1, a 10 and a Natural 20 are generated; each can fill an empty
+        // slot or replace an unspent die (each result used once). Default: keep held dice, fill the rest.
+        let r5 = null;
+        if (omenRank >= 5) {
+            let held = (s.omenDice || []).slice(0, 3), pool = [1, 10, 20];
+            let spare = pool.filter(v => !held.includes(v)).concat(pool.filter(v => held.includes(v)));
+            let pick = [0, 1, 2].map(i => i < held.length ? 'k' : String(spare.shift()));
+            r5 = { held, pick };
+            let opt = (i) => (i < held.length ? [['k', `Keep ${held[i]}`]] : []).concat(pool.map(v => [String(v), v === 1 ? 'Natural 1' : v === 20 ? 'Natural 20' : '10']));
+            omenHtml = `<div style="border:1px solid #7e22ce;background:rgba(88,28,135,.18);border-radius:.45rem;padding:.5rem .6rem;margin-bottom:.8rem">
+                <div style="font-size:.74rem;font-weight:800;color:#e9d5ff;margin-bottom:.35rem">Omen Rank 5: assign your Natural 1, 10 and Natural 20</div>
+                <div style="display:flex;flex-direction:column;gap:.35rem">${[0, 1, 2].map(i => `<label style="display:flex;align-items:center;gap:.45rem;font-size:.76rem;font-weight:800;color:#f3e8ff">
+                    <span style="min-width:3.6rem">Slot ${i + 1}</span><span style="font-size:.68rem;font-weight:600;color:var(--c-text-dimmer);min-width:4.6rem">${i < held.length ? `holds ${held[i]}` : 'empty'}</span>
+                    <select data-omen-slot="${i}" style="flex:1;background:#1e1b4b;color:#f3e8ff;border:1px solid #7e22ce;border-radius:.3rem;padding:.2rem .3rem;font-weight:800;font-size:.76rem">${opt(i).map(([v, l]) => `<option value="${v}" ${pick[i] === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`).join('')}</div>
+                <div style="font-size:.66rem;color:var(--c-text-dimmer);margin-top:.35rem">Each result goes in one slot. It can fill an empty slot or replace an unspent Omen Die; a result you don't place is lost.</div>
+            </div>`;
+        }
         let back = panel('Full Rest', `<div class="apxdlg-msg" style="margin-bottom:.5rem">8 hours of rest (6 asleep). This will:</div>
             <ul style="margin:0 0 .8rem 1.1rem;padding:0;list-style:disc;font-size:.76rem;color:var(--c-text-dimmer);line-height:1.5">${lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>
             ${omenHtml}
@@ -195,7 +212,21 @@
             <div class="apxdlg-row" style="flex-wrap:wrap"><button class="apxdlg-btn apxdlg-cancel" data-cancel>Cancel</button>
                 <button class="apxdlg-btn apxdlg-ok" data-go="rest">Take Full Rest</button></div>`, 440);
         back.querySelector('[data-cancel]').onclick = () => back.remove();
+        // Rank 5: picking a result another slot already has swaps them, so each result is used once
+        if (r5) back.querySelectorAll('[data-omen-slot]').forEach(sel => sel.onchange = () => {
+            let i = +sel.dataset.omenSlot, v = sel.value, prev = r5.pick[i];
+            r5.pick[i] = v;
+            if (v !== 'k') r5.pick.forEach((pv, j) => {
+                if (j === i || pv !== v) return;
+                let free = ['1', '10', '20'].find(x => !r5.pick.includes(x));
+                let nv = prev !== 'k' ? prev : j < r5.held.length ? 'k' : (free || v);
+                r5.pick[j] = nv;
+                let other = back.querySelector(`[data-omen-slot="${j}"]`); if (other) other.value = nv;
+            });
+        });
         back.querySelectorAll('[data-go]').forEach(b => b.onclick = () => {
+            let omenSet = r5 ? r5.pick.map((v, i) => v === 'k' ? { v: r5.held[i], kept: true } : { v: parseInt(v, 10) })
+                .filter((x, i, a) => x.kept || a.findIndex(y => !y.kept && y.v === x.v) === i) : null;
             let reroll = [...back.querySelectorAll('[data-omen-reroll]')].filter(x => x.checked).map(x => parseInt(x.dataset.omenReroll));
             let s2 = st();
             s2.currentHp = mh;
@@ -209,7 +240,7 @@
                 restoreCompanionSlots(true);
                 try { let sb = window.companionStatBlock && window.companionStatBlock(); if (sb && sb.maxHp) s2.companion.currentHp = sb.maxHp; } catch (e) { }
             }
-            if (window.APXDice) window.APXDice.onFullRest({ reroll });
+            if (window.APXDice) window.APXDice.onFullRest(omenSet ? { omenSet } : { reroll });
             refresh();
             back.remove();
             toast('Full Rest done: HP full, Rest Dice, Power Slots and Luck restored.');
