@@ -11,11 +11,11 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.9.25.1822',
-        released: '2026-09-25T18:22:00',
-        releasedText: 'September 25, 2026 · 6:22 PM',
+        version: 'v2026.9.25.1839',
+        released: '2026-09-25T18:39:00',
+        releasedText: 'September 25, 2026 · 6:39 PM',
         title: 'Playtest Update',
-        intro: 'This update comes straight from our playtest tables. GMs get world rules, a Loot Maker, NPCs that carry and use gear, and magic items that can change almost anything on a sheet. Players get Luck and Looting, trading, shareable Omen dice, Loyal Companions that act on their own turns, powers that roll like weapons and use their AP and Power Slots, weapon properties that apply themselves on a hit, a one-screen Origin Builder, full-resolution maps at any size, and a dice roller with a distinct shape for every die that doubles as the combat log and asks for your Wound and Bleed Out saves. Initiative runs with or without a battle map, characters are created and switched cleanly, and deleting an account removes all of its data. Your characters and worlds update when you open them. Nothing is lost, and anything a rule change touched is explained.',
+        intro: 'This update comes straight from our playtest tables. GMs get world rules, a Loot Maker, NPCs that carry and use gear, and magic items that can change almost anything on a sheet. Players get Luck and Looting, trading, shareable Omen dice, Loyal Companions that act on their own turns, powers that roll like weapons and use their AP and Power Slots, weapon properties that apply themselves on a hit, a one-screen Origin Builder, full-resolution maps at any size, and a dice roller with a distinct shape for every die that doubles as the combat log and asks for your Wound and Bleed Out saves. Initiative runs with or without a battle map, characters are created and switched cleanly, pages load faster (especially on phones), and deleting an account removes all of its data. Your characters and worlds update when you open them. Nothing is lost, and anything a rule change touched is explained.',
         index: [
             ['For GMs', [
                 'World Settings: Starting XP, Max GP, starting Cu, and Point Buy or Standard Array for every character in your world.',
@@ -57,6 +57,8 @@
             ]],
             ['Also', [
                 'Small text is easier to read. XP bonuses from INT, Educated and Expertise apply automatically, conditions bring their linked conditions, the toolbar is tidier, and there are many fixes.',
+                'Pages load and respond faster, especially on phones: the styling is now one small prebuilt file instead of being generated in your browser as you use the app.',
+                'After an update, your browser always loads the new version of every file, never an old saved copy.',
                 'See the Character Sheet and GM Tools for the full details.'
             ]]
         ],
@@ -167,6 +169,8 @@
                 'Heavy ranged weapons show AGI in the ATT column.'
             ]],
             ['Layout and Display', [
+                'Faster everywhere, most of all on phones: the styling is now one small prebuilt file, so the sheet no longer rebuilds its styles in your browser every time something on it changes.',
+                'Updates arrive whole: every file carries the version number, so your browser never mixes a new page with an old saved script.',
                 'Settings sits beside World at the top of the Character Sheet. Undo and Redo are at the bottom of the Roster menu, and Ctrl+Z and Ctrl+Y still work anywhere.',
                 'Ammo is one stack per type: another bundle adds 20 rounds to your "Medium Ammo".',
                 'Power Crafter Step 5 puts Minor and Moderate Utilities in one column and Major, Master and Mythic in the other.',
@@ -286,6 +290,7 @@
                 'Reveal toggles sit beside Edit on pins and on every sub-note in popups. Races stay with their own world, and locations can link NPCs.'
             ]],
             ['Fixes', [
+                'Faster pages: the styling is now one small prebuilt file (no more "cdn.tailwindcss.com should not be used in production" warning), and every file carries the version number so browsers never run an old saved copy after an update.',
                 'Auto-save is dependable (including on Brave), with no more "write stream exhausted" errors in long sessions.'
             ]]
         ]
