@@ -39,7 +39,7 @@
             loadOtherMapImage: () => Promise.resolve(null),
             loadOtherMapImageForPlayer: () => Promise.resolve(null),
             deleteOtherMapImage: () => Promise.resolve(),
-            saveMapTile: () => Promise.resolve(), loadMapTile: () => Promise.resolve(null), deleteMapTiles: () => Promise.resolve(),
+            saveMapTile: () => Promise.resolve(), loadMapTile: () => Promise.resolve(null), deleteMapTiles: () => Promise.resolve(), resetWriteStream: () => Promise.resolve(),
             saveBattleImage: () => Promise.resolve(), loadBattleImage: () => Promise.resolve(null),
             setActiveCharId: () => {}, setGmCondition: () => Promise.resolve(),
             addXpGrant: () => Promise.resolve(), ackXpGrants: () => Promise.resolve(), addXpToPlayer: () => Promise.resolve(),
@@ -549,6 +549,10 @@
         return snap.exists ? (snap.data().imageData || null) : null;
     }
     // Delete a map's tiles, except those of version keepV (null = all of them)
+    // Restart Firestore's connection (used between large tile uploads; queued writes resume after)
+    async function resetWriteStream() {
+        try { await db.disableNetwork(); } finally { await db.enableNetwork(); }
+    }
     async function deleteMapTiles(worldId, mapKey, keepV) {
         let user = currentUser(); if (!user || !worldId || !mapKey) return;
         let key = String(mapKey).replace(/[^\w-]/g, '_');
@@ -927,7 +931,7 @@
         savePublicWorldMap, loadPublicWorldMap, loadWorldMapForPlayer, setGmHpOverride, updatePlayerBattlePos,
         writeBattlePosition, listenBattlePositions,
         saveOtherMapImage, loadOtherMapImage, loadOtherMapImageForPlayer, deleteOtherMapImage,
-        saveMapTile, loadMapTile, deleteMapTiles,
+        saveMapTile, loadMapTile, deleteMapTiles, resetWriteStream,
         saveBattleImage, loadBattleImage, loadBattleImageForPlayer, deleteBattleImage,
         addXpGrant, ackXpGrants, setGmCondition, publishCombatLog, writeRollLog, setGmCompanionHp,
         gmGiveToPlayer, ackGmGifts, writeOutbox, clearOutbox, ackGift, publishLootRequest,

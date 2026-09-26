@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.9.25.1630',
-        released: '2026-09-25T16:30:00',
-        releasedText: 'September 25, 2026 · 4:30 PM',
+        version: 'v2026.9.25.1700',
+        released: '2026-09-25T17:00:00',
+        releasedText: 'September 25, 2026 · 5:00 PM',
         title: 'Playtest Update',
         intro: 'This update comes straight from our playtest tables. GMs get world rules, a Loot Maker, NPCs that carry and use gear, and magic items that can change almost anything on a sheet. Players get Luck and Looting, trading, shareable Omen dice, Loyal Companions that act on their own turns, powers that roll their own attacks and damage, a one-screen Origin Builder, full-resolution maps at any size, and a dice roller with a distinct shape for every die that doubles as the combat log and asks for your Wound and Bleed Out saves. Initiative runs with or without a battle map, characters are created and switched cleanly, and deleting an account removes all of its data. Your characters and worlds update when you open them. Nothing is lost, and anything a rule change touched is explained.',
         index: [
@@ -188,9 +188,10 @@
             ]],
             ['Full-Resolution Maps', [
                 'Upload a map of any size to the World Map or an Other Map. Every map gets a compressed preview (up to 1600 px on its longest side) that loads instantly. Grid squares, tokens, pins and fog are placed on the preview, exactly as before.',
-                'A map that fits in the preview without shrinking stops there. A larger one is also cut into full-resolution tiles (1024 px squares, plus half-resolution tiles for very large maps), each saved as its own small record well within Firestore\'s limits. There\'s no Firebase Storage and no paid plan.',
+                'A map that fits in the preview without shrinking stops there. A larger one is also cut into full-resolution tiles (512 px squares at high quality, plus half-resolution tiles for very large maps), each saved as its own small record well within Firestore\'s limits. A 6000 × 9000 map makes about 300 tiles. There\'s no Firebase Storage and no paid plan.',
                 'Zoomed out, only the preview loads. As you zoom in, the tiles for the visible area load at the detail your screen needs (high-density screens get it sooner), and they are kept in the browser so each downloads once.',
-                'The upload shows its progress on the Map tab or in the map window ("saving tiles 12/83…"). The preview appears first, and players get the new tiles when the upload finishes. Uploading a new image removes the old tiles, and deleting a map, a world or an account removes them all.',
+                'Uploads confirm each tile before sending the next, restart the connection every few MB so Firestore never refuses it, and retry a tile if the connection is busy.',
+                'The upload shows its progress on the Map tab or in the map window ("saving tiles 120/297…"). The preview appears first, and players get the new tiles when the upload finishes. Uploading a new image removes the old tiles, and deleting a map, a world or an account removes them all.',
                 'Previews are compressed with browser-image-compression when it can load (a local copy in js/vendor/, or jsdelivr), and with the built-in compressor otherwise.'
             ]],
             ['Initiative and Battle Maps', [

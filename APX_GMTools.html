@@ -1574,6 +1574,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 otherMaps:       priv.otherMaps        || [],
                 worldMapSaved:   priv.worldMapSaved   || false,
                 worldMapDataUrl: priv.worldMapDataUrl || null,
+                worldMapTiles:   priv.worldMapTiles   || null,   // full-resolution tiles (large maps)
                 xpLog:           priv.xpLog || [],
                 loot:            priv.loot || [],
                 lootDefeated:    priv.lootDefeated || 0,
@@ -5112,8 +5113,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         // This is idempotent — runs silently every time the Map tab
                         // is first opened so even maps uploaded before this patch
                         // get published automatically.
-                        let w = getActiveWorld();
-                        if (w?.inviteCode) {
+                        // (once per world per browser session: it's a large write)
+                        let w = getActiveWorld(), syncKey = 'apxPubMapSync_' + _activeWorldId;
+                        let synced = false; try { synced = !!sessionStorage.getItem(syncKey); } catch (e) { }
+                        if (w?.inviteCode && !synced && !window._gmMapUploading) {
+                            try { sessionStorage.setItem(syncKey, '1'); } catch (e) { }
                             window.apxAuth.savePublicWorldMap(w.inviteCode, dataUrl)
                                 .catch(e => console.warn('initMap public sync:', e.message));
                         }
@@ -5214,15 +5218,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // mapKey: 'worldmap' or an Other Map's id. showPreview(dataUrl, manifest) displays it.
     async function _gmUploadMapFile(file, mapKey, wid, showPreview, savePreview, progress) {
         let man = null;
+        window._gmMapUploading = true;
+        try { return await _gmUploadMapFileInner(); } finally { window._gmMapUploading = false; }
+        async function _gmUploadMapFileInner() {
         let res = await window.APXTiles.processUpload(file, {
             mapKey, cachePrefix: _gmTileOpts(wid).prefix,
             onProgress: progress,
             onPreview: async (preview, m) => { man = m; await showPreview(preview, m); await savePreview(preview); },
-            saveTile: (id, dataUrl) => window.apxAuth.saveMapTile(wid, id, dataUrl, man.key, man.v)
+            saveTile: (id, dataUrl) => window.apxAuth.saveMapTile(wid, id, dataUrl, man.key, man.v),
+            resetStream: () => window.apxAuth.resetWriteStream ? window.apxAuth.resetWriteStream() : null
         });
         // Remove the tiles of any earlier upload of this map (and all of them if this one needs none)
         window.apxAuth.deleteMapTiles(wid, mapKey, res.manifest ? res.manifest.v : null).catch(e => console.warn('Old map tiles:', e.message));
         return res;
+        }
     }
     async function _gmUploadWorldMap(file) {
         let wid = _activeWorldId, notes = _wNotes;

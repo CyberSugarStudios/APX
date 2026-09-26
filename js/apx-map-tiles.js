@@ -7,7 +7,7 @@
 //
 // A map small enough to fit in the preview without shrinking stops there.
 // A bigger one (where shrinking would blur text and fine lines) is also cut
-// into TILES: 1024 px squares at full resolution, plus half-resolution
+// into TILES: 512 px squares at full resolution, plus half-resolution
 // (and quarter…) levels for very large maps. Each tile is its own Firestore
 // document, kept well under the 1 MiB limit (a tile that comes out too big
 // is re-encoded at lower quality, or split into four smaller tiles).
@@ -26,10 +26,11 @@
     'use strict';
 
     const PREVIEW_MAX = 1600;        // longest side of the preview (the size everything is positioned on)
-    const TILE = 1024;               // tile edge, in the tile level's own pixels
+    const TILE = 512;                // tile edge, in the tile level's own pixels (small tiles keep quality high)
     const TILE_MAX_CHARS = 800000;   // a tile's data URL stays under this (Firestore's limit is 1,048,576 bytes per document)
     const PREVIEW_MAX_CHARS = 750000;
-    const QUALITIES = [0.86, 0.76, 0.66, 0.56];
+    const QUALITIES = [0.92, 0.86, 0.8, 0.72];
+    const STREAM_RESET_BYTES = 4 * 1024 * 1024;   // restart Firestore's write connection this often while uploading tiles
     const COMPRESSOR_URLS = ['js/vendor/browser-image-compression.js',
         'https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js'];
 
@@ -211,7 +212,22 @@
             let L = manifest.levels[li];
             for (let r = 0; r < L.rows; r++) for (let c = 0; c < L.cols; c++) jobs.push({ li, r, c });
         }
-        let type = encodeType(), done = 0, total = jobs.length;
+        let type = encodeType(), done = 0, total = jobs.length, sent = 0;
+        // Each tile is saved (and confirmed) before the next. Every few MB the write connection is
+        // restarted: Firestore refuses a connection that has carried too much ("write stream exhausted").
+        let save = async (id, u) => {
+            if (sent > STREAM_RESET_BYTES && o.resetStream) { sent = 0; try { await o.resetStream(); } catch (e) { } }
+            for (let attempt = 0; ; attempt++) {
+                try { await o.saveTile(id, u, done + 1, total); break; }
+                catch (e) {
+                    if (attempt >= 4) throw e;
+                    say(`connection busy, retrying tile ${done + 1}/${total}…`);
+                    if (o.resetStream) { try { await o.resetStream(); } catch (e2) { } }
+                    await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+                }
+            }
+            sent += u.length;
+        };
         for (let j of jobs) {
             let L = manifest.levels[j.li];
             let rc = tileRect(manifest, j.li, j.r, j.c);
@@ -219,7 +235,7 @@
             if (u) {
                 let id = tileId(manifest.key, manifest.v, j.li, j.r, j.c);
                 cachePutDataUrl(o.cachePrefix, id, u);
-                await o.saveTile(id, u, done + 1, total);
+                await save(id, u);
             } else {
                 L.split.push(j.r + '_' + j.c);
                 for (let q = 0; q < 4; q++) {
@@ -232,7 +248,7 @@
                     }
                     let id = tileId(manifest.key, manifest.v, j.li, j.r, j.c, q);
                     cachePutDataUrl(o.cachePrefix, id, qu);
-                    await o.saveTile(id, qu, done + 1, total);
+                    await save(id, qu);
                 }
             }
             done++;
@@ -335,7 +351,23 @@
         _views.forEach(v => {
             if (!v.img.isConnected) { detach(v.img); return; }
             update(v, false);
+            resharpen(v);
         });
+    }
+    // Map viewports use will-change: transform for smooth panning, and Chrome may keep drawing that
+    // layer at the zoom it was first painted at, so zoomed-in detail looks soft. Once the zoom
+    // settles, drop and restore will-change so it repaints at the current zoom.
+    function resharpen(v) {
+        if (v.layer.style.display === 'none') return;
+        let vp = v.img.parentElement; if (!vp) return;
+        let z = Math.round(v.img.getBoundingClientRect().width);
+        let now = Date.now();
+        if (z !== v.zoomW) { v.zoomW = z; v.zoomAt = now; v.sharpAt = 0; return; }
+        if (v.sharpAt || now - v.zoomAt < 300) return;
+        v.sharpAt = now;
+        if (!/transform/.test(vp.style.willChange || getComputedStyle(vp).willChange)) return;
+        vp.style.willChange = 'auto';
+        requestAnimationFrame(() => requestAnimationFrame(() => { vp.style.willChange = 'transform'; }));
     }
     function update(v, force) {
         let img = v.img, m = v.m;
@@ -353,10 +385,10 @@
         let previewScale = img.naturalWidth / m.w;
         if (need <= previewScale * 1.2 || r.width < 2) { v.layer.style.display = 'none'; return; }
         v.layer.style.display = '';
-        // The coarsest level that's still sharp enough here
+        // The coarsest level that still has at least one tile pixel per screen pixel here
+        // (never a stretched lower level); past full size, full resolution is all there is
         let li = 0;
-        m.levels.forEach((L, i) => { if (L.s >= need * 0.85 && L.s < m.levels[li].s) li = i; });
-        if (m.levels[li].s < need * 0.85) li = 0;
+        m.levels.forEach((L, i) => { if (L.s >= need && L.s < m.levels[li].s) li = i; });
         // Visible part of the image, in full-resolution pixels (with a margin so panning is seamless)
         let k = m.w / r.width;
         let x0 = (cr.left - r.left) * k, y0 = (cr.top - r.top) * k, x1 = (cr.right - r.left) * k, y1 = (cr.bottom - r.top) * k;
@@ -390,7 +422,7 @@
     }
     function pump(v) {
         // Newest requests first (what's on screen now), at most 4 downloads at a time
-        while (v.loading.size < 4 && v.queue.length) {
+        while (v.loading.size < 6 && v.queue.length) {
             let job = v.queue.pop();
             if (v.els.has(job.id) || v.loading.has(job.id)) continue;
             v.loading.add(job.id);
