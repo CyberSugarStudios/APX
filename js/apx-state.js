@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.9.26.1600';
+window.APX_VERSION = 'v2026.9.26.1620';
 
         window.state = getInitialState();
 
@@ -303,7 +303,7 @@ window.APX_VERSION = 'v2026.9.26.1600';
         //   "N"   → set HP to N (capped). Temp HP untouched.
         // Returns {currentHp, tempHp} or null if the input doesn't parse.
         window.apxApplyHpInput = function(raw, cur, temp, max) {
-            let clean = String(raw ?? '').replace(/[^0-9\+\-\s]/g, '').trim();
+            let clean = String(raw ?? '').replace(/[\u2212\u2012\u2013\u2014\uFE63\uFF0D]/g, '-').replace(/\uFF0B/g, '+').replace(/[^0-9\+\-\s]/g, '').trim();   // (phone keyboards' dashes are minus signs)
             if (clean === '') return null;
             cur = Number(cur) || 0; temp = Math.max(0, Number(temp) || 0);
             let cap = v => Math.max(0, (max !== null && max !== undefined) ? Math.min(max, v) : v);
@@ -340,7 +340,9 @@ window.APX_VERSION = 'v2026.9.26.1600';
                     let maxHp = Math.max(5, (calc.scores.CON * 5) + (vitalHpRank * 5) + window.state.xpHpBought - calc.maxHpPenalty);
                     // "-N": damage in full. Your DR/ER, resistances and immunities reduce it, by the damage
                     // type of what just attacked you (from the GM's tracker), "-8 fire", or a quick choice.
-                    let dm = String(val).trim().match(/^-\s*(\d+)\s*([a-z][a-z +&/,]*)?$/i);
+                    // ("-9", "-9 fire", or "35-9" typed after the 35 already there; phone dashes count)
+                    let pe = window.APXDamage && window.APXDamage.parseHpEntry ? window.APXDamage.parseHpEntry(val, window.state.currentHp) : null;
+                    let dm = pe ? [null, String(pe.raw), pe.typed ? pe.types.join(' ') : undefined] : null;
                     if (dm && window.APXDamage && !inputEl._apxMitigated) {
                         let raw = parseInt(dm[1], 10);
                         let atk = window._pwLastNpcAtk;

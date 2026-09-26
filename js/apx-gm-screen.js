@@ -1913,11 +1913,12 @@ function _gmDefText(def) {
 window._gmDefText = _gmDefText;
 
 // "-8", "-8 fire", "- 8 slashing + fire" → { raw: 8, types: [...] } (null when it isn't damage)
-function _gmParseDamage(value) {
+// (also "70-8" typed after the 70 already in the box, and phone keyboards' − – — dashes)
+function _gmParseDamage(value, cur) {
+    if (window.APXDamage && window.APXDamage.parseHpEntry) return window.APXDamage.parseHpEntry(value, cur);
     let m = String(value ?? '').trim().match(/^-\s*(\d+)\s*([a-z][a-z +&/,]*)?$/i);
     if (!m) return null;
-    let types = m[2] && window.APXDamage ? window.APXDamage.parts(m[2]) : [];
-    return { raw: parseInt(m[1], 10), types, typed: !!(m[2] && types.length) };
+    return { raw: parseInt(m[1], 10), types: [], typed: false };
 }
 // The damage type for this hit: typed > the attack's own type > physical for an attack with none
 function _gmDamageTypes(parsed, hit) {
@@ -1980,7 +1981,7 @@ window._gmDamage = _gmDamage;
 window.updateInitiativeHp = function(id, value, pre) {
     let entry = window.gmInitiative.find(e => e.id === id);
     if (!entry) return;
-    let parsed = _gmParseDamage(value);
+    let parsed = _gmParseDamage(value, entry.currentHp);
     if (parsed) {
         let peek = _gmPeekHit(entry);
         let types = pre && pre.types ? pre.types : _gmDamageTypes(parsed, peek || _gmTurnHit(entry));
@@ -2015,7 +2016,7 @@ window.updateInitiativeHp = function(id, value, pre) {
 window.setInitiativeTempHp = function(id, value) {
     let entry = window.gmInitiative.find(e => e.id === id);
     if (!entry) return;
-    if (_gmParseDamage(value)) { window.updateInitiativeHp(id, value); return; }
+    if (_gmParseDamage(value, entry.tempHp || 0)) { let p = _gmParseDamage(value, entry.tempHp || 0); window.updateInitiativeHp(id, '-' + p.raw + (p.typed ? ' ' + p.types.join(' ') : '')); return; }
     let result = window.parseMathExpression(value, entry.tempHp || 0);
     if (result === null) { window.renderInitiativeTracker(); return; }
     let wasAboveZero = entry.currentHp === null || entry.currentHp > 0;
@@ -2507,7 +2508,7 @@ window.renderInitiativeTracker = function() {
                 <div class="w-8 text-center text-sm font-black ${fs.text}">${effInit(e)}</div>
                 <span class="flex-1 text-xs font-bold ${isCurrent ? 'text-amber-300' : fs.text} ${(e.faction !== 'player' || e.playerUid) ? 'cursor-pointer hover:underline' : ''}" ${e.faction !== 'player' ? `onclick="window.openFloatingStatBlock('${e.id}')" title="Click for full stat block"` : (e.playerUid ? `onclick="window._btOpenPlayerSummary && window._btOpenPlayerSummary('${String(e.name).replace(/'/g, '')}','${e.playerUid}')" title="Click for this player's stats"` : '')}>${e.name}</span>
                 ${e.maxHp !== null ? `
-                    <input type="text" value="${e.currentHp}" onchange="window.updateInitiativeHp('${e.id}', this.value)" title="Type a number to set HP, or +N/-N to heal/damage" class="w-12 text-center bg-slate-800 border-red-800/50 text-red-300 text-xs font-bold">
+                    <input type="text" value="${e.currentHp}" onfocus="this.select()" onkeydown="if(event.key==='Enter')this.blur()" onchange="window.updateInitiativeHp('${e.id}', this.value)" title="Type a number to set HP, or +N/-N to heal/damage" class="w-12 text-center bg-slate-800 border-red-800/50 text-red-300 text-xs font-bold">
                     <span class="text-[10px] text-slate-500">/ ${e.maxHp}</span>
                 ` : '<span class="text-[9px] text-slate-600 w-20 text-center">no HP tracked</span>'}
                 <button onclick="window.removeFromInitiative('${e.id}')" class="text-red-500 hover:text-red-400 font-bold text-xs">&times;</button>
@@ -2527,7 +2528,7 @@ window.renderInitiativeTracker = function() {
                     })()}
                     ${e.maxHp !== null ? `
                         <span class="flex items-center gap-1 text-cyan-400">Temp
-                            <input type="text" value="${e.tempHp || 0}" onchange="window.setInitiativeTempHp('${e.id}', this.value)" title="Type a number to set Temp HP, or +N/-N to adjust" class="w-8 text-center bg-slate-800 border-cyan-800/50 text-cyan-300 text-[9px] font-bold px-0.5">
+                            <input type="text" value="${e.tempHp || 0}" onfocus="this.select()" onkeydown="if(event.key==='Enter')this.blur()" onchange="window.setInitiativeTempHp('${e.id}', this.value)" title="Type a number to set Temp HP, or +N/-N to adjust" class="w-8 text-center bg-slate-800 border-cyan-800/50 text-cyan-300 text-[9px] font-bold px-0.5">
                         </span>
                     ` : ''}
                 </div>

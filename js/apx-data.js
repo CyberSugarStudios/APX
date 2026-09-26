@@ -839,5 +839,15 @@
         return v ? [v] : null;
     }
 
-    window.APXDamage = { PHYS, ENERGY, norm, parts, isEnergy, mitigate, ignoreOf, askType };
+    // What was typed in an HP box, as damage: "-7", "-7 fire", or "70-7" typed after the HP that was
+    // already there (70). Phone keyboards' dashes (−, –, —) count as minus. Anything else → null.
+    function parseHpEntry(value, cur) {
+        let v = String(value ?? '').replace(/[\u2212\u2012\u2013\u2014\uFE63\uFF0D]/g, '-').trim();
+        let m = v.match(/^(\d+)?\s*-\s*(\d+)\s*([a-z][a-z +&/,]*)?$/i);
+        if (!m) return null;
+        if (m[1] !== undefined && cur != null && parseInt(m[1], 10) !== Number(cur)) return null;   // "50-10" with 70 HP: a sum, not damage
+        let types = m[3] ? parts(m[3]) : [];
+        return { raw: parseInt(m[2], 10), types, typed: !!(m[3] && types.length) };
+    }
+    window.APXDamage = { PHYS, ENERGY, norm, parts, isEnergy, mitigate, ignoreOf, askType, parseHpEntry };
 })();
