@@ -1537,18 +1537,27 @@ function _gmDefensiveOk(entry) {
     let st = pm?.state; if (!st) return false;
     return ((st.perks || {}).con_defensive || 0) >= 5 && !((st.equippedArmor || {}).wt > 0);
 }
+// A Helmet can be destroyed (Reaction) to do the same
+function _gmHelmetOk(entry) {
+    let pm = (window.gmParty || []).find(p => p.fileName === entry.playerUid);
+    let h = pm?.state?.equippedHelmet;
+    return !!(h && h.equipped && !h.broken);
+}
 function _gmOfferDefensive(entry, hit, dmg, extras) {
-    if (!entry || entry.faction !== 'player' || !entry.playerUid || !hit || !(dmg > 0) || !_gmDefensiveOk(entry)) return null;
+    if (!entry || entry.faction !== 'player' || !entry.playerUid || !hit || !(dmg > 0)) return null;
+    let defOk = _gmDefensiveOk(entry), helmOk = _gmHelmetOk(entry);
+    if (!defOk && !helmOk) return null;
     let portion = hit.crit ? (hit.critExtra || 0) : (extras || []).filter(x => x.why === 'Incapacitated').reduce((t, x) => t + x.n, 0);
     if (!(portion > 0)) return null;
     let hid = 'dh' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
     window._gmCritHits[hid] = { entryId: entry.id, dmg, refund: Math.min(dmg, Math.max(0, portion)), by: hit.attacker ? _gmPublicName(hit.attacker) : null };
+    let choices = (defOk ? ['React: Turn to normal hit (Defensive)'] : []).concat(helmOk ? ['React: Break Helmet (normal hit)'] : []);
     gmLog({ id: 'def_' + hid, kind: 'wt',
-        text: `${entry.name} took a Critical Hit. With Defensive (Rank 5) they can use their Reaction to turn it into a normal hit.`,
-        ask: { uid: entry.playerUid, roll: 'react', hitId: hid, label: 'React: Turn to normal hit' } });
+        text: `${entry.name} took a Critical Hit. They can use their Reaction to turn it into a normal hit (${[defOk ? 'Defensive Rank 5' : '', helmOk ? 'by destroying their Helmet' : ''].filter(Boolean).join(', or ')}).`,
+        ask: { uid: entry.playerUid, roll: 'react', hitId: hid, label: choices[0], choices } });
     return hid;
 }
-function _gmDefensiveReact(entry, hid) {
+function _gmDefensiveReact(entry, hid, via) {
     let rec = window._gmCritHits[hid];
     if (!rec || rec.used || rec.entryId !== entry.id) return;
     rec.used = true;
@@ -1556,7 +1565,7 @@ function _gmDefensiveReact(entry, hid) {
     let newDmg = Math.max(0, rec.dmg - rec.refund);
     if (rec.refund > 0 && entry.currentHp !== null) entry.currentHp = Math.min(entry.maxHp || Infinity, (entry.currentHp || 0) + rec.refund);
     gmLog({ id: 'def_' + hid, kind: 'wt', ask: null,
-        text: `${entry.name} uses their Reaction (Defensive): the Critical Hit becomes a normal hit. They take ${newDmg} damage instead of ${rec.dmg}.` });
+        text: `${entry.name} uses their Reaction (${via === 'helmet' ? 'destroying their Helmet' : 'Defensive'}): the Critical Hit becomes a normal hit. They take ${newDmg} damage instead of ${rec.dmg}.` });
     // Wound Threshold: a save still waiting is dropped (or its DC lowered); one already rolled is re-judged
     let wt = _gmWoundThreshold(entry), past = wt != null && newDmg > wt, dc = Math.max(10, Math.floor(newDmg / 2));
     let q = window._gmPendingSaves[entry.id] || [];
@@ -1644,7 +1653,7 @@ function _gmHandleRollEvent(uid, ev) {
     }
     if (!window.gmCombatStarted) return;
     let entry = (window.gmInitiative || []).find(e => e.playerUid === uid);
-    if (ev.kind === 'react') { if (entry && firstSeen) _gmDefensiveReact(entry, ev.hitId); return; }
+    if (ev.kind === 'react') { if (entry && firstSeen) _gmDefensiveReact(entry, ev.hitId, ev.via); return; }
     let name = entry ? entry.name : (ev.who || 'A player');
     // A player's attack (weapon or power) becomes "the last attack", for hits and weapon properties
     if (ev.kind === 'attack') {
@@ -1882,12 +1891,14 @@ window.updateInitiativeHp = function(id, value, pre) {
     let entry = window.gmInitiative.find(e => e.id === id);
     if (!entry) return;
     let dm = String(value ?? '').trim().match(/^-\s*(\d+)\s*([a-z][a-z +&/,]*)?$/i);
-    if (dm && window.APXDamage) {
+    if (dm) {
         let raw = parseInt(dm[1], 10);
         let types = pre && pre.types;
         if (!types) {
             let peek = _gmPeekHit(entry);
-            types = dm[2] ? APXDamage.parts(dm[2]) : (peek && peek.dmgType ? APXDamage.parts(peek.dmgType) : []);
+            // an attack with no type recorded (an older sheet, a custom weapon) is physical: DR
+            types = !window.APXDamage ? ['True'] : dm[2] ? APXDamage.parts(dm[2]) : peek ? (peek.dmgType ? APXDamage.parts(peek.dmgType) : []).concat() : [];
+            if (window.APXDamage && !dm[2] && peek && !types.length) types = ['Physical'];
         }
         if (!types.length) {
             // Nothing says what kind of damage it was: ask (one click)
@@ -1923,7 +1934,8 @@ function _gmApplyDamage(entry, raw, types) {
     let extraSum = extras.reduce((t, x) => t + x.n, 0);
     let def = _gmDefenseOf(entry);
     let incap = _gmEffConds(entry).includes('incapacitated');
-    let res = APXDamage.mitigate(raw + extraSum, types, def, { ignore: hit && hit.hit ? APXDamage.ignoreOf(hit.hit) : null, bypassRes: incap, halfBypass: def.halfBypass });
+    let res = window.APXDamage ? APXDamage.mitigate(raw + extraSum, types, def, { ignore: hit && hit.hit ? APXDamage.ignoreOf(hit.hit) : null, bypassRes: incap, halfBypass: def.halfBypass })
+        : { dmg: raw + extraSum, raw: raw + extraSum, reduced: 0, text: `${raw + extraSum} damage` };
     let before = (entry.currentHp || 0) + (entry.tempHp || 0);
     let r = window.apxApplyHpInput('-' + res.dmg, entry.currentHp, entry.tempHp, entry.maxHp);
     if (r) { entry.currentHp = r.currentHp; entry.tempHp = r.tempHp; }

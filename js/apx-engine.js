@@ -429,6 +429,18 @@
                 if (shieldStatusEl) {
                     shieldStatusEl.innerText = s.equipped ? `Equipped (+${s.ac} AC/DR/ER)` : 'Not Equipped';
                     shieldBtn.innerText = s.equipped ? 'Remove Shield' : 'Equip Shield';
+                    // Four arms: one shield, held in the Off Hand you pick (side-by-side buttons)
+                    let hb = document.getElementById('shieldHandBtns'), offs = window.apxHandSlots ? window.apxHandSlots().filter(x => x !== 'main') : ['off'];
+                    if (hb) {
+                        let many = offs.length > 1;
+                        hb.classList.toggle('hidden', !many); shieldBtn.classList.toggle('hidden', many);
+                        if (many) {
+                            if (s.equipped) window.apxAssignHands && window.apxAssignHands();
+                            let cur = s.equipped ? (s.hands || [])[0] : null, L = window.APX_HAND_LABEL || {};
+                            hb.innerHTML = offs.map(h => `<button type="button" onclick="window.equipShieldHand('${h}')" title="${cur === h ? 'Remove the shield' : (s.equipped ? 'Move the shield to your ' : 'Equip the shield in your ') + (L[h] || h)}"
+                                class="flex-1 min-w-0 whitespace-nowrap text-[9px] px-0.5 py-1 rounded border font-bold transition ${cur === h ? 'bg-cyan-600/50 text-white border-cyan-400' : 'bg-cyan-600/20 text-cyan-400 hover:bg-cyan-600/40 border-cyan-700/50'}">${(L[h] || h).replace('Off Hand', 'Off')}${cur === h ? ' ✓' : ''}</button>`).join('');
+                        }
+                    }
                 }
                 let helmetStatusEl = document.getElementById('helmetStatus');
                 let helmetBtn = document.getElementById('helmetActionBtn');
@@ -902,6 +914,18 @@
                 ${cur ? '' : '<option value="">No free hand</option>'}${opts.map(([v, l]) => { let who = v.split(',').map(holder).filter(Boolean); return `<option value="${v}" ${v === cur ? 'selected' : ''}>${l}${who.length && v !== cur ? ' (swap with ' + who.join(', ') + ')' : ''}</option>`; }).join('')}
             </select>${wounded.length ? `<span class="text-[9px] font-black text-red-400" title="A Wounded arm drops whatever that hand holds">${wounded.join(', ')} Wounded: dropped</span>` : ''}</div>`;
         }
+        // A weapon's damage type: its energy type if elemental, else its physical type. Unarmed strikes
+        // are Bludgeoning; a weapon with no type set counts as Physical (DR) until one is chosen.
+        function apxWeaponDmgType(w) { return (w && (w.elemental || w.dmgType)) || (w && w.isUnarmed ? 'Bludgeoning' : 'Physical'); }
+        window.apxWeaponDmgType = apxWeaponDmgType;
+        window.setWeaponDmgType = function(idx, v) { let w = window.state.weapons[idx]; if (!w) return; w.dmgType = v || undefined; window.recalculateMath(); };
+        function dmgTypeSelectHtml(w, idx) {
+            if (w.forged || w.elemental) return `<div class="text-[9px] text-slate-500 mt-0.5">${apxWeaponDmgType(w)}</div>`;
+            if (w.isUnarmed) return '<div class="text-[9px] text-slate-500 mt-0.5">Bludgeoning</div>';
+            let types = ['Bludgeoning', 'Piercing', 'Slashing'].concat(typeof NPC_ENERGY_TYPES !== 'undefined' ? NPC_ENERGY_TYPES : []);
+            return `<select onchange="window.setWeaponDmgType(${idx}, this.value)" class="bg-slate-900 border-slate-700 text-[9px] font-bold py-0 px-1 h-5 mt-0.5" title="Damage type: DR reduces physical damage, ER reduces energy damage">
+                ${w.dmgType ? '' : '<option value="" selected>Damage type?</option>'}${types.map(t => `<option ${w.dmgType === t ? 'selected' : ''}>${t}</option>`).join('')}</select>`;
+        }
         function weaponHandCost(w) {
             if (w.isUnarmed || w.isAncestry) return 0;
             if (w.weightClass === 'heavy') return 2;
@@ -1140,21 +1164,21 @@
             let rollName = (w.name || 'Weapon') + (opts.label ? (opts.attr === 'STR' && /2-Handed/.test(opts.label) ? ' (2-Handed)' : /Aimed/.test(opts.label) ? ' (Aimed)' : '') : '');
             // What a hit with it can do (Crushing, Stunning, Flurry…): read by the GM's tracker
             let hitMeta = { weapon: w.name || 'Weapon', props: Object.keys(w.properties || {}).filter(k => { let v = w.properties[k]; return typeof v === 'number' ? v > 0 : !!v; }),
-                die: '1d' + ((String(opts.dice || '').match(/\d*d(\d+)/) || [0, 6])[1]), dmgType: w.elemental || w.dmgType || '', strMod: calc.mods.STR || 0, intMod: calc.mods.INT || 0, elec: w.elemental === 'Electric' };
+                die: '1d' + ((String(opts.dice || '').match(/\d*d(\d+)/) || [0, 6])[1]), dmgType: apxWeaponDmgType(w), strMod: calc.mods.STR || 0, intMod: calc.mods.INT || 0, elec: w.elemental === 'Electric' };
             // pcAttack/apCost/aimed: the sheet's AP hook (apxBeforeAttack) spends AP for this attack
-            let atkRoll = apxRollAttr({ type: 'attack', label: rollName, bonus: atk, dice: opts.dice, dmgMod, critMult, dmgType: w.elemental || w.dmgType || '', disSources: disadvSources, advSources,
+            let atkRoll = apxRollAttr({ type: 'attack', label: rollName, bonus: atk, dice: opts.dice, dmgMod, critMult, dmgType: apxWeaponDmgType(w), disSources: disadvSources, advSources,
                 pcAttack: true, wcat: cat, apCost: parseInt(opts.ap) || 0, ranged: cat === 'ranged', aimed: cat === 'ranged' && !!w.aimed, unarmed: !!w.isUnarmed,
                 wFlurry: !!(w.properties && w.properties.flurry) || undefined, hit: hitMeta });
             // Remember each attack option, so martial powers can roll with the weapon they're used through
             let variant = opts.label ? (/Aimed/.test(opts.label) ? 'aimed' : /2-Handed/.test(opts.label) ? '2h' : '') : '';
             (calc.weaponAttacks = calc.weaponAttacks || []).push({ key: (w.name || 'Weapon') + '|' + variant, label: rollName, bonus: atk, disSources: disadvSources, advSources,
-                unarmed: !!w.isUnarmed, innate: !!w.isAncestry, wcat: cat, dice: opts.dice, dmgMod, dmgType: w.elemental || w.dmgType || '', critMult, hit: hitMeta, ap: parseInt(opts.ap) || 0 });
+                unarmed: !!w.isUnarmed, innate: !!w.isAncestry, wcat: cat, dice: opts.dice, dmgMod, dmgType: apxWeaponDmgType(w), critMult, hit: hitMeta, ap: parseInt(opts.ap) || 0 });
             if (calc.cantAct) {
                 // Incapacitated / Unconscious: no attacking until it ends
                 let why = calc.cantActLabel;
                 atkRoll = ` data-no-roll data-apx-blocked="${why}" title="You're ${why} and can't attack until that ends"`;
             }
-            let dmgRoll = apxRollAttr({ type: 'damage', label: rollName + ' damage', formula: opts.dice + (dmgMod ? (dmgMod > 0 ? '+' : '') + dmgMod : ''), dmgType: w.elemental || w.dmgType || '', wcat: cat });
+            let dmgRoll = apxRollAttr({ type: 'damage', label: rollName + ' damage', formula: opts.dice + (dmgMod ? (dmgMod > 0 ? '+' : '') + dmgMod : ''), dmgType: apxWeaponDmgType(w), wcat: cat });
             if (calc.cantAct) dmgRoll = ` data-no-roll data-apx-blocked="${calc.cantActLabel}" title="You're ${calc.cantActLabel} and can't attack until that ends"`;
             let disadvHtml = calc.cantAct
                 ? `<span class="text-[8px] text-red-500 font-black block -mt-1 leading-none" title="You can't take actions">(${calc.cantActLabel})</span>`
@@ -1188,7 +1212,7 @@
                         ${forgedWeaponBadge(w, w.weightClass === 'medium')}
                         ${w.forged ? `<button onclick="window.openWeaponForge(${idx})" class="text-[9px] text-orange-400 hover:text-orange-300 font-bold mt-0.5">Return to Forge</button>` : ''}
                         ${w.category === 'melee' && w.weightClass === 'medium' ? '<div class="text-[9px] text-slate-500 mt-0.5">1-Handed (2H row below)</div>' : ''}
-                        ${opts.editable ? handSelectHtml(w, idx) : ''}
+                        ${opts.editable ? dmgTypeSelectHtml(w, idx) + handSelectHtml(w, idx) : ''}
                         ${cat === 'ranged' && opts.editable ? `<label class="flex items-center gap-1 mt-0.5 cursor-pointer"><input type="checkbox" ${w.aimed ? 'checked' : ''} onchange="window.toggleWeaponAim(${idx}, this.checked)" class="w-3 h-3"><span class="text-[9px] ${w.aimed ? 'text-amber-400 font-bold' : 'text-slate-500'}">Aimed (+PER)</span></label>` : ''}
                     </td>
                     <td class="px-1 py-2 w-14">

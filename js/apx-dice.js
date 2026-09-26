@@ -434,7 +434,7 @@
         if (!askIsMine(e)) return '';
         let done = !!tray.askDone[e.id];
         // A Reaction offer (Defensive Rank 5) never waits for saves, and saves don't wait for it
-        if (e.ask.roll === 'react') {
+        if (e.ask.roll === 'react' && !Array.isArray(e.ask.choices)) {
             return `<div style="margin-top:.3rem"><button data-logask ${done ? 'disabled' : ''} style="font-size:.66rem;font-weight:800;padding:.18rem .5rem;border-radius:.3rem;cursor:${done ? 'default' : 'pointer'};border:1px solid ${done ? 'var(--c-border2,#475569)' : '#0891b2'};background:${done ? 'none' : '#0e7490'};color:${done ? 'var(--c-text-muted,#94a3b8)' : '#fff'}">${done ? 'Reaction used' : esc(e.ask.label || 'React')}</button></div>`;
         }
         // A choice (the GM picking which limb is Wounded): one button per option

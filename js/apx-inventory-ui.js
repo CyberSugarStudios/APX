@@ -445,6 +445,7 @@
             document.getElementById('cwName').value = '';
             document.getElementById('cwDmg').value = '2d4';
             document.getElementById('cwCategory').value = 'melee';
+            if (document.getElementById('cwDmgType')) document.getElementById('cwDmgType').value = 'Bludgeoning';
             document.getElementById('cwAttr').value = 'STR';
             document.getElementById('cwWeightClass').value = 'light';
             document.getElementById('cwWt').value = '2';
@@ -473,6 +474,7 @@
                 name, attr: document.getElementById('cwAttr').value,
                 tr: false, dmg: document.getElementById('cwDmg').value,
                 ap: apMap[wc] || 2, isUnarmed: false, isCustom: true,
+                dmgType: document.getElementById('cwDmgType')?.value || 'Bludgeoning',
                 category: document.getElementById('cwCategory').value,
                 weightClass: wc, weight: parseFloat(document.getElementById('cwWt').value) || 0,
                 paidCost: parseInt(document.getElementById('cwVal').value) || 0,
@@ -657,6 +659,21 @@
             });
             return window.calcTotalHands() - handsUsedByNonHeavy >= 1;
         }
+        // Four arms: equip the shield in a chosen Off Hand, move it, or (its own hand again) remove it
+        window.equipShieldHand = function(hand) {
+            let s = window.state.equippedShield;
+            if (s.equipped && (s.hands || [])[0] === hand) { window.toggleEquipShield(); return; }
+            if (s.equipped) {
+                let old = (s.hands || [])[0];
+                (window.state.weapons || []).forEach(w => { if ((w.hands || []).length === 1 && w.hands[0] === hand) w.hands = old ? [old] : null; });
+                s.hands = [hand];
+                window.recalculateMath();
+                return;
+            }
+            s.hands = [hand];
+            (window.state.weapons || []).forEach(w => { if ((w.hands || []).length === 1 && w.hands[0] === hand) w.hands = null; });
+            window.toggleEquipShield();
+        };
         window.toggleEquipShield = function() {
             let s = window.state.equippedShield;
             if (s.equipped) {

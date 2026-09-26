@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.9.26.1434';
+window.APX_VERSION = 'v2026.9.26.1511';
 
         window.state = getInitialState();
 
@@ -434,6 +434,13 @@ window.APX_VERSION = 'v2026.9.26.1434';
         window.apxFillAp = function() { apxSetAp(apxApMax()); };
         window.apxSetApValue = function(v) { apxSetAp(v); };
         // A Stunned character starts its turn with 0 AP (called when your turn comes up)
+        // Luck Points −/+ buttons (kept between 0 and your maximum)
+        window.apxAdjustLuck = function(d) {
+            let st = window.state; if (!st) return;
+            let max = (typeof calc !== 'undefined' && calc.maxLuck) || parseInt(document.getElementById('dispMaxLuck')?.innerText) || 99;
+            window.updateState('luckPts', Math.max(0, Math.min(max, (st.luckPts || 0) + d)));
+            let li = document.getElementById('luckPtsInput'); if (li) li.value = st.luckPts;
+        };
         window.apxStunnedTurnStart = function() {
             let st = window.state; if (!st) return;
             let eff = window.apxEffectiveConditions ? window.apxEffectiveConditions(st.conditions || [], st).map(c => c.id) : (st.conditions || []);
