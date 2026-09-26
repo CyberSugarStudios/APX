@@ -55,10 +55,12 @@
         let dice = [];
         for (let i = 0; i < n; i++) {
             let v = rnd(s), d = { v, s };
-            if (opt.reroll12 && v <= 2) { d.from = v; d.v = rnd(s); }            // High Roller R2
+            // High Roller R2: a 1 or 2 is rolled again, and a 1 keeps being rolled again (never below 2)
+            let fix = x => { if (x <= 2) { x = rnd(s); while (x === 1 && s > 1) x = rnd(s); } return x; };
+            if (opt.reroll12 && v <= 2) { d.from = v; d.v = fix(v); }
             if (opt.explode && d.v === s) {                                       // High Roller R5: max → roll it again, add it
                 let x = rnd(s);
-                if (opt.reroll12 && x <= 2) x = rnd(s);
+                if (opt.reroll12) x = fix(x);
                 d.boom = [x];
             }
             dice.push(d);
@@ -427,6 +429,13 @@
     function askBtnHtml(e) {
         if (!askIsMine(e)) return '';
         let done = !!tray.askDone[e.id];
+        // A choice (the GM picking which limb is Wounded): one button per option
+        if (Array.isArray(e.ask.choices)) {
+            let st = 'font-size:.66rem;font-weight:800;padding:.18rem .45rem;border-radius:.3rem;border:1px solid #f59e0b;';
+            return `<div style="margin-top:.3rem;display:flex;flex-wrap:wrap;gap:.25rem">${done
+                ? `<span style="font-size:.66rem;font-weight:800;color:var(--c-text-muted,#94a3b8)">Chosen: ${esc(tray.askDone[e.id] === true ? '' : tray.askDone[e.id])}</span>`
+                : e.ask.choices.map((ch, i) => `<button data-logchoice="${i}" style="${st}background:#b45309;color:#fff;cursor:pointer">${esc(ch)}</button>`).join('')}</div>`;
+        }
         // Saves are settled in the order they were asked for (the Wound Threshold save first,
         // then a hit's own saves, then Bleed Out), so a later button waits for the earlier ones
         let waitWt = !done && cards.some(x => x.log && x.log.id !== e.id && x.log.ask && askIsMine(x.log) && !tray.askDone[x.log.id] && (x.log.t || 0) < (e.t || 0));
@@ -443,6 +452,12 @@
             let hh = d.getHours() % 12 || 12, mm = String(d.getMinutes()).padStart(2, '0');
             el.className = 'apxd-card log k-' + (c.log.kind || 'info');
             el.innerHTML = `<span class="lt">${hh}:${mm}</span>${c.log.gmOnly ? '<span class="lg" title="Only you (the GM) see this">GM</span>' : ''}${esc(c.log.text)}${askBtnHtml(c.log)}`;
+            el.querySelectorAll('[data-logchoice]').forEach(b => b.onclick = () => {
+                let ch = c.log.ask.choices[+b.dataset.logchoice];
+                tray.askDone[c.log.id] = ch;
+                try { window.apxRollFromAsk(c.log.ask, ch); } catch (e) { console.warn('Choice from message:', e); }
+                refreshAskCards();
+            });
             let ab = el.querySelector('[data-logask]');
             if (ab) ab.onclick = () => {
                 if (ab.disabled) return;
@@ -480,7 +495,10 @@
         let acts = (c.actions || []).filter(a => !a.hidden);
         el.innerHTML = `<div class="apxd-title">${esc(c.label)}${c.who ? `<span>${esc(c.who)}</span>` : ''}</div>${partsHtml}
             ${badges.length ? `<div class="apxd-badges">${badges.map(b => `<span class="apxd-b ${b[0]}" ${b[2] ? `title="${esc(b[2])}"` : ''}>${esc(b[1])}</span>`).join('')}</div>` : ''}
-            ${acts.length ? `<div class="apxd-acts">${acts.map((a, i) => `<button class="${a.cls || ''}" data-act="${i}" title="${esc(a.title || '')}">${esc(a.label)}</button>`).join('')}</div>` : ''}`;
+            ${acts.length ? `<div class="apxd-acts">${acts.map((a, i) => {
+                let prev = acts[i - 1], br = i > 0 && (a.row || (prev && (prev.row || prev.inRow) && !a.inRow && !a.row));
+                return (br ? '<span style="flex-basis:100%;height:0"></span>' : '') + `<button class="${a.cls || ''}" data-act="${i}" title="${esc(a.title || '')}">${esc(a.label)}</button>`;
+            }).join('')}</div>` : ''}`;
         el.querySelectorAll('[data-act]').forEach(b => b.onclick = () => { let a = acts[+b.dataset.act]; if (a) a.run(); });
         shapeDice(el);
     }
@@ -547,12 +565,13 @@
                     p.r.rolls.push(v); p.r.kept = p.r.rolls.length - 1; p.omenAt = p.r.kept; p.omenAdj = adj || 0;
                     settleD20(p); onChange(); save(); refreshPerkBar(); refreshAllActions();
                 };
-                acts.push({ label: `Use Omen ${v}`, cls: 'omen', title: 'Replace this d20 with a stored Omen die', run: () => use(0) });
+                // One row per Omen die: [Use Omen 7] [+2] [−2]
+                acts.push({ label: `Use Omen ${v}`, cls: 'omen', row: true, title: 'Replace this d20 with a stored Omen die', run: () => use(0) });
                 if (r >= 2) {
                     let m = lucMod();
                     if (m) {
-                        acts.push({ label: `Omen ${v}+${Math.abs(m)}`, cls: 'omen', title: 'Omen Rank 2: add your LUC mod', run: () => use(Math.abs(m)) });
-                        acts.push({ label: `Omen ${v}−${Math.abs(m)}`, cls: 'omen', title: 'Omen Rank 2: subtract your LUC mod', run: () => use(-Math.abs(m)) });
+                        acts.push({ label: `+${Math.abs(m)}`, cls: 'omen', inRow: true, title: `Use Omen ${v} + your LUC modifier (${v + Math.abs(m)})`, run: () => use(Math.abs(m)) });
+                        acts.push({ label: `−${Math.abs(m)}`, cls: 'omen', inRow: true, title: `Use Omen ${v} − your LUC modifier (${v - Math.abs(m)})`, run: () => use(-Math.abs(m)) });
                     }
                 }
             });
@@ -731,7 +750,7 @@
                 if (o.dmgType) c.badges.push(['info', o.dmgType]);
                 if (gamble && !atk.fumble) c.badges.push(['info', `Gamble: +${gambleBonus} is included, only if it hits` + (hr >= 4 ? '. Hit = +1 AP' : '')]);
                 if (res.other) c.badges.push(['info', `${dp.keepSrc}: rolled damage twice, kept ${res.roll.diceTotal + flat} (other ${res.other.diceTotal + flat})`, 'Rank 2: roll damage twice and keep the highest total']);
-                if (dm.rerolled()) c.badges.push(['info', 'High Roller: rerolled 1s & 2s (*)']);
+                if (dm.rerolled()) c.badges.push(['info', 'High Roller: rerolled 1s & 2s, and any 1 again (*)']);
                 if (explode) c.badges.push(['info', 'Dice Explosion: max rolls rolled again and added']);
                 if (dst.inst) c.badges.push(['info', 'Instigator: +1 damage die' + (atk.crit ? ', crit ×' + dmg.mult : '')]);
                 if (dst.confirm) c.badges.push([dst.maxed ? 'crit' : 'info', `${dp.confirmSrc} R5 second attack roll: ${dst.confirm.total} (d20 ${dst.confirm.nat})` + (dst.maxed ? ' · max critical damage' : '')]);
@@ -780,7 +799,7 @@
                 c.badges = [];
                 if (o.dmgType) c.badges.push(['info', o.dmgType]);
                 if (res.other) c.badges.push(['info', `${dp.keepSrc}: rolled damage twice, kept ${p.total} (other ${res.other.diceTotal + dm.parsed.flat})`]);
-                if (dm.rerolled()) c.badges.push(['info', 'High Roller: rerolled 1s & 2s (*)']);
+                if (dm.rerolled()) c.badges.push(['info', 'High Roller: rerolled 1s & 2s, and any 1 again (*)']);
                 if (explode) c.badges.push(['info', 'Dice Explosion: max rolls rolled again and added']);
                 if (dst.inst) c.badges.push(['info', 'Instigator: +1 damage die']);
                 if (o.apNote) c.badges.push([o.apWarn ? 'fum' : 'info', o.apNote]);

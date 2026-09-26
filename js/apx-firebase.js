@@ -41,7 +41,7 @@
             deleteOtherMapImage: () => Promise.resolve(),
             saveMapTile: () => Promise.resolve(), loadMapTile: () => Promise.resolve(null), deleteMapTiles: () => Promise.resolve(), resetWriteStream: () => Promise.resolve(),
             saveBattleImage: () => Promise.resolve(), loadBattleImage: () => Promise.resolve(null),
-            setActiveCharId: () => {}, setGmCondition: () => Promise.resolve(),
+            setActiveCharId: () => {}, setGmCondition: () => Promise.resolve(), setGmWound: () => Promise.resolve(),
             addXpGrant: () => Promise.resolve(), ackXpGrants: () => Promise.resolve(), addXpToPlayer: () => Promise.resolve(),
             loadBattleImageForPlayer: () => Promise.resolve(null), deleteBattleImage: () => Promise.resolve(),
             saveFogData: () => Promise.resolve(),
@@ -462,6 +462,13 @@
         if (!inviteCode || !uid || !condId) return;
         await db.collection('worldCodes').doc(inviteCode).collection('players').doc(uid)
             .set({ _gmConds: { [condId]: { on: !!on, at: firebase.firestore.FieldValue.serverTimestamp() } } }, { merge: true });
+    }
+
+    // GM picks the limb a failed Wound Threshold save Wounds; the player's sheet adds it
+    async function setGmWound(inviteCode, uid, limb) {
+        if (!inviteCode || !uid || !limb) return;
+        await db.collection('worldCodes').doc(inviteCode).collection('players').doc(uid)
+            .set({ _gmWound: { limb, id: 'w' + Date.now().toString(36), at: firebase.firestore.FieldValue.serverTimestamp() } }, { merge: true });
     }
 
     // --- Combat log ---------------------------------------------------------------
@@ -933,7 +940,7 @@
         saveOtherMapImage, loadOtherMapImage, loadOtherMapImageForPlayer, deleteOtherMapImage,
         saveMapTile, loadMapTile, deleteMapTiles, resetWriteStream,
         saveBattleImage, loadBattleImage, loadBattleImageForPlayer, deleteBattleImage,
-        addXpGrant, ackXpGrants, setGmCondition, publishCombatLog, writeRollLog, setGmCompanionHp,
+        addXpGrant, ackXpGrants, setGmCondition, setGmWound, publishCombatLog, writeRollLog, setGmCompanionHp,
         gmGiveToPlayer, ackGmGifts, writeOutbox, clearOutbox, ackGift, publishLootRequest,
         saveFogData, loadFogData, loadFogDataForPlayer, listenFogDataForPlayer,
         listenWorldPlayers, listenPublicWorldNotes, kickWorldPlayer,

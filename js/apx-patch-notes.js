@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.9.25.1839',
-        released: '2026-09-25T18:39:00',
-        releasedText: 'September 25, 2026 · 6:39 PM',
+        version: 'v2026.9.25.2217',
+        released: '2026-09-25T22:17:00',
+        releasedText: 'September 25, 2026 · 10:17 PM',
         title: 'Playtest Update',
         intro: 'This update comes straight from our playtest tables. GMs get world rules, a Loot Maker, NPCs that carry and use gear, and magic items that can change almost anything on a sheet. Players get Luck and Looting, trading, shareable Omen dice, Loyal Companions that act on their own turns, powers that roll like weapons and use their AP and Power Slots, weapon properties that apply themselves on a hit, a one-screen Origin Builder, full-resolution maps at any size, and a dice roller with a distinct shape for every die that doubles as the combat log and asks for your Wound and Bleed Out saves. Initiative runs with or without a battle map, characters are created and switched cleanly, pages load faster (especially on phones), and deleting an account removes all of its data. Your characters and worlds update when you open them. Nothing is lost, and anything a rule change touched is explained.',
         index: [
@@ -37,7 +37,7 @@
                 'Dice and Notifications holds every roll, the combat log and your messages in one tray.',
                 'Every die has its own shape, on its button and in every roll: triangles for the d4 and d8, a square d6, a kite d10, a pentagon d12, a hexagon d20 and a round d100.',
                 'The combat log shows the table the fight and resolves every save in order (Wound Threshold, a hit\'s own saves, then Bleed Out), with a button in the tray to roll each one. The party\'s hits on enemies show no numbers, so DR and ER stay hidden.',
-                'Weapon properties apply themselves on a hit: Crushing and Stunning ask for their saves and add Prone or Stunned on a failure, Crushing and Concealed add their extra damage die, and Flurry lowers the AP of your next attacks. A hit that deals no damage still counts.',
+                'Weapon properties apply themselves on a hit: Crushing and Stunning ask for their saves and add Prone or Stunned on a failure, Crushing and Concealed add their extra damage die, Flurry lowers the AP of your next attacks, and every hit on an Incapacitated creature is a Critical Hit. A hit that deals no damage still counts.',
                 'Click skills, saves, weapons, powers and stat block dice to roll them. Perks, Advantage and Disadvantage, crits and Luck rerolls are built in.',
                 'Action Points are 6 + half your AGI modifier. They are tracked for every creature, refill on each turn (map or no map), carry between turns, reset when a fight starts and ends, and are spent by attacks, powers and standing up from Prone.',
                 'Rest and Recover buttons cover Short and Full Rests, Shake it Off and Shrug It Off.'
@@ -98,12 +98,12 @@
             ['Omen', [
                 'Your Omen dice sit under Disadv | Normal | Adv in the dice tray. Click one to pass it on: choose the die as it is or (from Rank 2) plus or minus your LUC modifier, then choose who gets it.',
                 'The GM can use it to replace any creature\'s d20, such as an enemy\'s critical hit. A party member gets it in their dice roller, even without the Omen perk, to use on their own roll or pass along.',
-                'On your own rolls and your companion\'s, use a die from the roll\'s buttons.',
+                'On your own rolls and your companion\'s, each held Omen die has its own row of buttons under the roll: [Use Omen 7] [+2] [−2], the last two adding or subtracting your LUC modifier (Rank 2).',
                 'Banking a natural 1 or 20 (Rank 3) is a swap: the natural roll joins your Omen dice, and the held die you give up becomes that roll (plus or minus LUC from Rank 2).',
-                'On a Full Rest, choose which held Omen dice, if any, to roll again. The rest are kept and empty slots are filled. At Rank 5, dice rolled again come back as whichever of 1, 10 and 20 is missing.'
+                'On a Full Rest, choose which held Omen dice, if any, to roll again. The rest are kept and empty slots are filled. At Rank 5 the results are set: there\'s nothing to choose, your dice are kept and any empty slot gets the missing 1, 10 or 20.'
             ]],
             ['Powers', [
-                'Click a power\'s name or its "Lvl X | Y AP" tag to use it. It spends its AP and a Power Slot (INT powers use a slot of their level; CHA powers take 1 from the pool), and asks first if you\'re out of either.',
+                'Click a power\'s name or its "Lvl X | Y AP" tag to use it. It spends its AP and a Power Slot (INT powers use a slot of their level; CHA powers take 1 from the pool), and asks first if you\'re short on either. "Use anyway" still spends what you have: the slot if one is left, the AP if there\'s enough.',
                 'Attack powers roll like weapons: the d20 and the damage in one roll, with the damage dice doubled on a critical hit.',
                 'Save powers roll their damage or healing and show the DC your targets roll against. The GM is told as well. Powers with no roll show their description in the dice tray.',
                 'In the Power Crafter, Attack Roll / Save Negates asks which one the power uses. An Attack Roll is a Power Attack (d20 + Power Atk) or a Martial Improvement, which triggers with a normal attack from the equipped weapon you pick (unarmed strikes and innate weapons included). A martial power rolls with that weapon\'s attack bonus and adds the weapon\'s damage to its own.',
@@ -112,7 +112,7 @@
             ['Weapons', [
                 'When you hit, your weapon\'s properties take effect on their own. Crushing asks the target for a STR save (DC 10 + your STR modifier) and knocks them Prone on a failure; if they\'re already Prone, the hit deals an extra damage die instead. Stunning asks for a CON save (DC 10 + STR, or INT for an Electric weapon) or they\'re Stunned. Concealed deals an extra die against a Surprised creature.',
                 'Flurry: once your GM records a hit, your next attack with that weapon this turn has the Flurry AP reduction ticked for you (untick it if you switch targets).',
-                'Thrown weapons can be made Returning in the Weapon Forge for 300 more Currency, so they come back to you after the attack.'
+                'Thrown weapons can be made Returning in the Weapon Forge for 300 more Currency (the option sits inside the Thrown card), so they come back to you after the attack. The weapon shows as "Thrown (Returning)".'
             ]],
             ['Magic and Custom Items', [
                 'Equippable items can carry any number of bonuses, or penalties for cursed items: Core Attributes, any skill, AC, DR, ER, resistance to one energy type, Max HP, Max AP, Speed, Initiative, Wound Threshold, Max Rest Dice, Max Luck Points, Carry Capacity, melee and ranged attack and damage rolls, power attack rolls and save DC, saving throws, checks, and extra Power Slots of any level or for the CHA pool.',
@@ -151,17 +151,17 @@
             ]],
             ['Rest and Recover', [
                 'Rest: a Short Rest spends Rest Dice one at a time (each heals the die + your CON modifier) and restores CHA Power Slots. A Full Rest restores all HP and Power Slots, half your max Rest Dice and your Luck, and removes 1 Fatigue.',
-                'Recover: Shake it Off (1 AP, roll up to half your max Rest Dice, each + CON) and Shrug It Off (3 AP, heal one Wounded limb), each once per Short or Full Rest.',
+                'Recover: Shake it Off (1 AP, roll up to half your max Rest Dice, each + CON) and Shrug It Off (3 AP, heal one Wounded limb), each once per Short or Full Rest. Your GM\'s combat log says where the healing came from ("Ari regained 7 HP (Recover: Shake it Off, 2 Rest Dice)"), and Shrug It Off announces the healed limb.',
                 'Regenerative costs 3 GP. At the start of your turn in combat, press Regen to spend a Rest Die and heal the roll.'
             ]],
             ['Conditions and Injuries', [
                 'Unconscious, Paralyzed or Incapacitated characters see why their attacks and powers are unavailable, for example "(Unconscious)". Unconscious auto-fails STR, AGI, PER, INT and CHA checks (CON still works, for Bleed Out). Paralyzed auto-fails STR and AGI checks.',
                 'Burning deals 1d10 Fire damage at the start of your turn in combat, ignoring ER, unless you\'re immune to Fire.',
-                'Conditions bring the ones they include: Bleeding Out → Unconscious → Incapacitated (and Prone), Paralyzed → Incapacitated, Diseased → Infected. Frenzy Rank 5 keeps you conscious while Provoked. The × on a condition\'s tag under Vitals removes it.',
+                'Conditions bring the ones they include: Bleeding Out → Unconscious → Incapacitated (and Prone), Paralyzed → Incapacitated, Stunned → Incapacitated, Diseased → Infected. Frenzy Rank 5 keeps you conscious while Provoked. The × on a condition\'s tag under Vitals removes it.',
                 'Permanent Injuries: when a Wounded limb is Wounded again, press Re-wounded and pick an attribute to lower by 1. Remove the injury once it heals to get the point back.'
             ]],
             ['Rules', [
-                'High Roller: a Gamble that hits deals +5 damage (+10 and 1 AP from Rank 4). Rank 2 rerolls 1s and 2s on damage, Rank 3 lets Luck rerolls use Advantage or Disadvantage, and Rank 5 is a Dice Explosion once per Full Rest.',
+                'High Roller: a Gamble that hits deals +5 damage (+10 and 1 AP from Rank 4). Rank 2 rerolls 1s and 2s on damage (and a 1 is rolled again until it isn\'t, so no die ever ends below 2), Rank 3 lets Luck rerolls use Advantage or Disadvantage, and Rank 5 is a Dice Explosion once per Full Rest.',
                 'Fortunate Fighter Rank 1: use LUC instead of AGI for your AC. The sheet uses whichever is higher.',
                 'Mobile Rank 1: moving costs 1 less AP each time (minimum 0), and difficult terrain doesn\'t slow you.',
                 'Power Crafting: at most 8 dice per die step, and Sacrifice also stops you regaining HP until your next turn. Affected powers show "Recraft (Free)".',
@@ -169,6 +169,7 @@
                 'Heavy ranged weapons show AGI in the ATT column.'
             ]],
             ['Layout and Display', [
+                'The sheet starts below the floating Roster and Settings buttons, so they no longer cover your name.',
                 'Faster everywhere, most of all on phones: the styling is now one small prebuilt file, so the sheet no longer rebuilds its styles in your browser every time something on it changes.',
                 'Updates arrive whole: every file carries the version number, so your browser never mixes a new page with an old saved script.',
                 'Settings sits beside World at the top of the Character Sheet. Undo and Redo are at the bottom of the Roster menu, and Ctrl+Z and Ctrl+Y still work anywhere.',
@@ -255,8 +256,11 @@
             ['Initiative and Combat', [
                 'Bleed Out is one row: "Bleeding Out: N rounds left" with − Round, + Round and Stabilize.',
                 'No popups for saves. When a player passes their Wound Threshold, or drops to 0 HP with a linked sheet, their dice tray asks for the CON save or CON (Survive) check and the result fills in here. The Bleed Out popup remains for players without a sheet.',
-                'Hits: damage you enter right after an attack roll (from a player\'s sheet or your stat blocks) is that attack\'s hit, and "-0" counts when DR or ER stopped all of it. Players see "Ari hit Goblin."; you see the damage, or "Ari hit Goblin, but Goblin took no damage."',
+                'Hits: damage you enter right after an attack roll (from a player\'s sheet or your stat blocks) is that attack\'s hit, and "-0" counts when DR or ER stopped all of it. With no roll to match (dice rolled at the table), a typed "-N" or "-0" is a hit by whoever is taking their turn. Players see "Ari hit Goblin."; you see the damage, or "Ari hit Goblin, but Goblin took no damage."',
                 'The hit weapon\'s properties apply to that target. Crushing: a STR save (DC 10 + the attacker\'s STR modifier) or Prone, or +1 damage die against a Prone target. Stunning: a CON save or Stunned. Concealed: +1 damage die against a Surprised target. Extra dice go straight onto HP and count toward the Wound Threshold. Grappling is noted for you to apply, and Tearing stays manual.',
+                'Incapacitated targets (including anyone Stunned, Paralyzed or Unconscious) take every hit as a Critical Hit: a hit that didn\'t roll one gets the crit\'s extra damage dice added for you, with the attacker\'s High Roller rerolls, and the log notes it bypasses their resistances.',
+                'When a player fails their Wound Threshold save, your tray shows a button for each limb. Pick one and it\'s Wounded on their sheet. A limb that was already Wounded is marked "(again)", and their sheet asks them for the Permanent Injury.',
+                'Healing a player does on their own sheet shows where it came from: a Short Rest die, Regenerative, or Recover (Shake it Off).',
                 'Players roll their saves from their tray. For NPCs, the log gives you a button that rolls the save with the creature\'s bonus and adds Prone or Stunned on a failure (Luck rerolls update it).',
                 'Flurry: after a hit, the attacker\'s next attacks with that weapon this turn cost 1 less AP, automatically for NPCs, and ticked for you on the player\'s sheet.',
                 'End Combat checks for anyone still Bleeding Out first, and the XP award closes the combat log.',

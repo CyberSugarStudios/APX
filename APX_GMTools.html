@@ -111,7 +111,11 @@
            text-[7px] through text-[10px] utility classes throughout the
            app get bumped up to a legible 11px rather than staying at
            their original, genuinely-too-small sizes. */
-        [class*="text-[7px]"], [class*="text-[8px]"], [class*="text-[9px]"], [class*="text-[10px]"] { font-size: 11px !important; }
+        /*@src [class*="text-[7px]"], [class*="text-[8px]"], [class*="text-[9px]"], [class*="text-[10px]"]*/
+.text-\[7px\],
+.text-\[8px\],
+.text-\[9px\],
+.text-\[10px\] { font-size: 11px !important; }
 
 
         .section-title {
@@ -253,77 +257,156 @@
                    the same declared size) but too small in every other
                    theme. Bumping these up universally so all themes match
                    the size that already reads well. ===== */
-                #initiativeTrackerBody [class*="text-[7px]"] { font-size: 9px !important; }
-                #initiativeTrackerBody [class*="text-[8px]"] { font-size: 10px !important; }
-                #initiativeTrackerBody [class*="text-[9px]"] { font-size: 11px !important; }
-                #initiativeTrackerBody [class*="text-[10px]"] { font-size: 12px !important; }
+                /*@src #initiativeTrackerBody [class*="text-[7px]"]*/
+#initiativeTrackerBody .text-\[7px\] { font-size: 9px !important; }
+                /*@src #initiativeTrackerBody [class*="text-[8px]"]*/
+#initiativeTrackerBody .text-\[8px\] { font-size: 10px !important; }
+                /*@src #initiativeTrackerBody [class*="text-[9px]"]*/
+#initiativeTrackerBody .text-\[9px\] { font-size: 11px !important; }
+                /*@src #initiativeTrackerBody [class*="text-[10px]"]*/
+#initiativeTrackerBody .text-\[10px\] { font-size: 12px !important; }
 
                 /* ===== Opacity-variant classes (bg-X-Y/Z, border-X-Y/Z) -- Tailwind's slash-opacity syntax generates a SEPARATE class from the base color, so these need their own overrides ===== */
-                [class*="bg-amber-600/20"] { background-color: color-mix(in srgb, var(--c-amber) 20%, transparent) !important; }
-                [class*="bg-amber-600/40"] { background-color: color-mix(in srgb, var(--c-amber) 40%, transparent) !important; }
-                [class*="bg-amber-900/40"] { background-color: color-mix(in srgb, var(--c-amber-dark) 40%, transparent) !important; }
-                [class*="bg-amber-900/50"] { background-color: color-mix(in srgb, var(--c-amber-dark) 50%, transparent) !important; }
-                [class*="bg-amber-950/30"] { background-color: color-mix(in srgb, var(--c-amber-dark) 30%, transparent) !important; }
-                [class*="bg-blue-950/40"] { background-color: color-mix(in srgb, var(--c-blue) 40%, transparent) !important; }
-                [class*="bg-emerald-900/30"] { background-color: color-mix(in srgb, var(--c-emerald-dark) 30%, transparent) !important; }
-                [class*="bg-emerald-900/50"] { background-color: color-mix(in srgb, var(--c-emerald-dark) 50%, transparent) !important; }
-                [class*="bg-green-950/40"] { background-color: color-mix(in srgb, var(--c-emerald-dark) 40%, transparent) !important; }
-                [class*="bg-indigo-600/20"] { background-color: color-mix(in srgb, var(--c-indigo) 20%, transparent) !important; }
-                [class*="bg-indigo-600/40"] { background-color: color-mix(in srgb, var(--c-indigo) 40%, transparent) !important; }
-                [class*="bg-indigo-800/50"] { background-color: color-mix(in srgb, var(--c-indigo-dark) 50%, transparent) !important; }
-                [class*="bg-indigo-900/20"] { background-color: color-mix(in srgb, var(--c-indigo-dark) 20%, transparent) !important; }
-                [class*="bg-indigo-900/30"] { background-color: color-mix(in srgb, var(--c-indigo-dark) 30%, transparent) !important; }
-                [class*="bg-orange-600/20"] { background-color: color-mix(in srgb, var(--c-orange) 20%, transparent) !important; }
-                [class*="bg-orange-600/40"] { background-color: color-mix(in srgb, var(--c-orange) 40%, transparent) !important; }
-                [class*="bg-pink-800/50"] { background-color: color-mix(in srgb, var(--c-pink) 50%, transparent) !important; }
-                [class*="bg-pink-900/30"] { background-color: color-mix(in srgb, var(--c-pink) 30%, transparent) !important; }
-                [class*="bg-purple-600/20"] { background-color: color-mix(in srgb, var(--c-purple) 20%, transparent) !important; }
-                [class*="bg-purple-600/40"] { background-color: color-mix(in srgb, var(--c-purple) 40%, transparent) !important; }
-                [class*="bg-purple-900/10"] { background-color: color-mix(in srgb, var(--c-purple-dark) 10%, transparent) !important; }
-                [class*="bg-purple-900/20"] { background-color: color-mix(in srgb, var(--c-purple-dark) 20%, transparent) !important; }
-                [class*="bg-purple-900/30"] { background-color: color-mix(in srgb, var(--c-purple-dark) 30%, transparent) !important; }
-                [class*="bg-purple-900/50"] { background-color: color-mix(in srgb, var(--c-purple-dark) 50%, transparent) !important; }
-                [class*="bg-red-600/20"] { background-color: color-mix(in srgb, var(--c-red) 20%, transparent) !important; }
-                [class*="bg-red-600/40"] { background-color: color-mix(in srgb, var(--c-red) 40%, transparent) !important; }
-                [class*="bg-red-600/50"] { background-color: color-mix(in srgb, var(--c-red) 50%, transparent) !important; }
-        [class*="bg-cyan-600/20"] { background-color: color-mix(in srgb, var(--c-cyan) 20%, transparent) !important; }
-        [class*="bg-cyan-600/40"] { background-color: color-mix(in srgb, var(--c-cyan) 40%, transparent) !important; }
-        [class*="border-cyan-700/50"] { border-color: color-mix(in srgb, var(--c-cyan) 50%, transparent) !important; }
-                [class*="bg-red-900/30"] { background-color: color-mix(in srgb, var(--c-red-dark) 30%, transparent) !important; }
-                [class*="bg-red-900/40"] { background-color: color-mix(in srgb, var(--c-red-dark) 40%, transparent) !important; }
-                [class*="bg-red-900/50"] { background-color: color-mix(in srgb, var(--c-red-dark) 50%, transparent) !important; }
-                [class*="bg-red-950/40"] { background-color: color-mix(in srgb, var(--c-red-dark) 40%, transparent) !important; }
-                [class*="bg-slate-700/50"] { background-color: color-mix(in srgb, var(--c-border) 50%, transparent) !important; }
-                [class*="bg-slate-800/30"] { background-color: color-mix(in srgb, var(--c-surface) 30%, transparent) !important; }
-                [class*="bg-slate-800/50"] { background-color: color-mix(in srgb, var(--c-surface) 50%, transparent) !important; }
-                [class*="bg-slate-800/60"] { background-color: color-mix(in srgb, var(--c-surface) 60%, transparent) !important; }
-                [class*="bg-slate-900/50"] { background-color: color-mix(in srgb, var(--c-surface2) 50%, transparent) !important; }
-                [class*="border-amber-700/50"] { border-color: color-mix(in srgb, var(--c-amber-dk) 50%, transparent) !important; }
-                [class*="border-amber-800/50"] { border-color: color-mix(in srgb, var(--c-amber-dark) 50%, transparent) !important; }
-                [class*="border-cyan-800/50"] { border-color: color-mix(in srgb, var(--c-cyan) 50%, transparent) !important; }
-                [class*="border-emerald-700/50"] { border-color: color-mix(in srgb, var(--c-emerald) 50%, transparent) !important; }
-                [class*="border-emerald-800/50"] { border-color: color-mix(in srgb, var(--c-emerald-dark) 50%, transparent) !important; }
-                [class*="border-emerald-900/50"] { border-color: color-mix(in srgb, var(--c-emerald-dark) 50%, transparent) !important; }
-                [class*="border-indigo-500/50"] { border-color: color-mix(in srgb, var(--c-indigo-lt) 50%, transparent) !important; }
-                [class*="border-indigo-700/50"] { border-color: color-mix(in srgb, var(--c-indigo) 50%, transparent) !important; }
-                [class*="border-indigo-900/50"] { border-color: color-mix(in srgb, var(--c-indigo-dark) 50%, transparent) !important; }
-                [class*="border-orange-700/50"] { border-color: color-mix(in srgb, var(--c-orange) 50%, transparent) !important; }
-                [class*="border-orange-800/50"] { border-color: color-mix(in srgb, var(--c-orange-dark) 50%, transparent) !important; }
-                [class*="border-orange-900/50"] { border-color: color-mix(in srgb, var(--c-orange-dark) 50%, transparent) !important; }
-                [class*="border-pink-500/50"] { border-color: color-mix(in srgb, var(--c-pink-lt) 50%, transparent) !important; }
-                [class*="border-pink-700/50"] { border-color: color-mix(in srgb, var(--c-pink) 50%, transparent) !important; }
-                [class*="border-purple-700/50"] { border-color: color-mix(in srgb, var(--c-purple) 50%, transparent) !important; }
-                [class*="border-purple-800/50"] { border-color: color-mix(in srgb, var(--c-purple-dark) 50%, transparent) !important; }
-                [class*="border-purple-900/50"] { border-color: color-mix(in srgb, var(--c-purple-dark) 50%, transparent) !important; }
-                [class*="border-red-700/50"] { border-color: color-mix(in srgb, var(--c-red) 50%, transparent) !important; }
-                [class*="border-red-800/50"] { border-color: color-mix(in srgb, var(--c-red-dark) 50%, transparent) !important; }
-                [class*="border-slate-700/50"] { border-color: color-mix(in srgb, var(--c-border) 50%, transparent) !important; }
-                [class*="border-yellow-900/50"] { border-color: color-mix(in srgb, var(--c-yellow-dk) 50%, transparent) !important; }
-                [class*="divide-slate-700/50"] > :not([hidden]) ~ :not([hidden]) { border-color: color-mix(in srgb, var(--c-border2) 50%, transparent) !important; }
-                [class*="divide-slate-800/50"] > :not([hidden]) ~ :not([hidden]) { border-color: color-mix(in srgb, var(--c-border2) 50%, transparent) !important; }
-                [class*="text-emerald-400/80"] { color: color-mix(in srgb, var(--c-emerald) 80%, transparent) !important; }
-                [class*="text-orange-400/80"] { color: color-mix(in srgb, var(--c-orange) 80%, transparent) !important; }
-                [class*="text-yellow-500/50"] { color: color-mix(in srgb, var(--c-yellow-dk) 50%, transparent) !important; }
+                /*@src [class*="bg-amber-600/20"]*/
+.bg-amber-600\/20 { background-color: color-mix(in srgb, var(--c-amber) 20%, transparent) !important; }
+                /*@src [class*="bg-amber-600/40"]*/
+.bg-amber-600\/40,
+.hover\:bg-amber-600\/40 { background-color: color-mix(in srgb, var(--c-amber) 40%, transparent) !important; }
+                /*@src [class*="bg-amber-900/40"]*/
+.bg-amber-900\/40 { background-color: color-mix(in srgb, var(--c-amber-dark) 40%, transparent) !important; }
+                /*@src [class*="bg-amber-900/50"]*/
+.bg-amber-900\/50 { background-color: color-mix(in srgb, var(--c-amber-dark) 50%, transparent) !important; }
+                /*@src [class*="bg-amber-950/30"]*/
+.bg-amber-950\/30 { background-color: color-mix(in srgb, var(--c-amber-dark) 30%, transparent) !important; }
+                /*@src [class*="bg-blue-950/40"]*/
+.bg-blue-950\/40 { background-color: color-mix(in srgb, var(--c-blue) 40%, transparent) !important; }
+                /*@src [class*="bg-emerald-900/30"]*/
+.bg-emerald-900\/30 { background-color: color-mix(in srgb, var(--c-emerald-dark) 30%, transparent) !important; }
+                /*@src [class*="bg-emerald-900/50"]*/
+.bg-emerald-900\/50 { background-color: color-mix(in srgb, var(--c-emerald-dark) 50%, transparent) !important; }
+                /*@src [class*="bg-green-950/40"]*/
+.bg-green-950\/40 { background-color: color-mix(in srgb, var(--c-emerald-dark) 40%, transparent) !important; }
+                /*@src [class*="bg-indigo-600/20"]*/
+.bg-indigo-600\/20 { background-color: color-mix(in srgb, var(--c-indigo) 20%, transparent) !important; }
+                /*@src [class*="bg-indigo-600/40"]*/
+.bg-indigo-600\/40,
+.hover\:bg-indigo-600\/40 { background-color: color-mix(in srgb, var(--c-indigo) 40%, transparent) !important; }
+                /*@src [class*="bg-indigo-800/50"]*/
+.bg-indigo-800\/50,
+.hover\:bg-indigo-800\/50 { background-color: color-mix(in srgb, var(--c-indigo-dark) 50%, transparent) !important; }
+                /*@src [class*="bg-indigo-900/20"]*/
+.bg-indigo-900\/20 { background-color: color-mix(in srgb, var(--c-indigo-dark) 20%, transparent) !important; }
+                /*@src [class*="bg-indigo-900/30"]*/
+.bg-indigo-900\/30 { background-color: color-mix(in srgb, var(--c-indigo-dark) 30%, transparent) !important; }
+                /*@src [class*="bg-orange-600/20"]*/
+.bg-orange-600\/20 { background-color: color-mix(in srgb, var(--c-orange) 20%, transparent) !important; }
+                /*@src [class*="bg-orange-600/40"]*/
+.bg-orange-600\/40,
+.hover\:bg-orange-600\/40 { background-color: color-mix(in srgb, var(--c-orange) 40%, transparent) !important; }
+                /*@src [class*="bg-pink-800/50"]*/
+.bg-pink-800\/50,
+.hover\:bg-pink-800\/50 { background-color: color-mix(in srgb, var(--c-pink) 50%, transparent) !important; }
+                /*@src [class*="bg-pink-900/30"]*/
+.bg-pink-900\/30 { background-color: color-mix(in srgb, var(--c-pink) 30%, transparent) !important; }
+                /*@src [class*="bg-purple-600/20"]*/
+.bg-purple-600\/20 { background-color: color-mix(in srgb, var(--c-purple) 20%, transparent) !important; }
+                /*@src [class*="bg-purple-600/40"]*/
+.bg-purple-600\/40,
+.hover\:bg-purple-600\/40 { background-color: color-mix(in srgb, var(--c-purple) 40%, transparent) !important; }
+                /*@src [class*="bg-purple-900/10"]*/
+.bg-purple-900\/10 { background-color: color-mix(in srgb, var(--c-purple-dark) 10%, transparent) !important; }
+                /*@src [class*="bg-purple-900/20"]*/
+.bg-purple-900\/20 { background-color: color-mix(in srgb, var(--c-purple-dark) 20%, transparent) !important; }
+                /*@src [class*="bg-purple-900/30"]*/
+.bg-purple-900\/30 { background-color: color-mix(in srgb, var(--c-purple-dark) 30%, transparent) !important; }
+                /*@src [class*="bg-purple-900/50"]*/
+.bg-purple-900\/50,
+.hover\:bg-purple-900\/50 { background-color: color-mix(in srgb, var(--c-purple-dark) 50%, transparent) !important; }
+                /*@src [class*="bg-red-600/20"]*/
+.bg-red-600\/20 { background-color: color-mix(in srgb, var(--c-red) 20%, transparent) !important; }
+                /*@src [class*="bg-red-600/40"]*/
+.bg-red-600\/40,
+.hover\:bg-red-600\/40 { background-color: color-mix(in srgb, var(--c-red) 40%, transparent) !important; }
+                /*@src [class*="bg-red-600/50"]*/
+.bg-red-600\/50 { background-color: color-mix(in srgb, var(--c-red) 50%, transparent) !important; }
+        /*@src [class*="bg-cyan-600/20"]*/
+.bg-cyan-600\/20 { background-color: color-mix(in srgb, var(--c-cyan) 20%, transparent) !important; }
+        /*@src [class*="bg-cyan-600/40"]*/
+.bg-cyan-600\/40,
+.hover\:bg-cyan-600\/40 { background-color: color-mix(in srgb, var(--c-cyan) 40%, transparent) !important; }
+        /*@src [class*="border-cyan-700/50"]*/
+.border-cyan-700\/50 { border-color: color-mix(in srgb, var(--c-cyan) 50%, transparent) !important; }
+                /*@src [class*="bg-red-900/30"]*/
+.bg-red-900\/30 { background-color: color-mix(in srgb, var(--c-red-dark) 30%, transparent) !important; }
+                /*@src [class*="bg-red-900/40"]*/
+.bg-red-900\/40 { background-color: color-mix(in srgb, var(--c-red-dark) 40%, transparent) !important; }
+                /*@src [class*="bg-red-900/50"]*/
+.bg-red-900\/50 { background-color: color-mix(in srgb, var(--c-red-dark) 50%, transparent) !important; }
+                /*@src [class*="bg-red-950/40"]*/
+.bg-red-950\/40 { background-color: color-mix(in srgb, var(--c-red-dark) 40%, transparent) !important; }
+                /*@src [class*="bg-slate-700/50"]*/
+.bg-slate-700\/50 { background-color: color-mix(in srgb, var(--c-border) 50%, transparent) !important; }
+                /*@src [class*="bg-slate-800/30"]*/
+.bg-slate-800\/30 { background-color: color-mix(in srgb, var(--c-surface) 30%, transparent) !important; }
+                /*@src [class*="bg-slate-800/50"]*/
+.bg-slate-800\/50,
+.hover\:bg-slate-800\/50 { background-color: color-mix(in srgb, var(--c-surface) 50%, transparent) !important; }
+                /*@src [class*="bg-slate-800/60"]*/
+.bg-slate-800\/60 { background-color: color-mix(in srgb, var(--c-surface) 60%, transparent) !important; }
+                /*@src [class*="bg-slate-900/50"]*/
+.bg-slate-900\/50 { background-color: color-mix(in srgb, var(--c-surface2) 50%, transparent) !important; }
+                /*@src [class*="border-amber-700/50"]*/
+.border-amber-700\/50 { border-color: color-mix(in srgb, var(--c-amber-dk) 50%, transparent) !important; }
+                /*@src [class*="border-amber-800/50"]*/
+.border-amber-800\/50 { border-color: color-mix(in srgb, var(--c-amber-dark) 50%, transparent) !important; }
+                /*@src [class*="border-cyan-800/50"]*/
+.border-cyan-800\/50 { border-color: color-mix(in srgb, var(--c-cyan) 50%, transparent) !important; }
+                /*@src [class*="border-emerald-700/50"]*/
+.border-emerald-700\/50 { border-color: color-mix(in srgb, var(--c-emerald) 50%, transparent) !important; }
+                /*@src [class*="border-emerald-800/50"]*/
+.border-emerald-800\/50 { border-color: color-mix(in srgb, var(--c-emerald-dark) 50%, transparent) !important; }
+                /*@src [class*="border-emerald-900/50"]*/
+.border-emerald-900\/50 { border-color: color-mix(in srgb, var(--c-emerald-dark) 50%, transparent) !important; }
+                /*@src [class*="border-indigo-500/50"]*/
+.border-indigo-500\/50 { border-color: color-mix(in srgb, var(--c-indigo-lt) 50%, transparent) !important; }
+                /*@src [class*="border-indigo-700/50"]*/
+.border-indigo-700\/50 { border-color: color-mix(in srgb, var(--c-indigo) 50%, transparent) !important; }
+                /*@src [class*="border-indigo-900/50"]*/
+.border-indigo-900\/50 { border-color: color-mix(in srgb, var(--c-indigo-dark) 50%, transparent) !important; }
+                /*@src [class*="border-orange-700/50"]*/
+.border-orange-700\/50 { border-color: color-mix(in srgb, var(--c-orange) 50%, transparent) !important; }
+                /*@src [class*="border-orange-800/50"]*/
+.border-orange-800\/50 { border-color: color-mix(in srgb, var(--c-orange-dark) 50%, transparent) !important; }
+                /*@src [class*="border-orange-900/50"]*/
+.border-orange-900\/50 { border-color: color-mix(in srgb, var(--c-orange-dark) 50%, transparent) !important; }
+                /*@src [class*="border-pink-500/50"]*/
+.border-pink-500\/50 { border-color: color-mix(in srgb, var(--c-pink-lt) 50%, transparent) !important; }
+                /*@src [class*="border-pink-700/50"]*/
+.border-pink-700\/50 { border-color: color-mix(in srgb, var(--c-pink) 50%, transparent) !important; }
+                /*@src [class*="border-purple-700/50"]*/
+.border-purple-700\/50 { border-color: color-mix(in srgb, var(--c-purple) 50%, transparent) !important; }
+                /*@src [class*="border-purple-800/50"]*/
+.border-purple-800\/50 { border-color: color-mix(in srgb, var(--c-purple-dark) 50%, transparent) !important; }
+                /*@src [class*="border-purple-900/50"]*/
+.border-purple-900\/50 { border-color: color-mix(in srgb, var(--c-purple-dark) 50%, transparent) !important; }
+                /*@src [class*="border-red-700/50"]*/
+.border-red-700\/50 { border-color: color-mix(in srgb, var(--c-red) 50%, transparent) !important; }
+                /*@src [class*="border-red-800/50"]*/
+.border-red-800\/50 { border-color: color-mix(in srgb, var(--c-red-dark) 50%, transparent) !important; }
+                /*@src [class*="border-slate-700/50"]*/
+.border-slate-700\/50 { border-color: color-mix(in srgb, var(--c-border) 50%, transparent) !important; }
+                /*@src [class*="border-yellow-900/50"]*/
+.border-yellow-900\/50 { border-color: color-mix(in srgb, var(--c-yellow-dk) 50%, transparent) !important; }
+                /*@src [class*="divide-slate-700/50"] > :not([hidden]) ~ :not([hidden])*/
+.divide-slate-700\/50 > :not([hidden]) ~ :not([hidden]) { border-color: color-mix(in srgb, var(--c-border2) 50%, transparent) !important; }
+                /*@src [class*="divide-slate-800/50"] > :not([hidden]) ~ :not([hidden])*/
+.divide-slate-800\/50 > :not([hidden]) ~ :not([hidden]) { border-color: color-mix(in srgb, var(--c-border2) 50%, transparent) !important; }
+                /*@src [class*="text-emerald-400/80"]*/
+.text-emerald-400\/80 { color: color-mix(in srgb, var(--c-emerald) 80%, transparent) !important; }
+                /*@src [class*="text-orange-400/80"]*/
+.text-orange-400\/80 { color: color-mix(in srgb, var(--c-orange) 80%, transparent) !important; }
+                /*@src [class*="text-yellow-500/50"]*/
+.text-yellow-500\/50 { color: color-mix(in srgb, var(--c-yellow-dk) 50%, transparent) !important; }
                 /* ===== Instant tooltips (data-tip="...") -- no native browser delay ===== */
                 [data-tip] { position: relative; cursor: help; }
 
@@ -363,8 +446,8 @@
                 }
         
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20269251839">
-    <link rel="stylesheet" href="css/tailwind.css?v=20269251839">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20269252217">
+    <link rel="stylesheet" href="css/tailwind.css?v=20269252217">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
@@ -1421,35 +1504,35 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20269251839"></script>
-    <script src="js/apx-patch-notes.js?v=20269251839"></script>
-    <script src="js/apx-dice.js?v=20269251839"></script>
-    <script src="js/apx-data.js?v=20269251839"></script>
-    <script src="js/apx-item-effects.js?v=20269251839"></script>
-    <script src="js/apx-perks-db.js?v=20269251839"></script>
-    <script src="js/apx-migrations.js?v=20269251839"></script>
-    <script src="js/apx-state.js?v=20269251839"></script>
-    <script src="js/apx-craft-shared.js?v=20269251839"></script>
-    <script src="js/apx-armor-forge.js?v=20269251839"></script>
-    <script src="js/apx-weapon-forge.js?v=20269251839"></script>
-    <script src="js/apx-consumable-crafter.js?v=20269251839"></script>
-    <script src="js/apx-perks-ui.js?v=20269251839"></script>
-    <script src="js/apx-power-crafter.js?v=20269251839"></script>
-    <script src="js/apx-npc-crafter.js?v=20269251839"></script>
-    <script src="js/apx-inventory-ui.js?v=20269251839"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20269251839"></script>
-    <script src="js/apx-gm-screen.js?v=20269251839"></script>
-    <script src="js/apx-loot-maker.js?v=20269251839"></script>
-    <script src="js/apx-gmtools-main.js?v=20269251839"></script>
+    <script src="js/apx-dialogs.js?v=20269252217"></script>
+    <script src="js/apx-patch-notes.js?v=20269252217"></script>
+    <script src="js/apx-dice.js?v=20269252217"></script>
+    <script src="js/apx-data.js?v=20269252217"></script>
+    <script src="js/apx-item-effects.js?v=20269252217"></script>
+    <script src="js/apx-perks-db.js?v=20269252217"></script>
+    <script src="js/apx-migrations.js?v=20269252217"></script>
+    <script src="js/apx-state.js?v=20269252217"></script>
+    <script src="js/apx-craft-shared.js?v=20269252217"></script>
+    <script src="js/apx-armor-forge.js?v=20269252217"></script>
+    <script src="js/apx-weapon-forge.js?v=20269252217"></script>
+    <script src="js/apx-consumable-crafter.js?v=20269252217"></script>
+    <script src="js/apx-perks-ui.js?v=20269252217"></script>
+    <script src="js/apx-power-crafter.js?v=20269252217"></script>
+    <script src="js/apx-npc-crafter.js?v=20269252217"></script>
+    <script src="js/apx-inventory-ui.js?v=20269252217"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20269252217"></script>
+    <script src="js/apx-gm-screen.js?v=20269252217"></script>
+    <script src="js/apx-loot-maker.js?v=20269252217"></script>
+    <script src="js/apx-gmtools-main.js?v=20269252217"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20269251839"></script>
-    <script src="js/apx-firebase.js?v=20269251839"></script>
-    <script src="js/apx-battlemap.js?v=20269251839"></script>
-    <script src="js/apx-map-tiles.js?v=20269251839"></script>
+    <script src="js/firebase-config.js?v=20269252217"></script>
+    <script src="js/apx-firebase.js?v=20269252217"></script>
+    <script src="js/apx-battlemap.js?v=20269252217"></script>
+    <script src="js/apx-map-tiles.js?v=20269252217"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {

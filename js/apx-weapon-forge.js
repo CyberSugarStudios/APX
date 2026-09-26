@@ -350,17 +350,28 @@ function renderWeaponForgeStep3() {
             </div>`;
         }
         let checked = !!weaponForgeDraft.properties[p.key];
-        // An add-on (Returning) sits indented under its property and only shows once that's chosen
-        if (p.addonOf && !weaponForgeDraft.properties[p.addonOf]) return '';
+        // Add-ons (Returning) are drawn inside their property's card, not on their own
+        if (p.addonOf) return '';
+        let addons = WEAPON_PROPERTIES.filter(x => x.addonOf === p.key);
+        let addonHtml = checked ? addons.map(ad => {
+            let on = !!weaponForgeDraft.properties[ad.key], ok = ad.reqCheck(ctx);
+            return `<label class="flex items-start gap-2 mt-1.5 pt-1.5 border-t border-slate-700 ${!ok ? 'opacity-50' : 'cursor-pointer'}" onclick="event.stopPropagation()">
+                    <input type="checkbox" class="mt-0.5" ${on ? 'checked' : ''} ${!ok ? 'disabled' : ''} onchange="window.toggleWeaponProperty('${ad.key}', this.checked)">
+                    <div class="flex-1"><div class="text-[11px] font-bold text-slate-200">${ad.name.replace(/\s*\(.*\)$/, '')} <span class="text-yellow-500">[+${ad.cost} Cu]</span></div>
+                    <div class="text-[9px] text-slate-500 leading-tight">${ad.desc}</div></div></label>`;
+        }).join('') : '';
         return `
-            <label class="flex items-start gap-2 bg-slate-900 border border-slate-700 rounded p-2 ${p.addonOf ? 'ml-6 border-l-2 border-l-amber-700' : ''} ${!meetsReq ? 'opacity-50' : 'cursor-pointer'}">
-                <input type="checkbox" class="mt-0.5" ${checked ? 'checked' : ''} ${!meetsReq ? 'disabled' : ''} onchange="window.toggleWeaponProperty('${p.key}', this.checked)">
-                <div class="flex-1">
-                    <div class="text-[11px] font-bold text-slate-200">${p.name} <span class="text-yellow-500">[${p.cost} Cu]</span></div>
-                    <div class="text-[9px] text-slate-500 leading-tight">${p.desc}</div>
-                    ${!meetsReq ? `<div class="text-[9px] text-red-400 font-bold">Requires: ${p.reqLabel}</div>` : ''}
-                </div>
-            </label>
+            <div class="bg-slate-900 border border-slate-700 rounded p-2 ${!meetsReq ? 'opacity-50' : ''}">
+                <label class="flex items-start gap-2 ${meetsReq ? 'cursor-pointer' : ''}">
+                    <input type="checkbox" class="mt-0.5" ${checked ? 'checked' : ''} ${!meetsReq ? 'disabled' : ''} onchange="window.toggleWeaponProperty('${p.key}', this.checked)">
+                    <div class="flex-1">
+                        <div class="text-[11px] font-bold text-slate-200">${p.name} <span class="text-yellow-500">[${p.cost} Cu]</span></div>
+                        <div class="text-[9px] text-slate-500 leading-tight">${p.desc}</div>
+                        ${!meetsReq ? `<div class="text-[9px] text-red-400 font-bold">Requires: ${p.reqLabel}</div>` : ''}
+                    </div>
+                </label>
+                ${addonHtml}
+            </div>
         `;
     }).join('');
     document.getElementById('wpnPropertiesList').innerHTML = propsHtml;

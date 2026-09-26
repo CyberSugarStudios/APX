@@ -89,6 +89,7 @@
         let heal = Math.max(0, rolled);
         let before = s.currentHp || 0;
         s.currentHp = Math.min(maxHp(), before + heal);
+        s.hpNote = { text: label, t: Date.now() };   // the GM's log says where the healing came from
         s.restDice = (s.restDice || 0) - 1;
         let comp = healCompanion(rolled - flat, 1);
         refresh();
@@ -173,13 +174,15 @@
             slotsUsed ? `All Power Slots restored (${slotsUsed} used)` : 'Power Slots: all available',
             `Luck Points → ${maxLuck}`,
             s.companion ? `${s.companion.name || 'Companion'}: full HP, power slots and charges` : null,
-            omenRank && !unusedOmen ? `New Omen Dice ${omenRank >= 5 ? '(1, 10 and 20)' : 'rolled'}` : null,
+            omenRank >= 5 ? (unusedOmen ? 'Omen Dice: yours are kept; any empty slot gets the missing 1, 10 or 20' : 'New Omen Dice: 1, 10 and 20')
+                : omenRank && !unusedOmen ? 'New Omen Dice rolled' : null,
             (s.perks || {}).luc_highroller >= 5 ? `High Roller: Exploding Dice ready again` : null,
             recoverUsedList(s) ? `Recover: ${recoverUsedList(s)} ready again` : null
         ].filter(Boolean);
         // Omen: each held die can be kept or rolled again; empty slots are always filled
         let omenCap = omenRank >= 4 ? 3 : omenRank >= 3 ? 2 : omenRank >= 1 ? 1 : 0;
-        let omenHtml = omenRank && unusedOmen ? `<div style="border:1px solid #7e22ce;background:rgba(88,28,135,.18);border-radius:.45rem;padding:.5rem .6rem;margin-bottom:.8rem">
+        // (Rank 5: the results are set, so there's nothing to choose)
+        let omenHtml = omenRank && omenRank < 5 && unusedOmen ? `<div style="border:1px solid #7e22ce;background:rgba(88,28,135,.18);border-radius:.45rem;padding:.5rem .6rem;margin-bottom:.8rem">
                 <div style="font-size:.74rem;font-weight:800;color:#e9d5ff;margin-bottom:.35rem">Which, if any, of your Omen Dice would you like to roll again for this rest?</div>
                 <div style="display:flex;flex-wrap:wrap;gap:.5rem">${(s.omenDice || []).map((v, i) => `<label style="display:flex;align-items:center;gap:.3rem;cursor:pointer;font-size:.8rem;font-weight:800;color:#f3e8ff">
                     <input type="checkbox" data-omen-reroll="${i}"><span style="display:inline-flex;align-items:center;justify-content:center;min-width:1.7rem;height:1.7rem;border-radius:.35rem;background:#3b0764;border:1px solid #c084fc">${v}</span></label>`).join('')}</div>
@@ -287,6 +290,7 @@
                         : n * (Math.floor(Math.random() * (parseInt(dieStep().slice(1)) || 6)) + 1 + cm);
                     let heal = Math.max(0, rolled), before = s2.currentHp || 0;
                     s2.currentHp = Math.min(maxHp(), before + heal);
+                    s2.hpNote = { text: `Recover: Shake it Off, ${n} Rest Di${n > 1 ? 'ce' : 'e'}`, t: Date.now() };   // shown in the GM's log
                     s2.restDice = Math.max(0, (s2.restDice || 0) - n);
                     let comp = healCompanion(rolled - cm * n, n);
                     refresh(); back.remove();
@@ -296,6 +300,8 @@
                     s2.woundedLimbs = (s2.woundedLimbs || []).filter(l => l !== limb);
                     refresh(); back.remove();
                     toast(`Shrug It Off: ${limb} is no longer Wounded (${apTxt}).`);
+                    // Tell the table (the GM's combat log)
+                    if (typeof window.apxOnRollEvent === 'function') window.apxOnRollEvent({ id: 'rc' + Date.now().toString(36), kind: 'power', label: 'Shrug It Off', text: `${s2.name || 'A player'} uses Recover: Shrug It Off. Their ${limb} is no longer Wounded.` });
                 }
             });
         };

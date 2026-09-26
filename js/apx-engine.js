@@ -793,10 +793,13 @@
                 // On medium melee, reach only applies to the 2H row — suppress on 1H badge
                 if (exclude2HOnlyProps && p.key === 'reach' && w.weightClass === 'medium') return false;
                 return true;
-            }).map(p => {
+            }).filter(p => !p.addonOf).map(p => {
                 let val = w.properties[p.key];
                 let count = (typeof val === 'number') ? val : 1;
-                return count > 1 ? `${p.name} ${count}` : p.name;
+                // An add-on shows with its property: "Thrown (Returning)"
+                let adds = WEAPON_PROPERTIES.filter(x => x.addonOf === p.key && w.properties[x.key]).map(x => x.name.replace(/\s*\(.*\)$/, ''));
+                let name = adds.length ? `${p.name} (${adds.join(', ')})` : p.name;
+                return count > 1 ? `${name} ${count}` : name;
             });
             if (props.length) bits.push(props.join(', '));
             return `<div class="text-[9px] text-orange-400/80 leading-tight mt-0.5">${bits.join(' &middot; ')}</div>`;
@@ -1484,22 +1487,24 @@
             let slotLabel = isCha ? 'Power Slot' : `Level ${slotKey} Power Slot`;
             let cost = Math.max(0, parseInt(p.ap) || 0);
             let have = typeof window.apxApCurrent === 'function' ? window.apxApCurrent() : cost;
+            // Whatever you have is spent: a slot if one's left, the AP if there's enough. Short on
+            // either, you're asked first; "Use anyway" still takes what's there.
+            let slotOk = slotUsed < slotMax, apOk = cost <= have;
             let short = [];
-            if (slotUsed >= slotMax) short.push(`You have no ${slotLabel}s left (${slotUsed}/${slotMax} used).`);
-            if (cost > have) short.push(`It costs ${cost} AP and you have ${have}.`);
+            if (!slotOk) short.push(`You have no ${slotLabel}s left (${slotUsed}/${slotMax} used).`);
+            if (!apOk) short.push(`It costs ${cost} AP and you have ${have}.`);
             let pay = true;
             if (short.length) {
-                let ans = APXDice.ask ? await APXDice.ask(`${name}`, short.join('\n'), [['free', "Roll, don't spend", 'pri']]) : 'free';
-                if (ans !== 'free') return;
+                let ans = APXDice.ask ? await APXDice.ask(`${name}`, short.join('\n'), [['use', 'Use anyway', 'pri']]) : 'use';
+                if (ans !== 'use') return;
                 pay = false;
             }
             let notes = [];
-            if (pay) {
-                if (cost > 0) { window.apxSpendAp(cost); notes.push(`-${cost} AP (${window.apxApCurrent()} left)`); }
-                window.state.usedPowerSlots[slotKey] = slotUsed + 1;
-                notes.push(`-1 ${slotLabel} (${Math.max(0, slotMax - slotUsed - 1)} left)`);
-                window.recalculateMath();
-            } else notes.push('Nothing spent');
+            if (apOk && cost > 0) { window.apxSpendAp(cost); notes.push(`-${cost} AP (${window.apxApCurrent()} left)`); }
+            else if (!apOk) notes.push(`AP short (needed ${cost}, had ${have})`);
+            if (slotOk) { window.state.usedPowerSlots[slotKey] = slotUsed + 1; notes.push(`-1 ${slotLabel} (${Math.max(0, slotMax - slotUsed - 1)} left)`); }
+            else notes.push(`no ${slotLabel} left`);
+            window.recalculateMath();
             let useNote = notes.join(' · ');
             let info = apxPowerAtkInfo(p), dmg = apxPowerDamage(p);
             let flavor = String(p.desc || '').trim();

@@ -387,7 +387,10 @@ function startPartyListener(inviteCode) {
                                 let r2 = window.apxApplyHpInput('-' + extra, e.currentHp, e.tempHp, e.maxHp);
                                 if (r2) { e.currentHp = r2.currentHp; e.tempHp = r2.tempHp; after = (e.currentHp || 0) + (e.tempHp || 0); _syncHpToPlayer(e); }
                             }
-                            _gmLogHpChange(e, before, after, wasUp, before - after, hit);
+                            // Healing from the player's own sheet says where it came from (a rest, Recover…)
+                            let note = state.hpNote, why = null;
+                            if (after > before && note && note.t && Date.now() - note.t < 120000 && e._hpNoteT !== note.t) { why = note.text; e._hpNoteT = note.t; }
+                            _gmLogHpChange(e, before, after, wasUp, before - after, hit, why);
                             if (before > after) _gmCheckWoundThreshold(e, before - after);   // Wound Threshold first,
                             if (hit) _gmHitEffects(e, hit, extras);                          // the hit's own saves,
                             if (dropped) _gmQueueBleed(e);                                     // then Bleed Out
@@ -1192,7 +1195,7 @@ function _gmPublishLogSoon() {
     }, 400);
 }
 // HP change on a tracker entry → "<active creature> dealt X damage to <target>."
-function _gmLogHpChange(entry, before, after, wasAboveZero, rawDmg, hit) {
+function _gmLogHpChange(entry, before, after, wasAboveZero, rawDmg, hit, why) {
     let d = before - after;
     if (d > 0 && rawDmg > d) d = rawDmg;   // the whole hit, even past 0 HP
     if (!window.gmCombatStarted) return;
@@ -1223,10 +1226,10 @@ function _gmLogHpChange(entry, before, after, wasAboveZero, rawDmg, hit) {
     let hideAmt = entry.faction !== 'player' && cur && (cur.faction === 'player' || !!cur.companionOf);
     let text = d > 0
         ? (cur && cur !== entry ? (hideAmt ? `${_gmPublicName(cur)} hit ${tgt}.` : `${_gmPublicName(cur)} dealt ${d} damage to ${tgt}.`) : `${tgt} took ${entry.faction !== 'player' ? 'damage' : d + ' damage'}.`)
-        : (entry.faction !== 'player' ? `${tgt} regained HP.` : `${tgt} regained ${-d} HP.`);
+        : (entry.faction !== 'player' ? `${tgt} regained HP.` : `${tgt} regained ${-d} HP${why ? ` (${why})` : ''}.`);
     // The GM always sees real names and amounts (hidden tokens are marked as such)
     let gTgt = _gmGmName(entry);
-    let gmText = d > 0 ? `${cur && cur !== entry ? _gmGmName(cur) + ' dealt ' + d + ' damage to ' + gTgt : gTgt + ' took ' + d + ' damage'}.` : `${gTgt} regained ${-d} HP.`;
+    let gmText = d > 0 ? `${cur && cur !== entry ? _gmGmName(cur) + ' dealt ' + d + ' damage to ' + gTgt : gTgt + ' took ' + d + ' damage'}.` : `${gTgt} regained ${-d} HP${why ? ` (${why})` : ''}.`;
     if (gmText === text) gmText = null;
     if (d > 0 && wasAboveZero && entry.currentHp !== null && entry.currentHp <= 0) { text += ` ${tgt} is down!`; if (gmText) gmText += ` ${gTgt} is down!`; }
     gmLog({ text, gmText, kind: d > 0 ? 'dmg' : 'heal' });
@@ -1264,8 +1267,16 @@ function _gmAttackerFor(o) {
 window.apxOnAttackRoll = function(o, r) {
     if (!window.gmCombatStarted || !o) return;
     let e = _gmAttackerFor(o); if (!e) return;
-    _gmRecordAttack({ id: r.id, attacker: e, label: o.label || 'an attack', hit: o.hit || null, crit: !!r.crit, fumble: !!r.fumble, total: r.total });
+    _gmRecordAttack({ id: r.id, attacker: e, label: o.label || 'an attack', hit: o.hit || null, crit: !!r.crit, fumble: !!r.fumble, total: r.total,
+        dice: o.dice || '', critMult: o.critMult || 2, reroll12: false });   // (NPC stat blocks don't use perks)
 };
+// No attack roll to match (dice rolled at the table): a typed "-N" (even -0) is still a hit,
+// by whoever is taking their turn
+function _gmTurnHit(target) {
+    let cur = (window.gmInitiative || [])[window.gmCurrentTurnIdx];
+    if (!window.gmCombatStarted || !cur || cur.id === target.id) return null;
+    return { attacker: cur, hit: null, crit: false, dice: '' };
+}
 // The attack that just hit `target` (once per target, so an area power can hit several)
 function _gmTakeHit(target) {
     let a = window._gmLastAttack;
@@ -1294,10 +1305,35 @@ function _gmRollDie(die) {
     for (let i = 0; i < n; i++) t += (window.APXDice ? APXDice.rnd(sides) : 1 + Math.floor(Math.random() * sides));
     return t;
 }
+// The extra dice a critical hit adds to this attack's damage (dice × (multiplier − 1)),
+// with the attacker's High Roller rerolls (1s and 2s rolled again, 1s never kept)
+function _gmCritExtra(hit) {
+    let mult = Math.max(2, hit.critMult || 2), total = 0, parts = [];
+    String(hit.dice || '').replace(/\s+/g, '').replace(/([+-]?)(\d*)d(\d+)/gi, (m, sign, n, sides) => {
+        if (sign === '-') return m;
+        let count = (parseInt(n || '1', 10)) * (mult - 1), s = parseInt(sides, 10);
+        for (let i = 0; i < count; i++) {
+            let v = window.APXDice ? APXDice.rnd(s) : 1 + Math.floor(Math.random() * s);
+            if (hit.reroll12 && v <= 2) { v = APXDice.rnd(s); while (v === 1 && s > 1) v = APXDice.rnd(s); }
+            total += v;
+        }
+        if (count) parts.push(count + 'd' + s);
+        return m;
+    });
+    return { n: total, dice: parts.join('+') };
+}
 // Before the damage lands: extra damage dice from the weapon's properties
 function _gmHitExtraDamage(target, hit) {
     let props = (hit.hit && hit.hit.props) || [], out = [];
     let conds = _gmEffConds(target);
+    // Incapacitated: any hit is a Critical Hit (and bypasses their resistances). A hit that didn't
+    // roll a crit gets the crit's extra dice here, the same way Crushing adds its die.
+    if (conds.includes('incapacitated') && !hit.crit && hit.dice) {
+        let x = _gmCritExtra(hit);
+        if (x.dice) out.push({ n: x.n, why: 'Incapacitated',
+            pub: `${_gmPublicName(target)} is Incapacitated, so the hit is a Critical Hit.`,
+            gm: `Incapacitated: automatic Critical Hit, +${x.n} damage (${x.dice}${hit.reroll12 ? ', High Roller rerolls' : ''}). It also bypasses their resistances.` });
+    }
     if (props.includes('crushing') && conds.includes('prone')) {
         let n = _gmRollDie(hit.hit.die);
         out.push({ n, why: 'Crushing', pub: `${_gmPublicName(target)} was Prone, so Crushing deals an extra damage die.`, gm: `Crushing: ${_gmGmName(target)} was Prone, +${n} damage (${hit.hit.die}).` });
@@ -1352,8 +1388,9 @@ function _gmCondResult(entry, item, ev, again) {
 }
 // NPC saves from the GM's dice tray button (the log message asks for them)
 window.apxLogAsk = function(ask) { return !!(ask && ask.gm && (window.gmInitiative || []).some(e => e.id === ask.entryId)); };
-window.apxRollFromAsk = function(ask) {
+window.apxRollFromAsk = function(ask, choice) {
     let e = (window.gmInitiative || []).find(x => x.id === ask.entryId); if (!e || !window.APXDice) return;
+    if (ask.kind === 'limb') { if (choice) _gmApplyWound(e, choice); return; }
     let sb = e.sourceNpcId && typeof ncStatBlockFor === 'function' ? ncStatBlockFor(e.sourceNpcId) : null;
     let bonus = sb && sb.mods ? (sb.mods[ask.attr] || 0) : 0;
     let item = { attr: ask.attr, dc: ask.dc, cond: ask.cond, fail: ask.fail };
@@ -1388,6 +1425,28 @@ function _gmResolveText(entry, item, ev) {
     }
     let turns = Math.max(1, Math.floor(ev.total / 2));
     return { text: `${name} rolled a ${ev.total} on their Bleed Out CON check: they will bleed out in ${turns} round${turns === 1 ? '' : 's'} unless stabilized or healed.`, kind: 'bleed', turns };
+}
+// A failed Wound Threshold save: the GM picks the limb in the dice tray, and it's added to the
+// player's sheet (a limb that was already Wounded asks the player for the Permanent Injury)
+function _gmOfferLimbs(entry, item, ev) {
+    if (!entry || item.type !== 'wt') return;
+    let failed = ev.autoFail || ev.total < item.dc;
+    if (!failed) return;
+    let pm = (window.gmParty || []).find(p => p.fileName === entry.playerUid);
+    let already = pm?.state?.woundedLimbs || [];
+    let limbs = (typeof WOUND_LIMBS_BASE !== 'undefined' ? WOUND_LIMBS_BASE : ['Head', 'Torso', 'Left Arm', 'Right Arm', 'Left Leg', 'Right Leg']).slice();
+    already.forEach(l => { if (!limbs.includes(l)) limbs.push(l); });
+    gmLog({ id: 'limb_' + ev.id, gmOnly: true, kind: 'wt', force: true,
+        text: `Choose the limb ${entry.name} Wounds (based on the attack)${already.length ? `. Already Wounded: ${already.join(', ')} (Wounding one again is a Permanent Injury)` : ''}:`,
+        ask: { gm: true, entryId: entry.id, kind: 'limb', choices: limbs.map(l => already.includes(l) ? l + ' (again)' : l) } });
+}
+function _gmApplyWound(entry, choice) {
+    let limb = String(choice).replace(/ \(again\)$/, '');
+    let again = / \(again\)$/.test(choice);
+    let code = _gmInviteCode();
+    if (code && window.apxAuth?.enabled && typeof window.apxAuth.setGmWound === 'function')
+        window.apxAuth.setGmWound(code, entry.playerUid, limb).catch(e => console.warn('Wound to player:', e.message));
+    gmLog({ text: again ? `${entry.name}'s ${limb} is Wounded again: a Permanent Injury.` : `${entry.name}'s ${limb} is Wounded.`, kind: 'wt', force: true });
 }
 function _gmApplyBleed(entry, turns) {
     if (!entry) return;
@@ -1435,7 +1494,8 @@ function _gmHandleRollEvent(uid, ev) {
     // A player's attack (weapon or power) becomes "the last attack", for hits and weapon properties
     if (ev.kind === 'attack') {
         let atkEntry = ev.companion ? (window.gmInitiative || []).find(e => e.companionOf === uid) : entry;
-        if (atkEntry) _gmRecordAttack({ id: ev.id, attacker: atkEntry, label: ev.label || 'an attack', hit: ev.hit || null, crit: !!ev.crit, fumble: !!ev.fumble, total: ev.total });
+        if (atkEntry) _gmRecordAttack({ id: ev.id, attacker: atkEntry, label: ev.label || 'an attack', hit: ev.hit || null, crit: !!ev.crit, fumble: !!ev.fumble, total: ev.total,
+            dice: ev.dice || '', critMult: ev.critMult || 2, reroll12: !!ev.reroll12 });
         gmLog({ id: 'ev_' + ev.id, gmOnly: true, kind: 'roll',
             text: `${atkEntry ? atkEntry.name : name} attacked with ${ev.label || 'a weapon'}: ${ev.total} (d20 ${ev.nat}${ev.bonus ? (ev.bonus > 0 ? ' +' : ' −') + Math.abs(ev.bonus) : ''})${ev.crit ? ' · critical hit' : ev.fumble ? ' · natural 1' : ''}${ev.dmg != null ? ` · ${ev.dmg} damage before DR/ER` : ''}` });
         return;
@@ -1462,6 +1522,7 @@ function _gmHandleRollEvent(uid, ev) {
         let en = window.gmInitiative.find(e => e.id === done.entryId);
         let r = _gmResolveText(en, done.item, ev);
         gmLog({ id: 'res_' + ev.id, text: r.text + ' (rerolled)', kind: r.kind });
+        if (en) _gmOfferLimbs(en, done.item, ev);
         if (done.item.type === 'bleed' && en && en.bleedOutTurns != null) _gmApplyBleed(en, r.turns);
         return;
     }
@@ -1494,6 +1555,7 @@ function _gmHandleRollEvent(uid, ev) {
     window._gmResolvedSaves[ev.id] = { item: head, entryId: entry.id };
     let r = _gmResolveText(entry, head, ev);
     gmLog({ id: 'res_' + ev.id, text: r.text, kind: r.kind });
+    _gmOfferLimbs(entry, head, ev);
     if (head.type === 'bleed' && entry.currentHp !== null && entry.currentHp <= 0) _gmApplyBleed(entry, r.turns);
 }
 window._gmHandleRollEvent = _gmHandleRollEvent;
@@ -1604,7 +1666,8 @@ window.setInitiativeTempHp = function(id, value) {
     }
     let tmpAfter = (entry.currentHp || 0) + (entry.tempHp || 0);
     let tmpDmg = _gmDamageFrom(value, before, tmpAfter);
-    let tmpHit = (/^\s*-\s*\d+\s*$/.test(String(value)) || tmpDmg > 0) ? _gmTakeHit(entry) : null;
+    let tmpTyped = /^\s*-\s*\d+\s*$/.test(String(value));
+    let tmpHit = (tmpTyped || tmpDmg > 0) ? (_gmTakeHit(entry) || (tmpTyped ? _gmTurnHit(entry) : null)) : null;
     let tmpExtras = tmpHit ? _gmHitExtraDamage(entry, tmpHit) : [];
     let tmpExtra = tmpExtras.reduce((t, x) => t + x.n, 0);
     if (tmpExtra > 0) {
@@ -1634,7 +1697,7 @@ window.updateInitiativeHp = function(id, value) {
     let dmg = _gmDamageFrom(value, before, after);
     // Damage right after an attack roll (even -0: DR/ER stopped it all) is that attack's hit
     let typedHit = /^\s*-\s*\d+\s*$/.test(String(value));
-    let hit = (typedHit || dmg > 0) ? _gmTakeHit(entry) : null;
+    let hit = (typedHit || dmg > 0) ? (_gmTakeHit(entry) || (typedHit ? _gmTurnHit(entry) : null)) : null;
     let extras = hit ? _gmHitExtraDamage(entry, hit) : [];
     let extra = extras.reduce((t, x) => t + x.n, 0);
     if (extra > 0) {

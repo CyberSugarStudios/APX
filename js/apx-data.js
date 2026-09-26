@@ -53,7 +53,7 @@
               atkDisadvantage: 'general', saveDisadvantage: ['AGI'], speedZero: true },
             { id: "staggered", name: "Staggered", desc: "2x AP to move. Can't spend AP to Aim. (No Disadvantage.)" },
             { id: "starving", name: "Starving", desc: "Past your CON mod in days without food (min 1 day): DC 10+ CON save each day (DC +2/day) or gain 1 Fatigue." },
-            { id: "stunned", name: "Stunned", desc: "Can't spend AP to move; can only speak brief, confused sentences. Auto-fail STR/AGI saves. Attacks against you have Advantage.",
+            { id: "stunned", name: "Stunned", desc: "Also Incapacitated. Can't spend AP to move; can only speak brief, confused sentences. Auto-fail STR/AGI saves. Attacks against you have Advantage.",
               autoFailSaves: ['STR','AGI'], speedZero: true },
             { id: "suffocating", name: "Suffocating", desc: "Can't regain HP. Gain 2 levels of Fatigue at the start of each of your turns." },
             { id: "unconscious", name: "Unconscious", desc: "Drops held items, falls Prone. Also Incapacitated. Auto-fail STR/AGI saves. Melee hits within 1 square are automatic Critical Hits.",
@@ -695,6 +695,7 @@
             bleedingout: ['unconscious'],
             unconscious: ['incapacitated'],
             paralyzed:   ['incapacitated'],
+            stunned:     ['incapacitated'],   // a Stunned creature is also Incapacitated
             diseased:    ['infected']
         };
         const CONDITION_ON_START = { unconscious: ['prone'] };
