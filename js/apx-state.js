@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.9.25.2306';
+window.APX_VERSION = 'v2026.9.26.0010';
 
         window.state = getInitialState();
 
@@ -330,6 +330,8 @@ window.APX_VERSION = 'v2026.9.25.2306';
                     let maxHp = Math.max(5, (calc.scores.CON * 5) + (vitalHpRank * 5) + window.state.xpHpBought - calc.maxHpPenalty);
                     let r = window.apxApplyHpInput(val, window.state.currentHp, window.state.tempHp, maxHp);
                     if (!r) throw new Error('unparseable');
+                    // "-0": an attack hit but did no damage (DR/ER stopped it). The GM's tracker counts it as a hit.
+                    if (/^\s*-\s*0+\s*$/.test(val)) { window.state.hpZeroHit = Date.now(); window.scheduleAutoSave?.(); }
                     window.state.tempHp = r.tempHp;
                     window.updateState('currentHp', r.currentHp);
                     window.apxRefreshHpInputs?.();

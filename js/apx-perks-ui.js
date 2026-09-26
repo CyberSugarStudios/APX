@@ -212,7 +212,14 @@
             let html = '';
             PERKS_DB.filter(p => filter === 'ALL' || p.attr === filter)
                 .filter(p => !search || p.name.toLowerCase().includes(search) || p.baseDesc.toLowerCase().includes(search))
-                .filter(p => !ownedOnly || (window.state.perks[p.id] || 0) > 0 || (p.attr === 'GEN' && (window.state.ancestryBonusPerks || []).some(bp => bp.perkId === p.id)))
+                .filter(p => {
+                    // Owned: perks you have that can still be upgraded (maxed ones are hidden; unmet
+                    // requirements still show, so you can see what to work towards)
+                    if (!ownedOnly) return true;
+                    let fromAnc = p.attr === 'GEN' ? (window.state.ancestryBonusPerks || []).filter(bp => bp.perkId === p.id).length : 0;
+                    let have = (window.state.perks[p.id] || 0) + fromAnc;
+                    return have > 0 && have < p.max;
+                })
                 .forEach(p => {
                 let currentRank = window.state.perks[p.id] || 0;
                 // A General Perk gained for free via an Ancestry Bonus Perk
@@ -287,7 +294,7 @@
                     </div>
                 `;
             });
-            if (!html) html = `<div class="text-xs text-slate-500 italic text-center py-6">${ownedOnly ? 'No owned perks match this filter.' : 'No perks match this search.'}</div>`;
+            if (!html) html = `<div class="text-xs text-slate-500 italic text-center py-6">${ownedOnly ? 'No owned perks left to upgrade match this filter.' : 'No perks match this search.'}</div>`;
             document.getElementById('perkListContainer').innerHTML = html;
         }
 

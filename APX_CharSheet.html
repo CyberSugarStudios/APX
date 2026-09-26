@@ -474,8 +474,8 @@
         }
 
     </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20269252306">
-    <link rel="stylesheet" href="css/tailwind.css?v=20269252306">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20269260010">
+    <link rel="stylesheet" href="css/tailwind.css?v=20269260010">
 </head>
 <body class="p-2 md:p-6 flex justify-center text-sm ml-0 lg:ml-8 transition-all" style="padding-top:4.25rem"><!-- (room for the floating Roster / Settings buttons) -->
     <!-- Auth bar removed — account controls are in the sidebar -->
@@ -640,11 +640,11 @@
                     </div>
 
                     <div class="bg-slate-900 p-2 rounded border border-slate-700 text-center flex flex-col items-center">
-                        <div class="text-[10px] text-slate-500 uppercase font-bold">Rest Dice</div>
+                        <div class="text-[10px] text-slate-500 uppercase font-bold apx-rollable" style="cursor:pointer" title="Use a Rest Die: heal the roll + your CON modifier (nothing happens at full HP)" onclick="window.apxUseRestDie && window.apxUseRestDie()">Rest Dice</div>
                         <div class="flex items-center justify-center gap-1 mt-1">
                             <input type="text" id="currentRestDice" onfocus="this.select()" onchange="window.handleMathInput('restDice', this)" onkeydown="if(event.key === 'Enter') { this.blur(); }" class="w-8 text-xl font-black text-emerald-400 bg-transparent border-none p-0 focus:ring-0 text-right">
                             <span class="text-slate-500 text-xs font-bold">/<span id="dispMaxRest">5</span></span>
-                            <span id="dispRestDieStep" class="text-xs font-black text-slate-300 ml-0.5 apx-rollable" title="Click to roll a Rest Die" onclick="window.apxRollRestDie && window.apxRollRestDie()">d6</span>
+                            <span id="dispRestDieStep" class="text-xs font-black text-slate-300 ml-0.5 apx-rollable" title="Use a Rest Die: heal the roll + your CON modifier (nothing happens at full HP)" onclick="window.apxUseRestDie && window.apxUseRestDie()">d6</span>
                         </div>
                     </div>
 
@@ -1853,7 +1853,7 @@
                 <h3 class="text-xl font-black text-white">The Perk Forge</h3>
                 <div class="flex items-center gap-2">
                     <input type="text" id="perkSearch" placeholder="Search perks..." oninput="window.renderPerkList()" class="bg-slate-900 p-1.5 text-xs w-40 border-slate-600 rounded font-bold text-white placeholder-slate-500">
-                    <label class="flex items-center gap-1 text-xs text-slate-300 font-bold cursor-pointer whitespace-nowrap" title="Only show perks this character already has"><input type="checkbox" id="perkOwnedOnly" onchange="window.renderPerkList()" class="w-3.5 h-3.5"> Owned</label>
+                    <label class="flex items-center gap-1 text-xs text-slate-300 font-bold cursor-pointer whitespace-nowrap" title="Only show perks this character has that can still be upgraded (maxed perks are hidden)"><input type="checkbox" id="perkOwnedOnly" onchange="window.renderPerkList()" class="w-3.5 h-3.5"> Owned</label>
                     <span class="text-xs text-slate-400">Filter:</span>
                     <select id="perkFilter" class="bg-slate-900 p-1.5 text-xs w-36 border-slate-600 rounded font-bold" onchange="window.renderPerkList()">
                         <option value="ALL">All Perks</option><option value="STR">STR Perks</option><option value="AGI">AGI Perks</option>
@@ -2361,38 +2361,38 @@
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20269252306"></script>
-    <script src="js/apx-patch-notes.js?v=20269252306"></script>
-    <script src="js/apx-dice.js?v=20269252306"></script>
-    <script src="js/apx-data.js?v=20269252306"></script>
-    <script src="js/apx-item-effects.js?v=20269252306"></script>
-    <script src="js/apx-perks-db.js?v=20269252306"></script>
-    <script src="js/apx-migrations.js?v=20269252306"></script>
-    <script src="js/apx-roster.js?v=20269252306"></script>
-    <script src="js/apx-state.js?v=20269252306"></script>
-    <script src="js/apx-origin-wizard.js?v=20269252306"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20269252306"></script>
-    <script src="js/apx-inventory-ui.js?v=20269252306"></script>
-    <script src="js/apx-craft-shared.js?v=20269252306"></script>
-    <script src="js/apx-armor-forge.js?v=20269252306"></script>
-    <script src="js/apx-weapon-forge.js?v=20269252306"></script>
-    <script src="js/apx-power-crafter.js?v=20269252306"></script>
-    <script src="js/apx-consumable-crafter.js?v=20269252306"></script>
-    <script src="js/apx-npc-crafter.js?v=20269252306"></script>
-    <script src="js/apx-engine.js?v=20269252306"></script>
-    <script src="js/apx-perks-ui.js?v=20269252306"></script>
-    <script src="js/apx-rest.js?v=20269252306"></script>
-    <script src="js/apx-looting.js?v=20269252306"></script>
-    <script src="js/apx-main.js?v=20269252306"></script>
+    <script src="js/apx-dialogs.js?v=20269260010"></script>
+    <script src="js/apx-patch-notes.js?v=20269260010"></script>
+    <script src="js/apx-dice.js?v=20269260010"></script>
+    <script src="js/apx-data.js?v=20269260010"></script>
+    <script src="js/apx-item-effects.js?v=20269260010"></script>
+    <script src="js/apx-perks-db.js?v=20269260010"></script>
+    <script src="js/apx-migrations.js?v=20269260010"></script>
+    <script src="js/apx-roster.js?v=20269260010"></script>
+    <script src="js/apx-state.js?v=20269260010"></script>
+    <script src="js/apx-origin-wizard.js?v=20269260010"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20269260010"></script>
+    <script src="js/apx-inventory-ui.js?v=20269260010"></script>
+    <script src="js/apx-craft-shared.js?v=20269260010"></script>
+    <script src="js/apx-armor-forge.js?v=20269260010"></script>
+    <script src="js/apx-weapon-forge.js?v=20269260010"></script>
+    <script src="js/apx-power-crafter.js?v=20269260010"></script>
+    <script src="js/apx-consumable-crafter.js?v=20269260010"></script>
+    <script src="js/apx-npc-crafter.js?v=20269260010"></script>
+    <script src="js/apx-engine.js?v=20269260010"></script>
+    <script src="js/apx-perks-ui.js?v=20269260010"></script>
+    <script src="js/apx-rest.js?v=20269260010"></script>
+    <script src="js/apx-looting.js?v=20269260010"></script>
+    <script src="js/apx-main.js?v=20269260010"></script>
 
     <!-- Firebase (cloud sync — requires firebase-config.js to be configured) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20269252306"></script>
-    <script src="js/apx-firebase.js?v=20269252306"></script>
-    <script src="js/apx-battlemap.js?v=20269252306"></script>
-    <script src="js/apx-map-tiles.js?v=20269252306"></script>
+    <script src="js/firebase-config.js?v=20269260010"></script>
+    <script src="js/apx-firebase.js?v=20269260010"></script>
+    <script src="js/apx-battlemap.js?v=20269260010"></script>
+    <script src="js/apx-map-tiles.js?v=20269260010"></script>
     <script>
     // ── Sidebar: folders, worlds, meatball menus ─────────────
     window._sidebarChars = [];
@@ -3575,6 +3575,17 @@
     window.apxLogAsk = function(ask) { let uid = window.apxAuth?.user?.uid; return !!(ask && uid && ask.uid === uid); };
     window.apxRollFromAsk = function(ask) {
         if (!ask) return;
+        // Defensive Rank 5 (Reaction): turn the Critical Hit into a normal hit. The GM's tracker undoes the crit damage.
+        if (ask.roll === 'react') {
+            let st = window.state || {};
+            if (((st.perks || {}).con_defensive || 0) < 5 || ((st.equippedArmor || {}).wt > 0)) {
+                window.APXDice?.notify('Defensive Rank 5 only works while you are unarmored.', { kind: 'warn', open: true });
+                return;
+            }
+            window.apxOnRollEvent?.({ id: 'react_' + ask.hitId, kind: 'react', hitId: ask.hitId, label: 'Defensive: turn a Critical Hit into a normal hit' });
+            window.APXDice?.notify('Reaction used (Defensive): the Critical Hit becomes a normal hit. Your GM\'s tracker gives back the extra crit damage.', { kind: 'note' });
+            return;
+        }
         let attr = ask.attr || 'CON';
         let sel = ask.roll === 'survive' ? `[data-apx-roll*='"skill":"Survive"']` : `[data-apx-roll*='"kind":"save"'][data-apx-roll*='"attr":"${attr}"']`;
         let el = document.querySelector(sel);
@@ -4870,11 +4881,21 @@
                         window._lastGmCondAt[k] = at;
                         if (!first || at >= savedAt) {
                             let limbs = window.state.woundedLimbs = window.state.woundedLimbs || [];
-                            if (limbs.includes(gw.limb)) {
+                            if (gw.undo) {
+                                // Your reroll succeeded after the GM had picked the limb: the Wound comes off again
+                                let wasNew = window._pwWoundAdded && window._pwWoundAdded[gw.limb];
+                                if (wasNew && limbs.includes(gw.limb)) {
+                                    window.state.woundedLimbs = limbs.filter(l => l !== gw.limb);
+                                    delete window._pwWoundAdded[gw.limb];
+                                    window.APXDice?.notify(`Your save succeeded after all: your ${gw.limb} is no longer Wounded.`, { kind: 'note', open: true });
+                                    if (typeof window.recalculateMath === 'function') window.recalculateMath();
+                                } else window.APXDice?.notify(`Your save succeeded after all: the GM took back the Wound to your ${gw.limb}. If a Permanent Injury was added for it, remove it under Vitals.`, { kind: 'warn', open: true });
+                            } else if (limbs.includes(gw.limb)) {
                                 window.APXDice?.notify(`Your ${gw.limb} was Wounded again: a Permanent Injury. Choose the attribute it lowers.`, { kind: 'warn', open: true });
                                 if (typeof window.apxPermanentInjury === 'function') window.apxPermanentInjury(gw.limb);
                             } else {
                                 limbs.push(gw.limb);
+                                (window._pwWoundAdded = window._pwWoundAdded || {})[gw.limb] = true;
                                 window.APXDice?.notify(`Your ${gw.limb} is Wounded (chosen by the GM).`, { kind: 'warn', open: true });
                                 if (typeof window.recalculateMath === 'function') window.recalculateMath();
                             }

@@ -483,7 +483,13 @@
                         if (t.net < 0) return `<span class="skill-mod-negative font-bold">${type}: Vulnerable (+${-t.net} dmg taken)</span>${sourceNote}`;
                         return null; // net exactly 0 -- resistance and vulnerability fully cancel, nothing to show
                     }).filter(Boolean);
-                    envEl.innerHTML = lines.length ? 'Energy Resistances: ' + lines.join(', ') : '';
+                    let parts = lines.length ? ['Energy Resistances: ' + lines.join(', ')] : [];
+                    // Defensive Rank 4: unarmored, DR and ER against traps, hazards and falling go up by your CON score
+                    if ((window.state.perks['con_defensive'] || 0) >= 4 && armorWt === 0) {
+                        let con = (calc.scores && calc.scores.CON) || 0;
+                        parts.push(`<span class="text-cyan-300" title="Defensive Rank 4: while unarmored, your DR and ER against traps, hazards and falling increase by your CON score (${con})">Traps, Hazards &amp; Falling: DR ${calc.dr + con} / ER ${calc.er + con}</span> <span class="text-slate-500">(Defensive)</span>`);
+                    }
+                    envEl.innerHTML = parts.join('<br>');
                 }
             }
 

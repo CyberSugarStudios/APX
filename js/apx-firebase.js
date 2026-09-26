@@ -465,10 +465,10 @@
     }
 
     // GM picks the limb a failed Wound Threshold save Wounds; the player's sheet adds it
-    async function setGmWound(inviteCode, uid, limb) {
+    async function setGmWound(inviteCode, uid, limb, undo) {
         if (!inviteCode || !uid || !limb) return;
         await db.collection('worldCodes').doc(inviteCode).collection('players').doc(uid)
-            .set({ _gmWound: { limb, id: 'w' + Date.now().toString(36), at: firebase.firestore.FieldValue.serverTimestamp() } }, { merge: true });
+            .set({ _gmWound: { limb, undo: !!undo, id: 'w' + Date.now().toString(36), at: firebase.firestore.FieldValue.serverTimestamp() } }, { merge: true });
     }
 
     // --- Combat log ---------------------------------------------------------------

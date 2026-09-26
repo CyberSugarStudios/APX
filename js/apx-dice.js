@@ -433,6 +433,10 @@
     function askBtnHtml(e) {
         if (!askIsMine(e)) return '';
         let done = !!tray.askDone[e.id];
+        // A Reaction offer (Defensive Rank 5) never waits for saves, and saves don't wait for it
+        if (e.ask.roll === 'react') {
+            return `<div style="margin-top:.3rem"><button data-logask ${done ? 'disabled' : ''} style="font-size:.66rem;font-weight:800;padding:.18rem .5rem;border-radius:.3rem;cursor:${done ? 'default' : 'pointer'};border:1px solid ${done ? 'var(--c-border2,#475569)' : '#0891b2'};background:${done ? 'none' : '#0e7490'};color:${done ? 'var(--c-text-muted,#94a3b8)' : '#fff'}">${done ? 'Reaction used' : esc(e.ask.label || 'React')}</button></div>`;
+        }
         // A choice (the GM picking which limb is Wounded): one button per option
         if (Array.isArray(e.ask.choices)) {
             let st = 'font-size:.66rem;font-weight:800;padding:.18rem .45rem;border-radius:.3rem;border:1px solid #f59e0b;';
@@ -442,7 +446,7 @@
         }
         // Saves are settled in the order they were asked for (the Wound Threshold save first,
         // then a hit's own saves, then Bleed Out), so a later button waits for the earlier ones
-        let waitWt = !done && cards.some(x => x.log && x.log.id !== e.id && x.log.ask && askIsMine(x.log) && !tray.askDone[x.log.id] && (x.log.t || 0) < (e.t || 0));
+        let waitWt = !done && cards.some(x => x.log && x.log.id !== e.id && x.log.ask && x.log.ask.roll !== 'react' && !Array.isArray(x.log.ask.choices) && askIsMine(x.log) && !tray.askDone[x.log.id] && (x.log.t || 0) < (e.t || 0));
         let label = done ? 'Rolled' : waitWt ? 'Roll the earlier save first' : e.ask.label ? e.ask.label
             : e.ask.roll === 'save' ? `Roll ${e.ask.attr || 'CON'} save${e.ask.dc ? ' (DC ' + e.ask.dc + ')' : ''}` : 'Roll CON (Survive)';
         return `<div style="margin-top:.3rem"><button data-logask ${done || waitWt ? 'disabled' : ''} style="font-size:.66rem;font-weight:800;padding:.18rem .5rem;border-radius:.3rem;cursor:${done || waitWt ? 'default' : 'pointer'};border:1px solid ${done ? 'var(--c-border2,#475569)' : '#f59e0b'};background:${done || waitWt ? 'none' : '#b45309'};color:${done ? 'var(--c-text-muted,#94a3b8)' : '#fff'};opacity:${waitWt ? '.6' : '1'}">${label}</button></div>`;
@@ -723,7 +727,8 @@
             c.id = 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
             // The page hears about every attack (and every change to it): the GM Tools use it to know
             // who just attacked with what, so a hit applies the weapon's properties to the right target.
-            let tell = () => { if (typeof window.apxOnAttackRoll === 'function') { try { window.apxOnAttackRoll(o, { id: c.id, nat: atk.nat, total: atk.total, crit: !!atk.crit, fumble: !!atk.fumble, dmg: dmg.total, bonus: atk.bonus || 0 }); } catch (e) { console.warn('Attack hook:', e); } } };
+            let tell = () => { if (typeof window.apxOnAttackRoll === 'function') { try { window.apxOnAttackRoll(o, { id: c.id, nat: atk.nat, total: atk.total, crit: !!atk.crit, fumble: !!atk.fumble, dmg: dmg.total, bonus: atk.bonus || 0,
+                critExtra: atk.crit && dmg.roll ? dmg.roll.groups.filter(g => g.crit).reduce((t, g) => t + g.sign * g.dice.reduce((a, d) => a + dieSum(d), 0), 0) : 0 }); } catch (e) { console.warn('Attack hook:', e); } } };
             let settleDmg = () => {
                 dmg.crit = atk.crit; dmg.none = atk.fumble;
                 dst.crit = atk.crit;

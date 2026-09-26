@@ -96,6 +96,16 @@
         return { rolled, healed: s.currentHp - before, comp };
     }
 
+    // Clicking the Rest Dice die (or its "Rest Dice" label): spend one Rest Die and heal the roll + CON.
+    // At full HP (or with no dice left) nothing happens.
+    window.apxUseRestDie = function () {
+        let s = st(); if (!s) return;
+        if ((s.restDice || 0) <= 0) { toast('No Rest Dice left.'); return; }
+        if ((s.currentHp || 0) >= maxHp()) return;
+        let r = spendRestDie('Rest Die', true);
+        if (r) { window.scheduleAutoSave?.(); toast(`Rest Die: healed ${r.healed} HP (${st().restDice} Rest Di${st().restDice === 1 ? 'e' : 'ce'} left).` + (r.comp ? ` ${r.comp}.` : '')); }
+    };
+
     // ── Short Rest ───────────────────────────────────────────────
     window.apxShortRest = function () {
         if (!needHp()) return;

@@ -391,9 +391,15 @@ function startPartyListener(inviteCode) {
                             let note = state.hpNote, why = null;
                             if (after > before && note && note.t && Date.now() - note.t < 120000 && e._hpNoteT !== note.t) { why = note.text; e._hpNoteT = note.t; }
                             _gmLogHpChange(e, before, after, wasUp, before - after, hit, why);
-                            if (before > after) _gmCheckWoundThreshold(e, before - after);   // Wound Threshold first,
+                            let defId = hit && before > after ? _gmOfferDefensive(e, hit, before - after, extras) : null;   // Defensive R5 first
+                            if (before > after) _gmCheckWoundThreshold(e, before - after, defId);   // Wound Threshold first,
                             if (hit) _gmHitEffects(e, hit, extras);                          // the hit's own saves,
                             if (dropped) _gmQueueBleed(e);                                     // then Bleed Out
+                        } else if (state.hpZeroHit && e._zeroHitT !== state.hpZeroHit && window.gmCombatStarted && Date.now() - state.hpZeroHit < 120000) {
+                            // The player typed "-0" on their own sheet: the NPC's attack hit, but DR/ER stopped all of it
+                            e._zeroHitT = state.hpZeroHit;
+                            let hit = _gmTakeHit(e);
+                            if (hit) { _gmLogHpChange(e, before, before, wasUp, 0, hit); _gmHitEffects(e, hit, []); }
                         }
                         e.maxHp     = computeCharSummary(state).maxHp;
                         changed     = true;
@@ -1268,7 +1274,7 @@ window.apxOnAttackRoll = function(o, r) {
     if (!window.gmCombatStarted || !o) return;
     let e = _gmAttackerFor(o); if (!e) return;
     _gmRecordAttack({ id: r.id, attacker: e, label: o.label || 'an attack', hit: o.hit || null, crit: !!r.crit, fumble: !!r.fumble, total: r.total,
-        dice: o.dice || '', critMult: o.critMult || 2, reroll12: false });   // (NPC stat blocks don't use perks)
+        dice: o.dice || '', critMult: o.critMult || 2, reroll12: false, critExtra: r.critExtra || 0 });   // (NPC stat blocks don't use perks)
 };
 // No attack roll to match (dice rolled at the table): a typed "-N" (even -0) is still a hit,
 // by whoever is taking their turn
@@ -1429,7 +1435,7 @@ function _gmIsStunned(e) {
 window.apxLogAsk = function(ask) { return !!(ask && ask.gm && (window.gmInitiative || []).some(e => e.id === ask.entryId)); };
 window.apxRollFromAsk = function(ask, choice) {
     let e = (window.gmInitiative || []).find(x => x.id === ask.entryId); if (!e || !window.APXDice) return;
-    if (ask.kind === 'limb') { if (choice) _gmApplyWound(e, choice); return; }
+    if (ask.kind === 'limb') { if (choice) _gmApplyWound(e, choice, ask.logId); return; }
     let sb = e.sourceNpcId && typeof ncStatBlockFor === 'function' ? ncStatBlockFor(e.sourceNpcId) : null;
     let bonus = sb && sb.mods ? (sb.mods[ask.attr] || 0) : 0;
     let item = { attr: ask.attr, dc: ask.dc, cond: ask.cond, fail: ask.fail, byId: ask.byId || null, turn: ask.turn || null };
@@ -1470,18 +1476,103 @@ function _gmResolveText(entry, item, ev) {
 function _gmOfferLimbs(entry, item, ev) {
     if (!entry || item.type !== 'wt') return;
     let failed = ev.autoFail || ev.total < item.dc;
-    if (!failed) return;
+    let lid = 'limb_' + ev.id;
+    if (!failed) {
+        // A Luck reroll or an Omen die turned the failure into a success: no Wound after all
+        _gmRetractLimbs(entry, lid, `${entry.name} succeeded on the reroll (${ev.total} vs DC ${item.dc}): no limb is Wounded.`, 'succeeds on the reroll');
+        return;
+    }
+    if (window._gmWoundChosen[lid] && !window._gmWoundChosen[lid].undone) return;   // already picked for this roll
     let pm = (window.gmParty || []).find(p => p.fileName === entry.playerUid);
     let already = pm?.state?.woundedLimbs || [];
     let limbs = (typeof WOUND_LIMBS_BASE !== 'undefined' ? WOUND_LIMBS_BASE : ['Head', 'Torso', 'Left Arm', 'Right Arm', 'Left Leg', 'Right Leg']).slice();
     already.forEach(l => { if (!limbs.includes(l)) limbs.push(l); });
     gmLog({ id: 'limb_' + ev.id, gmOnly: true, kind: 'wt', force: true,
         text: `Choose the limb ${entry.name} Wounds (based on the attack)${already.length ? `. Already Wounded: ${already.join(', ')} (Wounding one again is a Permanent Injury)` : ''}:`,
-        ask: { gm: true, entryId: entry.id, kind: 'limb', choices: limbs.map(l => already.includes(l) ? l + ' (again)' : l) } });
+        ask: { gm: true, entryId: entry.id, kind: 'limb', logId: lid, choices: limbs.map(l => already.includes(l) ? l + ' (again)' : l) } });
 }
-function _gmApplyWound(entry, choice) {
+window._gmWoundChosen = {};
+// Take back the limb choice for a Wound Threshold save that no longer fails (and the Wound, if one was picked)
+function _gmRetractLimbs(entry, lid, gmText, why) {
+    if (!window.gmCombatLog.some(x => x.id === lid)) return;
+    let chosen = window._gmWoundChosen[lid];
+    if (chosen && !chosen.undone) {
+        chosen.undone = true;
+        let code = _gmInviteCode();
+        if (code && window.apxAuth?.enabled && typeof window.apxAuth.setGmWound === 'function')
+            window.apxAuth.setGmWound(code, entry.playerUid, chosen.limb, true).catch(e => console.warn('Wound to player:', e.message));
+        gmLog({ text: `${entry.name} ${why}, so their ${chosen.limb} is not Wounded after all.`, kind: 'wt', force: true });
+    }
+    gmLog({ id: lid, gmOnly: true, kind: 'wt', force: true, ask: null, text: gmText });
+}
+// Defensive Rank 5 (Reaction, unarmored): a Critical Hit against you becomes a normal hit.
+// The player gets a button; using it undoes the crit's extra damage and re-checks the Wound Threshold.
+window._gmCritHits = {};
+function _gmDefensiveOk(entry) {
+    let pm = (window.gmParty || []).find(p => p.fileName === entry.playerUid);
+    let st = pm?.state; if (!st) return false;
+    return ((st.perks || {}).con_defensive || 0) >= 5 && !((st.equippedArmor || {}).wt > 0);
+}
+function _gmOfferDefensive(entry, hit, dmg, extras) {
+    if (!entry || entry.faction !== 'player' || !entry.playerUid || !hit || !(dmg > 0) || !_gmDefensiveOk(entry)) return null;
+    let portion = hit.crit ? (hit.critExtra || 0) : (extras || []).filter(x => x.why === 'Incapacitated').reduce((t, x) => t + x.n, 0);
+    if (!(portion > 0)) return null;
+    let hid = 'dh' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    window._gmCritHits[hid] = { entryId: entry.id, dmg, refund: Math.min(dmg, Math.max(0, portion)), by: hit.attacker ? _gmPublicName(hit.attacker) : null };
+    gmLog({ id: 'def_' + hid, kind: 'wt',
+        text: `${entry.name} took a Critical Hit. With Defensive (Rank 5) they can use their Reaction to turn it into a normal hit.`,
+        ask: { uid: entry.playerUid, roll: 'react', hitId: hid, label: 'React: Turn to normal hit' } });
+    return hid;
+}
+function _gmDefensiveReact(entry, hid) {
+    let rec = window._gmCritHits[hid];
+    if (!rec || rec.used || rec.entryId !== entry.id) return;
+    rec.used = true;
+    let wasUp = entry.currentHp === null || entry.currentHp > 0;
+    let newDmg = Math.max(0, rec.dmg - rec.refund);
+    if (rec.refund > 0 && entry.currentHp !== null) entry.currentHp = Math.min(entry.maxHp || Infinity, (entry.currentHp || 0) + rec.refund);
+    gmLog({ id: 'def_' + hid, kind: 'wt', ask: null,
+        text: `${entry.name} uses their Reaction (Defensive): the Critical Hit becomes a normal hit. They take ${newDmg} damage instead of ${rec.dmg}.` });
+    // Wound Threshold: a save still waiting is dropped (or its DC lowered); one already rolled is re-judged
+    let wt = _gmWoundThreshold(entry), past = wt != null && newDmg > wt, dc = Math.max(10, Math.floor(newDmg / 2));
+    let q = window._gmPendingSaves[entry.id] || [];
+    let qi = q.findIndex(x => x.type === 'wt' && x.hitId === hid);
+    if (qi >= 0) {
+        let item = q[qi];
+        if (!past) {
+            q.splice(qi, 1);
+            if (item.logId) gmLog({ id: item.logId, kind: 'wt', ask: null, text: `${entry.name} took ${newDmg} damage after all, not more than their Wound Threshold (${wt}): no CON save needed.` });
+        } else {
+            item.dc = dc; item.dmg = newDmg;
+            if (item.logId) gmLog({ id: item.logId, kind: 'wt', ask: { uid: entry.playerUid, roll: 'save', dc },
+                text: `${entry.name} took ${newDmg} damage, more than their Wound Threshold (${wt}). They must make a DC ${dc} CON save to resist being wounded.` });
+        }
+    } else {
+        let evId = Object.keys(window._gmResolvedSaves).find(k => window._gmResolvedSaves[k].item.hitId === hid && window._gmResolvedSaves[k].entryId === entry.id);
+        let done = evId && window._gmResolvedSaves[evId];
+        if (done) {
+            let ev = done.ev || {};
+            if (!past) _gmRetractLimbs(entry, 'limb_' + evId, `${entry.name}'s hit is no longer past their Wound Threshold (Defensive): no limb is Wounded.`, 'turned the Critical Hit into a normal hit');
+            else {
+                done.item.dc = dc;
+                if (!ev.autoFail && ev.total >= dc) _gmRetractLimbs(entry, 'limb_' + evId, `With the lower DC ${dc}, ${entry.name}'s save of ${ev.total} succeeds: no limb is Wounded.`, 'turned the Critical Hit into a normal hit');
+                gmLog({ id: 'res_' + evId, kind: 'wt', text: _gmResolveText(entry, done.item, ev).text + ' (Defensive: DC now ' + dc + ')' });
+            }
+        }
+    }
+    // Back above 0 HP: no Bleed Out roll needed
+    if (entry.currentHp > 0) {
+        let bi = q.findIndex(x => x.type === 'bleed');
+        if (bi >= 0) { let b = q.splice(bi, 1)[0]; if (b.logId) gmLog({ id: b.logId, kind: 'bleed', ask: null, text: `${entry.name} is back above 0 HP and no longer Bleeding Out.` }); }
+    }
+    _afterHpChange(entry, wasUp);
+    if (entry.currentHp > 0) _syncHpToPlayer(entry);
+}
+window._gmDefensiveReact = _gmDefensiveReact;   // limb log id -> { limb, again } (so a successful reroll can take it back)
+function _gmApplyWound(entry, choice, logId) {
     let limb = String(choice).replace(/ \(again\)$/, '');
     let again = / \(again\)$/.test(choice);
+    if (logId) window._gmWoundChosen[logId] = { limb, again };
     let code = _gmInviteCode();
     if (code && window.apxAuth?.enabled && typeof window.apxAuth.setGmWound === 'function')
         window.apxAuth.setGmWound(code, entry.playerUid, limb).catch(e => console.warn('Wound to player:', e.message));
@@ -1529,6 +1620,7 @@ function _gmHandleRollEvent(uid, ev) {
     }
     if (!window.gmCombatStarted) return;
     let entry = (window.gmInitiative || []).find(e => e.playerUid === uid);
+    if (ev.kind === 'react') { if (entry && firstSeen) _gmDefensiveReact(entry, ev.hitId); return; }
     let name = entry ? entry.name : (ev.who || 'A player');
     // A player's attack (weapon or power) becomes "the last attack", for hits and weapon properties
     if (ev.kind === 'attack') {
@@ -1558,6 +1650,7 @@ function _gmHandleRollEvent(uid, ev) {
     // Already matched to a Wound Threshold / Bleed Out roll: update the result
     let done = window._gmResolvedSaves[ev.id];
     if (done) {
+        done.ev = ev;
         let en = window.gmInitiative.find(e => e.id === done.entryId);
         let r = _gmResolveText(en, done.item, ev);
         gmLog({ id: 'res_' + ev.id, text: r.text + ' (rerolled)', kind: r.kind });
@@ -1591,7 +1684,7 @@ function _gmHandleRollEvent(uid, ev) {
     let fits = head.type === 'wt' ? ev.kind === 'save' : (ev.kind === 'save' || ev.skill === 'Survive');
     if (!fits) return;
     q.shift();
-    window._gmResolvedSaves[ev.id] = { item: head, entryId: entry.id };
+    window._gmResolvedSaves[ev.id] = { item: head, entryId: entry.id, ev };
     let r = _gmResolveText(entry, head, ev);
     gmLog({ id: 'res_' + ev.id, text: r.text, kind: r.kind });
     _gmOfferLimbs(entry, head, ev);
@@ -1615,8 +1708,9 @@ window._gmEntryXp = function(entry) {
 function _gmQueueBleed(entry) {
     if (!entry || entry.faction !== 'player' || entry.bleedOutTurns != null) return;
     _gmQueueSave(entry, { type: 'bleed' });
+    let bItem = (window._gmPendingSaves[entry.id] || []).find(x => x.type === 'bleed');
     // ask: the player's roller shows a button to roll the check straight from this message
-    if (entry.playerUid) gmLog({ text: `${entry.name} is Bleeding Out. Their next CON (Survive) check sets how many rounds they have.`, kind: 'bleed', ask: { uid: entry.playerUid, roll: 'survive' } });
+    if (entry.playerUid) { let id = gmLog({ text: `${entry.name} is Bleeding Out. Their next CON (Survive) check sets how many rounds they have.`, kind: 'bleed', ask: { uid: entry.playerUid, roll: 'survive' } }); if (bItem) bItem.logId = id; }
 }
 
 // Shared after-change handling: 0 HP → bleed out (players) / killed (NPCs); healed → clear bleed-out
@@ -1668,7 +1762,7 @@ function _gmWoundThreshold(entry) {
     if (wt == null && pm?.state && typeof computeCharSummary === 'function') { try { wt = computeCharSummary(pm.state).woundThreshold; } catch (e) {} }
     return wt == null || isNaN(wt) ? null : wt;
 }
-function _gmCheckWoundThreshold(entry, dmg) {
+function _gmCheckWoundThreshold(entry, dmg, hitId) {
     if (!entry || entry.faction !== 'player' || !(dmg > 0)) return;
     let wt = _gmWoundThreshold(entry);
     if (wt == null || dmg <= wt) return;
@@ -1676,8 +1770,9 @@ function _gmCheckWoundThreshold(entry, dmg) {
     let dc = Math.max(10, Math.floor(dmg / 2));
     let who = entry.name || 'This character';
     // (no popup: the player's dice tray asks for the save, and the combat log tracks it)
-    _gmQueueSave(entry, { type: 'wt', dc, dmg });
-    gmLog({ text: `${who} took ${dmg} damage, more than their Wound Threshold (${wt}). They must make a DC ${dc} CON save to resist being wounded.`, kind: 'wt',
+    let wItem = { type: 'wt', dc, dmg, hitId: hitId || null };
+    _gmQueueSave(entry, wItem);
+    wItem.logId = gmLog({ text: `${who} took ${dmg} damage, more than their Wound Threshold (${wt}). They must make a DC ${dc} CON save to resist being wounded.`, kind: 'wt',
         ask: entry.playerUid ? { uid: entry.playerUid, roll: 'save', dc } : null });
 }
 window._gmCheckWoundThreshold = _gmCheckWoundThreshold;
@@ -1716,7 +1811,8 @@ window.setInitiativeTempHp = function(id, value) {
         tmpDmg += tmpExtra;
     }
     _gmLogHpChange(entry, before, tmpAfter, wasAboveZero, tmpDmg, tmpHit);
-    _gmCheckWoundThreshold(entry, tmpDmg);       // Wound Threshold first, then the hit's own saves, then Bleed Out
+    let tmpDef = tmpHit ? _gmOfferDefensive(entry, tmpHit, tmpDmg, tmpExtras) : null;   // Defensive R5 (Reaction) before the saves
+    _gmCheckWoundThreshold(entry, tmpDmg, tmpDef);       // Wound Threshold first, then the hit's own saves, then Bleed Out
     if (tmpHit) _gmHitEffects(entry, tmpHit, tmpExtras);
     _afterHpChange(entry, wasAboveZero);
 };
@@ -1746,7 +1842,8 @@ window.updateInitiativeHp = function(id, value) {
         dmg += extra;   // counts toward the Wound Threshold as part of the same hit
     }
     _gmLogHpChange(entry, before, after, wasAboveZero, dmg, hit);
-    _gmCheckWoundThreshold(entry, dmg);          // Wound Threshold first, then the hit's own saves, then Bleed Out
+    let defId = hit ? _gmOfferDefensive(entry, hit, dmg, extras) : null;   // Defensive R5 (Reaction) before the saves
+    _gmCheckWoundThreshold(entry, dmg, defId);          // Wound Threshold first, then the hit's own saves, then Bleed Out
     if (hit) _gmHitEffects(entry, hit, extras);
     _afterHpChange(entry, wasAboveZero);
 };
@@ -2169,6 +2266,18 @@ window.renderInitiativeTracker = function() {
     }
 
     _gmRenderCombatMapSel();
+    // Don't redraw the list under a box the GM is typing in (a player's sheet saving, a roll arriving…):
+    // that would throw away what they typed, and a "-0" would vanish without a trace. Redraw once they're done.
+    if (!body._apxGuard) {
+        body._apxGuard = true;
+        body.addEventListener('change', e => { if (e.target) e.target._apxCommitted = true; }, true);
+        body.addEventListener('focusout', () => { if (body._apxDeferred) { body._apxDeferred = false; setTimeout(() => window.renderInitiativeTracker(), 0); } });
+    }
+    let typing = document.activeElement;
+    if (typing && body.contains(typing) && typing.tagName === 'INPUT' && typing.type !== 'checkbox' && !typing._apxCommitted && typing.value !== typing.defaultValue) {
+        body._apxDeferred = true;
+        return;
+    }
     if (!window.gmInitiative.length) {
         body.innerHTML = '<div class="text-xs text-slate-500 text-center py-4">No one in the initiative order yet. Add party members, NPCs, or a quick NPC above.</div>';
         return;
