@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.9.26.1511';
+window.APX_VERSION = 'v2026.9.26.1600';
 
         window.state = getInitialState();
 
@@ -344,7 +344,7 @@ window.APX_VERSION = 'v2026.9.26.1511';
                     if (dm && window.APXDamage && !inputEl._apxMitigated) {
                         let raw = parseInt(dm[1], 10);
                         let atk = window._pwLastNpcAtk;
-                        let fresh = atk && atk.id && Date.now() - (atk.t || 0) < 600000 && !(window._pwUsedAtk || {})[atk.id] && window._pwCombatCode;
+                        let fresh = atk && atk.id && Date.now() - (atk.t || 0) < 600000 && !(window._pwUsedAtk || {})[atk.id] && (window._pwCombatCode || (window.apxActiveWorldCode && window.apxActiveWorldCode()));
                         let types = dm[2] ? window.APXDamage.parts(dm[2]) : (fresh && atk.dmgType ? window.APXDamage.parts(atk.dmgType) : []);
                         let def = window.apxMyDefense();
                         let finish = (t) => {
@@ -354,7 +354,10 @@ window.APX_VERSION = 'v2026.9.26.1511';
                             if (fresh && !dm[2]) (window._pwUsedAtk = window._pwUsedAtk || {})[atk.id] = true;
                             let r2 = window.apxApplyHpInput('-' + res.dmg, window.state.currentHp, window.state.tempHp, maxHp);
                             if (!r2) return;
-                            if (res.dmg === 0) window.state.hpZeroHit = Date.now();   // still a hit: the GM's tracker counts it
+                            // Tell the GM first (their tracker turns it into a hit: extra dice, reactions, saves),
+                            // even when it comes to 0
+                            window.apxOnRollEvent?.({ id: 'dmg' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), kind: 'damage', label: 'Damage',
+                                raw, types: t, dmg: res.dmg, text: res.text, atkId: fresh && !dm[2] ? atk.id : null, hpAfter: r2.currentHp, tempAfter: r2.tempHp });
                             window.state.tempHp = r2.tempHp;
                             window.updateState('currentHp', r2.currentHp);
                             window.apxRefreshHpInputs?.();

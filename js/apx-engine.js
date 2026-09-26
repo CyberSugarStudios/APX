@@ -266,6 +266,9 @@
                 armorEr += window.state.equippedShield.er;
                 armorWt += window.state.equippedShield.wt;
             }
+            // More shields (four arms: one per Off Hand): carried and held, but their bonuses don't add up
+            if (!Array.isArray(window.state.extraShields)) window.state.extraShields = [];
+            window.state.extraShields.forEach(x => { armorWt += x.wt || 0; });
             if (window.state.equippedHelmet.equipped && !window.state.equippedHelmet.broken) {
                 armorAc += window.state.equippedHelmet.ac;
                 armorDr += window.state.equippedHelmet.dr;
@@ -435,10 +438,19 @@
                         let many = offs.length > 1;
                         hb.classList.toggle('hidden', !many); shieldBtn.classList.toggle('hidden', many);
                         if (many) {
-                            if (s.equipped) window.apxAssignHands && window.apxAssignHands();
-                            let cur = s.equipped ? (s.hands || [])[0] : null, L = window.APX_HAND_LABEL || {};
-                            hb.innerHTML = offs.map(h => `<button type="button" onclick="window.equipShieldHand('${h}')" title="${cur === h ? 'Remove the shield' : (s.equipped ? 'Move the shield to your ' : 'Equip the shield in your ') + (L[h] || h)}"
-                                class="flex-1 min-w-0 whitespace-nowrap text-[9px] px-0.5 py-1 rounded border font-bold transition ${cur === h ? 'bg-cyan-600/50 text-white border-cyan-400' : 'bg-cyan-600/20 text-cyan-400 hover:bg-cyan-600/40 border-cyan-700/50'}">${(L[h] || h).replace('Off Hand', 'Off')}${cur === h ? ' ✓' : ''}</button>`).join('');
+                            // Four arms: a shield can be held in each Off Hand. Each hand has its own Equip and, once
+                            // it holds one, an Unequip beneath. (Only one shield's +AC/DR/ER counts.)
+                            window.apxAssignHands && window.apxAssignHands();
+                            let L = window.APX_HAND_LABEL || {};
+                            let heldIn = h => (s.equipped && (s.hands || [])[0] === h) ? 'main' : ((window.state.extraShields || []).some(x => (x.hands || [x.hand])[0] === h) ? 'extra' : null);
+                            let n = (s.equipped ? 1 : 0) + (window.state.extraShields || []).length;
+                            if (shieldStatusEl && n > 1) shieldStatusEl.innerText = `${n} shields held (+${s.ac} AC/DR/ER, doesn't stack)`;
+                            hb.innerHTML = offs.map(h => { let held = heldIn(h), lab = (L[h] || h).replace('Off Hand', 'Off');
+                                return `<div class="flex-1 min-w-0 flex flex-col gap-0.5">
+                                    <button type="button" onclick="window.equipShieldHand('${h}')" ${held ? 'disabled' : ''} title="${held ? 'Holding a shield' : 'Equip a shield in your ' + (L[h] || h)}"
+                                        class="w-full whitespace-nowrap text-[9px] px-0.5 py-1 rounded border font-bold transition ${held ? 'bg-cyan-600/50 text-white border-cyan-400 cursor-default' : 'bg-cyan-600/20 text-cyan-400 hover:bg-cyan-600/40 border-cyan-700/50'}">${lab}${held ? ' ✓' : ''}</button>
+                                    ${held ? `<button type="button" onclick="window.unequipShieldHand('${h}')" title="Unequip the shield in your ${L[h] || h} (it goes to your inventory)" class="w-full whitespace-nowrap text-[9px] px-0.5 py-0.5 rounded border font-bold transition bg-red-600/20 text-red-400 hover:bg-red-600/40 border-red-700/50">Unequip</button>` : ''}
+                                </div>`; }).join('');
                         }
                     }
                 }
@@ -542,6 +554,21 @@
             window.state.lastKnownMaxRestDice = calc.maxRestDice;
             calc.woundThreshold = (calc.scores.CON * 2) + calc.wtBoost + fxStat('wt');
             document.getElementById('dispWt').innerText = calc.woundThreshold;
+            // The numbers this sheet shows, saved with the character: the GM's party panel and damage
+            // math use exactly these (DR/ER with shield, helmet, perks and items; resistances by type)
+            {
+                let def = typeof window.apxMyDefense === 'function' ? window.apxMyDefense() : { res: {}, immune: [] };
+                let h = window.state.equippedHelmet || {};
+                let prevDerived = JSON.stringify(window.state.derived || null);
+                window.state.derived = { ac: calc.ac, dr: calc.dr, er: calc.er, maxHp: calc.maxHp, wt: calc.woundThreshold, ap: calc.maxAp, init: calc.init,
+                    speed: calc.speedForcedZero ? 0 : Math.max(0, calc.speed), res: def.res || {}, immune: def.immune || [], halfBypass: !!def.halfBypass,
+                    unarmored: armorWt === 0, defensive: (window.state.perks || {}).con_defensive || 0, helmet: !!(h.equipped && !h.broken) };
+                // changed (first time on this version, or new gear): save it so the GM has it (after things settle)
+                if (prevDerived !== JSON.stringify(window.state.derived)) {
+                    clearTimeout(window._apxDerivedT);
+                    window._apxDerivedT = setTimeout(() => { try { window.scheduleAutoSave && window.scheduleAutoSave(); } catch (e) { } }, 5000);
+                }
+            }
             let newMaxLuck = Math.max(0, Math.max(1, calc.mods.LUC) + fxStat('maxLuck'));
             calc.maxLuck = newMaxLuck;
             document.getElementById('dispMaxLuck').innerText = newMaxLuck;
@@ -865,6 +892,7 @@
             let st = window.state, slots = window.apxHandSlots(), used = new Set();
             let items = [];
             if (st.equippedShield && st.equippedShield.equipped) items.push({ o: st.equippedShield, need: 1, pref: ['off'] });
+            (st.extraShields || []).forEach(x => { x.hands = x.hands || (x.hand ? [x.hand] : null); items.push({ o: x, need: 1 }); });
             (st.weapons || []).forEach(w => { let need = weaponHandCost(w); if (need) items.push({ o: w, need }); else delete w.hands; });
             // keep valid choices
             items.forEach(it => {
@@ -899,6 +927,7 @@
             if (!hand) return;
             let held = (st.weapons || []).filter(w => (w.hands || []).includes(hand)).map(w => w.name || 'your weapon');
             if (st.equippedShield?.equipped && (st.equippedShield.hands || []).includes(hand)) held.push('your shield');
+            if ((st.extraShields || []).some(x => (x.hands || [x.hand]).includes(hand))) held.push('a shield');
             if (held.length) window.APXDice?.notify(`Your ${limb} is Wounded: you drop ${held.join(' and ')} (${(window.APX_HAND_LABEL || {})[hand] || hand}).`, { kind: 'warn', open: true });
         };
         function handSelectHtml(w, idx) {
@@ -908,7 +937,7 @@
             let opts = [];
             if (need === 1) opts = slots.map(x => [x, L[x] || x]);
             else for (let i = 0; i + 1 < slots.length; i += 2) opts.push([slots[i] + ',' + slots[i + 1], i === 0 ? 'Main + Off Hand' : `${L[slots[i]]} + ${(L[slots[i + 1]] || '').replace('Off Hand ', '')}`]);
-            let holder = x => { let st = window.state; if (st.equippedShield?.equipped && (st.equippedShield.hands || []).includes(x)) return 'Shield'; let o = (st.weapons || []).find(v => v !== w && (v.hands || []).includes(x)); return o ? (o.name || 'weapon') : ''; };
+            let holder = x => { let st = window.state; if (st.equippedShield?.equipped && (st.equippedShield.hands || []).includes(x)) return 'Shield'; if ((st.extraShields || []).some(y => (y.hands || [y.hand]).includes(x))) return 'Shield'; let o = (st.weapons || []).find(v => v !== w && (v.hands || []).includes(x)); return o ? (o.name || 'weapon') : ''; };
             let wounded = (w.hands || []).map(x => (window.APX_HAND_ARM || {})[x]).filter(a => a && (window.state.woundedLimbs || []).includes(a));
             return `<div class="flex items-center gap-1 mt-0.5"><select onchange="window.setWeaponHand(${idx}, this.value)" class="bg-slate-900 border-slate-700 text-[9px] font-bold py-0 px-1 h-5" title="Which hand holds it (Main Hand is the right arm, Off Hand the left)">
                 ${cur ? '' : '<option value="">No free hand</option>'}${opts.map(([v, l]) => { let who = v.split(',').map(holder).filter(Boolean); return `<option value="${v}" ${v === cur ? 'selected' : ''}>${l}${who.length && v !== cur ? ' (swap with ' + who.join(', ') + ')' : ''}</option>`; }).join('')}
@@ -938,7 +967,7 @@
         // weapon went two-handed" (which needs to discount its own
         // current 1-hand cost first).
         window.calcHandsUsed = function(excludeIdx) {
-            let used = window.state.equippedShield.equipped ? 1 : 0;
+            let used = (window.state.equippedShield.equipped ? 1 : 0) + (window.state.extraShields || []).length;
             window.state.weapons.forEach((w, i) => {
                 if (i === excludeIdx) return;
                 used += weaponHandCost(w);

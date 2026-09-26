@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.9.26.1511',
-        released: '2026-09-26T15:11:00',
-        releasedText: 'September 26, 2026 · 3:11 PM',
+        version: 'v2026.9.26.1600',
+        released: '2026-09-26T16:00:00',
+        releasedText: 'September 26, 2026 · 4:00 PM',
         title: 'Playtest Update',
         intro: 'This update comes straight from our playtest tables. GMs get world rules, a Loot Maker, NPCs that carry and use gear, and magic items that can change almost anything on a sheet. Players get Luck and Looting, trading, shareable Omen dice, Loyal Companions that act on their own turns, powers that roll like weapons and use their AP and Power Slots, weapon properties that apply themselves on a hit, a one-screen Origin Builder, full-resolution maps at any size, and a dice roller with a distinct shape for every die that doubles as the combat log and asks for your Wound and Bleed Out saves. Conditions like Stunned wear off on their own when their time is up, and a reroll that saves you takes a Wound back. Damage is entered in full and the app takes off DR, ER, resistances and immunities for you, and four-armed characters get their extra arms and hands. Initiative runs with or without a battle map, characters are created and switched cleanly, pages load faster (especially on phones), and deleting an account removes all of its data. Your characters and worlds update when you open them. Nothing is lost, and anything a rule change touched is explained.',
         index: [
@@ -23,6 +23,7 @@
                 'Magic items can raise or lower almost anything on a sheet: Core Attributes, skills, Max HP, AP, Initiative, Wound Threshold, Rest Dice, Luck Points, Power Slots, attacks, saves and more.',
                 'Hand out loot from the Loot panel, an NPC\'s window or any Area Circle the NPC stands in. Ask the whole party or a single player for the Loot roll.',
                 'Initiative works on its own. It uses a battle map only when that map is open or picked as the fight\'s Battle map, so a quick fight never turns into "an unseen creature".',
+                'Damage you type is reduced by the target\'s DR or ER (by the attack\'s damage type), resistances and immunities, before or after Start Combat. Each tracker row shows the DR and ER used and the last hit\'s math, and players\' DR and ER match their own sheets.',
                 'Saved NPC sorting flips direction with a second click (A–Z to Z–A, highest to lowest), with an arrow on the active sort.'
             ]],
             ['For Players', [
@@ -121,7 +122,7 @@
                 'When you hit, your weapon\'s properties take effect on their own. Crushing asks the target for a STR save (DC 10 + your STR modifier) and knocks them Prone on a failure; if they\'re already Prone, the hit deals an extra damage die instead. Stunning asks for a CON save (DC 10 + STR, or INT for an Electric weapon) or they\'re Stunned. Concealed deals an extra die against a Surprised creature.',
                 'Flurry: once your GM records a hit, your next attack with that weapon this turn has the Flurry AP reduction ticked for you (untick it if you switch targets).',
                 'Every weapon has a damage type, shown under its name and on its rolls: forged weapons use theirs (their energy type if elemental), unarmed strikes are Bludgeoning, and custom or innate weapons pick one from a dropdown (Add Weapon asks for it too). It decides whether DR or ER reduces the damage.',
-                'Each weapon has a hand: Main Hand (right arm) or Off Hand (left arm), plus Off Hand 2 and 3 with four arms. Two-handed weapons take a pair. Weapons fill free hands on their own; pick another hand from the dropdown and whatever was there swaps over. A held shield takes the Off Hand first; with four arms, the Shield box has side-by-side Off Hand, Off Hand 2 and Off Hand 3 buttons to equip your one shield in any of them, move it, or remove it (the one marked ✓). When an arm is Wounded, you\'re told what it drops and the weapon is marked.',
+                'Each weapon has a hand: Main Hand (right arm) or Off Hand (left arm), plus Off Hand 2 and 3 with four arms. Two-handed weapons take a pair. Weapons fill free hands on their own; pick another hand from the dropdown and whatever was there swaps over. A held shield takes the Off Hand first. With four arms, the Shield box has side-by-side Off, Off 2 and Off 3 buttons: each hand can hold its own shield (from your inventory, or bought), and a hand holding one shows ✓ with an Unequip button beneath. Only one shield\'s +AC/DR/ER counts; the others are held and carried. When an arm is Wounded, you\'re told what it drops and the weapon is marked.',
                 'Loyal Companion weapons show their hand too, with ⇄ to switch.',
                 'Thrown weapons can be made Returning in the Weapon Forge for 300 more Currency (the option sits inside the Thrown card), so they come back to you after the attack. The weapon shows as "Thrown (Returning)".'
             ]],
@@ -174,7 +175,8 @@
             ['Conditions and Injuries', [
                 'Unconscious, Paralyzed or Incapacitated characters see why their attacks and powers are unavailable, for example "(Unconscious)". Unconscious auto-fails STR, AGI, PER, INT and CHA checks (CON still works, for Bleed Out). Paralyzed auto-fails STR and AGI checks.',
                 'Burning deals 1d10 Fire damage at the start of your turn in combat, ignoring ER, unless you\'re immune to Fire.',
-                'Damage you type in your HP box ("-9") is the full amount. Your DR (physical) or ER (energy), resistances, vulnerabilities and immunities are taken off, using the damage type of the enemy attack your GM just rolled. Type "-9 fire" to name the type yourself; if nothing says, you\'re asked. The dice tray shows the math. If it comes to 0, your GM still counts the hit, so its effects (a Stunning save, for one) apply.',
+                'Damage you type in your HP box ("-9") is the full amount. Your DR (physical) or ER (energy), resistances, vulnerabilities and immunities are taken off, using the damage type of the enemy attack your GM just rolled. Type "-9 fire" to name the type yourself; if nothing says, you\'re asked. The dice tray shows the math. If it comes to 0, your GM still counts the hit, so its effects (a Stunning save, for one) apply. Your sheet sends the damage and its math to your GM\'s tracker, which adds any extra dice (a Torso Wound, for one) and offers your Reactions.',
+                'Your GM sees the same AC, DR, ER, Wound Threshold and resistances your sheet shows (shield, helmet, perks and magic items included): your sheet saves them with your character.',
                 'Both legs Wounded: you fall Prone automatically and can\'t stand up (the Prone tag can\'t be removed) until one leg heals.',
                 'Torso Wound: your GM\'s tracker adds one more die of damage each time you\'re hit, the largest die the attack rolled.',
                 'Four arms (Polymelia): the Wounded list has Left Arm 2 and Right Arm 2 (older "Extra Arm" wounds are renamed).',
@@ -276,15 +278,17 @@
                 'Players can also trade items among themselves.'
             ]],
             ['Party', [
-                'Party stat blocks include the bonuses from each player\'s equipped items (Max HP, AP, saves, Wound Threshold and the rest).'
+                'Party stat blocks show each player\'s AC, DR, ER, Max HP, AP, Initiative and Wound Threshold exactly as their own sheet shows them (shield, helmet, perks and magic items included), plus their saves and skills.'
             ]],
             ['Initiative and Combat', [
                 'Bleed Out is one row: "Bleeding Out: N rounds left" with − Round, + Round and Stabilize.',
                 'No popups for saves. When a player passes their Wound Threshold, or drops to 0 HP with a linked sheet, their dice tray asks for the CON save or CON (Survive) check and the result fills in here. The Bleed Out popup remains for players without a sheet.',
-                'Damage is entered in full: type "-8" in the HP box and the target\'s DR (Bludgeoning, Piercing, Slashing) or ER (energy types) is taken off, along with Damage Resistances (+5), Vulnerabilities, Immunities, a player\'s energy resistances, and weapons that ignore X, half or all DR/ER (Ironclad Rank 4 halves that). The type comes from the attack just rolled (an attack with no type recorded counts as physical); "-8 fire" names it; otherwise one click chooses. An Incapacitated target\'s resistances are bypassed. Your log shows the math ("8 Slashing − DR 5 = 3").',
+                'One damage system for everything: the HP box, the Temp HP box, and damage players type on their own sheets all go through the same steps: which attack hit, its damage type, extra dice from the hit, the target\'s defences, HP, the log, then Reactions, the Wound Threshold save, the weapon\'s own saves and Bleed Out. It works before you press Start Combat, and never needs a battle map.',
+                'Every tracker row shows the DR and ER damage is reduced by, live: an NPC\'s stat block, or a player\'s own sheet (* means resistances or immunities too; hover for the list). NPCs added without a stat block have DR and ER boxes to fill in. After a hit, the row shows "Last hit" with the math.',
+                'Damage is entered in full: type "-8" in the HP box and the target\'s DR (Bludgeoning, Piercing, Slashing) or ER (energy types) is taken off, along with Damage Resistances (+5), Vulnerabilities, Immunities, a player\'s energy resistances, and weapons that ignore X, half or all DR/ER (Ironclad Rank 4 halves that). The type comes from the attack just rolled (an attack with no type recorded counts as physical); "-8 fire" names it; otherwise one click chooses. An Incapacitated target\'s resistances are bypassed. Your log shows the math and where the defences came from ("Goblin ← Ari\'s Longsword: 8 → 8 Slashing − DR 5 = 3 (DR 5, ER 2, from stat block)"). A plain number ("12") still sets HP directly.',
                 'Hits: damage you enter after an attack roll (from a player\'s sheet or your stat blocks) is that attack\'s hit, even when it comes to 0. With no roll to match (dice rolled at the table), damage you type is a hit by whoever is taking their turn. The tracker never redraws under a box you\'re typing in. A player\'s own damage that comes to 0 counts as a hit too. Players see "Ari hit Goblin."; you see the damage, or "Ari hit Goblin, but Goblin took no damage."',
                 'Torso Wound: a player with a Wounded Torso takes one more die of damage from each hit, the largest die the attack rolled, added before DR/ER.',
-                'Players\' sheets are told the damage type of the NPC attack you just rolled, so damage they type there is reduced the same way.',
+                'Players\' sheets are told the damage type of the NPC attack you just rolled, so damage they type there is reduced the same way, and their sheet sends you the damage and its math. For a few seconds after your tracker changes a player\'s HP, an older save from their sheet can\'t undo it.',
                 'The hit weapon\'s properties apply to that target. Crushing: a STR save (DC 10 + the attacker\'s STR modifier) or Prone, or +1 damage die against a Prone target. Stunning: a CON save or Stunned. Concealed: +1 damage die against a Surprised target. Extra dice go straight onto HP and count toward the Wound Threshold. Grappling is noted for you to apply, and Tearing stays manual.',
                 'Stunned from a Stunning weapon ends by itself at the end of the attacker\'s next turn, and the log says so. Being Stunned again restarts it. A Stunned creature starts its turn with 0 AP (NPCs here, players on their sheets).',
                 'Incapacitated targets (including anyone Stunned, Paralyzed or Unconscious) take every hit as a Critical Hit: a hit that didn\'t roll one gets the crit\'s extra damage dice added for you, with the attacker\'s High Roller rerolls, and the log notes it bypasses their resistances.',
