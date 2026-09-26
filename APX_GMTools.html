@@ -1719,7 +1719,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         id: _ct?.id || null, turnNo: window.gmTurnNumber || 0, round: window.gmRoundNumber || 1,
                         playerUid: _ct && _ct.faction === 'player' ? (_ct.playerUid || null) : null,
                         companionOf: _ct?.companionOf || null,
-                        apGain1: !!_ct?._apFirstSurprised
+                        apGain1: !!_ct?._apFirstSurprised,
+                        // Flurry: the player on turn hit with this weapon, so their next attacks with it cost 1 less AP
+                        flurry: (() => { let f = _ct && (window._gmFlurry || {})[_ct.id]; return f && f.turn === window.gmTurnNumber && _ct.playerUid ? { uid: _ct.playerUid, weapon: f.weapon, target: f.targetName } : null; })()
                     } : { id: null, ended: true },
                     publicNotes: {
                         worldMapTiles: w.notesV2.worldMapTiles || null,
@@ -4063,6 +4065,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (h !== entry) { saveWorldNotes(); window._btRefreshAllOpenMaps(); }
             if (typeof window.renderInitiativeTracker === 'function') window.renderInitiativeTracker();
         }, 'Conditions: ' + (entry.name||''));
+    };
+    window._gmAddEntryCondition = function(entryId, condId) {
+        let h = window._gmCondHolder(entryId); if (!h) return;
+        if ((h.conditions || []).includes(condId)) return;
+        _toggleIn(h, condId, true, entryId);
+        saveWorldNotes(); window._btRefreshAllOpenMaps();
+        if (typeof window.renderInitiativeTracker === 'function') window.renderInitiativeTracker();
     };
     window._gmRemoveEntryCondition = function(entryId, condId) {
         let h = window._gmCondHolder(entryId); if (!h) return;

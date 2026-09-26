@@ -28,7 +28,7 @@ function getBlankWeaponDraft() {
         category: 'melee', weightClass: 'light', dmgType: 'Bludgeoning',
         dmgTier: 0, critTier: 0, rangeTier: 0,
         elemental: null,
-        properties: { concealed: false, reach: false, thrown: false, sturdy: false, grappling: false, tearing: false, crushing: false, flurry: false, stunning: false }
+        properties: { concealed: false, reach: false, thrown: false, returning: false, sturdy: false, grappling: false, tearing: false, crushing: false, flurry: false, stunning: false }
     };
 }
 
@@ -76,7 +76,8 @@ function weaponForgeCtx() {
         category: weaponForgeDraft.category,
         weightClass: weaponForgeDraft.weightClass,
         effectiveDmgType: weaponForgeDraft.elemental ? 'Energy' : weaponForgeDraft.dmgType,
-        elemental: weaponForgeDraft.elemental
+        elemental: weaponForgeDraft.elemental,
+        props: weaponForgeDraft.properties
     };
 }
 
@@ -234,6 +235,7 @@ window.toggleWeaponProperty = function(key, checked) {
         if (propDef && !propDef.reqCheck(weaponForgeCtx())) return;
     }
     weaponForgeDraft.properties[key] = checked;
+    revalidateWeaponProperties();   // e.g. unticking Thrown also removes Returning
     renderWeaponForgeStep3();
     renderWeaponForgeSummary();
 };
@@ -348,8 +350,10 @@ function renderWeaponForgeStep3() {
             </div>`;
         }
         let checked = !!weaponForgeDraft.properties[p.key];
+        // An add-on (Returning) sits indented under its property and only shows once that's chosen
+        if (p.addonOf && !weaponForgeDraft.properties[p.addonOf]) return '';
         return `
-            <label class="flex items-start gap-2 bg-slate-900 border border-slate-700 rounded p-2 ${!meetsReq ? 'opacity-50' : 'cursor-pointer'}">
+            <label class="flex items-start gap-2 bg-slate-900 border border-slate-700 rounded p-2 ${p.addonOf ? 'ml-6 border-l-2 border-l-amber-700' : ''} ${!meetsReq ? 'opacity-50' : 'cursor-pointer'}">
                 <input type="checkbox" class="mt-0.5" ${checked ? 'checked' : ''} ${!meetsReq ? 'disabled' : ''} onchange="window.toggleWeaponProperty('${p.key}', this.checked)">
                 <div class="flex-1">
                     <div class="text-[11px] font-bold text-slate-200">${p.name} <span class="text-yellow-500">[${p.cost} Cu]</span></div>

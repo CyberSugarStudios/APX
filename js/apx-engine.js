@@ -968,7 +968,9 @@
             let fl = perks['agi_flurry'] || 0;
             if (fl >= 1) mods.push({ id: 'flurry', label: 'Flurry perk: your last weapon attack hit', delta: -1, stack: fl >= 3 ? 2 : 1, on: false,
                 tip: fl >= 3 ? 'Rank 3: the reduction stacks up to 2 times (one per consecutive hit).' : 'Rank 1: a weapon hit reduces the AP of your next attack by 1 (min 1).' });
-            if (o.wFlurry) mods.push({ id: 'wflurry', label: 'Flurry weapon: you already hit this target this turn', delta: -1, on: false,
+            let flGm = window._pwCombatTurn && window._pwCombatTurn.flurry;
+            let flOn = !!(flGm && flGm.uid === window.apxAuth?.user?.uid && o.hit && flGm.weapon === o.hit.weapon);
+            if (o.wFlurry) mods.push({ id: 'wflurry', label: flOn ? `Flurry: you hit ${flGm.target || 'them'} with this weapon this turn (attacking them again?)` : 'Flurry weapon: you already hit this target this turn', delta: -1, on: flOn,
                 tip: 'Flurry property: each attack after a hit on the same target costs 1 less AP (min 1) until you miss or your turn ends.' });
             let needPopup = mods.length > 0 || o.aimed;
             let compute = (sel, aim, extra) => {
@@ -1056,14 +1058,17 @@
             // Fortunate Fighter Rank 4: crit multiplier +1
             let critMult = (w.critMult || 2) + ((window.state.perks['luc_fortunatefighter'] || 0) >= 4 ? 1 : 0);
             let rollName = (w.name || 'Weapon') + (opts.label ? (opts.attr === 'STR' && /2-Handed/.test(opts.label) ? ' (2-Handed)' : /Aimed/.test(opts.label) ? ' (Aimed)' : '') : '');
+            // What a hit with it can do (Crushing, Stunning, Flurry…): read by the GM's tracker
+            let hitMeta = { weapon: w.name || 'Weapon', props: Object.keys(w.properties || {}).filter(k => { let v = w.properties[k]; return typeof v === 'number' ? v > 0 : !!v; }),
+                die: '1d' + ((String(opts.dice || '').match(/\d*d(\d+)/) || [0, 6])[1]), strMod: calc.mods.STR || 0, intMod: calc.mods.INT || 0, elec: w.elemental === 'Electric' };
             // pcAttack/apCost/aimed: the sheet's AP hook (apxBeforeAttack) spends AP for this attack
             let atkRoll = apxRollAttr({ type: 'attack', label: rollName, bonus: atk, dice: opts.dice, dmgMod, critMult, dmgType: w.elemental || w.dmgType || '', disSources: disadvSources, advSources,
                 pcAttack: true, wcat: cat, apCost: parseInt(opts.ap) || 0, ranged: cat === 'ranged', aimed: cat === 'ranged' && !!w.aimed, unarmed: !!w.isUnarmed,
-                wFlurry: !!(w.properties && w.properties.flurry) || undefined });
+                wFlurry: !!(w.properties && w.properties.flurry) || undefined, hit: hitMeta });
             // Remember each attack option, so martial powers can roll with the weapon they're used through
             let variant = opts.label ? (/Aimed/.test(opts.label) ? 'aimed' : /2-Handed/.test(opts.label) ? '2h' : '') : '';
             (calc.weaponAttacks = calc.weaponAttacks || []).push({ key: (w.name || 'Weapon') + '|' + variant, label: rollName, bonus: atk, disSources: disadvSources, advSources,
-                unarmed: !!w.isUnarmed, innate: !!w.isAncestry });
+                unarmed: !!w.isUnarmed, innate: !!w.isAncestry, dice: opts.dice, dmgMod, dmgType: w.elemental || w.dmgType || '', critMult, hit: hitMeta, ap: parseInt(opts.ap) || 0 });
             if (calc.cantAct) {
                 // Incapacitated / Unconscious: no attacking until it ends
                 let why = calc.cantActLabel;
@@ -1456,32 +1461,75 @@
         };
         window.apxWeaponAttackOptions = function() { return (calc.weaponAttacks || []).slice(); };
         // Using a power (click "Lvl X | Y AP"): spend its AP, then roll its damage or healing
+        // Using a power (click its name or its "Lvl X | Y AP" tag): it takes its AP and a Power Slot
+        // (INT: one of its level; CHA: one from the pool), then rolls like a weapon: an attack power
+        // rolls the d20 and its damage together (a critical hit doubles the damage dice). Save and
+        // Guaranteed powers roll their damage or healing, and anything that needs a saving throw tells
+        // the GM (with your Power DC). A power with no roll shows its description.
+        function apxPowerDamage(p) {
+            let m = String(p.dmg || '').match(/^\s*((?:\d*d\d+)(?:\s*[+-]\s*(?:\d*d\d+|\d+))*)\s*(.*)$/i);
+            if (!m) return null;
+            let heal = /heal/i.test(m[2]);
+            let formula = m[1].replace(/\s+/g, '');
+            if (/\+\s*Attr/i.test(m[2])) { let am = calc.mods[window.state.powerAttr] || 0; if (am) formula += (am > 0 ? '+' : '') + am; }
+            return { formula, heal, type: m[2].replace(/\+\s*Attr/i, '').replace(/\(Heal\)/i, '').trim() };
+        }
         window.apxUsePower = async function(idx) {
             let p = window.state.powers[idx]; if (!p || !window.APXDice) return;
             if (calc.cantAct) { APXDice.notify(`You're ${calc.cantActLabel}, so you can't use powers until that ends.`, { kind: 'warn', open: true }); return; }
+            let name = p.name || 'Power', who = window.state.name || '';
+            // Power Slot: INT uses a slot of the power's level, CHA one from its pool
+            let isCha = window.state.powerAttr === 'CHA', slotKey = isCha ? 'CHA' : (parseInt(p.lvl) || 1);
+            let slotMax = getMaxSlotsForLevel(slotKey), slotUsed = window.state.usedPowerSlots[slotKey] || 0;
+            let slotLabel = isCha ? 'Power Slot' : `Level ${slotKey} Power Slot`;
             let cost = Math.max(0, parseInt(p.ap) || 0);
             let have = typeof window.apxApCurrent === 'function' ? window.apxApCurrent() : cost;
-            let apNote, apWarn = false;
-            if (cost > have) {
-                let ans = APXDice.ask ? await APXDice.ask(`${p.name || 'Power'}: not enough AP`, `This power costs ${cost} AP and you have ${have}.`, [['cancel', 'Cancel'], ['roll', 'Roll without spending', 'pri']]) : 'roll';
-                if (ans !== 'roll') return;
-                apNote = `AP not spent (needs ${cost}, had ${have})`; apWarn = true;
-            } else if (cost > 0) {
-                window.apxSpendAp(cost);
-                apNote = `-${cost} AP · ${window.apxApCurrent()} left`;
+            let short = [];
+            if (slotUsed >= slotMax) short.push(`You have no ${slotLabel}s left (${slotUsed}/${slotMax} used).`);
+            if (cost > have) short.push(`It costs ${cost} AP and you have ${have}.`);
+            let pay = true;
+            if (short.length) {
+                let ans = APXDice.ask ? await APXDice.ask(`${name}`, short.join('\n'), [['free', "Roll, don't spend", 'pri']]) : 'free';
+                if (ans !== 'free') return;
+                pay = false;
             }
-            let txt = String(p.dmg || '');
-            let m = txt.match(/^\s*((?:\d*d\d+)(?:\s*[+-]\s*(?:\d*d\d+|\d+))*)\s*(.*)$/i);
-            if (m) {
-                let heal = /heal/i.test(m[2]);
-                let formula = m[1].replace(/\s+/g, '');
-                // "+Attr": the power's attribute modifier is added
-                if (/\+\s*Attr/i.test(m[2])) { let am = calc.mods[window.state.powerAttr] || 0; if (am) formula += (am > 0 ? '+' : '') + am; }
-                let type = m[2].replace(/\+\s*Attr/i, '').replace(/\(Heal\)/i, '').trim();
-                APXDice.damage({ label: (p.name || 'Power') + (heal ? ' healing' : ' damage'), who: window.state.name || '', formula, dmgType: heal ? '' : type, heal: heal || undefined, wcat: 'power', apNote, apWarn });
+            let notes = [];
+            if (pay) {
+                if (cost > 0) { window.apxSpendAp(cost); notes.push(`-${cost} AP (${window.apxApCurrent()} left)`); }
+                window.state.usedPowerSlots[slotKey] = slotUsed + 1;
+                notes.push(`-1 ${slotLabel} (${Math.max(0, slotMax - slotUsed - 1)} left)`);
+                window.recalculateMath();
+            } else notes.push('Nothing spent');
+            let useNote = notes.join(' · ');
+            let info = apxPowerAtkInfo(p), dmg = apxPowerDamage(p);
+            let flavor = String(p.desc || '').trim();
+            let dc = calc.powerDc;
+            let tell = text => { if (typeof window.apxOnRollEvent === 'function') window.apxOnRollEvent({ id: 'pw' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), kind: 'power', label: name, text }); };
+            if (info.kind === 'power' || info.kind === 'martial') {
+                let bonus = info.kind === 'power' ? calc.powerAtk : (info.w ? info.w.bonus : calc.powerAtk);
+                let via = info.kind === 'martial' && info.w ? ` (${info.w.label})` : '';
+                let o = { label: name + via, who, bonus, perks: true, gambleAllowed: false, omen: true, power: true, useNote, useWarn: !pay, flavor,
+                    disSources: info.kind === 'martial' && info.w ? info.w.disSources : ((calc.disadv && calc.disadv.atkGeneral) || []),
+                    advSources: info.kind === 'martial' && info.w ? info.w.advSources : [],
+                    hit: info.kind === 'martial' && info.w ? info.w.hit : { weapon: name, props: [] } };
+                // A martial improvement rides a normal weapon attack: the weapon's damage plus the power's
+                let wpn = info.kind === 'martial' && info.w && info.w.dice ? info.w : null;
+                let wf = wpn ? String(wpn.dice) + (wpn.dmgMod ? (wpn.dmgMod > 0 ? '+' : '') + wpn.dmgMod : '') : '';
+                if (dmg && !dmg.heal) { o.dice = wf ? wf + '+' + dmg.formula : dmg.formula; o.dmgType = [wpn && wpn.dmgType, dmg.type].filter(Boolean).join(' + '); o.critMult = wpn ? (wpn.critMult || 2) : 2; o.wcat = 'power'; APXDice.attack(o); }
+                else if (wpn) { o.dice = wf; o.dmgType = wpn.dmgType; o.critMult = wpn.critMult || 2; APXDice.attack(o); }
+                else { o.kind = 'attack'; o.note = useNote; APXDice.check(o); }
+                tell(`${who || 'A player'} uses ${name}${via}: attack roll.`);
+                return;
+            }
+            let saveKind = info.kind === 'save' ? (/halves/i.test(info.text) ? 'halves' : 'negates') : null;
+            let saveText = saveKind ? `Targets make a saving throw against DC ${dc}: a success ${saveKind === 'halves' ? 'halves it' : 'negates it'}.` : '';
+            if (dmg) {
+                APXDice.damage({ label: name + (dmg.heal ? ' healing' : ' damage'), who, formula: dmg.formula, dmgType: dmg.heal ? '' : dmg.type, heal: dmg.heal || undefined, wcat: 'power',
+                    apNote: useNote, apWarn: !pay, note: saveText || null, flavor });
             } else {
-                APXDice.notify(`${p.name || 'Power'} used${apNote ? ': ' + apNote : ''}.`, { kind: apWarn ? 'warn' : 'note', open: true });
+                APXDice.info({ label: name, who, text: flavor || 'Power used.', badges: [[pay ? 'info' : 'fum', useNote]].concat(saveText ? [['info', saveText]] : []) });
             }
+            tell(saveText ? `${who || 'A player'} uses ${name}. ${saveText}` : `${who || 'A player'} uses ${name}.`);
         };
 
         function renderPowers() {
@@ -1489,8 +1537,8 @@
                 <div class="bg-slate-900 p-2 rounded border border-slate-700 relative group shadow-inner" data-roll-label="${String(p.name||'Power').replace(/"/g,'&quot;')}">
                     <button onclick="window.deletePower(${idx})" class="absolute top-1 right-1 text-red-500 hover:text-red-400 font-bold opacity-0 group-hover:opacity-100">&times;</button>
                     <div class="flex justify-between items-center mb-1">
-                        <span class="font-bold text-sm text-indigo-300">${p.name}</span>
-                        <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded border border-slate-600 text-slate-400 font-bold shadow cursor-pointer hover:border-indigo-400 hover:text-indigo-200" onclick="window.apxUsePower(${idx})" title="Use this power: spend ${p.ap} AP${/\d*d\d+/.test(String(p.dmg||'')) ? ' and roll its ' + (/heal/i.test(String(p.dmg)) ? 'healing' : 'damage') : ''}">Lvl ${p.lvl} | ${p.ap} AP</span>
+                        <span class="font-bold text-sm text-indigo-300 cursor-pointer hover:text-indigo-200" onclick="window.apxUsePower(${idx})" title="Use this power: spend its AP and a Power Slot, and roll it">${p.name}</span>
+                        <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded border border-slate-600 text-slate-400 font-bold shadow cursor-pointer hover:border-indigo-400 hover:text-indigo-200" onclick="window.apxUsePower(${idx})" title="Use this power: spend ${p.ap} AP and a Power Slot, and roll it">Lvl ${p.lvl} | ${p.ap} AP</span>
                     </div>
                     <div class="grid grid-cols-3 gap-1 mb-1 text-[10px] text-slate-400">
                         <div><span class="text-slate-500">A/S:</span> ${apxPowerAtkHtml(p, idx)}</div>

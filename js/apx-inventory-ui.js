@@ -82,7 +82,7 @@
             if (!checked && id === 'prone' && (window.state.conditions || []).includes('prone') && window._pwCombatCode && typeof window.apxApCurrent === 'function') {
                 let cost = (window.state.perks?.luc_foolsluck || 0) >= 5 ? 0 : 2, have = window.apxApCurrent();
                 if (cost > have && window.APXDice?.ask) {
-                    let ans = await window.APXDice.ask('Stand up', `Standing up costs ${cost} AP and you have ${have}.`, [['cancel', 'Stay Prone'], ['free', 'Stand without spending', 'pri']]);
+                    let ans = await window.APXDice.ask('Stand up', `Standing up costs ${cost} AP and you have ${have}.`, [['free', 'Stand without spending', 'pri']]);
                     if (ans !== 'free') { window.recalculateMath(); return; }
                 } else if (cost > 0) {
                     window.apxSpendAp(cost);

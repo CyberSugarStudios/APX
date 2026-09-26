@@ -3410,6 +3410,7 @@
             // Combat just ended -> your AP resets to your normal maximum (banked AP is lost).
             // combatTurn comes from the GM's tracker itself, so this works with or without a battle map.
             let ct = data.combatTurn && typeof data.combatTurn === 'object' ? data.combatTurn : null;
+            window._pwCombatTurn = ct;
             try {
                 let inCombat = ct ? !!ct.id : (world.notesV2.otherMaps || []).some(m => m._currentInitId);
                 window._pwCombatCode = inCombat ? code : null;
@@ -3489,11 +3490,20 @@
     window.apxLogAsk = function(ask) { let uid = window.apxAuth?.user?.uid; return !!(ask && uid && ask.uid === uid); };
     window.apxRollFromAsk = function(ask) {
         if (!ask) return;
-        let sel = ask.roll === 'survive' ? `[data-apx-roll*='"skill":"Survive"']` : `[data-apx-roll*='"kind":"save"'][data-apx-roll*='"attr":"CON"']`;
+        let attr = ask.attr || 'CON';
+        let sel = ask.roll === 'survive' ? `[data-apx-roll*='"skill":"Survive"']` : `[data-apx-roll*='"kind":"save"'][data-apx-roll*='"attr":"${attr}"']`;
         let el = document.querySelector(sel);
         if (el) { el.click(); return; }
         // Fallback (no sheet element found): a plain d20 with the right label
-        window.APXDice?.check({ kind: ask.roll === 'survive' ? 'check' : 'save', attr: 'CON', skill: ask.roll === 'survive' ? 'Survive' : '', label: ask.roll === 'survive' ? 'CON (Survive)' : 'CON Save', who: window.state?.name || '', bonus: 0 });
+        window.APXDice?.check({ kind: ask.roll === 'survive' ? 'check' : 'save', attr, skill: ask.roll === 'survive' ? 'Survive' : '', label: ask.roll === 'survive' ? 'CON (Survive)' : attr + ' Save', who: window.state?.name || '', bonus: 0 });
+    };
+
+    // Your attacks (weapons, powers, your companion's) go to the GM too: the next damage the GM
+    // enters is that attack hitting, so weapon properties (Crushing, Stunning, Flurry…) apply
+    window.apxOnAttackRoll = function(o, r) {
+        if (!o || !(o.pcAttack || o.power || o.companion) || typeof window.apxOnRollEvent !== 'function') return;
+        window.apxOnRollEvent({ id: r.id, kind: 'attack', label: o.label || 'Attack', nat: r.nat, total: r.total, bonus: r.bonus, crit: r.crit, fumble: r.fumble,
+            dmg: r.dmg, hit: o.hit || null, companion: !!o.companion });
     };
 
     // Your checks and saves go to the GM's combat log while combat is running

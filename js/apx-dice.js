@@ -427,9 +427,11 @@
     function askBtnHtml(e) {
         if (!askIsMine(e)) return '';
         let done = !!tray.askDone[e.id];
-        // The Wound Threshold save comes before the Bleed Out check
-        let waitWt = !done && e.ask.roll === 'survive' && cards.some(x => x.log && x.log.id !== e.id && x.log.ask && x.log.ask.roll === 'save' && askIsMine(x.log) && !tray.askDone[x.log.id] && (x.log.t || 0) <= (e.t || 0) + 5000);
-        let label = done ? 'Rolled' : e.ask.roll === 'save' ? `Roll CON save${e.ask.dc ? ' (DC ' + e.ask.dc + ')' : ''}` : waitWt ? 'Roll your CON save first' : 'Roll CON (Survive)';
+        // Saves are settled in the order they were asked for (the Wound Threshold save first,
+        // then a hit's own saves, then Bleed Out), so a later button waits for the earlier ones
+        let waitWt = !done && cards.some(x => x.log && x.log.id !== e.id && x.log.ask && askIsMine(x.log) && !tray.askDone[x.log.id] && (x.log.t || 0) < (e.t || 0));
+        let label = done ? 'Rolled' : waitWt ? 'Roll the earlier save first' : e.ask.label ? e.ask.label
+            : e.ask.roll === 'save' ? `Roll ${e.ask.attr || 'CON'} save${e.ask.dc ? ' (DC ' + e.ask.dc + ')' : ''}` : 'Roll CON (Survive)';
         return `<div style="margin-top:.3rem"><button data-logask ${done || waitWt ? 'disabled' : ''} style="font-size:.66rem;font-weight:800;padding:.18rem .5rem;border-radius:.3rem;cursor:${done || waitWt ? 'default' : 'pointer'};border:1px solid ${done ? 'var(--c-border2,#475569)' : '#f59e0b'};background:${done || waitWt ? 'none' : '#b45309'};color:${done ? 'var(--c-text-muted,#94a3b8)' : '#fff'};opacity:${waitWt ? '.6' : '1'}">${label}</button></div>`;
     }
     function refreshAskCards() { cards.forEach(x => { if (x.log && x.log.ask) renderCard(x); }); }
@@ -711,7 +713,11 @@
             let gambleBonus = gamble ? (hr >= 4 ? 10 : 5) : 0;   // High Roller: +5 on a Gamble that hits (+10 from Rank 4)
             let dst = { crit: false, inst: false, maxed: false };
             let dmg = { kind: 'dmg', title: 'Damage', gamble: gambleBonus, mult: critMult };
-            let c = { label: o.label || 'Attack', who: o.who, parts: [atk, dmg], perks: usePerks, omenOk: !!o.omen && !!(window.state?.perks), gamble };
+            let c = { label: o.label || 'Attack', who: o.who, parts: [atk, dmg].concat(o.flavor ? [{ kind: 'text', html: '<i style="font-weight:500;line-height:1.35">' + esc(o.flavor) + '</i>' }] : []), perks: usePerks, omenOk: !!o.omen && !!(window.state?.perks), gamble };
+            c.id = 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+            // The page hears about every attack (and every change to it): the GM Tools use it to know
+            // who just attacked with what, so a hit applies the weapon's properties to the right target.
+            let tell = () => { if (typeof window.apxOnAttackRoll === 'function') { try { window.apxOnAttackRoll(o, { id: c.id, nat: atk.nat, total: atk.total, crit: !!atk.crit, fumble: !!atk.fumble, dmg: dmg.total, bonus: atk.bonus || 0 }); } catch (e) { console.warn('Attack hook:', e); } } };
             let settleDmg = () => {
                 dmg.crit = atk.crit; dmg.none = atk.fumble;
                 dst.crit = atk.crit;
@@ -730,6 +736,7 @@
                 if (dst.inst) c.badges.push(['info', 'Instigator: +1 damage die' + (atk.crit ? ', crit ×' + dmg.mult : '')]);
                 if (dst.confirm) c.badges.push([dst.maxed ? 'crit' : 'info', `${dp.confirmSrc} R5 second attack roll: ${dst.confirm.total} (d20 ${dst.confirm.nat})` + (dst.maxed ? ' · max critical damage' : '')]);
                 if (apNote) c.badges.push(apNote);
+                if (o.useNote) c.badges.push([o.useWarn ? 'fum' : 'info', o.useNote]);
             };
             let extraActs = () => {
                 let acts = [];
@@ -744,12 +751,14 @@
                 } });
                 return acts;
             };
-            let redo = (full) => { settleDmg(); c.actions = d20Actions(c, atk, redo).concat(extraActs()); renderCard(c); };
+            let redo = (full) => { settleDmg(); c.actions = d20Actions(c, atk, redo).concat(extraActs()); renderCard(c); tell(); };
             c._redo = redo;
             settleDmg();
             c.actions = d20Actions(c, atk, redo).concat(extraActs());
             setMode('normal');
-            return addCard(c);
+            let out = addCard(c);
+            tell();
+            return out;
         },
 
         damage(o) {
@@ -763,7 +772,7 @@
             let dm = makeDamage(o.formula, { reroll12: !o.heal && usePerks && hr >= 2, explode, critMult: mult, keepBest: dp.keepBest, instig: dp.instig });
             let dst = { crit: !!(o.mult && o.mult > 1), inst: false, maxed: false };
             let p = { kind: 'dmg', title: o.heal ? 'Heal' : 'Damage' };
-            let c = { label: o.label || 'Damage', who: o.who, parts: [p], badges: [] };
+            let c = { label: o.label || 'Damage', who: o.who, parts: [p].concat(o.flavor ? [{ kind: 'text', html: '<i style="font-weight:500;line-height:1.35">' + esc(o.flavor) + '</i>' }] : []), badges: [] };
             let settle = () => {
                 let res = dm.settle(dst);
                 p.roll = { groups: res.roll.groups, flat: dm.parsed.flat, diceTotal: res.roll.diceTotal };
@@ -775,10 +784,17 @@
                 if (explode) c.badges.push(['info', 'Dice Explosion: max rolls rolled again and added']);
                 if (dst.inst) c.badges.push(['info', 'Instigator: +1 damage die']);
                 if (o.apNote) c.badges.push([o.apWarn ? 'fum' : 'info', o.apNote]);
+                if (o.note) c.badges.push(['info', o.note]);
                 c.actions = dp.instig ? [{ label: dst.inst ? 'Instigator: on' : 'Target Frightened/Provoked?', cls: dst.inst ? 'luck' : '', title: 'Instigator Rank 3: a Frightened or Provoked target takes an extra damage die', run: () => { dst.inst = !dst.inst; settle(); renderCard(c); } }] : [];
             };
             settle();
             return addCard(c);
+        },
+
+        // A card with just text (a power with no roll: its description, and what it cost)
+        info(o) {
+            o = o || {};
+            return addCard({ label: o.label || 'Note', who: o.who, parts: [{ kind: 'text', html: '<span style="font-weight:500;line-height:1.35">' + esc(o.text || '') + '</span>' }], badges: (o.badges || []).map(b => Array.isArray(b) ? b : ['info', b]) });
         },
 
         formula(label, formula, who) {

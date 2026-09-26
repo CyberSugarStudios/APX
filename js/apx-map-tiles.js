@@ -184,6 +184,13 @@
         let hw = Math.ceil(w / 2), hh = Math.ceil(h / 2);
         return { x: x + (q % 2 ? hw : 0), y: y + (q > 1 ? hh : 0), w: q % 2 ? w - hw : hw, h: q > 1 ? h - hh : hh };
     }
+    // A tile also carries a few pixels past its right and bottom edges (the "bleed"), so neighbouring
+    // tiles overlap with identical image content: no gaps and no stretching at any zoom.
+    const BLEED = 3;   // in the tile level's pixels
+    function tileRectBleed(m, li, r, c, q) {
+        let rc = tileRect(m, li, r, c, q), b = (m.bleed || 0) / m.levels[li].s;
+        return { x: rc.x, y: rc.y, w: Math.min(rc.w + b, m.w - rc.x), h: Math.min(rc.h + b, m.h - rc.y) };
+    }
     const tileId = (key, v, li, r, c, q) => `${key}_${v}_${li}_${r}_${c}` + (q == null ? '' : `_q${q}`);
 
     // ── Upload ────────────────────────────────────────────────────────────
@@ -201,7 +208,7 @@
         let manifest = null;
         if (tiled) {
             let key = String(o.mapKey || 'map').replace(/[^\w-]/g, '_');
-            manifest = { v: Date.now().toString(36), key, w: W, h: H, pw: pre.pw, ph: pre.ph, ts: TILE, fmt: encodeType().split('/')[1], levels: planLevels(W, H) };
+            manifest = { v: Date.now().toString(36), key, w: W, h: H, pw: pre.pw, ph: pre.ph, ts: TILE, bleed: BLEED, fmt: encodeType().split('/')[1], levels: planLevels(W, H) };
         }
         if (o.onPreview) { try { await o.onPreview(pre.dataUrl, manifest); } catch (e) { console.warn('Map preview:', e); } }
         if (!manifest) { if (src.close) src.close(); return { preview: pre.dataUrl, manifest: null }; }
@@ -230,7 +237,7 @@
         };
         for (let j of jobs) {
             let L = manifest.levels[j.li];
-            let rc = tileRect(manifest, j.li, j.r, j.c);
+            let rc = tileRectBleed(manifest, j.li, j.r, j.c);
             let u = await encodeTile(src, rc.x, rc.y, rc.w, rc.h, L.s, type);
             if (u) {
                 let id = tileId(manifest.key, manifest.v, j.li, j.r, j.c);
@@ -239,7 +246,7 @@
             } else {
                 L.split.push(j.r + '_' + j.c);
                 for (let q = 0; q < 4; q++) {
-                    let qr = tileRect(manifest, j.li, j.r, j.c, q);
+                    let qr = tileRectBleed(manifest, j.li, j.r, j.c, q);
                     let qu = await encodeTile(src, qr.x, qr.y, qr.w, qr.h, L.s, type);
                     if (!qu) {   // extremely noisy: shrink this quarter until it fits
                         let c = makeCanvas(Math.ceil(qr.w * L.s), Math.ceil(qr.h * L.s));
@@ -435,12 +442,13 @@
         try { url = await tileUrl(v.opts.prefix || '', job.id, v.opts.fetchTile); } catch (e) { }
         if (!_views.has(v)) return;
         if (!url) { v.failed.set(job.id, Date.now()); return; }
-        let m = v.m, t = job.t, rc = tileRect(m, t.li, t.r, t.c, t.q);
+        let m = v.m, t = job.t, rc = tileRectBleed(m, t.li, t.r, t.c, t.q);
         let el = new Image();
         el.decoding = 'async';
         el.draggable = false;
-        // Positioned in percent of the preview box; a hair of overlap hides seams between tiles
-        el.style.cssText = `position:absolute;left:${rc.x / m.w * 100}%;top:${rc.y / m.h * 100}%;width:calc(${rc.w / m.w * 100}% + 0.6px);height:calc(${rc.h / m.h * 100}% + 0.6px);`
+        // Positioned exactly (in percent of the preview box). The bleed overlaps the next tile with
+        // the same pixels, so there's never a gap and nothing is stretched out of line.
+        el.style.cssText = `position:absolute;left:${rc.x / m.w * 100}%;top:${rc.y / m.h * 100}%;width:${rc.w / m.w * 100}%;height:${rc.h / m.h * 100}%;`
             + `max-width:none;pointer-events:none;user-select:none;z-index:${10 - t.li};`;
         el._seen = Date.now();
         await new Promise(res => { el.onload = res; el.onerror = res; el.src = url; });

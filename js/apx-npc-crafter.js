@@ -1136,7 +1136,8 @@ window.companionStatBlock = function() {
         let typeText = w.dmgBonus === 'energy' ? `${w.dmgType} + ${w.energyType} (split)` : w.dmgType;
         let props = (w.properties || []).map(k => NPC_WEAPON_PROPERTIES.find(p => p.key === k)).filter(Boolean)
             .map(p => p.tierCalc ? `${p.label} — ${p.tierCalc(tier)}` : p.label);
-        return { id: w.id, name: w.name || 'Innate Weapon', attackBonus, dmgText, typeText, range: 1 + (w.rangeBonus || 0), propNames: props, tp: ncInnateWeaponTp(w) };
+        return { id: w.id, name: w.name || 'Innate Weapon', attackBonus, dmgText, typeText, range: 1 + (w.rangeBonus || 0), propNames: props, props: (w.properties || []).slice(),
+            elemental: w.dmgBonus === 'energy' ? w.energyType : null, tp: ncInnateWeaponTp(w) };
     });
     // Back-compat fields (first innate weapon) for older views
     let first = innateAttacks[0] || { dmgText: '—', range: 1, propNames: [] };
@@ -1186,6 +1187,7 @@ window.companionStatBlock = function() {
             name: w.name, dmg: dmgText, ap: w.ap, weaponIdx: wIdx,
             atk: atkInfo.bonus, trained: atkInfo.trained, attr: atkInfo.attr,
             typeLabel: companionWeaponTypeLabel(w), category: w.category, aimed: !!w.aimed, flurry: !!(w.properties && w.properties.flurry),
+            props: Object.keys(w.properties || {}).filter(k => { let v = w.properties[k]; return typeof v === 'number' ? v > 0 : !!v; }), elemental: w.elemental || null,
             hands: w.weightClass === 'heavy' ? 2 : 1
         });
         // Medium melee weapons can also be wielded 2-handed: STR only,
@@ -1209,6 +1211,7 @@ window.companionStatBlock = function() {
                 name: `${w.name} (2-Handed)`, dmg: twoHDmgText, ap: w.ap + 1,
                 atk: twoHAtkInfo.bonus, trained: twoHAtkInfo.trained, attr: twoHAtkInfo.attr,
                 typeLabel: companionWeaponTypeLabel(w), isTwoHanded: true, category: w.category, flurry: !!(w.properties && w.properties.flurry),
+                props: Object.keys(w.properties || {}).filter(k => { let v = w.properties[k]; return typeof v === 'number' ? v > 0 : !!v; }), elemental: w.elemental || null,
                 hands: 2
             });
         }
@@ -1570,6 +1573,9 @@ function buildStatBlockHtml(sb, editable) {
     // Click-to-roll hooks (APXDice). NPC rolls never use the player's perks.
     let compFlags = sb._isCompanion ? { omen: true, companion: true, compOwner: sb._compOwner || null } : {};
     let R = o => window.APXDice ? ` data-apx-roll='${window.APXDice.attr(Object.assign({ who: sb.name, perks: false, gambleAllowed: false }, compFlags, o))}' title="Click to roll"` : '';
+    // What a hit with this weapon can do (Crushing, Stunning, Flurry…): read by the GM's tracker
+    let hitOf = w => ({ weapon: w.name, props: w.props || [], die: (String(w.dmgText || w.dmg || '').match(/\d*d(\d+)/) || [0, 6])[1] ? '1d' + (String(w.dmgText || w.dmg || '').match(/\d*d(\d+)/) || [0, 6])[1] : '1d6',
+        strMod: sb.mods.STR || 0, intMod: sb.mods.INT || 0, elec: w.elemental === 'Electric' });
     return `<div class="apx-dice-scope" data-roll-who="${esc(sb.name)}" data-sb-npc="${sb._npcId || ''}" data-sb-init="${sb._initId || ''}">
         <div class="grid grid-cols-5 gap-2 mb-3 bg-slate-900 border border-purple-800/50 rounded-lg p-2">
             <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">Tier</div><div class="text-lg font-black text-white">${sb.tier}</div></div>
@@ -1590,7 +1596,7 @@ function buildStatBlockHtml(sb, editable) {
         <div class="bg-slate-900 border border-slate-700 rounded p-2 mb-2">
             <div class="text-[10px] font-black text-amber-400 uppercase mb-1">Innate Attacks <span class="text-slate-500 normal-case font-bold">(always trained, 3 AP each)</span></div>
             ${innate.length ? innate.map(w => `
-                <div class="text-xs text-slate-200 ${innate.length > 1 ? 'mb-1' : ''}" data-roll-label="${esc(w.name)} damage"><span class="font-bold text-slate-200">${esc(w.name)}:</span> <span class="apxd-atk"${R({ type: 'attack', label: w.name, bonus: w.attackBonus, dice: w.dmgText, dmgType: w.typeText, npcId: sb._npcId || null, initId: sb._initId || null, apCost: 3, flurry: (w.propNames || []).some(p => /flurry/i.test(p)) || undefined })}>+${w.attackBonus} to hit</span>, ${w.dmgText} ${esc(w.typeText)}, Range ${w.range} sq</div>
+                <div class="text-xs text-slate-200 ${innate.length > 1 ? 'mb-1' : ''}" data-roll-label="${esc(w.name)} damage"><span class="font-bold text-slate-200">${esc(w.name)}:</span> <span class="apxd-atk"${R({ type: 'attack', label: w.name, bonus: w.attackBonus, dice: w.dmgText, dmgType: w.typeText, npcId: sb._npcId || null, initId: sb._initId || null, apCost: 3, flurry: (w.propNames || []).some(p => /flurry/i.test(p)) || undefined, hit: hitOf(w) })}>+${w.attackBonus} to hit</span>, ${w.dmgText} ${esc(w.typeText)}, Range ${w.range} sq</div>
                 ${w.propNames.length ? `<div class="text-[10px] text-slate-500 -mt-0.5 mb-1">${w.propNames.map(esc).join(', ')}</div>` : ''}`).join('')
               : '<div class="text-[10px] text-slate-600">No innate weapons</div>'}
         </div>
@@ -1601,7 +1607,7 @@ function buildStatBlockHtml(sb, editable) {
                 let blocked = (w.hands || 1) > sb.freeHands;
                 return `<div class="text-xs ${blocked ? 'text-slate-500' : 'text-slate-200'}" data-roll-label="${esc(w.name)} damage">${esc(w.name)}: ${blocked
                     ? `<span data-no-roll title="Needs ${w.hands} free hands. Stow the shield to use it.">+${w.atk} to hit, ${w.dmg} damage</span>, ${w.ap} AP <span class="text-[10px] text-amber-500/80">(needs ${w.hands} free hands)</span>`
-                    : `<span class="apxd-atk"${R({ type: 'attack', label: w.name, bonus: w.atk, dice: String(w.dmg), critMult: w.critMult || 2, npcId: sb._npcId || null, initId: sb._initId || null, apCost: parseInt(w.ap) || 3, flurry: w.flurry || undefined })}>+${w.atk} to hit</span>, ${w.dmg} damage, ${w.ap} AP <span class="text-[10px] text-slate-500">(${w.typeLabel})</span>`}</div>`;
+                    : `<span class="apxd-atk"${R({ type: 'attack', label: w.name, bonus: w.atk, dice: String(w.dmg), critMult: w.critMult || 2, npcId: sb._npcId || null, initId: sb._initId || null, apCost: parseInt(w.ap) || 3, flurry: w.flurry || undefined, hit: hitOf(w) })}>+${w.atk} to hit</span>, ${w.dmg} damage, ${w.ap} AP <span class="text-[10px] text-slate-500">(${w.typeLabel})</span>`}</div>`;
             }).join('') : ''}
             ${sb.equippedArmorName ? `<div class="text-xs text-slate-200 mt-1">Armor: ${esc(sb.equippedArmorName)}</div>` : ''}
             ${sb.hasShield ? `<div class="text-xs text-slate-200 mt-1 flex items-center gap-2">Shield (+2 AC/DR/ER, 1 hand): <b class="${sb.shieldOn ? 'text-emerald-400' : 'text-slate-500'}">${sb.shieldOn ? 'held' : 'stowed'}</b>
