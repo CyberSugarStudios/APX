@@ -31,8 +31,8 @@
     const PREVIEW_MAX_CHARS = 750000;
     const QUALITIES = [0.92, 0.86, 0.8, 0.72];
     const STREAM_RESET_BYTES = 4 * 1024 * 1024;   // restart Firestore's write connection this often while uploading tiles
-    const COMPRESSOR_URLS = ['js/vendor/browser-image-compression.js',
-        'https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js'];
+    // Normally already loaded by a <script> tag in APX_GMTools.html; this is the fallback if it wasn't
+    const COMPRESSOR_URLS = ['https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js'];
 
     // ── Encoding ──────────────────────────────────────────────────────────
     let _webp = null;
@@ -59,7 +59,7 @@
     function makeCanvas(w, h) { let c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; }
     function ctx2d(c) { let x = c.getContext('2d'); x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high'; return x; }
 
-    // browser-image-compression (loaded on first use: a local copy in js/vendor/, else jsdelivr).
+    // browser-image-compression (from jsdelivr: the GM Tools page loads it; loaded here if it's missing).
     // If neither loads, the built-in encoder below does the same job.
     let _compressorP = null;
     function loadCompressor() {

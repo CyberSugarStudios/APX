@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.9.25.1756',
-        released: '2026-09-25T17:56:00',
-        releasedText: 'September 25, 2026 · 5:56 PM',
+        version: 'v2026.9.25.1822',
+        released: '2026-09-25T18:22:00',
+        releasedText: 'September 25, 2026 · 6:22 PM',
         title: 'Playtest Update',
         intro: 'This update comes straight from our playtest tables. GMs get world rules, a Loot Maker, NPCs that carry and use gear, and magic items that can change almost anything on a sheet. Players get Luck and Looting, trading, shareable Omen dice, Loyal Companions that act on their own turns, powers that roll like weapons and use their AP and Power Slots, weapon properties that apply themselves on a hit, a one-screen Origin Builder, full-resolution maps at any size, and a dice roller with a distinct shape for every die that doubles as the combat log and asks for your Wound and Bleed Out saves. Initiative runs with or without a battle map, characters are created and switched cleanly, and deleting an account removes all of its data. Your characters and worlds update when you open them. Nothing is lost, and anything a rule change touched is explained.',
         index: [
@@ -199,7 +199,7 @@
                 'Each tile carries a few pixels past its edges, so neighbouring tiles overlap exactly: no seams or cut-off text at any zoom.',
                 'Uploads confirm each tile before sending the next, restart the connection every few MB so Firestore never refuses it, and retry a tile if the connection is busy.',
                 'The upload shows its progress on the Map tab or in the map window ("saving tiles 120/297…"). The preview appears first, and players get the new tiles when the upload finishes. Uploading a new image removes the old tiles, and deleting a map, a world or an account removes them all.',
-                'Previews are compressed with browser-image-compression when it can load (a local copy in js/vendor/, or jsdelivr), and with the built-in compressor otherwise.'
+                'Previews are compressed with browser-image-compression (loaded by the GM Tools page from jsdelivr), and with the built-in compressor if it can\'t load.'
             ]],
             ['Initiative and Battle Maps', [
                 'The initiative tracker works on its own. Adding creatures no longer reaches into a closed map, so a quick fight never shows "an unseen creature" or asks for tokens.',
