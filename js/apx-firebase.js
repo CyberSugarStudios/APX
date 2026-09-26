@@ -475,10 +475,10 @@
     // The GM publishes the shared combat log on the world's invite-code doc (players
     // already listen to it). Players post their own check/save rolls to their player
     // doc (_rollLog), which the GM already listens to. No new Firestore rules needed.
-    async function publishCombatLog(inviteCode, entries, sessionId) {
+    async function publishCombatLog(inviteCode, entries, sessionId, lastAtk) {
         if (!inviteCode) return;
         await db.collection('worldCodes').doc(inviteCode.toUpperCase().trim())
-            .set({ combatLog: { session: sessionId || null, entries: apxClean(entries || []), at: Date.now() } }, { merge: true });
+            .set({ combatLog: { session: sessionId || null, entries: apxClean(entries || []), at: Date.now(), lastAtk: lastAtk ? apxClean(lastAtk) : null } }, { merge: true });
     }
     async function writeRollLog(inviteCode, uid, entries) {
         if (!inviteCode || !uid) return;

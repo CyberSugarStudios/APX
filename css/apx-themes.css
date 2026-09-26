@@ -1256,7 +1256,8 @@ h1,h2,h3,h4,h5,h6 { font-family: var(--c-heading-font); }
 .text-blue-500 { color: var(--c-blue-lt) !important; }
 /*@src [class*="text-cyan-300"]*/
 .hover\:text-cyan-300,
-.text-cyan-300 { color: var(--c-cyan) !important; }
+.text-cyan-300,
+.text-cyan-300\/80 { color: var(--c-cyan) !important; }
 /*@src [class*="text-cyan-400"]*/
 .text-cyan-400 { color: var(--c-cyan) !important; }
 /*@src [class*="bg-cyan-600"]*/

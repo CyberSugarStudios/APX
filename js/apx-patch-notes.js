@@ -11,11 +11,11 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.9.26.0010',
-        released: '2026-09-26T00:10:00',
-        releasedText: 'September 26, 2026 · 12:10 AM',
+        version: 'v2026.9.26.1434',
+        released: '2026-09-26T14:34:00',
+        releasedText: 'September 26, 2026 · 2:34 PM',
         title: 'Playtest Update',
-        intro: 'This update comes straight from our playtest tables. GMs get world rules, a Loot Maker, NPCs that carry and use gear, and magic items that can change almost anything on a sheet. Players get Luck and Looting, trading, shareable Omen dice, Loyal Companions that act on their own turns, powers that roll like weapons and use their AP and Power Slots, weapon properties that apply themselves on a hit, a one-screen Origin Builder, full-resolution maps at any size, and a dice roller with a distinct shape for every die that doubles as the combat log and asks for your Wound and Bleed Out saves. Conditions like Stunned wear off on their own when their time is up, and a reroll that saves you takes a Wound back. Initiative runs with or without a battle map, characters are created and switched cleanly, pages load faster (especially on phones), and deleting an account removes all of its data. Your characters and worlds update when you open them. Nothing is lost, and anything a rule change touched is explained.',
+        intro: 'This update comes straight from our playtest tables. GMs get world rules, a Loot Maker, NPCs that carry and use gear, and magic items that can change almost anything on a sheet. Players get Luck and Looting, trading, shareable Omen dice, Loyal Companions that act on their own turns, powers that roll like weapons and use their AP and Power Slots, weapon properties that apply themselves on a hit, a one-screen Origin Builder, full-resolution maps at any size, and a dice roller with a distinct shape for every die that doubles as the combat log and asks for your Wound and Bleed Out saves. Conditions like Stunned wear off on their own when their time is up, and a reroll that saves you takes a Wound back. Damage is entered in full and the app takes off DR, ER, resistances and immunities for you, and four-armed characters get their extra arms and hands. Initiative runs with or without a battle map, characters are created and switched cleanly, pages load faster (especially on phones), and deleting an account removes all of its data. Your characters and worlds update when you open them. Nothing is lost, and anything a rule change touched is explained.',
         index: [
             ['For GMs', [
                 'World Settings: Starting XP, Max GP, starting Cu, and Point Buy or Standard Array for every character in your world.',
@@ -33,13 +33,14 @@
                 'Omen dice can go to the GM (for any creature\'s roll) or to a party member. They work on your companion\'s rolls, can trade places with a natural 1 or 20, and are kept or rerolled one by one on a Full Rest. At Rank 5 you place your Natural 1, 10 and Natural 20 in the slots you choose.',
                 'Fortunate Fighter Rank 5 is a button on your attack: spend a Luck Point to make the hit a Critical Hit, once per turn. Defensive Rank 5 is a button in your dice tray when a Critical Hit lands on you: use your Reaction to make it a normal hit.',
                 'Click the Rest Dice die (or the words "Rest Dice") to spend a Rest Die and heal. The Owned perk filter shows the perks you can still upgrade.',
+                'Every weapon shows the hand holding it: Main Hand, Off Hand, and Off Hands 2 and 3 for four-armed (Polymelia) characters, whose extra arms are Left Arm 2 and Right Arm 2 when Wounded.',
                 'Loyal Companions have their own AP that refills on their turn, their own token art, and healing whenever you use a Rest Die. You can also trade items with your party and receive XP from your GM with your bonuses applied.'
             ]],
             ['At the Table', [
                 'Dice and Notifications holds every roll, the combat log and your messages in one tray.',
                 'Every die has its own shape, on its button and in every roll: triangles for the d4 and d8, a square d6, a kite d10, a pentagon d12, a hexagon d20 and a round d100.',
                 'The combat log shows the table the fight and resolves every save in order (Wound Threshold, a hit\'s own saves, then Bleed Out), with a button in the tray to roll each one. The party\'s hits on enemies show no numbers, so DR and ER stay hidden.',
-                'Weapon properties apply themselves on a hit: Crushing and Stunning ask for their saves and add Prone or Stunned on a failure, Crushing and Concealed add their extra damage die, Flurry lowers the AP of your next attacks, and every hit on an Incapacitated creature is a Critical Hit. A hit that deals no damage ("-0") still counts, typed on the GM\'s tracker or on your own sheet. Stunned lasts until the end of the stunner\'s next turn, and a Stunned creature starts its turn with 0 AP.',
+                'Weapon properties apply themselves on a hit: Crushing and Stunning ask for their saves and add Prone or Stunned on a failure, Crushing and Concealed add their extra damage die, Flurry lowers the AP of your next attacks, and every hit on an Incapacitated creature is a Critical Hit. Enter damage in full ("-8") and the app subtracts DR for physical damage or ER for energy damage, plus resistances, vulnerabilities and immunities, using the attack\'s damage type; a hit that ends up dealing 0 damage still counts as a hit. A Wounded Torso adds a die of damage, and two Wounded legs put you Prone. Stunned lasts until the end of the stunner\'s next turn, and a Stunned creature starts its turn with 0 AP.',
                 'Click skills, saves, weapons, powers and stat block dice to roll them. Perks, Advantage and Disadvantage, crits and Luck rerolls are built in.',
                 'Action Points are 6 + half your AGI modifier. They are tracked for every creature, refill on each turn (map or no map), carry between turns, reset when a fight starts and ends, and are spent by attacks, powers and standing up from Prone.',
                 'Rest and Recover buttons cover Short and Full Rests, Shake it Off and Shrug It Off.'
@@ -59,9 +60,10 @@
             ]],
             ['Also', [
                 'Small text is easier to read. XP bonuses from INT, Educated and Expertise apply automatically, conditions bring their linked conditions, the toolbar is tidier, and there are many fixes.',
+                'Players who clear their browser data or make a new character in a world keep the map\'s Fog of War: the map never shows without it.',
                 'Pages load and respond faster, especially on phones: the styling is now one small prebuilt file instead of being generated in your browser as you use the app.',
                 'Phones no longer show blank or flickering patches: hidden windows no longer blur the page behind them while they\'re closed.',
-                'After an update, your browser always loads the new version of every file, never an old saved copy, and an open page checks for a newer version and reloads onto it by itself.',
+                'After an update, your browser always loads the new version of every file, never an old saved copy. An open page checks for a newer version when it loads, when you come back to it and every 10 minutes, and reloads onto it or offers a Reload button.',
                 'See the Character Sheet and GM Tools for the full details.'
             ]]
         ],
@@ -79,6 +81,7 @@
                 'Save Origin adds your languages to a Languages note (new ones are appended to an existing note).'
             ]],
             ['Your World', [
+                'Fog of War always loads, even after clearing your browser\'s data, on a new device, or with a new character in the world: the world itself says who its GM is, and the map stays hidden until the fog is ready.',
                 'Your GM sets the world\'s rules: Starting XP, Max GP, starting Cu, and how attributes are chosen. A brand-new character receives the Starting XP and Cu once.',
                 'XP comes from your GM with your bonuses (INT modifier, Educated, Expertise) added, and the XP fields are locked while you\'re in the world. Outside a world, XP and Max GP are yours to set.',
                 'A new character receives only XP granted after it joins the world. XP that was waiting from before never lands on it.',
@@ -116,6 +119,8 @@
             ['Weapons', [
                 'When you hit, your weapon\'s properties take effect on their own. Crushing asks the target for a STR save (DC 10 + your STR modifier) and knocks them Prone on a failure; if they\'re already Prone, the hit deals an extra damage die instead. Stunning asks for a CON save (DC 10 + STR, or INT for an Electric weapon) or they\'re Stunned. Concealed deals an extra die against a Surprised creature.',
                 'Flurry: once your GM records a hit, your next attack with that weapon this turn has the Flurry AP reduction ticked for you (untick it if you switch targets).',
+                'Each weapon has a hand: Main Hand (right arm) or Off Hand (left arm), plus Off Hand 2 and 3 with four arms. Two-handed weapons take a pair. Weapons fill free hands on their own; pick another hand from the dropdown and whatever was there swaps over. A held shield takes the Off Hand first. When an arm is Wounded, you\'re told what it drops and the weapon is marked.',
+                'Loyal Companion weapons show their hand too, with ⇄ to switch.',
                 'Thrown weapons can be made Returning in the Weapon Forge for 300 more Currency (the option sits inside the Thrown card), so they come back to you after the attack. The weapon shows as "Thrown (Returning)".'
             ]],
             ['Magic and Custom Items', [
@@ -166,7 +171,10 @@
             ['Conditions and Injuries', [
                 'Unconscious, Paralyzed or Incapacitated characters see why their attacks and powers are unavailable, for example "(Unconscious)". Unconscious auto-fails STR, AGI, PER, INT and CHA checks (CON still works, for Bleed Out). Paralyzed auto-fails STR and AGI checks.',
                 'Burning deals 1d10 Fire damage at the start of your turn in combat, ignoring ER, unless you\'re immune to Fire.',
-                'Typing "-0" in your HP tells your GM an enemy\'s attack hit you but did no damage, so its effects (a Stunning save, for one) still apply.',
+                'Damage you type in your HP box ("-9") is the full amount. Your DR (physical) or ER (energy), resistances, vulnerabilities and immunities are taken off, using the damage type of the enemy attack your GM just rolled. Type "-9 fire" to name the type yourself; if nothing says, you\'re asked. The dice tray shows the math. If it comes to 0, your GM still counts the hit, so its effects (a Stunning save, for one) apply.',
+                'Both legs Wounded: you fall Prone automatically and can\'t stand up (the Prone tag can\'t be removed) until one leg heals.',
+                'Torso Wound: your GM\'s tracker adds one more die of damage each time you\'re hit, the largest die the attack rolled.',
+                'Four arms (Polymelia): the Wounded list has Left Arm 2 and Right Arm 2 (older "Extra Arm" wounds are renamed).',
                 'Stunned: your turn starts with 0 AP. Stunned from a Stunning weapon ends by itself at the end of the attacker\'s next turn, unless you\'re Stunned again first.',
                 'Conditions bring the ones they include: Bleeding Out → Unconscious → Incapacitated (and Prone), Paralyzed → Incapacitated, Stunned → Incapacitated, Diseased → Infected. Frenzy Rank 5 keeps you conscious while Provoked. The × on a condition\'s tag under Vitals removes it.',
                 'Permanent Injuries: when a Wounded limb is Wounded again, press Re-wounded and pick an attribute to lower by 1. Remove the injury once it heals to get the point back.'
@@ -270,12 +278,16 @@
             ['Initiative and Combat', [
                 'Bleed Out is one row: "Bleeding Out: N rounds left" with − Round, + Round and Stabilize.',
                 'No popups for saves. When a player passes their Wound Threshold, or drops to 0 HP with a linked sheet, their dice tray asks for the CON save or CON (Survive) check and the result fills in here. The Bleed Out popup remains for players without a sheet.',
-                'Hits: damage you enter right after an attack roll (from a player\'s sheet or your stat blocks) is that attack\'s hit, and "-0" counts when DR or ER stopped all of it. With no roll to match (dice rolled at the table), a typed "-N" or "-0" is a hit by whoever is taking their turn. The tracker no longer redraws under the box you\'re typing in when a player\'s sheet saves or a roll arrives, which used to throw away what you typed (and made "-0" seem to do nothing). A player typing "-0" on their own sheet counts as a hit too. Players see "Ari hit Goblin."; you see the damage, or "Ari hit Goblin, but Goblin took no damage."',
+                'Damage is entered in full: type "-8" in the HP box and the target\'s DR (Bludgeoning, Piercing, Slashing) or ER (energy types) is taken off, along with Damage Resistances (+5), Vulnerabilities, Immunities, a player\'s energy resistances, and weapons that ignore X, half or all DR/ER (Ironclad Rank 4 halves that). The type comes from the attack just rolled; "-8 fire" names it; otherwise one click chooses. An Incapacitated target\'s resistances are bypassed. Your log shows the math ("8 Slashing − DR 5 = 3").',
+                'Hits: damage you enter after an attack roll (from a player\'s sheet or your stat blocks) is that attack\'s hit, even when it comes to 0. With no roll to match (dice rolled at the table), damage you type is a hit by whoever is taking their turn. The tracker never redraws under a box you\'re typing in. A player\'s own damage that comes to 0 counts as a hit too. Players see "Ari hit Goblin."; you see the damage, or "Ari hit Goblin, but Goblin took no damage."',
+                'Torso Wound: a player with a Wounded Torso takes one more die of damage from each hit, the largest die the attack rolled, added before DR/ER.',
+                'Players\' sheets are told the damage type of the NPC attack you just rolled, so damage they type there is reduced the same way.',
                 'The hit weapon\'s properties apply to that target. Crushing: a STR save (DC 10 + the attacker\'s STR modifier) or Prone, or +1 damage die against a Prone target. Stunning: a CON save or Stunned. Concealed: +1 damage die against a Surprised target. Extra dice go straight onto HP and count toward the Wound Threshold. Grappling is noted for you to apply, and Tearing stays manual.',
                 'Stunned from a Stunning weapon ends by itself at the end of the attacker\'s next turn, and the log says so. Being Stunned again restarts it. A Stunned creature starts its turn with 0 AP (NPCs here, players on their sheets).',
                 'Incapacitated targets (including anyone Stunned, Paralyzed or Unconscious) take every hit as a Critical Hit: a hit that didn\'t roll one gets the crit\'s extra damage dice added for you, with the attacker\'s High Roller rerolls, and the log notes it bypasses their resistances.',
                 'If a Luck reroll or an Omen die turns that failed save into a success, the limb buttons are replaced with the result, and a limb you already picked is taken off their sheet.',
                 'Defensive Rank 5: when an NPC\'s Critical Hit lands on an unarmored player with the perk, they get a "React: Turn to normal hit" button. Using it gives back the crit\'s extra damage on your tracker, then re-checks the Wound Threshold: the save is dropped or its DC lowered, a limb choice is withdrawn if the save now succeeds, and a player back above 0 HP stops Bleeding Out.',
+                'Four-armed players (Polymelia) have Left Arm 2 and Right Arm 2 among the limb buttons.',
                 'When a player fails their Wound Threshold save, your tray shows a button for each limb. Pick one and it\'s Wounded on their sheet. A limb that was already Wounded is marked "(again)", and their sheet asks them for the Permanent Injury.',
                 'Healing a player does on their own sheet shows where it came from: a Short Rest die, Regenerative, or Recover (Shake it Off).',
                 'Players roll their saves from their tray. For NPCs, the log gives you a button that rolls the save with the creature\'s bonus and adds Prone or Stunned on a failure (Luck rerolls update it).',
@@ -290,6 +302,7 @@
                 'Messages go to Dice and Notifications. Click a party member\'s name for their full stat block.'
             ]],
             ['NPC Crafter', [
+                'Each equipped weapon shows its hand on the stat block (Main Hand, Off Hand, or Both Hands), with ⇄ to switch. A held shield takes the Off Hand.',
                 'Shields (+2 AC/DR/ER, 4 TP, one hand) and Helmets (+1 AC/DR/ER, 2 TP). Stat blocks count free hands and have an Equip/Stow Shield button, and two-handed attacks can\'t be rolled while the shield is up.',
                 'Each +2 DR/ER purchase (1 TP) adds 2.',
                 'Die-step and extra-dice buttons switch off at their maximum, so clicks never land on what\'s behind them.',
@@ -416,6 +429,34 @@
     // Browsers (and some web hosts) can keep serving an old copy of a page after an update.
     // version.json is fetched fresh every time; if the site has a newer version than this page,
     // the page reloads itself onto a fresh address (?apx=<version>), which no cache can have.
+    // A page left open (a phone tab, the GM's laptop) also checks when you come back to it and every
+    // 10 minutes: coming back reloads onto the new version, otherwise a banner offers the reload.
+    function updateBanner(v) {
+        if (document.getElementById('apxUpdateBanner')) return;
+        let b = document.createElement('div');
+        b.id = 'apxUpdateBanner';
+        b.style.cssText = 'position:fixed;left:50%;bottom:1rem;transform:translateX(-50%);z-index:2147483000;background:#1e1b4b;border:1px solid #6366f1;color:#e0e7ff;font:700 .78rem system-ui,sans-serif;padding:.5rem .75rem;border-radius:.6rem;display:flex;gap:.6rem;align-items:center;box-shadow:0 8px 30px rgba(0,0,0,.6);max-width:calc(100vw - 2rem)';
+        b.innerHTML = `<span>A new version of APX is ready (${v}).</span><button style="background:#4f46e5;color:#fff;border:0;border-radius:.4rem;padding:.3rem .6rem;font-weight:800;cursor:pointer">Reload</button><button aria-label="Later" style="background:none;border:0;color:#a5b4fc;cursor:pointer;font-weight:800">✕</button>`;
+        let [reload, later] = b.querySelectorAll('button');
+        reload.onclick = () => { let u = new URL(location.href); u.searchParams.set('apx', v.replace(/^v/, '')); location.replace(u.toString()); };
+        later.onclick = () => b.remove();
+        document.body.appendChild(b);
+    }
+    function recheck(reloadNow) {
+        if (!/^https?:/.test(location.protocol)) return;
+        fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => {
+            if (!j || !j.version || j.version === LATEST.version) return;
+            let typing = document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
+            if (reloadNow && !typing) { let u = new URL(location.href); u.searchParams.set('apx', j.version.replace(/^v/, '')); location.replace(u.toString()); }
+            else updateBanner(j.version);
+        }).catch(() => { });
+    }
+    let hiddenAt = 0;
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) { hiddenAt = Date.now(); return; }
+        if (hiddenAt && Date.now() - hiddenAt > 60000) recheck(true);   // back after a while: pick up any update
+    });
+    setInterval(() => { if (!document.hidden) recheck(false); }, 600000);
     function checkForUpdate() {
         if (!/^https?:/.test(location.protocol)) return;
         fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => {

@@ -63,6 +63,25 @@
         // Base 6 body parts for the Wounded condition. Traits that grant
         // extra limbs add matching extra slots (see calcWoundedSlots()).
         const WOUND_LIMBS_BASE = ["Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg"];
+        // Every limb a character can have Wounded: the base 6, plus Left Arm 2 / Right Arm 2 (and so on)
+        // for traits with extra arms (Polymelia), and Extra Leg N for extra legs.
+        function apxWoundSlotsFor(st) {
+            let slots = WOUND_LIMBS_BASE.slice(), extraArms = 0, extraLegs = 0;
+            ((st && st.ancestry && st.ancestry.traits) || []).forEach(tId => {
+                let tDef = (typeof ANCESTRY_TRAITS !== 'undefined' ? ANCESTRY_TRAITS : []).find(t => t.id === tId);
+                if (tDef && tDef.extraArms) extraArms = Math.max(extraArms, tDef.extraArms);
+                if (tDef && tDef.extraLegs) extraLegs = Math.max(extraLegs, tDef.extraLegs);
+            });
+            for (let i = 0; i < extraArms; i++) slots.push(`${i % 2 ? 'Right' : 'Left'} Arm ${2 + Math.floor(i / 2)}`);
+            for (let i = 0; i < extraLegs; i++) slots.push(`Extra Leg ${i + 1}`);
+            return slots;
+        }
+        window.apxWoundSlotsFor = apxWoundSlotsFor;
+        // Hands a character can hold things in: Main Hand and Off Hand, plus an Off Hand for each extra arm.
+        // Each hand belongs to an arm (a Wounded arm drops what that hand holds).
+        const APX_HAND_LABEL = { main: 'Main Hand', off: 'Off Hand', off2: 'Off Hand 2', off3: 'Off Hand 3', off4: 'Off Hand 4', off5: 'Off Hand 5' };
+        const APX_HAND_ARM = { main: 'Right Arm', off: 'Left Arm', off2: 'Left Arm 2', off3: 'Right Arm 2', off4: 'Left Arm 3', off5: 'Right Arm 3' };
+        window.APX_HAND_LABEL = APX_HAND_LABEL; window.APX_HAND_ARM = APX_HAND_ARM;
 
         // Per-limb-type Wounded penalties (Ch: Conditions -> Wounded).
         // "Leg" also triggers Staggered (no automatable effect) and, if 2+
@@ -70,7 +89,7 @@
         const WOUND_LIMB_EFFECTS = {
             Head:  { desc: "Disadvantage on all attack rolls, saving throws, and PER and INT attribute checks.",
                      atkDisadvantage: 'general', saveDisadvantage: 'all', checkDisadvantage: ['PER','INT'] },
-            Torso: { desc: "Whenever you take damage, you take one additional die of damage from that source. (Apply manually.)" },
+            Torso: { desc: "Whenever you take damage, you take one additional die of damage from that source. (Added automatically when the GM's tracker records the hit: one more of the largest die the attack rolled.)" },
             Arm:   { desc: "Drop whatever's held in that arm. Can't wield two-handed weapons or dual wield. Disadvantage on all attack rolls.",
                      atkDisadvantage: 'general' },
             Leg:   { desc: "Gain the Staggered condition. If both legs are Wounded, you fall Prone and can't Stand Up until at least one leg heals." }

@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.9.26.0010';
+window.APX_VERSION = 'v2026.9.26.1434';
 
         window.state = getInitialState();
 
@@ -321,6 +321,16 @@ window.APX_VERSION = 'v2026.9.26.0010';
             return { currentHp: cap(r), tempHp: temp };
         };
 
+        // Your defences by damage type (DR, ER, resistances +, vulnerabilities −, immunities)
+        window.apxMyDefense = function() {
+            let st = window.state || {}, def = { dr: (typeof calc !== 'undefined' && calc.dr) || 0, er: (typeof calc !== 'undefined' && calc.er) || 0, res: {}, immune: [] };
+            let N = t => (window.APXDamage && window.APXDamage.norm(t)) || t;
+            (st.ancestryEnvResistances || []).forEach(e => { if (!e.type) return; if (e.immune) def.immune.push(N(e.type)); else def.res[N(e.type)] = (def.res[N(e.type)] || 0) + 5; });
+            (st.ancestryEnvVulnerabilities || []).forEach(e => { if (e.type) def.res[N(e.type)] = (def.res[N(e.type)] || 0) - 5; });
+            ((typeof calc !== 'undefined' && calc.customItemErBonuses) || []).forEach(b => { if (b.type) def.res[N(b.type)] = (def.res[N(b.type)] || 0) + (b.amount || 0); });
+            def.halfBypass = ((st.perks || {}).con_ironclad || 0) >= 4;
+            return def;
+        };
         window.handleMathInput = function(stateKey, inputEl) {
             let val = inputEl.value;
             try {
@@ -328,10 +338,35 @@ window.APX_VERSION = 'v2026.9.26.0010';
                     // Damage goes through Temp HP first (same rule as the GM tracker)
                     let vitalHpRank = window.state.perks['con_vitality'] || 0;
                     let maxHp = Math.max(5, (calc.scores.CON * 5) + (vitalHpRank * 5) + window.state.xpHpBought - calc.maxHpPenalty);
+                    // "-N": damage in full. Your DR/ER, resistances and immunities reduce it, by the damage
+                    // type of what just attacked you (from the GM's tracker), "-8 fire", or a quick choice.
+                    let dm = String(val).trim().match(/^-\s*(\d+)\s*([a-z][a-z +&/,]*)?$/i);
+                    if (dm && window.APXDamage && !inputEl._apxMitigated) {
+                        let raw = parseInt(dm[1], 10);
+                        let atk = window._pwLastNpcAtk;
+                        let fresh = atk && atk.id && Date.now() - (atk.t || 0) < 600000 && !(window._pwUsedAtk || {})[atk.id] && window._pwCombatCode;
+                        let types = dm[2] ? window.APXDamage.parts(dm[2]) : (fresh && atk.dmgType ? window.APXDamage.parts(atk.dmgType) : []);
+                        let def = window.apxMyDefense();
+                        let finish = (t) => {
+                            if (!t) { window.apxRefreshHpInputs?.(); return; }
+                            let eff = window.apxEffectiveConditions ? window.apxEffectiveConditions(window.state.conditions || [], window.state).map(c => c.id) : [];
+                            let res = window.APXDamage.mitigate(raw, t, def, { ignore: fresh && !dm[2] ? window.APXDamage.ignoreOf(atk) : null, bypassRes: eff.includes('incapacitated'), halfBypass: def.halfBypass });
+                            if (fresh && !dm[2]) (window._pwUsedAtk = window._pwUsedAtk || {})[atk.id] = true;
+                            let r2 = window.apxApplyHpInput('-' + res.dmg, window.state.currentHp, window.state.tempHp, maxHp);
+                            if (!r2) return;
+                            if (res.dmg === 0) window.state.hpZeroHit = Date.now();   // still a hit: the GM's tracker counts it
+                            window.state.tempHp = r2.tempHp;
+                            window.updateState('currentHp', r2.currentHp);
+                            window.apxRefreshHpInputs?.();
+                            window.scheduleAutoSave?.();
+                            window.APXDice?.notify(`Damage${fresh && !dm[2] ? ` from ${atk.by}'s ${atk.label}` : ''}: ${res.text}.`, { kind: res.dmg ? 'warn' : 'note' });
+                        };
+                        if (types.length) finish(types);
+                        else window.APXDamage.askType(`${raw} damage`, `What kind of damage? It's reduced by your DR ${def.dr} (physical) or ER ${def.er} (energy), plus any resistance or immunity. Tip: type "-${raw} fire" to skip this.`, def).then(finish);
+                        return;
+                    }
                     let r = window.apxApplyHpInput(val, window.state.currentHp, window.state.tempHp, maxHp);
                     if (!r) throw new Error('unparseable');
-                    // "-0": an attack hit but did no damage (DR/ER stopped it). The GM's tracker counts it as a hit.
-                    if (/^\s*-\s*0+\s*$/.test(val)) { window.state.hpZeroHit = Date.now(); window.scheduleAutoSave?.(); }
                     window.state.tempHp = r.tempHp;
                     window.updateState('currentHp', r.currentHp);
                     window.apxRefreshHpInputs?.();

@@ -1179,7 +1179,16 @@ window.companionStatBlock = function() {
             return { name, attr, attrMod, trainingBonus: c.trainingBonus, total };
         });
     let equippedWeapons = [];
+    // Which hand holds each weapon (a held shield takes the Off Hand first)
+    let handsUsed = new Set(shieldOn ? ['off'] : []);
+    let handOf = w => {
+        if (w.weightClass === 'heavy') { ['main', 'off'].forEach(h => handsUsed.add(h)); return 'both'; }
+        let want = (w.hand === 'main' || w.hand === 'off') && !handsUsed.has(w.hand) ? w.hand : ['main', 'off'].find(h => !handsUsed.has(h));
+        if (want) handsUsed.add(want);
+        return want || null;
+    };
     (c.weapons || []).forEach((w, wIdx) => {
+        let hand = handOf(w);
         let dmgMod = companionWeaponDamageModifier(w, mods);
         let dmgText = dmgMod !== 0 ? `${w.dmg} ${dmgMod >= 0 ? '+' : '-'} ${Math.abs(dmgMod)}` : w.dmg;
         let atkInfo = companionWeaponAttackBonus(c, w, mods);
@@ -1188,6 +1197,8 @@ window.companionStatBlock = function() {
             atk: atkInfo.bonus, trained: atkInfo.trained, attr: atkInfo.attr,
             typeLabel: companionWeaponTypeLabel(w), category: w.category, aimed: !!w.aimed, flurry: !!(w.properties && w.properties.flurry),
             props: Object.keys(w.properties || {}).filter(k => { let v = w.properties[k]; return typeof v === 'number' ? v > 0 : !!v; }), elemental: w.elemental || null,
+            dmgType: w.elemental || w.dmgType || '',
+            hand, handLabel: hand === 'both' ? 'Both Hands' : hand === 'main' ? 'Main Hand' : hand === 'off' ? 'Off Hand' : 'No free hand',
             hands: w.weightClass === 'heavy' ? 2 : 1
         });
         // Medium melee weapons can also be wielded 2-handed: STR only,
@@ -1212,6 +1223,7 @@ window.companionStatBlock = function() {
                 atk: twoHAtkInfo.bonus, trained: twoHAtkInfo.trained, attr: twoHAtkInfo.attr,
                 typeLabel: companionWeaponTypeLabel(w), isTwoHanded: true, category: w.category, flurry: !!(w.properties && w.properties.flurry),
                 props: Object.keys(w.properties || {}).filter(k => { let v = w.properties[k]; return typeof v === 'number' ? v > 0 : !!v; }), elemental: w.elemental || null,
+                dmgType: w.elemental || w.dmgType || '', hand: 'both', handLabel: 'Both Hands',
                 hands: 2
             });
         }
@@ -1263,6 +1275,22 @@ window.ncToggleGear = function(which, own) {
     ncSpend(own ? tp : -tp, () => { c[which] = { owned: own, equipped: true }; });
 };
 // Stat block button: hold the shield, or stow it to free a hand for two-handed attacks
+// Move an NPC's (or your companion's) one-handed weapon to the other hand
+window.npcSwapWeaponHand = function(npcId, wIdx) {
+    let c = null;
+    if (npcId) { let n = (window.gmNpcs || []).find(x => x.id === npcId); c = n && n.npc; }
+    else if (window.state && window.state.companion) c = window.state.companion;
+    let w = c && (c.weapons || [])[wIdx]; if (!w) return;
+    let sb = null; try { sb = npcId ? ncStatBlockFor(npcId) : null; } catch (e) { }
+    let cur = sb ? ((sb.equippedWeapons || []).find(x => x.weaponIdx === wIdx) || {}).hand : w.hand;
+    let next = cur === 'off' ? 'main' : 'off';
+    (c.weapons || []).forEach((o, i) => { if (i !== wIdx && o.hand === next) o.hand = cur || null; });
+    w.hand = next;
+    if (npcId && window.apxAuth?.enabled) window.apxAuth.saveGmNpcs(window.gmNpcs || []).catch(() => {});
+    if (!npcId && typeof window.recalculateMath === 'function') window.recalculateMath();
+    if (typeof window.refreshOpenStatBlocks === 'function') window.refreshOpenStatBlocks();
+    if (typeof ncRenderAll === 'function' && document.getElementById('npcCrafterModal')?.classList.contains('active')) ncRenderAll();
+};
 window.npcToggleShieldEquipped = function(npcId) {
     let c = null;
     if (npcId) { let n = (window.gmNpcs || []).find(x => x.id === npcId); c = n && n.npc; }
@@ -1575,7 +1603,7 @@ function buildStatBlockHtml(sb, editable) {
     let R = o => window.APXDice ? ` data-apx-roll='${window.APXDice.attr(Object.assign({ who: sb.name, perks: false, gambleAllowed: false }, compFlags, o))}' title="Click to roll"` : '';
     // What a hit with this weapon can do (Crushing, Stunning, Flurry…): read by the GM's tracker
     let hitOf = w => ({ weapon: w.name, props: w.props || [], die: (String(w.dmgText || w.dmg || '').match(/\d*d(\d+)/) || [0, 6])[1] ? '1d' + (String(w.dmgText || w.dmg || '').match(/\d*d(\d+)/) || [0, 6])[1] : '1d6',
-        strMod: sb.mods.STR || 0, intMod: sb.mods.INT || 0, elec: w.elemental === 'Electric' });
+        strMod: sb.mods.STR || 0, intMod: sb.mods.INT || 0, elec: w.elemental === 'Electric', dmgType: w.typeText || w.dmgType || '', tier: sb.tier || 0 });
     return `<div class="apx-dice-scope" data-roll-who="${esc(sb.name)}" data-sb-npc="${sb._npcId || ''}" data-sb-init="${sb._initId || ''}">
         <div class="grid grid-cols-5 gap-2 mb-3 bg-slate-900 border border-purple-800/50 rounded-lg p-2">
             <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">Tier</div><div class="text-lg font-black text-white">${sb.tier}</div></div>
@@ -1605,7 +1633,8 @@ function buildStatBlockHtml(sb, editable) {
             ${sb.equippedWeapons.length ? sb.equippedWeapons.map(w => {
                 // Two-handed attacks need 2 free hands: with a shield held they're listed but can't be rolled
                 let blocked = (w.hands || 1) > sb.freeHands;
-                return `<div class="text-xs ${blocked ? 'text-slate-500' : 'text-slate-200'}" data-roll-label="${esc(w.name)} damage">${esc(w.name)}: ${blocked
+                let handTag = w.handLabel ? ` <span class="text-[9px] font-bold text-cyan-300/80">(${w.handLabel}${!w.isTwoHanded && (w.hand === 'main' || w.hand === 'off') ? `<button type="button" title="Switch hands" onclick="window.npcSwapWeaponHand(${sb._npcId ? `'${sb._npcId}'` : 'null'}, ${w.weaponIdx})" class="ml-0.5 text-cyan-400 hover:text-white">⇄</button>` : ''})</span>` : '';
+                return `<div class="text-xs ${blocked ? 'text-slate-500' : 'text-slate-200'}" data-roll-label="${esc(w.name)} damage">${esc(w.name)}${handTag}: ${blocked
                     ? `<span data-no-roll title="Needs ${w.hands} free hands. Stow the shield to use it.">+${w.atk} to hit, ${w.dmg} damage</span>, ${w.ap} AP <span class="text-[10px] text-amber-500/80">(needs ${w.hands} free hands)</span>`
                     : `<span class="apxd-atk"${R({ type: 'attack', label: w.name, bonus: w.atk, dice: String(w.dmg), critMult: w.critMult || 2, npcId: sb._npcId || null, initId: sb._initId || null, apCost: parseInt(w.ap) || 3, flurry: w.flurry || undefined, hit: hitOf(w) })}>+${w.atk} to hit</span>, ${w.dmg} damage, ${w.ap} AP <span class="text-[10px] text-slate-500">(${w.typeLabel})</span>`}</div>`;
             }).join('') : ''}

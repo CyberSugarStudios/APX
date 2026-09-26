@@ -32,6 +32,7 @@
         // grants extra arms/legs (Polymelia today; any future trait with
         // an `extraLegs` field works automatically, no code change needed).
         window.calcWoundedSlots = function() {
+            if (window.apxWoundSlotsFor) return window.apxWoundSlotsFor(window.state);
             let slots = [...WOUND_LIMBS_BASE];
             let extraArms = 0, extraLegs = 0;
             (window.state.ancestry.traits || []).forEach(tId => {
@@ -77,7 +78,12 @@
             window.openModal('conditionPickerModal');
         };
 
+        const bothLegsWounded = () => (window.state.woundedLimbs || []).filter(l => /Leg/.test(l)).length >= 2;
         window.toggleCondition = async function(id, checked) {
+            if (!checked && id === 'prone' && bothLegsWounded()) {
+                window.APXDice?.notify('You can\'t stand up while both legs are Wounded. Heal one of them first.', { kind: 'warn', open: true });
+                window.recalculateMath(); return;
+            }
             // Standing up from Prone costs 2 AP during combat (0 with Fool's Luck Rank 5); outside combat it's free
             if (!checked && id === 'prone' && (window.state.conditions || []).includes('prone') && window._pwCombatCode && typeof window.apxApCurrent === 'function') {
                 let cost = (window.state.perks?.luc_foolsluck || 0) >= 5 ? 0 : 2, have = window.apxApCurrent();
@@ -99,7 +105,7 @@
 
         window.toggleWoundedLimb = function(limb, checked) {
             if (checked) {
-                if (!window.state.woundedLimbs.includes(limb)) window.state.woundedLimbs.push(limb);
+                if (!window.state.woundedLimbs.includes(limb)) { window.state.woundedLimbs.push(limb); window.apxArmWoundNote?.(limb); }
             } else {
                 window.state.woundedLimbs = window.state.woundedLimbs.filter(x => x !== limb);
             }
@@ -157,9 +163,10 @@
                 let c = CONDITIONS.find(x => x.id === ec.id);
                 if (!c) return '';
                 let from = ec.from ? (CONDITIONS.find(x => x.id === ec.from) || {}).name : '';
-                let removable = !from && stored.includes(ec.id);
+                let legLock = ec.id === 'prone' && bothLegsWounded();
+                let removable = !from && stored.includes(ec.id) && !legLock;
                 let x = removable ? xBtn(`window.toggleCondition(decodeURIComponent('${encodeURIComponent(ec.id)}'), false)`, 'Remove ' + c.name) : '';
-                return `<span class="inline-flex items-center text-[9px] ${from ? 'bg-red-900/20 text-red-300/80 border-dashed' : 'bg-red-900/40 text-red-300'} border border-red-800/50 px-1.5 py-0.5 rounded font-bold" title="${String(c.desc).replace(/"/g, '&quot;')}${from ? ' (from ' + from + ' — remove ' + from + ' to clear)' : ''}">${c.name}${x}</span>`;
+                return `<span class="inline-flex items-center text-[9px] ${from ? 'bg-red-900/20 text-red-300/80 border-dashed' : 'bg-red-900/40 text-red-300'} border border-red-800/50 px-1.5 py-0.5 rounded font-bold" title="${String(c.desc).replace(/"/g, '&quot;')}${from ? ' (from ' + from + ' — remove ' + from + ' to clear)' : ''}${legLock ? ' (both legs are Wounded: you can\'t stand until one heals)' : ''}">${c.name}${x}</span>`;
             });
             let limbTags = window.state.woundedLimbs.map(limb =>
                 `<span class="inline-flex items-center text-[9px] bg-red-900/40 text-red-300 border border-red-800/50 px-1.5 py-0.5 rounded font-bold">Wounded: ${limb}<button type="button" class="apx-perm-btn ml-1 px-1 rounded border border-fuchsia-700/70 text-fuchsia-300 hover:text-white hover:bg-fuchsia-900/60 leading-none" title="Wounded again before it healed? Record a Permanent Injury (−1 to an attribute)" onclick="event.stopPropagation();window.apxPermanentInjury(decodeURIComponent('${encodeURIComponent(limb)}'))">Re-wounded</button>${xBtn(`window.toggleWoundedLimb(decodeURIComponent('${encodeURIComponent(limb)}'), false)`, 'Remove Wounded: ' + limb)}</span>`

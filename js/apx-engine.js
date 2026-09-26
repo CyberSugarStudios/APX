@@ -40,6 +40,17 @@
             if ((window.state.currentHp || 0) > 0 && window.state.conditions.includes('bleedingout'))
                 window.state.conditions = window.state.conditions.filter(c => c !== 'bleedingout');
             if (!window.state.woundedLimbs) window.state.woundedLimbs = [];
+            // Extra arms are named by side now: "Extra Arm 1/2" → "Left Arm 2" / "Right Arm 2"
+            if (window.state.woundedLimbs.some(l => /^Extra Arm \d+$/.test(l)))
+                window.state.woundedLimbs = window.state.woundedLimbs.map(l => { let m = l.match(/^Extra Arm (\d+)$/); if (!m) return l; let i = +m[1] - 1; return `${i % 2 ? 'Right' : 'Left'} Arm ${2 + Math.floor(i / 2)}`; });
+            // Both legs Wounded: you fall Prone (and can't stand until a leg heals)
+            if (window.state.woundedLimbs.filter(l => /Leg/.test(l)).length >= 2 && !window.state.conditions.includes('prone')) {
+                window.state.conditions.push('prone');
+                if (window.APXDice && window.APXDice.notify && window._apxLegProneNote !== window.state.woundedLimbs.join('|')) {
+                    window._apxLegProneNote = window.state.woundedLimbs.join('|');
+                    setTimeout(() => window.APXDice.notify('Both legs are Wounded: you fall Prone, and can\'t stand up until one of them heals.', { kind: 'warn' }), 0);
+                }
+            }
             if (!window.state.savesTrained) window.state.savesTrained = { STR: false, AGI: false, CON: false, PER: false, INT: false, CHA: false, LUC: false };
             if (!window.state.trainedWeaponTypes) window.state.trainedWeaponTypes = [];
             if (!window.state.ancestrySkillAptitudeSkills) window.state.ancestrySkillAptitudeSkills = [];
@@ -831,6 +842,66 @@
             });
             return 2 + extraArms;
         };
+        // Which hand holds what: the shield first (Off Hand if free), then each weapon. Choices the
+        // player made are kept; anything without a hand (or one that's no longer there) gets the next free one.
+        window.apxHandSlots = function() {
+            let n = window.calcTotalHands(), slots = ['main', 'off'];
+            for (let i = 2; i < n; i++) slots.push('off' + i);
+            return slots;
+        };
+        window.apxAssignHands = function() {
+            let st = window.state, slots = window.apxHandSlots(), used = new Set();
+            let items = [];
+            if (st.equippedShield && st.equippedShield.equipped) items.push({ o: st.equippedShield, need: 1, pref: ['off'] });
+            (st.weapons || []).forEach(w => { let need = weaponHandCost(w); if (need) items.push({ o: w, need }); else delete w.hands; });
+            // keep valid choices
+            items.forEach(it => {
+                let h = Array.isArray(it.o.hands) ? it.o.hands : null;
+                if (h && h.length === it.need && h.every(x => slots.includes(x) && !used.has(x))) h.forEach(x => used.add(x));
+                else it.o.hands = null;
+            });
+            items.forEach(it => {
+                if (it.o.hands) return;
+                let order = (it.pref || []).concat(slots);
+                let pick = [];
+                for (let x of order) { if (pick.length >= it.need) break; if (!used.has(x) && !pick.includes(x)) pick.push(x); }
+                if (pick.length === it.need) { it.o.hands = pick; pick.forEach(x => used.add(x)); }
+                else it.o.hands = [];
+            });
+        };
+        // Put a weapon in other hand(s); whatever was there swaps into the hands it leaves
+        window.setWeaponHand = function(idx, val) {
+            let st = window.state, w = st.weapons[idx]; if (!w) return;
+            let want = String(val || '').split(',').filter(Boolean), old = (w.hands || []).slice();
+            [st.equippedShield].concat(st.weapons).forEach(o => {
+                if (!o || o === w || !Array.isArray(o.hands)) return;
+                if (o.hands.some(x => want.includes(x))) o.hands = o.hands.length === old.length ? old.slice() : null;
+            });
+            w.hands = want;
+            window.recalculateMath();
+        };
+        // A Wounded arm drops what its hand holds: say what
+        window.apxArmWoundNote = function(limb) {
+            let st = window.state; if (!st || !/Arm/.test(limb)) return;
+            let hand = Object.keys(window.APX_HAND_ARM || {}).find(h => window.APX_HAND_ARM[h] === limb);
+            if (!hand) return;
+            let held = (st.weapons || []).filter(w => (w.hands || []).includes(hand)).map(w => w.name || 'your weapon');
+            if (st.equippedShield?.equipped && (st.equippedShield.hands || []).includes(hand)) held.push('your shield');
+            if (held.length) window.APXDice?.notify(`Your ${limb} is Wounded: you drop ${held.join(' and ')} (${(window.APX_HAND_LABEL || {})[hand] || hand}).`, { kind: 'warn', open: true });
+        };
+        function handSelectHtml(w, idx) {
+            let slots = window.apxHandSlots(), need = weaponHandCost(w);
+            if (!need) return '';
+            let L = window.APX_HAND_LABEL || {}, cur = (w.hands || []).join(',');
+            let opts = [];
+            if (need === 1) opts = slots.map(x => [x, L[x] || x]);
+            else for (let i = 0; i + 1 < slots.length; i += 2) opts.push([slots[i] + ',' + slots[i + 1], i === 0 ? 'Main + Off Hand' : `${L[slots[i]]} + ${(L[slots[i + 1]] || '').replace('Off Hand ', '')}`]);
+            let holder = x => { let st = window.state; if (st.equippedShield?.equipped && (st.equippedShield.hands || []).includes(x)) return 'Shield'; let o = (st.weapons || []).find(v => v !== w && (v.hands || []).includes(x)); return o ? (o.name || 'weapon') : ''; };
+            let wounded = (w.hands || []).map(x => (window.APX_HAND_ARM || {})[x]).filter(a => a && (window.state.woundedLimbs || []).includes(a));
+            return `<div class="flex items-center gap-1 mt-0.5"><select onchange="window.setWeaponHand(${idx}, this.value)" class="bg-slate-900 border-slate-700 text-[9px] font-bold py-0 px-1 h-5" title="Which hand holds it (Main Hand is the right arm, Off Hand the left)">
+                ${cur ? '' : '<option value="">No free hand</option>'}${opts.map(([v, l]) => { let who = v.split(',').map(holder).filter(Boolean); return `<option value="${v}" ${v === cur ? 'selected' : ''}>${l}${who.length && v !== cur ? ' (swap with ' + who.join(', ') + ')' : ''}</option>`; }).join('')}
+            </select>${wounded.length ? `<span class="text-[9px] font-black text-red-400" title="A Wounded arm drops whatever that hand holds">${wounded.join(', ')} Wounded: dropped</span>` : ''}</div>`;
+        }
         function weaponHandCost(w) {
             if (w.isUnarmed || w.isAncestry) return 0;
             if (w.weightClass === 'heavy') return 2;
@@ -1069,7 +1140,7 @@
             let rollName = (w.name || 'Weapon') + (opts.label ? (opts.attr === 'STR' && /2-Handed/.test(opts.label) ? ' (2-Handed)' : /Aimed/.test(opts.label) ? ' (Aimed)' : '') : '');
             // What a hit with it can do (Crushing, Stunning, Flurry…): read by the GM's tracker
             let hitMeta = { weapon: w.name || 'Weapon', props: Object.keys(w.properties || {}).filter(k => { let v = w.properties[k]; return typeof v === 'number' ? v > 0 : !!v; }),
-                die: '1d' + ((String(opts.dice || '').match(/\d*d(\d+)/) || [0, 6])[1]), strMod: calc.mods.STR || 0, intMod: calc.mods.INT || 0, elec: w.elemental === 'Electric' };
+                die: '1d' + ((String(opts.dice || '').match(/\d*d(\d+)/) || [0, 6])[1]), dmgType: w.elemental || w.dmgType || '', strMod: calc.mods.STR || 0, intMod: calc.mods.INT || 0, elec: w.elemental === 'Electric' };
             // pcAttack/apCost/aimed: the sheet's AP hook (apxBeforeAttack) spends AP for this attack
             let atkRoll = apxRollAttr({ type: 'attack', label: rollName, bonus: atk, dice: opts.dice, dmgMod, critMult, dmgType: w.elemental || w.dmgType || '', disSources: disadvSources, advSources,
                 pcAttack: true, wcat: cat, apCost: parseInt(opts.ap) || 0, ranged: cat === 'ranged', aimed: cat === 'ranged' && !!w.aimed, unarmed: !!w.isUnarmed,
@@ -1117,6 +1188,7 @@
                         ${forgedWeaponBadge(w, w.weightClass === 'medium')}
                         ${w.forged ? `<button onclick="window.openWeaponForge(${idx})" class="text-[9px] text-orange-400 hover:text-orange-300 font-bold mt-0.5">Return to Forge</button>` : ''}
                         ${w.category === 'melee' && w.weightClass === 'medium' ? '<div class="text-[9px] text-slate-500 mt-0.5">1-Handed (2H row below)</div>' : ''}
+                        ${opts.editable ? handSelectHtml(w, idx) : ''}
                         ${cat === 'ranged' && opts.editable ? `<label class="flex items-center gap-1 mt-0.5 cursor-pointer"><input type="checkbox" ${w.aimed ? 'checked' : ''} onchange="window.toggleWeaponAim(${idx}, this.checked)" class="w-3 h-3"><span class="text-[9px] ${w.aimed ? 'text-amber-400 font-bold' : 'text-slate-500'}">Aimed (+PER)</span></label>` : ''}
                     </td>
                     <td class="px-1 py-2 w-14">
@@ -1162,6 +1234,7 @@
         function renderWeapons() {
             let html = '';
             calc.weaponAttacks = [];
+            window.apxAssignHands();
             window.state.weapons.forEach((w, idx) => {
                 let isMediumMelee = weaponCategory(w) === 'melee' && w.weightClass === 'medium';
                 let isMediumRanged = weaponCategory(w) === 'ranged' && w.weightClass === 'medium';
@@ -1226,7 +1299,7 @@
                             <tr class="bg-purple-900/20 border-b border-purple-800/50">
                                 <td class="px-1 py-2 ${w.isTwoHanded ? 'pl-4' : ''}">
                                     <div class="text-xs font-bold text-purple-300">${w.isTwoHanded ? '↳ ' : sb.name + ' -- '}${w.name}</div>
-                                    <div class="text-[9px] text-slate-500">${w.typeLabel}${w.attr ? ` (${w.attr})` : ''}</div>
+                                    <div class="text-[9px] text-slate-500">${w.typeLabel}${w.attr ? ` (${w.attr})` : ''}${w.handLabel ? ` · <span class="text-cyan-300/80 font-bold">${w.handLabel}</span>${!w.isTwoHanded && (w.hand === 'main' || w.hand === 'off') ? `<button type="button" title="Switch hands" onclick="window.npcSwapWeaponHand(null, ${w.weaponIdx})" class="ml-0.5 text-cyan-400 hover:text-white">⇄</button>` : ''}` : ''}</div>
                                     ${w.category === 'ranged' && !w.isTwoHanded ? `<label class="flex items-center gap-1 mt-0.5 cursor-pointer"><input type="checkbox" ${w.aimed ? 'checked' : ''} onchange="window.ncToggleCompanionWeaponAim(${w.weaponIdx}, this.checked)" class="w-3 h-3"><span class="text-[9px] ${w.aimed ? 'text-amber-400 font-bold' : 'text-slate-500'}">Aimed (+PER)</span></label>` : ''}
                                 </td>
                                 <td class="px-1 py-2 text-center text-[10px] text-slate-400">${w.attr || '--'}</td>
