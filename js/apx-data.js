@@ -763,6 +763,19 @@
             return out;
         }
         window.apxConditionRollMods = apxConditionRollMods;
+        // How big an area marker is drawn on a map (GM and players alike), as a scale for its 26px circle.
+        // It stays about the same size on screen however far you zoom: zoomed in it covers less of the
+        // map (so it can sit on one building), zoomed out it covers more, but never more than 3% of the
+        // map's short side (and never under 10px on screen).
+        function apxMarkerScale(scale, iw, ih, base) {
+            base = base || 26; scale = scale > 0 ? scale : 1;
+            let screen = scale >= 1 ? Math.max(18, 24 / Math.sqrt(scale)) : 24;   // on-screen size, a little smaller when zoomed in close
+            let mapPx = screen / scale;
+            let cap = Math.max(14, 0.03 * Math.min(iw || 1000, ih || 1000));
+            mapPx = Math.max(Math.min(mapPx, cap), 10 / scale);
+            return mapPx / base;
+        }
+        window.apxMarkerScale = apxMarkerScale;
         window.apxConditionBlocked = apxConditionBlocked;
 
 // ============================================================

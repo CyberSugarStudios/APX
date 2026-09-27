@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.9.26.1722',
-        released: '2026-09-26T17:22:00',
-        releasedText: 'September 26, 2026 · 5:22 PM',
+        version: 'v2026.9.26.2206',
+        released: '2026-09-26T22:06:00',
+        releasedText: 'September 26, 2026 · 10:06 PM',
         title: 'Playtest Update',
         intro: 'This update comes straight from our playtest tables. GMs get world rules, a Loot Maker, NPCs that carry and use gear, and magic items that can change almost anything on a sheet. Players get Luck and Looting, trading, shareable Omen dice, Loyal Companions that act on their own turns, powers that roll like weapons and use their AP and Power Slots, weapon properties that apply themselves on a hit, a one-screen Origin Builder, full-resolution maps at any size, and a dice roller with a distinct shape for every die that doubles as the combat log and asks for your Wound and Bleed Out saves. Conditions like Stunned wear off on their own when their time is up, and a reroll that saves you takes a Wound back. Damage is entered in full and the app takes off DR, ER, resistances and immunities for you, and four-armed characters get their extra arms and hands. Initiative runs with or without a battle map, characters are created and switched cleanly, pages load faster (especially on phones), and deleting an account removes all of its data. Your characters and worlds update when you open them. Nothing is lost, and anything a rule change touched is explained.',
         index: [
@@ -49,6 +49,7 @@
                 'Rest and Recover buttons cover Short and Full Rests, Shake it Off and Shrug It Off.'
             ]],
             ['Battle Maps', [
+                'Area markers on maps stay about the same size on screen as you zoom: zoomed in they sit on a single building, zoomed out they stay visible without covering the map (never more than 3% of it).',
                 'Maps keep their full resolution at any size. A large map opens instantly as a preview, and the sharp detail loads for just the part you zoom into, so small text and fine lines stay readable.',
                 'Move groups of tokens with Shift+drag, layer images on the map, and measure with M. Large maps stay smooth.'
             ]],
@@ -207,6 +208,7 @@
                 'Small text is larger everywhere, and slightly larger again in the Fantasy theme.'
             ]],
             ['Battle Maps', [
+                'Area markers (the lettered circles) stay about the same size on screen as you zoom, so zoomed in they mark a single building and zoomed out they never cover more than 3% of the map.',
                 'Your GM\'s maps stay sharp when you zoom in: the map appears straight away, and the full-resolution detail loads for the area you\'re looking at. Each piece downloads once and is kept in this browser.',
                 'Measure with M (middle-drag still pans), see token numbers and conditions, and resize map windows from the corner grip.'
             ]],
@@ -227,6 +229,7 @@
                 'Update your Firestore rules from FIREBASE_RULES.txt (v2026.9.25b). Players, including kicked or banned ones, can then remove their own place in a world, and everyone in a world can load full-resolution map tiles.'
             ]],
             ['Full-Resolution Maps', [
+                'Area Circles stay about the same size on screen as you zoom: zoomed in on a large city map, each one can mark a single building; zoomed out they stay easy to see but never cover more than 3% of the map. Players see them the same way.',
                 'Upload a map of any size to the World Map or an Other Map. Every map gets a compressed preview (up to 1600 px on its longest side) that loads instantly. Grid squares, tokens, pins and fog are placed on the preview, exactly as before.',
                 'A map that fits in the preview without shrinking stops there. A larger one is also cut into full-resolution tiles (512 px squares at high quality, plus half-resolution tiles for very large maps), each saved as its own small record well within Firestore\'s limits. A 6000 × 9000 map makes about 300 tiles. There\'s no Firebase Storage and no paid plan.',
                 'Zoomed out, only the preview loads. As you zoom in, the tiles for the visible area load at the detail your screen needs (high-density screens get it sooner), and they are kept in the browser so each downloads once.',
