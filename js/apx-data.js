@@ -739,6 +739,30 @@
             return out;
         }
         window.apxEffectiveConditions = apxEffectiveConditions;
+        // What a creature's conditions do to one of its rolls (the same rules the character sheet applies):
+        // kind 'attack' | 'save' | 'check', attr for saves/checks, ranged for attacks.
+        // → { dis: [names], adv: [names], autoFail: [names], cantAct: name|null }
+        function apxConditionRollMods(condIds, kind, attr, ranged) {
+            let out = { dis: [], adv: [], autoFail: [], cantAct: null };
+            (condIds || []).forEach(id => {
+                let c = CONDITIONS.find(x => x.id === id); if (!c) return;
+                if (kind === 'attack') {
+                    if (c.atkDisadvantage === 'general' || (c.atkDisadvantage === 'melee' && !ranged)) out.dis.push(c.name);
+                    if (c.rangedAtkAdvantage && ranged) out.adv.push(c.name);
+                    if (c.noActions && !out.cantAct) out.cantAct = c.name;
+                } else if (kind === 'save') {
+                    if (c.saveDisadvantage === 'all' || (Array.isArray(c.saveDisadvantage) && c.saveDisadvantage.includes(attr))) out.dis.push(c.name);
+                    if (Array.isArray(c.autoFailSaves) && c.autoFailSaves.includes(attr)) out.autoFail.push(c.name);
+                } else {
+                    if (c.checkDisadvantage === 'all' || (Array.isArray(c.checkDisadvantage) && c.checkDisadvantage.includes(attr))) out.dis.push(c.name);
+                    if (Array.isArray(c.autoFailChecks) && c.autoFailChecks.includes(attr)) out.autoFail.push(c.name);
+                }
+            });
+            // what caused Incapacitated says why they can't act (Unconscious, Paralyzed, Stunned…)
+            if (out.cantAct) { let why = ['unconscious', 'paralyzed', 'stunned', 'bleedingout'].find(x => (condIds || []).includes(x)); if (why) out.cantAct = (CONDITIONS.find(x => x.id === why) || {}).name || out.cantAct; }
+            return out;
+        }
+        window.apxConditionRollMods = apxConditionRollMods;
         window.apxConditionBlocked = apxConditionBlocked;
 
 // ============================================================

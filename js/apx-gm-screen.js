@@ -84,7 +84,7 @@ function computeCharSummary(state) {
     // Shield and Helmet (same as the sheet): +AC/DR/ER, and the shield's weight counts as armor
     let sh = state.equippedShield, hm = state.equippedHelmet;
     if (sh && sh.equipped) { armorAc += sh.ac || 0; armorDr += sh.dr || 0; armorEr += sh.er || 0; armorWt += sh.wt || 0; }
-    (state.extraShields || []).forEach(x => { armorWt += x.wt || 0; });
+    (state.extraShields || []).forEach(x => { armorAc += x.ac || 0; armorDr += x.dr || 0; armorEr += x.er || 0; armorWt += x.wt || 0; });
     if (hm && hm.equipped && !hm.broken) { armorAc += hm.ac || 0; armorDr += hm.dr || 0; armorEr += hm.er || 0; armorWt += hm.wt || 0; }
 
     let reqStr = Math.floor(armorWt / 10);
@@ -1484,16 +1484,29 @@ function _gmIsStunned(e) {
     }
     return window._gmEntryConditions ? window._gmEntryConditions(e.id).includes('stunned') : false;
 }
+// NPCs' and companions' conditions change their rolls, as a player's do on their sheet:
+// Disadvantage (Poisoned, Frightened, Prone melee…), Advantage (Prone ranged), auto-fails
+// (Paralyzed STR/AGI…), and a warning before an Incapacitated creature attacks
+window.apxRollConditions = function(o, kind) {
+    let init = window.gmInitiative || []; if (!init.length || !o) return null;
+    let e = null, cur = init[window.gmCurrentTurnIdx];
+    if (o.companion && o.compOwner) e = init.find(x => x.companionOf === o.compOwner) || null;
+    else if (o.initId) e = init.find(x => x.id === o.initId) || null;
+    if (!e && o.npcId) { let list = init.filter(x => x.sourceNpcId === o.npcId && x.faction !== 'player'); e = list.includes(cur) ? cur : (list.length === 1 ? list[0] : null); }
+    if (!e || e.faction === 'player') return null;
+    let conds = _gmEffConds(e); if (!conds.length) return null;
+    return window.apxConditionRollMods ? window.apxConditionRollMods(conds, kind, o.attr, !!o.ranged) : null;
+};
 // NPC saves from the GM's dice tray button (the log message asks for them)
 window.apxLogAsk = function(ask) { return !!(ask && ask.gm && (window.gmInitiative || []).some(e => e.id === ask.entryId)); };
 window.apxRollFromAsk = function(ask, choice) {
     let e = (window.gmInitiative || []).find(x => x.id === ask.entryId); if (!e || !window.APXDice) return;
     if (ask.kind === 'limb') { if (choice) _gmApplyWound(e, choice, ask.logId); return; }
     let sb = e.sourceNpcId && typeof ncStatBlockFor === 'function' ? ncStatBlockFor(e.sourceNpcId) : null;
-    let bonus = sb && sb.mods ? (sb.mods[ask.attr] || 0) : 0;
+    let bonus = sb ? ((sb.saves || {})[ask.attr] ?? (sb.mods ? (sb.mods[ask.attr] || 0) : 0)) : 0;   // trained saves add the Training Bonus
     let item = { attr: ask.attr, dc: ask.dc, cond: ask.cond, fail: ask.fail, byId: ask.byId || null, turn: ask.turn || null };
     let first = true;
-    APXDice.check({ kind: 'save', attr: ask.attr, label: `${ask.attr} Save (DC ${ask.dc})`, who: e.name, bonus, perks: false,
+    APXDice.check({ kind: 'save', attr: ask.attr, label: `${ask.attr} Save (DC ${ask.dc})`, who: e.name, bonus, perks: false, initId: e.id,
         note: sb ? null : 'No stat block: add their save bonus yourself',
         onResult: r => {
             let txt = _gmCondResult(e, item, { total: r.total, autoFail: r.autoFail }, !first);
@@ -2271,7 +2284,7 @@ window.startCombat = function() {
     _gmSetLootDefeated(0); window.renderGmLoot && window.renderGmLoot();   // counts the enemies of this fight
     _gmLogSession = 'c' + Date.now().toString(36);
     gmLog({ text: 'Combat started. Round 1.', kind: 'info' });
-    if (window.gmInitiative[0]) gmStartTurnAp(window.gmInitiative[0]);
+    if (window.gmInitiative[0]) { gmStartTurnAp(window.gmInitiative[0]); _gmBurnTick(window.gmInitiative[0]); }
     window.renderInitiativeTracker();
     if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
     if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
@@ -2289,6 +2302,7 @@ window.nextInitiativeTurn = function() {
     window.gmTurnNumber++;
     let current = window.gmInitiative[window.gmCurrentTurnIdx];
     if (current) gmStartTurnAp(current);
+    if (current) _gmBurnTick(current);
     if (current && current.bleedOutTurns > 0) {
         current.bleedOutTurns--;
         if (current.bleedOutTurns === 0) { _killBledOutPlayer(current); return; }
@@ -2386,11 +2400,34 @@ function gmStartTurnAp(e) {
     e._apFirstSurprised = !!(first && e.surprised);
     if (e.faction === 'player') return;   // players' sheets add their own AP when their turn starts
     e.apCur = gmApCurrent(e) + (e._apFirstSurprised ? 1 : gmApMax(e));
-    if (_gmIsStunned(e)) {   // a Stunned creature starts its turn with no AP
+    // Conditions that take away AP (Stunned, Incapacitated, Paralyzed, Unconscious…): no AP this turn
+    let noAp = _gmEffConds(e).map(id => (typeof CONDITIONS !== 'undefined' ? CONDITIONS : []).find(c => c.id === id)).filter(c => c && c.apZero);
+    if (noAp.length) {
+        let why = (noAp.find(c => ['stunned', 'unconscious', 'paralyzed', 'bleedingout'].includes(c.id)) || noAp[0]).name;
+        let named = ['Stunned', 'Unconscious', 'Paralyzed', 'Bleeding Out'].find(n => _gmEffConds(e).some(id => (CONDITIONS.find(c => c.id === id) || {}).name === n)) || why;
         e.apCur = 0;
-        gmLog({ text: `${_gmPublicName(e)} is Stunned and has no AP this turn.`, gmText: `${_gmGmName(e)} is Stunned: AP set to 0.`, kind: 'info' });
+        gmLog({ text: `${_gmPublicName(e)} is ${named} and has no AP this turn.`, gmText: `${_gmGmName(e)} is ${named}: AP set to 0.`, kind: 'info' });
     }
 }
+// Burning, for NPCs and companions (players' sheets roll their own): 1d10 Fire at the start of the
+// creature's turn, ignoring ER. Immune to Fire: nothing; a Fire Vulnerability adds to it.
+function _gmBurnTick(e) {
+    if (!e || e.faction === 'player' || !_gmEffConds(e).includes('burning') || e.currentHp === null) return;
+    let def = _gmDefenseOf(e);
+    if ((def.immune || []).includes('Fire')) { gmLog({ text: `${_gmPublicName(e)} is Burning but immune to Fire.`, gmText: `${_gmGmName(e)} is Burning but immune to Fire: no damage.`, kind: 'info' }); return; }
+    let card = window.APXDice ? window.APXDice.damage({ label: 'Burning (start of turn)', who: e.name, formula: '1d10', dmgType: 'Fire', perks: false }) : null;
+    let rolled = card && card.parts && card.parts[0] ? card.parts[0].total : 1 + Math.floor(Math.random() * 10);
+    let vuln = Math.max(0, -((def.res || {}).Fire || 0));
+    let dmg = rolled + vuln, wasUp = e.currentHp > 0;
+    let r = window.apxApplyHpInput('-' + dmg, e.currentHp, e.tempHp, e.maxHp);
+    if (r) { e.currentHp = r.currentHp; e.tempHp = r.tempHp; }
+    e.lastHit = { text: `Burning: ${rolled}${vuln ? ' + ' + vuln + ' Fire Vulnerability' : ''} Fire, ignoring ER = ${dmg}`, dmg, t: Date.now() };
+    let down = wasUp && e.currentHp <= 0;
+    gmLog({ text: `${_gmPublicName(e)} ${e.faction === 'enemy' ? 'takes Fire damage from Burning' : 'burns for ' + dmg + ' Fire damage'}.${down ? ` ${_gmPublicName(e)} is down!` : ''}`,
+        gmText: `${_gmGmName(e)} burns for ${dmg} Fire damage (1d10: ${rolled}${vuln ? ', +' + vuln + ' Fire Vulnerability' : ''}, ignoring ER).${down ? ' Down!' : ''}`, kind: 'dmg' });
+    _afterHpChange(e, wasUp);
+}
+window._gmBurnTick = _gmBurnTick;
 // Prone removed during combat: standing up cost the creature 2 AP (NPCs; players' sheets handle their own)
 window._gmStandUpAp = function(entryId) {
     let e = (window.gmInitiative || []).find(x => x.id === entryId);

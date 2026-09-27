@@ -660,8 +660,7 @@
             return window.calcTotalHands() - handsUsedByNonHeavy >= 1;
         }
         // Four arms: equip the shield in a chosen Off Hand, move it, or (its own hand again) remove it
-        // Four arms: each Off Hand can hold a shield. The first one gives the shield's bonus; more shields
-        // are held and carried, but bonuses don't stack.
+        // Four arms: each Off Hand can hold a shield, and every shield held adds its +AC/DR/ER.
         const shieldIn = hand => {
             let s = window.state.equippedShield;
             if (s.equipped && (s.hands || [])[0] === hand) return 'main';
@@ -680,7 +679,7 @@
             let owned = (st.items || []).find(i => i.isShield);
             if (owned) { st.items.splice(st.items.indexOf(owned), 1); add(); return; }
             if ((st.currency || 0) < s.cost) { window.showConfirm(`Not enough Currency. Another Shield costs ${s.cost}, you have ${st.currency || 0}.`, null, true); return; }
-            window.showConfirm(`Buy and equip another Shield (${(window.APX_HAND_LABEL || {})[hand] || hand}) for ${s.cost} Currency? Its bonus doesn't stack with your first shield's.`, () => {
+            window.showConfirm(`Buy and equip another Shield (${(window.APX_HAND_LABEL || {})[hand] || hand}) for ${s.cost} Currency? It adds another +${s.ac} AC/DR/ER.`, () => {
                 st.currency = (st.currency || 0) - s.cost; add();
             });
         };
@@ -692,7 +691,7 @@
                 st.items.push({ name: 'Shield', wt: s.wt, ct: 1, val: s.cost, isShield: true, isLocked: true, desc: `Shield: +${s.ac} AC/DR/ER` });
                 if (where === 'extra') st.extraShields = (st.extraShields || []).filter(x => (x.hands || [x.hand])[0] !== hand);
                 else {
-                    // the first shield goes: another held shield takes over its bonus
+                    // the first shield goes: another held shield takes its place
                     let next = (st.extraShields || [])[0];
                     if (next) { s.hands = (next.hands || [next.hand]).slice(); st.extraShields = st.extraShields.slice(1); }
                     else { s.equipped = false; s.hands = null; }

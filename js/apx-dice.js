@@ -631,12 +631,27 @@
         return b;
     }
 
+    // A page can add a creature's conditions to its rolls (the GM Tools do, for NPCs in the tracker)
+    function condAdjust(o, kind) {
+        if (typeof window.apxRollConditions !== 'function' || o._condDone) return o;
+        let m = null;
+        try { m = window.apxRollConditions(o, kind); } catch (e) { console.warn('Conditions:', e); }
+        if (!m) return o;
+        let n = Object.assign({}, o, { _condDone: true });
+        if (m.dis.length) n.disSources = (o.disSources || []).concat(m.dis);
+        if (m.adv.length) n.advSources = (o.advSources || []).concat(m.adv);
+        if (m.autoFail.length && kind !== 'attack') n.autoFail = [o.autoFail, m.autoFail.join(', ')].filter(Boolean).join(', ');
+        if (m.cantAct && kind === 'attack') n._cantAct = m.cantAct;
+        return n;
+    }
+
     // ── Public actions ───────────────────────────────────────────
     const APXDice = {
         CRIT_MODE, parse, rnd,
 
         check(o) {
             o = o || {};
+            o = condAdjust(o, o.kind === 'save' ? 'save' : o.kind === 'attack' ? 'attack' : 'check');
             let list = [tray.mode];
             if ((o.advSources || []).length || o.adv === 'adv') list.push('adv');
             if ((o.disSources || []).length || o.adv === 'dis') list.push('dis');
@@ -693,6 +708,12 @@
                     [['normal', 'Normal attack', 'ok'], ['gamble', 'Gamble', 'pri']]);
                 if (!ans) return;
                 gamble = ans === 'gamble';
+            }
+            // The attacker's conditions (GM Tools: NPCs and companions in the tracker; the sheet applies its own)
+            o = condAdjust(o, 'attack');
+            if (o._cantAct) {
+                let go = await ask(`${o.who || 'This creature'} can't act`, `${o.who || 'It'} is ${o._cantAct} and can't take actions or attack. Roll anyway?`, [['roll', 'Roll anyway', 'pri']]);
+                if (go !== 'roll') return;
             }
             // AP for the attack: the page decides (player sheet: spends the pool, asks about Aim
             // and AP perks; GM: takes it from the NPC whose turn it is). Returning false cancels.

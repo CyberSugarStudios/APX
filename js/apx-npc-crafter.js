@@ -1,3 +1,5 @@
+// Saving Throw Training (NPCs and Loyal Companions): the first two are free, each one after costs 2 TP
+var NPC_FREE_SAVES = 2, NPC_SAVE_TP = 2;
 // APX npc-crafter v2026.9.18.0950 build 1789749908
 // ============================================================
 // APX Character Sheet — NPC Crafter (Loyal Companion + GM NPC Builder)
@@ -61,6 +63,7 @@ function ncMigrateCompanionFields(c) {
     if (!c.traitEnergyTypes) c.traitEnergyTypes = {};
     if (c.lairSharedTraitKey === undefined) c.lairSharedTraitKey = null;
     if (!Array.isArray(c.damageResistances)) c.damageResistances = [];
+    if (!Array.isArray(c.saveTraining)) c.saveTraining = [];
     if (c.powerAttr === undefined) c.powerAttr = null;          // null = auto (best of INT/CHA)
     if (c.carriedCu === undefined) c.carriedCu = 0;
     ['conditionImmunities','conditionalDmgImmunities','energyImmunities','energyVulnerabilities','otherTrainings','weapons','powers','traits','carriedItems']
@@ -138,6 +141,7 @@ function getBlankCompanion() {
         damageResistances: [], // specific damage types this creature resists (+5 each), 2 TP each
         trainingBonus: 2, // starts at +2 like PCs; +2 TP per +1 increase
         otherTrainings: [], // free-text list of trained skills/weapon types (Innate Weapons are always trained for free), 1 TP each
+        saveTraining: [],   // attributes whose saving throws are trained: the first 2 are free, then 2 TP each
         innateWeapons: [ncNewInnateWeapon()], // claws, fangs, horns... each built separately (Step 5)
         powerAttr: null, // Power casting attribute; null = auto (best of INT/CHA)
         powers: [], // [{name, lvl, ap, atk, rng, dmg, desc, draft, tp}]
@@ -230,6 +234,7 @@ window.companionTpSpent = function() {
     spent += (c.damageResistances || []).length * 2;
     spent += (c.trainingBonus - 2) * 2; // Training Bonus purchases, 2 TP per +1 above the starting +2
     spent += c.otherTrainings.length; // Skill/Weapon Training, 1 TP each (Innate Weapons are free/automatic)
+    spent += Math.max(0, (c.saveTraining || []).length - NPC_FREE_SAVES) * NPC_SAVE_TP; // Saving Throw Training: 2 free, then 2 TP each
     (c.innateWeapons || []).forEach(w => { spent += ncInnateWeaponTp(w); });
     c.powers.forEach(p => { spent += p.tp; });
     [1, 2, 3, 4, 5].forEach(lvl => { spent += c.casterSlots[lvl] * ({ 1: 1, 2: 2, 3: 3, 4: 5, 5: 10 })[lvl]; });
@@ -595,6 +600,13 @@ function companionWeaponDamageModifier(w, mods, twoHanded) {
     return (attrMod * mult) + aimBonus;
 }
 
+window.ncToggleSaveTraining = function(attr) {
+    let c = ncActiveCompanion(); if (!c) return;
+    if (!Array.isArray(c.saveTraining)) c.saveTraining = [];
+    let has = c.saveTraining.includes(attr), n = c.saveTraining.length;
+    if (has) ncSpend(n > NPC_FREE_SAVES ? -NPC_SAVE_TP : 0, () => { c.saveTraining = c.saveTraining.filter(a => a !== attr); });
+    else ncSpend(n >= NPC_FREE_SAVES ? NPC_SAVE_TP : 0, () => { c.saveTraining = c.saveTraining.concat([attr]); });
+};
 window.ncAdjustTrainingBonus = function(delta) {
     let c = ncActiveCompanion();
     if (c.trainingBonus + delta < 2) return; // can't go below the starting +2
@@ -1178,6 +1190,9 @@ window.companionStatBlock = function() {
             let total = attrMod + c.trainingBonus;
             return { name, attr, attrMod, trainingBonus: c.trainingBonus, total };
         });
+    // Saving throws: attribute modifier, plus the Training Bonus for trained saves
+    let saveTrained = (c.saveTraining || []).filter(a => ATTRIBUTES.includes(a));
+    let saves = {}; ATTRIBUTES.forEach(a => { saves[a] = (mods[a] || 0) + (saveTrained.includes(a) ? c.trainingBonus : 0); });
     let equippedWeapons = [];
     // Which hand holds each weapon (a held shield takes the Off Hand first)
     let handsUsed = new Set(shieldOn ? ['off'] : []);
@@ -1253,7 +1268,7 @@ window.companionStatBlock = function() {
         size: sizeDef ? sizeDef.label : 'Medium', swarm: c.swarm,
         altLocomotion: c.altLocomotion, hover: c.hover,
         mods, dmgText, attackBonus, range, propNames, innateAttacks, trainingBonus: c.trainingBonus,
-        otherTrainings: c.otherTrainings, equippedWeapons, equippedArmorName: armor.name || null, trainedSkills,
+        otherTrainings: c.otherTrainings, equippedWeapons, equippedArmorName: armor.name || null, trainedSkills, saves, saveTrained,
         hasShield: !!(c.shield && c.shield.owned), shieldOn, hasHelmet: helmetOn, hands, freeHands,
         senseList, traitList, powerList, powerCards, lairActionPowerCards, casterSlots: c.casterSlots,
         powerAttrChoice, powerAttackBonus, powerSaveDc,
@@ -1599,7 +1614,8 @@ function buildStatBlockHtml(sb, editable) {
     let innate = sb.innateAttacks || [];
     let resist = [`DR ${sb.dr} (physical)`, `ER ${sb.er} (energy)`].concat((sb.damageResistances || []).map(t => `${t} +5`));
     // Click-to-roll hooks (APXDice). NPC rolls never use the player's perks.
-    let compFlags = sb._isCompanion ? { omen: true, companion: true, compOwner: sb._compOwner || null } : {};
+    // (which creature a roll belongs to, so the GM's tracker can apply its conditions)
+    let compFlags = sb._isCompanion ? { omen: true, companion: true, compOwner: sb._compOwner || null } : { npcId: sb._npcId || undefined, initId: sb._initId || undefined };
     let R = o => window.APXDice ? ` data-apx-roll='${window.APXDice.attr(Object.assign({ who: sb.name, perks: false, gambleAllowed: false }, compFlags, o))}' title="Click to roll"` : '';
     // What a hit with this weapon can do (Crushing, Stunning, Flurry…): read by the GM's tracker
     let hitOf = w => ({ weapon: w.name, props: w.props || [], die: (String(w.dmgText || w.dmg || '').match(/\d*d(\d+)/) || [0, 6])[1] ? '1d' + (String(w.dmgText || w.dmg || '').match(/\d*d(\d+)/) || [0, 6])[1] : '1d6',
@@ -1619,7 +1635,9 @@ function buildStatBlockHtml(sb, editable) {
             ${hpControls}
         </div>
         <div class="grid grid-cols-7 gap-1 mb-3">
-            ${ATTRIBUTES.map(a => `<div class="text-center bg-slate-900 border border-slate-700 rounded p-1"${R({ type: 'check', label: a + ' check', bonus: sb.mods[a] || 0 })}><div class="text-[9px] text-slate-500 font-bold">${a}</div><div class="text-xs font-black text-white">${sb.mods[a]>=0?'+':''}${sb.mods[a]}</div></div>`).join('')}
+            ${ATTRIBUTES.map(a => { let sv = (sb.saves || {})[a] ?? (sb.mods[a] || 0), tr = (sb.saveTrained || []).includes(a);
+                return `<div class="flex flex-col gap-0.5"><div class="text-center bg-slate-900 border border-slate-700 rounded p-1"${R({ type: 'check', attr: a, label: a + ' check', bonus: sb.mods[a] || 0 })}><div class="text-[9px] text-slate-500 font-bold">${a}</div><div class="text-xs font-black text-white">${sb.mods[a]>=0?'+':''}${sb.mods[a]}</div></div>
+                <button type="button" class="w-full text-[8px] font-black rounded border px-0 py-0.5 ${tr ? 'bg-emerald-900/40 border-emerald-700 text-emerald-300' : 'bg-slate-800 border-slate-700 text-slate-300'}" title="${a} saving throw (${sv >= 0 ? '+' : ''}${sv}${tr ? ', trained' : ''})"${R({ type: 'check', kind: 'save', attr: a, label: a + ' Save', bonus: sv })}>SAVE ${sv >= 0 ? '+' : ''}${sv}</button></div>`; }).join('')}
         </div>
         <div class="bg-slate-900 border border-slate-700 rounded p-2 mb-2">
             <div class="text-[10px] font-black text-amber-400 uppercase mb-1">Innate Attacks <span class="text-slate-500 normal-case font-bold">(always trained, 3 AP each)</span></div>
@@ -1636,7 +1654,7 @@ function buildStatBlockHtml(sb, editable) {
                 let handTag = w.handLabel ? ` <span class="text-[9px] font-bold text-cyan-300/80">(${w.handLabel}${!w.isTwoHanded && (w.hand === 'main' || w.hand === 'off') ? `<button type="button" title="Switch hands" onclick="window.npcSwapWeaponHand(${sb._npcId ? `'${sb._npcId}'` : 'null'}, ${w.weaponIdx})" class="ml-0.5 text-cyan-400 hover:text-white">⇄</button>` : ''})</span>` : '';
                 return `<div class="text-xs ${blocked ? 'text-slate-500' : 'text-slate-200'}" data-roll-label="${esc(w.name)} damage">${esc(w.name)}${handTag}: ${blocked
                     ? `<span data-no-roll title="Needs ${w.hands} free hands. Stow the shield to use it.">+${w.atk} to hit, ${w.dmg} damage</span>, ${w.ap} AP <span class="text-[10px] text-amber-500/80">(needs ${w.hands} free hands)</span>`
-                    : `<span class="apxd-atk"${R({ type: 'attack', label: w.name, bonus: w.atk, dice: String(w.dmg), critMult: w.critMult || 2, npcId: sb._npcId || null, initId: sb._initId || null, apCost: parseInt(w.ap) || 3, flurry: w.flurry || undefined, hit: hitOf(w) })}>+${w.atk} to hit</span>, ${w.dmg} damage, ${w.ap} AP <span class="text-[10px] text-slate-500">(${w.typeLabel})</span>`}</div>`;
+                    : `<span class="apxd-atk"${R({ type: 'attack', label: w.name, bonus: w.atk, dice: String(w.dmg), critMult: w.critMult || 2, npcId: sb._npcId || null, initId: sb._initId || null, apCost: parseInt(w.ap) || 3, flurry: w.flurry || undefined, ranged: w.category === 'ranged' || undefined, dmgType: w.dmgType || undefined, hit: hitOf(w) })}>+${w.atk} to hit</span>, ${w.dmg} damage, ${w.ap} AP <span class="text-[10px] text-slate-500">(${w.typeLabel})</span>`}</div>`;
             }).join('') : ''}
             ${sb.equippedArmorName ? `<div class="text-xs text-slate-200 mt-1">Armor: ${esc(sb.equippedArmorName)}</div>` : ''}
             ${sb.hasShield ? `<div class="text-xs text-slate-200 mt-1 flex items-center gap-2">Shield (+2 AC/DR/ER, 1 hand): <b class="${sb.shieldOn ? 'text-emerald-400' : 'text-slate-500'}">${sb.shieldOn ? 'held' : 'stowed'}</b>
@@ -1646,7 +1664,7 @@ function buildStatBlockHtml(sb, editable) {
         ${npcCarriedBox(sb, esc)}
         <div class="bg-slate-900 border border-emerald-800/50 rounded p-2 mb-2">
             <div class="text-[10px] font-black text-emerald-400 uppercase mb-1">Trained Skills <span class="text-slate-500 normal-case font-bold">(Training +${sb.trainingBonus})</span></div>
-            <div class="grid grid-cols-2 gap-x-3">${sb.trainedSkills.length ? sb.trainedSkills.map(s => `<div class="text-xs text-slate-200"${R({ type: 'check', label: s.name, bonus: s.total })}>${esc(s.name)} (${s.total >= 0 ? '+' : ''}${s.total})</div>`).join('') : '<div class="text-[10px] text-slate-600 col-span-2">No skills trained</div>'}</div>
+            <div class="grid grid-cols-2 gap-x-3">${sb.trainedSkills.length ? sb.trainedSkills.map(s => `<div class="text-xs text-slate-200"${R({ type: 'check', attr: s.attr || undefined, label: s.name, bonus: s.total })}>${esc(s.name)} (${s.total >= 0 ? '+' : ''}${s.total})</div>`).join('') : '<div class="text-[10px] text-slate-600 col-span-2">No skills trained</div>'}</div>
         </div>
         <div class="grid grid-cols-2 gap-2 mb-2">
             ${defBox('Size / Movement', 'text-blue-400', `<div class="text-[10px] text-slate-300">${sb.size}${sb.swarm ? ' (Swarm)' : ''} · Speed ${sb.speed}</div>
@@ -2023,6 +2041,12 @@ function ncRenderStep5() {
     document.getElementById('ncStep5').querySelector('.ncWeaponList').innerHTML = `
         ${heading('Training')}
         ${stepper(`Training Bonus <span class="text-yellow-500 text-[10px]">[2 TP per +1, starts at +2]</span>`, '+' + c.trainingBonus, `window.ncAdjustTrainingBonus(-1)`, `window.ncAdjustTrainingBonus(1)`)}
+        <div class="bg-slate-900 border border-slate-700 rounded p-2">
+            <div class="text-xs font-bold text-white mb-1">Saving Throw Training <span class="text-yellow-500 text-[10px]">[first ${NPC_FREE_SAVES} free, then ${NPC_SAVE_TP} TP each]</span></div>
+            <div class="flex flex-wrap gap-1">${ATTRIBUTES.map(a => { let on = (c.saveTraining || []).includes(a);
+                return `<button type="button" onclick="window.ncToggleSaveTraining('${a}')" class="text-[10px] font-bold px-2 py-0.5 rounded border ${on ? 'bg-emerald-800 border-emerald-500 text-white' : 'bg-slate-800 border-slate-600 text-slate-300 hover:border-amber-600'}">${a}${on ? ' ✓' : ''}</button>`; }).join('')}</div>
+            <div class="text-[9px] text-slate-500 mt-1">Trained saves add the Training Bonus (+${c.trainingBonus}).${(c.saveTraining || []).length > NPC_FREE_SAVES ? ` ${(c.saveTraining.length - NPC_FREE_SAVES) * NPC_SAVE_TP} TP spent.` : ''}</div>
+        </div>
         <div class="bg-slate-900 border border-slate-700 rounded p-2">
             <div class="flex items-center justify-between mb-1">
                 <span class="text-xs font-bold text-white">Other Skill/Weapon Training <span class="text-yellow-500 text-[10px]">[1 TP each]</span></span>

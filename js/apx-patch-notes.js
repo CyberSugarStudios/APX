@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.9.26.1620',
-        released: '2026-09-26T16:20:00',
-        releasedText: 'September 26, 2026 · 4:20 PM',
+        version: 'v2026.9.26.1709',
+        released: '2026-09-26T17:09:00',
+        releasedText: 'September 26, 2026 · 5:09 PM',
         title: 'Playtest Update',
         intro: 'This update comes straight from our playtest tables. GMs get world rules, a Loot Maker, NPCs that carry and use gear, and magic items that can change almost anything on a sheet. Players get Luck and Looting, trading, shareable Omen dice, Loyal Companions that act on their own turns, powers that roll like weapons and use their AP and Power Slots, weapon properties that apply themselves on a hit, a one-screen Origin Builder, full-resolution maps at any size, and a dice roller with a distinct shape for every die that doubles as the combat log and asks for your Wound and Bleed Out saves. Conditions like Stunned wear off on their own when their time is up, and a reroll that saves you takes a Wound back. Damage is entered in full and the app takes off DR, ER, resistances and immunities for you, and four-armed characters get their extra arms and hands. Initiative runs with or without a battle map, characters are created and switched cleanly, pages load faster (especially on phones), and deleting an account removes all of its data. Your characters and worlds update when you open them. Nothing is lost, and anything a rule change touched is explained.',
         index: [
@@ -24,6 +24,7 @@
                 'Hand out loot from the Loot panel, an NPC\'s window or any Area Circle the NPC stands in. Ask the whole party or a single player for the Loot roll.',
                 'Initiative works on its own. It uses a battle map only when that map is open or picked as the fight\'s Battle map, so a quick fight never turns into "an unseen creature".',
                 'Damage you type is reduced by the target\'s DR or ER (by the attack\'s damage type), resistances and immunities, before or after Start Combat. Each tracker row shows the DR and ER used and the last hit\'s math, and players\' DR and ER match their own sheets.',
+                'NPC stat blocks have a SAVE button under each Core Attribute, NPCs and Loyal Companions can train saving throws (two free, then 2 TP each), and conditions such as Burning, Stunned, Poisoned and Paralyzed work on NPCs in the tracker just as they do on players.',
                 'Saved NPC sorting flips direction with a second click (A–Z to Z–A, highest to lowest), with an arrow on the active sort.'
             ]],
             ['For Players', [
@@ -122,7 +123,7 @@
                 'When you hit, your weapon\'s properties take effect on their own. Crushing asks the target for a STR save (DC 10 + your STR modifier) and knocks them Prone on a failure; if they\'re already Prone, the hit deals an extra damage die instead. Stunning asks for a CON save (DC 10 + STR, or INT for an Electric weapon) or they\'re Stunned. Concealed deals an extra die against a Surprised creature.',
                 'Flurry: once your GM records a hit, your next attack with that weapon this turn has the Flurry AP reduction ticked for you (untick it if you switch targets).',
                 'Every weapon has a damage type, shown under its name and on its rolls: forged weapons use theirs (their energy type if elemental), unarmed strikes are Bludgeoning, and custom or innate weapons pick one from a dropdown (Add Weapon asks for it too). It decides whether DR or ER reduces the damage.',
-                'Each weapon has a hand: Main Hand (right arm) or Off Hand (left arm), plus Off Hand 2 and 3 with four arms. Two-handed weapons take a pair. Weapons fill free hands on their own; pick another hand from the dropdown and whatever was there swaps over. A held shield takes the Off Hand first. With four arms, the Shield box has side-by-side Off, Off 2 and Off 3 buttons: each hand can hold its own shield (from your inventory, or bought), and a hand holding one shows ✓ with an Unequip button beneath. Only one shield\'s +AC/DR/ER counts; the others are held and carried. When an arm is Wounded, you\'re told what it drops and the weapon is marked.',
+                'Each weapon has a hand: Main Hand (right arm) or Off Hand (left arm), plus Off Hand 2 and 3 with four arms. Two-handed weapons take a pair. Weapons fill free hands on their own; pick another hand from the dropdown and whatever was there swaps over. A held shield takes the Off Hand first. With four arms, the Shield box has side-by-side Off, Off 2 and Off 3 buttons: each hand can hold its own shield (from your inventory, or bought), and a hand holding one shows ✓ with an Unequip button beneath. Every shield held adds its +AC/DR/ER (two shields: +4). When an arm is Wounded, you\'re told what it drops and the weapon is marked.',
                 'Loyal Companion weapons show their hand too, with ⇄ to switch.',
                 'Thrown weapons can be made Returning in the Weapon Forge for 300 more Currency (the option sits inside the Thrown card), so they come back to you after the attack. The weapon shows as "Thrown (Returning)".'
             ]],
@@ -175,6 +176,7 @@
             ['Conditions and Injuries', [
                 'Unconscious, Paralyzed or Incapacitated characters see why their attacks and powers are unavailable, for example "(Unconscious)". Unconscious auto-fails STR, AGI, PER, INT and CHA checks (CON still works, for Bleed Out). Paralyzed auto-fails STR and AGI checks.',
                 'Burning deals 1d10 Fire damage at the start of your turn in combat, ignoring ER, unless you\'re immune to Fire.',
+                'Your Loyal Companion\'s stat block has a SAVE button under each Core Attribute. In the Companion builder, Saving Throw Training makes its trained saves add its Training Bonus: the first two are free, then 2 TP each.',
                 'Damage you type in your HP box ("-9", or "35-9" after the 35 already there; phone minus signs work) is the full amount. Your DR (physical) or ER (energy), resistances, vulnerabilities and immunities are taken off, using the damage type of the enemy attack your GM just rolled. Type "-9 fire" to name the type yourself; if nothing says, you\'re asked. The dice tray shows the math. If it comes to 0, your GM still counts the hit, so its effects (a Stunning save, for one) apply. Your sheet sends the damage and its math to your GM\'s tracker, which adds any extra dice (a Torso Wound, for one) and offers your Reactions.',
                 'Your GM sees the same AC, DR, ER, Wound Threshold and resistances your sheet shows (shield, helmet, perks and magic items included): your sheet saves them with your character.',
                 'Both legs Wounded: you fall Prone automatically and can\'t stand up (the Prone tag can\'t be removed) until one leg heals.',
@@ -291,6 +293,7 @@
                 'Players\' sheets are told the damage type of the NPC attack you just rolled, so damage they type there is reduced the same way, and their sheet sends you the damage and its math. For a few seconds after your tracker changes a player\'s HP, an older save from their sheet can\'t undo it.',
                 'The hit weapon\'s properties apply to that target. Crushing: a STR save (DC 10 + the attacker\'s STR modifier) or Prone, or +1 damage die against a Prone target. Stunning: a CON save or Stunned. Concealed: +1 damage die against a Surprised target. Extra dice go straight onto HP and count toward the Wound Threshold. Grappling is noted for you to apply, and Tearing stays manual.',
                 'Stunned from a Stunning weapon ends by itself at the end of the attacker\'s next turn, and the log says so. Being Stunned again restarts it. A Stunned creature starts its turn with 0 AP (NPCs here, players on their sheets).',
+                'Conditions work on NPCs and companions in the tracker the way they do on players\' sheets. Stunned, Incapacitated, Paralyzed, Unconscious or Bleeding Out: no AP when their turn starts. Burning: 1d10 Fire at the start of their turn, rolled in your tray, ignoring ER (nothing if immune to Fire, more with a Fire Vulnerability). Their rolls from the stat block take Disadvantage and Advantage from their conditions (Poisoned, Frightened, Blinded, Prone melee and ranged, Restrained AGI saves…), auto-fail where a condition says so (Paralyzed STR and AGI), and an Incapacitated creature\'s attack asks before rolling.',
                 'Incapacitated targets (including anyone Stunned, Paralyzed or Unconscious) take every hit as a Critical Hit: a hit that didn\'t roll one gets the crit\'s extra damage dice added for you, with the attacker\'s High Roller rerolls, and the log notes it bypasses their resistances.',
                 'If a Luck reroll or an Omen die turns that failed save into a success, the limb buttons are replaced with the result, and a limb you already picked is taken off their sheet.',
                 'Reactions to a Critical Hit: when an NPC\'s Critical Hit lands on a player who can use one (Defensive Rank 5 while unarmored, or an intact Helmet to destroy), they get a button for it. Using it gives back the crit\'s extra damage on your tracker, then re-checks the Wound Threshold: the save is dropped or its DC lowered, a limb choice is withdrawn if the save now succeeds, and a player back above 0 HP stops Bleeding Out.',
@@ -310,6 +313,7 @@
             ]],
             ['NPC Crafter', [
                 'Each equipped weapon shows its hand on the stat block (Main Hand, Off Hand, or Both Hands), with ⇄ to switch. A held shield takes the Off Hand.',
+                'Saving throws: every NPC stat block has a SAVE button under each Core Attribute, and the saves the log asks NPCs for use it. Saving Throw Training (Step 5, Training) trains saves to add the Training Bonus: the first two are free, then 2 TP each.',
                 'Shields (+2 AC/DR/ER, 4 TP, one hand) and Helmets (+1 AC/DR/ER, 2 TP). Stat blocks count free hands and have an Equip/Stow Shield button, and two-handed attacks can\'t be rolled while the shield is up.',
                 'Each +2 DR/ER purchase (1 TP) adds 2.',
                 'Die-step and extra-dice buttons switch off at their maximum, so clicks never land on what\'s behind them.',

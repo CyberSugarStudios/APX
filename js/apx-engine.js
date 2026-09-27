@@ -266,9 +266,9 @@
                 armorEr += window.state.equippedShield.er;
                 armorWt += window.state.equippedShield.wt;
             }
-            // More shields (four arms: one per Off Hand): carried and held, but their bonuses don't add up
+            // More shields (four arms: one per Off Hand): each one adds its AC/DR/ER, like the first
             if (!Array.isArray(window.state.extraShields)) window.state.extraShields = [];
-            window.state.extraShields.forEach(x => { armorWt += x.wt || 0; });
+            window.state.extraShields.forEach(x => { armorAc += x.ac || 0; armorDr += x.dr || 0; armorEr += x.er || 0; armorWt += x.wt || 0; });
             if (window.state.equippedHelmet.equipped && !window.state.equippedHelmet.broken) {
                 armorAc += window.state.equippedHelmet.ac;
                 armorDr += window.state.equippedHelmet.dr;
@@ -439,12 +439,12 @@
                         hb.classList.toggle('hidden', !many); shieldBtn.classList.toggle('hidden', many);
                         if (many) {
                             // Four arms: a shield can be held in each Off Hand. Each hand has its own Equip and, once
-                            // it holds one, an Unequip beneath. (Only one shield's +AC/DR/ER counts.)
+                            // it holds one, an Unequip beneath. Every shield held adds its +AC/DR/ER.
                             window.apxAssignHands && window.apxAssignHands();
                             let L = window.APX_HAND_LABEL || {};
                             let heldIn = h => (s.equipped && (s.hands || [])[0] === h) ? 'main' : ((window.state.extraShields || []).some(x => (x.hands || [x.hand])[0] === h) ? 'extra' : null);
                             let n = (s.equipped ? 1 : 0) + (window.state.extraShields || []).length;
-                            if (shieldStatusEl && n > 1) shieldStatusEl.innerText = `${n} shields held (+${s.ac} AC/DR/ER, doesn't stack)`;
+                            if (shieldStatusEl && n > 1) shieldStatusEl.innerText = `${n} shields held (+${(s.ac || 0) + (window.state.extraShields || []).reduce((t, x) => t + (x.ac || 0), 0)} AC/DR/ER)`;
                             hb.innerHTML = offs.map(h => { let held = heldIn(h), lab = (L[h] || h).replace('Off Hand', 'Off');
                                 return `<div class="flex-1 min-w-0 flex flex-col gap-0.5">
                                     <button type="button" onclick="window.equipShieldHand('${h}')" ${held ? 'disabled' : ''} title="${held ? 'Holding a shield' : 'Equip a shield in your ' + (L[h] || h)}"
