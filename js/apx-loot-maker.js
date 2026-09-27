@@ -59,7 +59,8 @@
         tok.loot.cu = Math.max(0, parseInt(tok.loot.cu) || 0);
         return tok.loot;
     }
-    function areaLabel(tok) { return `Area ${tok.letter}${tok.name ? ' (' + tok.name + ')' : ''}`; }
+    // Area Circles and Special Map Markers both hold loot (a chest, a hidden cache, a trapped altar…)
+    function areaLabel(tok) { return `${tok.type === 'special' ? 'Marker' : 'Area'} ${tok.letter}${tok.name ? ' (' + tok.name + ')' : ''}`; }
     // NPC stat blocks (NPC Crafter) carry their own gear: npc.carriedItems = [{ id, item }], npc.carriedCu
     function npcOf(npcId) { return (window.gmNpcs || []).find(n => n.id === npcId)?.npc || null; }
     function npcLoot(c) {
@@ -439,7 +440,7 @@
                         <button onclick="window.apxGiveSectionLoot('${k}','${esc(l.id)}',this)" style="${btn('#047857', '#059669', '#fff')}">Give</button>
                         <button onclick="window.apxRemoveSectionLoot('${k}','${esc(l.id)}')" title="Remove" style="${btn('#1e293b', '#475569', '#cbd5e1')}">✕</button>
                     </div></div>`;
-            }).join('') || `<div style="font-size:.62rem;color:#64748b;margin-bottom:.25rem">${t.kind === 'npc' ? 'Nothing carried. Items added here drop as loot when this NPC dies.' : 'No items. Use Loot Maker to stock this area.'}</div>`}
+            }).join('') || `<div style="font-size:.62rem;color:#64748b;margin-bottom:.25rem">${t.kind === 'npc' ? 'Nothing carried. Items added here drop as loot when this NPC dies.' : `No items. Use Loot Maker to stock this ${r.tok && r.tok.type === 'special' ? 'marker' : 'area'}.`}</div>`}
             ${pool.length ? `<select onchange="if(this.value){window.apxMoveLootToArea('${esc(t.mapId)}','${esc(t.tokId)}',this.value)}" style="${s};width:100%;margin-bottom:.3rem;color:#94a3b8">
                 <option value="">Move an item here from the Loot list…</option>${pool.map(l => `<option value="${esc(l.id)}">${esc(l.item.name)}${l.from ? ' (' + esc(l.from) + ')' : ''}</option>`).join('')}</select>` : ''}
             <div style="display:flex;align-items:center;gap:.25rem;margin-top:.15rem">

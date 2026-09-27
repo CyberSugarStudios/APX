@@ -450,8 +450,8 @@
                 }
         
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20269262345">
-    <link rel="stylesheet" href="css/tailwind.css?v=20269262345">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20269271107">
+    <link rel="stylesheet" href="css/tailwind.css?v=20269271107">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
@@ -1508,35 +1508,35 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20269262345"></script>
-    <script src="js/apx-patch-notes.js?v=20269262345"></script>
-    <script src="js/apx-dice.js?v=20269262345"></script>
-    <script src="js/apx-data.js?v=20269262345"></script>
-    <script src="js/apx-item-effects.js?v=20269262345"></script>
-    <script src="js/apx-perks-db.js?v=20269262345"></script>
-    <script src="js/apx-migrations.js?v=20269262345"></script>
-    <script src="js/apx-state.js?v=20269262345"></script>
-    <script src="js/apx-craft-shared.js?v=20269262345"></script>
-    <script src="js/apx-armor-forge.js?v=20269262345"></script>
-    <script src="js/apx-weapon-forge.js?v=20269262345"></script>
-    <script src="js/apx-consumable-crafter.js?v=20269262345"></script>
-    <script src="js/apx-perks-ui.js?v=20269262345"></script>
-    <script src="js/apx-power-crafter.js?v=20269262345"></script>
-    <script src="js/apx-npc-crafter.js?v=20269262345"></script>
-    <script src="js/apx-inventory-ui.js?v=20269262345"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20269262345"></script>
-    <script src="js/apx-gm-screen.js?v=20269262345"></script>
-    <script src="js/apx-loot-maker.js?v=20269262345"></script>
-    <script src="js/apx-gmtools-main.js?v=20269262345"></script>
+    <script src="js/apx-dialogs.js?v=20269271107"></script>
+    <script src="js/apx-patch-notes.js?v=20269271107"></script>
+    <script src="js/apx-dice.js?v=20269271107"></script>
+    <script src="js/apx-data.js?v=20269271107"></script>
+    <script src="js/apx-item-effects.js?v=20269271107"></script>
+    <script src="js/apx-perks-db.js?v=20269271107"></script>
+    <script src="js/apx-migrations.js?v=20269271107"></script>
+    <script src="js/apx-state.js?v=20269271107"></script>
+    <script src="js/apx-craft-shared.js?v=20269271107"></script>
+    <script src="js/apx-armor-forge.js?v=20269271107"></script>
+    <script src="js/apx-weapon-forge.js?v=20269271107"></script>
+    <script src="js/apx-consumable-crafter.js?v=20269271107"></script>
+    <script src="js/apx-perks-ui.js?v=20269271107"></script>
+    <script src="js/apx-power-crafter.js?v=20269271107"></script>
+    <script src="js/apx-npc-crafter.js?v=20269271107"></script>
+    <script src="js/apx-inventory-ui.js?v=20269271107"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20269271107"></script>
+    <script src="js/apx-gm-screen.js?v=20269271107"></script>
+    <script src="js/apx-loot-maker.js?v=20269271107"></script>
+    <script src="js/apx-gmtools-main.js?v=20269271107"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20269262345"></script>
-    <script src="js/apx-firebase.js?v=20269262345"></script>
-    <script src="js/apx-battlemap.js?v=20269262345"></script>
-    <script src="js/apx-map-tiles.js?v=20269262345"></script>
+    <script src="js/firebase-config.js?v=20269271107"></script>
+    <script src="js/apx-firebase.js?v=20269271107"></script>
+    <script src="js/apx-battlemap.js?v=20269271107"></script>
+    <script src="js/apx-map-tiles.js?v=20269271107"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -3122,6 +3122,9 @@ document.addEventListener('DOMContentLoaded', () => {
         _omTransform(winId, win);
     };
 
+    // Special Map Markers (a single character, no circle)
+    const APX_SPECIAL_ON = '#fde047', APX_SPECIAL_OFF = '#ff6bff';
+    const APX_SPECIAL_OUTLINE = '1px 1px 0 #000,-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,0 1px 0 #000,0 -1px 0 #000,1px 0 0 #000,-1px 0 0 #000,0 0 6px rgba(0,0,0,.95)';
     function _omRenderTok(winId, win) {
         let layer=document.getElementById(winId+'_tok'); if(!layer) return;
         if (window.apxMapTipHide) window.apxMapTipHide();   // (the markers are redrawn: a tooltip mustn't be left behind)
@@ -3136,19 +3139,21 @@ document.addEventListener('DOMContentLoaded', () => {
         layer.innerHTML=(map.tokens||[]).map(t=>{
             let isSpecial = t.type === 'special';
             if (isSpecial) {
-                // Special markers: just the character, no circle, purple/amber color
-                return `<div data-om-token="${t.id} onmouseenter="window.apxMapTip(event, decodeURIComponent('${encodeURIComponent(t.name || (isSpecial ? '' : 'Area ' + t.letter))}'))" onmousemove="window.apxMapTip(event)" onmouseleave="window.apxMapTipHide()" style="position:absolute;left:${t.x*iw}px;top:${t.y*ih}px;
-                    transform:translate(-50%,-50%) scale(${ps});transform-origin:50% 50%;
+                // Special Map Marker: just the character, bright and outlined so it reads on any map (yellow once revealed, magenta while hidden).
+                // Never smaller than a 14px letter on screen, so it stays readable zoomed out.
+                let pss = Math.max(ps, 14 / (20 * (win._scale > 0 ? win._scale : 1)));
+                return `<div data-om-token="${t.id}" onmouseenter="window.apxMapTip(event, decodeURIComponent('${encodeURIComponent(t.name || 'Marker ' + t.letter)}'))" onmousemove="window.apxMapTip(event)" onmouseleave="window.apxMapTipHide()" style="position:absolute;left:${t.x*iw}px;top:${t.y*ih}px;
+                    transform:translate(-50%,-50%) scale(${pss});transform-origin:50% 50%;
                     pointer-events:${tokPE};cursor:${fogActive?'default':'pointer'};will-change:transform;"
                     onclick="event.stopPropagation();window.openTokenInfoWin('${mapId}','${t.id}','${winId}',true)">
-                    <div style="font-size:15px;font-weight:900;color:${t.revealed?'#fbbf24':'#a78bfa'};
-                        text-shadow:0 0 4px rgba(0,0,0,1),0 0 8px rgba(0,0,0,0.8);
+                    <div style="font-size:20px;font-weight:900;color:${t.revealed?APX_SPECIAL_ON:APX_SPECIAL_OFF};
+                        text-shadow:${APX_SPECIAL_OUTLINE};
                         user-select:none;line-height:1;"
                         onmouseenter="if(!${fogActive}) this.style.transform='scale(1.3)'" onmouseleave="this.style.transform=''">${t.letter}</div>
                 </div>`;
             }
             // Standard area circle
-            return `<div data-om-token="${t.id} onmouseenter="window.apxMapTip(event, decodeURIComponent('${encodeURIComponent(t.name || (isSpecial ? '' : 'Area ' + t.letter))}'))" onmousemove="window.apxMapTip(event)" onmouseleave="window.apxMapTipHide()" style="position:absolute;left:${t.x*iw}px;top:${t.y*ih}px;
+            return `<div data-om-token="${t.id}" onmouseenter="window.apxMapTip(event, decodeURIComponent('${encodeURIComponent(t.name || 'Area ' + t.letter)}'))" onmousemove="window.apxMapTip(event)" onmouseleave="window.apxMapTipHide()" style="position:absolute;left:${t.x*iw}px;top:${t.y*ih}px;
                 transform:translate(-50%,-50%) scale(${ps});transform-origin:50% 50%;
                 pointer-events:${tokPE};cursor:${fogActive?'default':'pointer'};will-change:transform;"
                 onclick="event.stopPropagation();window.openTokenInfoWin('${mapId}','${t.id}','${winId}',true)">
@@ -4768,9 +4773,11 @@ document.addEventListener('DOMContentLoaded', () => {
         win.innerHTML=`
             <div id="${winId}_hdr" style="cursor:grab;user-select:none;background:#312e81;padding:0.5rem 0.75rem;
                 border-bottom:1px solid #4f46e5;border-radius:0.5rem 0.5rem 0 0;display:flex;align-items:center;gap:0.5rem;">
-                <div style="width:24px;height:24px;background:#dc2626;border:2px solid #fff;border-radius:50%;
-                    display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#fff;flex-shrink:0;">${tok.letter}</div>
-                <span style="font-size:0.75rem;font-weight:700;color:#e2e8f0;flex:1;">${tok.type==='special'?`* Marker ${tok.letter}`:`Area ${tok.letter}`}</span>
+                ${tok.type==='special'
+                    ? `<div style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:900;line-height:1;color:${tok.revealed?APX_SPECIAL_ON:APX_SPECIAL_OFF};text-shadow:${APX_SPECIAL_OUTLINE};flex-shrink:0;">${tok.letter}</div>`
+                    : `<div style="width:24px;height:24px;background:${tok.revealed?'#16a34a':'#dc2626'};border:2px solid #fff;border-radius:50%;
+                    display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#fff;flex-shrink:0;">${tok.letter}</div>`}
+                <span style="font-size:0.75rem;font-weight:700;color:#e2e8f0;flex:1;">${tok.type==='special'?`Marker ${tok.letter}`:`Area ${tok.letter}`}</span>
                 ${readOnly?`<button onclick="window._omToggleTokReveal('${mapId}','${tokenId}','${parentWinId}')" title="${tok.revealed?'Players can see this area. Click to hide it.':'Hidden from players. Click to reveal it.'}"
                     style="font-size:0.65rem;font-weight:700;padding:0.2rem 0.5rem;background:${tok.revealed?'#064e3b':'#1e293b'};border:1px solid ${tok.revealed?'#10b981':'#475569'};color:${tok.revealed?'#6ee7b7':'#94a3b8'};border-radius:0.25rem;cursor:pointer;">${tok.revealed?'Revealed':'Hidden'}</button>
                 <button onclick="document.getElementById('${winId}').remove();window.openTokenInfoWin('${mapId}','${tokenId}','${parentWinId}',false)"
@@ -4808,7 +4815,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${!readOnly?`<button onclick="window.openMapPickerForToken('${mapId}','${tokenId}','${winId}')"
                     style="width:100%;background:#1e3a5f;border:1px solid #2563eb;color:#93c5fd;font-size:0.65rem;font-weight:700;padding:0.25rem;border-radius:0.25rem;cursor:pointer;margin-bottom:0.25rem;">[Map] Link Maps…</button>`:''}
                 <div id="${winId}_subnotes" style="margin-bottom:0.15rem;">${_buildTokenSubnotes(tok, winId, readOnly, mapId, tokenId)}</div>
-                ${tok.type!=='special'&&window.apxAreaLinkedLootHtml?`<div id="${winId}_lootWrap" style="margin-bottom:0.25rem;">${window.apxAreaLinkedLootHtml(mapId, tokenId, winId)}</div>`:''}
+                ${window.apxAreaLinkedLootHtml?`<div id="${winId}_lootWrap" style="margin-bottom:0.25rem;">${window.apxAreaLinkedLootHtml(mapId, tokenId, winId)}</div>`:''}
                 ${!readOnly?`<button onclick="window.addTokenSubnote('${mapId}','${tokenId}','${winId}')"
                     style="width:100%;background:#1e293b;border:1px solid #334155;color:#64748b;font-size:0.65rem;font-weight:700;padding:0.2rem;border-radius:0.25rem;cursor:pointer;margin-bottom:0.25rem;">+ Add Sub-note</button>`:''}
                 ${!readOnly?`<div style="display:flex;gap:0.5rem;">
