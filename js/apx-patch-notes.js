@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.9.26.1709',
-        released: '2026-09-26T17:09:00',
-        releasedText: 'September 26, 2026 · 5:09 PM',
+        version: 'v2026.9.26.1722',
+        released: '2026-09-26T17:22:00',
+        releasedText: 'September 26, 2026 · 5:22 PM',
         title: 'Playtest Update',
         intro: 'This update comes straight from our playtest tables. GMs get world rules, a Loot Maker, NPCs that carry and use gear, and magic items that can change almost anything on a sheet. Players get Luck and Looting, trading, shareable Omen dice, Loyal Companions that act on their own turns, powers that roll like weapons and use their AP and Power Slots, weapon properties that apply themselves on a hit, a one-screen Origin Builder, full-resolution maps at any size, and a dice roller with a distinct shape for every die that doubles as the combat log and asks for your Wound and Bleed Out saves. Conditions like Stunned wear off on their own when their time is up, and a reroll that saves you takes a Wound back. Damage is entered in full and the app takes off DR, ER, resistances and immunities for you, and four-armed characters get their extra arms and hands. Initiative runs with or without a battle map, characters are created and switched cleanly, pages load faster (especially on phones), and deleting an account removes all of its data. Your characters and worlds update when you open them. Nothing is lost, and anything a rule change touched is explained.',
         index: [
@@ -24,7 +24,7 @@
                 'Hand out loot from the Loot panel, an NPC\'s window or any Area Circle the NPC stands in. Ask the whole party or a single player for the Loot roll.',
                 'Initiative works on its own. It uses a battle map only when that map is open or picked as the fight\'s Battle map, so a quick fight never turns into "an unseen creature".',
                 'Damage you type is reduced by the target\'s DR or ER (by the attack\'s damage type), resistances and immunities, before or after Start Combat. Each tracker row shows the DR and ER used and the last hit\'s math, and players\' DR and ER match their own sheets.',
-                'NPC stat blocks have a SAVE button under each Core Attribute, NPCs and Loyal Companions can train saving throws (two free, then 2 TP each), and conditions such as Burning, Stunned, Poisoned and Paralyzed work on NPCs in the tracker just as they do on players.',
+                'NPC stat blocks have a SAVE button under each Core Attribute, NPCs and Loyal Companions can train saving throws (2 TP each), and conditions such as Burning, Stunned, Poisoned and Paralyzed work on NPCs in the tracker just as they do on players.',
                 'Saved NPC sorting flips direction with a second click (A–Z to Z–A, highest to lowest), with an arrow on the active sort.'
             ]],
             ['For Players', [
@@ -176,7 +176,7 @@
             ['Conditions and Injuries', [
                 'Unconscious, Paralyzed or Incapacitated characters see why their attacks and powers are unavailable, for example "(Unconscious)". Unconscious auto-fails STR, AGI, PER, INT and CHA checks (CON still works, for Bleed Out). Paralyzed auto-fails STR and AGI checks.',
                 'Burning deals 1d10 Fire damage at the start of your turn in combat, ignoring ER, unless you\'re immune to Fire.',
-                'Your Loyal Companion\'s stat block has a SAVE button under each Core Attribute. In the Companion builder, Saving Throw Training makes its trained saves add its Training Bonus: the first two are free, then 2 TP each.',
+                'Your Loyal Companion\'s stat block has a SAVE button under each Core Attribute. In the Companion builder, Saving Throw Training (2 TP each) grants its Training Bonus to one saving throw.',
                 'Damage you type in your HP box ("-9", or "35-9" after the 35 already there; phone minus signs work) is the full amount. Your DR (physical) or ER (energy), resistances, vulnerabilities and immunities are taken off, using the damage type of the enemy attack your GM just rolled. Type "-9 fire" to name the type yourself; if nothing says, you\'re asked. The dice tray shows the math. If it comes to 0, your GM still counts the hit, so its effects (a Stunning save, for one) apply. Your sheet sends the damage and its math to your GM\'s tracker, which adds any extra dice (a Torso Wound, for one) and offers your Reactions.',
                 'Your GM sees the same AC, DR, ER, Wound Threshold and resistances your sheet shows (shield, helmet, perks and magic items included): your sheet saves them with your character.',
                 'Both legs Wounded: you fall Prone automatically and can\'t stand up (the Prone tag can\'t be removed) until one leg heals.',
@@ -313,7 +313,7 @@
             ]],
             ['NPC Crafter', [
                 'Each equipped weapon shows its hand on the stat block (Main Hand, Off Hand, or Both Hands), with ⇄ to switch. A held shield takes the Off Hand.',
-                'Saving throws: every NPC stat block has a SAVE button under each Core Attribute, and the saves the log asks NPCs for use it. Saving Throw Training (Step 5, Training) trains saves to add the Training Bonus: the first two are free, then 2 TP each.',
+                'Saving throws: every NPC stat block has a SAVE button under each Core Attribute, and the saves the log asks NPCs for use it. Saving Throw Training (Step 5, 2 TP each) grants the Training Bonus to one saving throw.',
                 'Shields (+2 AC/DR/ER, 4 TP, one hand) and Helmets (+1 AC/DR/ER, 2 TP). Stat blocks count free hands and have an Equip/Stow Shield button, and two-handed attacks can\'t be rolled while the shield is up.',
                 'Each +2 DR/ER purchase (1 TP) adds 2.',
                 'Die-step and extra-dice buttons switch off at their maximum, so clicks never land on what\'s behind them.',

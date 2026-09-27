@@ -1,5 +1,5 @@
-// Saving Throw Training (NPCs and Loyal Companions): the first two are free, each one after costs 2 TP
-var NPC_FREE_SAVES = 2, NPC_SAVE_TP = 2;
+// Saving Throw Training (NPCs and Loyal Companions): 2 TP each
+var NPC_FREE_SAVES = 0, NPC_SAVE_TP = 2;
 // APX npc-crafter v2026.9.18.0950 build 1789749908
 // ============================================================
 // APX Character Sheet — NPC Crafter (Loyal Companion + GM NPC Builder)
@@ -141,7 +141,7 @@ function getBlankCompanion() {
         damageResistances: [], // specific damage types this creature resists (+5 each), 2 TP each
         trainingBonus: 2, // starts at +2 like PCs; +2 TP per +1 increase
         otherTrainings: [], // free-text list of trained skills/weapon types (Innate Weapons are always trained for free), 1 TP each
-        saveTraining: [],   // attributes whose saving throws are trained: the first 2 are free, then 2 TP each
+        saveTraining: [],   // attributes whose saving throws are trained: 2 TP each
         innateWeapons: [ncNewInnateWeapon()], // claws, fangs, horns... each built separately (Step 5)
         powerAttr: null, // Power casting attribute; null = auto (best of INT/CHA)
         powers: [], // [{name, lvl, ap, atk, rng, dmg, desc, draft, tp}]
@@ -234,7 +234,7 @@ window.companionTpSpent = function() {
     spent += (c.damageResistances || []).length * 2;
     spent += (c.trainingBonus - 2) * 2; // Training Bonus purchases, 2 TP per +1 above the starting +2
     spent += c.otherTrainings.length; // Skill/Weapon Training, 1 TP each (Innate Weapons are free/automatic)
-    spent += Math.max(0, (c.saveTraining || []).length - NPC_FREE_SAVES) * NPC_SAVE_TP; // Saving Throw Training: 2 free, then 2 TP each
+    spent += Math.max(0, (c.saveTraining || []).length - NPC_FREE_SAVES) * NPC_SAVE_TP; // Saving Throw Training: 2 TP each
     (c.innateWeapons || []).forEach(w => { spent += ncInnateWeaponTp(w); });
     c.powers.forEach(p => { spent += p.tp; });
     [1, 2, 3, 4, 5].forEach(lvl => { spent += c.casterSlots[lvl] * ({ 1: 1, 2: 2, 3: 3, 4: 5, 5: 10 })[lvl]; });
@@ -2042,10 +2042,10 @@ function ncRenderStep5() {
         ${heading('Training')}
         ${stepper(`Training Bonus <span class="text-yellow-500 text-[10px]">[2 TP per +1, starts at +2]</span>`, '+' + c.trainingBonus, `window.ncAdjustTrainingBonus(-1)`, `window.ncAdjustTrainingBonus(1)`)}
         <div class="bg-slate-900 border border-slate-700 rounded p-2">
-            <div class="text-xs font-bold text-white mb-1">Saving Throw Training <span class="text-yellow-500 text-[10px]">[first ${NPC_FREE_SAVES} free, then ${NPC_SAVE_TP} TP each]</span></div>
+            <div class="text-xs font-bold text-white mb-1">Saving Throw Training <span class="text-yellow-500 text-[10px]">[${NPC_SAVE_TP} TP each]</span></div>
             <div class="flex flex-wrap gap-1">${ATTRIBUTES.map(a => { let on = (c.saveTraining || []).includes(a);
                 return `<button type="button" onclick="window.ncToggleSaveTraining('${a}')" class="text-[10px] font-bold px-2 py-0.5 rounded border ${on ? 'bg-emerald-800 border-emerald-500 text-white' : 'bg-slate-800 border-slate-600 text-slate-300 hover:border-amber-600'}">${a}${on ? ' ✓' : ''}</button>`; }).join('')}</div>
-            <div class="text-[9px] text-slate-500 mt-1">Trained saves add the Training Bonus (+${c.trainingBonus}).${(c.saveTraining || []).length > NPC_FREE_SAVES ? ` ${(c.saveTraining.length - NPC_FREE_SAVES) * NPC_SAVE_TP} TP spent.` : ''}</div>
+            <div class="text-[9px] text-slate-500 mt-1">Grants the Training Bonus (+${c.trainingBonus}) to one saving throw.</div>
         </div>
         <div class="bg-slate-900 border border-slate-700 rounded p-2">
             <div class="flex items-center justify-between mb-1">
