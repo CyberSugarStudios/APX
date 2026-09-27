@@ -786,6 +786,27 @@ function _markSavedNpcSortButtons() {
     });
 }
 
+// World tags (NPC Roster → World): a stat block tagged with worlds only shows up in those worlds.
+// Untagged stat blocks show everywhere. Tags are world names (older ones) or invite codes / ids.
+function _gmActiveWorld() {
+    let worlds = typeof _gmWorlds !== 'undefined' ? _gmWorlds : (window._gmWorlds || []);
+    let id = typeof _activeWorldId !== 'undefined' ? _activeWorldId : null;
+    return (worlds || []).find(w => (w.worldId || w.id) === id) || null;
+}
+window.apxGmActiveWorld = _gmActiveWorld;
+window.apxNpcInActiveWorld = function(entry) {
+    let tags = (entry && Array.isArray(entry.worldTags)) ? entry.worldTags.filter(Boolean) : [];
+    if (!tags.length) return true;
+    let w = _gmActiveWorld(); if (!w) return true;
+    return tags.includes(w.name || 'Unnamed') || (w.inviteCode && tags.includes(w.inviteCode)) || tags.includes(w.worldId || w.id);
+};
+// "3 stat blocks from other worlds are hidden." (with a Show them link) for NPC lists
+window.apxNpcHiddenNote = function(hidden, showAllJs) {
+    if (!hidden) return '';
+    let w = _gmActiveWorld();
+    return `<div class="text-[10px] text-slate-500 mb-1">${hidden} stat block${hidden === 1 ? '' : 's'} tagged for other worlds ${hidden === 1 ? 'is' : 'are'} hidden in ${String(w?.name || 'this world').replace(/</g, '&lt;')}.${showAllJs ? ` <button onclick="${showAllJs}" class="text-amber-400 hover:text-amber-300 font-bold underline">Show all</button>` : ''}</div>`;
+};
+
 window.renderSavedNpcPickerList = function() {
     let body = document.getElementById('savedNpcPickerList');
     if (!body) return;
@@ -794,8 +815,10 @@ window.renderSavedNpcPickerList = function() {
         return;
     }
     let search = (document.getElementById('savedNpcSearch').value || '').trim().toLowerCase();
-    let rows = window.gmNpcs
-        .map((n, idx) => ({ idx, npc: n.npc, sb: ncStatBlockFor(n.id), tier: npcTierForTP(n.npc.gmTpBudget || 0).tier }))
+    let inWorld = window.gmNpcs.map((n, idx) => ({ n, idx })).filter(x => window.apxNpcInActiveWorld(x.n));
+    let hidden = window.gmNpcs.length - inWorld.length;
+    let rows = inWorld
+        .map(({ n, idx }) => ({ idx, npc: n.npc, sb: ncStatBlockFor(n.id), tier: npcTierForTP(n.npc.gmTpBudget || 0).tier }))
         .filter(r => !search || (r.npc.name || '').toLowerCase().includes(search));
 
     let sortFns = {
@@ -815,10 +838,10 @@ window.renderSavedNpcPickerList = function() {
     _markSavedNpcSortButtons();
 
     if (!rows.length) {
-        body.innerHTML = '<div class="text-xs text-slate-500 text-center py-6">No NPCs match that search.</div>';
+        body.innerHTML = window.apxNpcHiddenNote(hidden) + `<div class="text-xs text-slate-500 text-center py-6">${search ? 'No NPCs match that search.' : 'No stat blocks for this world yet. Tag one for it in the NPC Roster (World button).'}</div>`;
         return;
     }
-    body.innerHTML = rows.map(r => `
+    body.innerHTML = window.apxNpcHiddenNote(hidden) + rows.map(r => `
         <div class="flex items-center justify-between bg-slate-900 border border-slate-700 rounded p-2">
             <div>
                 <div class="text-sm font-bold text-purple-300">${r.npc.name || 'Unnamed'}</div>
@@ -901,6 +924,7 @@ function _gmNpcLootItems(npc, entry) {
     (npc.carriedItems || []).forEach(l => {
         if (!l || !l.item) return;
         let it = clone(l.item);
+        if (it.isCustomEquippable) it.equipped = false;   // taken off the body
         if (it.isConsumable) {
             let used = (entry && entry.carriedUsed && entry.carriedUsed[l.id]) || 0;
             it.chargesRemaining = Math.max(0, (it.chargesRemaining ?? it.charges ?? 1) - used);
@@ -1000,7 +1024,7 @@ window.renderGmLoot = function() {
     let kind = it => it.isWeapon ? 'Weapon' : it.isArmor ? 'Armor' : it.isShield ? 'Shield' : it.isHelmet ? 'Helmet' : 'Item';
     let stats = it => it.isWeapon ? `${it.weaponData?.dmg || ''}, ${it.weaponData?.ap || '?'} AP`
         : it.isArmor ? `+${it.armorData?.ac || 0} AC, +${it.armorData?.dr || 0} DR, +${it.armorData?.er || 0} ER`
-        : it.isShield ? '+2 AC/DR/ER' : it.isHelmet ? '+1 AC/DR/ER' : (it.desc || '');
+        : it.isShield ? '+2 AC/DR/ER' : it.isHelmet ? '+1 AC/DR/ER' : (window.apxLootStats ? window.apxLootStats(it) : (it.desc || ''));
     // Group items by the creature they came from
     let groups = [];
     list.forEach(l => { let g = groups.find(x => x.from === (l.from || '')); if (!g) groups.push(g = { from: l.from || '', items: [] }); g.items.push(l); });
@@ -1011,10 +1035,12 @@ window.renderGmLoot = function() {
             <div class="text-[10px] font-bold text-slate-400 mb-0.5">${g.from ? 'From ' + esc(g.from) : 'Other'}</div>
             ${g.items.map(l => {
                 let cur = partyIds.has(sel[l.id]) ? sel[l.id] : '';
+                let canEdit = window.apxLootIsEditable && window.apxLootIsEditable(l.item);
                 return `<div class="grid items-center gap-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 mb-1" style="grid-template-columns:minmax(0,1fr) auto auto auto" data-loot="${esc(l.id)}">
                     <div class="min-w-0 leading-tight">
                         <span class="text-[11px] font-bold text-amber-200">${esc(l.item.name)}${l.item.ct > 1 ? ` ×${l.item.ct}` : ''}</span>
                         <span class="text-[9px] text-slate-500 ml-1">${kind(l.item)} · ${esc(stats(l.item))}</span>
+                        ${canEdit ? `<button onclick="window.apxEditPoolLoot('${esc(l.id)}')" title="Edit this item" class="text-[9px] text-amber-300 hover:text-amber-200 font-bold ml-1 underline">Edit</button>` : ''}
                     </div>
                     <select class="gm-loot-to ${selCls}" style="width:6.5rem" onchange="window._gmLootSel['${esc(l.id)}']=this.value" ${party.length ? '' : 'disabled'}>
                         <option value="">Give to…</option>${opts(cur)}</select>
@@ -1913,6 +1939,7 @@ function _gmDefenseOf(entry) {
         (sb.damageResistances || []).forEach(t => { let k = N(t); def.res[k] = (def.res[k] || 0) + 5; });
         (sb.energyVulnerabilities || []).forEach(t => { let k = N(t); def.res[k] = (def.res[k] || 0) - 5; });
         (sb.energyImmunities || []).forEach(t => def.immune.push(N(t)));
+        (sb.itemEr || []).forEach(r => { let k = N(r.type); if (k) def.res[k] = (def.res[k] || 0) + (parseInt(r.amount) || 0); });   // worn items
     } else { def.dr = parseInt(entry.dr) || 0; def.er = parseInt(entry.er) || 0; def.src = 'tracker'; }
     return def;
 }
@@ -2462,13 +2489,13 @@ window.apxBeforeAttack = function(o) {
     if (o && o.companion && o.compOwner && window.gmCombatStarted) {
         let e = (window.gmInitiative || []).find(x => x.companionOf === o.compOwner);
         if (!e) return null;
-        let cost = Math.max(0, parseInt(o.apCost) || 3), have = gmApCurrent(e);
+        let cost = Math.max(0, (o.apCost === 0 || o.apCost === "0") ? 0 : (parseInt(o.apCost) || 3)), have = gmApCurrent(e);
         if (have < cost) return { note: `Not enough AP: ${e.name} has ${have}, needs ${cost}`, warn: true };
         e.apCur = have - cost; window.renderInitiativeTracker();
         return { note: `${e.name}: -${cost} AP (${e.apCur} left)` };
     }
     if (!o || !o.npcId || !window.gmCombatStarted) return null;
-    let cost = Math.max(0, parseInt(o.apCost) || 3);
+    let cost = Math.max(0, (o.apCost === 0 || o.apCost === "0") ? 0 : (parseInt(o.apCost) || 3));
     let list = (window.gmInitiative || []).filter(x => x.sourceNpcId === o.npcId && x.faction !== 'player');
     if (!list.length) return null;
     let cur = window.gmInitiative[window.gmCurrentTurnIdx];

@@ -450,8 +450,8 @@
                 }
         
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20269262206">
-    <link rel="stylesheet" href="css/tailwind.css?v=20269262206">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20269262345">
+    <link rel="stylesheet" href="css/tailwind.css?v=20269262345">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
@@ -1497,7 +1497,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
     </div>
 
-<div class="modal-overlay" id="confirmModal">
+<div class="modal-overlay" id="confirmModal" style="z-index:2147483000;">
         <div class="modal-content max-w-sm text-center border border-slate-600">
             <p id="confirmMessage" class="mb-6 text-white font-bold text-lg"></p>
             <div class="flex justify-center gap-4">
@@ -1508,35 +1508,35 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20269262206"></script>
-    <script src="js/apx-patch-notes.js?v=20269262206"></script>
-    <script src="js/apx-dice.js?v=20269262206"></script>
-    <script src="js/apx-data.js?v=20269262206"></script>
-    <script src="js/apx-item-effects.js?v=20269262206"></script>
-    <script src="js/apx-perks-db.js?v=20269262206"></script>
-    <script src="js/apx-migrations.js?v=20269262206"></script>
-    <script src="js/apx-state.js?v=20269262206"></script>
-    <script src="js/apx-craft-shared.js?v=20269262206"></script>
-    <script src="js/apx-armor-forge.js?v=20269262206"></script>
-    <script src="js/apx-weapon-forge.js?v=20269262206"></script>
-    <script src="js/apx-consumable-crafter.js?v=20269262206"></script>
-    <script src="js/apx-perks-ui.js?v=20269262206"></script>
-    <script src="js/apx-power-crafter.js?v=20269262206"></script>
-    <script src="js/apx-npc-crafter.js?v=20269262206"></script>
-    <script src="js/apx-inventory-ui.js?v=20269262206"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20269262206"></script>
-    <script src="js/apx-gm-screen.js?v=20269262206"></script>
-    <script src="js/apx-loot-maker.js?v=20269262206"></script>
-    <script src="js/apx-gmtools-main.js?v=20269262206"></script>
+    <script src="js/apx-dialogs.js?v=20269262345"></script>
+    <script src="js/apx-patch-notes.js?v=20269262345"></script>
+    <script src="js/apx-dice.js?v=20269262345"></script>
+    <script src="js/apx-data.js?v=20269262345"></script>
+    <script src="js/apx-item-effects.js?v=20269262345"></script>
+    <script src="js/apx-perks-db.js?v=20269262345"></script>
+    <script src="js/apx-migrations.js?v=20269262345"></script>
+    <script src="js/apx-state.js?v=20269262345"></script>
+    <script src="js/apx-craft-shared.js?v=20269262345"></script>
+    <script src="js/apx-armor-forge.js?v=20269262345"></script>
+    <script src="js/apx-weapon-forge.js?v=20269262345"></script>
+    <script src="js/apx-consumable-crafter.js?v=20269262345"></script>
+    <script src="js/apx-perks-ui.js?v=20269262345"></script>
+    <script src="js/apx-power-crafter.js?v=20269262345"></script>
+    <script src="js/apx-npc-crafter.js?v=20269262345"></script>
+    <script src="js/apx-inventory-ui.js?v=20269262345"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20269262345"></script>
+    <script src="js/apx-gm-screen.js?v=20269262345"></script>
+    <script src="js/apx-loot-maker.js?v=20269262345"></script>
+    <script src="js/apx-gmtools-main.js?v=20269262345"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20269262206"></script>
-    <script src="js/apx-firebase.js?v=20269262206"></script>
-    <script src="js/apx-battlemap.js?v=20269262206"></script>
-    <script src="js/apx-map-tiles.js?v=20269262206"></script>
+    <script src="js/firebase-config.js?v=20269262345"></script>
+    <script src="js/apx-firebase.js?v=20269262345"></script>
+    <script src="js/apx-battlemap.js?v=20269262345"></script>
+    <script src="js/apx-map-tiles.js?v=20269262345"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -2937,10 +2937,12 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => window.renderInitiativeTracker && window.renderInitiativeTracker(), 0);
         }
         window.apxFloatingZTop++;
-        let offset = document.querySelectorAll('[id^="omWin_"]').length * 30;
+        // (count the map windows themselves, not every element inside them)
+        let spot = window.apxWindowSpot(730, 540, document.querySelectorAll('[data-om-win]').length);
         let win = document.createElement('div');
         win.id = winId;
-        win.style.cssText = `position:fixed;left:${170+offset}px;top:${90+offset}px;width:730px;height:540px;
+        win.setAttribute('data-om-win', '1');
+        win.style.cssText = `position:fixed;left:${spot.left}px;top:${spot.top}px;width:${spot.w}px;height:${spot.h}px;
             background:#0f172a;border:1px solid #334155;border-radius:0.75rem;z-index:${window.apxFloatingZTop};
             display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.85);
             min-width:380px;min-height:300px;overflow:hidden;contain:layout paint;`;
@@ -3122,6 +3124,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function _omRenderTok(winId, win) {
         let layer=document.getElementById(winId+'_tok'); if(!layer) return;
+        if (window.apxMapTipHide) window.apxMapTipHide();   // (the markers are redrawn: a tooltip mustn't be left behind)
         let img=document.getElementById(winId+'_img'); if(!img||!img.naturalWidth) return;
         let mapId=winId.replace('omWin_','');
         let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return;
@@ -3134,7 +3137,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let isSpecial = t.type === 'special';
             if (isSpecial) {
                 // Special markers: just the character, no circle, purple/amber color
-                return `<div data-om-token="${t.id}" style="position:absolute;left:${t.x*iw}px;top:${t.y*ih}px;
+                return `<div data-om-token="${t.id} onmouseenter="window.apxMapTip(event, decodeURIComponent('${encodeURIComponent(t.name || (isSpecial ? '' : 'Area ' + t.letter))}'))" onmousemove="window.apxMapTip(event)" onmouseleave="window.apxMapTipHide()" style="position:absolute;left:${t.x*iw}px;top:${t.y*ih}px;
                     transform:translate(-50%,-50%) scale(${ps});transform-origin:50% 50%;
                     pointer-events:${tokPE};cursor:${fogActive?'default':'pointer'};will-change:transform;"
                     onclick="event.stopPropagation();window.openTokenInfoWin('${mapId}','${t.id}','${winId}',true)">
@@ -3145,7 +3148,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>`;
             }
             // Standard area circle
-            return `<div data-om-token="${t.id}" style="position:absolute;left:${t.x*iw}px;top:${t.y*ih}px;
+            return `<div data-om-token="${t.id} onmouseenter="window.apxMapTip(event, decodeURIComponent('${encodeURIComponent(t.name || (isSpecial ? '' : 'Area ' + t.letter))}'))" onmousemove="window.apxMapTip(event)" onmouseleave="window.apxMapTipHide()" style="position:absolute;left:${t.x*iw}px;top:${t.y*ih}px;
                 transform:translate(-50%,-50%) scale(${ps});transform-origin:50% 50%;
                 pointer-events:${tokPE};cursor:${fogActive?'default':'pointer'};will-change:transform;"
                 onclick="event.stopPropagation();window.openTokenInfoWin('${mapId}','${t.id}','${winId}',true)">
@@ -5137,16 +5140,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.openNpcStatBlockPicker = function(npcNoteId) {
         _linkingNpcNoteId = npcNoteId;
-        let gmNpcs = window.gmNpcs || [];
+        let allNpcs = window.gmNpcs || [];
+        // Only this world's stat blocks (and untagged ones)
+        let gmNpcs = window.apxNpcInActiveWorld ? allNpcs.filter(g => window.apxNpcInActiveWorld(g)) : allNpcs;
         let el = document.getElementById('npcPickerList');
-        el.innerHTML = gmNpcs.length
+        el.innerHTML = (window.apxNpcHiddenNote ? window.apxNpcHiddenNote(allNpcs.length - gmNpcs.length) : '') + (gmNpcs.length
             ? gmNpcs.map(g => `
                 <button onclick="window.linkStatBlock('${g.id}')"
                     class="w-full text-left px-3 py-2 rounded bg-slate-900 border border-slate-700 hover:border-indigo-500 transition">
                     <div class="text-xs font-bold text-slate-200">${g.npc?.name || 'Unnamed'}</div>
                     <div class="text-[10px] text-slate-500">Tier ${g.npc?.tier ?? 0} · ${g.npc?.role || 'No role'}</div>
                 </button>`).join('')
-            : '<div class="text-slate-500 text-xs text-center py-4">No stat blocks created yet.</div>';
+            : '<div class="text-slate-500 text-xs text-center py-4">No stat blocks for this world yet.</div>');
         window.openModal('npcStatBlockPickerModal');
     };
 

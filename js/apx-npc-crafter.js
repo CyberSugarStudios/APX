@@ -945,12 +945,19 @@ window.renderGmNpcList = function() {
     }
     let searchEl = document.getElementById('gmNpcSearch');
     let search = searchEl ? (searchEl.value || '').trim().toLowerCase() : '';
-    let filtered = window.gmNpcs.filter(entry => !search || (entry.npc.name || '').toLowerCase().includes(search));
+    // Stat blocks tagged for other worlds stay out of this world's roster (Show all brings them back)
+    let showAll = !!window._gmNpcShowAllWorlds || typeof window.apxNpcInActiveWorld !== 'function';
+    let inWorld = showAll ? window.gmNpcs : window.gmNpcs.filter(e => window.apxNpcInActiveWorld(e));
+    let hidden = window.gmNpcs.length - inWorld.length;
+    let note = hidden ? window.apxNpcHiddenNote(hidden, 'window._gmNpcShowAllWorlds=true;window.renderGmNpcList()')
+        : (window._gmNpcShowAllWorlds && window.gmNpcs.some(e => window.apxNpcInActiveWorld && !window.apxNpcInActiveWorld(e))
+            ? `<div class="text-[10px] text-slate-500 mb-1">Showing every world's stat blocks. <button onclick="window._gmNpcShowAllWorlds=false;window.renderGmNpcList()" class="text-amber-400 hover:text-amber-300 font-bold underline">Only this world</button></div>` : '');
+    let filtered = inWorld.filter(entry => !search || (entry.npc.name || '').toLowerCase().includes(search));
     if (!filtered.length) {
-        body.innerHTML = '<div class="text-xs text-slate-500 text-center py-6">No NPCs match that search.</div>';
+        body.innerHTML = note + `<div class="text-xs text-slate-500 text-center py-6">${search ? 'No NPCs match that search.' : 'No stat blocks for this world.'}</div>`;
         return;
     }
-    body.innerHTML = filtered.map(entry => {
+    body.innerHTML = note + filtered.map(entry => {
         let tierInfo = npcTierForTP(entry.npc.gmTpBudget || 0);
         let tags = entry.worldTags || [];
         let tagBadges = tags.length
@@ -987,7 +994,7 @@ window.openStatBlockWorldTags = function(npcId) {
     overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;';
     overlay.innerHTML = `<div style="background:#1e293b;border:1px solid #475569;border-radius:0.75rem;padding:1.5rem;max-width:380px;width:90vw;max-height:70vh;display:flex;flex-direction:column;gap:0.5rem;">
         <div style="font-size:0.875rem;font-weight:700;color:#f8fafc;">Assign "${entry.npc.name}" to Worlds</div>
-        <div style="font-size:0.7rem;color:#94a3b8;margin-bottom:0.25rem;">Tagged stat blocks appear highlighted in those worlds.</div>
+        <div style="font-size:0.7rem;color:#94a3b8;margin-bottom:0.25rem;">A tagged stat block only shows up in the worlds it's tagged with. Leave every box empty to use it in all worlds.</div>
         <div style="overflow-y:auto;display:flex;flex-direction:column;gap:0.35rem;max-height:40vh;">
             ${worlds.length
                 ? worlds.map(w => {
@@ -1109,10 +1116,16 @@ window.companionStatBlock = function() {
 
     let mods = {}; // base score is always 5, so mod == the TP-purchased bonus directly
     ATTRIBUTES.forEach(a => { mods[a] = c.attrBonuses[a]; });
+    // Equipped custom items it carries (Loot Maker): their bonuses count, like a player's
+    let wornItems = (Array.isArray(c.carriedItems) ? c.carriedItems : []).map(l => l && l.item).filter(it => it && it.isCustomEquippable && it.equipped);
+    let ifx = wornItems.length && window.apxItemEffects ? window.apxItemEffects({ items: wornItems }) : null;
+    let ist = k => ifx ? window.apxItemStat(ifx, k) : 0;
+    if (ifx) ATTRIBUTES.forEach(a => { mods[a] = (mods[a] || 0) + (ifx.attr[a] || 0); });
 
     let maxHp = tierInfo.hp + (c.hpTierBonus * 5 * Math.max(1, tier));
     let sizeDef = NPC_SIZES.find(s => s.key === c.size);
     if (sizeDef) maxHp += sizeDef.hp;
+    maxHp += ist('maxHp');
     maxHp = Math.max(1, maxHp);
 
     let armor = c.equippedArmor || {};
@@ -1128,22 +1141,23 @@ window.companionStatBlock = function() {
     let er = Math.max(0, ...nonConStr, 0) + c.erBonus * 2 + (armor.er || 0);   // each +2 ER purchase adds 2
     if (shieldOn) er += NPC_SHIELD.er;
     if (helmetOn) er += NPC_HELMET.er;
-    let speed = 3 + c.speedBonus + (armor.speedMod || 0);
-    let ap = 6 + c.apBonus * 1; // AP purchases add flat +1 each (not tied to AGI for NPCs, per Ch.15 baseline "6 AP")
+    ac += ist('ac'); dr += ist('dr'); er += ist('er');
+    let speed = 3 + c.speedBonus + (armor.speedMod || 0) + ist('speed');
+    let ap = 6 + c.apBonus * 1 + ist('maxAp'); // AP purchases add flat +1 each (not tied to AGI for NPCs, per Ch.15 baseline "6 AP")
     // NPCs don't get a chosen initStat like players (AGI or PER) --
     // AGI is the standard default for Passive Initiative.
-    let initiative = 10 + mods.AGI;
+    let initiative = 10 + mods.AGI + ist('init');
 
     // Attack roll always uses whichever of STR/AGI is better (mirroring
     // equipped-weapon melee attacks and Ch.9 Making Attacks generally).
     // "Add Attribute to Damage" is a separate purchase affecting damage only.
     let attackAttrChoice = (mods.AGI || 0) > (mods.STR || 0) ? 'AGI' : 'STR';
-    let attackBonus = c.trainingBonus + (mods[attackAttrChoice] || 0);
+    let attackBonus = c.trainingBonus + (mods[attackAttrChoice] || 0) + ist('meleeAtk');
     // One attack line per innate weapon
     let innateAttacks = (c.innateWeapons || []).map(w => {
         let dieInfo = parseDieStep(NPC_DIE_STEPS[w.dieStepIndex || 0]);
         let dice = `${dieInfo.count + (w.extraDice || 0)}${dieInfo.type}`;
-        let bonusMod = (w.dmgBonus === 'STR' || w.dmgBonus === 'AGI') ? (mods[w.dmgBonus] || 0) : 0;
+        let bonusMod = ((w.dmgBonus === 'STR' || w.dmgBonus === 'AGI') ? (mods[w.dmgBonus] || 0) : 0) + ist('meleeDmg');
         let dmgText = dice + (bonusMod ? ` ${bonusMod >= 0 ? '+' : '-'} ${Math.abs(bonusMod)}` : '');
         let typeText = w.dmgBonus === 'energy' ? `${w.dmgType} + ${w.energyType} (split)` : w.dmgType;
         let props = (w.properties || []).map(k => NPC_WEAPON_PROPERTIES.find(p => p.key === k)).filter(Boolean)
@@ -1165,8 +1179,11 @@ window.companionStatBlock = function() {
     let traitList = c.traits.map(k => NPC_TRAITS.find(t => t.key === k)).filter(Boolean)
         .map(t => (c.traitEnergyTypes || {})[t.key] ? { ...t, label: `${t.label} (${(c.traitEnergyTypes || {})[t.key]})` } : t)
         .map(t => t.tierCalc ? { ...t, tierNote: t.tierCalc(tier) } : t);
-    let powerCards = c.powers.filter(p => !p.isLairAction).map(p => ({ name: p.name, lvl: p.lvl, ap: p.ap, atk: p.atk, rng: p.rng, dmg: p.dmg, desc: p.desc, usageType: p.usageType, maxCharges: p.maxCharges, rechargeOn: p.rechargeOn }));
-    let lairActionPowerCards = c.powers.filter(p => p.isLairAction).map(p => ({ name: p.name, lvl: p.lvl, ap: p.ap, atk: p.atk, rng: p.rng, dmg: p.dmg, desc: p.desc, usageType: p.usageType, maxCharges: p.maxCharges, rechargeOn: p.rechargeOn }));
+    let card = p => ({ name: p.name, lvl: p.lvl, ap: p.ap, atk: p.atk, rng: p.rng, dmg: p.dmg, desc: p.desc, usageType: p.usageType, maxCharges: p.maxCharges, rechargeOn: p.rechargeOn, draft: p.draft || null });
+    let powerCards = c.powers.filter(p => !p.isLairAction).map(card);
+    let lairActionPowerCards = c.powers.filter(p => p.isLairAction).map(card);
+    // Powers from equipped items come after its own
+    wornItems.forEach(it => (window.apxItemPowers ? window.apxItemPowers(it) : []).forEach(p => powerCards.push(Object.assign(card(p), { fromItem: it.name || 'an item' }))));
     // Power Attack Bonus / Save DC: same shape as a weapon's trained
     // attack bonus (Training Bonus + attribute mod), auto-picking
     // whichever of INT/CHA is better -- mirrors how a player's own Powers
@@ -1175,8 +1192,8 @@ window.companionStatBlock = function() {
     // A GM NPC can use ANY attribute to cast (chosen in Step 6); otherwise best of INT/CHA
     let powerAttrChoice = ncTarget === 'gm' && c.powerAttr && ATTRIBUTES.includes(c.powerAttr)
         ? c.powerAttr : ((mods.CHA || 0) > (mods.INT || 0) ? 'CHA' : 'INT');
-    let powerAttackBonus = c.trainingBonus + (mods[powerAttrChoice] || 0);
-    let powerSaveDc = 10 + c.trainingBonus + (mods[powerAttrChoice] || 0);
+    let powerAttackBonus = c.trainingBonus + (mods[powerAttrChoice] || 0) + ist('powerAtk');
+    let powerSaveDc = 10 + c.trainingBonus + (mods[powerAttrChoice] || 0) + ist('powerDc');
     let powerList = powerCards.map(p => `${p.name} (Level ${p.lvl})`);
     // otherTrainings mixes weapon-type strings and skill names together;
     // split them out here so skills can get their own computed bonus line.
@@ -1187,12 +1204,12 @@ window.companionStatBlock = function() {
             let skillDef = SKILLS.find(s => s.name === base);
             let attr = skillDef ? skillDef.attr : (base === 'Encyclopedia' ? 'INT' : null);
             let attrMod = attr ? (mods[attr] || 0) : 0;
-            let total = attrMod + c.trainingBonus;
+            let total = attrMod + c.trainingBonus + (ifx ? (ifx.skill[base] || 0) + (attr ? window.apxItemCheckBonus(ifx, attr) : 0) : 0);
             return { name, attr, attrMod, trainingBonus: c.trainingBonus, total };
         });
     // Saving throws: attribute modifier, plus the Training Bonus for trained saves
     let saveTrained = (c.saveTraining || []).filter(a => ATTRIBUTES.includes(a));
-    let saves = {}; ATTRIBUTES.forEach(a => { saves[a] = (mods[a] || 0) + (saveTrained.includes(a) ? c.trainingBonus : 0); });
+    let saves = {}; ATTRIBUTES.forEach(a => { saves[a] = (mods[a] || 0) + (saveTrained.includes(a) ? c.trainingBonus : 0) + (ifx ? window.apxItemSaveBonus(ifx, a) : 0); });
     let equippedWeapons = [];
     // Which hand holds each weapon (a held shield takes the Off Hand first)
     let handsUsed = new Set(shieldOn ? ['off'] : []);
@@ -1204,12 +1221,13 @@ window.companionStatBlock = function() {
     };
     (c.weapons || []).forEach((w, wIdx) => {
         let hand = handOf(w);
-        let dmgMod = companionWeaponDamageModifier(w, mods);
+        let rngd = w.category === 'ranged';
+        let dmgMod = companionWeaponDamageModifier(w, mods) + ist(rngd ? 'rangedDmg' : 'meleeDmg');
         let dmgText = dmgMod !== 0 ? `${w.dmg} ${dmgMod >= 0 ? '+' : '-'} ${Math.abs(dmgMod)}` : w.dmg;
         let atkInfo = companionWeaponAttackBonus(c, w, mods);
         equippedWeapons.push({
             name: w.name, dmg: dmgText, ap: w.ap, weaponIdx: wIdx,
-            atk: atkInfo.bonus, trained: atkInfo.trained, attr: atkInfo.attr,
+            atk: atkInfo.bonus + ist(rngd ? 'rangedAtk' : 'meleeAtk'), trained: atkInfo.trained, attr: atkInfo.attr,
             typeLabel: companionWeaponTypeLabel(w), category: w.category, aimed: !!w.aimed, flurry: !!(w.properties && w.properties.flurry),
             props: Object.keys(w.properties || {}).filter(k => { let v = w.properties[k]; return typeof v === 'number' ? v > 0 : !!v; }), elemental: w.elemental || null,
             dmgType: w.elemental || w.dmgType || '',
@@ -1230,12 +1248,12 @@ window.companionStatBlock = function() {
                 return m[1] + (dieTypeStep[m[2]] || m[2]);
             }
             let twoHDice = ncStepUpDie(w.dmg);
-            let twoHDmgMod = companionWeaponDamageModifier(w, mods, true);
+            let twoHDmgMod = companionWeaponDamageModifier(w, mods, true) + ist('meleeDmg');
             let twoHDmgText = twoHDmgMod !== 0 ? `${twoHDice} ${twoHDmgMod >= 0 ? '+' : ''}${twoHDmgMod}` : twoHDice;
             let twoHAtkInfo = companionWeaponAttackBonus(c, w, mods, true);
             equippedWeapons.push({
                 name: `${w.name} (2-Handed)`, dmg: twoHDmgText, ap: w.ap + 1,
-                atk: twoHAtkInfo.bonus, trained: twoHAtkInfo.trained, attr: twoHAtkInfo.attr,
+                atk: twoHAtkInfo.bonus + ist('meleeAtk'), trained: twoHAtkInfo.trained, attr: twoHAtkInfo.attr,
                 typeLabel: companionWeaponTypeLabel(w), isTwoHanded: true, category: w.category, flurry: !!(w.properties && w.properties.flurry),
                 props: Object.keys(w.properties || {}).filter(k => { let v = w.properties[k]; return typeof v === 'number' ? v > 0 : !!v; }), elemental: w.elemental || null,
                 dmgType: w.elemental || w.dmgType || '', hand: 'both', handLabel: 'Both Hands',
@@ -1276,6 +1294,7 @@ window.companionStatBlock = function() {
         energyImmunities: c.energyImmunities, energyVulnerabilities: c.energyVulnerabilities,
         damageResistances: c.damageResistances || [],
         carriedItems: Array.isArray(c.carriedItems) ? c.carriedItems : [], carriedCu: c.carriedCu || 0,
+        wornItemNames: wornItems.map(it => it.name || 'Item'), itemEr: ifx ? ifx.er : [],
         _isCompanion: ncTarget === 'companion'
     };
 };
@@ -1587,6 +1606,16 @@ function npcCarriedBox(sb, esc) {
                     ${fx ? `<div class="text-[10px] text-slate-400">${esc(fx)}</div>` : ''}</div>
                 <button type="button" onclick="window.npcUseCarried('${sb._npcId || ''}','${sb._initId || ''}','${esc(l.id)}')" ${left ? '' : 'disabled'} title="Use it: 3 AP, one charge" class="text-[10px] font-bold px-1.5 py-0.5 rounded ${left ? 'bg-fuchsia-800 hover:bg-fuchsia-700 text-white' : 'bg-slate-800 text-slate-600'}">Use</button></div>`;
         }
+        if (it.isCustomEquippable) {
+            // Worn items: a toggle puts their bonuses and powers on this stat block
+            let on = !!it.equipped, fx = window.apxLootStats ? window.apxLootStats(it) : '';
+            let pw = Array.isArray(it.powers) && it.powers.length ? it.powers.map(p => p.name || 'Power').join(', ') : '';
+            return `<div class="text-xs ${on ? 'text-cyan-200' : 'text-slate-300'} flex items-start gap-2 mt-0.5" data-no-roll>
+                <div class="flex-1 min-w-0"><b>${esc(it.name)}</b>${it.ct > 1 ? ' ×' + it.ct : ''} <span class="text-[10px] text-slate-500">${on ? 'Equipped' : 'Carried'}</span>
+                    ${fx ? `<div class="text-[10px] ${on ? 'text-cyan-400' : 'text-slate-500'}">${esc(fx)}</div>` : ''}
+                    ${pw ? `<div class="text-[10px] ${on ? 'text-purple-300' : 'text-slate-500'}">Powers: ${esc(pw)}</div>` : ''}</div>
+                ${sb._npcId ? `<button type="button" onclick="window.apxToggleNpcItemEquip && window.apxToggleNpcItemEquip('${esc(sb._npcId)}','${esc(l.id)}')" title="${on ? 'Take it off' : 'Equip it: its bonuses and powers go on this stat block'}" class="text-[10px] font-bold px-1.5 py-0.5 rounded ${on ? 'bg-cyan-800 hover:bg-cyan-700 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-200'}">${on ? 'Unequip' : 'Equip'}</button>` : ''}</div>`;
+        }
         return `<div class="text-xs text-slate-300 mt-0.5" data-no-roll>${esc(it.name)}${it.ct > 1 ? ' ×' + it.ct : ''} <span class="text-[10px] text-slate-500">${window.apxLootKind ? window.apxLootKind(it) : ''}</span></div>`;
     }).join('');
     return `<div class="bg-slate-900 border border-fuchsia-800/50 rounded p-2 mb-2">
@@ -1695,7 +1724,7 @@ function buildStatBlockHtml(sb, editable) {
                 <span class="font-bold">Lair Actions</span>
                 ${sb.lairActionsText ? `<div style="white-space: pre-line" class="mt-0.5">${esc(sb.lairActionsText)}</div>` : ''}
             </div>` : ''}
-            ${sb.lairActionPowerCards.length ? sb.lairActionPowerCards.map(p => powerCardHtml(p)).join('') : ''}
+            ${sb.lairActionPowerCards.length ? sb.lairActionPowerCards.map((p, i) => powerCardHtml(p, false, sb, 'lair', i)).join('') : ''}
             ${sb.mythicAwakening ? `<div class="text-[10px] text-slate-300 mt-1">
                 <span class="font-bold">Mythic Awakening</span>
                 ${sb.mythicAwakeningText ? `<div style="white-space: pre-line" class="mt-0.5">${esc(sb.mythicAwakeningText)}</div>` : ''}
@@ -1706,22 +1735,74 @@ function buildStatBlockHtml(sb, editable) {
                 <div class="text-[10px] font-black text-purple-400 uppercase">Powers</div>
                 <div class="text-[10px] text-slate-300 font-bold">Power Attack Bonus: <span class="text-white">${sb.powerAttackBonus >= 0 ? '+' : ''}${sb.powerAttackBonus}</span> &middot; Save DC: <span class="text-white">${sb.powerSaveDc}</span> <span class="text-slate-500 font-normal">(${sb.powerAttrChoice})</span></div>
             </div>
-            ${sb.powerCards.map(p => powerCardHtml(p, sb._isCompanion && editable)).join('')}
+            ${sb.powerCards.map((p, i) => powerCardHtml(p, sb._isCompanion && editable, sb, 'pw', i)).join('')}
         </div>` : ''}
     </div>`;
 }
-function powerCardHtml(p, compUse) {
+// Using a power from a stat block (NPCs and Loyal Companions), like a player's power: an attack
+// power rolls its attack and damage together (d20 + Power Attack Bonus), a save power shows the DC
+// and rolls its damage or healing, anything else shows its description. Its AP comes off the
+// creature taking its turn in the tracker (a Reaction power costs none).
+function npcPowerKey(sb) { return sb && sb._isCompanion ? 'comp:' + (sb._compOwner || '') : (sb && sb._npcId) || ''; }
+function npcPowerStatBlock(key) {
+    if (!key) return null;
+    if (key.indexOf('comp:') === 0) {
+        let owner = key.slice(5);
+        if (owner && typeof gmCompanionSb === 'function') { let pm = (window.gmParty || []).find(x => x.fileName === owner); return pm ? gmCompanionSb(pm) : null; }
+        if (window.state && window.state.companion) { let keep = ncTarget; try { ncTarget = 'companion'; let sb = window.companionStatBlock(); if (sb) sb._isCompanion = true; return sb; } finally { ncTarget = keep; } }
+        return null;
+    }
+    return typeof ncStatBlockFor === 'function' ? ncStatBlockFor(key) : null;
+}
+window.apxNpcUsePower = async function(key, list, idx, initId) {
+    let sb = npcPowerStatBlock(key); if (!sb || !window.APXDice) return;
+    let p = (list === 'lair' ? sb.lairActionPowerCards : sb.powerCards)[idx]; if (!p) return;
+    let d = p.draft || {};
+    let step = d.step1 || (/save halves/i.test(p.atk || '') ? 'saveHalves' : /guaranteed/i.test(p.atk || '') ? 'guaranteed' : 'atkSave');
+    let isReact = window.apxPowerIsReaction && window.apxPowerIsReaction(p);
+    let cost = isReact ? 0 : Math.max(0, parseInt(p.ap) || 0);
+    let m = String(p.dmg || '').match(/^\s*((?:\d*d\d+)(?:\s*[+-]\s*(?:\d*d\d+|\d+))*)\s*(.*)$/i);
+    let dmg = null;
+    if (m) {
+        let formula = m[1].replace(/\s+/g, ''), heal = /heal/i.test(m[2]);
+        if (/\+\s*Attr/i.test(m[2])) { let am = (sb.mods || {})[sb.powerAttrChoice] || 0; if (am) formula += (am > 0 ? '+' : '') + am; }
+        dmg = { formula, heal, type: m[2].replace(/\+\s*Attr/i, '').replace(/\(Heal\)/i, '').trim() };
+    }
+    let flags = sb._isCompanion ? { companion: true, compOwner: sb._compOwner || null, omen: true } : { npcId: sb._npcId || key, initId: initId || sb._initId || undefined };
+    let o = Object.assign({ label: p.name || 'Power', who: sb.name, perks: false, gambleAllowed: false, apCost: cost, flavor: p.desc || '', power: true }, flags);
+    let tell = text => { if (typeof window.gmLog === 'function') window.gmLog({ text, kind: 'info' }); };
+    if (step === 'atkSave' && d.atkMode !== 'save' && d.atkKind !== 'martial') {
+        o.bonus = sb.powerAttackBonus || 0;
+        o.hit = { weapon: p.name || 'Power', props: [], die: dmg ? '1d' + ((dmg.formula.match(/d(\d+)/) || [0, 6])[1]) : '1d6', dmgType: dmg && !dmg.heal ? dmg.type : '' };
+        if (dmg && !dmg.heal) { o.dice = dmg.formula; o.dmgType = dmg.type; APXDice.attack(o); }
+        else APXDice.check(Object.assign(o, { kind: 'attack', label: (p.name || 'Power') + ': Power Attack' }));
+        tell(`${sb.name} uses ${p.name || 'a power'}${isReact ? ' (Reaction)' : ''}: attack roll.`);
+        return;
+    }
+    // Not an attack: spend its AP (the tracker's creature), then show the DC and roll the effect
+    let pre = null;
+    if (typeof window.apxBeforeAttack === 'function' && cost > 0) { try { pre = await window.apxBeforeAttack(Object.assign({}, o)); } catch (e) { } if (pre === false) return; }
+    let saveKind = step === 'saveHalves' ? 'halves' : (step === 'atkSave' && d.atkMode === 'save') ? 'negates' : null;
+    let dc = sb.powerSaveDc;
+    let bits = [isReact ? 'Reaction' : `${cost} AP`].concat(saveKind ? [`Targets save against DC ${dc}: success ${saveKind === 'halves' ? 'halves it' : 'negates it'}`] : []).concat(pre && pre.note ? [pre.note] : []);
+    if (dmg) APXDice.damage({ label: (p.name || 'Power') + (dmg.heal ? ' healing' : ' damage'), who: sb.name, formula: dmg.formula, dmgType: dmg.heal ? '' : dmg.type, heal: dmg.heal || undefined, perks: false, note: bits.join(' · ') });
+    else APXDice.info({ label: p.name || 'Power', who: sb.name, text: p.desc || '', badges: bits });
+    tell(`${sb.name} uses ${p.name || 'a power'}${isReact ? ' (Reaction)' : ''}${saveKind ? `: targets make a DC ${dc} save (success ${saveKind === 'halves' ? 'halves it' : 'negates it'})` : ''}.`);
+};
+function powerCardHtml(p, compUse, sb, list, idx) {
+    let key = npcPowerKey(sb);
+    let useAttr = key ? ` onclick="window.apxNpcUsePower(decodeURIComponent('${encodeURIComponent(key)}'), '${list}', ${idx}, ${sb._initId ? `'${sb._initId}'` : 'null'})" title="Use this power: roll it${window.apxPowerIsReaction(p) ? ' (Reaction)' : ', spending ' + p.ap + ' AP'}" style="cursor:pointer"` : '';
     let usageLabel = '';
     if (p.usageType === 'charges') usageLabel = `Charges: ${p.maxCharges}/day`;
     else if (p.usageType === 'recharge') usageLabel = `Recharge ${p.rechargeOn === 6 ? '6' : p.rechargeOn + '-6'}`;
     return `
         <div class="bg-slate-800 p-1.5 rounded border border-slate-700 mb-1" data-roll-label="${String(p.name||'Power').replace(/"/g,'&quot;')}">
             <div class="flex justify-between items-center mb-0.5">
-                <span class="font-bold text-[10px] text-purple-300">${p.name}</span>
-                <span class="flex items-center gap-1"><span class="text-[8px] bg-slate-900 px-1.5 py-0.5 rounded border border-slate-600 text-slate-400 font-bold">Lvl ${p.lvl} | ${p.ap} AP</span>
+                <span class="font-bold text-[10px] text-purple-300 ${key ? 'hover:underline' : ''}"${useAttr}>${p.name}</span>
+                <span class="flex items-center gap-1"><span class="text-[8px] bg-slate-900 px-1.5 py-0.5 rounded border border-slate-600 text-slate-400 font-bold ${key ? 'hover:border-indigo-400 hover:text-indigo-200' : ''}"${useAttr}>Lvl ${p.lvl} | ${window.apxPowerApLabel(p)}</span>
                 ${compUse ? `<button type="button" onclick="window.apxCompUsePower(${parseInt(p.ap) || 0}, '${String(p.name || 'Power').replace(/'/g, '').replace(/"/g, '')}')" title="Use it: spend ${p.ap} AP" class="text-[8px] font-bold px-1.5 py-0.5 rounded bg-blue-800 hover:bg-blue-700 text-white">Use</button>` : ''}</span>
             </div>
-            ${usageLabel ? `<div class="text-[9px] text-amber-400 font-bold mb-0.5">${usageLabel}</div>` : ''}
+            ${p.fromItem ? `<div class="text-[9px] text-cyan-300 font-bold mb-0.5">From ${String(p.fromItem).replace(/&/g, '&amp;').replace(/</g, '&lt;')}${window.apxItemPowerUsage ? ' · ' + window.apxItemPowerUsage(p) : ''}</div>` : usageLabel ? `<div class="text-[9px] text-amber-400 font-bold mb-0.5">${usageLabel}</div>` : ''}
             <div class="grid grid-cols-3 gap-1 mb-0.5 text-[9px] text-slate-400">
                 <div><span class="text-slate-500">A/S:</span> ${p.atk}</div>
                 <div><span class="text-slate-500">R/A:</span> ${p.rng}</div>
@@ -2085,7 +2166,7 @@ function ncRenderStep6() {
     let powerRows = c.powers.map((p, i) => `
         <div class="bg-slate-900 border border-slate-700 rounded p-2">
             <div class="flex items-center justify-between">
-                <span class="text-xs font-bold text-purple-300">${p.name} <span class="text-slate-500 font-normal">(Lvl ${p.lvl}, ${p.ap} AP, ${p.tp} TP)</span></span>
+                <span class="text-xs font-bold text-purple-300">${p.name} <span class="text-slate-500 font-normal">(Lvl ${p.lvl}, ${window.apxPowerApLabel(p)}, ${p.tp} TP)</span></span>
                 <div class="flex gap-2">
                     ${p.draft ? `<button onclick="window.openPowerEditor(${i}, ncTarget)" class="text-[10px] text-purple-400 hover:text-purple-300 font-bold">Edit</button>` : ''}
                     <button onclick="window.ncRemoveCompanionPower(${i})" class="text-[10px] text-red-400 hover:text-red-300 font-bold">Remove</button>

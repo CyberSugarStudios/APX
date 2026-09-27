@@ -11,336 +11,227 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.9.26.2206',
-        released: '2026-09-26T22:06:00',
-        releasedText: 'September 26, 2026 · 10:06 PM',
+        version: 'v2026.9.26.2345',
+        released: '2026-09-26T23:45:00',
+        releasedText: 'September 26, 2026 · 11:45 PM',
         title: 'Playtest Update',
-        intro: 'This update comes straight from our playtest tables. GMs get world rules, a Loot Maker, NPCs that carry and use gear, and magic items that can change almost anything on a sheet. Players get Luck and Looting, trading, shareable Omen dice, Loyal Companions that act on their own turns, powers that roll like weapons and use their AP and Power Slots, weapon properties that apply themselves on a hit, a one-screen Origin Builder, full-resolution maps at any size, and a dice roller with a distinct shape for every die that doubles as the combat log and asks for your Wound and Bleed Out saves. Conditions like Stunned wear off on their own when their time is up, and a reroll that saves you takes a Wound back. Damage is entered in full and the app takes off DR, ER, resistances and immunities for you, and four-armed characters get their extra arms and hands. Initiative runs with or without a battle map, characters are created and switched cleanly, pages load faster (especially on phones), and deleting an account removes all of its data. Your characters and worlds update when you open them. Nothing is lost, and anything a rule change touched is explained.',
+        intro: 'Everything in this update was shaped at the table. GMs get world rules, a Loot Maker that stocks NPCs and map areas, magic items that can grant powers and change almost anything on a sheet, and NPCs that wear, carry and use their gear. Players get Luck and Looting, trading, shareable Omen dice, Loyal Companions with their own turns, powers that roll like weapons, weapon properties that apply themselves, a one-screen Origin Builder, maps that stay sharp at any zoom, and a dice tray that is also the combat log. Damage is typed in full and the app takes off DR, ER, resistances and immunities for you, whether the GM or the player enters it. Each character sees only its own world, fog included. Pages load faster, especially on phones, and your characters and worlds update when you open them without losing anything.',
         index: [
             ['For GMs', [
-                'World Settings: Starting XP, Max GP, starting Cu, and Point Buy or Standard Array for every character in your world.',
-                'Loot Maker: build loot with the same forges and crafters players use, consumables included. Give it to NPCs, who use their consumables in a fight and drop whatever is left when they fall.',
-                'Magic items can raise or lower almost anything on a sheet: Core Attributes, skills, Max HP, AP, Initiative, Wound Threshold, Rest Dice, Luck Points, Power Slots, attacks, saves and more.',
-                'Hand out loot from the Loot panel, an NPC\'s window or any Area Circle the NPC stands in. Ask the whole party or a single player for the Loot roll.',
-                'Initiative works on its own. It uses a battle map only when that map is open or picked as the fight\'s Battle map, so a quick fight never turns into "an unseen creature".',
-                'Damage you type is reduced by the target\'s DR or ER (by the attack\'s damage type), resistances and immunities, before or after Start Combat. Each tracker row shows the DR and ER used and the last hit\'s math, and players\' DR and ER match their own sheets.',
-                'NPC stat blocks have a SAVE button under each Core Attribute, NPCs and Loyal Companions can train saving throws (2 TP each), and conditions such as Burning, Stunned, Poisoned and Paralyzed work on NPCs in the tracker just as they do on players.',
-                'Saved NPC sorting flips direction with a second click (A–Z to Z–A, highest to lowest), with an arrow on the active sort.'
+                'World Settings: choose Starting XP, Max GP, starting Cu, and Point Buy or Standard Array for every character in your world.',
+                'Loot Maker: make loot with the same forges and crafters players use, plus custom items you can edit later. Stock an NPC, an Area Circle on a map, or the Loot list.',
+                'Magic items can raise or lower almost anything on a sheet and can grant powers to whoever equips them. NPCs can equip them too, with a toggle.',
+                'Damage you type is the full amount: the tracker takes off the target\'s DR or ER (by damage type), resistances and immunities, shows the math on the row, and always counts a hit that ends up dealing 0.',
+                'NPC stat blocks roll their powers when you click the power\'s name or its Lvl tag, have a SAVE button under each Core Attribute, and suffer conditions (Burning, Stunned, Poisoned…) just as players do.',
+                'Stat blocks tagged with a world appear only in that world\'s lists. Untagged ones appear everywhere.',
+                'Initiative works with or without a battle map.'
             ]],
             ['For Players', [
-                'Each new character starts in the world you choose, with that world\'s rules, races and settings, or in no world at all.',
-                'Powers roll like weapons: click a power\'s name to spend its AP and a Power Slot and roll the attack and damage together. Attack Roll / Save Negates powers choose one, an attack can be a Power Attack or a martial improvement riding one of your weapons, and save powers tell the GM the DC.',
-                'The Origin Builder fits on one screen: name, starting wealth and feature on one side, languages and competencies on the other.',
-                'Luck and Looting: LUC (Loot) for Currency (LUC × enemies defeated ÷ 2) and ammunition (LUC − 3d6 rounds), or an hour of scavenging for Crafting Materials.',
-                'Omen dice can go to the GM (for any creature\'s roll) or to a party member. They work on your companion\'s rolls, can trade places with a natural 1 or 20, and are kept or rerolled one by one on a Full Rest. At Rank 5 you place your Natural 1, 10 and Natural 20 in the slots you choose.',
-                'Fortunate Fighter Rank 5 is a button on your attack: spend a Luck Point to make the hit a Critical Hit, once per turn. Defensive Rank 5 is a button in your dice tray when a Critical Hit lands on you: use your Reaction to make it a normal hit.',
-                'Click the Rest Dice die (or the words "Rest Dice") to spend a Rest Die and heal. The Owned perk filter shows the perks you can still upgrade.',
-                'Luck Points have − and + buttons beside them. A Helmet can be destroyed as a Reaction to turn a Critical Hit into a normal hit, straight from the dice tray.',
-                'Every weapon shows the hand holding it: Main Hand, Off Hand, and Off Hands 2 and 3 for four-armed (Polymelia) characters, whose extra arms are Left Arm 2 and Right Arm 2 when Wounded.',
-                'Loyal Companions have their own AP that refills on their turn, their own token art, and healing whenever you use a Rest Die. You can also trade items with your party and receive XP from your GM with your bonuses applied.'
+                'A new character starts in the world you pick, with its rules and races, or in no world at all. A character with no world sees only the Join World box: no maps, notes or fog from anyone else\'s world.',
+                'Powers roll like weapons: click a power\'s name to spend its AP and a Power Slot and roll attack and damage together. Powers from equipped magic items join your list and need no Power Slot.',
+                'Powers that cost 1 AP can be made Reactions instead.',
+                'Luck and Looting, trading with your party, Omen dice you can pass to the GM or a friend, and Loyal Companions with their own AP and turns.',
+                'Luck Points have − and + buttons, and clicking your Rest Dice spends one to heal.',
+                'Four-armed characters get Left Arm 2 and Right Arm 2, extra hands for weapons, and a shield in each Off Hand.'
             ]],
             ['At the Table', [
-                'Dice and Notifications holds every roll, the combat log and your messages in one tray.',
-                'Every die has its own shape, on its button and in every roll: triangles for the d4 and d8, a square d6, a kite d10, a pentagon d12, a hexagon d20 and a round d100.',
-                'The combat log shows the table the fight and resolves every save in order (Wound Threshold, a hit\'s own saves, then Bleed Out), with a button in the tray to roll each one. The party\'s hits on enemies show no numbers, so DR and ER stay hidden.',
-                'Weapon properties apply themselves on a hit: Crushing and Stunning ask for their saves and add Prone or Stunned on a failure, Crushing and Concealed add their extra damage die, Flurry lowers the AP of your next attacks, and every hit on an Incapacitated creature is a Critical Hit. Enter damage in full ("-8") and the app subtracts DR for physical damage or ER for energy damage, plus resistances, vulnerabilities and immunities, using the attack\'s damage type (every weapon has one: unarmed strikes are Bludgeoning, and custom weapons pick theirs); a hit that ends up dealing 0 damage still counts as a hit. A Wounded Torso adds a die of damage, and two Wounded legs put you Prone. Stunned lasts until the end of the stunner\'s next turn, and a Stunned creature starts its turn with 0 AP.',
-                'Click skills, saves, weapons, powers and stat block dice to roll them. Perks, Advantage and Disadvantage, crits and Luck rerolls are built in.',
-                'Action Points are 6 + half your AGI modifier. They are tracked for every creature, refill on each turn (map or no map), carry between turns, reset when a fight starts and ends, and are spent by attacks, powers and standing up from Prone.',
-                'Rest and Recover buttons cover Short and Full Rests, Shake it Off and Shrug It Off.'
+                'One tray holds every roll, the combat log and your messages. Every die has its own shape.',
+                'The log asks for each save in order (Wound Threshold, the hit\'s own saves, Bleed Out) with a button to roll it. Players never see the numbers of their hits on enemies, so DR and ER stay hidden.',
+                'Weapon properties apply themselves on a hit, and every weapon has a damage type (unarmed strikes are Bludgeoning).',
+                'AP is tracked for everyone, refills each turn and carries over.'
             ]],
-            ['Battle Maps', [
-                'Area markers on maps stay about the same size on screen as you zoom: zoomed in they sit on a single building, zoomed out they stay visible without covering the map (never more than 3% of it).',
-                'Maps keep their full resolution at any size. A large map opens instantly as a preview, and the sharp detail loads for just the part you zoom into, so small text and fine lines stay readable.',
-                'Move groups of tokens with Shift+drag, layer images on the map, and measure with M. Large maps stay smooth.'
+            ['Maps', [
+                'Area Circles stay about the same size on screen as you zoom and show their name the instant your mouse is over them.',
+                'Linked maps open in the same spot on screen, one slightly offset from the next, never off the edge.',
+                'Maps keep full resolution at any size: a preview opens instantly and sharp detail loads for the part you zoom into.'
             ]],
             ['Rules', [
-                'Point Buy: attributes start at 4 with 7 points to spend, and each stays between 2 and 7.',
-                'High Roller and Fortunate Fighter are rewritten, and Regenerative and Mobile are updated. Power Crafting caps die steps at 8 dice and adds Mythic Utilities (130 XP).',
-                'Wound Threshold reminders include the CON save DC, and Permanent Injuries are tracked.',
-                'NPC weapons, armor, shields and helmets cost Threat Points. Defeated NPCs are worth 1 / 5 / 10 / 15 / 25 / 35 XP for Tiers 0–5, plus 10 per Tier after that.'
-            ]],
-            ['Your Account', [
-                'Deleting your account removes everything tied to it: characters, folders, worlds with their maps, fog, portraits and images, invite codes, your place in worlds you joined, races, NPCs, your profile and this browser\'s saved settings.'
+                'Point Buy: attributes start at 4 with 7 points to spend, each between 2 and 7.',
+                'NPCs and Loyal Companions train saving throws at 2 TP each. NPC gear costs Threat Points, and defeated NPCs are worth 1 / 5 / 10 / 15 / 25 / 35 XP for Tiers 0–5, plus 10 per Tier after that.',
+                'High Roller, Fortunate Fighter, Regenerative and Mobile are updated, and Power Crafting caps die steps at 8 dice and adds Mythic Utilities.'
             ]],
             ['Also', [
-                'Small text is easier to read. XP bonuses from INT, Educated and Expertise apply automatically, conditions bring their linked conditions, the toolbar is tidier, and there are many fixes.',
-                'Players who clear their browser data or make a new character in a world keep the map\'s Fog of War: the map never shows without it.',
-                'Pages load and respond faster, especially on phones: the styling is now one small prebuilt file instead of being generated in your browser as you use the app.',
-                'Phones no longer show blank or flickering patches: hidden windows no longer blur the page behind them while they\'re closed.',
-                'After an update, your browser always loads the new version of every file, never an old saved copy. An open page checks for a newer version when it loads, when you come back to it and every 10 minutes, and reloads onto it or offers a Reload button.',
+                'Deleting an account removes all of its data. Pages load faster, closed windows no longer cause blank patches on phones, and an open page moves itself onto a new version when one is released.',
                 'See the Character Sheet and GM Tools for the full details.'
             ]]
         ],
         sheet: [
-            ['Characters', [
-                'When one of your worlds has an empty character slot, New Character asks where the character plays: in that world, with its rules, races and settings from the first moment, or in no world. The new character is saved straight away.',
-                'Deleting the character you have open takes you back to the character screen instead of leaving a half-filled sheet. Load another character or start a new one from there.',
-                'Switching characters switches worlds cleanly. The sheet follows only the open character\'s world (its races, Standard Array or Point Buy, Max GP, XP rules and combat turns), and a character outside any world is never affected by one.',
-                'Undo history belongs to the character you have open. Switching characters starts it fresh, so Undo can\'t bring back another character\'s sheet.'
+            ['Characters and Worlds', [
+                'New Character asks where the character plays when one of your worlds has an empty slot: in that world (its rules, races and settings from the start) or in no world. It is saved straight away.',
+                'Each character sees only its own world. A character with no world gets a World tab with just the Join World box. Switching characters clears the maps, notes and fog of the last one before the next world loads, so nothing from World A ever shows up in World B.',
+                'Fog of War always belongs to the world on screen and always loads: after clearing your browser data, on a new device, or with a brand-new character. The map stays hidden until its fog is ready.',
+                'Deleting the open character takes you back to the character screen. Undo history belongs to the character you have open.',
+                'Your GM sets the world\'s Starting XP, Max GP, starting Cu, and Point Buy or Standard Array. A new character receives the Starting XP and Cu once, and only XP granted after it joined.',
+                'XP from your GM arrives with your bonuses (INT modifier, Educated, Expertise), and the XP fields are locked in a world. The XP Log beside Spend XP lists what you gained and spent.',
+                'Standard Array: 7, 6, 5, 5, 5, 4 and 3, each used once. Point Buy: every attribute starts at 4 with 7 points, between 2 and 7.'
             ]],
             ['Origin Builder', [
-                'Everything is on one screen. The left side has the Origin Name, Starting Wealth and Origin Feature. The right side has the setting\'s common language and your four competencies.',
-                'Each competency is a card with Language, Skill and Weapon Type buttons. Pick one to fill it in (a language name, a skill to train, or a weapon type), pick another to switch, or click the active one again to clear it. Switching or clearing undoes what the old choice granted.',
-                'Starting Wealth is added to your Currency when you save and can only be chosen once. After that the choices stay locked and the note says it has been added.',
-                'Save Origin adds your languages to a Languages note (new ones are appended to an existing note).'
-            ]],
-            ['Your World', [
-                'Fog of War always loads, even after clearing your browser\'s data, on a new device, or with a new character in the world: the world itself says who its GM is, and the map stays hidden until the fog is ready.',
-                'Your GM sets the world\'s rules: Starting XP, Max GP, starting Cu, and how attributes are chosen. A brand-new character receives the Starting XP and Cu once.',
-                'XP comes from your GM with your bonuses (INT modifier, Educated, Expertise) added, and the XP fields are locked while you\'re in the world. Outside a world, XP and Max GP are yours to set.',
-                'A new character receives only XP granted after it joins the world. XP that was waiting from before never lands on it.',
-                'Standard Array: each attribute begins on "Choose", and a value you pick leaves the other dropdowns until you free it. Use 7, 6, 5, 5, 5, 4 and 3 once each.',
-                'Point Buy: every attribute starts at 4 with 7 points to spend. Each +1 costs a point, each −1 gives one back, and attributes stay between 2 and 7.'
-            ]],
-            ['XP', [
-                'The XP Log button sits beside Spend XP. It lists everything you gained (reason, session, date and bonuses) and everything you spent XP on.'
-            ]],
-            ['Loyal Companions', [
-                'Your companion has its own AP, shown as pips on its card under Perks and in its stat block popup. Click pips to spend or refund, as on your own tracker. Unspent AP carries over.',
-                'In combat its AP empties when the fight begins and refills when its turn comes up in the GM\'s initiative (1 AP if it was Surprised).',
-                'Attacks rolled from its stat block spend its AP automatically, and each of its powers has a Use button that spends the power\'s AP.',
-                'Your Omen dice work on its rolls, including dice passed to you by other players.',
-                'Its HP stays in step everywhere. Changes from the popup, the Perks card, the GM or a rest show up in every place at once.',
-                'Give it its own picture: upload one, then drag and zoom inside the circle to frame the token. Adjust re-frames it later, and clicking the token shows the full image.',
-                'Every Rest Die you use also heals your companion by the roll plus its CON modifier. The Short Rest window shows its HP, and you can keep spending dice for it while you\'re at full HP. A Full Rest restores its Power Slots and charges, and so does a Short Rest if its powers use CHA.',
-                'Companions can carry a Shield (4 TP) and a Helmet (2 TP). The stat block counts free hands and has an Equip/Stow Shield button, and attacks that need more hands than are free can\'t be rolled. Each +2 DR/ER purchase adds 2, and manufactured weapons and armor use its TP.'
-            ]],
-            ['Omen', [
-                'Your Omen dice sit under Disadv | Normal | Adv in the dice tray. Click one to pass it on: choose the die as it is or (from Rank 2) plus or minus your LUC modifier, then choose who gets it.',
-                'The GM can use it to replace any creature\'s d20, such as an enemy\'s critical hit. A party member gets it in their dice roller, even without the Omen perk, to use on their own roll or pass along.',
-                'On your own rolls and your companion\'s, each held Omen die has its own row of buttons under the roll: [Use Omen 7] [+2] [−2], the last two adding or subtracting your LUC modifier (Rank 2).',
-                'Rank 3: when you roll a natural 1 or 20 and hold an unspent Omen die, its buttons read "Swap for Omen 7". Swapping uses the Omen die instead of the critical result, and the natural 1 or 20 takes that die\'s place in your Omen dice. An empty slot can\'t take a critical roll.',
-                'On a Full Rest (Ranks 1–4), choose which held Omen dice, if any, to roll again. The rest are kept and empty slots are filled with new rolls.',
-                'Rank 5: nothing is rolled. The Full Rest window shows your three slots, each with what it holds, and a choice of Keep, Natural 1, 10 or Natural 20. Each result goes in one slot, filling an empty one or replacing an unspent die (picking a result another slot has swaps them). Held dice are kept and empty slots filled by default.'
+                'One screen: Origin Name, Starting Wealth and Origin Feature on the left; the common language and four competencies on the right.',
+                'Each competency card has Language, Skill and Weapon Type buttons. Pick one, pick another to switch, or click it again to clear it.',
+                'Starting Wealth is added to your Currency when you save and can be chosen once. Save Origin adds your languages to a Languages note.'
             ]],
             ['Powers', [
-                'Click a power\'s name or its "Lvl X | Y AP" tag to use it. It spends its AP and a Power Slot (INT powers use a slot of their level; CHA powers take 1 from the pool), and asks first if you\'re short on either. "Use anyway" still spends what you have: the slot if one is left, the AP if there\'s enough.',
-                'Attack powers roll like weapons: the d20 and the damage in one roll, with the damage dice doubled on a critical hit.',
-                'Save powers roll their damage or healing and show the DC your targets roll against. The GM is told as well. Powers with no roll show their description in the dice tray.',
-                'In the Power Crafter, Attack Roll / Save Negates asks which one the power uses. An Attack Roll is a Power Attack (d20 + Power Atk) or a Martial Improvement, which triggers with a normal attack from the equipped weapon you pick (unarmed strikes and innate weapons included). A martial power rolls with that weapon\'s attack bonus and adds the weapon\'s damage to its own.',
-                'A martial power\'s card has a dropdown to switch weapons when your gear changes, and "Atk: +X" in the Powers header rolls a plain power attack. Powers made before this update roll as Power Attacks.'
-            ]],
-            ['Weapons', [
-                'When you hit, your weapon\'s properties take effect on their own. Crushing asks the target for a STR save (DC 10 + your STR modifier) and knocks them Prone on a failure; if they\'re already Prone, the hit deals an extra damage die instead. Stunning asks for a CON save (DC 10 + STR, or INT for an Electric weapon) or they\'re Stunned. Concealed deals an extra die against a Surprised creature.',
-                'Flurry: once your GM records a hit, your next attack with that weapon this turn has the Flurry AP reduction ticked for you (untick it if you switch targets).',
-                'Every weapon has a damage type, shown under its name and on its rolls: forged weapons use theirs (their energy type if elemental), unarmed strikes are Bludgeoning, and custom or innate weapons pick one from a dropdown (Add Weapon asks for it too). It decides whether DR or ER reduces the damage.',
-                'Each weapon has a hand: Main Hand (right arm) or Off Hand (left arm), plus Off Hand 2 and 3 with four arms. Two-handed weapons take a pair. Weapons fill free hands on their own; pick another hand from the dropdown and whatever was there swaps over. A held shield takes the Off Hand first. With four arms, the Shield box has side-by-side Off, Off 2 and Off 3 buttons: each hand can hold its own shield (from your inventory, or bought), and a hand holding one shows ✓ with an Unequip button beneath. Every shield held adds its +AC/DR/ER (two shields: +4). When an arm is Wounded, you\'re told what it drops and the weapon is marked.',
-                'Loyal Companion weapons show their hand too, with ⇄ to switch.',
-                'Thrown weapons can be made Returning in the Weapon Forge for 300 more Currency (the option sits inside the Thrown card), so they come back to you after the attack. The weapon shows as "Thrown (Returning)".'
+                'Click a power\'s name or its "Lvl X | Y AP" tag to use it: it spends its AP and a Power Slot (INT: a slot of its level; CHA: one from the pool) and asks first if you\'re short. "Use anyway" spends what you have.',
+                'Attack powers roll the d20 and damage together (damage dice doubled on a crit). Save powers roll their effect and show your DC, and the GM is told. Powers without a roll show their description.',
+                'Attack Roll / Save Negates powers choose one in the Power Crafter. An Attack Roll is a Power Attack or a Martial Improvement riding one of your weapons, switchable from the power\'s card.',
+                '1 AP or Reaction: in Power Crafter Step 7, a power built at 1 AP can be used as a Reaction instead. It then shows "Reaction" in place of its AP and costs no AP when used.',
+                'Powers from magic items: an equipped item that grants powers adds them to your Powers, marked with the item\'s name and uses ("Once per Full Rest", "3 charges per Full Rest"…). They spend AP but no Power Slot, and they leave your list when you unequip the item.'
             ]],
             ['Magic and Custom Items', [
-                'Equippable items can carry any number of bonuses, or penalties for cursed items: Core Attributes, any skill, AC, DR, ER, resistance to one energy type, Max HP, Max AP, Speed, Initiative, Wound Threshold, Max Rest Dice, Max Luck Points, Carry Capacity, melee and ranged attack and damage rolls, power attack rolls and save DC, saving throws, checks, and extra Power Slots of any level or for the CHA pool.',
-                'Make them with Add Item: tick Equippable, then add Other Bonuses beside the attribute, skill and energy bonuses. Edit your own later from their details.',
-                'Bonuses apply while the item is equipped and are listed under its name in your inventory. Items from your GM keep the bonuses the GM gave them.'
+                'Equippable items can carry any number of bonuses, or penalties for cursed items: Core Attributes, skills, AC, DR, ER, one energy resistance, Max HP, Max AP, Speed, Initiative, Wound Threshold, Max Rest Dice, Max Luck Points, Carry Capacity, attack and damage rolls, power attack and DC, saves, checks, and extra Power Slots.',
+                'Make your own with Add Item (tick Equippable) and edit them from their details. Items from your GM keep the bonuses and powers the GM gave them: the item\'s details list both, and its inventory row shows "Powers: …".',
+                'Bonuses and powers apply only while the item is equipped. Items handed to you always arrive unequipped.'
             ]],
-            ['Luck and Looting', [
-                'Loot / Scavenge, beside + Add Item, has all three rolls.',
-                'Currency: LUC (Loot) × enemies defeated, halved and rounded down, is what the party finds. A 16 after twelve mercenaries turns up 96 Cu.',
-                'Ammunition: LUC (Loot) − 3d6 rounds (or arrows or energy cells) are recovered and added to your Light, Medium or Heavy Ammo.',
-                'Scavenging takes about an hour with LUC (Loot), PER (Notice), CON (Survive) or INT (Encyclopedia). Hunting for Crafting Materials rolls the table for you: 2–10 finds 1d4 Common and 1d4−1 Uncommon, 11–15 adds Rare, 16+ finds more, a natural 20 finds the most, and a natural 1 sets off a trap or hazard.',
-                'Luck rerolls and Omens update what you found. When the GM asks for a Loot check (from the whole party or from you alone), the Currency roll opens with the enemy count filled in and your result goes to the GM.'
+            ['Weapons and Shields', [
+                'On a hit, a weapon\'s properties take effect: Crushing (STR save or Prone, or an extra die against a Prone target), Stunning (CON save or Stunned), Concealed (an extra die against a Surprised target), and Flurry\'s AP reduction on your next attack with it this turn.',
+                'Every weapon has a damage type, shown on it and its rolls: forged weapons use theirs, unarmed strikes are Bludgeoning, and custom or innate weapons pick one. It decides whether DR or ER applies.',
+                'Every weapon shows its hand: Main Hand, Off Hand, and Off Hands 2 and 3 with four arms (Polymelia). Two-handed weapons take a pair, and choosing a taken hand swaps the weapons.',
+                'Four arms: Off, Off 2 and Off 3 shield buttons sit side by side, each with its own Unequip beneath. Every shield held adds its +AC/DR/ER.',
+                'Thrown weapons can be made Returning in the Weapon Forge for 300 more Currency.'
             ]],
-            ['Party, Trading and Gifts', [
-                'The Party tab lists everyone in your world, with each Loyal Companion right after its owner. Click a portrait to see the full picture.',
-                'Each inventory item has a Give button that lists your party. Choose who gets it (and how many, for stacks) and it moves to their inventory.',
-                'Gear, consumables, magic items and Cu from your GM arrive in your inventory with a notification.'
-            ]],
-            ['Action Points', [
-                'AP is 6 + half your AGI modifier (rounded down, minimum 6), minus Fatigue, plus item bonuses.',
-                'Unspent AP carries over with no cap. The tracker shows your AP plus one empty pip and grows as you bank more. Click a pip to spend or refund.',
-                'In combat your pool empties when the fight begins (banked AP is lost) and refills when your turn comes up, whether or not your GM uses a battle map. Surprised characters get only 1 AP on their first turn. When the fight ends, your AP resets to your normal maximum.',
-                'Standing up (removing Prone) costs 2 AP during combat, or 0 with Fool\'s Luck Rank 5. If you\'re short you\'re asked first. Outside combat it\'s free.',
-                'Attacks spend their own AP. You\'re asked when you Aim (Aim AP + attack AP), when a perk might change the cost (Martial Arts, Flurry), or when you\'re short on AP.'
-            ]],
-            ['Dice and Notifications', [
-                'Rolls and messages share one tray: rest results, XP, loot, HP changes from the GM and warnings. A red dot on the dice button marks something new, and cleared entries stay cleared.',
-                'In combat the tray is the fight\'s log. Damage enemies deal to you shows the amount. Damage the party deals to enemies doesn\'t, so their DR and ER stay hidden. Your checks and saves reach the GM, and Luck rerolls update them.',
-                'Wound Threshold and Bleed Out: when a hit goes past your Wound Threshold, your next CON save is the roll to avoid being Wounded. If you\'re also Bleeding Out, the CON (Survive) check that follows sets how many rounds you have.',
-                'Every save your GM\'s log asks of you has a button to roll it straight from the tray, with all your bonuses ("Roll CON save (DC 12)", "Roll STR save (DC 13)", "Roll CON (Survive)"). Buttons go in the order they were asked, so a later one waits for the earlier save.',
-                'If a Luck reroll or an Omen die turns a failed Wound Threshold save into a success, the GM\'s limb choice goes away, and a limb already picked is un-Wounded on your sheet.',
-                'Reactions to a Critical Hit: when an enemy\'s Critical Hit lands on you, your tray shows "React: Turn to normal hit (Defensive)" if you have Defensive Rank 5 and are unarmored, and "React: Break Helmet (normal hit)" if you wear an intact Helmet (it breaks and moves to your inventory). Using your Reaction gives back the extra crit damage, and your Wound Threshold save is dropped, or its DC lowered, to match the smaller hit.',
-                'Click any skill, save, attribute, weapon attack, damage, power or stat block dice to roll it. Conditions add Advantage or Disadvantage for you.',
-                'The d4–d100 buttons build a dice pool, the box adds a modifier, and Roll rolls the pool and clears it.',
-                'Each die is drawn in its own shape, on the buttons and in the rolls: the d4 is a triangle, the d6 a square, the d8 a triangle pointing down (so it stands apart from the d4), the d10 a kite, the d12 a pentagon, the d20 a hexagon with a corner up, and the d100 a circle. Omen dice are purple hexagons.',
-                'Critical hits multiply the damage dice. A Luck Point rerolls a d20 right from the roll.',
-                'Fortunate Fighter Rank 5: an attack that isn\'t already a critical shows "Luck Point: auto-crit". Spend the point and a hit becomes a Critical Hit, with the crit damage shown straight away. Once per turn in combat.',
-                'Damage perks apply themselves: High Roller, Melee Prowess and Sharpshooter (Rank 2 rolls damage twice and keeps the higher, Rank 5 maximizes damage on a confirmed crit), plus a toggle for Instigator. Melee Prowess and Sharpshooter follow the weapon a martial power rides, and Rank 5\'s "roll again" button appears on any critical hit, including one made with an Omen 20.',
-                'Dice Explosion (High Roller Rank 5): the die that rolled its maximum stays in the roll marked as a max, and every die the explosion adds sits beside it, dashed and amber. A new maximum explodes again.'
-            ]],
-            ['Rest and Recover', [
-                'Luck Points: − spends one and + regains one, between 0 and your maximum.',
-                'Click the die beside your Rest Dice (or the words "Rest Dice" above it) to spend one Rest Die and heal the roll plus your CON modifier. At full HP it does nothing.',
-                'Rest: a Short Rest spends Rest Dice one at a time (each heals the die + your CON modifier) and restores CHA Power Slots. A Full Rest restores all HP and Power Slots, half your max Rest Dice and your Luck, and removes 1 Fatigue.',
-                'Recover: Shake it Off (1 AP, roll up to half your max Rest Dice, each + CON) and Shrug It Off (3 AP, heal one Wounded limb), each once per Short or Full Rest. Your GM\'s combat log says where the healing came from ("Ari regained 7 HP (Recover: Shake it Off, 2 Rest Dice)"), and Shrug It Off announces the healed limb.',
-                'Regenerative costs 3 GP. At the start of your turn in combat, press Regen to spend a Rest Die and heal the roll.'
+            ['Damage and Defense', [
+                'Type the full damage in your HP box ("-9", "35-9" after the 35 already there, or a phone\'s minus sign). Your DR (physical) or ER (energy), resistances, vulnerabilities and immunities are taken off using the type of the attack your GM just rolled; "-9 fire" names it, and otherwise you\'re asked. The tray shows the math.',
+                'A hit that comes to 0 still counts, so its effects (a Stunning save, for one) apply. Your sheet sends the damage and its math to the GM.',
+                'Your GM sees the same AC, DR, ER, Wound Threshold and resistances your sheet shows, shields, helmet, perks and magic items included.',
+                'Defensive Rank 4: while unarmored, the line under DR and ER lists your DR and ER against traps, hazards and falling.'
             ]],
             ['Conditions and Injuries', [
-                'Unconscious, Paralyzed or Incapacitated characters see why their attacks and powers are unavailable, for example "(Unconscious)". Unconscious auto-fails STR, AGI, PER, INT and CHA checks (CON still works, for Bleed Out). Paralyzed auto-fails STR and AGI checks.',
-                'Burning deals 1d10 Fire damage at the start of your turn in combat, ignoring ER, unless you\'re immune to Fire.',
-                'Your Loyal Companion\'s stat block has a SAVE button under each Core Attribute. In the Companion builder, Saving Throw Training (2 TP each) grants its Training Bonus to one saving throw.',
-                'Damage you type in your HP box ("-9", or "35-9" after the 35 already there; phone minus signs work) is the full amount. Your DR (physical) or ER (energy), resistances, vulnerabilities and immunities are taken off, using the damage type of the enemy attack your GM just rolled. Type "-9 fire" to name the type yourself; if nothing says, you\'re asked. The dice tray shows the math. If it comes to 0, your GM still counts the hit, so its effects (a Stunning save, for one) apply. Your sheet sends the damage and its math to your GM\'s tracker, which adds any extra dice (a Torso Wound, for one) and offers your Reactions.',
-                'Your GM sees the same AC, DR, ER, Wound Threshold and resistances your sheet shows (shield, helmet, perks and magic items included): your sheet saves them with your character.',
-                'Both legs Wounded: you fall Prone automatically and can\'t stand up (the Prone tag can\'t be removed) until one leg heals.',
-                'Torso Wound: your GM\'s tracker adds one more die of damage each time you\'re hit, the largest die the attack rolled.',
-                'Four arms (Polymelia): the Wounded list has Left Arm 2 and Right Arm 2 (older "Extra Arm" wounds are renamed).',
-                'Stunned: your turn starts with 0 AP. Stunned from a Stunning weapon ends by itself at the end of the attacker\'s next turn, unless you\'re Stunned again first.',
-                'Conditions bring the ones they include: Bleeding Out → Unconscious → Incapacitated (and Prone), Paralyzed → Incapacitated, Stunned → Incapacitated, Diseased → Infected. Frenzy Rank 5 keeps you conscious while Provoked. The × on a condition\'s tag under Vitals removes it.',
-                'Permanent Injuries: when a Wounded limb is Wounded again, press Re-wounded and pick an attribute to lower by 1. Remove the injury once it heals to get the point back.'
+                'Wound Threshold and Bleed Out: your next CON save settles a Wound, then CON (Survive) sets your Bleed Out rounds. If a Luck reroll or Omen die turns the Wound save into a success, the GM\'s limb choice disappears and any limb already picked heals.',
+                'Critical Hits on you: the tray offers "React: Turn to normal hit (Defensive)" with Defensive Rank 5 while unarmored, and "React: Break Helmet (normal hit)" with an intact Helmet. Either gives back the crit\'s extra damage and adjusts your Wound save.',
+                'Torso Wound: each hit on you adds one more die, the largest the attack rolled. Both legs Wounded: you\'re Prone and can\'t stand until a leg heals. Four arms add Left Arm 2 and Right Arm 2 to the Wound list.',
+                'Stunned: your turn starts with 0 AP, and a Stunning weapon\'s stun ends at the end of the attacker\'s next turn. Burning deals 1d10 Fire at the start of your turn, ignoring ER.',
+                'Unconscious, Paralyzed and Incapacitated block attacks and powers and auto-fail the checks they should. Conditions bring their linked conditions, and Permanent Injuries are tracked.'
+            ]],
+            ['Dice and Notifications', [
+                'Rolls, rest results, XP, loot, HP changes and warnings share one tray, with a red dot for anything new.',
+                'In combat the tray is the fight\'s log. Each save the GM needs from you has a button that rolls it with your bonuses, in the order they were asked.',
+                'Every die has its own shape: d4 and d8 triangles (the d8 points down), a square d6, a kite d10, a pentagon d12, a hexagon d20 and a round d100. Omen dice are purple hexagons.',
+                'Click skills, saves, attributes, weapons, damage and powers to roll them. Perks, Advantage, Disadvantage, crits and Luck rerolls are built in, and the d4–d100 buttons build a dice pool.',
+                'Fortunate Fighter Rank 5 turns a hit into a Critical Hit for a Luck Point, once per turn. High Roller, Melee Prowess and Sharpshooter apply themselves, and a Dice Explosion shows every die it adds.'
+            ]],
+            ['Omen', [
+                'Held Omen dice sit in the dice tray. Pass one to the GM (for any creature\'s d20) or a party member, as rolled or (Rank 2) plus or minus your LUC modifier.',
+                'Each Omen die has its own buttons on your rolls and your companion\'s. At Rank 3 one can trade places with a natural 1 or 20.',
+                'Full Rest: choose which Omen dice to reroll (Ranks 1–4), or place your Natural 1, 10 and Natural 20 in the slots you want (Rank 5).'
+            ]],
+            ['Rest, Recover and Luck', [
+                'Luck Points: − spends one, + regains one.',
+                'Click the Rest Dice die (or the words "Rest Dice") to spend one and heal the roll plus your CON modifier. At full HP nothing happens.',
+                'Short and Full Rest, Shake it Off and Shrug It Off each have a button, and your GM\'s log says where the healing came from. Regenerative costs 3 GP and has a Regen button on your turn.'
+            ]],
+            ['Luck and Looting', [
+                'Loot / Scavenge, beside + Add Item, rolls Currency (LUC × enemies defeated ÷ 2), Ammunition (LUC − 3d6 rounds) or an hour of scavenging for Crafting Materials.',
+                'When your GM asks for a Loot roll, it opens with the enemy count filled in and your result goes back to the GM.'
+            ]],
+            ['Loyal Companions', [
+                'Your companion has its own AP pips, which empty when a fight begins and refill on its turn. Attacks from its stat block and its powers\' Use buttons spend them.',
+                'Its stat block has a SAVE button under each Core Attribute, and Saving Throw Training (2 TP each) grants its Training Bonus to one save.',
+                'Its HP stays in step everywhere, every Rest Die you use heals it too, it can have its own token art, and it can carry a Shield and Helmet. Your Omen dice work on its rolls.'
+            ]],
+            ['Party and Trading', [
+                'The Party tab lists everyone in your world, companions beside their owners.',
+                'Give moves an item to a party member. Gear, magic items and Cu from your GM arrive in your inventory with a notice.'
+            ]],
+            ['Action Points', [
+                'AP is 6 + half your AGI modifier (minimum 6), minus Fatigue, plus item bonuses. Unspent AP carries over.',
+                'Your pool empties when a fight begins and refills on your turn, with or without a battle map (1 AP if Surprised). Standing from Prone costs 2 AP in combat.',
+                'Attacks and powers spend their own AP, and you\'re asked when you\'re short or a perk might change the cost.'
+            ]],
+            ['Maps', [
+                'Area Circles stay about the same size on screen as you zoom, so zoomed in they sit on one building and zoomed out they never cover more than 3% of the map.',
+                'Hover over an Area Circle and its name appears at once.',
+                'Linked maps you open from your world all appear in the same place on screen, each a little offset from the last.',
+                'Your GM\'s maps stay sharp when you zoom: the full-resolution detail loads for the part you\'re looking at. Measure with M.'
             ]],
             ['Rules', [
-                'High Roller: a Gamble that hits deals +5 damage (+10 and 1 AP from Rank 4). Rank 2 rerolls 1s and 2s on damage (and a 1 is rolled again until it isn\'t, so no die ever ends below 2), Rank 3 lets Luck rerolls use Advantage or Disadvantage, and Rank 5 is a Dice Explosion once per Full Rest.',
-                'Fortunate Fighter Rank 1: use LUC instead of AGI for your AC. The sheet uses whichever is higher.',
-                'Mobile Rank 1: moving costs 1 less AP each time (minimum 0), and difficult terrain doesn\'t slow you.',
-                'Power Crafting: at most 8 dice per die step, and Sacrifice also stops you regaining HP until your next turn. Affected powers show "Recraft (Free)".',
-                'Mythic Utilities (Power Crafter Step 5): Dominate, Vehicle Scale, Wish, Create a Sentient Being and Stop Time. Each costs a flat 130 XP, unaffected by Area of Effect or HP Capacity Pool. A Mythic power takes no other utilities, gets no refunds from Steps 6–8, pays double for Duration and AP, and skips Step 6 or 7 where the utility says so.',
-                'Heavy ranged weapons show AGI in the ATT column.'
+                'High Roller, Fortunate Fighter (Rank 1 uses LUC for AC if higher), Mobile and Regenerative are rewritten or updated.',
+                'Power Crafting: at most 8 dice per die step, Sacrifice stops the caster regaining HP until their next turn, and Mythic Utilities cost a flat 130 XP. Affected powers show "Recraft (Free)".'
             ]],
-            ['Layout and Display', [
-                'The sheet starts below the floating Roster and Settings buttons, so they no longer cover your name.',
-                'Faster everywhere, most of all on phones: the styling is now one small prebuilt file, so the sheet no longer rebuilds its styles in your browser every time something on it changes.',
-                'Updates arrive whole: every file carries the version number, so your browser never mixes a new page with an old saved script. An open sheet checks for a newer version when it loads and reloads onto it.',
-                'On phones, closed windows no longer blur the page behind them, which caused blank or flickering patches on Android.',
-                'Settings sits beside World at the top of the Character Sheet. Undo and Redo are at the bottom of the Roster menu, and Ctrl+Z and Ctrl+Y still work anywhere.',
-                'Ammo is one stack per type: another bundle adds 20 rounds to your "Medium Ammo".',
-                'Power Crafter Step 5 puts Minor and Moderate Utilities in one column and Major, Master and Mythic in the other.',
-                'Defensive Rank 4: while unarmored, the line under your DR and ER (where energy resistances show) lists your DR and ER against traps, hazards and falling, each raised by your CON score.',
-                'The Owned filter in the perk list shows the perks you have that can still be upgraded, even ones whose next rank you can\'t buy yet, so you can see what to work towards. Maxed perks are left out.',
-                'Small text is larger everywhere, and slightly larger again in the Fantasy theme.'
-            ]],
-            ['Battle Maps', [
-                'Area markers (the lettered circles) stay about the same size on screen as you zoom, so zoomed in they mark a single building and zoomed out they never cover more than 3% of the map.',
-                'Your GM\'s maps stay sharp when you zoom in: the map appears straight away, and the full-resolution detail loads for the area you\'re looking at. Each piece downloads once and is kept in this browser.',
-                'Measure with M (middle-drag still pans), see token numbers and conditions, and resize map windows from the corner grip.'
-            ]],
-            ['Your Account', [
-                'Delete Account removes everything tied to your account: every character and folder, every world you run (with its maps, fog, NPC portraits, battle images, invite code and player list), your place in each world you joined, your races, NPCs and profile, and this browser\'s saved APX settings.',
-                'If you\'re asked to re-enter your password, deletion carries on from where it stopped.'
+            ['Layout and Account', [
+                'Settings sits beside World. Undo and Redo are at the bottom of the Roster menu (Ctrl+Z / Ctrl+Y still work).',
+                'The Owned perk filter shows perks you can still upgrade and leaves out maxed ones.',
+                'Small text is larger, pages load faster (the styling is one small prebuilt file), and closed windows no longer blur the page behind them on phones.',
+                'Delete Account removes every character, folder, world and image tied to your account, and this browser\'s saved settings.'
             ]]
         ],
         gm: [
             ['World Settings', [
-                'The World Settings tab sets your world\'s rules: Starting XP (default 25), Max GP (default 15), a starting Cu bonus, and Point Buy or Standard Array (7, 6, 5, 5, 5, 4, 3).',
-                'Players in your world can\'t edit their own XP or Max GP. Grant XP applies each player\'s bonuses and records the reason.',
-                'Starting XP and Cu go to brand-new characters once, and existing characters keep what they have. A player\'s new character never collects XP granted before it joined.'
+                'Set your world\'s Starting XP (default 25), Max GP (default 15), starting Cu, and Point Buy or Standard Array.',
+                'Players in your world can\'t change their own XP or Max GP. Grant XP adds each player\'s bonuses and records the reason.'
             ]],
-            ['Deleting Worlds and Accounts', [
-                'Deleting a world removes all of it: its main map and other maps, fog, NPC portraits, battle images, invite code, player list and public map.',
-                'Deleting your account does the same for every world you run, and also removes your characters, folders, races, NPCs, profile and your place in worlds you joined as a player.',
-                'Update your Firestore rules from FIREBASE_RULES.txt (v2026.9.25b). Players, including kicked or banned ones, can then remove their own place in a world, and everyone in a world can load full-resolution map tiles.'
-            ]],
-            ['Full-Resolution Maps', [
-                'Area Circles stay about the same size on screen as you zoom: zoomed in on a large city map, each one can mark a single building; zoomed out they stay easy to see but never cover more than 3% of the map. Players see them the same way.',
-                'Upload a map of any size to the World Map or an Other Map. Every map gets a compressed preview (up to 1600 px on its longest side) that loads instantly. Grid squares, tokens, pins and fog are placed on the preview, exactly as before.',
-                'A map that fits in the preview without shrinking stops there. A larger one is also cut into full-resolution tiles (512 px squares at high quality, plus half-resolution tiles for very large maps), each saved as its own small record well within Firestore\'s limits. A 6000 × 9000 map makes about 300 tiles. There\'s no Firebase Storage and no paid plan.',
-                'Zoomed out, only the preview loads. As you zoom in, the tiles for the visible area load at the detail your screen needs (high-density screens get it sooner), and they are kept in the browser so each downloads once.',
-                'Each tile carries a few pixels past its edges, so neighbouring tiles overlap exactly: no seams or cut-off text at any zoom.',
-                'Uploads confirm each tile before sending the next, restart the connection every few MB so Firestore never refuses it, and retry a tile if the connection is busy.',
-                'The upload shows its progress on the Map tab or in the map window ("saving tiles 120/297…"). The preview appears first, and players get the new tiles when the upload finishes. Uploading a new image removes the old tiles, and deleting a map, a world or an account removes them all.',
-                'Previews are compressed with browser-image-compression (loaded by the GM Tools page from jsdelivr), and with the built-in compressor if it can\'t load.'
-            ]],
-            ['Initiative and Battle Maps', [
-                'The initiative tracker works on its own. Adding creatures no longer reaches into a closed map, so a quick fight never shows "an unseen creature" or asks for tokens.',
-                'A map is used when you have it open, or when you pick it under Battle map in the tracker. Picking or opening a map links everyone in initiative to their matching tokens there, and hidden tokens stay anonymous to players.',
-                'The + Token button appears only while a battle map is open. The Battle map choice resets when you end combat or clear the tracker.',
-                'Your own combat log always shows real names and amounts, marking creatures players can\'t see as "(hidden)".'
-            ]],
-            ['Saved NPCs', [
-                'Sort the Saved NPC list by Name, AP, Threat Level or any Core Attribute. Click the active sort again to reverse it (A–Z to Z–A, highest to lowest). An arrow marks the active sort and its direction.'
-            ]],
-            ['Loyal Companions', [
-                'Companions sit under their owner in the Party panel with their stat block, token art and a + Initiative button. Add Party places their tokens on the map too.',
-                'In initiative a companion is an ally with its own AP. Attacks rolled from its stat block spend it, and when its turn comes up its owner\'s sheet refills the companion\'s AP pips as well.',
-                'Its HP follows its owner\'s sheet, it stays in the order at 0 HP, and it doesn\'t take a share of combat XP.'
-            ]],
-            ['Omen Dice on Your Rolls', [
-                'When a player passes you an Omen die, the combat log announces it and the die waits in your dice tray, above the dice buttons, with the player\'s name. Players can also pass Omen dice straight to each other.',
-                'Every d20 roll in your tray gains a "Seer\'s Omen 6" style button. Press it on the roll it replaces (an NPC\'s attack, check or save) and that d20 becomes the Omen die, LUC adjustment included. A critical hit turned into a 6 is no longer a critical.',
-                'The log tells the table the new result and shows you the before and after. Dismiss an Omen with ✕ if it was handled another way.'
+            ['NPC Stat Blocks and Worlds', [
+                'Tag a stat block with worlds (NPC Roster → World) and it shows up only in those worlds: the NPC Roster, the Saved NPC list for initiative, and Link Stat Block all hide stat blocks tagged for other worlds. Untagged stat blocks show everywhere.',
+                'Each list says how many are hidden. The Roster has "Show all" to find and re-tag them, and "Only this world" to go back.'
             ]],
             ['Loot Maker', [
-                'Build loot with the tools players use: the Weapon Forge and Armor Forge (free for you, finishing with "Add to Loot"), the Consumable Crafter (potions, grenades, scrolls and more), the Adventuring Gear list, quick custom weapons, Shields and Helmets.',
-                'Custom items can be made equippable with any number of bonuses or penalties from one list: Core Attributes, any skill, AC, DR, ER, a single energy resistance, Max HP, Max AP, Speed, Initiative, Wound Threshold, Max Rest Dice, Max Luck Points, Carry Capacity, attack and damage rolls, power attack and DC, saving throws, checks, and extra Power Slots of any level or for the CHA pool. Players can read these bonuses but can\'t edit them.',
-                'Open the Loot Maker from the Loot panel to fill your Loot list, or from an NPC to stock what it carries.',
-                'The Weapon Forge offers Returning for Thrown weapons (+300 Cu): the weapon comes back after the attack.'
+                'Make loot with the tools players use: the Weapon Forge and Armor Forge (free for you), the Consumable Crafter, the Adventuring Gear list, quick custom weapons, custom items, Shields and Helmets.',
+                'Custom items can be equippable, with any number of bonuses or penalties: Core Attributes, skills, AC, DR, ER, one energy resistance, Max HP, Max AP, Speed, Initiative, Wound Threshold, Rest Dice, Luck Points, Carry Capacity, attack and damage rolls, power attack and DC, saves, checks and Power Slots.',
+                'Powers on items: under "Powers while equipped", + Craft Power opens the Power Crafter on top of the Loot Maker (no TP or XP is spent; it finishes with "Add Power to Item"), or copy any of your NPCs\' powers from the dropdown. Whoever equips the item gets the powers: players in their Powers, NPCs on their stat block.',
+                'Edit: every custom item has an Edit button wherever it sits (an NPC\'s carried gear, an Area Circle, the Loot list, or the Loot Maker\'s own list). The form opens filled in, bonuses and powers included, and Save Changes updates the item in place.',
+                'Open the Loot Maker from the Loot panel, from an NPC, or from an Area Circle.'
             ]],
-            ['NPC Gear and Consumables', [
-                'Every NPC stat block can carry items and Currency, added from the NPC Crafter ("Carried Items and Loot") or from the NPC\'s window in your world notes. Carried gear costs no Threat Points.',
-                'Consumables appear on the stat block with their charges and a Use button: 3 AP and one charge, tracked per creature in initiative, so goblins sharing a stat block each have their own.',
-                'When an NPC dies, its equipment, whatever it still carries (consumables with charges left) and its Currency drop into the Loot panel.',
-                'An NPC\'s window has its own Loot section, with a "Give to" dropdown for each item and a Currency box to give to one player or split across the party, for loot that changes hands without a fight.'
+            ['NPC Gear', [
+                'NPCs carry items and Currency, added from the NPC Crafter or the NPC\'s window. Carried gear costs no Threat Points.',
+                'Equip toggle: an equippable item an NPC carries has an Equip / Equipped button in its loot list and an Equip / Unequip button on the stat block. Worn, its bonuses count on the stat block (attributes, AC, DR, ER, HP, AP, Speed, Initiative, saves, skills, attack and damage, power attack and DC), its energy resistances reduce damage in the tracker, and its powers join the stat block\'s Powers marked "From <item>".',
+                'Consumables show their charges and a Use button (3 AP and a charge, tracked per creature in initiative).',
+                'When an NPC dies, its equipment, what it still carries and its Currency drop into the Loot panel, with worn items taken off.'
             ]],
             ['Loot on Maps', [
-                'Loot lives on NPCs. Link an NPC to an Area Circle and the area\'s popup shows its loot, ready to hand out. A chest, a fallen soldier or a shopkeeper is simply an NPC placed there.',
-                'Battle-map tokens work the same way: a token linked to an NPC drops that NPC\'s loot when it falls.',
-                'Loot stays yours alone until you give it away.'
+                'Every Area Circle has its own loot: a chest, a hidden cache, a shop counter. Stock it with + Loot Maker in the area\'s popup, no NPC needed, and hand items and Cu out from there.',
+                'An area\'s popup shows only that area\'s loot. NPCs keep their own carried loot on their stat blocks and windows.',
+                'Loot stays yours alone until you give it away, and items arrive in players\' packs unequipped.'
             ]],
             ['Loot After a Fight', [
-                'Defeated enemies\' gear appears in the Loot panel under the tracker, grouped by who dropped it.',
-                'Choose a party member beside each item and press Give, and it goes straight into their inventory. Your other picks stay put while you hand things out, and ✕ removes anything that didn\'t survive the fight.',
-                'Currency: the party finds LUC (Loot) × enemies defeated ÷ 2, rounded down. The panel counts this combat\'s defeated enemies (you can change the count), and Currency carried by fallen NPCs is added to the Cu box.',
-                'Ask to roll: choose the whole party or one player, and their sheets open the Loot roll with the enemy count ready. Each result arrives with its Cu (only from the player you asked, when you chose one).',
-                'Press Use on a result to put its Cu in the Cu box, and the result leaves the list. Then give it to one player or split it across the party.',
-                'Players can also trade items among themselves.'
+                'Defeated enemies\' gear appears in the Loot panel, grouped by who dropped it. Pick a player beside each item and press Give, or ✕ what didn\'t survive.',
+                'Currency is LUC (Loot) × enemies defeated ÷ 2. The panel counts this fight\'s defeated enemies, adds fallen NPCs\' Currency to the Cu box, and can ask the whole party or one player for the Loot roll.'
             ]],
-            ['Party', [
-                'Party stat blocks show each player\'s AC, DR, ER, Max HP, AP, Initiative and Wound Threshold exactly as their own sheet shows them (shield, helmet, perks and magic items included), plus their saves and skills.'
+            ['Damage and the Tracker', [
+                'One damage system handles the HP box, the Temp HP box and damage players type on their sheets: the attack that hit, its damage type, extra dice, the target\'s defences, HP, the log, Reactions, the Wound Threshold save, the weapon\'s own saves, then Bleed Out. It works before Start Combat and without a battle map.',
+                'Type the full damage ("-8"). The target\'s DR (physical) or ER (energy) comes off, plus Damage Resistances, Vulnerabilities, Immunities and weapons that ignore DR/ER. The type comes from the attack just rolled; "-8 fire" names it; otherwise one click chooses. "70-7" in a box showing 70 is 7 damage, phone minus signs work, and clicking the box selects its number.',
+                'Each row shows the DR and ER in use, live from the NPC\'s stat block or the player\'s own sheet, and a "Last hit" line with the math. NPCs without a stat block get DR and ER boxes.',
+                'A hit that deals 0 is still a hit. Players see "Ari hit Goblin."; you see the damage or "…but Goblin took no damage."',
+                'Torso Wound adds the attack\'s largest die. Incapacitated targets take every hit as a Critical Hit. Crushing, Stunning and Concealed apply to the target, and a Stunning weapon\'s stun ends by itself at the end of the attacker\'s next turn.',
+                'Reactions to a Critical Hit (Defensive Rank 5, or breaking a Helmet) give back the crit\'s extra damage and re-check the Wound Threshold.',
+                'When a player fails a Wound save your tray shows a button per limb (Left Arm 2 and Right Arm 2 for four arms). A Luck or Omen reroll that saves them withdraws the choice.'
+            ]],
+            ['NPC Powers, Saves and Conditions', [
+                'Click a power\'s name or its "Lvl X | Y AP" tag on any NPC or Loyal Companion stat block to use it, as players do: an attack power rolls d20 + Power Attack Bonus with its damage, a save power shows its DC and rolls its effect, and anything else shows its description. Its AP comes off the creature taking its turn, and a Reaction power costs none.',
+                '1 AP or Reaction: in Power Crafter Step 7, a 1 AP power can be marked as a Reaction instead. The stat block shows "Reaction" in its tag.',
+                'Every stat block has a SAVE button under each Core Attribute. Saving Throw Training (Step 5, 2 TP each) grants the Training Bonus to one save.',
+                'Conditions work on NPCs as on players: Stunned, Incapacitated, Paralyzed, Unconscious and Bleeding Out leave no AP at the start of their turn; Burning rolls 1d10 Fire; Poisoned, Frightened, Blinded, Prone and the rest add Disadvantage or Advantage; Paralyzed auto-fails STR and AGI.',
+                'Remove Power asks for confirmation in front of the NPC Crafter, where you can see it.'
+            ]],
+            ['NPC Crafter and Weapon Forge', [
+                'NPC weapons stay fully editable: reopen one in the Weapon Forge to change melee or ranged, Light, Medium or Heavy, and its damage type at any time.',
+                'Each weapon shows its hand on the stat block, with ⇄ to switch. Shields (4 TP) and Helmets (2 TP) count free hands, with an Equip/Stow Shield button.',
+                'Each +2 DR/ER purchase adds 2. Manufactured weapons and armor cost Threat Points. XP rewards per Tier are 1 / 5 / 10 / 15 / 25 / 35 for Tiers 0–5, then +10 per Tier.',
+                'Power Crafter: at most 8 dice per die step and Mythic Utilities (a flat 130 XP).'
             ]],
             ['Initiative and Combat', [
-                'Bleed Out is one row: "Bleeding Out: N rounds left" with − Round, + Round and Stabilize.',
-                'No popups for saves. When a player passes their Wound Threshold, or drops to 0 HP with a linked sheet, their dice tray asks for the CON save or CON (Survive) check and the result fills in here. The Bleed Out popup remains for players without a sheet.',
-                'One damage system for everything: the HP box, the Temp HP box, and damage players type on their own sheets all go through the same steps: which attack hit, its damage type, extra dice from the hit, the target\'s defences, HP, the log, then Reactions, the Wound Threshold save, the weapon\'s own saves and Bleed Out. It works before you press Start Combat, and never needs a battle map.',
-                'Every tracker row shows the DR and ER damage is reduced by, live: an NPC\'s stat block, or a player\'s own sheet (* means resistances or immunities too; hover for the list). NPCs added without a stat block have DR and ER boxes to fill in. After a hit, the row shows "Last hit" with the math.',
-                'Damage is entered in full: type "-8" in the HP box and the target\'s DR (Bludgeoning, Piercing, Slashing) or ER (energy types) is taken off, along with Damage Resistances (+5), Vulnerabilities, Immunities, a player\'s energy resistances, and weapons that ignore X, half or all DR/ER (Ironclad Rank 4 halves that). The type comes from the attack just rolled (an attack with no type recorded counts as physical); "-8 fire" names it; otherwise one click chooses. An Incapacitated target\'s resistances are bypassed. Your log shows the math and where the defences came from ("Goblin ← Ari\'s Longsword: 8 → 8 Slashing − DR 5 = 3 (DR 5, ER 2, from stat block)"). Typing after the number already in the box counts too: "70-7" in a box showing 70 is 7 damage, not "set HP to 63". Phone keyboards\' minus signs (−, –) work, and clicking a box selects its number so what you type replaces it. A plain number ("12") still sets HP directly.',
-                'Hits: damage you enter after an attack roll (from a player\'s sheet or your stat blocks) is that attack\'s hit, even when it comes to 0. With no roll to match (dice rolled at the table), damage you type is a hit by whoever is taking their turn. The tracker never redraws under a box you\'re typing in. A player\'s own damage that comes to 0 counts as a hit too. Players see "Ari hit Goblin."; you see the damage, or "Ari hit Goblin, but Goblin took no damage."',
-                'Torso Wound: a player with a Wounded Torso takes one more die of damage from each hit, the largest die the attack rolled, added before DR/ER.',
-                'Players\' sheets are told the damage type of the NPC attack you just rolled, so damage they type there is reduced the same way, and their sheet sends you the damage and its math. For a few seconds after your tracker changes a player\'s HP, an older save from their sheet can\'t undo it.',
-                'The hit weapon\'s properties apply to that target. Crushing: a STR save (DC 10 + the attacker\'s STR modifier) or Prone, or +1 damage die against a Prone target. Stunning: a CON save or Stunned. Concealed: +1 damage die against a Surprised target. Extra dice go straight onto HP and count toward the Wound Threshold. Grappling is noted for you to apply, and Tearing stays manual.',
-                'Stunned from a Stunning weapon ends by itself at the end of the attacker\'s next turn, and the log says so. Being Stunned again restarts it. A Stunned creature starts its turn with 0 AP (NPCs here, players on their sheets).',
-                'Conditions work on NPCs and companions in the tracker the way they do on players\' sheets. Stunned, Incapacitated, Paralyzed, Unconscious or Bleeding Out: no AP when their turn starts. Burning: 1d10 Fire at the start of their turn, rolled in your tray, ignoring ER (nothing if immune to Fire, more with a Fire Vulnerability). Their rolls from the stat block take Disadvantage and Advantage from their conditions (Poisoned, Frightened, Blinded, Prone melee and ranged, Restrained AGI saves…), auto-fail where a condition says so (Paralyzed STR and AGI), and an Incapacitated creature\'s attack asks before rolling.',
-                'Incapacitated targets (including anyone Stunned, Paralyzed or Unconscious) take every hit as a Critical Hit: a hit that didn\'t roll one gets the crit\'s extra damage dice added for you, with the attacker\'s High Roller rerolls, and the log notes it bypasses their resistances.',
-                'If a Luck reroll or an Omen die turns that failed save into a success, the limb buttons are replaced with the result, and a limb you already picked is taken off their sheet.',
-                'Reactions to a Critical Hit: when an NPC\'s Critical Hit lands on a player who can use one (Defensive Rank 5 while unarmored, or an intact Helmet to destroy), they get a button for it. Using it gives back the crit\'s extra damage on your tracker, then re-checks the Wound Threshold: the save is dropped or its DC lowered, a limb choice is withdrawn if the save now succeeds, and a player back above 0 HP stops Bleeding Out.',
-                'Four-armed players (Polymelia) have Left Arm 2 and Right Arm 2 among the limb buttons.',
-                'When a player fails their Wound Threshold save, your tray shows a button for each limb. Pick one and it\'s Wounded on their sheet. A limb that was already Wounded is marked "(again)", and their sheet asks them for the Permanent Injury.',
-                'Healing a player does on their own sheet shows where it came from: a Short Rest die, Regenerative, or Recover (Shake it Off).',
-                'Players roll their saves from their tray. For NPCs, the log gives you a button that rolls the save with the creature\'s bonus and adds Prone or Stunned on a failure (Luck rerolls update it).',
-                'Flurry: after a hit, the attacker\'s next attacks with that weapon this turn cost 1 less AP, automatically for NPCs, and ticked for you on the player\'s sheet.',
-                'End Combat checks for anyone still Bleeding Out first, and the XP award closes the combat log.',
-                'The combat log lives in the dice tray. Everyone sees damage and healing, but players see "Ari hit Goblin" with no number, so DR and ER stay secret, while you see every amount and every real name. Damage to players shows its amount to everyone. Player checks and saves appear only for you (marked GM) and update live with Luck or Omen. Hidden tokens show as "an unseen creature".',
-                'Wound Threshold and Bleed Out rolls are matched for you, Wound Threshold first. The player\'s next CON save settles the wound against its DC (10, or half the damage), then their CON (Survive) check sets the Bleed Out rounds (half the result, minimum 1).',
-                'Every creature\'s AP is tracked and carries over. Surprised creatures gain only 1 AP on their first turn, even when added mid-fight, and attacks and consumables used from a stat block spend that creature\'s AP.',
-                'Players\' AP refills when their turn comes up even with no battle map, since the tracker tells their sheets whose turn it is. Everyone\'s banked AP is cleared when combat starts, and players return to their normal AP when it ends.',
-                'Removing Prone from an NPC during combat spends the 2 AP it takes to stand up, and your log notes it.',
-                'Conditions include their linked conditions and reach players\' sheets. Saved NPCs keep current HP in step with max HP, and NPCs join initiative at full HP.',
-                'Messages go to Dice and Notifications. Click a party member\'s name for their full stat block.'
+                'The tracker works on its own. A battle map is used only when it\'s open or picked as the fight\'s Battle map.',
+                'Every creature\'s AP is tracked and carries over. Surprised creatures get 1 AP on their first turn, and players\' AP refills on their turn even without a map.',
+                'The combat log lives in the dice tray. Players see hits on enemies without numbers; you see every amount and every real name.',
+                'Saves are rolled from the tray: players from theirs, NPCs from a button in your log. End Combat checks for anyone still Bleeding Out.',
+                'When a player passes you an Omen die, it waits in your tray and replaces any creature\'s d20.'
             ]],
-            ['NPC Crafter', [
-                'Each equipped weapon shows its hand on the stat block (Main Hand, Off Hand, or Both Hands), with ⇄ to switch. A held shield takes the Off Hand.',
-                'Saving throws: every NPC stat block has a SAVE button under each Core Attribute, and the saves the log asks NPCs for use it. Saving Throw Training (Step 5, 2 TP each) grants the Training Bonus to one saving throw.',
-                'Shields (+2 AC/DR/ER, 4 TP, one hand) and Helmets (+1 AC/DR/ER, 2 TP). Stat blocks count free hands and have an Equip/Stow Shield button, and two-handed attacks can\'t be rolled while the shield is up.',
-                'Each +2 DR/ER purchase (1 TP) adds 2.',
-                'Die-step and extra-dice buttons switch off at their maximum, so clicks never land on what\'s behind them.',
-                'XP rewards per Tier: 1 / 5 / 10 / 15 / 25 / 35 XP for Tiers 0–5, then +10 per Tier, divided among the players.',
-                'Manufactured weapons and armor cost Threat Points, priced like the innate features they imitate.',
-                'Power Crafter: at most 8 dice per die step, a warning when Sacrifice meets healing, Minor and Moderate utilities in one column, and Mythic Utilities (a flat 130 XP).'
+            ['Party and Companions', [
+                'Party stat blocks show each player\'s AC, DR, ER, Max HP, AP, Initiative and Wound Threshold exactly as their sheet does.',
+                'Loyal Companions sit under their owners with stat blocks, token art and + Initiative. Their HP follows their owner\'s sheet.'
             ]],
-            ['Dice', [
-                'Each die has its own shape on the buttons and in rolls: d4 and d8 triangles (the d8 points down), a square d6, a kite d10, a pentagon d12, a hexagon d20 and a round d100.'
+            ['Maps', [
+                'Linked maps open in the same place: the first near the centre, each next one a little offset, and never off the screen, however many you open.',
+                'Hover over an Area Circle and its name appears at once, for you and your players.',
+                'Area Circles stay about the same size on screen as you zoom, so zoomed in on a city they mark one building, and zoomed out they never cover more than 3% of the map.',
+                'Upload maps of any size: a compressed preview loads instantly and full-resolution tiles load as you zoom in, with no seams and no paid Firebase plan.',
+                'Shift+drag moves groups of tokens, images have layers, M measures, F toggles the fog painter, and windows resize from the corner grip.'
             ]],
-            ['Battle Maps', [
-                'Shift+drag selects several tokens to move together, and right-click gives group options.',
-                'Movable images (carts, tower floors, overlays) have layers, size, lock, reveal and opacity. Players see the same layering.',
-                'Tokens show numbers, sizes from the character sheet and condition badges, and companion tokens use their own art.',
-                'Measure with M: squares count inclusively and snap to token corners, and middle-drag pans while measuring.',
-                'F toggles the fog painter, and Clear asks first. Grid, fog and window resizing stay light on large maps. Resize windows from the corner grip.'
-            ]],
-            ['World', [
-                'Reveal toggles sit beside Edit on pins and on every sub-note in popups. Races stay with their own world, and locations can link NPCs.'
+            ['Worlds and Accounts', [
+                'Deleting a world removes its maps, fog, portraits, images, invite code and player list. Deleting your account does that for every world you run, plus your characters, races, NPCs and profile.',
+                'Update your Firestore rules from FIREBASE_RULES.txt (v2026.9.25b).'
             ]],
             ['Fixes', [
-                'Faster pages: the styling is now one small prebuilt file (no more "cdn.tailwindcss.com should not be used in production" warning), and every file carries the version number so browsers never run an old saved copy after an update. An open page that finds a newer version reloads onto it.',
-                'Closed windows no longer blur the page behind them, which left blank or flickering patches on Android phones.',
-                'Auto-save is dependable (including on Brave), with no more "write stream exhausted" errors in long sessions.'
+                'Pages load faster, and an open page that finds a newer version reloads onto it.',
+                'Closed windows no longer blur the page behind them on Android phones, and auto-save is dependable in long sessions.'
             ]]
         ]
     }];

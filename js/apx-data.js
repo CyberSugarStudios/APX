@@ -776,6 +776,40 @@
             return mapPx / base;
         }
         window.apxMarkerScale = apxMarkerScale;
+        // Where a new map window opens: near the middle of the screen, each further open one a little
+        // down and to the right (wrapping after a few), always fully on screen
+        function apxWindowSpot(w, h, n) {
+            let vw = window.innerWidth || 1200, vh = window.innerHeight || 800;
+            w = Math.min(w, vw - 16); h = Math.min(h, vh - 16);
+            let step = ((n || 0) % 6) * 28;
+            let left = Math.round((vw - w) / 2) + step, top = Math.round((vh - h) / 2.4) + step;
+            left = Math.max(8, Math.min(left, vw - w - 8)); top = Math.max(8, Math.min(top, vh - h - 8));
+            return { left, top, w, h };
+        }
+        window.apxWindowSpot = apxWindowSpot;
+        // A power's action cost as shown: "3 AP", or "Reaction" for a 1 AP / Reaction power set to Reaction
+        window.apxPowerIsReaction = p => !!(p && p.draft && p.draft.apMod === 'ap1' && p.draft.apReaction);
+        window.apxPowerApLabel = p => window.apxPowerIsReaction(p) ? 'Reaction' : `${p && p.ap != null ? p.ap : 0} AP`;
+        // Instant tooltip for map markers (an area's name as soon as the cursor is over it)
+        window.apxMapTip = function(e, text) {
+            let tip = document.getElementById('apxMapTip');
+            if (text !== undefined) {
+                if (!text) { window.apxMapTipHide(); return; }
+                if (!tip) {
+                    tip = document.createElement('div'); tip.id = 'apxMapTip';
+                    tip.style.cssText = 'position:fixed;z-index:2147483646;pointer-events:none;background:rgba(15,23,42,.95);color:#f1f5f9;border:1px solid #475569;border-radius:.35rem;padding:.2rem .45rem;font:700 12px system-ui,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.6);white-space:nowrap;max-width:60vw;overflow:hidden;text-overflow:ellipsis';
+                    document.body.appendChild(tip);
+                }
+                tip.textContent = text; tip.style.display = 'block';
+            }
+            if (!tip || tip.style.display === 'none' || !e) return;
+            let x = e.clientX + 14, y = e.clientY - 30;
+            let w = tip.offsetWidth || 100;
+            if (x + w > window.innerWidth - 6) x = e.clientX - w - 10;
+            if (y < 4) y = e.clientY + 16;
+            tip.style.left = x + 'px'; tip.style.top = y + 'px';
+        };
+        window.apxMapTipHide = function() { let tip = document.getElementById('apxMapTip'); if (tip) tip.style.display = 'none'; };
         window.apxConditionBlocked = apxConditionBlocked;
 
 // ============================================================

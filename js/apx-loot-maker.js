@@ -110,8 +110,39 @@
     const lbl = 'display:block;font-size:.62rem;color:#94a3b8;font-weight:800;text-transform:uppercase;margin-bottom:.15rem';
     function field(label, html) { return `<div><label style="${lbl}">${label}</label>${html}</div>`; }
 
+    // Custom item form draft: kept here so it survives re-renders (and trips to the Power Crafter)
+    function blankCi() { return { tok: uid(), name: '', wt: 0, val: 0, ct: 1, desc: '', eq: false, rows: [], powers: [], editId: null }; }
+    function ciFromItem(it, id) {
+        return { name: it.name || '', wt: it.wt || 0, val: it.val || 0, ct: it.ct || 1, desc: it.desc || '', eq: !!it.isCustomEquippable,
+            rows: window.apxItemRowsFromBonuses ? window.apxItemRowsFromBonuses(it.bonuses) : [],
+            powers: JSON.parse(JSON.stringify(Array.isArray(it.powers) ? it.powers : [])), editId: id, tok: uid() };
+    }
+    // Custom items (anything that isn't forged gear or a consumable) can be edited after they're made
+    function isEditable(it) { return !!it && !it.isWeapon && !it.isArmor && !it.isShield && !it.isHelmet && !it.isConsumable; }
+    window.apxLootIsEditable = isEditable;
+    function syncCi(body) {
+        if (!maker || !maker.ci || !body) return;
+        let v = k => body.querySelector(`[data-ci="${k}"]`);
+        let form = body.querySelector('[data-ci-tok]');
+        if (!v('name') || !form || form.dataset.ciTok !== maker.ci.tok) return;   // the form on screen belongs to an older draft
+        let ci = maker.ci;
+        ci.name = v('name').value; ci.wt = v('wt').value; ci.val = v('val').value; ci.ct = v('ct').value; ci.desc = v('desc').value; ci.eq = v('eq').checked;
+        ci.rows = [...body.querySelectorAll('[data-ci-row]')].map(r => ({ key: r.querySelector('[data-ci-key]').value, amount: r.querySelector('[data-ci-amt]').value }));
+    }
+    // Raise a crafter modal above the Loot Maker while it's open, then put it back
+    function raiseModal(id) {
+        let el = document.getElementById(id); if (!el) return;
+        el.dataset.lmZ = el.dataset.lmZ !== undefined ? el.dataset.lmZ : el.style.zIndex;
+        el.style.zIndex = 2147482500;
+        let watch = setInterval(() => {
+            if (el.classList.contains('active')) return;
+            clearInterval(watch);
+            if (el.dataset.lmZ !== undefined) { el.style.zIndex = el.dataset.lmZ; delete el.dataset.lmZ; }
+        }, 300);
+    }
+
     window.openLootMaker = function (target) {
-        maker = { target: target || { kind: 'pool' }, view: 'home', gearQ: '' };
+        maker = { target: target || { kind: 'pool' }, view: 'home', gearQ: '', ci: blankCi() };
         if (window.apxInjectDialogStyles) window.apxInjectDialogStyles();
         document.getElementById('apxLootMaker')?.remove();
         let back = document.createElement('div');
@@ -141,6 +172,7 @@
         if (!r) { window.closeLootMaker(); return; }
         back.querySelector('[data-lm-where]').textContent = `Adding to ${r.label}`;
         let body = back.querySelector('[data-lm-body]');
+        syncCi(body);
         let view = maker.view;
         let form = '';
         if (view === 'gear') {
@@ -166,24 +198,44 @@
                 <div style="grid-column:1/-1">${field('Notes', `<input data-cw="notes" placeholder="Special properties, history…" style="${inCss}">`)}</div>
                 </div><div style="text-align:right;margin-top:.6rem"><button data-lm-cwadd class="apxdlg-btn apxdlg-ok">Add Weapon</button></div>`;
         } else if (view === 'citem') {
-            form = `<div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:.5rem">
-                ${field('Name', `<input data-ci="name" placeholder="Silver Locket" style="${inCss}">`)}
-                ${field('Weight', `<input data-ci="wt" type="number" min="0" step="0.1" value="0" style="${inCss}">`)}
-                ${field('Value (Cu)', `<input data-ci="val" type="number" min="0" value="0" style="${inCss}">`)}
-                ${field('Count', `<input data-ci="ct" type="number" min="1" value="1" style="${inCss}">`)}
-                <div style="grid-column:1/-1">${field('Description', `<textarea data-ci="desc" rows="2" placeholder="What is it? What does it do?" style="${inCss};resize:vertical"></textarea>`)}</div>
-                <label style="grid-column:1/-1;display:flex;align-items:center;gap:.4rem;font-size:.72rem;color:#cbd5e1;cursor:pointer"><input type="checkbox" data-ci="eq"> Equippable (gives bonuses while worn)</label>
-                <div data-ci-bonus style="grid-column:1/-1;display:none">
+            let ci = maker.ci || (maker.ci = blankCi());
+            let npcPowers = [];
+            (window.gmNpcs || []).forEach(n => (n.npc && Array.isArray(n.npc.powers) ? n.npc.powers : []).forEach((p, i) => npcPowers.push({ id: n.id, i, label: `${p.name || 'Power'} (Lvl ${p.lvl}) · ${n.npc.name || 'NPC'}` })));
+            let pBtn = 'background:#1e293b;border:1px solid #475569;color:#cbd5e1;font-size:.62rem;font-weight:800;border-radius:.25rem;padding:.15rem .45rem;cursor:pointer';
+            let powersHtml = (ci.powers || []).map((p, i) => `<div style="display:flex;align-items:center;gap:.35rem;padding:.25rem .4rem;border:1px solid #4c1d95;background:rgba(76,29,149,.18);border-radius:.3rem;margin-bottom:.25rem">
+                    <div style="flex:1;min-width:0"><div style="font-size:.72rem;font-weight:800;color:#d8b4fe">${esc(p.name || 'Power')} <span style="font-size:.6rem;color:#a78bfa">Lvl ${esc(p.lvl)} | ${esc(window.apxPowerApLabel ? window.apxPowerApLabel(p) : p.ap + ' AP')}</span></div>
+                        <div style="font-size:.6rem;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc([p.atk, p.dmg && p.dmg !== '-' ? p.dmg : '', window.apxItemPowerUsage ? window.apxItemPowerUsage(p) : ''].filter(Boolean).join(' · '))}</div></div>
+                    ${p.draft ? `<button type="button" data-ci-pedit="${i}" style="${pBtn}">Edit</button>` : ''}
+                    <button type="button" data-ci-pdel="${i}" title="Remove" style="${pBtn}">✕</button></div>`).join('');
+            form = `${ci.editId ? `<div style="font-size:.7rem;font-weight:800;color:#fcd34d;margin-bottom:.4rem">Editing ${esc(ci.name || 'item')}</div>` : ''}
+                <div data-ci-tok="${esc(ci.tok)}" style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:.5rem">
+                ${field('Name', `<input data-ci="name" placeholder="Silver Locket" value="${esc(ci.name)}" style="${inCss}">`)}
+                ${field('Weight', `<input data-ci="wt" type="number" min="0" step="0.1" value="${esc(ci.wt)}" style="${inCss}">`)}
+                ${field('Value (Cu)', `<input data-ci="val" type="number" min="0" value="${esc(ci.val)}" style="${inCss}">`)}
+                ${field('Count', `<input data-ci="ct" type="number" min="1" value="${esc(ci.ct)}" style="${inCss}">`)}
+                <div style="grid-column:1/-1">${field('Description', `<textarea data-ci="desc" rows="2" placeholder="What is it? What does it do?" style="${inCss};resize:vertical">${esc(ci.desc)}</textarea>`)}</div>
+                <label style="grid-column:1/-1;display:flex;align-items:center;gap:.4rem;font-size:.72rem;color:#cbd5e1;cursor:pointer"><input type="checkbox" data-ci="eq" ${ci.eq ? 'checked' : ''}> Equippable (gives bonuses and powers while worn)</label>
+                <div data-ci-bonus style="grid-column:1/-1;display:${ci.eq ? 'block' : 'none'}">
                     <div style="font-size:.62rem;color:#94a3b8;margin-bottom:.3rem">Add as many bonuses as you like: Core Attributes, skills, AC/DR/ER, Max HP, AP, Initiative, Wound Threshold, Rest Dice, Luck Points, Power Slots, attack and damage rolls, saves, checks, energy resistances. Negative amounts make a cursed item.</div>
                     <div data-ci-rows></div>
                     <button type="button" data-ci-addrow style="background:#1e293b;border:1px dashed #475569;color:#93c5fd;font-size:.7rem;font-weight:800;border-radius:.3rem;padding:.25rem .6rem;cursor:pointer">+ Add bonus</button>
+                    <div style="${lbl};margin-top:.6rem">Powers while equipped</div>
+                    <div style="font-size:.62rem;color:#94a3b8;margin-bottom:.3rem">Whoever equips it gets these powers: a player sees them in their Powers (no Power Slot needed), an NPC on its stat block.</div>
+                    ${powersHtml}
+                    <div style="display:flex;gap:.35rem;flex-wrap:wrap;align-items:center">
+                        <button type="button" data-ci-pnew style="background:#4c1d95;border:1px solid #7c3aed;color:#ede9fe;font-size:.7rem;font-weight:800;border-radius:.3rem;padding:.25rem .6rem;cursor:pointer">+ Craft Power</button>
+                        ${npcPowers.length ? `<select data-ci-pcopy style="${inCss};width:auto;flex:1;min-width:9rem"><option value="">Copy a power from an NPC…</option>${npcPowers.map(o => `<option value="${esc(o.id)}|${o.i}">${esc(o.label)}</option>`).join('')}</select>` : ''}
+                    </div>
                 </div></div>
-                <div style="text-align:right;margin-top:.6rem"><button data-lm-ciadd class="apxdlg-btn apxdlg-ok">Add Item</button></div>`;
+                <div style="display:flex;justify-content:flex-end;gap:.4rem;margin-top:.6rem">
+                    ${ci.editId ? `<button data-lm-cicancel class="apxdlg-btn">Cancel</button>` : ''}
+                    <button data-lm-ciadd class="apxdlg-btn apxdlg-ok">${ci.editId ? 'Save Changes' : 'Add Item'}</button></div>`;
         }
         let items = r.items;
         let listHtml = items.length ? items.map(l => `<div style="display:flex;align-items:center;gap:.4rem;padding:.3rem .5rem;border:1px solid #334155;border-radius:.35rem;margin-bottom:.25rem;background:#0f172a">
                 <span style="font-size:.74rem;font-weight:800;color:#fde68a">${esc(l.item.name)}${l.item.ct > 1 ? ` ×${l.item.ct}` : ''}</span>
                 <span style="font-size:.62rem;color:#94a3b8;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${kindOf(l.item)} · ${esc(statsOf(l.item))}</span>
+                ${isEditable(l.item) ? `<button data-lm-edit="${esc(l.id)}" title="Edit" style="background:#334155;border:none;color:#fde68a;border-radius:.25rem;padding:0 .4rem;height:1.3rem;cursor:pointer;font-weight:800;font-size:.62rem">Edit</button>` : ''}
                 <button data-lm-del="${esc(l.id)}" title="Remove" style="background:#334155;border:none;color:#cbd5e1;border-radius:.25rem;width:1.3rem;height:1.3rem;cursor:pointer;font-weight:900">✕</button></div>`).join('')
             : `<div style="font-size:.7rem;color:#64748b">Nothing here yet.</div>`;
         body.innerHTML = `
@@ -204,6 +256,12 @@
                 <label style="display:flex;align-items:center;gap:.35rem">${r.npc ? 'Currency carried' : 'Currency here'} <input data-lm-cu type="number" min="0" value="${r.cu()}" style="${inCss};width:5rem;text-align:center"> Cu</label>
                 <span style="color:#64748b;font-size:.65rem">${r.npc ? 'Dropped with its gear when it dies.' : 'Hand it out from the area\'s popup.'}</span></div>` : ''}`;
         // Wire up
+        body.querySelectorAll('[data-lm-edit]').forEach(b => b.onclick = () => {
+            let r2 = resolve(maker.target); let l = r2 && r2.items.find(x => x.id === b.dataset.lmEdit); if (!l) return;
+            maker.ci = ciFromItem(l.item, l.id); maker.view = 'citem';
+            renderMaker();
+            let n = document.querySelector('#apxLootMaker [data-ci="name"]'); if (n) n.scrollIntoView({ block: 'nearest' });
+        });
         body.querySelectorAll('[data-lm-view]').forEach(b => b.onclick = () => {
             let v = b.dataset.lmView;
             if (v === 'wforge') return openForge('weapon');
@@ -253,24 +311,64 @@
             row.querySelector('button').onclick = () => row.remove();
             rows.appendChild(row);
         };
+        if (ci && maker.ci) (maker.ci.rows || []).forEach(r => addBonusRow(r.key, r.amount));
         if (ci) ci.onchange = () => {
             body.querySelector('[data-ci-bonus]').style.display = ci.checked ? 'block' : 'none';
-            if (ci.checked && !body.querySelector('[data-ci-row]')) addBonusRow('attr:STR', 1);
+            if (ci.checked && !body.querySelector('[data-ci-row]') && !(maker.ci.powers || []).length) addBonusRow('attr:STR', 1);
         };
         let addRowBtn = body.querySelector('[data-ci-addrow]');
         if (addRowBtn) addRowBtn.onclick = () => addBonusRow('stat:maxHp', 1);
+        // Item powers: made with the Power Crafter (nothing to pay), or copied from an NPC
+        let craftItemPower = editIdx => {
+            syncCi(body);
+            window._pcItemPowers = maker.ci.powers;
+            window._pcItemOnChange = () => renderMaker();
+            if (editIdx == null) window.openPowerCrafter(false, 'item'); else window.openPowerEditor(editIdx, 'item');
+            raiseModal('powerCrafterModal');
+        };
+        let pnew = body.querySelector('[data-ci-pnew]');
+        if (pnew) pnew.onclick = () => craftItemPower(null);
+        body.querySelectorAll('[data-ci-pedit]').forEach(b => b.onclick = () => craftItemPower(parseInt(b.dataset.ciPedit)));
+        body.querySelectorAll('[data-ci-pdel]').forEach(b => b.onclick = () => { syncCi(body); maker.ci.powers.splice(parseInt(b.dataset.ciPdel), 1); renderMaker(); });
+        let pcopy = body.querySelector('[data-ci-pcopy]');
+        if (pcopy) pcopy.onchange = () => {
+            let [nid, i] = pcopy.value.split('|'); if (!nid) return;
+            let n = (window.gmNpcs || []).find(x => x.id === nid), p = n && n.npc && n.npc.powers && n.npc.powers[parseInt(i)];
+            if (!p) return;
+            syncCi(body);
+            let copy = JSON.parse(JSON.stringify(p)); delete copy.isLairAction;
+            maker.ci.powers.push(copy); renderMaker();
+        };
+        let cic = body.querySelector('[data-lm-cicancel]');
+        if (cic) cic.onclick = () => { maker.ci = blankCi(); maker.view = 'home'; renderMaker(); };
         let cib = body.querySelector('[data-lm-ciadd]');
         if (cib) cib.onclick = () => {
-            let v = k => body.querySelector(`[data-ci="${k}"]`);
-            let name = v('name').value.trim();
+            syncCi(body);
+            let d = maker.ci;
+            let name = String(d.name || '').trim();
             if (!name) { window.apxAlert('Give the item a name.'); return; }
-            let item = { name, wt: parseFloat(v('wt').value) || 0, ct: Math.max(1, parseInt(v('ct').value) || 1), val: parseInt(v('val').value) || 0, desc: v('desc').value.trim() };
-            if (v('eq').checked) {
-                item.isCustomEquippable = true; item.equipped = false;
-                item.gmMade = true;   // players see these bonuses but can't edit them
-                let rows = [...body.querySelectorAll('[data-ci-row]')].map(r => ({ key: r.querySelector('[data-ci-key]').value, amount: r.querySelector('[data-ci-amt]').value }));
-                item.bonuses = window.apxItemBonusesFromRows ? window.apxItemBonusesFromRows(rows) : { ac: 0, dr: 0, er: 0, speedBonus: 0, attrBonuses: [], skillBonuses: [], erBonuses: [], statBonuses: [] };
+            let fields = { name, wt: parseFloat(d.wt) || 0, ct: Math.max(1, parseInt(d.ct) || 1), val: parseInt(d.val) || 0, desc: String(d.desc || '').trim() };
+            let applyEq = item => {
+                if (d.eq) {
+                    item.isCustomEquippable = true; if (item.equipped === undefined) item.equipped = false;
+                    item.gmMade = true;   // players see these bonuses but can't edit them
+                    item.bonuses = window.apxItemBonusesFromRows ? window.apxItemBonusesFromRows(d.rows) : { ac: 0, dr: 0, er: 0, speedBonus: 0, attrBonuses: [], skillBonuses: [], erBonuses: [], statBonuses: [] };
+                    item.powers = JSON.parse(JSON.stringify(d.powers || []));
+                    if (!item.powers.length) delete item.powers;
+                } else { delete item.isCustomEquippable; delete item.equipped; delete item.bonuses; delete item.powers; }
+                return item;
+            };
+            if (d.editId) {
+                let r2 = resolve(maker.target); let l = r2 && r2.items.find(x => x.id === d.editId);
+                if (!l) { window.apxAlert('That item is gone (it was given away or removed).'); maker.ci = blankCi(); renderMaker(); return; }
+                l.item = applyEq(Object.assign({}, l.item, fields));
+                maker.ci = blankCi(); maker.view = 'home';
+                r2.save(); refreshAll(maker.target);
+                window.APXDice?.notify(`${name} updated.`, { kind: 'loot' });
+                return;
             }
+            let item = applyEq(Object.assign({}, fields));
+            maker.ci = blankCi();
             addTo(maker.target, item);
         };
     }
@@ -306,7 +404,7 @@
     // Targets are named by a key so the inline handlers stay simple:
     //   'area|<mapId>|<tokId>'  or  'npc|<gmNpcId>'
     function keyOf(t) { return t.kind === 'area' ? `area|${t.mapId}|${t.tokId}` : `npc|${t.npcId}`; }
-    function fromKey(k) { let p = String(k).split('|'); return p[0] === 'area' ? { kind: 'area', mapId: p[1], tokId: p[2] } : { kind: 'npc', npcId: p[1] }; }
+    function fromKey(k) { let p = String(k).split('|'); return p[0] === 'area' ? { kind: 'area', mapId: p[1], tokId: p[2] } : p[0] === 'pool' ? { kind: 'pool' } : { kind: 'npc', npcId: p[1] }; }
     function sectionHtml(t) {
         let r = resolve(t); if (!r) return '';
         let key = keyOf(t);
@@ -326,9 +424,16 @@
             </div>
             ${r.items.map(l => {
                 let cur = ids.has(sel[l.id]) ? sel[l.id] : '';
+                let ip = Array.isArray(l.item.powers) ? l.item.powers : [];
+                let eqOn = !!l.item.equipped;
                 return `<div style="border:1px solid #334155;background:#0f172a;border-radius:.3rem;padding:.3rem .4rem;margin-bottom:.25rem">
-                    <div style="font-size:.7rem;font-weight:800;color:#fde68a;line-height:1.2">${esc(l.item.name)}${l.item.ct > 1 ? ` ×${l.item.ct}` : ''}</div>
+                    <div style="display:flex;align-items:center;gap:.3rem">
+                        <div style="flex:1;min-width:0;font-size:.7rem;font-weight:800;color:#fde68a;line-height:1.2">${esc(l.item.name)}${l.item.ct > 1 ? ` ×${l.item.ct}` : ''}</div>
+                        ${t.kind === 'npc' && l.item.isCustomEquippable ? `<button onclick="window.apxToggleNpcItemEquip('${esc(t.npcId)}','${esc(l.id)}')" title="${eqOn ? 'Equipped: its bonuses and powers are on the stat block. Click to take it off.' : 'Carried, not worn. Click to equip it.'}" style="${eqOn ? btn('#155e75', '#0891b2', '#cffafe') : btn('#1e293b', '#475569', '#94a3b8')}">${eqOn ? 'Equipped' : 'Equip'}</button>` : ''}
+                        ${isEditable(l.item) ? `<button onclick="window.apxEditSectionLoot('${k}','${esc(l.id)}')" title="Edit this item" style="${btn('#1e293b', '#475569', '#fde68a')}">Edit</button>` : ''}
+                    </div>
                     <div title="${esc(statsOf(l.item))}" style="font-size:.58rem;color:#94a3b8;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${kindOf(l.item)} · ${esc(statsOf(l.item))}</div>
+                    ${ip.length ? `<div style="font-size:.58rem;color:#c4b5fd;font-weight:700">Powers: ${ip.map(p => esc(p.name || 'Power')).join(', ')}</div>` : ''}
                     <div style="display:flex;gap:.25rem;margin-top:.25rem">
                         <select onchange="window._gmLootSel['${esc(l.id)}']=this.value" style="${s};flex:1;min-width:0" ${pl.length ? '' : 'disabled'}><option value="">Give to…</option>${opts(cur)}</select>
                         <button onclick="window.apxGiveSectionLoot('${k}','${esc(l.id)}',this)" style="${btn('#047857', '#059669', '#fff')}">Give</button>
@@ -348,29 +453,18 @@
             ${pl.length ? '' : '<div style="font-size:.58rem;color:#64748b;margin-top:.2rem">Load the party to hand loot out.</div>'}`;
     }
     window.apxAreaLootHtml = (mapId, tokId) => sectionHtml({ kind: 'area', mapId, tokId });
-    // Area Circle popup: loot lives on the NPCs linked to the area (their stat block's carried
-    // gear), so a chest, a corpse or a merchant is simply an NPC placed there. Areas that
-    // already had loot of their own keep it (shown below the NPCs).
+    // Area Circle popup: the area's own loot (a chest, a hidden cache, a shop counter), stocked with the
+    // Loot Maker. NPCs keep their own carried loot on their stat blocks; it isn't listed here.
     window.apxAreaLinkedLootHtml = function (mapId, tokId, winId) {
         let tok = areaTok(mapId, tokId); if (!tok) return '';
-        let n = notes();
-        let linked = (tok.linkedNpcs || []).map(id => (n?.npcs || []).find(w => w.id === id)).filter(Boolean);
-        let withSb = linked.filter(w => w.statBlockId && (window.gmNpcs || []).some(g => g.id === w.statBlockId));
-        let own = tok.loot && ((tok.loot.items || []).length || tok.loot.cu);
-        let box = (inner, color) => `<div style="border:1px solid ${color};background:rgba(15,23,42,.35);border-radius:.35rem;padding:.4rem;margin-bottom:.35rem">${inner}</div>`;
-        let parts = withSb.map(w => box(`<div style="font-size:.6rem;color:#f0abfc;font-weight:800;margin-bottom:.2rem">${esc(w.name || 'NPC')}</div>
-            <div data-npc-loot="${esc(w.statBlockId)}">${window.apxNpcLootHtml(w.statBlockId)}</div>`, '#701a75'));
-        if (own) parts.push(box(`<div id="${esc(winId)}_loot">${sectionHtml({ kind: 'area', mapId, tokId })}</div>`, '#78350f'));
-        if (!parts.length) {
-            let why = linked.length ? 'Give a linked NPC a stat block to place loot here.' : 'Loot is carried by NPCs: link an NPC (with a stat block) to this area, then add its loot.';
-            return `<div style="font-size:.62rem;color:#64748b;margin-bottom:.25rem">${why}</div>`;
-        }
-        return `<div style="font-size:.65rem;color:#fcd34d;font-weight:800;text-transform:uppercase;margin-bottom:.3rem">Loot here</div>` + parts.join('');
+        return `<div style="border:1px solid #78350f;background:rgba(15,23,42,.35);border-radius:.35rem;padding:.4rem;margin-bottom:.35rem">
+            <div id="${esc(winId)}_loot" data-area-loot="${esc(mapId)}|${esc(tokId)}">${sectionHtml({ kind: 'area', mapId, tokId })}</div></div>`;
     };
     window.apxNpcLootHtml = npcId => sectionHtml({ kind: 'npc', npcId });
     window.apxRefreshAreaLoot = function (mapId, tokId) {
         let el = document.getElementById(`omTok_${tokId}_loot`);
         if (el) el.innerHTML = window.apxAreaLootHtml(mapId, tokId);
+        document.querySelectorAll(`[data-area-loot="${mapId}|${tokId}"]`).forEach(x => { if (x !== el) x.innerHTML = window.apxAreaLootHtml(mapId, tokId); });
     };
     window.apxGiveSectionLoot = function (key, id, btn) {
         let t = fromKey(key), r = resolve(t); if (!r) return;
@@ -378,11 +472,29 @@
         let to = btn?.parentElement?.querySelector('select')?.value || window._gmLootSel[id];
         if (!to) { window.apxAlert && window.apxAlert('Pick who gets it first.'); return; }
         let l = r.items[i];
-        if (typeof _gmSendGift !== 'function' || !_gmSendGift(to, { id: uid(), item: l.item, from: 'GM', at: Date.now() })) return;
+        let gift = JSON.parse(JSON.stringify(l.item));
+        if (gift.isCustomEquippable) gift.equipped = false;   // arrives in the pack; the player equips it
+        if (typeof _gmSendGift !== 'function' || !_gmSendGift(to, { id: uid(), item: gift, from: 'GM', at: Date.now() })) return;
         r.items.splice(i, 1); delete window._gmLootSel[id];
         let who = party().find(p => p.uid === to)?.name || 'A player';
         let from = t.kind === 'npc' ? (r.npc.name || 'an NPC') : areaLabel(r.tok);
         if (typeof window.gmLog === 'function') window.gmLog({ text: `${who} took ${l.item.name} from ${from}.`, kind: 'loot', force: true });
+        r.save(); refreshAll(t);
+    };
+    // Edit a custom item where it sits (an area, an NPC's carried gear): opens the Loot Maker's form, filled in
+    window.apxEditSectionLoot = function (key, id) {
+        let t = fromKey(key), r = resolve(t); if (!r) return;
+        let l = r.items.find(x => x.id === id); if (!l || !isEditable(l.item)) return;
+        window.openLootMaker(t);
+        maker.ci = ciFromItem(l.item, id); maker.view = 'citem';
+        renderMaker();
+    };
+    window.apxEditPoolLoot = function (id) { window.apxEditSectionLoot('pool', id); };
+    // NPCs wear their equippable items with a toggle: bonuses and powers go on the stat block
+    window.apxToggleNpcItemEquip = function (npcId, id) {
+        let t = { kind: 'npc', npcId }, r = resolve(t); if (!r) return;
+        let l = r.items.find(x => x.id === id); if (!l || !l.item || !l.item.isCustomEquippable) return;
+        l.item.equipped = !l.item.equipped;
         r.save(); refreshAll(t);
     };
     window.apxRemoveSectionLoot = function (key, id) {

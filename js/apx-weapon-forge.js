@@ -150,7 +150,7 @@ window.openWeaponForge = function(idx, target) {
     document.querySelector(`input[name="wpnCategory"][value="${weaponForgeDraft.category}"]`).checked = true;
     document.querySelector(`input[name="wpnDmgType"][value="${weaponForgeDraft.dmgType}"]`).checked = true;
 
-    let locked = weaponForgeEditIndex !== null;
+    let locked = weaponForgeEditIndex !== null && weaponForgeTarget !== 'gm';   // (a GM's NPC weapons can be reshaped any time)
     document.querySelectorAll('input[name="wpnCategory"], input[name="wpnDmgType"]').forEach(el => el.disabled = locked);
     document.getElementById('wpnLockedNote').classList.toggle('hidden', !locked);
 
@@ -263,7 +263,7 @@ window.setWeaponForgeRangeTier = function(idx) {
 };
 
 function renderWeaponForgeWeightClassOptions() {
-    let locked = weaponForgeEditIndex !== null;
+    let locked = weaponForgeEditIndex !== null && weaponForgeTarget !== 'gm';   // (a GM's NPC weapons can be reshaped any time)
     let html = Object.keys(WEAPON_WEIGHT_CLASSES).map(key => {
         let wc = WEAPON_WEIGHT_CLASSES[key];
         let checked = weaponForgeDraft.weightClass === key ? 'checked' : '';

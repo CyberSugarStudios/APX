@@ -210,6 +210,14 @@
                 let txt = window.apxItemBonusText ? window.apxItemBonusText(item.bonuses) : '';
                 statsHtml += `<div class="bg-slate-900 border border-slate-700 rounded p-2 mb-3 text-xs text-cyan-300"><span class="text-[10px] text-slate-500 uppercase font-bold block mb-0.5">While equipped</span>${txt || 'No bonuses'}</div>`;
             }
+            // Powers the item grants while equipped (they show up in your Powers)
+            if (item.isCustomEquippable && Array.isArray(item.powers) && item.powers.length) {
+                let e = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+                statsHtml += `<div class="bg-slate-900 border border-purple-800 rounded p-2 mb-3 text-xs"><span class="text-[10px] text-slate-500 uppercase font-bold block mb-0.5">Powers while equipped</span>
+                    ${item.powers.map(p => `<div class="mb-1"><b class="text-purple-300">${e(p.name || 'Power')}</b> <span class="text-[10px] text-slate-400">Lvl ${e(p.lvl)} | ${window.apxPowerApLabel ? window.apxPowerApLabel(p) : e(p.ap) + ' AP'} · ${window.apxItemPowerUsage ? window.apxItemPowerUsage(p) : ''}</span>
+                        <div class="text-[10px] text-slate-400">${e([p.atk, p.rng, p.dmg && p.dmg !== '-' ? p.dmg : ''].filter(Boolean).join(' · '))}</div>
+                        ${p.desc ? `<div class="text-[10px] text-slate-500">${e(p.desc)}</div>` : ''}</div>`).join('')}</div>`;
+            }
             if (item.isCustomEquippable && item.bonuses && !item.isLocked && !item.gmMade) {
                 let b = item.bonuses;
                 let prefix = `itemDetail${idx}`;

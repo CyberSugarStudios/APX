@@ -100,4 +100,29 @@
         });
         return b;
     };
+    // The reverse: an item's bonuses → [{ key, amount }] rows (to edit an item after it's made)
+    window.apxItemRowsFromBonuses = function (b) {
+        let rows = [];
+        if (!b) return rows;
+        [['ac', 'ac'], ['dr', 'dr'], ['er', 'er'], ['speedBonus', 'speed']].forEach(([f, k]) => { if (num(b[f])) rows.push({ key: 'stat:' + k, amount: num(b[f]) }); });
+        (b.attrBonuses || []).forEach(r => { if (r && num(r.amount)) rows.push({ key: 'attr:' + r.target, amount: num(r.amount) }); });
+        if (b.attrTarget && num(b.attrBonus)) rows.push({ key: 'attr:' + b.attrTarget, amount: num(b.attrBonus) });
+        (b.skillBonuses || []).forEach(r => { if (r && num(r.amount)) rows.push({ key: 'skill:' + r.target, amount: num(r.amount) }); });
+        if (b.skillTarget && num(b.skillBonus)) rows.push({ key: 'skill:' + b.skillTarget, amount: num(b.skillBonus) });
+        (b.erBonuses || []).forEach(r => { if (r && num(r.amount)) rows.push({ key: 'er:' + r.target, amount: num(r.amount) }); });
+        (b.statBonuses || []).forEach(r => { if (r && num(r.amount)) rows.push({ key: 'stat:' + r.target, amount: num(r.amount) }); });
+        return rows;
+    };
+    // Powers an equipped item grants (made in the Loot Maker with the Power Crafter)
+    window.apxItemPowers = function (item) {
+        return item && (item.isCustomEquippable ? item.equipped : false) && Array.isArray(item.powers) ? item.powers : [];
+    };
+    // "Once per Full Rest", "3 charges", "Recharge 5-6", "Unlimited" for an item power
+    window.apxItemPowerUsage = function (p) {
+        if (!p) return '';
+        if (p.usageType === 'charges') return `${p.maxCharges || 2} charges per Full Rest`;
+        if (p.usageType === 'recharge') return `Recharge ${p.rechargeOn === 6 ? '6' : (p.rechargeOn || 5) + '-6'}`;
+        if (p.usageType === 'unlimitedPaid') return 'Unlimited uses';
+        return 'Once per Full Rest';
+    };
 })();

@@ -474,8 +474,8 @@
         }
 
     </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20269262206">
-    <link rel="stylesheet" href="css/tailwind.css?v=20269262206">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20269262345">
+    <link rel="stylesheet" href="css/tailwind.css?v=20269262345">
 </head>
 <body class="p-2 md:p-6 flex justify-center text-sm ml-0 lg:ml-8 transition-all" style="padding-top:4.25rem"><!-- (room for the floating Roster / Settings buttons) -->
     <!-- Auth bar removed — account controls are in the sidebar -->
@@ -2360,7 +2360,7 @@
         </div>
     </div>
 
-<div class="modal-overlay" id="confirmModal">
+<div class="modal-overlay" id="confirmModal" style="z-index:2147483000;">
         <div class="modal-content max-w-sm text-center border border-slate-600">
             <p id="confirmMessage" class="mb-6 text-white font-bold text-lg"></p>
             <div class="flex justify-center gap-4">
@@ -2371,38 +2371,38 @@
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20269262206"></script>
-    <script src="js/apx-patch-notes.js?v=20269262206"></script>
-    <script src="js/apx-dice.js?v=20269262206"></script>
-    <script src="js/apx-data.js?v=20269262206"></script>
-    <script src="js/apx-item-effects.js?v=20269262206"></script>
-    <script src="js/apx-perks-db.js?v=20269262206"></script>
-    <script src="js/apx-migrations.js?v=20269262206"></script>
-    <script src="js/apx-roster.js?v=20269262206"></script>
-    <script src="js/apx-state.js?v=20269262206"></script>
-    <script src="js/apx-origin-wizard.js?v=20269262206"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20269262206"></script>
-    <script src="js/apx-inventory-ui.js?v=20269262206"></script>
-    <script src="js/apx-craft-shared.js?v=20269262206"></script>
-    <script src="js/apx-armor-forge.js?v=20269262206"></script>
-    <script src="js/apx-weapon-forge.js?v=20269262206"></script>
-    <script src="js/apx-power-crafter.js?v=20269262206"></script>
-    <script src="js/apx-consumable-crafter.js?v=20269262206"></script>
-    <script src="js/apx-npc-crafter.js?v=20269262206"></script>
-    <script src="js/apx-engine.js?v=20269262206"></script>
-    <script src="js/apx-perks-ui.js?v=20269262206"></script>
-    <script src="js/apx-rest.js?v=20269262206"></script>
-    <script src="js/apx-looting.js?v=20269262206"></script>
-    <script src="js/apx-main.js?v=20269262206"></script>
+    <script src="js/apx-dialogs.js?v=20269262345"></script>
+    <script src="js/apx-patch-notes.js?v=20269262345"></script>
+    <script src="js/apx-dice.js?v=20269262345"></script>
+    <script src="js/apx-data.js?v=20269262345"></script>
+    <script src="js/apx-item-effects.js?v=20269262345"></script>
+    <script src="js/apx-perks-db.js?v=20269262345"></script>
+    <script src="js/apx-migrations.js?v=20269262345"></script>
+    <script src="js/apx-roster.js?v=20269262345"></script>
+    <script src="js/apx-state.js?v=20269262345"></script>
+    <script src="js/apx-origin-wizard.js?v=20269262345"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20269262345"></script>
+    <script src="js/apx-inventory-ui.js?v=20269262345"></script>
+    <script src="js/apx-craft-shared.js?v=20269262345"></script>
+    <script src="js/apx-armor-forge.js?v=20269262345"></script>
+    <script src="js/apx-weapon-forge.js?v=20269262345"></script>
+    <script src="js/apx-power-crafter.js?v=20269262345"></script>
+    <script src="js/apx-consumable-crafter.js?v=20269262345"></script>
+    <script src="js/apx-npc-crafter.js?v=20269262345"></script>
+    <script src="js/apx-engine.js?v=20269262345"></script>
+    <script src="js/apx-perks-ui.js?v=20269262345"></script>
+    <script src="js/apx-rest.js?v=20269262345"></script>
+    <script src="js/apx-looting.js?v=20269262345"></script>
+    <script src="js/apx-main.js?v=20269262345"></script>
 
     <!-- Firebase (cloud sync — requires firebase-config.js to be configured) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20269262206"></script>
-    <script src="js/apx-firebase.js?v=20269262206"></script>
-    <script src="js/apx-battlemap.js?v=20269262206"></script>
-    <script src="js/apx-map-tiles.js?v=20269262206"></script>
+    <script src="js/firebase-config.js?v=20269262345"></script>
+    <script src="js/apx-firebase.js?v=20269262345"></script>
+    <script src="js/apx-battlemap.js?v=20269262345"></script>
+    <script src="js/apx-map-tiles.js?v=20269262345"></script>
     <script>
     // ── Sidebar: folders, worlds, meatball menus ─────────────
     window._sidebarChars = [];
@@ -2680,15 +2680,18 @@
     window.apxActivateCharacterWorld = function() {
         let code = window.apxActiveWorldCode ? window.apxActiveWorldCode() : null;
         let me = window.apxAuth?.user?.uid;
+        // Switching to another world (or to none): nothing from the previous one stays on screen
+        if (window._pwViewCode !== code) { window._pwViewCode = code; if (window._pwClearWorldView) window._pwClearWorldView(); }
         if (!code) {
-            // Not in a world: stop following any world's combat and turns
+            // Not in a world: stop following any world's combat and turns, and show no world's data
+            window._playerWorldData = null;
             if (_worldNotesUnsub) { _worldNotesUnsub(); _worldNotesUnsub = null; }
             window._pwCombatCode = null; window._pwBattleCode = null; window._pwLootCode = null;
             window._pwWasInCombat = undefined; window._pwLastTurnKey = undefined; window._pwCompTurnKey = undefined;
         } else {
             let cached = window._playerWorldsData?.[code];
+            window._playerWorldData = cached || null;   // never another world's data while this one loads
             if (cached) {
-                window._playerWorldData = cached;
                 if (cached.worldSettings) window._pwWorldSettings[code] = cached.worldSettings;
                 if (cached.races) window._pwSetWorldRaces(code, cached.races);
             }
@@ -3463,15 +3466,21 @@
         if (!inviteCode || !window.apxAuth?.enabled) return;
         let code = inviteCode.toUpperCase().trim();
         // Remember the invite code on the world object — token moves are written with it
-        let w0 = window._playerWorldsData?.[code] || window._playerWorldData;
+        let w0 = window._playerWorldsData?.[code];
         if (w0 && !w0.inviteCode) w0.inviteCode = code;
         // Live player-token positions (same authority the GM writes to)
         if (window.APXBattle) window.APXBattle.start(code);
         window._pwBattleCode = code;
         if (typeof window.apxAuth.listenPublicWorldNotes !== 'function') return;
         _worldNotesUnsub = window.apxAuth.listenPublicWorldNotes(code, data => {
-            let world = window._playerWorldsData?.[code] || window._playerWorldData;
-            if (!world) return;
+            // Only ever this code's own world object (never another world's)
+            let world = window._playerWorldsData?.[code];
+            if (!world) {
+                if (!data || !data.gmUid || !data.worldId) return;
+                window._playerWorldsData = window._playerWorldsData || {};
+                world = window._playerWorldsData[code] = { inviteCode: code, gmUid: data.gmUid, worldId: data.worldId, worldName: data.worldName, name: data.worldName, notesV2: {} };
+                if (window.apxActiveWorldCode && window.apxActiveWorldCode() === code) window._playerWorldData = world;
+            }
             world.inviteCode = code;
             // A new world map upload (new tile version) makes the cached preview stale
             let newTiles = data.publicNotes?.worldMapTiles || null;
@@ -4089,13 +4098,7 @@
         // Only show world data for the CURRENT character's world.
         // If the active character has no worldCode, or it doesn't match
         // _playerWorldData, show the join interface instead.
-        let activeCharEntry = (window._sidebarChars||[]).find(c => c.id === window._activeCloudCharId);
-        let activeWorldCode = activeCharEntry?.worldCode || null;
-        let world = activeWorldCode ? (window._playerWorldsData?.[activeWorldCode] || window._playerWorldData) : null;
-        // Validate world belongs to this character
-        if (world && world.worldId !== worlds.find(w=>w.code===activeWorldCode)?.worldId) {
-            world = null;
-        }
+        let world = _pwActiveWorld();
 
         let title  = document.getElementById('playerWorldTitle');
         let codeEl = document.getElementById('playerWorldCode');
@@ -4118,7 +4121,20 @@
             return;
         }
 
-        if (!world && !worlds.length) {
+        if (!world && window.apxActiveWorldCode && window.apxActiveWorldCode()) {
+            // In a world whose data is still loading
+            _pwClearWorldView();
+            title.innerText='World'; codeEl.innerText='';
+            showOnly('pwPanelLocations', true);
+            let el = document.getElementById('pwPanelLocations');
+            if (el) el.innerHTML = '<div class="text-slate-500 text-sm text-center py-8">Loading your world…</div>';
+            clearTimeout(window._pwWorldRetryT);
+            window._pwWorldRetryT = setTimeout(() => { if (document.getElementById('playerWorldModal')?.classList.contains('active')) renderPlayerWorld(); }, 1500);
+            return;
+        }
+        if (!world) {
+            // This character isn't in a world: only the join screen, nothing from any other character's world
+            _pwClearWorldView();
             title.innerText='Join a World'; codeEl.innerText='';
             showOnly('pwPanelLocations', true);
             let el = document.getElementById('pwPanelLocations');
@@ -4254,9 +4270,11 @@
         if (existing) { window.apxFloatingZTop = (window.apxFloatingZTop||2000)+1; existing.style.zIndex=window.apxFloatingZTop; return; }
         window.apxFloatingZTop = (window.apxFloatingZTop||2000)+1;
 
+        let spot = window.apxWindowSpot(680, 520, document.querySelectorAll('[data-pwom-win]').length);
         let win = document.createElement('div');
         win.id = winId;
-        win.style.cssText = `position:fixed;left:160px;top:90px;width:680px;height:520px;
+        win.setAttribute('data-pwom-win', '1');
+        win.style.cssText = `position:fixed;left:${spot.left}px;top:${spot.top}px;width:${spot.w}px;height:${spot.h}px;
             background:#0f172a;border:1px solid #334155;border-radius:0.75rem;z-index:${window.apxFloatingZTop};
             display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.85);
             min-width:340px;min-height:280px;overflow:hidden;contain:layout paint;`;
@@ -4387,6 +4405,7 @@
         let m = (window._playerWorldData?.notesV2?.otherMaps || []).find(x => x.id === mapId) || map || win._map; if(!m) return;
         win._map = m;
         let layer=document.getElementById(winId+'_tok'); if(!layer) return;
+        if (window.apxMapTipHide) window.apxMapTipHide();
         let img=document.getElementById(winId+'_img'); if(!img||!img.naturalWidth) return;
         let iw=img.naturalWidth, ih=img.naturalHeight;
         layer.style.width=iw+'px'; layer.style.height=ih+'px';
@@ -4400,16 +4419,16 @@
             let clickable = hasInfo || hasLinkedMap;
             let clickHandler = clickable ? `onclick="event.stopPropagation();window.openPlayerTokenInfo('${m.id}','${t.id}')"` : '';
             if (isSpecial) {
-                return `<div style="position:absolute;left:${t.x*iw}px;top:${t.y*ih}px;
+                return `<div onmouseenter="window.apxMapTip(event, decodeURIComponent('${encodeURIComponent(t.name || '')}'))" onmousemove="window.apxMapTip(event)" onmouseleave="window.apxMapTipHide()" style="position:absolute;left:${t.x*iw}px;top:${t.y*ih}px;
                     transform:translate(-50%,-50%) scale(${ps});transform-origin:50% 50%;
-                    pointer-events:${clickable?'auto':'none'};will-change:transform;">
+                    pointer-events:${clickable || t.name ? 'auto' : 'none'};will-change:transform;">
                     <div ${clickHandler} style="font-size:15px;font-weight:900;color:#fbbf24;
                         text-shadow:0 0 4px rgba(0,0,0,1);user-select:none;line-height:1;${clickable?'cursor:pointer;':''}">${t.letter}</div>
                 </div>`;
             }
-            return `<div style="position:absolute;left:${t.x*iw}px;top:${t.y*ih}px;
+            return `<div onmouseenter="window.apxMapTip(event, decodeURIComponent('${encodeURIComponent(t.name || '')}'))" onmousemove="window.apxMapTip(event)" onmouseleave="window.apxMapTipHide()" style="position:absolute;left:${t.x*iw}px;top:${t.y*ih}px;
                 transform:translate(-50%,-50%) scale(${ps});transform-origin:50% 50%;
-                pointer-events:${clickable?'auto':'none'};will-change:transform;">
+                pointer-events:${clickable || t.name ? 'auto' : 'none'};will-change:transform;">
                 <div ${clickHandler} style="width:26px;height:26px;background:#dc2626;border:2.5px solid #fff;border-radius:50%;
                     display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#fff;
                     box-shadow:0 2px 6px rgba(0,0,0,.65);${clickable?'cursor:pointer;':''}">${t.letter}</div>
@@ -4709,8 +4728,42 @@
     }
     window._pwAttachTiles = _pwAttachTiles;
 
+    // The world the OPEN character plays in (null for a character outside any world). Everything in
+    // the World window, maps and fog comes from this one world only.
+    function _pwActiveWorld() {
+        let code = window.apxActiveWorldCode ? window.apxActiveWorldCode() : null;
+        if (!code) return null;
+        let w = (window._playerWorldsData || {})[code] || null;
+        if (!w && window._playerWorldData && window._playerWorldData.inviteCode === code) w = window._playerWorldData;
+        return w;
+    }
+    window._pwActiveWorld = _pwActiveWorld;
+    // Wipe what the World window shows (maps, fog, open map windows, panels): used when the open
+    // character changes world or has none, so nothing from another world is ever shown
+    function _pwClearWorldView() {
+        if (window._pwWorldFogUnsub) { try { window._pwWorldFogUnsub(); } catch (e) { } window._pwWorldFogUnsub = null; }
+        clearTimeout(window._pwMapRetryT);
+        let fc = document.getElementById('pwFogCanvas');
+        if (fc) { fc._fogSeq = (fc._fogSeq || 0) + 1; try { fc.getContext('2d').clearRect(0, 0, fc.width, fc.height); } catch (e) { } fc._fogLoaded = false; }
+        let img = document.getElementById('pwMapImage');
+        if (img) { if (window.APXTiles) try { window.APXTiles.detach(img); } catch (e) { } img.removeAttribute('src'); img.style.display = 'none'; }
+        let emptyEl = document.getElementById('pwMapEmpty'); if (emptyEl) emptyEl.style.display = '';
+        document.querySelectorAll('[data-pwom-win]').forEach(w => { if (w._fogUnsub) try { w._fogUnsub(); } catch (e) { } w.remove(); });
+        ['pwPanelLocations', 'pwPanelNpcs', 'pwPanelNotes', 'pwPanelOthermaps', 'pwPanelParty'].forEach(id => { let el = document.getElementById(id); if (el) el.innerHTML = ''; });
+        window._pwMapWorldId = null;
+    }
+    window._pwClearWorldView = _pwClearWorldView;
+
     async function renderPlayerMap() {
-        let world  = window._playerWorldData;
+        let world  = _pwActiveWorld();
+        if (!world) { _pwClearWorldView(); return; }
+        // A different world than the one last drawn: start from a clean map and fog
+        if (window._pwMapWorldId && window._pwMapWorldId !== world.worldId) {
+            let fc0 = document.getElementById('pwFogCanvas');
+            if (fc0) { fc0._fogSeq = (fc0._fogSeq || 0) + 1; try { fc0.getContext('2d').clearRect(0, 0, fc0.width, fc0.height); } catch (e) { } fc0._fogLoaded = false; }
+            if (window._pwWorldFogUnsub) { try { window._pwWorldFogUnsub(); } catch (e) { } window._pwWorldFogUnsub = null; }
+        }
+        window._pwMapWorldId = world.worldId;
         let img    = document.getElementById('pwMapImage');
         let emptyEl= document.getElementById('pwMapEmpty');
         if (!img || !emptyEl) return;
@@ -4769,6 +4822,9 @@
                                     setTimeout(() => { img.style.display = 'block'; window.pwMapResetView(); }, 60);
                                 }
                             } else {
+                                // this world has no fog (or the GM cleared it): nothing left over from another world
+                                let fcx = document.getElementById('pwFogCanvas');
+                                if (fcx) { fcx._fogSeq = (fcx._fogSeq || 0) + 1; try { fcx.getContext('2d').clearRect(0, 0, fcx.width, fcx.height); } catch (e) { } fcx._fogLoaded = false; }
                                 if (firstLoad) { firstLoad = false; img.style.display = 'block'; window.pwMapResetView(); }
                             }
                           })
@@ -5169,7 +5225,7 @@
                             window._pwRememberWorld(world);
                             if (!window._playerWorldsData) window._playerWorldsData = {};
                             window._playerWorldsData[w.code] = world;
-                            if (!window._playerWorldData) window._playerWorldData = world;
+                            if (window.apxActiveWorldCode && window.apxActiveWorldCode() === w.code) window._playerWorldData = world;   // only the open character's world
                             window._pwSetWorldRaces(w.code, world.races);
                             if (world.worldSettings) window._pwWorldSettings[w.code] = world.worldSettings;
                             document.getElementById('playerWorldBtn')?.classList.remove('hidden');

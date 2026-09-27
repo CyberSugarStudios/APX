@@ -15,10 +15,14 @@ let pcDraft = null;
 let pcStep = 1;
 let pcFreeMode = false;
 let pcEditIndex = null; // reserved for future "edit an existing crafted power" support
-let pcTarget = 'player'; // 'player', 'companion', or 'gm' -- whose powers list this session edits
+let pcTarget = 'player'; // 'player', 'companion', 'gm', or 'item' -- whose powers list this session edits
+// 'item': a power carried by a custom item (GM Loot Maker). The caller hands over the list in
+// window._pcItemPowers and gets told about changes through window._pcItemOnChange(). No TP or XP is spent.
+function pcTargetOf(target) { return (target === 'companion' || target === 'gm' || target === 'item') ? target : 'player'; }
 const PC_LAST_STEP = 9;
 
 function getTargetPowers() {
+    if (pcTarget === 'item') return (window._pcItemPowers = window._pcItemPowers || []);
     if (pcTarget === 'gm') return ncActiveCompanion().powers;
     return pcTarget !== 'player' ? window.state.companion.powers : window.state.powers;
 }
@@ -30,6 +34,7 @@ function getTargetPowers() {
 // Returns false (and applies nothing) if the delta can't be afforded.
 function pcApplyCompanionTpDelta(newLevel, oldTp, usageType, maxCharges) {
     let newTp = window.npcPowerTotalTp(newLevel, usageType, maxCharges);
+    if (pcTarget === 'item') return newTp;   // item powers come with the item: nothing is spent
     let delta = newTp - (oldTp || 0);
     if (delta > 0) {
         if (pcTarget === 'gm') {
@@ -217,6 +222,7 @@ function pcOpenCommon() {
 // their own power usage informally during play, so this section only
 // shows for companion/GM targets.
 function pcCurrentNpcTier() {
+    if (pcTarget === 'item') return 5;
     if (pcTarget === 'gm') return npcTierForTP(window.companionTotalTp()).tier;
     if (pcTarget === 'companion') return typeof lcRank === 'function' ? lcRank() : 0;
     return 0;
@@ -234,7 +240,7 @@ function pcRenderUsageSection() {
     let level = window.pcCalcXP(pcDraft).level;
     let tier = pcCurrentNpcTier();
     // GM NPCs: Unlimited Uses is always available. (Loyal Companions keep the book's Level/Tier limit.)
-    let eligible = pcTarget === 'gm' ? true : window.npcUnlimitedUsesAllowed(level, tier);
+    let eligible = (pcTarget === 'gm' || pcTarget === 'item') ? true : window.npcUnlimitedUsesAllowed(level, tier);
     if (pcDraft.usageType === 'unlimitedPaid' && !eligible) pcDraft.usageType = 'unlimited'; // no longer eligible (level/tier changed) -- fall back rather than silently keep an illegal selection
 
     document.querySelector(`input[name="pcUsageType"][value="${pcDraft.usageType}"]`).checked = true;
@@ -273,7 +279,7 @@ window.openLairActionPowerCrafter = function() {
 };
 
 window.openPowerCrafter = function(freeMode, target) {
-    pcTarget = (target === 'companion' || target === 'gm') ? target : 'player';
+    pcTarget = pcTargetOf(target);
     pcIsLairAction = false; // only ever true when explicitly set by openLairActionPowerCrafter, right after this call
     if (pcTarget === 'player' && pcMaxUnlockedLevel() < 1) {
         window.showConfirm("You need at least Rank 1 of Intelligence Powers or Charisma Powers before you can craft a Power.", null, true);
@@ -293,7 +299,7 @@ window.openPowerCrafter = function(freeMode, target) {
 // "Return to Forge" for an existing crafted Power -- reloads its exact
 // original build so edits start from precisely what's already there.
 window.openPowerEditor = function(idx, target) {
-    pcTarget = (target === 'companion' || target === 'gm') ? target : 'player';
+    pcTarget = pcTargetOf(target);
     let power = getTargetPowers()[idx];
     if (!power || !power.draft) {
         window.showConfirm("This power wasn't built with the Power Crafter (it was added manually, or predates this feature), so it can't be reopened here. You can still edit its fields directly in the table.", null, true);
@@ -490,6 +496,8 @@ window.pcToggleDurationMod = function(key, checked) {
     pcRenderAll();
 };
 window.pcSetApMod = function(val) { pcDraft.apMod = val; pcRenderAll(); };
+// "1 AP or Reaction": which one this power uses (like Attack Roll / Save Negates)
+window.pcSetApReaction = function(on) { pcDraft.apReaction = !!on; pcRenderAll(); };
 window.pcToggleRefund = function(key, checked) { pcDraft.refunds[key] = checked; pcRenderAll(); };
 window.pcSetMinorRestriction = function(delta) {
     let next = Math.max(0, Math.min(10, (pcDraft.refunds.minorRestriction || 0) + delta));
@@ -710,6 +718,12 @@ function pcRenderStep7() {
             <span class="text-xs font-bold text-slate-200">${a.label}</span>
             <span class="text-[10px] ${a.cost < 0 ? 'text-slate-500' : 'text-yellow-500'} ml-auto">${pcCost(pcMythicPrice(a.cost), x => { x.apMod = a.key; }, pcDraft.apMod === a.key)}</span>
         </label>
+        ${a.key === 'ap1' && pcDraft.apMod === 'ap1' ? (() => {
+            let seg = (on, onclick, label, tip) => `<button type="button" onclick="${onclick}" title="${tip}" class="px-2 py-1 text-[10px] font-bold rounded border transition ${on ? 'bg-purple-700 border-purple-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}">${label}</button>`;
+            return `<div class="bg-slate-900/60 border border-purple-800/60 rounded p-2 -mt-1 flex flex-wrap items-center gap-1"><span class="text-[10px] text-slate-400 font-bold mr-1 w-20 shrink-0">Used as</span>
+                ${seg(!pcDraft.apReaction, "window.pcSetApReaction(false)", '1 AP', 'Costs 1 AP on your turn')}
+                ${seg(!!pcDraft.apReaction, "window.pcSetApReaction(true)", 'Reaction', 'Used as your Reaction (no AP)')}</div>`;
+        })() : ''}
     `).join('');
 }
 
@@ -769,7 +783,7 @@ function pcRenderSummary() {
     let sumXpLbl = sumXpEl.previousElementSibling;
     if (pcIsNpc()) {
         sumXpEl.innerText = pcTpFor(pcDraft) + ' TP';
-        if (sumXpLbl) sumXpLbl.innerText = 'TP Cost';
+        if (sumXpLbl) sumXpLbl.innerText = pcTarget === 'item' ? 'TP Value (free on an item)' : 'TP Cost';
     } else {
         sumXpEl.innerText = t.total + ' XP';
         if (sumXpLbl) sumXpLbl.innerText = 'Total XP Cost';
@@ -823,6 +837,15 @@ function pcRenderSummary() {
     saveAsNewBtn.style.display = showEditPair ? 'block' : 'none';
 
     if (pcTarget !== 'player') {
+        if (pcTarget === 'item') {
+            // Item powers: nothing to pay, just save it onto the item
+            if (showFinish) { finishBtn.innerText = 'Add Power to Item'; finishBtn.disabled = diceOver.length > 0; pcStyleBtn(finishBtn); }
+            if (showEditPair) {
+                saveChangesBtn.innerText = 'Save Changes'; saveChangesBtn.disabled = diceOver.length > 0; pcStyleBtn(saveChangesBtn);
+                saveAsNewBtn.innerText = 'Save as New'; saveAsNewBtn.disabled = diceOver.length > 0; pcStyleBtn(saveAsNewBtn);
+            }
+            return;
+        }
         let tpCost = window.npcPowerTotalTp(t.level, pcDraft.usageType, pcDraft.maxCharges);
         let remaining = window.companionRemainingTp();
         // GM NPCs auto-expand their budget to cover whatever's spent
@@ -978,6 +1001,13 @@ function pcApplyXpDelta(delta) {
     return true;
 }
 
+// After an NPC / companion / item power is saved
+function pcAfterNpcSave() {
+    if (pcTarget === 'item') { if (typeof window._pcItemOnChange === 'function') window._pcItemOnChange(); return; }
+    window.recalculateMath();
+    if (typeof ncRenderAll === 'function') ncRenderAll();
+}
+
 window.finishPowerCrafter = function() {
     let t = window.pcCalcXP(pcDraft);
     if (pcTarget === 'player') {
@@ -999,8 +1029,7 @@ window.finishPowerCrafter = function() {
         });
         pcIsLairAction = false;
         window.closeModal('powerCrafterModal');
-        window.recalculateMath();
-        if (typeof ncRenderAll === 'function') ncRenderAll();
+        pcAfterNpcSave();
         return;
     }
 
@@ -1081,8 +1110,7 @@ window.savePowerChanges = function() {
         power.rulesRev = window.APX_POWER_RULES_REV || 1;
         power.usageType = pcDraft.usageType; power.maxCharges = pcDraft.maxCharges; power.rechargeOn = pcDraft.rechargeOn;
         window.closeModal('powerCrafterModal');
-        window.recalculateMath();
-        if (typeof ncRenderAll === 'function') ncRenderAll();
+        pcAfterNpcSave();
         return;
     }
 
@@ -1147,8 +1175,7 @@ window.savePowerAsNew = function() {
             usageType: pcDraft.usageType, maxCharges: pcDraft.maxCharges, rechargeOn: pcDraft.rechargeOn
         });
         window.closeModal('powerCrafterModal');
-        window.recalculateMath();
-        if (typeof ncRenderAll === 'function') ncRenderAll();
+        pcAfterNpcSave();
         return;
     }
 

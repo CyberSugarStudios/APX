@@ -752,7 +752,9 @@
                 // free-stat-edit exploit that isLocked exists to close).
                 let nameHtml = `<div class="text-xs ${item.isLocked ? 'text-slate-400' : 'text-slate-200'} font-bold px-1 truncate" title="${item.name}">${item.name}${item.isLocked && !window.state.craftingMatWeightEnabled ? ' <span class="text-[9px] text-slate-600">(wt off)</span>' : ''}</div>`
                     + (item.isCustomEquippable && item.bonuses && window.apxItemBonusText && window.apxItemBonusText(item.bonuses)
-                        ? `<div class="text-[9px] ${item.equipped ? 'text-cyan-400' : 'text-slate-500'} px-1 truncate" title="${window.apxItemBonusText(item.bonuses).replace(/"/g, '&quot;')}">${window.apxItemBonusText(item.bonuses)}</div>` : '');
+                        ? `<div class="text-[9px] ${item.equipped ? 'text-cyan-400' : 'text-slate-500'} px-1 truncate" title="${window.apxItemBonusText(item.bonuses).replace(/"/g, '&quot;')}">${window.apxItemBonusText(item.bonuses)}</div>` : '')
+                    + (item.isCustomEquippable && Array.isArray(item.powers) && item.powers.length
+                        ? `<div class="text-[9px] ${item.equipped ? 'text-purple-300' : 'text-slate-500'} px-1 truncate" title="${item.equipped ? 'In your Powers while equipped' : 'Equip it to add these to your Powers'}">Powers: ${item.powers.map(p => String(p.name || 'Power').replace(/</g, '&lt;')).join(', ')}</div>` : '');
                 let wtHtml = `<div class="text-xs text-slate-500">${item.wt}</div>`;
                 let valHtml = `<div class="text-xs ${item.isLocked ? 'text-yellow-500/50' : 'text-yellow-400'}">${item.val}</div>`;
 
@@ -1082,7 +1084,7 @@
         window.apxBeforeAttack = function(o) {
             // Your Loyal Companion's attacks (from its stat block) spend the companion's AP
             if (o && o.companion && typeof window.apxCompApCurrent === 'function' && window.state?.companion) {
-                let cost = Math.max(0, parseInt(o.apCost) || 3), have = window.apxCompApCurrent();
+                let cost = Math.max(0, (o.apCost === 0 || o.apCost === "0") ? 0 : (parseInt(o.apCost) || 3)), have = window.apxCompApCurrent();
                 if (have < cost) return { note: `Not enough AP: ${window.state.companion.name || 'your companion'} has ${have}, needs ${cost}`, warn: true };
                 window.apxCompSpendAp(cost);
                 return { note: `${window.state.companion.name || 'Companion'}: −${cost} AP (${window.apxCompApCurrent()} left)` };
@@ -1587,10 +1589,23 @@
             // Martial improvement: change the weapon right here (equipment changes between fights)
             let opts = calc.weaponAttacks || [];
             if (opts.length < 2) return span;
-            return span + `<select onchange="window.apxSetPowerWeapon(${idx}, this.value)" title="Weapon used for this power's attack" class="block mt-0.5 bg-slate-800 border-slate-700 text-[9px] py-0 w-full">${opts.map(o => `<option value="${esc(o.key)}" ${info.w && o.key === info.w.key ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}</select>`;
+            return span + `<select onchange="window.apxSetPowerWeapon('${idx}', this.value)" title="Weapon used for this power's attack" class="block mt-0.5 bg-slate-800 border-slate-700 text-[9px] py-0 w-full">${opts.map(o => `<option value="${esc(o.key)}" ${info.w && o.key === info.w.key ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}</select>`;
         }
+        // A power by its index in state.powers, or 'i<item>_<power>' for a power an equipped item grants
+        function apxPowerAt(idx) {
+            let m = /^i(\d+)_(\d+)$/.exec(String(idx));
+            if (m) { let it = (window.state.items || [])[+m[1]]; return (window.apxItemPowers ? window.apxItemPowers(it) : [])[+m[2]] || null; }
+            return window.state.powers[parseInt(idx)] || null;
+        }
+        window.apxPowerAt = apxPowerAt;
+        // Every power an equipped item grants, with the key apxPowerAt understands
+        window.apxItemPowerList = function() {
+            let out = [];
+            (window.state.items || []).forEach((it, i) => (window.apxItemPowers ? window.apxItemPowers(it) : []).forEach((p, j) => out.push({ p, key: 'i' + i + '_' + j, item: it })));
+            return out;
+        };
         window.apxSetPowerWeapon = function(idx, key) {
-            let p = window.state.powers[idx]; if (!p) return;
+            let p = apxPowerAt(idx); if (!p) return;
             p.draft = p.draft || {}; p.draft.atkWeapon = key;
             window.recalculateMath();
         };
@@ -1610,14 +1625,16 @@
             return { formula, heal, type: m[2].replace(/\+\s*Attr/i, '').replace(/\(Heal\)/i, '').trim() };
         }
         window.apxUsePower = async function(idx) {
-            let p = window.state.powers[idx]; if (!p || !window.APXDice) return;
+            let p = apxPowerAt(idx); if (!p || !window.APXDice) return;
             if (calc.cantAct) { APXDice.notify(`You're ${calc.cantActLabel}, so you can't use powers until that ends.`, { kind: 'warn', open: true }); return; }
             let name = p.name || 'Power', who = window.state.name || '';
+            // An item's power runs on the item (its uses are on the card), not on your Power Slots
+            let itemSrc = /^i\d+_\d+$/.test(String(idx)) ? (window.state.items || [])[+String(idx).slice(1).split('_')[0]] : null;
             // Power Slot: INT uses a slot of the power's level, CHA one from its pool
             let isCha = window.state.powerAttr === 'CHA', slotKey = isCha ? 'CHA' : (parseInt(p.lvl) || 1);
-            let slotMax = getMaxSlotsForLevel(slotKey), slotUsed = window.state.usedPowerSlots[slotKey] || 0;
+            let slotMax = itemSrc ? 1 : getMaxSlotsForLevel(slotKey), slotUsed = itemSrc ? 0 : (window.state.usedPowerSlots[slotKey] || 0);
             let slotLabel = isCha ? 'Power Slot' : `Level ${slotKey} Power Slot`;
-            let cost = Math.max(0, parseInt(p.ap) || 0);
+            let cost = window.apxPowerIsReaction && window.apxPowerIsReaction(p) ? 0 : Math.max(0, parseInt(p.ap) || 0);   // a Reaction power costs no AP
             let have = typeof window.apxApCurrent === 'function' ? window.apxApCurrent() : cost;
             // Whatever you have is spent: a slot if one's left, the AP if there's enough. Short on
             // either, you're asked first; "Use anyway" still takes what's there.
@@ -1634,7 +1651,8 @@
             let notes = [];
             if (apOk && cost > 0) { window.apxSpendAp(cost); notes.push(`-${cost} AP (${window.apxApCurrent()} left)`); }
             else if (!apOk) notes.push(`AP short (needed ${cost}, had ${have})`);
-            if (slotOk) { window.state.usedPowerSlots[slotKey] = slotUsed + 1; notes.push(`-1 ${slotLabel} (${Math.max(0, slotMax - slotUsed - 1)} left)`); }
+            if (itemSrc) notes.push(`from ${itemSrc.name || 'an item'} (${window.apxItemPowerUsage ? window.apxItemPowerUsage(p) : 'item power'})`);
+            else if (slotOk) { window.state.usedPowerSlots[slotKey] = slotUsed + 1; notes.push(`-1 ${slotLabel} (${Math.max(0, slotMax - slotUsed - 1)} left)`); }
             else notes.push(`no ${slotLabel} left`);
             window.recalculateMath();
             let useNote = notes.join(' · ');
@@ -1675,7 +1693,7 @@
                     <button onclick="window.deletePower(${idx})" class="absolute top-1 right-1 text-red-500 hover:text-red-400 font-bold opacity-0 group-hover:opacity-100">&times;</button>
                     <div class="flex justify-between items-center mb-1">
                         <span class="font-bold text-sm text-indigo-300 cursor-pointer hover:text-indigo-200" onclick="window.apxUsePower(${idx})" title="Use this power: spend its AP and a Power Slot, and roll it">${p.name}</span>
-                        <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded border border-slate-600 text-slate-400 font-bold shadow cursor-pointer hover:border-indigo-400 hover:text-indigo-200" onclick="window.apxUsePower(${idx})" title="Use this power: spend ${p.ap} AP and a Power Slot, and roll it">Lvl ${p.lvl} | ${p.ap} AP</span>
+                        <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded border border-slate-600 text-slate-400 font-bold shadow cursor-pointer hover:border-indigo-400 hover:text-indigo-200" onclick="window.apxUsePower(${idx})" title="Use this power: ${window.apxPowerIsReaction(p) ? 'as your Reaction' : 'spend ' + p.ap + ' AP'} and a Power Slot, and roll it">Lvl ${p.lvl} | ${window.apxPowerApLabel(p)}</span>
                     </div>
                     <div class="grid grid-cols-3 gap-1 mb-1 text-[10px] text-slate-400">
                         <div><span class="text-slate-500">A/S:</span> ${apxPowerAtkHtml(p, idx)}</div>
@@ -1687,6 +1705,22 @@
                     ${window.apxRecraftBadge ? window.apxRecraftBadge(p, `window.openPowerEditor(${idx})`) : ''}
                 </div>
             `).join('');
+            // Powers from equipped items (made by the GM): used like your own, but they don't take a Power Slot
+            let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+            html += window.apxItemPowerList().map(({ p, key, item }) => `
+                <div class="bg-slate-900 p-2 rounded border border-cyan-800 relative shadow-inner" data-roll-label="${esc(p.name || 'Power')}">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="font-bold text-sm text-indigo-300 cursor-pointer hover:text-indigo-200" onclick="window.apxUsePower('${key}')" title="Use this power (from ${esc(item.name)}): no Power Slot needed">${esc(p.name || 'Power')}</span>
+                        <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded border border-slate-600 text-slate-400 font-bold shadow cursor-pointer hover:border-indigo-400 hover:text-indigo-200" onclick="window.apxUsePower('${key}')" title="Use this power: ${window.apxPowerIsReaction(p) ? 'as your Reaction' : 'spend ' + esc(p.ap) + ' AP'}">Lvl ${esc(p.lvl)} | ${window.apxPowerApLabel(p)}</span>
+                    </div>
+                    <div class="text-[9px] text-cyan-300 font-bold mb-1">From ${esc(item.name || 'an item')} · ${window.apxItemPowerUsage ? window.apxItemPowerUsage(p) : ''}</div>
+                    <div class="grid grid-cols-3 gap-1 mb-1 text-[10px] text-slate-400">
+                        <div><span class="text-slate-500">A/S:</span> ${apxPowerAtkHtml(p, key)}</div>
+                        <div><span class="text-slate-500">R/A:</span> ${esc(p.rng)}</div>
+                        <div><span class="text-slate-500">D/H:</span> ${apxPowerDmgHtml(p)}</div>
+                    </div>
+                    <div class="text-[10px] text-slate-500 leading-tight font-medium">${esc(p.desc)}</div>
+                </div>`).join('');
             let pc = document.getElementById('powersContainer');
             pc.classList.add('apx-dice-scope');
             pc.innerHTML = html;
