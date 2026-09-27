@@ -123,8 +123,28 @@
                 if (p.luc_fortunatefighter) notes.push({ title: 'Fortunate Fighter (Rank 1)', text: 'Now: when determining your AC, you may replace your AGI with your LUC. It no longer adds LUC on top of AGI. Your sheet uses whichever is higher, so your AC may be lower than before.' });
                 return notes;
             }
+        },
+        {
+            v: 7, label: 'Inventory stacks (Sept 27, 2026)',
+            run(s) {
+                // Identical items looted or received separately (three Leather Armors) become one row
+                window.apxMergeInventoryStacks(s);
+                return [];
+            }
         }
     ];
+    // Joins identical inventory rows into one stack (worn items and part-used consumables stay apart)
+    window.apxMergeInventoryStacks = function (s) {
+        if (!s || !Array.isArray(s.items) || typeof window.apxItemsStack !== 'function') return;
+        let out = [];
+        s.items.forEach(it => {
+            if (!it) return;
+            let same = out.find(o => window.apxItemsStack(o, it) && !(it.isCustomEquippable && it.equipped));
+            if (same) same.ct = (parseInt(same.ct) || 0) + (parseInt(it.ct) || 0);
+            else out.push(it);
+        });
+        s.items = out;
+    };
 
     // Ammo is one stack per type ("Medium Ammo"), counted in rounds, with per-round weight
     // and value. Older sheets could have "Medium Ammo (20)" stacks (sometimes several).

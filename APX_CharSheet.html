@@ -474,8 +474,8 @@
         }
 
     </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20269271107">
-    <link rel="stylesheet" href="css/tailwind.css?v=20269271107">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20269271139">
+    <link rel="stylesheet" href="css/tailwind.css?v=20269271139">
 </head>
 <body class="p-2 md:p-6 flex justify-center text-sm ml-0 lg:ml-8 transition-all" style="padding-top:4.25rem"><!-- (room for the floating Roster / Settings buttons) -->
     <!-- Auth bar removed — account controls are in the sidebar -->
@@ -2371,38 +2371,38 @@
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20269271107"></script>
-    <script src="js/apx-patch-notes.js?v=20269271107"></script>
-    <script src="js/apx-dice.js?v=20269271107"></script>
-    <script src="js/apx-data.js?v=20269271107"></script>
-    <script src="js/apx-item-effects.js?v=20269271107"></script>
-    <script src="js/apx-perks-db.js?v=20269271107"></script>
-    <script src="js/apx-migrations.js?v=20269271107"></script>
-    <script src="js/apx-roster.js?v=20269271107"></script>
-    <script src="js/apx-state.js?v=20269271107"></script>
-    <script src="js/apx-origin-wizard.js?v=20269271107"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20269271107"></script>
-    <script src="js/apx-inventory-ui.js?v=20269271107"></script>
-    <script src="js/apx-craft-shared.js?v=20269271107"></script>
-    <script src="js/apx-armor-forge.js?v=20269271107"></script>
-    <script src="js/apx-weapon-forge.js?v=20269271107"></script>
-    <script src="js/apx-power-crafter.js?v=20269271107"></script>
-    <script src="js/apx-consumable-crafter.js?v=20269271107"></script>
-    <script src="js/apx-npc-crafter.js?v=20269271107"></script>
-    <script src="js/apx-engine.js?v=20269271107"></script>
-    <script src="js/apx-perks-ui.js?v=20269271107"></script>
-    <script src="js/apx-rest.js?v=20269271107"></script>
-    <script src="js/apx-looting.js?v=20269271107"></script>
-    <script src="js/apx-main.js?v=20269271107"></script>
+    <script src="js/apx-dialogs.js?v=20269271139"></script>
+    <script src="js/apx-patch-notes.js?v=20269271139"></script>
+    <script src="js/apx-dice.js?v=20269271139"></script>
+    <script src="js/apx-data.js?v=20269271139"></script>
+    <script src="js/apx-item-effects.js?v=20269271139"></script>
+    <script src="js/apx-perks-db.js?v=20269271139"></script>
+    <script src="js/apx-migrations.js?v=20269271139"></script>
+    <script src="js/apx-roster.js?v=20269271139"></script>
+    <script src="js/apx-state.js?v=20269271139"></script>
+    <script src="js/apx-origin-wizard.js?v=20269271139"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20269271139"></script>
+    <script src="js/apx-inventory-ui.js?v=20269271139"></script>
+    <script src="js/apx-craft-shared.js?v=20269271139"></script>
+    <script src="js/apx-armor-forge.js?v=20269271139"></script>
+    <script src="js/apx-weapon-forge.js?v=20269271139"></script>
+    <script src="js/apx-power-crafter.js?v=20269271139"></script>
+    <script src="js/apx-consumable-crafter.js?v=20269271139"></script>
+    <script src="js/apx-npc-crafter.js?v=20269271139"></script>
+    <script src="js/apx-engine.js?v=20269271139"></script>
+    <script src="js/apx-perks-ui.js?v=20269271139"></script>
+    <script src="js/apx-rest.js?v=20269271139"></script>
+    <script src="js/apx-looting.js?v=20269271139"></script>
+    <script src="js/apx-main.js?v=20269271139"></script>
 
     <!-- Firebase (cloud sync — requires firebase-config.js to be configured) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20269271107"></script>
-    <script src="js/apx-firebase.js?v=20269271107"></script>
-    <script src="js/apx-battlemap.js?v=20269271107"></script>
-    <script src="js/apx-map-tiles.js?v=20269271107"></script>
+    <script src="js/firebase-config.js?v=20269271139"></script>
+    <script src="js/apx-firebase.js?v=20269271139"></script>
+    <script src="js/apx-battlemap.js?v=20269271139"></script>
+    <script src="js/apx-map-tiles.js?v=20269271139"></script>
     <script>
     // ── Sidebar: folders, worlds, meatball menus ─────────────
     window._sidebarChars = [];
@@ -3765,16 +3765,8 @@
     window.apxAddReceivedItem = function(item) {
         let st = window.state; if (!st || !item) return;
         st.items = st.items || [];
-        let it = JSON.parse(JSON.stringify(item));
-        it.ct = Math.max(1, parseInt(it.ct) || 1);
-        let same = st.items.find(i => {
-            if (i.name !== it.name || !!i.isArmor !== !!it.isArmor || !!i.isWeapon !== !!it.isWeapon || !!i.isShield !== !!it.isShield || !!i.isHelmet !== !!it.isHelmet) return false;
-            if (it.isArmor || it.isConsumable || i.isConsumable || i.isCustomEquippable) return false;
-            if (it.isWeapon) return window.weaponsAreStackable ? window.weaponsAreStackable(i.weaponData || {}, it.weaponData || {}) : false;
-            return (i.desc || '') === (it.desc || '') && (i.wt || 0) === (it.wt || 0);
-        });
-        if (same) same.ct = (parseInt(same.ct) || 0) + it.ct;
-        else { if (it.isCustomEquippable) it.equipped = false; st.items.push(it); }
+        // Identical items share one row (three looted Leather Armors are "Leather Armor ×3")
+        window.apxStashItem(item);
     };
     // Small "Give to…" dropdown under the inventory row's Give button
     window.apxGiveMenu = function(idx, btn) {
@@ -3814,6 +3806,7 @@
         if (st.items[idx] !== item) return;   // inventory changed meanwhile
         let sent = JSON.parse(JSON.stringify(item)); sent.ct = qty;
         if (sent.isCustomEquippable) sent.equipped = false;
+        if (sent.isConsumable && qty < ct) sent.chargesRemaining = sent.charges;   // the part-used one stays with you
         if (qty >= ct) st.items.splice(idx, 1); else item.ct = ct - qty;
         let entry = { id: 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7), from: window.apxAuth.user.uid, fromName: st.name || 'A party member',
             to: toUid, toName: target.name, item: sent, at: Date.now() };

@@ -113,6 +113,65 @@
         (b.statBonuses || []).forEach(r => { if (r && num(r.amount)) rows.push({ key: 'stat:' + r.target, amount: num(r.amount) }); });
         return rows;
     };
+    // ── Stacking ─────────────────────────────────────────────────
+    // Two items are the same thing (one stack) when everything about them matches except how many
+    // there are and how they're being used right now (worn, aimed, which hand holds it).
+    function stable(v) {
+        if (Array.isArray(v)) return '[' + v.map(stable).join(',') + ']';
+        if (v && typeof v === 'object') return '{' + Object.keys(v).filter(k => v[k] !== undefined).sort().map(k => JSON.stringify(k) + ':' + stable(v[k])).join(',') + '}';
+        return JSON.stringify(v === undefined ? null : v);
+    }
+    const KINDS = ['isWeapon', 'isArmor', 'isShield', 'isHelmet', 'isBrokenHelmet', 'isConsumable', 'isCustomEquippable'];
+    window.apxItemStackKey = function (it) {
+        if (!it) return '';
+        let c = JSON.parse(JSON.stringify(it));
+        delete c.ct; delete c.equipped; delete c.id;
+        if (c.isConsumable) delete c.chargesRemaining;
+        if (c.weaponData) ['tr', 'aimed', 'twoHanded', 'hands', 'hand'].forEach(f => delete c.weaponData[f]);
+        if (c.armorData) {
+            // Armor that's been worn picks up empty bookkeeping (no mods, no craft history) and can lose its
+            // price; none of that makes it a different suit of armor
+            let a = c.armorData;
+            delete a.paidCost; delete c.val;
+            if (a.craftBatches && !Object.keys(a.craftBatches).length) delete a.craftBatches;
+            if (a.mods && Object.values(a.mods).every(v => !v)) delete a.mods;
+            ['stealthMod', 'athleticsMod', 'speedMod'].forEach(k => { if (!a[k]) delete a[k]; });
+        }
+        return stable(c);
+    };
+    // Can `incoming` join the stack `existing`?
+    window.apxItemsStack = function (existing, incoming) {
+        if (!existing || !incoming || existing === incoming) return false;
+        if (existing.isCustomEquippable && existing.equipped) return false;   // a worn item stays on its own row
+        if (incoming.isConsumable) {
+            // Consumables: only unused ones join (a stack's first one may be part-used; the rest are full)
+            let full = x => (x.chargesRemaining ?? x.charges ?? 1) >= (x.charges ?? 1);
+            if (!full(incoming)) return false;
+        }
+        if (window.apxItemStackKey(existing) === window.apxItemStackKey(incoming)) return true;
+        // Plain gear (rope, torches, ammo…): the same name, weight and description is the same thing
+        let plain = x => !KINDS.some(k => x[k]);
+        return plain(existing) && plain(incoming) && existing.name === incoming.name && (existing.wt || 0) === (incoming.wt || 0) && (existing.desc || '') === (incoming.desc || '');
+    };
+    // Character sheet: put an item into the inventory, joining a matching stack if there is one
+    window.apxStashItem = function (item) {
+        let st = window.state; if (!st || !item) return null;
+        st.items = Array.isArray(st.items) ? st.items : [];
+        let it = JSON.parse(JSON.stringify(item));
+        it.ct = Math.max(1, parseInt(it.ct) || 1);
+        if (it.isCustomEquippable) it.equipped = false;
+        let same = st.items.find(i => window.apxItemsStack(i, it));
+        if (same) { same.ct = (parseInt(same.ct) || 0) + it.ct; return same; }
+        st.items.push(it);
+        return it;
+    };
+    // Character sheet: take one item off its stack (the row goes when the last one does)
+    window.apxTakeOne = function (item) {
+        let st = window.state; if (!st || !item) return;
+        let i = (st.items || []).indexOf(item); if (i < 0) return;
+        let n = (parseInt(item.ct) || 1) - 1;
+        if (n <= 0) st.items.splice(i, 1); else item.ct = n;
+    };
     // Powers an equipped item grants (made in the Loot Maker with the Power Crafter)
     window.apxItemPowers = function (item) {
         return item && (item.isCustomEquippable ? item.equipped : false) && Array.isArray(item.powers) ? item.powers : [];

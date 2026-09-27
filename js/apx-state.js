@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.9.27.1107';
+window.APX_VERSION = 'v2026.9.27.1139';
 
         window.state = getInitialState();
 
@@ -251,7 +251,8 @@ window.APX_VERSION = 'v2026.9.27.1107';
             if (id === 'itemDetailModal' && window._itemDetailIdx !== null && window._itemDetailIdx !== undefined) {
                 let item = window.state.items[window._itemDetailIdx];
                 if (item && item.isConsumable && item.chargesRemaining <= 0) {
-                    window.state.items.splice(window._itemDetailIdx, 1);
+                    if ((parseInt(item.ct) || 1) > 1) { item.ct = (parseInt(item.ct) || 1) - 1; item.chargesRemaining = item.charges; }   // next one in the stack
+                    else window.state.items.splice(window._itemDetailIdx, 1);
                     window.recalculateMath();
                 }
                 window._itemDetailIdx = null;

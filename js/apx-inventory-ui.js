@@ -370,6 +370,8 @@
             if (next < 0) next = 0;
             if (next > item.charges) next = item.charges;
             item.chargesRemaining = next;
+            // A stack of consumables: when the one in use runs out, the next (full) one takes its place
+            if (next <= 0 && (parseInt(item.ct) || 1) > 1) { item.ct = (parseInt(item.ct) || 1) - 1; item.chargesRemaining = item.charges; }
             if (window._itemDetailIdx === idx) {
                 window.openItemDetail(idx); // refresh the open detail modal in place
             } else {
@@ -496,7 +498,7 @@
             if (handsFree >= handsNeeded) {
                 window.state.weapons.push(weapon);
             } else {
-                window.state.items.push({
+                window.apxStashItem({
                     name: weapon.name, wt: weapon.weight || 0, ct: 1, val: weapon.paidCost || 0,
                     isWeapon: true, isLocked: true, weaponData: JSON.parse(JSON.stringify(weapon)),
                     desc: `Weapon: ${weapon.dmg} damage, ${weapon.ap} AP`
@@ -517,7 +519,7 @@
             let armor = window.state.equippedArmor;
             if (!armor.name) return;
             window.showConfirm(`Remove ${armor.name}? It'll move to your inventory, where you can re-equip it later.`, () => {
-                window.state.items.push({
+                window.apxStashItem({
                     name: armor.name, wt: armor.wt, ct: 1, val: armor.paidCost || 0,
                     isArmor: true, isLocked: true, armorData: JSON.parse(JSON.stringify(armor)),
                     desc: `Armor: +${armor.ac} AC, +${armor.dr} DR, +${armor.er} ER`
@@ -535,17 +537,19 @@
             let item = window.state.items[idx];
             if (!item || !item.isArmor) return;
             let doEquip = () => {
+                // One comes off the stack (identical armor shares one inventory row)
+                let wear = JSON.parse(JSON.stringify(item.armorData));
+                window.apxTakeOne(item);
                 if (window.state.equippedArmor.name) {
-                    // Swap: whatever's currently worn goes back to the inventory first.
+                    // Swap: whatever's currently worn goes back to the inventory.
                     let current = window.state.equippedArmor;
-                    window.state.items.push({
+                    window.apxStashItem({
                         name: current.name, wt: current.wt, ct: 1, val: current.paidCost || 0,
                         isArmor: true, isLocked: true, armorData: JSON.parse(JSON.stringify(current)),
                         desc: `Armor: +${current.ac} AC, +${current.dr} DR, +${current.er} ER`
                     });
                 }
-                window.state.equippedArmor = JSON.parse(JSON.stringify(item.armorData));
-                window.state.items.splice(idx, 1);
+                window.state.equippedArmor = wear;
                 window.recalculateMath();
             };
             if (window.state.equippedArmor.name) {
@@ -576,7 +580,7 @@
         // "Dagger" until the name is corrected, since name is compared
         // like everything else.
         function weaponsAreStackable(a, b) {
-            let volatileFields = ['tr', 'aimed', 'twoHanded'];
+            let volatileFields = ['tr', 'aimed', 'twoHanded', 'hands', 'hand'];
             let strip = (w) => {
                 let copy = { ...w };
                 volatileFields.forEach(f => delete copy[f]);
@@ -644,7 +648,7 @@
             for (let i = window.state.weapons.length - 1; i >= 0; i--) {
                 let w = window.state.weapons[i];
                 if (w.weightClass === 'heavy' && !w.isUnarmed && !w.isAncestry) {
-                    window.state.items.push({
+                    window.apxStashItem({
                         name: w.name, wt: w.weight || 0, ct: 1, val: w.paidCost || 0,
                         isWeapon: true, isLocked: true, weaponData: JSON.parse(JSON.stringify(w)),
                         desc: `Weapon: ${w.dmg} damage, ${w.ap} AP`
@@ -685,7 +689,7 @@
                 window.recalculateMath();
             };
             let owned = (st.items || []).find(i => i.isShield);
-            if (owned) { st.items.splice(st.items.indexOf(owned), 1); add(); return; }
+            if (owned) { window.apxTakeOne(owned); add(); return; }
             if ((st.currency || 0) < s.cost) { window.showConfirm(`Not enough Currency. Another Shield costs ${s.cost}, you have ${st.currency || 0}.`, null, true); return; }
             window.showConfirm(`Buy and equip another Shield (${(window.APX_HAND_LABEL || {})[hand] || hand}) for ${s.cost} Currency? It adds another +${s.ac} AC/DR/ER.`, () => {
                 st.currency = (st.currency || 0) - s.cost; add();
@@ -696,7 +700,7 @@
             if (!where) return;
             let label = (window.APX_HAND_LABEL || {})[hand] || hand;
             window.showConfirm(`Unequip the shield in your ${label}? It'll move to your inventory.`, () => {
-                st.items.push({ name: 'Shield', wt: s.wt, ct: 1, val: s.cost, isShield: true, isLocked: true, desc: `Shield: +${s.ac} AC/DR/ER` });
+                window.apxStashItem({ name: 'Shield', wt: s.wt, ct: 1, val: s.cost, isShield: true, isLocked: true, desc: `Shield: +${s.ac} AC/DR/ER` });
                 if (where === 'extra') st.extraShields = (st.extraShields || []).filter(x => (x.hands || [x.hand])[0] !== hand);
                 else {
                     // the first shield goes: another held shield takes its place
@@ -712,7 +716,7 @@
             if (s.equipped) {
                 window.showConfirm('Remove your Shield? It\'ll move to your inventory, where you can re-equip it later.', () => {
                     s.equipped = false;
-                    window.state.items.push({ name: 'Shield', wt: s.wt, ct: 1, val: s.cost, isShield: true, isLocked: true, desc: `Shield: +${s.ac} AC/DR/ER` });
+                    window.apxStashItem({ name: 'Shield', wt: s.wt, ct: 1, val: s.cost, isShield: true, isLocked: true, desc: `Shield: +${s.ac} AC/DR/ER` });
                     window.recalculateMath();
                 });
                 return;
@@ -723,7 +727,7 @@
                     window.showConfirm('Not enough free hands to equip a Shield. Unequip a weapon first, or switch a two-handed Medium weapon to one-handed.', null, true);
                     return;
                 }
-                window.state.items.splice(window.state.items.indexOf(owned), 1);
+                window.apxTakeOne(owned);
                 s.equipped = true;
                 unequipHeavyWeaponsForShield();
                 window.recalculateMath();
@@ -749,7 +753,7 @@
             if (h.equipped) {
                 window.showConfirm('Remove your Helmet? It\'ll move to your inventory, where you can re-equip it later.', () => {
                     h.equipped = false;
-                    window.state.items.push({ name: 'Helmet', wt: h.wt, ct: 1, val: h.cost, isHelmet: true, isLocked: true, desc: `Helmet: +${h.ac} AC/DR/ER` });
+                    window.apxStashItem({ name: 'Helmet', wt: h.wt, ct: 1, val: h.cost, isHelmet: true, isLocked: true, desc: `Helmet: +${h.ac} AC/DR/ER` });
                     window.recalculateMath();
                 });
                 return;
@@ -761,7 +765,7 @@
             }
             let owned = window.state.items.find(i => i.isHelmet);
             if (owned) {
-                window.state.items.splice(window.state.items.indexOf(owned), 1);
+                window.apxTakeOne(owned);
                 h.equipped = true;
                 h.broken = false;
                 window.recalculateMath();
@@ -784,7 +788,7 @@
             window.showConfirm('Break your Helmet? It stops providing its AC bonus (though you still carry its weight) until repaired.', () => {
                 h.equipped = false;
                 h.broken = true;
-                window.state.items.push({
+                window.apxStashItem({
                     name: 'Broken Helmet', wt: h.wt, ct: 1, val: 0,
                     isBrokenHelmet: true,
                     desc: 'A damaged helmet. Provides no AC bonus until repaired.'
@@ -815,7 +819,7 @@
             // repair regardless of whose pack the materials came out of.
             let matsIdx = window.state.items.findIndex(i => i.name === 'Common Crafting Materials' && (i.ct || 0) >= matsCost);
             if (matsIdx !== -1) window.state.items[matsIdx].ct -= matsCost;
-            window.state.items.splice(window.state.items.indexOf(brokenItem), 1);
+            window.apxTakeOne(brokenItem);
             window.state.equippedHelmet.broken = false;
             window.state.equippedHelmet.equipped = true;
             window.closeModal('helmetRepairModal');
@@ -1027,9 +1031,20 @@
             }
         };
         window.toggleCustomItemEquip = function(idx) {
-            let item = window.state.items[idx];
+            let st = window.state, item = st.items[idx];
             if (!item || !item.isCustomEquippable) return;
-            item.equipped = !item.equipped;
+            if (!item.equipped) {
+                // Equipping one from a stack: it gets its own row, the rest stay in the pack
+                if ((parseInt(item.ct) || 1) > 1) {
+                    let one = JSON.parse(JSON.stringify(item)); one.ct = 1; one.equipped = true;
+                    item.ct = (parseInt(item.ct) || 1) - 1;
+                    st.items.splice(idx, 0, one);
+                } else item.equipped = true;
+            } else {
+                // Taking it off: it rejoins a matching stack if there is one
+                item.equipped = false;
+                if (st.items.some(i => i !== item && window.apxItemsStack(i, item))) { st.items.splice(idx, 1); window.apxStashItem(item); }
+            }
             window.recalculateMath();
         };
         window.saveItem = function() {

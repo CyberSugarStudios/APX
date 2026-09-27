@@ -962,7 +962,12 @@ function _gmCaptureLoot(entry) {
     let cu = Math.max(0, parseInt(n.npc.carriedCu) || 0);
     if (!items.length && !cu) return;
     let list = _gmLootList();
-    items.forEach(it => list.push({ id: crypto.randomUUID(), from: entry.name, item: it }));
+    items.forEach(it => {
+        // identical drops from the same creature share one row (2× Dagger)
+        let same = !it.isConsumable && list.find(l => l.from === entry.name && window.apxItemsStack && window.apxItemsStack(l.item, it));
+        if (same) same.item.ct = (parseInt(same.item.ct) || 1) + (parseInt(it.ct) || 1);
+        else list.push({ id: crypto.randomUUID(), from: entry.name, item: it });
+    });
     // Carried Currency lands in the Loot panel's Cu box, ready to give or split
     if (cu) {
         let form = window._gmLootCuForm || (window._gmLootCuForm = { amt: '', to: '' });
@@ -1036,7 +1041,8 @@ window.renderGmLoot = function() {
             ${g.items.map(l => {
                 let cur = partyIds.has(sel[l.id]) ? sel[l.id] : '';
                 let canEdit = window.apxLootIsEditable && window.apxLootIsEditable(l.item);
-                return `<div class="grid items-center gap-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 mb-1" style="grid-template-columns:minmax(0,1fr) auto auto auto" data-loot="${esc(l.id)}">
+                let many = (parseInt(l.item.ct) || 1) > 1;
+                return `<div class="grid items-center gap-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 mb-1" style="grid-template-columns:minmax(0,1fr) auto auto ${many ? 'auto ' : ''}auto" data-loot="${esc(l.id)}">
                     <div class="min-w-0 leading-tight">
                         <span class="text-[11px] font-bold text-amber-200">${esc(l.item.name)}${l.item.ct > 1 ? ` ×${l.item.ct}` : ''}</span>
                         <span class="text-[9px] text-slate-500 ml-1">${kind(l.item)} · ${esc(stats(l.item))}</span>
@@ -1044,7 +1050,8 @@ window.renderGmLoot = function() {
                     </div>
                     <select class="gm-loot-to ${selCls}" style="width:6.5rem" onchange="window._gmLootSel['${esc(l.id)}']=this.value" ${party.length ? '' : 'disabled'}>
                         <option value="">Give to…</option>${opts(cur)}</select>
-                    <button onclick="window.gmGiveLoot('${esc(l.id)}', this)" class="text-[10px] px-2 py-0.5 rounded bg-emerald-700 hover:bg-emerald-600 text-white font-bold">Give</button>
+                    <button onclick="window.gmGiveLoot('${esc(l.id)}', this)" title="${many ? 'Give one' : 'Give it'}" class="text-[10px] px-2 py-0.5 rounded bg-emerald-700 hover:bg-emerald-600 text-white font-bold">Give</button>
+                    ${many ? `<button onclick="window.gmGiveLoot('${esc(l.id)}', this, true)" title="Give all ${parseInt(l.item.ct)}" class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-900 hover:bg-emerald-800 text-emerald-200 font-bold border border-emerald-700">All</button>` : ''}
                     <button onclick="window.gmDiscardLoot('${esc(l.id)}')" title="Not salvageable: remove it from the list" class="text-[10px] w-5 h-5 rounded bg-slate-700 hover:bg-red-800 text-slate-300 font-bold leading-none">✕</button>
                 </div>`;
             }).join('')}
@@ -1100,14 +1107,25 @@ function _gmSendGift(uid, gift) {
 }
 // (_gmSendGift and _gmLootList are top-level functions, so the Loot Maker can call them directly)
 function _gmPartyName(uid) { let p = (window.gmParty || []).find(x => x.fileName === uid); return p?.summary?.name || 'player'; }
-window.gmGiveLoot = function(id, btn) {
+// Give hands over ONE of a stack ("Black Cloak ×3" → ×2), and the chosen player stays picked so
+// Give can be pressed again. all = true hands over the whole stack.
+function _gmLootGiftOf(item, all) {
+    let ct = Math.max(1, parseInt(item.ct) || 1), n = all ? ct : 1;
+    let gift = JSON.parse(JSON.stringify(item)); gift.ct = n;
+    if (gift.isCustomEquippable) gift.equipped = false;   // arrives in the pack; the player equips it
+    return { gift, n, left: ct - n };
+}
+window._gmLootGiftOf = _gmLootGiftOf;
+window.gmGiveLoot = function(id, btn, all) {
     let list = _gmLootList(), i = list.findIndex(l => l.id === id); if (i < 0) return;
-    let uid = btn?.parentElement?.querySelector('.gm-loot-to')?.value || window._gmLootSel[id];
+    let row = btn?.closest?.('[data-loot]') || btn?.parentElement;
+    let uid = row?.querySelector('.gm-loot-to')?.value || window._gmLootSel[id];
     if (!uid) { window.apxAlert && window.apxAlert('Pick who gets it first.'); return; }
-    let l = list[i];
-    if (!_gmSendGift(uid, { id: crypto.randomUUID(), item: l.item, from: 'GM', at: Date.now() })) return;
-    list.splice(i, 1); delete window._gmLootSel[id];
-    if (typeof gmLog === 'function') gmLog({ text: `${_gmPartyName(uid)} received ${l.item.name}.`, kind: 'loot', force: true });
+    let l = list[i], g = _gmLootGiftOf(l.item, all);
+    if (!_gmSendGift(uid, { id: crypto.randomUUID(), item: g.gift, from: 'GM', at: Date.now() })) return;
+    if (g.left > 0) { l.item.ct = g.left; window._gmLootSel[id] = uid; }
+    else { list.splice(i, 1); delete window._gmLootSel[id]; }
+    if (typeof gmLog === 'function') gmLog({ text: `${_gmPartyName(uid)} received ${g.n > 1 ? g.n + '× ' : ''}${l.item.name}.`, kind: 'loot', force: true });
     window.renderGmLoot();
     if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
 };

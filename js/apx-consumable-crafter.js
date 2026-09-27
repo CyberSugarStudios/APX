@@ -457,7 +457,7 @@ window.finishConsumableCrafter = function() {
     // it's paid for out of Currency or GM-granted, same as any other
     // item added to inventory.
     window.askPayOrGrant(name, t.totalCost, (paid) => {
-        window.state.items.push(item);
+        if (window.apxStashItem) window.apxStashItem(item); else window.state.items.push(item);   // joins an identical stack
         if (paid) window.state.currency = (window.state.currency || 0) - t.totalCost;
         window.recalculateMath();
     });

@@ -99,7 +99,12 @@
     }
     function addTo(t, item) {
         let r = resolve(t); if (!r) return;
-        r.items.push(r.tok || r.npc ? { id: uid(), item } : { id: uid(), from: 'Loot Maker', item });
+        // The same item added again joins its stack ("Black Cloak ×3"). An NPC's consumables stay
+        // separate, since each tracks its own charges in a fight.
+        let same = !(r.npc && item.isConsumable) && window.apxItemsStack
+            && r.items.find(l => (r.tok || r.npc || l.from === 'Loot Maker') && window.apxItemsStack(l.item, item));
+        if (same) same.item.ct = (parseInt(same.item.ct) || 1) + Math.max(1, parseInt(item.ct) || 1);
+        else r.items.push(r.tok || r.npc ? { id: uid(), item } : { id: uid(), from: 'Loot Maker', item });
         r.save(); refreshAll(t);
         window.APXDice?.notify(`${item.ct > 1 ? item.ct + '× ' : ''}${item.name} added to ${r.label}.`, { kind: 'loot' });
     }
@@ -437,7 +442,8 @@
                     ${ip.length ? `<div style="font-size:.58rem;color:#c4b5fd;font-weight:700">Powers: ${ip.map(p => esc(p.name || 'Power')).join(', ')}</div>` : ''}
                     <div style="display:flex;gap:.25rem;margin-top:.25rem">
                         <select onchange="window._gmLootSel['${esc(l.id)}']=this.value" style="${s};flex:1;min-width:0" ${pl.length ? '' : 'disabled'}><option value="">Give to…</option>${opts(cur)}</select>
-                        <button onclick="window.apxGiveSectionLoot('${k}','${esc(l.id)}',this)" style="${btn('#047857', '#059669', '#fff')}">Give</button>
+                        <button onclick="window.apxGiveSectionLoot('${k}','${esc(l.id)}',this)" title="${l.item.ct > 1 ? 'Give one' : 'Give it'}" style="${btn('#047857', '#059669', '#fff')}">Give</button>
+                        ${l.item.ct > 1 ? `<button onclick="window.apxGiveSectionLoot('${k}','${esc(l.id)}',this,true)" title="Give all ${l.item.ct}" style="${btn('#064e3b', '#047857', '#a7f3d0')}">All</button>` : ''}
                         <button onclick="window.apxRemoveSectionLoot('${k}','${esc(l.id)}')" title="Remove" style="${btn('#1e293b', '#475569', '#cbd5e1')}">✕</button>
                     </div></div>`;
             }).join('') || `<div style="font-size:.62rem;color:#64748b;margin-bottom:.25rem">${t.kind === 'npc' ? 'Nothing carried. Items added here drop as loot when this NPC dies.' : `No items. Use Loot Maker to stock this ${r.tok && r.tok.type === 'special' ? 'marker' : 'area'}.`}</div>`}
@@ -467,19 +473,23 @@
         if (el) el.innerHTML = window.apxAreaLootHtml(mapId, tokId);
         document.querySelectorAll(`[data-area-loot="${mapId}|${tokId}"]`).forEach(x => { if (x !== el) x.innerHTML = window.apxAreaLootHtml(mapId, tokId); });
     };
-    window.apxGiveSectionLoot = function (key, id, btn) {
+    // Give hands over one of a stack and keeps the chosen player picked, so it can be pressed again;
+    // All hands over the whole stack.
+    window.apxGiveSectionLoot = function (key, id, btn, all) {
         let t = fromKey(key), r = resolve(t); if (!r) return;
         let i = r.items.findIndex(l => l.id === id); if (i < 0) return;
         let to = btn?.parentElement?.querySelector('select')?.value || window._gmLootSel[id];
         if (!to) { window.apxAlert && window.apxAlert('Pick who gets it first.'); return; }
         let l = r.items[i];
-        let gift = JSON.parse(JSON.stringify(l.item));
+        let ct = Math.max(1, parseInt(l.item.ct) || 1), n = all ? ct : 1;
+        let gift = JSON.parse(JSON.stringify(l.item)); gift.ct = n;
         if (gift.isCustomEquippable) gift.equipped = false;   // arrives in the pack; the player equips it
         if (typeof _gmSendGift !== 'function' || !_gmSendGift(to, { id: uid(), item: gift, from: 'GM', at: Date.now() })) return;
-        r.items.splice(i, 1); delete window._gmLootSel[id];
+        if (ct - n > 0) { l.item.ct = ct - n; window._gmLootSel[id] = to; }
+        else { r.items.splice(i, 1); delete window._gmLootSel[id]; }
         let who = party().find(p => p.uid === to)?.name || 'A player';
         let from = t.kind === 'npc' ? (r.npc.name || 'an NPC') : areaLabel(r.tok);
-        if (typeof window.gmLog === 'function') window.gmLog({ text: `${who} took ${l.item.name} from ${from}.`, kind: 'loot', force: true });
+        if (typeof window.gmLog === 'function') window.gmLog({ text: `${who} took ${n > 1 ? n + '× ' : ''}${l.item.name} from ${from}.`, kind: 'loot', force: true });
         r.save(); refreshAll(t);
     };
     // Edit a custom item where it sits (an area, an NPC's carried gear): opens the Loot Maker's form, filled in
@@ -520,7 +530,9 @@
         let tok = areaTok(mapId, tokId); if (!tok || typeof _gmLootList !== 'function') return;
         let pool = _gmLootList(), i = pool.findIndex(l => l.id === poolId); if (i < 0) return;
         let l = pool.splice(i, 1)[0];
-        areaLoot(tok).items.push({ id: l.id, item: l.item });
+        let here = areaLoot(tok).items, same = window.apxItemsStack && here.find(x => window.apxItemsStack(x.item, l.item));
+        if (same) same.item.ct = (parseInt(same.item.ct) || 1) + Math.max(1, parseInt(l.item.ct) || 1);
+        else here.push({ id: l.id, item: l.item });
         save(); refreshAll({ kind: 'area', mapId, tokId });
     };
 })();
