@@ -99,10 +99,8 @@
     }
     function addTo(t, item) {
         let r = resolve(t); if (!r) return;
-        // The same item added again joins its stack ("Black Cloak ×3"). An NPC's consumables stay
-        // separate, since each tracks its own charges in a fight.
-        let same = !(r.npc && item.isConsumable) && window.apxItemsStack
-            && r.items.find(l => (r.tok || r.npc || l.from === 'Loot Maker') && window.apxItemsStack(l.item, item));
+        // The same item added again joins its stack ("Black Cloak ×3", "3× Healing Draught")
+        let same = window.apxItemsStack && r.items.find(l => (r.tok || r.npc || l.from === 'Loot Maker') && window.apxItemsStack(l.item, item));
         if (same) same.item.ct = (parseInt(same.item.ct) || 1) + Math.max(1, parseInt(item.ct) || 1);
         else r.items.push(r.tok || r.npc ? { id: uid(), item } : { id: uid(), from: 'Loot Maker', item });
         r.save(); refreshAll(t);
@@ -241,6 +239,8 @@
         let listHtml = items.length ? items.map(l => `<div style="display:flex;align-items:center;gap:.4rem;padding:.3rem .5rem;border:1px solid #334155;border-radius:.35rem;margin-bottom:.25rem;background:#0f172a">
                 <span style="font-size:.74rem;font-weight:800;color:#fde68a">${esc(l.item.name)}${l.item.ct > 1 ? ` ×${l.item.ct}` : ''}</span>
                 <span style="font-size:.62rem;color:#94a3b8;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${kindOf(l.item)} · ${esc(statsOf(l.item))}</span>
+                <button data-lm-ct="${esc(l.id)}|-1" title="One fewer" ${(l.item.ct || 1) > 1 ? '' : 'disabled'} style="background:#334155;border:none;color:#cbd5e1;border-radius:.25rem;width:1.3rem;height:1.3rem;cursor:pointer;font-weight:900;${(l.item.ct || 1) > 1 ? '' : 'opacity:.4;cursor:default'}">−</button>
+                <button data-lm-ct="${esc(l.id)}|1" title="Add another" style="background:#334155;border:none;color:#cbd5e1;border-radius:.25rem;width:1.3rem;height:1.3rem;cursor:pointer;font-weight:900">+</button>
                 ${isEditable(l.item) ? `<button data-lm-edit="${esc(l.id)}" title="Edit" style="background:#334155;border:none;color:#fde68a;border-radius:.25rem;padding:0 .4rem;height:1.3rem;cursor:pointer;font-weight:800;font-size:.62rem">Edit</button>` : ''}
                 <button data-lm-del="${esc(l.id)}" title="Remove" style="background:#334155;border:none;color:#cbd5e1;border-radius:.25rem;width:1.3rem;height:1.3rem;cursor:pointer;font-weight:900">✕</button></div>`).join('')
             : `<div style="font-size:.7rem;color:#64748b">Nothing here yet.</div>`;
@@ -262,6 +262,12 @@
                 <label style="display:flex;align-items:center;gap:.35rem">${r.npc ? 'Currency carried' : 'Currency here'} <input data-lm-cu type="number" min="0" value="${r.cu()}" style="${inCss};width:5rem;text-align:center"> Cu</label>
                 <span style="color:#64748b;font-size:.65rem">${r.npc ? 'Dropped with its gear when it dies.' : 'Hand it out from the area\'s popup.'}</span></div>` : ''}`;
         // Wire up
+        body.querySelectorAll('[data-lm-ct]').forEach(b => b.onclick = () => {
+            let [id, d] = b.dataset.lmCt.split('|');
+            let r2 = resolve(maker.target); let l = r2 && r2.items.find(x => x.id === id); if (!l) return;
+            l.item.ct = Math.max(1, (parseInt(l.item.ct) || 1) + parseInt(d));
+            r2.save(); refreshAll(maker.target);
+        });
         body.querySelectorAll('[data-lm-edit]').forEach(b => b.onclick = () => {
             let r2 = resolve(maker.target); let l = r2 && r2.items.find(x => x.id === b.dataset.lmEdit); if (!l) return;
             maker.ci = ciFromItem(l.item, l.id); maker.view = 'citem';
@@ -437,6 +443,10 @@
                         <div style="flex:1;min-width:0;font-size:.7rem;font-weight:800;color:#fde68a;line-height:1.2">${esc(l.item.name)}${l.item.ct > 1 ? ` ×${l.item.ct}` : ''}</div>
                         ${t.kind === 'npc' && l.item.isCustomEquippable ? `<button onclick="window.apxToggleNpcItemEquip('${esc(t.npcId)}','${esc(l.id)}')" title="${eqOn ? 'Equipped: its bonuses and powers are on the stat block. Click to take it off.' : 'Carried, not worn. Click to equip it.'}" style="${eqOn ? btn('#155e75', '#0891b2', '#cffafe') : btn('#1e293b', '#475569', '#94a3b8')}">${eqOn ? 'Equipped' : 'Equip'}</button>` : ''}
                         ${isEditable(l.item) ? `<button onclick="window.apxEditSectionLoot('${k}','${esc(l.id)}')" title="Edit this item" style="${btn('#1e293b', '#475569', '#fde68a')}">Edit</button>` : ''}
+                        <span style="display:inline-flex;align-items:center;gap:.15rem" title="How many">
+                            <button onclick="window.apxSectionLootCount('${k}','${esc(l.id)}',-1)" ${(l.item.ct || 1) > 1 ? '' : 'disabled'} style="${btn('#1e293b', '#475569', '#cbd5e1')};padding:.1rem .35rem;${(l.item.ct || 1) > 1 ? '' : 'opacity:.4;cursor:default'}">−</button>
+                            <button onclick="window.apxSectionLootCount('${k}','${esc(l.id)}',1)" title="Add another" style="${btn('#1e293b', '#475569', '#cbd5e1')};padding:.1rem .35rem">+</button>
+                        </span>
                     </div>
                     <div title="${esc(statsOf(l.item))}" style="font-size:.58rem;color:#94a3b8;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${kindOf(l.item)} · ${esc(statsOf(l.item))}</div>
                     ${ip.length ? `<div style="font-size:.58rem;color:#c4b5fd;font-weight:700">Powers: ${ip.map(p => esc(p.name || 'Power')).join(', ')}</div>` : ''}
@@ -506,6 +516,13 @@
         let t = { kind: 'npc', npcId }, r = resolve(t); if (!r) return;
         let l = r.items.find(x => x.id === id); if (!l || !l.item || !l.item.isCustomEquippable) return;
         l.item.equipped = !l.item.equipped;
+        r.save(); refreshAll(t);
+    };
+    // − / + on a loot row: one fewer or one more of the same item (5 Healing Draughts without crafting 5)
+    window.apxSectionLootCount = function (key, id, delta) {
+        let t = fromKey(key), r = resolve(t); if (!r) return;
+        let l = r.items.find(x => x.id === id); if (!l) return;
+        l.item.ct = Math.max(1, (parseInt(l.item.ct) || 1) + delta);
         r.save(); refreshAll(t);
     };
     window.apxRemoveSectionLoot = function (key, id) {

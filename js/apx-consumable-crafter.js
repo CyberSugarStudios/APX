@@ -87,6 +87,18 @@ window.openConsumableCrafter = function(target) {
     ccTarget = (target && typeof target.onMade === 'function') ? target : null;
     let fin = document.getElementById('ccBtnFinish');
     if (fin) fin.textContent = ccTarget ? (ccTarget.label || 'Add to Loot') : 'Add to Inventory';
+    // Making loot (GM): how many of this consumable to add at once
+    let qty = document.getElementById('ccLootQtyWrap');
+    if (!qty && fin) {
+        qty = document.createElement('label');
+        qty.id = 'ccLootQtyWrap';
+        qty.className = 'items-center gap-1 text-xs font-bold text-slate-300';
+        qty.style.display = 'none';
+        qty.innerHTML = 'How many <input id="ccLootQty" type="number" min="1" max="99" value="1" class="bg-slate-900 border border-slate-600 rounded text-center text-white text-sm" style="width:3.5rem;padding:.3rem .2rem">';
+        fin.parentNode.insertBefore(qty, fin);
+    }
+    let qin = document.getElementById('ccLootQty'); if (qin) qin.value = 1;
+    if (qty) qty.style.display = 'none';
     ccDraft = getBlankConsumableDraft();
     ccStep = 1;
     document.getElementById('ccName').value = '';
@@ -115,6 +127,8 @@ window.jumpToCcStep = function(n) {
     document.getElementById('ccBtnPrev').style.display = ccStep > 1 ? 'block' : 'none';
     document.getElementById('ccBtnNext').style.display = ccStep < CC_LAST_STEP ? 'block' : 'none';
     document.getElementById('ccBtnFinish').style.display = ccStep === CC_LAST_STEP ? 'block' : 'none';
+    let qtyWrap = document.getElementById('ccLootQtyWrap');
+    if (qtyWrap) qtyWrap.style.display = ccTarget && ccStep === CC_LAST_STEP ? 'inline-flex' : 'none';
     if (ccStep === CC_LAST_STEP) ccRenderStep7();
     window.updateWizardTabs('ccTab', ccStep, CC_LAST_STEP);
 };
@@ -452,7 +466,11 @@ window.finishConsumableCrafter = function() {
         chargesRemaining: t.charges,
         desc: flavorText
     };
-    if (ccTarget) { let tg = ccTarget; ccTarget = null; tg.onMade(item); return; }
+    if (ccTarget) {
+        // Loot: several at once, as one stack ("3× Healing Draught")
+        item.ct = Math.max(1, Math.min(99, parseInt(document.getElementById('ccLootQty')?.value) || 1));
+        let tg = ccTarget; ccTarget = null; tg.onMade(item); return;
+    }
     // Crafting a consumable still represents acquiring it -- ask whether
     // it's paid for out of Currency or GM-granted, same as any other
     // item added to inventory.

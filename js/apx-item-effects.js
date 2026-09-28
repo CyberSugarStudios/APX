@@ -153,6 +153,20 @@
         let plain = x => !KINDS.some(k => x[k]);
         return plain(existing) && plain(incoming) && existing.name === incoming.name && (existing.wt || 0) === (incoming.wt || 0) && (existing.desc || '') === (incoming.desc || '');
     };
+    // A consumable stack's charges: every one full except the first, which may be part-used
+    window.apxStackCharges = function (it) {
+        if (!it) return 0;
+        let per = Math.max(1, parseInt(it.charges) || 1), ct = Math.max(1, parseInt(it.ct) || 1);
+        let top = it.chargesRemaining ?? per;
+        return (ct - 1) * per + Math.max(0, parseInt(top) || 0);
+    };
+    // The same stack after using some charges: fewer items, the first one part-used (null when none are left)
+    window.apxStackAfterUse = function (it, used) {
+        let per = Math.max(1, parseInt(it.charges) || 1), left = window.apxStackCharges(it) - Math.max(0, used || 0);
+        if (left <= 0) return null;
+        let ct = Math.ceil(left / per);
+        return Object.assign({}, it, { ct, chargesRemaining: left - (ct - 1) * per });
+    };
     // Character sheet: put an item into the inventory, joining a matching stack if there is one
     window.apxStashItem = function (item) {
         let st = window.state; if (!st || !item) return null;

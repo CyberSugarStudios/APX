@@ -1597,12 +1597,15 @@ function npcCarriedBox(sb, esc) {
     let rows = items.map(l => {
         let it = l.item || {};
         if (it.isConsumable) {
-            let base = it.chargesRemaining ?? it.charges ?? 1;
-            let left = Math.max(0, base - ((entry && entry.carriedUsed && entry.carriedUsed[l.id]) || 0));
+            // A stack (3× Healing Draught) shares its charges; each creature in initiative uses its own
+            let total = window.apxStackCharges ? window.apxStackCharges(it) : (it.chargesRemaining ?? it.charges ?? 1);
+            let left = Math.max(0, total - ((entry && entry.carriedUsed && entry.carriedUsed[l.id]) || 0));
+            let per = Math.max(1, parseInt(it.charges) || 1), ct = Math.max(1, parseInt(it.ct) || 1);
             let sum = null; try { sum = it.draft && window.ccBuildTextSummary ? window.ccBuildTextSummary(it.draft) : null; } catch (e) { }
             let fx = sum ? [sum.dmg !== '-' ? sum.dmg : '', (sum.utilityBits || []).join(', '), sum.rng].filter(Boolean).join(' · ') : (it.desc || '');
+            let countTxt = per > 1 ? `${left}/${total} charges` : `${left}/${total} ${total === 1 ? 'use' : 'uses'}`;
             return `<div class="text-xs ${left ? 'text-slate-200' : 'text-slate-500'} flex items-start gap-2 mt-0.5" data-roll-label="${esc(it.name)}">
-                <div class="flex-1 min-w-0"><b>${esc(it.name)}</b> <span class="text-[10px] ${left ? 'text-fuchsia-300' : 'text-slate-600'}">${left}/${it.charges || 1} ${(it.charges || 1) > 1 ? 'charges' : 'use'}</span>
+                <div class="flex-1 min-w-0"><b>${ct > 1 ? ct + '× ' : ''}${esc(it.name)}</b> <span class="text-[10px] ${left ? 'text-fuchsia-300' : 'text-slate-600'}">${countTxt}</span>
                     ${fx ? `<div class="text-[10px] text-slate-400">${esc(fx)}</div>` : ''}</div>
                 <button type="button" onclick="window.npcUseCarried('${sb._npcId || ''}','${sb._initId || ''}','${esc(l.id)}')" ${left ? '' : 'disabled'} title="Use it: 3 AP, one charge" class="text-[10px] font-bold px-1.5 py-0.5 rounded ${left ? 'bg-fuchsia-800 hover:bg-fuchsia-700 text-white' : 'bg-slate-800 text-slate-600'}">Use</button></div>`;
         }

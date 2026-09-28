@@ -926,9 +926,10 @@ function _gmNpcLootItems(npc, entry) {
         let it = clone(l.item);
         if (it.isCustomEquippable) it.equipped = false;   // taken off the body
         if (it.isConsumable) {
+            // What's left of the stack after the fight (used charges come off the first ones)
             let used = (entry && entry.carriedUsed && entry.carriedUsed[l.id]) || 0;
-            it.chargesRemaining = Math.max(0, (it.chargesRemaining ?? it.charges ?? 1) - used);
-            if (it.chargesRemaining <= 0) return;   // used up in the fight
+            it = window.apxStackAfterUse ? window.apxStackAfterUse(it, used) : it;
+            if (!it) return;   // used up in the fight
         }
         items.push(it);
     });
@@ -983,7 +984,7 @@ function _gmCaptureLoot(entry) {
 window.npcUseCarried = function(npcId, initId, itemId) {
     let n = (window.gmNpcs || []).find(x => x.id === npcId); if (!n || !n.npc) return;
     let l = (n.npc.carriedItems || []).find(x => x.id === itemId); if (!l || !l.item) return;
-    let it = l.item, base = it.chargesRemaining ?? it.charges ?? 1;
+    let it = l.item, base = window.apxStackCharges ? window.apxStackCharges(it) : (it.chargesRemaining ?? it.charges ?? 1);   // a stack shares its charges
     let list = (window.gmInitiative || []).filter(x => x.sourceNpcId === npcId && x.faction !== 'player');
     let cur = window.gmInitiative[window.gmCurrentTurnIdx];
     let e = (cur && list.includes(cur)) ? cur : (initId && list.find(x => x.id === initId)) || (list.length === 1 ? list[0] : null);
