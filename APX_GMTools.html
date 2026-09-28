@@ -450,8 +450,8 @@
                 }
         
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20269272047">
-    <link rel="stylesheet" href="css/tailwind.css?v=20269272047">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20269280857">
+    <link rel="stylesheet" href="css/tailwind.css?v=20269280857">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
@@ -1508,35 +1508,35 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20269272047"></script>
-    <script src="js/apx-patch-notes.js?v=20269272047"></script>
-    <script src="js/apx-dice.js?v=20269272047"></script>
-    <script src="js/apx-data.js?v=20269272047"></script>
-    <script src="js/apx-item-effects.js?v=20269272047"></script>
-    <script src="js/apx-perks-db.js?v=20269272047"></script>
-    <script src="js/apx-migrations.js?v=20269272047"></script>
-    <script src="js/apx-state.js?v=20269272047"></script>
-    <script src="js/apx-craft-shared.js?v=20269272047"></script>
-    <script src="js/apx-armor-forge.js?v=20269272047"></script>
-    <script src="js/apx-weapon-forge.js?v=20269272047"></script>
-    <script src="js/apx-consumable-crafter.js?v=20269272047"></script>
-    <script src="js/apx-perks-ui.js?v=20269272047"></script>
-    <script src="js/apx-power-crafter.js?v=20269272047"></script>
-    <script src="js/apx-npc-crafter.js?v=20269272047"></script>
-    <script src="js/apx-inventory-ui.js?v=20269272047"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20269272047"></script>
-    <script src="js/apx-gm-screen.js?v=20269272047"></script>
-    <script src="js/apx-loot-maker.js?v=20269272047"></script>
-    <script src="js/apx-gmtools-main.js?v=20269272047"></script>
+    <script src="js/apx-dialogs.js?v=20269280857"></script>
+    <script src="js/apx-patch-notes.js?v=20269280857"></script>
+    <script src="js/apx-dice.js?v=20269280857"></script>
+    <script src="js/apx-data.js?v=20269280857"></script>
+    <script src="js/apx-item-effects.js?v=20269280857"></script>
+    <script src="js/apx-perks-db.js?v=20269280857"></script>
+    <script src="js/apx-migrations.js?v=20269280857"></script>
+    <script src="js/apx-state.js?v=20269280857"></script>
+    <script src="js/apx-craft-shared.js?v=20269280857"></script>
+    <script src="js/apx-armor-forge.js?v=20269280857"></script>
+    <script src="js/apx-weapon-forge.js?v=20269280857"></script>
+    <script src="js/apx-consumable-crafter.js?v=20269280857"></script>
+    <script src="js/apx-perks-ui.js?v=20269280857"></script>
+    <script src="js/apx-power-crafter.js?v=20269280857"></script>
+    <script src="js/apx-npc-crafter.js?v=20269280857"></script>
+    <script src="js/apx-inventory-ui.js?v=20269280857"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20269280857"></script>
+    <script src="js/apx-gm-screen.js?v=20269280857"></script>
+    <script src="js/apx-loot-maker.js?v=20269280857"></script>
+    <script src="js/apx-gmtools-main.js?v=20269280857"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20269272047"></script>
-    <script src="js/apx-firebase.js?v=20269272047"></script>
-    <script src="js/apx-battlemap.js?v=20269272047"></script>
-    <script src="js/apx-map-tiles.js?v=20269272047"></script>
+    <script src="js/firebase-config.js?v=20269280857"></script>
+    <script src="js/apx-firebase.js?v=20269280857"></script>
+    <script src="js/apx-battlemap.js?v=20269280857"></script>
+    <script src="js/apx-map-tiles.js?v=20269280857"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -2058,6 +2058,7 @@ document.addEventListener('DOMContentLoaded', () => {
         win.style.cssText=`position:fixed;right:20px;top:100px;width:300px;max-height:70vh;background:#1e293b;border:1px solid #334155;border-radius:0.75rem;z-index:${window.apxFloatingZTop};box-shadow:0 10px 40px rgba(0,0,0,.85);display:flex;flex-direction:column;`;
         win.innerHTML=`<div id="${winId}_hdr" style="cursor:grab;user-select:none;background:#312e81;padding:0.6rem 0.75rem;border-radius:0.75rem 0.75rem 0 0;display:flex;align-items:center;gap:0.5rem;flex-shrink:0;">
             <span style="font-size:0.8rem;font-weight:700;color:#e2e8f0;flex:1;">${n.name||'NPC'}</span>
+            ${n.statBlockId && (window.gmNpcs||[]).some(g=>g.id===n.statBlockId) ? `<button onclick="window._viewWorldNpcSb('${npcId}','${n.statBlockId}')" title="Open this NPC's stat block" style="font-size:0.65rem;font-weight:700;padding:0.2rem 0.5rem;background:#1e1b4b;border:1px solid #6366f1;color:#c7d2fe;border-radius:0.25rem;cursor:pointer;">Stat Block</button>` : ''}
             <button onclick="window.openNoteModal('npc','${npcId}')" style="font-size:0.65rem;font-weight:700;padding:0.2rem 0.5rem;background:#4f46e5;border:1px solid #6366f1;color:#e0e7ff;border-radius:0.25rem;cursor:pointer;">Edit</button>
             <button onclick="document.getElementById('${winId}').remove()" style="background:none;border:none;color:#94a3b8;font-size:1rem;cursor:pointer;line-height:1;">X</button>
         </div>
@@ -4885,32 +4886,11 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.appendChild(overlay);
     };
 
-    // Show a small info popup for a world NPC linked to an area token
+    // A linked NPC's name (in an Area Circle or Special Map Marker popup) opens the same NPC window
+    // as clicking that NPC in the World NPC list: portrait, role, description, sub-notes, loot, Edit.
     window.openTokenNpcInfo = function(mapId, tokenId, npcId, parentWinId) {
-        let wn = (_wNotes.npcs||[]).find(n=>n.id===npcId); if(!wn) return;
-        let winId = 'tnpcInfo_'+npcId;
-        document.getElementById(winId)?.remove();
-        window.apxFloatingZTop++;
-        let win = document.createElement('div');
-        win.id = winId;
-        win.style.cssText = `position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:280px;max-height:80vh;overflow-y:auto;
-            background:#1e293b;border:1px solid #334155;border-radius:0.5rem;z-index:${window.apxFloatingZTop};
-            box-shadow:0 10px 40px rgba(0,0,0,.8);`;
-        let sbBtn = wn.statBlockId
-            ? `<button onclick="window.openFloatingNpcStatBlockById('${wn.statBlockId}','${(wn.name||'').replace(/\'/g,"\\\'")}'" style="width:100%;background:#312e81;border:1px solid #4f46e5;color:#c7d2fe;font-size:0.7rem;font-weight:700;padding:0.35rem;border-radius:0.25rem;cursor:pointer;margin-top:0.5rem;">View Stat Block</button>`
-            : '';
-        win.innerHTML = `<div style="background:#1e293b;padding:0.75rem;border-bottom:1px solid #334155;display:flex;justify-content:space-between;align-items:center;">
-            <span style="font-size:0.8rem;font-weight:700;color:#e2e8f0;">${wn.name||'NPC'}</span>
-            <button onclick="document.getElementById('${winId}').remove()" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:1rem;">&#x2715;</button>
-        </div>
-        <div style="padding:0.75rem;">
-            ${wn.role?`<div style="font-size:0.65rem;color:#94a3b8;margin-bottom:0.4rem;">${wn.role}</div>`:''}
-            ${wn.description?`<div style="font-size:0.7rem;color:#cbd5e1;">${wn.description}</div>`:''}
-            ${sbBtn}
-            ${_npcLootBox(wn)}
-        </div>`;
-        document.getElementById('floatingWindowContainer').appendChild(win);
-        win.addEventListener('mousedown', ()=>{ window.apxFloatingZTop++; win.style.zIndex=window.apxFloatingZTop; });
+        document.getElementById('tnpcInfo_'+npcId)?.remove();   // (the old small popup, if one is still open)
+        window.openNpcInfoWin(npcId);
     };
 
     // One-click reveal/hide from the info window (no need to open Edit mid-session)

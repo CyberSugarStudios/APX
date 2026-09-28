@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.9.27.2047',
-        released: '2026-09-27T20:47:00',
-        releasedText: 'September 27, 2026 · 8:47 PM',
+        version: 'v2026.9.28.0857',
+        released: '2026-09-28T08:57:00',
+        releasedText: 'September 28, 2026 · 8:57 AM',
         title: 'Playtest Update',
         intro: 'APX now has a home of its own at playapx.com, and this release brings together everything our playtest tables asked for. GMs can set world rules, stock NPCs, Area Circles and Special Map Markers with the Loot Maker, hand out loot one item at a time, create magic items that grant powers, and run NPCs that wear, carry and use their gear. Players get inventories where identical items stack, Luck and Looting, trading, Omen dice they can pass around, Loyal Companions with their own turns, powers that roll like weapons, weapon properties that apply themselves, a one-screen Origin Builder, maps that stay sharp at any zoom, and one dice tray that is also the combat log. Damage is entered in full, by the GM or the player, and DR, ER, resistances and immunities come off automatically. Every character sees only its own world and fog. Pages load faster, especially on phones, and characters and worlds update themselves when opened, with nothing lost.',
         index: [
@@ -257,6 +257,7 @@
             ['Maps', [
                 'Linked maps open in the same spot: the first near the middle of the screen, each next one slightly offset, and never off screen however many are open.',
                 'Hover over an Area Circle or Special Map Marker and its name appears at once, for you and your players.',
+                'Click a linked NPC\'s name in an Area Circle or Special Map Marker and its full NPC window opens, the same one the World NPC list opens: portrait, role, description, sub-notes, carried loot, Edit, and a Stat Block button when one is linked.',
                 'Area Circles keep about the same size on screen as you zoom: one building on a city map zoomed in, never more than 3% of the map zoomed out.',
                 'Upload maps of any size: a compressed preview loads instantly and full-resolution tiles load as you zoom, seamlessly and with no paid Firebase plan.',
                 'Shift+drag moves groups of tokens, images have layers, M measures, F toggles the fog painter, and windows resize from the corner grip.'
