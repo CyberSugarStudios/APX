@@ -450,8 +450,8 @@
                 }
         
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20269281110">
-    <link rel="stylesheet" href="css/tailwind.css?v=20269281110">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20269281128">
+    <link rel="stylesheet" href="css/tailwind.css?v=20269281128">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
@@ -1508,35 +1508,35 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20269281110"></script>
-    <script src="js/apx-patch-notes.js?v=20269281110"></script>
-    <script src="js/apx-dice.js?v=20269281110"></script>
-    <script src="js/apx-data.js?v=20269281110"></script>
-    <script src="js/apx-item-effects.js?v=20269281110"></script>
-    <script src="js/apx-perks-db.js?v=20269281110"></script>
-    <script src="js/apx-migrations.js?v=20269281110"></script>
-    <script src="js/apx-state.js?v=20269281110"></script>
-    <script src="js/apx-craft-shared.js?v=20269281110"></script>
-    <script src="js/apx-armor-forge.js?v=20269281110"></script>
-    <script src="js/apx-weapon-forge.js?v=20269281110"></script>
-    <script src="js/apx-consumable-crafter.js?v=20269281110"></script>
-    <script src="js/apx-perks-ui.js?v=20269281110"></script>
-    <script src="js/apx-power-crafter.js?v=20269281110"></script>
-    <script src="js/apx-npc-crafter.js?v=20269281110"></script>
-    <script src="js/apx-inventory-ui.js?v=20269281110"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20269281110"></script>
-    <script src="js/apx-gm-screen.js?v=20269281110"></script>
-    <script src="js/apx-loot-maker.js?v=20269281110"></script>
-    <script src="js/apx-gmtools-main.js?v=20269281110"></script>
+    <script src="js/apx-dialogs.js?v=20269281128"></script>
+    <script src="js/apx-patch-notes.js?v=20269281128"></script>
+    <script src="js/apx-dice.js?v=20269281128"></script>
+    <script src="js/apx-data.js?v=20269281128"></script>
+    <script src="js/apx-item-effects.js?v=20269281128"></script>
+    <script src="js/apx-perks-db.js?v=20269281128"></script>
+    <script src="js/apx-migrations.js?v=20269281128"></script>
+    <script src="js/apx-state.js?v=20269281128"></script>
+    <script src="js/apx-craft-shared.js?v=20269281128"></script>
+    <script src="js/apx-armor-forge.js?v=20269281128"></script>
+    <script src="js/apx-weapon-forge.js?v=20269281128"></script>
+    <script src="js/apx-consumable-crafter.js?v=20269281128"></script>
+    <script src="js/apx-perks-ui.js?v=20269281128"></script>
+    <script src="js/apx-power-crafter.js?v=20269281128"></script>
+    <script src="js/apx-npc-crafter.js?v=20269281128"></script>
+    <script src="js/apx-inventory-ui.js?v=20269281128"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20269281128"></script>
+    <script src="js/apx-gm-screen.js?v=20269281128"></script>
+    <script src="js/apx-loot-maker.js?v=20269281128"></script>
+    <script src="js/apx-gmtools-main.js?v=20269281128"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20269281110"></script>
-    <script src="js/apx-firebase.js?v=20269281110"></script>
-    <script src="js/apx-battlemap.js?v=20269281110"></script>
-    <script src="js/apx-map-tiles.js?v=20269281110"></script>
+    <script src="js/firebase-config.js?v=20269281128"></script>
+    <script src="js/apx-firebase.js?v=20269281128"></script>
+    <script src="js/apx-battlemap.js?v=20269281128"></script>
+    <script src="js/apx-map-tiles.js?v=20269281128"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -4816,9 +4816,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${!readOnly?`<button onclick="window.openMapPickerForToken('${mapId}','${tokenId}','${winId}')"
                     style="width:100%;background:#1e3a5f;border:1px solid #2563eb;color:#93c5fd;font-size:0.65rem;font-weight:700;padding:0.25rem;border-radius:0.25rem;cursor:pointer;margin-bottom:0.25rem;">[Map] Link Maps…</button>`:''}
                 <div id="${winId}_subnotes" style="margin-bottom:0.15rem;">${_buildTokenSubnotes(tok, winId, readOnly, mapId, tokenId)}</div>
-                ${window.apxAreaLinkedLootHtml?`<div id="${winId}_lootWrap" style="margin-bottom:0.25rem;">${window.apxAreaLinkedLootHtml(mapId, tokenId, winId)}</div>`:''}
                 ${!readOnly?`<button onclick="window.addTokenSubnote('${mapId}','${tokenId}','${winId}')"
                     style="width:100%;background:#1e293b;border:1px solid #334155;color:#64748b;font-size:0.65rem;font-weight:700;padding:0.2rem;border-radius:0.25rem;cursor:pointer;margin-bottom:0.25rem;">+ Add Sub-note</button>`:''}
+                ${window.apxAreaLinkedLootHtml?`<div id="${winId}_lootWrap" style="margin-bottom:0.25rem;">${window.apxAreaLinkedLootHtml(mapId, tokenId, winId)}</div>`:''}
                 ${!readOnly?`<div style="display:flex;gap:0.5rem;">
                     <button onclick="window._saveToken('${mapId}','${tokenId}','${winId}','${parentWinId}')"
                         style="flex:1;background:#4f46e5;border:none;color:#fff;font-size:0.7rem;font-weight:700;padding:0.4rem;border-radius:0.25rem;cursor:pointer;">Save</button>

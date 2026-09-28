@@ -11,42 +11,42 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.9.28.1110',
-        released: '2026-09-28T11:10:00',
-        releasedText: 'September 28, 2026 · 11:10 AM',
+        version: 'v2026.9.28.1128',
+        released: '2026-09-28T11:28:00',
+        releasedText: 'September 28, 2026 · 11:28 AM',
         title: 'Playtest Update',
-        intro: 'APX has moved into its own home at playapx.com, and this release gathers up everything our playtest tables asked for. GMs can set world rules, fill NPCs, Area Circles and Special Map Markers with loot (several of an item at a time), hand it out one piece at a time, create magic items that grant powers, and run NPCs that wear, carry and use their gear. Players get inventories where identical items stack, Luck and Looting, trading, Omen dice to pass around, Loyal Companions with their own turns, powers that roll like weapons, weapon properties that apply themselves, a one-screen Origin Builder, maps that stay sharp at any zoom, and one dice tray that doubles as the combat log. Enter damage in full, as GM or player, and DR, ER, resistances and immunities come off by themselves. Each character sees only its own world and its fog. Pages load faster, especially on phones, and characters and worlds bring themselves up to date when opened, with nothing lost.',
+        intro: 'APX now has an address of its own, playapx.com, and this release brings in everything our playtest tables asked for. GMs can set world rules, stock NPCs, Area Circles and Special Map Markers with loot (several of an item at once), hand it out a piece at a time, create magic items that grant powers, and run NPCs that wear, carry and use their gear. Players get inventories where identical items stack, Luck and Looting, trading, Omen dice to pass around, Loyal Companions with turns of their own, powers that roll like weapons, weapon properties that apply themselves, a one-screen Origin Builder, maps that stay sharp at any zoom, and a single dice tray that is also the combat log. Damage is entered in full by GM or player, and DR, ER, resistances and immunities come off automatically. Every character sees only its own world and fog. Pages load faster, especially on phones, and characters and worlds update themselves when opened, losing nothing.',
         index: [
             ['A New Home', [
-                'APX now lives at playapx.com. Old links and bookmarks to cybersugarstudios.com land on the same page here, and cybersugarstudios.com is now the CyberSugar Studios homepage, with a link to APX.',
-                'Characters and worlds live in your account: sign in at playapx.com and everything is waiting. Browsers sign you in separately at each address, so you sign in once here.',
+                'APX lives at playapx.com. Old links and bookmarks to cybersugarstudios.com arrive at the same page here, and cybersugarstudios.com is now the CyberSugar Studios homepage, linking to APX.',
+                'Your characters and worlds are kept in your account: sign in at playapx.com and it\'s all there. Browsers keep sign-ins per address, so you sign in once here.',
                 'Used APX in this browser before? "Bring my browser data" on the playapx.com front page carries over what the browser kept at the old address: theme and settings, character folders, joined worlds, and worlds saved without an account.'
             ]],
             ['For GMs', [
-                'World Settings: pick Starting XP, Max GP, starting Cu, and Point Buy or Standard Array for your whole world.',
-                'Loot Maker: create loot with the players\' own forges and crafters, or custom items you can edit whenever you like, for an NPC, an Area Circle, a Special Map Marker or the Loot list. Make several at once, and use − and + on any loot row to change how many.',
+                'World Settings: choose Starting XP, Max GP, starting Cu, and Point Buy or Standard Array for your whole world.',
+                'Loot Maker: build loot with the players\' own forges and crafters, or custom items you can edit at any time, for an NPC, an Area Circle, a Special Map Marker or the Loot list. Make several at once, and change how many with − and + on any loot row.',
                 'Give passes one item from a stack ("Black Cloak ×3" becomes ×2) and keeps your chosen player selected; All passes the whole stack.',
                 'Magic items can change almost anything on a sheet and grant powers, and NPCs wear them with a toggle.',
-                'Enter damage in full: the tracker removes DR or ER by damage type, plus resistances and immunities, shows its working, and still counts a hit that deals 0.',
+                'Enter damage in full: the tracker takes off DR or ER by damage type, plus resistances and immunities, shows its working, and still counts a hit that deals 0.',
                 'NPC stat blocks roll their powers with a click, have a SAVE button under each Core Attribute, and suffer conditions just as players do. Stat blocks tagged with a world appear only in that world.'
             ]],
             ['For Players', [
                 'Identical items stack: three Leather Armors from three bandits make one "Leather Armor ×3" row. Equipping takes one off the stack, taking it off puts it back, and rows split before this update are joined when you open the character.',
-                'Each new character starts in the world you choose, or none. A character with no world sees only Join World, never another world\'s maps, notes or fog.',
+                'Each new character starts in the world you pick, or in none. A character with no world sees only Join World, never another world\'s maps, notes or fog.',
                 'Powers roll like weapons, powers from equipped magic items join your list without using a Power Slot, and a 1 AP power can be built as a Reaction.',
                 'Luck and Looting, trading, Omen dice you can pass on, and Loyal Companions with their own AP and turns.',
                 'Luck Points have − and + buttons, clicking your Rest Dice spends one to heal, and four-armed characters get extra arms, hands and a shield in every Off Hand.'
             ]],
             ['At the Table', [
-                'One tray for every roll, the combat log and your messages, with a distinct shape for every die.',
-                'The log asks for each save in turn (Wound Threshold, the hit\'s own saves, Bleed Out) with a button to roll it. Players never see the numbers of hits on enemies, so DR and ER stay secret.',
+                'One tray holds every roll, the combat log and your messages, and each die has its own shape.',
+                'The log asks for each save in turn (Wound Threshold, the hit\'s own saves, Bleed Out) with a button to roll it. Players never see the numbers on hits against enemies, so DR and ER stay secret.',
                 'Weapon properties apply themselves on a hit, and every weapon has a damage type (unarmed strikes are Bludgeoning).',
                 'AP is tracked for everyone, refills each turn and carries over.'
             ]],
             ['Maps', [
-                'Special Map Markers are larger and bright yellow with a dark outline (magenta for the GM while hidden), stay readable when zoomed out, and can hold loot.',
-                'Area Circles keep roughly the same size on screen at any zoom, every marker shows its name as soon as your mouse is over it, and a linked NPC\'s name opens that NPC\'s full window.',
-                'Linked maps open in the same place on screen, each slightly offset, never off the edge.',
+                'Special Map Markers are bigger and bright yellow with a dark outline (magenta for the GM while hidden), stay readable when zoomed out, and can hold loot.',
+                'Area Circles keep about the same size on screen at any zoom, every marker shows its name the moment your mouse is over it, and a linked NPC\'s name opens that NPC\'s full window.',
+                'Linked maps open in the same place on screen, each a little offset, never off the edge.',
                 'Maps keep full resolution: a preview appears straight away and sharp detail loads where you zoom.'
             ]],
             ['Rules', [
@@ -61,20 +61,20 @@
         ],
         sheet: [
             ['A New Home: playapx.com', [
-                'APX has moved to playapx.com. Links and bookmarks to the old address (cybersugarstudios.com) take you to the same page here, and an APX page left open at the old address sends itself here the next time it checks for updates.',
-                'Everything in your account comes along: characters, folders you made while signed in, worlds and their maps. Browsers keep sign-ins per address, so sign in once at the new one.',
+                'APX has moved to playapx.com. Links and bookmarks to the old address (cybersugarstudios.com) bring you to the same page here, and an APX page left open at the old address sends itself here the next time it checks for updates.',
+                'Everything in your account comes with you: characters, folders you made while signed in, worlds and their maps. Browsers keep sign-ins per address, so sign in once at the new one.',
                 'Browsers also keep saved settings per address. "Bring my browser data" on the playapx.com front page opens a small window on the old address and brings over what this browser kept there: theme and settings, character folders, joined worlds, and worlds saved without an account. Anything already set here stays, and lists are merged.',
                 'Update your bookmarks and home-screen shortcuts to playapx.com.'
             ]],
             ['Inventory Stacks', [
                 'Identical items share one row with a count: armor, shields, helmets, weapons, magic items, consumables and everyday gear. GM loot, gifts from other players and gear you take off all join a matching stack.',
-                'Equipping takes one from the stack and leaves the rest in your pack, and taking it off returns it to the stack, for armor, shields, helmets and weapons alike.',
+                'Equipping takes one from the stack and leaves the rest in your pack, and taking it off returns it, for armor, shields, helmets and weapons alike.',
                 'Magic items: the one you wear gets its own row, marked Equipped, so its bonuses and powers are clearly in use. Take it off and it rejoins the stack.',
                 'Consumables stack while unused. The first in a stack shows its charges, and when it runs out the next full one takes over. A part-used consumable keeps a row of its own, and when you give away part of a stack the part-used one stays with you.',
                 'Inventories saved before this update have their identical rows joined the next time you open the character, with nothing lost.'
             ]],
             ['Characters and Worlds', [
-                'If one of your worlds has a free slot, New Character asks where the character plays: in that world, with its rules, races and settings from the start, or in no world. The character is saved straight away.',
+                'If one of your worlds has a free slot, New Character asks where the character plays: in that world, with its rules, races and settings from the start, or in no world. The character is saved at once.',
                 'A character sees only its own world. With no world, the World tab holds just the Join World box, and switching characters clears the last world\'s maps, notes and fog before the next one loads.',
                 'Fog of War always matches the world on screen and always loads, even after clearing browser data, on a new device or for a new character. The map stays covered until its fog is ready.',
                 'Deleting the open character takes you back to the character screen, and Undo history stays with its own character.',
@@ -155,7 +155,7 @@
                 'Attacks and powers spend their own AP, and you\'re asked first when you\'re short or a perk might change the cost.'
             ]],
             ['Maps', [
-                'Special Map Markers (the single letters your GM places) are larger and bright yellow with a dark outline, easy to spot on light and dark maps, and never too small to read when zoomed out.',
+                'Special Map Markers (the single letters your GM places) are bigger and bright yellow with a dark outline, easy to spot on light and dark maps, and never too small to read when zoomed out.',
                 'Area Circles keep about the same size on screen at any zoom: one building when zoomed in, never more than 3% of the map when zoomed out.',
                 'Rest your mouse on any marker and its name appears instantly.',
                 'Linked maps open in the same spot on screen, each a little offset from the last.',
@@ -174,36 +174,41 @@
         ],
         gm: [
             ['A New Home: playapx.com', [
-                'APX now lives at playapx.com, and cybersugarstudios.com is the CyberSugar Studios homepage with a link to APX. Old links to the character sheet, GM Tools and anything else of APX\'s land on the same place at playapx.com.',
+                'APX now lives at playapx.com, and cybersugarstudios.com is the CyberSugar Studios homepage with a link to APX. Old links to the character sheet, GM Tools and anything else of APX\'s arrive at the same place on playapx.com.',
                 'Your worlds, maps, fog, NPCs, races and loot are stored in your account, not in the web address, so they\'re all there when you sign in at playapx.com. Invite codes, players and their characters are unchanged.',
                 '"Bring my browser data" on the playapx.com front page carries over what this browser kept at the old address, including worlds saved without an account. Map tiles download again the first time you open each map at the new address.',
                 'Ask your players to sign in at playapx.com and update their bookmarks.'
             ]],
+            ['Map Marker Popups', [
+                'In an Area Circle or Special Map Marker you\'re editing, "+ Add Sub-note" sits right under the sub-notes, above the Loot section, so it\'s one click away instead of below the loot.',
+                'Click a linked NPC\'s name and that NPC\'s full window opens, the same one the World NPC list opens: portrait, role, description, sub-notes, carried loot, Edit, and a Stat Block button when one is linked.',
+                'Each popup keeps its own loot (a chest, a hidden cache, a shop counter), stocked with + Loot Maker, no NPC needed. NPCs keep their carried loot on their stat blocks and windows.'
+            ]],
             ['Several of an Item', [
-                'Making a consumable for loot? The Consumable Crafter\'s last step has a "How many" box beside Give to NPC / Add to Loot, so five Healing Draughts are made in one go instead of five times.',
-                'Every loot row has − and + to change how many there are: on an NPC\'s carried loot, Area Circles, Special Map Markers and in the Loot Maker\'s own list. + adds another of exactly the same item, whatever it is.',
-                'Adding an item that\'s already there joins its stack instead of making a new row, NPC consumables included.',
-                'An NPC\'s stack of consumables shares its charges: "3× Healing Draught" with 2 charges each shows 6/6 charges on the stat block, and its Use button draws from the stack (3 AP and one charge, tracked for each creature in initiative).',
+                'Making a consumable for loot? The Consumable Crafter\'s last step has a "How many" box beside Give to NPC / Add to Loot, so five Healing Draughts take one trip through the crafter, not five.',
+                'Every loot row has − and + to change how many: an NPC\'s carried loot, Area Circles, Special Map Markers and the Loot Maker\'s own list. + adds another of exactly the same item, whatever it is.',
+                'Adding an item that\'s already there joins its stack instead of starting a new row, NPC consumables included.',
+                'An NPC\'s stack of consumables shares its charges: "3× Healing Draught" with 2 charges each shows 6/6 charges on the stat block, and Use draws from the stack (3 AP and one charge, tracked for each creature in initiative).',
                 'When the NPC falls, what\'s left drops as a stack: after 5 of 12 charges, 4 Healing Draughts land in the Loot panel, the first with 1 charge left.'
             ]],
             ['Handing Out Loot', [
                 'Give hands over one item from a stack: "Black Cloak ×3" becomes ×2 and the player you picked stays selected, so pressing Give again passes the next one. When the last one goes, so does the row.',
-                'Stacks also have an All button beside Give that hands over the whole stack at once, which is handy for ammunition.',
+                'Stacks also have an All button beside Give that hands over the whole stack at once, handy for ammunition.',
                 'This works the same in the Loot panel, Area Circles, Special Map Markers and an NPC\'s carried loot, and your log records the count ("Ari took 2× Torch from Area A (Tent)").',
-                'Identical drops from one creature share a row, and players\' inventories stack identical items too, so the same armor looted from several enemies becomes one "Leather Armor ×3" row.'
+                'Identical drops from one creature share a row, and players\' inventories stack identical items too, so the same armor looted from several enemies becomes one "Leather Armor ×3" row.',
+                'Loot is yours alone until you give it, items always arrive in a player\'s pack unequipped, and your log records who took what and from where.'
             ]],
             ['World Settings', [
                 'Set your world\'s Starting XP (default 25), Max GP (default 15), starting Cu, and Point Buy or Standard Array.',
                 'Players in your world can\'t edit their own XP or Max GP, and Grant XP adds each player\'s bonuses and keeps the reason.'
             ]],
             ['World NPCs', [
-                'Click a linked NPC\'s name in an Area Circle or Special Map Marker and that NPC\'s full window opens, the same one the World NPC list opens: portrait, role, description, sub-notes, carried loot and Edit. The old small pop-up is gone.',
-                'The NPC window has a Stat Block button whenever a stat block is linked.',
+                'Every NPC window has a Stat Block button whenever a stat block is linked.',
                 'Tag a stat block with worlds (NPC Roster → World) and it only shows up in those worlds: the NPC Roster, the Saved NPC list for initiative, and Link Stat Block. Untagged stat blocks show up everywhere. Each list says how many it hides, and the Roster\'s "Show all" brings them back for re-tagging.'
             ]],
             ['Special Map Markers', [
-                'Special Map Markers (the single-letter markers from * Special) are larger and much brighter: bright yellow once revealed and bright magenta while hidden, each with a crisp dark outline that reads on parchment, stone or night maps. Zoomed out, they never shrink below a readable size.',
-                'Each marker holds its own loot, like an Area Circle. Open it and use + Loot Maker to stock it (a trapped altar\'s offering, a secret door\'s cache), then hand out the items and Cu or split the Cu across the party. The loot is stored with the marker and stays hidden from players until given.',
+                'Special Map Markers (the single-letter markers from * Special) are bigger and much brighter: bright yellow once revealed and bright magenta while hidden, each with a crisp dark outline that reads on parchment, stone or night maps. Zoomed out, they never shrink below a readable size.',
+                'Each marker holds its own loot, like an Area Circle: stock it with + Loot Maker (a trapped altar\'s offering, a secret door\'s cache), then hand out the items and Cu or split the Cu across the party. The loot is stored with the marker and stays hidden from players until given.',
                 'The popup header shows the marker\'s letter in its own colour, and hovering shows its name ("Marker T" if it has none).'
             ]],
             ['Loot Maker', [
@@ -212,11 +217,6 @@
                 'Item powers: under "Powers while equipped", + Craft Power opens the Power Crafter above the Loot Maker (nothing is charged, and it ends with "Add Power to Item"), or copy a power from any of your NPCs. Whoever equips the item gets its powers: players in their Powers list, NPCs on their stat block.',
                 'Every custom item has an Edit button wherever it is: an NPC\'s gear, an Area Circle, a Special Map Marker, the Loot list or the Loot Maker\'s own list. The form reopens filled in, bonuses and powers included, and Save Changes updates the item in place.',
                 'Open the Loot Maker from the Loot panel, an NPC, an Area Circle or a Special Map Marker.'
-            ]],
-            ['Loot on Maps', [
-                'Area Circles and Special Map Markers each keep their own loot (a chest, a hidden cache, a shop counter), stocked from their popup with + Loot Maker, no NPC needed.',
-                'A marker\'s popup lists only its own loot, and NPCs keep their carried loot on their stat blocks and windows.',
-                'Loot is yours alone until you give it, items always arrive in a player\'s pack unequipped, and your log records who took what and from where.'
             ]],
             ['NPC Gear', [
                 'NPCs carry items and Currency, added in the NPC Crafter or from the NPC\'s window, at no Threat Point cost.',
