@@ -7,16 +7,16 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/apx-themes.css?v=20269271139">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20269272047">
 
     <!-- Firebase SDK (auth + firestore) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20269271139"></script>
-    <script src="js/apx-firebase.js?v=20269271139"></script>
-    <script src="js/apx-dialogs.js?v=20269271139"></script>
-    <script src="js/apx-patch-notes.js?v=20269271139"></script>
+    <script src="js/firebase-config.js?v=20269272047"></script>
+    <script src="js/apx-firebase.js?v=20269272047"></script>
+    <script src="js/apx-dialogs.js?v=20269272047"></script>
+    <script src="js/apx-patch-notes.js?v=20269272047"></script>
 
     <style>
         input[type="email"], input[type="password"] {
@@ -79,7 +79,7 @@
         }
         .theme-swatch:hover, .theme-swatch.active { border-color: var(--c-text, #e2e8f0); transform: scale(1.2); }
     </style>
-    <link rel="stylesheet" href="css/tailwind.css?v=20269271139">
+    <link rel="stylesheet" href="css/tailwind.css?v=20269272047">
 </head>
 <body class="min-h-screen flex flex-col items-center justify-center p-6" style="background: var(--c-page-bg, #0f172a); color: var(--c-text, #cbd5e1); font-family: var(--c-font, 'Inter'), sans-serif;">
 
@@ -183,6 +183,19 @@
             </div>
         </div>
 
+        <!-- New home: bring this browser's APX data over from the old address (cybersugarstudios.com) -->
+        <div id="apxMoveCard" class="hidden max-w-sm mx-auto auth-card" style="border:1px solid var(--c-indigo,#6366f1);">
+            <div class="text-sm font-bold" style="color:var(--c-indigo-lt,#a5b4fc);">APX has a new home: playapx.com</div>
+            <div class="text-xs mt-1" style="color:var(--c-text-muted,#94a3b8); line-height:1.45;">
+                Your characters and worlds live in your account: sign in here and they're all waiting. Used APX at cybersugarstudios.com in this browser? One click brings over what this browser kept there: your theme and settings, character folders, the worlds you joined, and worlds saved without an account.
+            </div>
+            <div class="flex gap-2 mt-3">
+                <button onclick="apxBringOldData()" class="flex-1 py-2 rounded-lg font-bold text-xs text-white" style="background:var(--c-indigo,#4f46e5);">Bring my browser data</button>
+                <button onclick="apxHideMoveCard()" class="px-3 py-2 rounded-lg font-bold text-xs" style="background:var(--c-surface2,#0f172a); border:1px solid var(--c-border,#334155); color:var(--c-text-muted,#94a3b8);">Not needed</button>
+            </div>
+            <div id="apxMoveMsg" class="text-xs mt-2 font-bold" style="color:var(--c-emerald,#34d399);"></div>
+        </div>
+
         <!-- App launcher -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <a href="APX_CharSheet.html" class="launch-card launch-card-player group">
@@ -203,7 +216,7 @@
             </button>
         </div>
         <div class="text-center">
-            <span id="landingVersion" class="text-[10px]" style="color:var(--c-text-dimmer,#334155);">v2026.9.27.1139</span>
+            <span id="landingVersion" class="text-[10px]" style="color:var(--c-text-dimmer,#334155);">v2026.9.27.2047</span>
         </div>
 
         <!-- Delete account (shown only when signed in) -->
@@ -466,6 +479,65 @@
     } else {
         window.apxAuth.onAuthChange(user => { if (user) showSignedIn(user); else showSignedOut(); });
     }
+    </script>
+    <script>
+    // ── APX's new home (playapx.com) ─────────────────────────────────────────
+    // Browsers keep saved data per web address, so what this browser kept at the old address
+    // (cybersugarstudios.com) isn't visible here. "Bring my browser data" opens a small page on the
+    // old address (apx-transfer.html) that hands those APX entries to this page, and only to this site.
+    // Existing entries here are kept; lists (worlds, folders) are merged.
+    (function () {
+        const OLD_PAGE = 'https://cybersugarstudios.com/apx-transfer.html';
+        const OLD_ORIGIN = /^https:\/\/(www\.)?cybersugarstudios\.com$/;
+        let card = document.getElementById('apxMoveCard'); if (!card) return;
+        let q = new URLSearchParams(location.search);
+        let onNewHome = /(^|\.)playapx\.com$/i.test(location.hostname);
+        let done = false; try { done = !!localStorage.getItem('apxMoveNoticeDone'); } catch (e) { }
+        if ((onNewHome || q.has('apxmoved')) && !done) card.classList.remove('hidden');
+        let msg = t => { let m = document.getElementById('apxMoveMsg'); if (m) m.textContent = t; };
+        let got = false;
+        window.apxHideMoveCard = () => { try { localStorage.setItem('apxMoveNoticeDone', '1'); } catch (e) { } card.classList.add('hidden'); };
+        window.apxBringOldData = () => {
+            let w = window.open(OLD_PAGE, 'apxTransfer', 'width=480,height=380');
+            if (!w) { msg('Your browser blocked the small window. Allow pop-ups for playapx.com and press the button again.'); return; }
+            msg('Collecting your data from the old address…');
+            got = false;
+            setTimeout(() => { if (!got) msg('Nothing arrived yet. If the small window says it has no data, there is nothing to bring over.'); }, 15000);
+        };
+        // Lists are merged (by id) rather than replaced
+        const MERGE = {
+            apxLocalWorlds: w => w && (w.worldId || w.id),
+            apxConnectedWorlds: w => w && w.code ? String(w.code).toUpperCase() : null,
+            apxFolders: f => f && f.id
+        };
+        window.apxReceiveOldData = function (data) {
+            let n = 0;
+            Object.keys(data || {}).forEach(k => {
+                let v = data[k];
+                if (!/^apx/i.test(k) || typeof v !== 'string' || k === 'apxMoveNoticeDone') return;
+                try {
+                    let cur = localStorage.getItem(k);
+                    if (cur === null) { localStorage.setItem(k, v); n++; return; }
+                    if (!MERGE[k]) return;   // already set here: this browser's newer choice wins
+                    let a = JSON.parse(cur), b = JSON.parse(v);
+                    if (!Array.isArray(a) || !Array.isArray(b)) return;
+                    let ids = new Set(a.map(MERGE[k]).filter(Boolean));
+                    let add = b.filter(x => { let id = MERGE[k](x); return id && !ids.has(id); });
+                    if (add.length) { localStorage.setItem(k, JSON.stringify(a.concat(add))); n += add.length; }
+                } catch (err) { console.warn('APX move:', k, err.message); }
+            });
+            return n;
+        };
+        window.addEventListener('message', e => {
+            if (!OLD_ORIGIN.test(e.origin) || !e.data || e.data.type !== 'apx-transfer') return;
+            got = true;
+            let n = window.apxReceiveOldData(e.data.data);
+            try { localStorage.setItem('apxMoveNoticeDone', '1'); } catch (x) { }
+            try { e.source && e.source.postMessage({ type: 'apx-transfer-done', count: n }, e.origin); } catch (x) { }
+            if (n) { msg(`Brought over ${n} saved item${n === 1 ? '' : 's'}. Reloading…`); setTimeout(() => location.reload(), 1200); }
+            else { msg('Everything from the old address is already here.'); setTimeout(() => card.classList.add('hidden'), 4000); }
+        });
+    })();
     </script>
 </body>
 </html>
