@@ -238,7 +238,14 @@
         .apxd-ask h4{margin:0 0 .3rem;font-size:.9rem;font-weight:800} .apxd-ask p{margin:0 0 .8rem;white-space:pre-line;font-size:.74rem;color:var(--c-text-dimmer,#cbd5e1);line-height:1.4}
         .apxd-ask .row{display:flex;gap:.4rem;justify-content:flex-end;flex-wrap:wrap}
         .apxd-ask button{border:none;border-radius:.4rem;padding:.45rem .8rem;font-size:.74rem;font-weight:800;cursor:pointer;background:var(--c-border,#334155);color:var(--c-text,#fff)}
-        .apxd-ask button.pri{background:var(--c-amber,#d97706)} .apxd-ask button.ok{background:var(--c-emerald,#059669)}`;
+        .apxd-ask button.pri{background:var(--c-amber,#d97706)} .apxd-ask button.ok{background:var(--c-emerald,#059669)}
+        .apxd-ask .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:.35rem;margin-bottom:.7rem}
+        .apxd-ask .grid button{padding:.5rem .4rem;line-height:1.15;white-space:normal}
+        .apxd-ask .grid button small{display:block;font-weight:600;opacity:.75;font-size:.62rem}
+        .apxd-ask .chk{display:flex;gap:.55rem;align-items:flex-start;margin:0 0 .75rem;padding:.5rem .6rem;border:1px solid var(--c-border2,#475569);border-radius:.45rem;cursor:pointer;font-size:.74rem;color:var(--c-text,#fff)}
+        .apxd-ask .chk input{width:1.05rem;height:1.05rem;margin-top:.05rem;accent-color:var(--c-amber,#d97706);flex:none;border-radius:.25rem!important}
+        .apxd-ask.wide>div{width:min(430px,100%)}
+        .apxd-ask .chk small{display:block;font-size:.66rem;color:var(--c-text-dimmer,#cbd5e1);font-weight:500;margin-top:.1rem}`;
         document.head.appendChild(st);
     }
 
@@ -988,13 +995,24 @@
     };
 
     // Small themed chooser. choices: [[value, label, cls]]
-    function ask(title, text, choices) {
+    // opts.grid: the choices as a grid of buttons (Cancel on its own row below)
+    // opts.check: { label, hint } a checkbox under the choices; then it resolves { v, checked } (or null)
+    function ask(title, text, choices, opts) {
         css();
+        opts = opts || {};
         return new Promise(res => {
             let back = document.createElement('div');
-            back.className = 'apxd-ask';
-            back.innerHTML = `<div><h4>${esc(title)}</h4><p>${esc(text)}</p><div class="row"><button data-v="">Cancel</button>${choices.map(c => `<button class="${c[2] || ''}" data-v="${c[0]}">${esc(c[1])}</button>`).join('')}</div></div>`;
-            let done = v => { back.remove(); document.removeEventListener('keydown', key, true); res(v || null); };
+            back.className = 'apxd-ask' + (opts.grid ? ' wide' : '');
+            let btns = choices.map(c => `<button class="${c[2] || ''}" data-v="${c[0]}"${c[3] ? ` title="${esc(c[3])}"` : ''}>${esc(c[1])}${c[4] ? `<small>${esc(c[4])}</small>` : ''}</button>`).join('');
+            let check = opts.check ? `<label class="chk"><input type="checkbox" data-chk> <span><b>${esc(opts.check.label)}</b>${opts.check.hint ? `<small>${esc(opts.check.hint)}</small>` : ''}</span></label>` : '';
+            back.innerHTML = opts.grid
+                ? `<div><h4>${esc(title)}</h4><p>${esc(text)}</p><div class="grid">${btns}</div>${check}<div class="row"><button data-v="">Cancel</button></div></div>`
+                : `<div><h4>${esc(title)}</h4><p>${esc(text)}</p>${check}<div class="row"><button data-v="">Cancel</button>${btns}</div></div>`;
+            let done = v => {
+                let checked = !!back.querySelector('[data-chk]')?.checked;
+                back.remove(); document.removeEventListener('keydown', key, true);
+                res(opts.check ? (v ? { v, checked } : null) : (v || null));
+            };
             let key = e => { if (e.key === 'Escape') { e.stopPropagation(); done(null); } };
             back.querySelectorAll('[data-v]').forEach(b => b.onclick = () => done(b.dataset.v));
             back.addEventListener('mousedown', e => { if (e.target === back) done(null); });

@@ -296,7 +296,7 @@ window.loadGmPartyFromCloud = async function() {
         // charState (new field name) || state (old field name) || fallback
         let newEntries = players.map(p => {
             let state = p.charState || p.state || { name: p.charName || 'Unknown Player' };
-            return { fileName: p.uid, state, summary: computeCharSummary(state) };
+            return { fileName: p.uid, state, summary: computeCharSummary(state), world: String(inviteCode).toUpperCase().trim() };
         });
         newEntries.forEach(e => {
             if (!window.gmParty.find(p => p.fileName === e.fileName)) window.gmParty.push(e);
@@ -321,8 +321,23 @@ function startPartyListener(inviteCode) {
     if (_partyUnsubscribe) { _partyUnsubscribe(); _partyUnsubscribe = null; }
     if (!inviteCode || !window.apxAuth?.enabled) return;
     if (typeof window.apxAuth.listenWorldPlayers !== 'function') return;
-    _partyUnsubscribe = window.apxAuth.listenWorldPlayers(inviteCode, players => {
+    let code = String(inviteCode).toUpperCase().trim();
+    _partyUnsubscribe = window.apxAuth.listenWorldPlayers(inviteCode, (players, meta) => {
         let changed = false;
+        // Players who left the world (deleted their character there, left or deleted the world
+        // folder, were kicked) and players from another world drop off the party list. Parties
+        // loaded from a folder of JSON files have no world and are left alone.
+        if (!(meta && meta.fromCache && !players.length)) {
+            let here = new Set(players.map(p => p.uid));
+            for (let i = window.gmParty.length - 1; i >= 0; i--) {
+                let x = window.gmParty[i];
+                if (x.world && !(x.world === code && here.has(x.fileName))) { window.gmParty.splice(i, 1); changed = true; }
+            }
+            // the World tab's Players list, if it's open, follows along
+            let pl = document.getElementById('playersList');
+            let n = pl ? pl.querySelectorAll('button[onclick*="gmKickPlayer"]').length : 0;
+            if (pl && pl.offsetParent && n !== players.length && typeof window.renderPlayersList === 'function') window.renderPlayersList();
+        }
         players.forEach(p => {
             // Loyal Companion HP from the player's sheet
             {
@@ -362,11 +377,12 @@ function startPartyListener(inviteCode) {
                 entry.state   = state;
                 entry.summary = computeCharSummary(state);
                 entry.summary.charPortrait = state.charPortrait || null;
+                entry.world   = code;
                 changed = true;
             } else {
                 let summ = computeCharSummary(state);
                 summ.charPortrait = state.charPortrait || null;
-                window.gmParty.push({ fileName: p.uid, state, summary: summ });
+                window.gmParty.push({ fileName: p.uid, state, summary: summ, world: code });
                 changed = true;
             }
             // Also update any matching initiative tracker entry's HP/TempHP so the
@@ -1928,7 +1944,11 @@ function _gmDefenseOf(entry) {
     if (entry.companionOf) {
         let pm = (window.gmParty || []).find(p => p.fileName === entry.companionOf);
         let csb = pm && typeof gmCompanionSb === 'function' ? gmCompanionSb(pm) : null;
-        if (csb) { def.dr = csb.dr || 0; def.er = csb.er || 0; def.src = 'companion stat block'; return def; }
+        if (csb) {
+            if (window.APXDamage && window.APXDamage.fromStatBlock) Object.assign(def, window.APXDamage.fromStatBlock(csb));
+            else { def.dr = csb.dr || 0; def.er = csb.er || 0; }
+            def.src = 'companion stat block'; return def;
+        }
         def.dr = parseInt(entry.dr) || 0; def.er = parseInt(entry.er) || 0; def.src = 'tracker';
         return def;
     }
@@ -2103,7 +2123,8 @@ window._gmSheetDamage = {};   // uid -> { ev, t } handled
 function _gmSheetDamageEvent(uid, ev) {
     let e = (window.gmInitiative || []).find(x => x.playerUid === uid && x.faction === 'player');
     if (!e) return;
-    let types = Array.isArray(ev.types) && ev.types.length ? ev.types : ['Physical'];
+    let types = Array.isArray(ev.types) && ev.types.length ? ev.types.slice() : ['Physical'];
+    if (ev.ignoreRes) types.ignoreRes = true;   // the player ticked "Ignore resistances"
     // the tracker takes the sheet's new HP (it's the player's own entry)
     if (typeof ev.hpAfter === 'number') { e.currentHp = ev.hpAfter; e.tempHp = ev.tempAfter || 0; }
     let hit = (ev.atkId && window._gmLastAttack && window._gmLastAttack.id === ev.atkId ? _gmTakeHit(e) : null) || _gmTakeHit(e) || _gmTurnHit(e);

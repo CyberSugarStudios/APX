@@ -1394,15 +1394,40 @@ window.adjustCompanionHp = function(delta) {
     window.refreshCompanionDetail();
 };
 
+// Companion HP box, same rules as your own: "-N" is damage (its DR/ER, resistances and immunities
+// reduce it, by the type of what just attacked, "-8 fire", or a quick choice), "+N" heals, "N" sets.
 window.setCompanionHp = function(val) {
     let sb = window.companionStatBlock();
     if (!sb) return;
     let c = ncActiveCompanion();
-    let n = parseInt(val);
+    let redraw = () => { window.recalculateMath(); window.refreshCompanionDetail(); };
+    let D = window.APXDamage;
+    let pe = D && D.parseHpEntry ? D.parseHpEntry(val, sb.currentHp) : null;
+    if (pe) {
+        let atk = window._pwLastNpcAtk;
+        let fresh = atk && atk.id && Date.now() - (atk.t || 0) < 600000 && !(window._pwUsedAtk || {})[atk.id] && (window._pwCombatCode || (window.apxActiveWorldCode && window.apxActiveWorldCode()));
+        let types = pe.typed ? pe.types : (fresh && atk.dmgType ? D.parts(atk.dmgType) : []);
+        let def = D.fromStatBlock ? D.fromStatBlock(sb) : { dr: sb.dr || 0, er: sb.er || 0, res: {}, immune: [] };
+        let finish = t => {
+            if (!t) { redraw(); return; }
+            let res = D.mitigate(pe.raw, t, def, { ignore: fresh && !pe.typed ? D.ignoreOf(atk) : null });
+            if (fresh && !pe.typed) (window._pwUsedAtk = window._pwUsedAtk || {})[atk.id] = true;
+            let cc = ncActiveCompanion(), now = window.companionStatBlock();
+            if (!cc || !now) return;
+            cc.currentHp = Math.max(0, Math.min(now.maxHp, now.currentHp - res.dmg));
+            redraw();
+            window.APXDice?.notify(`${now.name || 'Companion'} takes damage${fresh && !pe.typed ? ` from ${atk.by}'s ${atk.label}` : ''}: ${res.text}.`, { kind: res.dmg ? 'warn' : 'note' });
+        };
+        if (types.length) finish(types);
+        else D.askType(`${pe.raw} damage to ${sb.name || 'your companion'}`, `No attack was rolled for this, so what kind of damage is it? ${sb.name || 'Your companion'} has DR ${def.dr} (physical) and ER ${def.er} (energy), plus any resistance or immunity. Tip: type "-${pe.raw} fire" to skip this.`, def).then(finish);
+        return;
+    }
+    let n;
+    if (window.apxApplyHpInput) { let r = window.apxApplyHpInput(val, sb.currentHp, 0, sb.maxHp); n = r ? r.currentHp : NaN; }
+    else n = parseInt(val);
     if (isNaN(n)) n = sb.currentHp;
     c.currentHp = Math.max(0, Math.min(sb.maxHp, n));
-    window.recalculateMath();
-    window.refreshCompanionDetail();
+    redraw();
 };
 // Redraw the companion's floating stat block (HP, AP…) if it's open
 window.refreshCompanionDetail = function() {
@@ -1631,7 +1656,7 @@ function buildStatBlockHtml(sb, editable) {
     let hpControls = editable ? `
         <div class="flex items-center gap-2">
             <button onclick="window.adjustCompanionHp(-1)" class="w-7 h-7 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">-</button>
-            <input type="number" value="${sb.currentHp}" onchange="window.setCompanionHp(this.value); window.openCompanionDetail();" class="w-14 text-center bg-slate-800 border-slate-600 text-white font-black">
+            <input type="text" inputmode="text" value="${sb.currentHp}" onfocus="this.select()" onkeydown="if(event.key==='Enter')this.blur()" onchange="window.setCompanionHp(this.value)" title="-N damage (e.g. -6 fire), +N heal, or a number" class="w-14 text-center bg-slate-800 border-slate-600 text-white font-black">
             <span class="text-slate-500 font-bold">/ ${sb.maxHp}</span>
             <button onclick="window.adjustCompanionHp(1)" class="w-7 h-7 rounded bg-amber-700 hover:bg-amber-600 text-white font-bold">+</button>
         </div>

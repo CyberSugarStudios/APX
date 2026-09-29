@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.9.28.1128';
+window.APX_VERSION = 'v2026.9.28.2122';
 
         window.state = getInitialState();
 
@@ -360,7 +360,7 @@ window.APX_VERSION = 'v2026.9.28.1128';
                             // Tell the GM first (their tracker turns it into a hit: extra dice, reactions, saves),
                             // even when it comes to 0
                             window.apxOnRollEvent?.({ id: 'dmg' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), kind: 'damage', label: 'Damage',
-                                raw, types: t, dmg: res.dmg, text: res.text, atkId: fresh && !dm[2] ? atk.id : null, hpAfter: r2.currentHp, tempAfter: r2.tempHp });
+                                raw, types: t.slice(), ignoreRes: !!t.ignoreRes, dmg: res.dmg, text: res.text, atkId: fresh && !dm[2] ? atk.id : null, hpAfter: r2.currentHp, tempAfter: r2.tempHp });
                             window.state.tempHp = r2.tempHp;
                             window.updateState('currentHp', r2.currentHp);
                             window.apxRefreshHpInputs?.();
@@ -377,6 +377,16 @@ window.APX_VERSION = 'v2026.9.28.1128';
                     window.updateState('currentHp', r.currentHp);
                     window.apxRefreshHpInputs?.();
                     return;
+                }
+                // Temp HP box: "-N" is damage, same as the HP box (Temp HP takes it first anyway), so it
+                // gets its damage type (the attack's, "-8 fire", or the quick choice) and your DR/ER
+                if (stateKey === 'tempHp' && window.APXDamage && window.APXDamage.parseHpEntry) {
+                    let pt = window.APXDamage.parseHpEntry(val, window.state.tempHp || 0);
+                    if (pt) {
+                        inputEl.value = window.state.tempHp || '';
+                        window.handleMathInput('currentHp', { value: '-' + pt.raw + (pt.typed ? ' ' + pt.types.join(' ') : '') });
+                        return;
+                    }
                 }
                 let result = window.parseMathExpression(val, window.state[stateKey]);
                 if (result === null) throw new Error('unparseable');

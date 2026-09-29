@@ -89,7 +89,7 @@
                                 <span class="text-[10px] font-bold text-red-400 uppercase">HP</span>
                                 <div class="flex items-center gap-1.5">
                                     <button onclick="window.adjustCompanionHp(-1)" class="w-5 h-5 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold">-</button>
-                                    <input type="number" value="${sb.currentHp}" onchange="window.setCompanionHp(this.value)" class="w-10 text-center bg-slate-900 border-slate-600 text-white text-xs font-bold h-5 px-0">
+                                    <input type="text" inputmode="text" value="${sb.currentHp}" onfocus="this.select()" onkeydown="if(event.key==='Enter')this.blur()" onchange="window.setCompanionHp(this.value)" title="-N damage (e.g. -6 fire), +N heal, or a number" class="w-10 text-center bg-slate-900 border-slate-600 text-white text-xs font-bold h-5 px-0">
                                     <span class="text-[10px] text-slate-500 font-bold">/ ${sb.maxHp}</span>
                                     <button onclick="window.adjustCompanionHp(1)" class="w-5 h-5 rounded bg-amber-700 hover:bg-amber-600 text-white text-xs font-bold">+</button>
                                 </div>

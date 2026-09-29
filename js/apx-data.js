@@ -857,8 +857,20 @@
     function mitigate(raw, types, def, opts) {
         raw = Math.max(0, Math.floor(Number(raw) || 0));
         def = def || {}; opts = opts || {};
+        let ignoreRes = !!(opts.ignoreRes || (types && types.ignoreRes));
         types = (types && types.length ? types : ['Physical']).slice();
         if (types.includes('True')) return { dmg: raw, raw, reduced: 0, text: `${raw} true damage (no DR/ER)` };
+        // "Ignore resistances": no DR, ER, resistance or immunity reduces it (a Vulnerability still adds)
+        if (ignoreRes) {
+            let n = types.length, base = Math.floor(raw / n), extra = raw - base * n, total = 0, bits = [];
+            types.forEach((t, i) => {
+                let part = base + (i < extra ? 1 : 0), vuln = Math.max(0, -((def.res || {})[t] || 0));
+                if (!part && raw) { bits.push(`0 ${label(t)}`); return; }
+                total += part + vuln;
+                bits.push(`${part} ${label(t)}${vuln ? ` + ${t} vulnerability ${vuln}` : ''} (resistances ignored) = ${part + vuln}`);
+            });
+            return { dmg: total, raw, reduced: raw - total, text: bits.join('; ') };
+        }
         let n = types.length, base = Math.floor(raw / n), extra = raw - base * n, total = 0, bits = [];
         types.forEach((t, i) => {
             let part = base + (i < extra ? 1 : 0);
@@ -898,27 +910,52 @@
         return null;
     }
 
-    // Buttons for "what kind of damage was it?" (when nothing says)
+    // "What kind of damage was it?" (when no attack says): one button per type, each showing what
+    // this target's defences do to it, and an "Ignore resistances" box for damage nothing reduces.
+    // Returns the type(s) (with .ignoreRes when the box was ticked), or null (cancelled).
     async function askType(title, text, def) {
         let ask = window.APXDice && window.APXDice.ask;
         if (!ask) return ['Physical'];
         def = def || {};
-        let choices = [['Physical', `Physical (DR ${def.dr || 0})`, 'pri']]
-            .concat(ENERGY().map(t => [t, `${t}${(def.immune || []).includes(t) ? ' (Immune)' : ''}`, '']))
-            .concat([['True', 'Ignores DR/ER', '']]);
-        let v = await ask(title, text, choices);
-        return v ? [v] : null;
+        let note = t => {
+            if ((def.immune || []).some(x => x === t || (t === 'Physical' && PHYS.includes(x)))) return 'Immune';
+            let pool = t === 'Physical' ? (def.dr || 0) : (def.er || 0), r = (def.res || {})[t] || 0, bits = [];
+            if (pool) bits.push(`${t === 'Physical' ? 'DR' : 'ER'} ${pool}`);
+            if (r > 0) bits.push(`+${r} res`); if (r < 0) bits.push(`vuln ${-r}`);
+            return bits.join(' · ');
+        };
+        let btn = (t, cls) => [t, t, cls || '', '', note(t) || (t === 'Physical' ? 'DR 0' : 'ER 0')];
+        let choices = [btn('Physical', 'pri')].concat(ENERGY().map(t => btn(t)));
+        let r = await ask(title, text, choices, { grid: true, check: { label: 'Ignore resistances', hint: 'No DR, ER, resistance or immunity reduces this damage.' } });
+        if (!r) return null;
+        let out = [r.v];
+        if (r.checked) out.ignoreRes = true;
+        return out;
     }
 
     // What was typed in an HP box, as damage: "-7", "-7 fire", or "70-7" typed after the HP that was
     // already there (70). Phone keyboards' dashes (−, –, —) count as minus. Anything else → null.
+    // Several hits at once add up: "-5-3" (or "-5 -3 fire") is 8 damage.
     function parseHpEntry(value, cur) {
         let v = String(value ?? '').replace(/[\u2212\u2012\u2013\u2014\uFE63\uFF0D]/g, '-').trim();
-        let m = v.match(/^(\d+)?\s*-\s*(\d+)\s*([a-z][a-z +&/,]*)?$/i);
+        let m = v.match(/^(\d+)?\s*((?:-\s*\d+\s*)+)([a-z][a-z +&/,]*)?$/i);
         if (!m) return null;
         if (m[1] !== undefined && cur != null && parseInt(m[1], 10) !== Number(cur)) return null;   // "50-10" with 70 HP: a sum, not damage
+        let raw = (m[2].match(/\d+/g) || []).reduce((t, n) => t + parseInt(n, 10), 0);
         let types = m[3] ? parts(m[3]) : [];
-        return { raw: parseInt(m[2], 10), types, typed: !!(m[3] && types.length) };
+        return { raw, types, typed: !!(m[3] && types.length) };
     }
-    window.APXDamage = { PHYS, ENERGY, norm, parts, isEnergy, mitigate, ignoreOf, askType, parseHpEntry };
+    // A stat block's defences (NPCs, Loyal Companions): DR, ER, resistances (+5), vulnerabilities (−5),
+    // immunities, and worn items' ER
+    function fromStatBlock(sb) {
+        let def = { dr: (sb && sb.dr) || 0, er: (sb && sb.er) || 0, res: {}, immune: [] };
+        if (!sb) return def;
+        let N = t => norm(t) || t;
+        (sb.damageResistances || []).forEach(t => { let k = N(t); def.res[k] = (def.res[k] || 0) + 5; });
+        (sb.energyVulnerabilities || []).forEach(t => { let k = N(t); def.res[k] = (def.res[k] || 0) - 5; });
+        (sb.energyImmunities || []).forEach(t => def.immune.push(N(t)));
+        (sb.itemEr || []).forEach(r => { let k = N(r && r.type); if (k) def.res[k] = (def.res[k] || 0) + (parseInt(r.amount) || 0); });
+        return def;
+    }
+    window.APXDamage = { PHYS, ENERGY, norm, parts, isEnergy, mitigate, ignoreOf, askType, parseHpEntry, fromStatBlock };
 })();

@@ -474,8 +474,8 @@
         }
 
     </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20269281128">
-    <link rel="stylesheet" href="css/tailwind.css?v=20269281128">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20269282122">
+    <link rel="stylesheet" href="css/tailwind.css?v=20269282122">
 </head>
 <body class="p-2 md:p-6 flex justify-center text-sm ml-0 lg:ml-8 transition-all" style="padding-top:4.25rem"><!-- (room for the floating Roster / Settings buttons) -->
     <!-- Auth bar removed — account controls are in the sidebar -->
@@ -2371,38 +2371,38 @@
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20269281128"></script>
-    <script src="js/apx-patch-notes.js?v=20269281128"></script>
-    <script src="js/apx-dice.js?v=20269281128"></script>
-    <script src="js/apx-data.js?v=20269281128"></script>
-    <script src="js/apx-item-effects.js?v=20269281128"></script>
-    <script src="js/apx-perks-db.js?v=20269281128"></script>
-    <script src="js/apx-migrations.js?v=20269281128"></script>
-    <script src="js/apx-roster.js?v=20269281128"></script>
-    <script src="js/apx-state.js?v=20269281128"></script>
-    <script src="js/apx-origin-wizard.js?v=20269281128"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20269281128"></script>
-    <script src="js/apx-inventory-ui.js?v=20269281128"></script>
-    <script src="js/apx-craft-shared.js?v=20269281128"></script>
-    <script src="js/apx-armor-forge.js?v=20269281128"></script>
-    <script src="js/apx-weapon-forge.js?v=20269281128"></script>
-    <script src="js/apx-power-crafter.js?v=20269281128"></script>
-    <script src="js/apx-consumable-crafter.js?v=20269281128"></script>
-    <script src="js/apx-npc-crafter.js?v=20269281128"></script>
-    <script src="js/apx-engine.js?v=20269281128"></script>
-    <script src="js/apx-perks-ui.js?v=20269281128"></script>
-    <script src="js/apx-rest.js?v=20269281128"></script>
-    <script src="js/apx-looting.js?v=20269281128"></script>
-    <script src="js/apx-main.js?v=20269281128"></script>
+    <script src="js/apx-dialogs.js?v=20269282122"></script>
+    <script src="js/apx-patch-notes.js?v=20269282122"></script>
+    <script src="js/apx-dice.js?v=20269282122"></script>
+    <script src="js/apx-data.js?v=20269282122"></script>
+    <script src="js/apx-item-effects.js?v=20269282122"></script>
+    <script src="js/apx-perks-db.js?v=20269282122"></script>
+    <script src="js/apx-migrations.js?v=20269282122"></script>
+    <script src="js/apx-roster.js?v=20269282122"></script>
+    <script src="js/apx-state.js?v=20269282122"></script>
+    <script src="js/apx-origin-wizard.js?v=20269282122"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20269282122"></script>
+    <script src="js/apx-inventory-ui.js?v=20269282122"></script>
+    <script src="js/apx-craft-shared.js?v=20269282122"></script>
+    <script src="js/apx-armor-forge.js?v=20269282122"></script>
+    <script src="js/apx-weapon-forge.js?v=20269282122"></script>
+    <script src="js/apx-power-crafter.js?v=20269282122"></script>
+    <script src="js/apx-consumable-crafter.js?v=20269282122"></script>
+    <script src="js/apx-npc-crafter.js?v=20269282122"></script>
+    <script src="js/apx-engine.js?v=20269282122"></script>
+    <script src="js/apx-perks-ui.js?v=20269282122"></script>
+    <script src="js/apx-rest.js?v=20269282122"></script>
+    <script src="js/apx-looting.js?v=20269282122"></script>
+    <script src="js/apx-main.js?v=20269282122"></script>
 
     <!-- Firebase (cloud sync — requires firebase-config.js to be configured) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20269281128"></script>
-    <script src="js/apx-firebase.js?v=20269281128"></script>
-    <script src="js/apx-battlemap.js?v=20269281128"></script>
-    <script src="js/apx-map-tiles.js?v=20269281128"></script>
+    <script src="js/firebase-config.js?v=20269282122"></script>
+    <script src="js/apx-firebase.js?v=20269282122"></script>
+    <script src="js/apx-battlemap.js?v=20269282122"></script>
+    <script src="js/apx-map-tiles.js?v=20269282122"></script>
     <script>
     // ── Sidebar: folders, worlds, meatball menus ─────────────
     window._sidebarChars = [];
@@ -2563,6 +2563,16 @@
     };
     window.deleteFolderConfirm = async function(folderId) {
         let folder = window._sidebarFolders.find(f=>f.id===folderId);
+        // A world folder: removing it leaves that world (off the GM's player list, its data off this sheet)
+        if (folder?.worldCode) {
+            let code = folder.worldCode, wname = folder.worldName || folder.name || code;
+            let inIt = (window._sidebarChars || []).filter(c => c.folderId === folderId || c.worldCode === code);
+            let who = inIt.length ? ` ${inIt.map(c => c.name || 'Unnamed').join(', ')} stay${inIt.length === 1 ? 's' : ''} in your characters, outside any world.` : '';
+            window.showConfirm(`Leave the world "${wname}"? You'll be taken off the GM's player list.${who} You can rejoin any time with the world's invite code.`, async () => {
+                await _leaveWorldCompletely(code, folderId);
+            });
+            return;
+        }
         window.showConfirm(`Delete folder "${folder?.name||'this folder'}"? Characters inside will become unfiled.`, async () => {
             window._sidebarFolders = window._sidebarFolders.filter(f=>f.id!==folderId);
             window._sidebarChars.forEach(c => { if (c.folderId===folderId) c.folderId=null; });
@@ -2621,18 +2631,27 @@
             }
         }
 
-        // If leaving a world folder, clear worldCode
+        // If leaving a world folder, clear worldCode (and leave that world: the GM's party list drops them)
         let oldFolder = c.folderId ? (window._sidebarFolders||[]).find(f=>f.id===c.folderId) : null;
-        if (oldFolder?.worldCode && folderId !== c.folderId) { c.worldCode = null; }
+        let leftCode = null;
+        if (oldFolder?.worldCode && folderId !== c.folderId) { leftCode = oldFolder.worldCode; c.worldCode = null; }
 
         c.folderId = folderId || null;
         if (window.apxAuth?.enabled) {
-            await window.apxAuth.saveCharacter(charId, window.state, { folderId: folderId||null, worldCode: c.worldCode||null }).catch(()=>{});
+            // the character being moved (not whichever one happens to be open)
+            let st = (charId === window._activeCloudCharId || !c.state) ? window.state : c.state;
+            await window.apxAuth.saveCharacter(charId, st, { folderId: folderId||null, worldCode: c.worldCode||null }).catch(()=>{});
+            if (leftCode) _leaveWorldIfEmpty(leftCode);
         }
         window.closeModal('addToFolderModal');
-        if (charId === window._activeCloudCharId) window.apxApplyWorldRules?.();
+        if (charId === window._activeCloudCharId) window.apxActivateCharacterWorld?.();
         window.renderSidebarCharList();
     };
+    // No character of yours plays in this world any more: take yourself off its player list
+    function _leaveWorldIfEmpty(code) {
+        if (!code || (window._sidebarChars || []).some(c => c.worldCode === code)) return;
+        window.apxAuth?.leaveWorldAsPlayer?.(code);
+    }
     window.meatballArchive = async function(charId) {
         closeMeatball();
         // Find or create "Archived" folder
@@ -2653,7 +2672,11 @@
 
     // Save the character that's open now (before switching away from it)
     async function _saveActiveCharacter() {
-        if (!window._activeCloudCharId || !window.state || !window.apxAuth?.enabled) return;
+        if (!window._activeCloudCharId || !window.state) return;
+        // Keep the roster's copy current, so switching back to this character opens it as it was left
+        let own = (window._sidebarChars || []).find(c => c.id === window._activeCloudCharId);
+        if (own) { try { own.state = JSON.parse(JSON.stringify(window.state)); if (window.state.name) own.name = window.state.name; } catch (e) { } }
+        if (!window.apxAuth?.enabled) return;
         try {
             let saveData = Object.assign({}, window.state);
             if (window.undoStack) saveData._undoStack = window.undoStack;
@@ -2769,9 +2792,12 @@
     window.sidebarDeleteCharacter = async function(id, name) {
         window.showConfirm(`Permanently delete "${name}"? This cannot be undone.`, async () => {
             let wasActive = window._activeCloudCharId === id;
+            let gone = window._sidebarChars.find(c => c.id === id);
             window._sidebarChars = window._sidebarChars.filter(c => c.id !== id);
             if (window.apxAuth?.enabled) {
                 await window.apxAuth.deleteCharacter(id).catch(e => console.warn('Delete failed:', e.message));
+                // It was your character in a world: you're no longer on that world's player list
+                if (gone?.worldCode) _leaveWorldIfEmpty(gone.worldCode);
             }
             if (wasActive) {
                 window._activeCloudCharId = null;
@@ -3118,8 +3144,11 @@
         c.folderId  = folderId;
         c.worldCode = worldCode;
         if (window.apxAuth?.enabled) {
-            await window.apxAuth.saveCharacter(charId, c.state||window.state, { folderId, worldCode }).catch(()=>{});
+            let st = (charId === window._activeCloudCharId || !c.state) ? window.state : c.state;
+            await window.apxAuth.saveCharacter(charId, st, { folderId, worldCode }).catch(()=>{});
+            if (oldWorldCode && oldWorldCode !== worldCode) _leaveWorldIfEmpty(oldWorldCode);
         }
+        if (charId === window._activeCloudCharId) window.apxActivateCharacterWorld?.();
         window.renderSidebarCharList();
     };
 
@@ -3127,6 +3156,34 @@
         document.getElementById('worldCharPickerOverlay')?.remove();
         window.apxNewCharacter({ folderId, worldCode });
     };
+
+    // The player leaves a world (the × on its world folder): their characters there stay, outside
+    // any world; the folder and the world's data go; and they're taken off the GM's player list.
+    async function _leaveWorldCompletely(code, folderId) {
+        let wasActiveHere = window.apxActiveWorldCode && window.apxActiveWorldCode() === code;
+        let fids = new Set([folderId]);
+        _saveWorlds(_getWorlds().filter(w => { if (w.code === code) { if (w.folderId) fids.add(w.folderId); return false; } return true; }));
+        (window._sidebarFolders || []).forEach(f => { if (f.worldCode === code) fids.add(f.id); });
+        window._sidebarFolders = (window._sidebarFolders || []).filter(f => !fids.has(f.id));
+        for (let c of (window._sidebarChars || [])) {
+            if (!(fids.has(c.folderId) || c.worldCode === code)) continue;
+            c.folderId = null; c.worldCode = null;
+            if (window.apxAuth?.enabled && c.id) {
+                let st = (c.id === window._activeCloudCharId || !c.state) ? window.state : c.state;
+                await window.apxAuth.saveCharacter(c.id, st, { folderId: null, worldCode: null }).catch(() => {});
+            }
+        }
+        if (window.apxAuth?.enabled) {
+            for (let id of fids) if (id) await window.apxAuth.deleteFolder(id).catch(() => {});
+            await window.apxAuth.leaveWorldAsPlayer?.(code);
+        } else localStorage.setItem('apxFolders', JSON.stringify(window._sidebarFolders));
+        if (window._playerWorldsData) delete window._playerWorldsData[code];
+        if (window._pwWorldSettings) delete window._pwWorldSettings[code];
+        if (wasActiveHere) window.apxActivateCharacterWorld();   // the open character no longer plays there
+        if (!_getWorlds().length && !(window._sidebarChars || []).some(c => c.worldCode)) document.getElementById('playerWorldBtn')?.classList.add('hidden');
+        window.renderSidebarCharList();
+    }
+    window._apxLeaveWorld = _leaveWorldCompletely;
 
     // Clean up a world that the player has been banned from or should no longer access.
     // Removes the world folder, clears worldCode/folderId on any character in it,
@@ -3146,7 +3203,8 @@
                     c.folderId  = null;
                     c.worldCode = null;
                     if (window.apxAuth?.enabled && c.id) {
-                        await window.apxAuth.saveCharacter(c.id, c.state||window.state, { folderId:null, worldCode:null }).catch(()=>{});
+                        let st = (c.id === window._activeCloudCharId || !c.state) ? window.state : c.state;
+                        await window.apxAuth.saveCharacter(c.id, st, { folderId:null, worldCode:null }).catch(()=>{});
                     }
                 }
             }
@@ -5114,6 +5172,7 @@
         // Firestore's write queue. Unchanged saves are skipped in apx-firebase.js.
         _autoSaveTimer = setTimeout(async () => {
             if (_autoSaveBusy) { _autoSaveAgain = true; return; }
+            if (!window._activeCloudCharId) return;   // the open character was deleted meanwhile
             _autoSaveBusy = true;
             try {
                 let saveData = Object.assign({}, window.state);

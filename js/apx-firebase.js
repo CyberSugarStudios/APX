@@ -27,7 +27,7 @@
             loadWorldPlayers: () => Promise.resolve([]),
             listenWorldPlayers: () => (() => {}),
             listenPublicWorldNotes: () => (() => {}),
-            kickWorldPlayer: () => Promise.resolve(),
+            kickWorldPlayer: () => Promise.resolve(), leaveWorldAsPlayer: () => Promise.resolve(),
             saveWorldMapFirestore: () => Promise.resolve(),
             loadWorldMapFirestore: () => Promise.resolve(null),
             deleteWorldMapFirestore: () => Promise.resolve(),
@@ -291,7 +291,7 @@
         if (!inviteCode) return () => {};
         return db.collection('worldCodes').doc(inviteCode.toUpperCase().trim())
             .collection('players').onSnapshot(snap => {
-                callback(snap.docs.map(d => d.data()));
+                callback(snap.docs.map(d => d.data()), { fromCache: !!snap.metadata?.fromCache });
             }, err => console.warn('Party listener error:', err.message));
     }
 
@@ -858,6 +858,19 @@
             .update({ [field]: firebase.firestore.FieldValue.arrayUnion(uid) });
     }
 
+    // A player removing themself from a world (deleted their last character
+    // there, or left / deleted the world folder). Deletes only their own
+    // membership doc so the GM's party list drops them.
+    async function leaveWorldAsPlayer(inviteCode) {
+        let user = currentUser();
+        if (!user || !inviteCode) return;
+        let code = String(inviteCode).trim();
+        _forgetWrite('wplayer:' + code + ':' + user.uid);
+        await db.collection('worldCodes').doc(code)
+            .collection('players').doc(user.uid).delete()
+            .catch(e => console.warn('Leave world:', e.message));
+    }
+
     async function loadWorldPlayers(inviteCode) {
         let snap = await db.collection('worldCodes').doc(inviteCode.toUpperCase().trim())
             .collection('players').get();
@@ -943,7 +956,7 @@
         addXpGrant, ackXpGrants, setGmCondition, setGmWound, publishCombatLog, writeRollLog, setGmCompanionHp,
         gmGiveToPlayer, ackGmGifts, writeOutbox, clearOutbox, ackGift, publishLootRequest,
         saveFogData, loadFogData, loadFogDataForPlayer, listenFogDataForPlayer,
-        listenWorldPlayers, listenPublicWorldNotes, kickWorldPlayer,
+        listenWorldPlayers, listenPublicWorldNotes, kickWorldPlayer, leaveWorldAsPlayer,
         scheduleAutoSave, setActiveCharId,
         renderAuthBar,
     };
