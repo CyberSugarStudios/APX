@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.9.28.2122';
+window.APX_VERSION = 'v2026.10.1.1200';
 
         window.state = getInitialState();
 
@@ -347,7 +347,7 @@ window.APX_VERSION = 'v2026.9.28.2122';
                     if (dm && window.APXDamage && !inputEl._apxMitigated) {
                         let raw = parseInt(dm[1], 10);
                         let atk = window._pwLastNpcAtk;
-                        let fresh = atk && atk.id && Date.now() - (atk.t || 0) < 600000 && !(window._pwUsedAtk || {})[atk.id] && (window._pwCombatCode || (window.apxActiveWorldCode && window.apxActiveWorldCode()));
+                        let fresh = window.apxPwAtkFresh ? window.apxPwAtkFresh(atk) : false;
                         let types = dm[2] ? window.APXDamage.parts(dm[2]) : (fresh && atk.dmgType ? window.APXDamage.parts(atk.dmgType) : []);
                         let def = window.apxMyDefense();
                         let finish = (t) => {
@@ -448,6 +448,20 @@ window.APX_VERSION = 'v2026.9.28.2122';
         // Start of your turn: gain your AP on top of whatever you saved (no cap)
         window.apxResetAp = function() { apxSetAp(apxApCurrent() + apxApMax()); };
         window.apxFillAp = function() { apxSetAp(apxApMax()); };
+        // The New Turn button: in combat your turn's AP is added automatically when the initiative
+        // reaches you, so pressing it again on the same turn asks first (no double AP by accident)
+        window.apxNewTurnClick = async function() {
+            let ct = window._pwCombatTurn, me = window.apxAuth?.user?.uid;
+            if (ct && ct.id && !ct.ended && window._pwCombatCode) {
+                let key = ct.id + ':' + (ct.turnNo || 0);
+                let mine = ct.playerUid && ct.playerUid === me;
+                let msg = mine && window._pwLastTurnKey === key
+                    ? `Your AP for this turn (${apxApMax()}) was already added when your turn started. Add another turn's AP anyway?`
+                    : !mine ? `It isn't your turn in your GM's initiative. Your AP is added automatically when your turn comes up. Add a turn's AP (${apxApMax()}) anyway?` : null;
+                if (msg && window.apxConfirm && !(await window.apxConfirm(msg, { title: 'New Turn', okLabel: 'Add AP', cancelLabel: 'Cancel' }))) return;
+            }
+            window.apxResetAp();
+        };
         window.apxSetApValue = function(v) { apxSetAp(v); };
         // A Stunned character starts its turn with 0 AP (called when your turn comes up)
         // Luck Points −/+ buttons (kept between 0 and your maximum)

@@ -148,3 +148,156 @@ function craftReconcileBatchesDown(batches, key, newQty) {
         }
     }
 }
+
+// ------------------------------------------------------------------
+// The Craft check, the modern way (Playtest 2): rolled in the Dice tray
+// (so Luck Points, Omens, conditions and Advantage all work on it), with
+// the workspace choice and every cost spelled out before you roll.
+//   Workspace (Ch.8): your own Workbench; a rented one (100 Cu per hour of
+//   work, paid whatever the result); or a Toolkit (Disadvantage).
+// Each forge passes its own math (m) and an apply(outcome) function.
+// ------------------------------------------------------------------
+const CRAFT_RENT_PER_HOUR = 100;
+window._craftRoll = null;   // { kind, outcome, nat, total, dc, applied }
+
+function craftWorkspace() { return window.state.craftWorkspace || 'bench'; }
+window.setCraftWorkspace = function(kind, ws) {
+    window.state.craftWorkspace = ws;
+    if (kind === 'weapon') window.renderWeaponCraftBody(); else window.renderArmorCraftBody();
+};
+function craftRentCost(m) { return craftWorkspace() === 'rent' ? (m.hours || 0) * CRAFT_RENT_PER_HOUR : 0; }
+
+// The sheet's own Craft roll (training, item and perk bonuses, injuries), switched to STR for Black Smith
+function craftCheckSpec(attr) {
+    let spec = null;
+    document.querySelectorAll('[data-apx-roll]').forEach(el => {
+        if (spec) return;
+        try { let o = JSON.parse(el.getAttribute('data-apx-roll')); if (o.type === 'check' && o.skill === 'Craft' && o.kind !== 'save') spec = o; } catch (e) { }
+    });
+    let bonus;
+    if (spec) {
+        bonus = parseInt(spec.bonus) || 0;
+        if (attr === 'STR') bonus += ((calc.mods && calc.mods.STR) || 0) - ((calc.mods && calc.mods.INT) || 0);
+    } else bonus = craftBonusFor(attr);
+    let o = Object.assign({}, spec || {}, { attr, skill: 'Craft', bonus, who: window.state.name || '' });
+    delete o.type; delete o.label;
+    return o;
+}
+
+function craftOutcomeOf(nat, total, dc, autoFail) {
+    if (total >= dc && !autoFail) return { outcome: 'success', label: 'Success' };
+    if (autoFail || nat === 1 || dc - total >= 5) return { outcome: 'failhard', label: nat === 1 ? 'Critical Failure' : autoFail ? 'Failed (auto-fail)' : 'Failed by 5 or more' };
+    return { outcome: 'fail', label: 'Failed' };
+}
+
+// Rolls the check in the tray. A Luck reroll or Omen on that roll updates the result here too.
+window.craftRollCheck = function(kind) {
+    if (!window.APXDice) return;
+    let m = kind === 'weapon' ? weaponForgeCraftMath() : armorForgeCraftMath();
+    let rent = craftRentCost(m);
+    if (rent > (parseInt(window.state.currency) || 0)) {
+        window.showConfirm(`Renting a Workbench for ${m.hours} hour${m.hours === 1 ? '' : 's'} costs ${rent} Cu, and you have ${parseInt(window.state.currency) || 0}. Pick another workspace, or find more Currency first.`, null, true);
+        return;
+    }
+    let spec = craftCheckSpec(m.craftAttr);
+    if (craftWorkspace() === 'toolkit') spec.disSources = (spec.disSources || []).concat(['Toolkit']);
+    let roll = window._craftRoll = { kind, dc: m.dc, applied: false };
+    window.APXDice.check(Object.assign(spec, {
+        label: `${m.craftAttr} (Craft): ${kind === 'weapon' ? 'Weapon' : 'Armor'} Forge, DC ${m.dc}`, purpose: 'craft',
+        onResult: r => {
+            if (roll.applied) return roll.note;
+            let res = craftOutcomeOf(r.nat, r.total, m.dc, r.autoFail);
+            Object.assign(roll, { nat: r.nat, total: r.total, outcome: res.outcome, label: res.label });
+            roll.note = `${res.label} (${r.total} vs DC ${m.dc})`;
+            setTimeout(() => { if (window._craftRoll === roll) (kind === 'weapon' ? window.renderWeaponCraftBody : window.renderArmorCraftBody)(); }, 0);
+            return roll.note;
+        }
+    }));
+};
+
+// Applies the rolled (or typed-in) outcome: pays any Workbench rent, then the forge does the rest
+window.craftApply = function(kind, outcome) {
+    let m = kind === 'weapon' ? weaponForgeCraftMath() : armorForgeCraftMath();
+    let rent = m.nominalDelta > 0 ? craftRentCost(m) : 0;
+    if (rent > (parseInt(window.state.currency) || 0)) {
+        window.showConfirm(`Renting the Workbench costs ${rent} Cu, and you have ${parseInt(window.state.currency) || 0}.`, null, true);
+        return;
+    }
+    if (m.nominalDelta > 0) {
+        let have = craftMaterialCounts();
+        if (have.common < m.commonCt || have.uncommon < m.minUncommonCt || have.rare < m.minRareCt) {
+            window.showConfirm("Not enough Crafting Materials on hand to attempt this craft.", null, true);
+            return;
+        }
+    }
+    let roll = window._craftRoll;
+    if (roll && roll.kind === kind) roll.applied = true;
+    window._craftRoll = null;
+    let before = parseInt(window.state.currency) || 0;
+    (kind === 'weapon' ? window.weaponForgeApplyOutcome : window.armorForgeApplyOutcome)(outcome);
+    if (rent > 0) {
+        window.state.currency = before - rent;
+        window.APXDice?.notify(`Paid ${rent} Cu to rent a Workbench for ${m.hours} hour${m.hours === 1 ? '' : 's'}.`, { kind: 'loot' });
+        window.recalculateMath && window.recalculateMath();
+    }
+};
+
+// The panel both forges show: workspace, a plain cost summary, and the roll
+function craftCheckPanelHtml(kind, m, canAfford) {
+    let ws = craftWorkspace(), rent = m.hours * CRAFT_RENT_PER_HOUR, cu = parseInt(window.state.currency) || 0;
+    let spec = craftCheckSpec(m.craftAttr), bonus = spec.bonus;
+    let need = { common: m.commonCt, uncommon: m.minUncommonCt, rare: m.minRareCt };
+    let matsTxt = [['common', 'Common'], ['uncommon', 'Uncommon'], ['rare', 'Rare']].filter(([k]) => need[k] > 0).map(([k, l]) => `${need[k]} ${l}`).join(', ') || 'no materials';
+    let halfTxt = [['common', 'Common'], ['uncommon', 'Uncommon'], ['rare', 'Rare']].filter(([k]) => need[k] > 0).map(([k, l]) => `${Math.floor(need[k] / 2)} ${l}`).join(', ') || 'nothing';
+    let days = Math.ceil(m.hours / 8);
+    let roll = window._craftRoll && window._craftRoll.kind === kind && window._craftRoll.dc === m.dc ? window._craftRoll : null;
+    let radio = (v, label, sub) => `<label class="flex items-start gap-1.5 text-xs text-white cursor-pointer flex-1 min-w-[150px] bg-slate-800/60 border ${ws === v ? 'border-orange-500' : 'border-slate-700'} rounded p-1.5">
+        <input type="radio" name="${kind}CraftWs" ${ws === v ? 'checked' : ''} onchange="window.setCraftWorkspace('${kind}','${v}')" class="mt-0.5"><span>${label}<span class="block text-[9px] text-slate-400">${sub}</span></span></label>`;
+    let outcomeColor = o => o === 'success' ? 'text-emerald-400' : o === 'fail' ? 'text-amber-400' : 'text-red-400';
+    return `
+        <div class="mt-4 bg-slate-900 border border-orange-800/50 rounded-lg p-3">
+            <div class="text-[10px] text-slate-500 uppercase font-bold mb-1">Where you're working</div>
+            <div class="flex flex-wrap gap-2 mb-3">
+                ${radio('bench', 'Your Workbench', 'At your base or a friend\'s')}
+                ${radio('rent', `Rent a Workbench`, `${CRAFT_RENT_PER_HOUR} Cu per hour: ${rent} Cu here`)}
+                ${radio('toolkit', 'Toolkit', 'Anywhere, with Disadvantage')}
+            </div>
+            <div class="text-[10px] text-slate-500 uppercase font-bold mb-1">What this costs</div>
+            <table class="w-full text-[11px] text-slate-300 mb-3">
+                <tr><td class="py-0.5 text-slate-500">Value crafted</td><td class="text-right font-bold text-white">${m.nominalDelta} Cu</td></tr>
+                <tr><td class="py-0.5 text-slate-500">Materials</td><td class="text-right font-bold ${canAfford ? 'text-white' : 'text-red-400'}">${matsTxt}</td></tr>
+                <tr><td class="py-0.5 text-slate-500">Time</td><td class="text-right font-bold text-white">${m.hours} hour${m.hours === 1 ? '' : 's'}${days > 1 ? ` (${days} days at 8 hours a day)` : ''}</td></tr>
+                ${ws === 'rent' ? `<tr><td class="py-0.5 text-slate-500">Workbench rent</td><td class="text-right font-bold ${rent > cu ? 'text-red-400' : 'text-yellow-400'}">${rent} Cu <span class="text-slate-500 font-normal">(you have ${cu})</span></td></tr>` : ''}
+            </table>
+            <div class="grid grid-cols-3 gap-1.5 mb-3 text-[10px] text-center">
+                <div class="rounded border border-emerald-800/60 bg-emerald-900/20 p-1.5"><div class="font-black text-emerald-400">Success</div><div class="text-slate-300">It's made. Materials used.</div></div>
+                <div class="rounded border border-amber-800/60 bg-amber-900/20 p-1.5"><div class="font-black text-amber-400">Failed</div><div class="text-slate-300">${m.hasFailRecovery ? `Not made. ${halfTxt} come back.` : 'Not made. Materials lost.'}</div></div>
+                <div class="rounded border border-red-800/60 bg-red-900/20 p-1.5"><div class="font-black text-red-400">By 5+ / Nat 1</div><div class="text-slate-300">Not made. Materials lost.</div></div>
+            </div>
+            <div class="text-center text-xs text-slate-400 mb-2">${m.craftAttr} (Craft) <span class="font-bold text-white">${bonus >= 0 ? '+' : ''}${bonus}</span> vs DC <span class="font-bold text-white">${m.dc}</span>${ws === 'toolkit' ? ' <span class="text-red-400 font-bold">with Disadvantage</span>' : ''}</div>
+            ${roll && roll.outcome ? `
+            <div class="rounded border border-slate-600 bg-slate-800 p-2 mb-2 text-center">
+                <div class="text-[10px] text-slate-500 uppercase font-bold">Your roll</div>
+                <div class="text-lg font-black ${outcomeColor(roll.outcome)}">${roll.total} vs DC ${m.dc}: ${roll.label}</div>
+                <div class="text-[10px] text-slate-400">Natural ${roll.nat}. Spend a Luck Point or an Omen on it in the dice tray to change it; this updates.</div>
+                <button onclick="window.craftApply('${kind}','${roll.outcome}')" ${roll.outcome === 'success' && !canAfford ? 'disabled' : ''} class="mt-2 w-full px-3 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black transition">Apply: ${roll.label}${ws === 'rent' ? ` (pay ${rent} Cu rent)` : ''}</button>
+            </div>` : `
+            <button onclick="window.craftRollCheck('${kind}')" ${!canAfford ? 'disabled' : ''} class="w-full ${canAfford ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-slate-800 text-slate-600 cursor-not-allowed'} text-xs font-black py-2 rounded transition mb-2">Roll Craft Check</button>`}
+            <details class="mt-1"><summary class="text-[10px] text-slate-500 uppercase font-bold cursor-pointer text-center">Rolled it yourself? Enter the outcome</summary>
+            <div class="grid grid-cols-3 gap-2 mt-2">
+                <button onclick="window.craftApply('${kind}','success')" ${!canAfford ? 'disabled' : ''} class="px-2 py-2 rounded ${!canAfford ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-500 text-white'} text-xs font-bold transition">Success</button>
+                <button onclick="window.craftApply('${kind}','fail')" class="px-2 py-2 rounded bg-amber-700 hover:bg-amber-600 text-white text-xs font-bold transition">Failed</button>
+                <button onclick="window.craftApply('${kind}','failhard')" class="px-2 py-2 rounded bg-red-700 hover:bg-red-600 text-white text-xs font-bold transition">Failed by 5+<br><span class="text-[9px] font-normal">/ Crit Fail</span></button>
+            </div></details>
+        </div>`;
+}
+
+// One line under a forge's "Cost Now": what buying leaves you, and what crafting it would take instead
+function craftBuyOrCraftHtml(delta, m) {
+    if (!(delta > 0) || !window.state) return '';
+    let cu = parseInt(window.state.currency) || 0;
+    let buy = cu >= delta ? `<span class="text-emerald-400 font-bold">Buy: ${cu - delta} Cu left</span> <span class="text-slate-500">(of ${cu})</span>`
+        : `<span class="text-red-400 font-bold">Buy: ${delta - cu} Cu short</span> <span class="text-slate-500">(you have ${cu})</span>`;
+    let mats = [[m.commonCt, 'Common'], [m.minUncommonCt, 'Uncommon'], [m.minRareCt, 'Rare']].filter(x => x[0] > 0).map(x => x[0] + ' ' + x[1]).join(', ') || 'no materials';
+    return `<div class="text-[10px] text-slate-400 mt-1.5 flex flex-wrap justify-between gap-x-3 gap-y-0.5">${buy}<span><span class="text-orange-300 font-bold">Craft:</span> ${mats} · DC ${m.dc} · ${m.hours} hr</span></div>`;
+}

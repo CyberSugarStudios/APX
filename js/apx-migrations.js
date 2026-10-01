@@ -131,6 +131,49 @@
                 window.apxMergeInventoryStacks(s);
                 return [];
             }
+        },
+        {
+            v: 8, label: 'Core Attributes from XP kept apart (Playtest 2)',
+            run(s) {
+                // Core Attributes bought with XP (and Permanent Injuries) used to be added to the base
+                // set at creation, so the Ancestry builder said things like "Point Buy: 10 of 7".
+                // They now live in attrAdj. Scores don't change: only where the points are kept.
+                if (!s.baseStats) return [];
+                let adj = {};
+                let re = /^(STR|AGI|CON|PER|INT|CHA|LUC) (\d+) → (\d+)$/;
+                (s.xpLog || []).forEach(e => {
+                    let m = re.exec(String(e && e.what || ''));
+                    if (!m) return;
+                    adj[m[1]] = (adj[m[1]] || 0) + (e.type === 'refund' ? -1 : 1);
+                });
+                (s.permanentInjuries || []).forEach(pi => { if (pi && pi.attr) adj[pi.attr] = (adj[pi.attr] || 0) - 1; });
+                s.attrAdj = s.attrAdj || {};
+                Object.keys(adj).forEach(a => {
+                    let n = adj[a], base = (s.baseStats[a] || 5) - n;
+                    if (!n || base < 2 || base > 10) return;   // can't tell: leave it as it was
+                    s.baseStats[a] = base;
+                    s.attrAdj[a] = (s.attrAdj[a] || 0) + n;
+                });
+                return [];
+            }
+        },
+        {
+            v: 9, label: 'Powers rework (Playtest 2)',
+            run(s) {
+                // Each power now picks its own Core Attribute, and INT/CHA Powers are now Full Rest /
+                // Short Rest Powers. Existing powers keep exactly what they used before.
+                let was = s.powerAttr === 'CHA' ? 'CHA' : 'INT';
+                (s.powers || []).forEach(p => {
+                    if (!p) return;
+                    if (!p.attr) p.attr = was;
+                    if (!p.pool) p.pool = was === 'CHA' ? 'short' : 'full';
+                    if (p.draft) { if (!p.draft.coreAttr) p.draft.coreAttr = p.attr; if (!p.draft.pool) p.draft.pool = p.pool; }
+                });
+                let perks = s.perks || {};
+                if ((s.powers || []).length || perks.pwr_int || perks.pwr_cha) return [{ title: 'Powers reworked',
+                    text: 'Intelligence Powers are now Full Rest Powers and Charisma Powers are now Short Rest Powers, and you can have both. Each power now uses the Core Attribute you choose for it in the Power Crafter (its Attack Bonus and Save DC). Your powers keep the attribute they used before (' + was + ').' }];
+                return [];
+            }
         }
     ];
     // Joins identical inventory rows into one stack (worn items and part-used consumables stay apart)

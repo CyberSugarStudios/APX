@@ -1,0 +1,293 @@
+// ============================================================
+// APX Extras (Character Sheet and GM Tools)
+// ============================================================
+//   • Sign-in lock: the tools need an account
+//   • First-time tutorial for players and GMs (Settings → Show Tutorial reopens it)
+//   • Colour swatches on every colour picker (recent colours; hover one for its X)
+//   • "Currency" chip in every screen that spends Cu (Character Sheet)
+// Loaded last on both pages.
+// ============================================================
+(function () {
+    'use strict';
+    const esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const PAGE = /gmtools/i.test(location.pathname) ? 'gm' : 'sheet';
+    const TOP = 2147483400;
+    const prefs = () => window.apxPrefs || { whenAuth: cb => cb(null), uid: () => null, load: () => Promise.resolve({}), save: () => Promise.resolve() };
+
+    function css() {
+        if (document.getElementById('apxExtrasCss')) return;
+        let st = document.createElement('style');
+        st.id = 'apxExtrasCss';
+        st.textContent = `
+        .apxlock{position:fixed;inset:0;z-index:${TOP + 200};background:var(--c-bg,#020617);display:flex;align-items:center;justify-content:center;padding:16px}
+        .apxlock>div{width:min(400px,100%);text-align:center;background:var(--c-surface,#1e293b);border:1px solid var(--c-border2,#475569);border-radius:.9rem;padding:1.6rem 1.4rem;color:var(--c-text,#fff);box-shadow:0 24px 70px rgba(0,0,0,.7)}
+        .apxlock h2{margin:0 0 .5rem;font-size:1.25rem;font-weight:900;font-family:var(--c-heading-font,inherit)}
+        .apxlock p{margin:0 0 1.1rem;font-size:.85rem;line-height:1.5;color:var(--c-text-dimmer,#cbd5e1)}
+        .apxlock a{display:inline-block;background:var(--c-indigo,#4f46e5);color:#fff;font-weight:800;font-size:.85rem;padding:.6rem 1.3rem;border-radius:.5rem;text-decoration:none}
+        .apxtut-back{position:fixed;inset:0;z-index:${TOP};background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:16px}
+        .apxtut{width:min(560px,100%);max-height:min(88vh,760px);display:flex;flex-direction:column;background:var(--c-surface,#1e293b);color:var(--c-text,#fff);
+            border:1px solid var(--c-border2,#475569);border-radius:.85rem;box-shadow:0 24px 70px rgba(0,0,0,.75);font-family:var(--c-font,inherit)}
+        .apxtut-hd{padding:1rem 1.2rem .6rem;border-bottom:1px solid var(--c-border,#334155)}
+        .apxtut-hd small{display:block;font-size:.66rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--c-indigo-lt,#a5b4fc)}
+        .apxtut-hd h3{margin:.15rem 0 0;font-size:1.15rem;font-weight:900;font-family:var(--c-heading-font,inherit)}
+        .apxtut-body{overflow-y:auto;padding:.8rem 1.2rem 1rem;font-size:.84rem;line-height:1.5;color:var(--c-text-dimmer,#cbd5e1)}
+        .apxtut-body p{margin:0 0 .6rem}
+        .apxtut-body ul,.apxtut-body ol{margin:.2rem 0 .7rem;padding-left:1.2rem}
+        .apxtut-body ul{list-style:disc} .apxtut-body ol{list-style:decimal}
+        .apxtut-body li{margin:.2rem 0}
+        .apxtut-body b{color:var(--c-text,#fff)}
+        .apxtut-body kbd{font-family:inherit;font-size:.72rem;font-weight:800;padding:.02rem .35rem;border-radius:.25rem;border:1px solid var(--c-border2,#475569);background:var(--c-surface2,#0f172a);color:var(--c-text,#fff)}
+        .apxtut-steps{display:flex;gap:.6rem;margin:.3rem 0 .8rem}
+        .apxtut-steps div{flex:1;border:1px solid var(--c-border2,#475569);border-radius:.5rem;padding:.45rem .5rem;text-align:center;font-size:.72rem;background:var(--c-surface2,#0f172a)}
+        .apxtut-steps div b{display:block;font-size:1rem}
+        .apxtut-ft{display:flex;align-items:center;gap:.5rem;padding:.7rem 1.2rem;border-top:1px solid var(--c-border,#334155)}
+        .apxtut-dots{display:flex;gap:.3rem;flex:1;flex-wrap:wrap}
+        .apxtut-dots i{width:8px;height:8px;border-radius:50%;background:var(--c-border2,#475569);cursor:pointer}
+        .apxtut-dots i.on{background:var(--c-indigo,#6366f1)}
+        .apxtut-ft button{border:none;border-radius:.45rem;padding:.48rem 1rem;font-size:.8rem;font-weight:800;cursor:pointer;background:var(--c-border,#334155);color:var(--c-text,#fff)}
+        .apxtut-ft button.pri{background:var(--c-indigo,#4f46e5);color:#fff}
+        .apxtut-ft button:disabled{opacity:.35;cursor:default}
+        .apxsw{position:fixed;z-index:${TOP + 300};display:flex;flex-wrap:wrap;gap:4px;max-width:176px;padding:5px;border-radius:.4rem;background:var(--c-surface,#1e293b);border:1px solid var(--c-border2,#475569);box-shadow:0 8px 24px rgba(0,0,0,.6)}
+        .apxsw .sw{position:relative;width:18px;height:18px;border-radius:4px;border:1px solid rgba(255,255,255,.35);cursor:pointer;padding:0}
+        .apxsw .sw .x{position:absolute;top:-6px;right:-6px;width:13px;height:13px;border-radius:50%;background:#dc2626;color:#fff;font-size:9px;font-weight:900;line-height:13px;text-align:center;display:none;cursor:pointer}
+        .apxsw .sw:hover .x{display:block}
+        .apxsw .lbl{width:100%;font-size:.58rem;font-weight:800;color:var(--c-text-muted,#94a3b8)}
+        .apxcur{display:flex;justify-content:flex-end;margin:-.2rem 0 .45rem}
+        .apxcur span{font-size:.72rem;font-weight:800;color:#fde68a;background:rgba(234,179,8,.12);border:1px solid rgba(234,179,8,.45);border-radius:1rem;padding:.12rem .6rem}
+        [data-theme="kawaii"] .apxcur span{color:#854d0e;background:#fef9c3;border-color:#ca8a04}`;
+        document.head.appendChild(st);
+    }
+
+    // ── Sign-in lock (#12) ───────────────────────────────────────────────
+    // The Player and GM Tools need an account. Signed out: a full-page notice that links to sign-in.
+    function lock(on, offline) {
+        let el = document.querySelector('[data-apx-lock]');
+        if (!on) { el && el.remove(); return; }
+        if (el) return;
+        css();
+        el = document.createElement('div');
+        el.className = 'apxlock';
+        el.setAttribute('data-apx-lock', '1');
+        el.innerHTML = offline
+            ? `<div><h2>Can't reach your account</h2>
+            <p>APX couldn't load its sign-in service. Check your internet connection, and that an ad or script blocker isn't blocking gstatic.com or googleapis.com, then reload.</p>
+            <a href="" onclick="location.reload();return false;">Reload</a></div>`
+            : `<div><h2>Sign in to use APX Tools</h2>
+            <p>The Character Sheet and GM Tools need a free APX account. Your characters, worlds and settings are kept in it, so they're on every device you sign in on.</p>
+            <a href="index.html">Sign in or create an account</a></div>`;
+        document.body.appendChild(el);
+    }
+    try { sessionStorage.removeItem('apxLocalOnly'); } catch (e) { }
+    if (window.FIREBASE_ENABLED) prefs().whenAuth(user => lock(!user, !(window.apxAuth && window.apxAuth.enabled)));
+
+    // ── Tutorial (#11) ───────────────────────────────────────────────────
+    const SHEET_STEPS = [
+        ['Welcome', 'Welcome to the APX Character Sheet', `
+            <p>This is where you build and play your APX characters. Everything you do saves to your account on its own, so your characters are on every device you sign in on.</p>
+            <ul><li>Your characters are in the <b>Roster</b> sidebar. Sort them into folders, archive old ones, or start a new one.</li>
+            <li>A character belongs to <b>one world</b> at a time, and you have one character in each world.</li>
+            <li>Hover almost anything for a tooltip that explains it.</li></ul>`],
+        ['Making a character', 'Character creation: three steps, in order', `
+            <div class="apxtut-steps"><div><b>1</b>Race Builder</div><div><b>2</b>Origin</div><div><b>3</b>Spend XP</div></div>
+            <p>A character is finished by doing all three, in this order. Each one is a button at the top of the sheet.</p>
+            <ol><li><b>Race Builder</b> (the Ancestry button): pick a race your GM made (or build your own), spend its Genetic Points, and choose its training. <b>Save &amp; Apply</b> sends you back to any step that's still missing something.</li>
+            <li><b>Origin</b>: your life before adventuring: languages and trainings, starting wealth, and an Origin feature.</li>
+            <li><b>Spend XP</b>: buy attributes, skill ranks, perks, Hit Points and powers. Everything you gain and spend is in the <b>XP Log</b>.</li></ol>`],
+        ['Rolling', 'Rolling dice', `
+            <p>Click any skill, attribute, save, weapon or power on the sheet to roll it. Results show up in the <b>Dice and Notifications tray</b> (the d20 button in the bottom-right corner).</p>
+            <ul><li>The tray has Advantage and Disadvantage for the next d20, a dice pool for any other roll, and buttons to spend <b>Luck Points</b> or <b>Omen dice</b> on a roll you just made.</li>
+            <li>Conditions, wounds and your perks are added to rolls for you, and the badges on a roll show what changed it.</li>
+            <li>The <b>Chat</b> at the bottom of the tray messages everyone, just the GM, or any players you pick.</li></ul>`],
+        ['Shortcuts', 'Shortcuts worth knowing', `
+            <ul><li>Number boxes do math: type <kbd>+5</kbd> or <kbd>-3</kbd> to add or subtract, or <kbd>35-9</kbd> after what's there.</li>
+            <li>Hit Points: <kbd>-9</kbd> takes 9 damage, through Temp HP first. <kbd>-9 fire</kbd> uses that damage type, so your DR/ER, resistances and immunities apply. Hit by the GM's creature? Its damage type is used for you.</li>
+            <li><kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes and <kbd>Ctrl</kbd>+<kbd>Y</kbd> redoes changes on the sheet. <kbd>Enter</kbd> confirms a box.</li>
+            <li>On battle maps: <kbd>M</kbd> measures (right-click drops a waypoint, the toolbar switches to Cone or Burst, <kbd>Esc</kbd> stops). In combat, dragging your token shows the path and its AP cost; hold <kbd>Alt</kbd> to move without paying AP. Wheel zooms; <kbd>Ctrl</kbd>-drag or middle-drag pans.</li></ul>`],
+        ['Worlds', 'Playing in your GM\'s world', `
+            <ul><li>Your GM gives you an <b>invite code</b>. Join the world from the lobby (or the World screen's <b>+ Join World</b>) and pick, or make, the character you'll play there.</li>
+            <li>The <b>World</b> button opens what your GM shares: maps, locations, NPCs you've met, notes and discoveries, and the party.</li>
+            <li>In combat your GM's tracker and your sheet stay in sync: damage, conditions, wounds, AP and turns. New Turn refreshes your AP.</li>
+            <li>Give items to other players from your inventory, and loot the GM shares lands in your inventory.</li></ul>`],
+        ['Find it again', 'That\'s the basics', `
+            <p>You can open this tutorial again any time: <b>Settings → Show Tutorial</b>. The same place has the <b>Patch Notes</b> for what changed in each update.</p>
+            <p>The rules themselves are in the APX rulebook. The sheet follows them, but every number can still be edited by hand when your GM rules otherwise.</p>`]
+    ];
+    const GM_STEPS = [
+        ['Welcome', 'Welcome to the APX GM Tools', `
+            <p>Everything you need to run APX: worlds, players, NPCs, combat, maps, loot and notes. It all saves to your account and syncs to your players live.</p>
+            <ul><li>Start with <b>+ New World</b>, or <b>Load World</b> to open one you made.</li>
+            <li>Every world has an <b>invite code</b> (in the <b>World</b> screen; click it to copy). Players join with it from their Character Sheet; <b>Load Party</b> brings their characters into your tracker.</li>
+            <li>The World screen's player list is also where you kick a player (with or without a ban).</li></ul>`],
+        ['NPCs', 'NPCs, races and the Library', `
+            <ul><li>The <b>NPC Crafter</b> builds stat blocks from a Tier and a TP budget: attributes, weapons, armor, perks, traits and powers. Stat blocks roll straight from their dice.</li>
+            <li><b>Race Templates</b> are the races your players can pick in their Race Builder; changes reach them live.</li>
+            <li>Items, forged weapons and armor, consumables and powers you make go into your <b>Library</b>, tagged with the world you made them in, so you can reuse them anywhere.</li></ul>`],
+        ['Combat', 'Running combat', `
+            <ul><li>Add NPCs and players to the <b>initiative tracker</b>, then <b>Start Combat</b> and use <b>Next Turn</b>. AP, reactions, condition timers and auras are handled turn by turn.</li>
+            <li>Damage is entered as a number (or <kbd>-12 fire</kbd>): DR/ER, resistances, wounds and Wound Thresholds are applied for you, and saves and wound checks are asked of the right player.</li>
+            <li>Click a creature's conditions to change them, players included. <b>⤓ Fall</b> rolls fall damage with the Acrobatics reaction.</li>
+            <li>The combat log and your players' rolls show up in your dice tray.</li></ul>`],
+        ['Maps', 'Maps and battle maps', `
+            <ul><li><b>Upload Map</b> for world maps, dungeons and buildings. Pin locations with notes and subnotes; what you reveal becomes your players' Discoveries.</li>
+            <li>Turn on the <b>Grid</b> (size, offset, colour, thickness, opacity), place tokens, resize them, and paint <b>Fog</b> of war.</li>
+            <li><b>Measure</b> (<kbd>M</kbd>) has Line, Cone and Burst modes and lists who's inside an area. Right-click drops waypoints.</li>
+            <li>Share a map with your players, and stop sharing to close it on their screens.</li></ul>`],
+        ['Loot and notes', 'Loot, crafting and notes', `
+            <ul><li>The <b>Loot Maker</b> builds loot boxes and gives items or Currency to players; a hidden grant isn't shown to the rest of the party.</li>
+            <li>The Weapon and Armor Forges and the Consumable Crafter make custom gear for shops and loot.</li>
+            <li><b>Session Notes</b> keep a log of each session, with bullets and bold, and a read view.</li></ul>`],
+        ['Limits', 'What the tools do, and what they don\'t', `
+            <p><b>They do:</b> track your worlds, NPCs and combat; do APX's math (damage, mitigation, conditions, wounds, AP); and keep your players' sheets in sync with your tracker in real time.</p>
+            <p><b>Keep in mind:</b></p>
+            <ul><li>Everyone needs an account and an internet connection. Players must have a character in your world to see it.</li>
+            <li>The automation covers the APX rules. Anything unusual (a homebrew effect, a ruling at the table) you apply by hand; every number can be edited.</li>
+            <li>Images are stored in your account, so very large maps are saved in tiles and can take a moment to load for players.</li>
+            <li>Chat is text only, and messages older than a week are cleared. There's no voice or video.</li>
+            <li>Works best in a desktop browser. Phones are fine for character sheets; battle maps want a bigger screen.</li></ul>
+            <p>Open this again from <b>Settings → Show Tutorial</b>. Patch Notes are there too.</p>`]
+    ];
+
+    window.apxShowTutorial = function (auto) {
+        css();
+        document.querySelector('[data-apx-tutorial]')?.remove();
+        let steps = PAGE === 'gm' ? GM_STEPS : SHEET_STEPS, i = 0;
+        let back = document.createElement('div');
+        back.className = 'apxtut-back';
+        back.setAttribute('data-apx-tutorial', PAGE);
+        back.innerHTML = `<div class="apxtut" role="dialog" aria-modal="true" aria-label="Tutorial"><div class="apxtut-hd"><small data-k></small><h3 data-t></h3></div>
+            <div class="apxtut-body" data-b></div>
+            <div class="apxtut-ft"><div class="apxtut-dots" data-dots></div><button data-skip>${auto ? 'Skip' : 'Close'}</button><button data-prev>Back</button><button class="pri" data-next>Next</button></div></div>`;
+        let draw = () => {
+            let [k, t, b] = steps[i];
+            back.querySelector('[data-k]').textContent = `${PAGE === 'gm' ? 'GM Tools' : 'Character Sheet'} · ${i + 1} of ${steps.length} · ${k}`;
+            back.querySelector('[data-t]').textContent = t;
+            back.querySelector('[data-b]').innerHTML = b;
+            back.querySelector('[data-b]').scrollTop = 0;
+            back.querySelector('[data-prev]').disabled = i === 0;
+            back.querySelector('[data-next]').textContent = i === steps.length - 1 ? 'Done' : 'Next';
+            back.querySelector('[data-dots]').innerHTML = steps.map((s, j) => `<i class="${j === i ? 'on' : ''}" data-j="${j}" title="${esc(s[0])}"></i>`).join('');
+            back.querySelectorAll('[data-j]').forEach(d => d.onclick = () => { i = +d.dataset.j; draw(); });
+        };
+        let close = () => {
+            prefs().save({ tutorialSeen: { [PAGE]: true } });
+            back.remove(); document.removeEventListener('keydown', key, true);
+        };
+        let key = e => {
+            if (e.key === 'Escape') { e.stopPropagation(); close(); }
+            else if (e.key === 'ArrowRight' && i < steps.length - 1) { i++; draw(); }
+            else if (e.key === 'ArrowLeft' && i > 0) { i--; draw(); }
+        };
+        back.querySelector('[data-skip]').onclick = close;
+        back.querySelector('[data-prev]').onclick = () => { if (i > 0) { i--; draw(); } };
+        back.querySelector('[data-next]').onclick = () => { if (i < steps.length - 1) { i++; draw(); } else close(); };
+        document.addEventListener('keydown', key, true);
+        document.body.appendChild(back);
+        draw();
+        back.querySelector('[data-next]').focus();
+    };
+    // First time on this page with this account
+    let tutChecked = false;
+    prefs().whenAuth(user => {
+        if (!user || tutChecked) return;
+        tutChecked = true;
+        prefs().load().then(p => {
+            if (((p || {}).tutorialSeen || {})[PAGE]) return;
+            let tries = 0;
+            let go = () => {
+                if (document.querySelector('[data-apx-lock], [data-apx-rules-popup], .apxpn-back') && tries++ < 300) { setTimeout(go, 1000); return; }
+                if (!document.querySelector('[data-apx-tutorial]')) window.apxShowTutorial(true);
+            };
+            setTimeout(go, 300);
+        });
+    });
+
+    // ── Colour swatches (#15) ────────────────────────────────────────────
+    // Colours you pick are kept (most recent first) and offered beside every colour picker.
+    // Click one to use it; hover it for an X that removes it.
+    const SW_MAX = 16;
+    let swatches = [];
+    try { swatches = JSON.parse(localStorage.getItem('apxSwatches') || '[]') || []; } catch (e) { }
+    prefs().whenAuth(user => {
+        if (!user) return;
+        prefs().load().then(p => {
+            let acc = Array.isArray((p || {}).swatches) ? p.swatches : null;
+            if (acc) { swatches = acc.concat(swatches.filter(c => !acc.includes(c))).slice(0, SW_MAX); storeSwatches(false); }
+        });
+    });
+    function storeSwatches(toAccount) {
+        try { localStorage.setItem('apxSwatches', JSON.stringify(swatches)); } catch (e) { }
+        if (toAccount !== false) prefs().save({ swatches: swatches.slice() });
+    }
+    function norm(c) { c = String(c || '').toLowerCase().trim(); return /^#[0-9a-f]{6}$/.test(c) ? c : null; }
+    function remember(c) {
+        c = norm(c); if (!c) return;
+        swatches = [c].concat(swatches.filter(x => x !== c)).slice(0, SW_MAX);
+        storeSwatches();
+    }
+    document.addEventListener('change', e => { let t = e.target; if (t && t.tagName === 'INPUT' && t.type === 'color') remember(t.value); }, true);
+
+    let swEl = null, swFor = null, swHideT = 0;
+    function hideSw() { clearTimeout(swHideT); swHideT = setTimeout(() => { swEl && swEl.remove(); swEl = null; swFor = null; }, 350); }
+    function drawSw(input) {
+        if (!swatches.length) { swEl && swEl.remove(); swEl = null; return; }
+        css();
+        if (!swEl) {
+            swEl = document.createElement('div');
+            swEl.className = 'apxsw';
+            swEl.addEventListener('mouseenter', () => clearTimeout(swHideT));
+            swEl.addEventListener('mouseleave', hideSw);
+            document.body.appendChild(swEl);
+        }
+        swFor = input;
+        swEl.innerHTML = '<div class="lbl">Recent colours</div>' + swatches.map(c => `<button type="button" class="sw" data-c="${c}" style="background:${c}" title="${c}"><span class="x" data-x="${c}" title="Remove">×</span></button>`).join('');
+        let r = input.getBoundingClientRect();
+        let left = Math.min(window.innerWidth - 190, Math.max(4, r.left));
+        let top = r.bottom + 4;
+        swEl.style.left = left + 'px'; swEl.style.top = top + 'px';
+        let h = swEl.getBoundingClientRect().height;
+        if (top + h > window.innerHeight - 4) swEl.style.top = Math.max(4, r.top - h - 4) + 'px';
+        swEl.querySelectorAll('[data-x]').forEach(x => x.onclick = ev => {
+            ev.stopPropagation();
+            swatches = swatches.filter(c => c !== x.dataset.x); storeSwatches();
+            swFor && document.body.contains(swFor) ? drawSw(swFor) : hideSw();
+        });
+        swEl.querySelectorAll('[data-c]').forEach(b => b.onclick = ev => {
+            if (ev.target.closest('[data-x]')) return;
+            let inp = swFor; if (!inp || !document.body.contains(inp)) return;
+            inp.value = b.dataset.c;
+            inp.dispatchEvent(new Event('input', { bubbles: true }));
+            inp.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+    }
+    document.addEventListener('mouseover', e => {
+        let t = e.target;
+        if (t && t.tagName === 'INPUT' && t.type === 'color' && !t.disabled) { clearTimeout(swHideT); if (swFor !== t || !swEl) drawSw(t); }
+    });
+    document.addEventListener('mouseout', e => { let t = e.target; if (t && t.tagName === 'INPUT' && t.type === 'color') hideSw(); });
+    document.addEventListener('focusin', e => { let t = e.target; if (t && t.tagName === 'INPUT' && t.type === 'color') drawSw(t); });
+    window.addEventListener('scroll', () => { if (swEl) { swEl.remove(); swEl = null; swFor = null; } }, true);
+
+    // ── Currency in purchase screens (#23) ───────────────────────────────
+    const SHOP_MODALS = ['gearPickerModal', 'itemModal', 'weaponForgeModal', 'weaponCraftModal', 'armorForgeModal', 'armorCraftModal',
+        'consumableCrafterModal', 'payOrGrantModal', 'helmetRepairModal', 'customWeaponModal'];
+    function curText() { let n = parseInt(window.state && window.state.currency) || 0; return `Your Currency: ${n.toLocaleString()} Cu`; }
+    function chipFor(modal) {
+        let box = modal.querySelector('.modal-content') || modal.firstElementChild; if (!box) return;
+        let chip = box.querySelector(':scope > .apxcur');
+        if (!chip) {
+            css();
+            chip = document.createElement('div');
+            chip.className = 'apxcur';
+            chip.innerHTML = '<span title="What you have to spend"></span>';
+            box.insertBefore(chip, box.firstChild);
+        }
+        let s = chip.querySelector('span'), t = curText();
+        if (s.textContent !== t) s.textContent = t;
+    }
+    if (PAGE === 'sheet') {
+        setInterval(() => {
+            if (!window.state) return;
+            SHOP_MODALS.forEach(id => { let m = document.getElementById(id); if (m && m.classList.contains('active')) chipFor(m); });
+        }, 400);
+    }
+})();

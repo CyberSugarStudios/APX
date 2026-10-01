@@ -216,6 +216,30 @@
         await db.collection('users').doc(user.uid).collection('gmNpcs').doc('all')
             .set({ npcs: apxClean(npcsArray) || [], updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
     }
+    // Per-account preferences (patch notes seen, tutorials seen, saved colour swatches):
+    // users/{uid}/profile/prefs, so they follow the account to any device
+    async function loadUserPrefs() {
+        let user = currentUser(); if (!user) return {};
+        let doc = await db.collection('users').doc(user.uid).collection('profile').doc('prefs').get();
+        return doc.exists ? (doc.data() || {}) : {};
+    }
+    async function saveUserPrefs(patch) {
+        let user = currentUser(); if (!user || !patch) return;
+        await db.collection('users').doc(user.uid).collection('profile').doc('prefs').set(apxClean(patch), { merge: true });
+    }
+    // GM content library (items, consumables, gear, powers made for one world, reusable in others)
+    async function saveGmLibrary(entries) {
+        let user = currentUser();
+        if (!user) return;
+        await db.collection('users').doc(user.uid).collection('gmLibrary').doc('all')
+            .set({ entries: apxClean(entries) || [], updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    }
+    async function loadGmLibrary() {
+        let user = currentUser();
+        if (!user) return [];
+        let doc = await db.collection('users').doc(user.uid).collection('gmLibrary').doc('all').get();
+        return doc.exists ? (doc.data().entries || []) : [];
+    }
     async function loadGmNpcs() {
         let user = currentUser();
         if (!user) return [];
@@ -284,7 +308,40 @@
         return db.collection('worldCodes').doc(inviteCode.toUpperCase().trim())
             .onSnapshot(snap => {
                 if (snap.exists) callback(snap.data());
+                // gone from the server (not just missing from this device's cache): the GM deleted the world
+                else if (!(snap.metadata && snap.metadata.fromCache)) callback(null, { deleted: true });
             }, err => console.warn('World notes listener:', err.message));
+    }
+
+    // ── World chat (dice tray): worldCodes/{code}/chat/{msgId} ──────────────
+    //   { from, fromName, to: ['all'] | [uids…], text, t }
+    // Everyone named in `to` can read a message (and so can the world's GM); 'all' is everyone.
+    function _chatCol(inviteCode) { return db.collection('worldCodes').doc(String(inviteCode).toUpperCase().trim()).collection('chat'); }
+    async function sendChat(inviteCode, msg) {
+        let user = currentUser(); if (!user || !inviteCode || !msg) return;
+        let doc = { from: user.uid, fromName: String(msg.fromName || '').slice(0, 80), to: (msg.to || ['all']).slice(0, 40), text: String(msg.text || '').slice(0, 1000), t: Date.now() };
+        if (msg.gm) doc.gm = true;
+        await _chatCol(inviteCode).add(apxClean(doc));
+    }
+    // asGm: the GM reads the whole world chat. Players listen to what's for everyone plus what names them.
+    function listenChat(inviteCode, asGm, callback, onError) {
+        let user = currentUser(); if (!user || !inviteCode) return () => {};
+        let col = _chatCol(inviteCode), got = {}, unsubs = [];
+        let emit = () => { let all = {}; Object.values(got).forEach(list => list.forEach(m => { all[m.id] = m; })); callback(Object.values(all).sort((a, b) => (a.t || 0) - (b.t || 0))); };
+        let watch = (key, q) => unsubs.push(q.onSnapshot(snap => { got[key] = snap.docs.map(d => Object.assign({ id: d.id }, d.data())); emit(); },
+            err => { console.warn('Chat listener:', err.message); onError && onError(err); }));
+        if (asGm) watch('gm', col);
+        else { watch('all', col.where('to', 'array-contains', 'all')); watch('me', col.where('to', 'array-contains', user.uid)); }
+        return () => unsubs.forEach(u => { try { u(); } catch (e) { } });
+    }
+    async function deleteChat(inviteCode, ids) {
+        if (!inviteCode || !ids || !ids.length) return;
+        let col = _chatCol(inviteCode);
+        for (let i = 0; i < ids.length; i += 400) {
+            let b = db.batch();
+            ids.slice(i, i + 400).forEach(id => b.delete(col.doc(id)));
+            await b.commit();
+        }
     }
 
     function listenWorldPlayers(inviteCode, callback) {
@@ -732,7 +789,7 @@
     // will be left behind when a world or an account is deleted.
     const WORLD_PRIVATE_SUBCOLLECTIONS = ['mapImage', 'otherMaps', 'mapTiles', 'npcPortraits', 'battleImages', 'fogData'];   // users/{uid}/worlds/{worldId}/…
     const WORLD_PUBLIC_SUBCOLLECTIONS  = ['players', 'mapImage'];                                               // worldCodes/{code}/…
-    const USER_SUBCOLLECTIONS          = ['characters', 'folders', 'gmRaces', 'gmNpcs', 'profile'];             // users/{uid}/… (plus worlds)
+    const USER_SUBCOLLECTIONS          = ['characters', 'folders', 'gmRaces', 'gmNpcs', 'gmLibrary', 'profile'];             // users/{uid}/… (plus worlds)
 
     // Delete every document in a collection, in batches
     async function _purgeCollection(ref) {
@@ -947,6 +1004,8 @@
         createWorld, loadWorlds, saveWorld, saveWorldRaces, saveRacesToAllWorlds, deleteWorld, joinWorldByCode,
         loadWorldPlayers,
         saveWorldMapFirestore, loadWorldMapFirestore, deleteWorldMapFirestore,
+        saveGmLibrary, loadGmLibrary, loadUserPrefs, saveUserPrefs,
+        sendChat, listenChat, deleteChat,
         saveNpcPortrait, loadNpcPortrait, loadNpcPortraitForPlayer, addXpToPlayer, gmSetPlayerBattlePos,
         savePublicWorldMap, loadPublicWorldMap, loadWorldMapForPlayer, setGmHpOverride, updatePlayerBattlePos,
         writeBattlePosition, listenBattlePositions,

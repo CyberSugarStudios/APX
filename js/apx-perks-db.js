@@ -331,19 +331,19 @@
             { id: "gen_tough", name: "Tough", attr: "GEN", max: 20, baseCost: 10, baseDesc: "Max Rest Dice +1 per rank.", ranks: ["+1 Die", "+2 Dice", "+3 Dice", "+4 Dice", "+5 Dice"], effect: (c, r) => { c.maxRestDice += r; } },
 
             // POWER PERKS
-            { id: "pwr_int", name: "Intelligence Powers", attr: "PWR", max: 5, baseDesc: "Use INT for powers.", ranks: [
+            { id: "pwr_int", name: "Full Rest Powers", attr: "PWR", max: 5, baseDesc: "Full Rest power users draw on deep reservoirs of energy, massive physical exertion, or complex preparations. You regain your Power Slots after a Full Rest. The highest Level of Power you can use equals your Rank. Each Power uses the Core Attribute you chose for it when you crafted it.", ranks: [
                 "Rank 1. Gain 3x Level 1 Slots.",
                 "Rank 2. Gain 2x Level 2 Slots.",
                 "Rank 3. Gain 2x Level 3 Slots.",
                 "Rank 4. Gain 1x Level 4 Slot.",
                 "Rank 5. Gain 1x Level 5 Slot."
             ], effect: (c, r) => { c.hasIntPwr=r; } },
-            { id: "pwr_cha", name: "Charisma Powers", attr: "PWR", max: 5, baseDesc: "Charisma based power users made deals with devils, were experimented on by aliens, or blessed by the gods. They are empowered by chance or negotiation. The number of Powers you can use per Short Rest is equal to your highest Rank in this perk. Each time you purchase a new Rank of this perk, you can create one free Power at that newly unlocked Level. When purchasing Rank 2 or higher, you also gain a free Power upgrade. You may select one of your existing Powers from the previous Level and upgrade it to your new Level for free.", ranks: [
+            { id: "pwr_cha", name: "Short Rest Powers", attr: "PWR", max: 5, baseDesc: "Short Rest power users rely on quickly replenishing stamina, innate biological functions, or rapidly cooling tech. The number of Powers you can use per Short Rest is equal to your highest Rank in this perk. Each time you purchase a new Rank, you can create one free Power at that newly unlocked Level. From Rank 2, you also gain a free upgrade: one of your Powers from the previous Level becomes the new Level for free (you keep the lower-level Power too). Each Power uses the Core Attribute you chose for it when you crafted it.", ranks: [
                 "Rank 1. Unlock Level 1 Powers. Create one free Level 1 Power.",
                 "Rank 2. Unlock Level 2 Powers. Create one free Level 2 Power, and upgrade one existing Level 1 Power to Level 2 for free.",
                 "Rank 3. Unlock Level 3 Powers. Create one free Level 3 Power, and upgrade one existing Level 2 Power to Level 3 for free.",
                 "Rank 4. Unlock Level 4 Powers. Create one free Level 4 Power, and upgrade one existing Level 3 Power to Level 4 for free.",
-                "Rank 5. Unlock Level 5 Powers. Create one free Level 5 Power, and upgrade one existing Level 4 Power to Level 5 for free."
+                "Rank 5. Unlock Level 5 Powers. Create one free Level 5 Power, and upgrade one existing Level 4 Power to Level 5 for free. Level 1 Powers no longer use your Power Slots."
             ], effect: (c, r) => { c.hasChaPwr=r; } }
         ];
 

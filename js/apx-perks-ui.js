@@ -447,7 +447,7 @@
                 if(container) container.scrollTop = scrollPos;
 
                 if (isNewFreePowerRank && typeof window.openPowerCrafter === 'function') {
-                    window.state.powerAttr = 'INT';
+                    window.state.powerPoolDefault = 'full';   // the free power is a Full Rest Power (you can change it in the crafter)
                     window.state.freePowersOwed = (window.state.freePowersOwed || 0) + 1;
                     window.recalculateMath();
                     window.showConfirm(`You unlocked a new Power rank! You have ${window.state.freePowersOwed} free Power${window.state.freePowersOwed > 1 ? 's' : ''} banked. Open the Power Crafter now?`, () => {
@@ -462,11 +462,11 @@
                 // Level, not a flat counter, since the free power/upgrade
                 // has to land on a specific Level to match the rank.
                 if (isNewChaRank !== null && typeof window.openPowerCrafter === 'function') {
-                    window.state.powerAttr = 'CHA';
+                    window.state.powerPoolDefault = 'short';
                     window.state.chaFreePowerLevels.push(isNewChaRank);
                     if (isNewChaRank >= 2) window.state.chaFreeUpgrades.push({ fromLevel: isNewChaRank - 1, toLevel: isNewChaRank });
                     window.recalculateMath();
-                    window.showConfirm(`You unlocked Charisma Powers Rank ${isNewChaRank}! You have a free Level ${isNewChaRank} Power to create${isNewChaRank >= 2 ? `, plus a free upgrade of a Level ${isNewChaRank - 1} Power to Level ${isNewChaRank}` : ''}. Open the Power Crafter now?`, () => {
+                    window.showConfirm(`You unlocked Short Rest Powers Rank ${isNewChaRank}! You have a free Level ${isNewChaRank} Power to create${isNewChaRank >= 2 ? `, plus a free upgrade of a Level ${isNewChaRank - 1} Power to Level ${isNewChaRank}` : ''}. Open the Power Crafter now?`, () => {
                         window.closeModal('perkModal');
                         window.openPowerCrafter(true);
                     });
@@ -499,7 +499,7 @@
             document.getElementById('modalXpDisp').innerText = unspent;
 
             let attr = document.getElementById('xpAttrSelect').value;
-            let totalSc = window.state.baseStats[attr] + (window.state.ancestry.bonuses[attr] || 0);
+            let totalSc = window.apxAttrScore(window.state, attr);
             document.getElementById('xpAttrCurrent').innerText = totalSc;
             let attrCost = 0;
             if(totalSc <= 5) attrCost = 5 * totalSc;
@@ -585,7 +585,7 @@
                 }
             } else if(type === 'attr') {
                 let attr = document.getElementById('xpAttrSelect').value;
-                let totalSc = window.state.baseStats[attr] + (window.state.ancestry.bonuses[attr] || 0);
+                let totalSc = window.apxAttrScore(window.state, attr);
                 let cost = 0;
                 if(totalSc <= 5) cost = 5 * totalSc;
                 else if(totalSc <= 10) cost = 10 * totalSc;
@@ -596,7 +596,9 @@
                     if(spentEl) spentEl.value = spent + cost;
                     window.updateState('unspentXp', unspent - cost);
                     window.updateState('spentXp', spent + cost);
-                    window.state.baseStats[attr] += 1;
+                    // Bought with XP: kept apart from the creation base (so "Point Buy: 7 of 7" stays true)
+                    window.state.attrAdj = window.state.attrAdj || {};
+                    window.state.attrAdj[attr] = (window.state.attrAdj[attr] || 0) + 1;
                     window.apxLogXpSpend?.(cost, `${attr} ${totalSc} → ${totalSc + 1}`);
                 }
             } else if(type === 'skill') {

@@ -98,10 +98,40 @@ function pcMythic(draft) {
 }
 function pcStepSkipped(n, draft) { let m = pcMythic(draft || pcDraft); return !!(m && (m.skip || []).includes(n)); }
 
+// The highest Level of Power you can use and craft: the higher of Full Rest / Short Rest Powers
 function pcMaxUnlockedLevel() {
-    let attr = window.state.powerAttr;
-    return attr === 'INT' ? (window.state.perks['pwr_int'] || 0) : (window.state.perks['pwr_cha'] || 0);
+    return window.apxPowerMaxLevel ? window.apxPowerMaxLevel() : Math.max(window.state.perks['pwr_int'] || 0, window.state.perks['pwr_cha'] || 0);
 }
+// A new player power starts on the attribute shown in the Powers header and the power user type you have
+function pcDefaultAttr() { let a = window.state && window.state.powerAttr; return ATTRIBUTES.includes(a) ? a : 'INT'; }
+function pcDefaultPool() {
+    let st = window.state || {}, perks = st.perks || {};
+    if (st.powerPoolDefault === 'short' && perks.pwr_cha > 0) return 'short';
+    if (st.powerPoolDefault === 'full' && perks.pwr_int > 0) return 'full';
+    return perks.pwr_int > 0 ? 'full' : perks.pwr_cha > 0 ? 'short' : 'full';
+}
+// Core Attribute (and, with both perks, Full or Short Rest) for a player's power, under its name
+function pcRenderPlayerAttr() {
+    let row = document.getElementById('pcPlayerAttrRow'); if (!row) return;
+    let show = pcTarget === 'player' || pcTarget === 'item';
+    row.classList.toggle('hidden', !show);
+    if (!show) return;
+    if (!ATTRIBUTES.includes(pcDraft.coreAttr)) pcDraft.coreAttr = pcDefaultAttr();
+    if (pcTarget === 'player' && pcDraft.pool !== 'full' && pcDraft.pool !== 'short') pcDraft.pool = pcDefaultPool();
+    let perks = (window.state && window.state.perks) || {};
+    let mods = (typeof calc !== 'undefined' && calc && calc.mods) || {};
+    let both = perks.pwr_int > 0 && perks.pwr_cha > 0;
+    let lbl = 'block text-[10px] text-slate-400 uppercase tracking-wider mb-1';
+    row.innerHTML = `<div><label class="${lbl}" title="This power's Attack Bonus and Save DC use this attribute's modifier">Core Attribute</label>
+            <select onchange="window.pcSetCoreAttr(this.value)" class="bg-slate-900 border-purple-900/50 text-purple-200 font-bold text-xs w-full">${ATTRIBUTES.map(a => `<option value="${a}" ${pcDraft.coreAttr === a ? 'selected' : ''}>${a}${pcTarget === 'player' && mods[a] !== undefined ? ` (${mods[a] >= 0 ? '+' : ''}${mods[a]})` : ''}</option>`).join('')}</select></div>`
+        + (pcTarget === 'player' ? `<div><label class="${lbl}" title="Which of your power user perks this power runs on">Power type</label>
+            ${both ? `<select onchange="window.pcSetPool(this.value)" class="bg-slate-900 border-purple-900/50 text-purple-200 font-bold text-xs w-full">
+                <option value="full" ${pcDraft.pool === 'full' ? 'selected' : ''}>Full Rest Power (Power Slots)</option>
+                <option value="short" ${pcDraft.pool === 'short' ? 'selected' : ''}>Short Rest Power (uses per Short Rest)</option></select>`
+            : `<div class="text-xs font-bold text-purple-200 py-1">${pcDraft.pool === 'short' ? 'Short Rest Power' : 'Full Rest Power'}</div>`}</div>` : '');
+}
+window.pcSetCoreAttr = function(a) { if (ATTRIBUTES.includes(a)) pcDraft.coreAttr = a; pcRenderSummary(); };
+window.pcSetPool = function(v) { pcDraft.pool = v === 'short' ? 'short' : 'full'; };
 
 // ------------------------------------------------------------------
 // XP calculation, matching the book's step-by-step math exactly.
@@ -282,7 +312,7 @@ window.openPowerCrafter = function(freeMode, target) {
     pcTarget = pcTargetOf(target);
     pcIsLairAction = false; // only ever true when explicitly set by openLairActionPowerCrafter, right after this call
     if (pcTarget === 'player' && pcMaxUnlockedLevel() < 1) {
-        window.showConfirm("You need at least Rank 1 of Intelligence Powers or Charisma Powers before you can craft a Power.", null, true);
+        window.showConfirm("You need at least Rank 1 of Full Rest Powers or Short Rest Powers before you can craft a Power.", null, true);
         return;
     }
     pcEditIndex = null;
@@ -291,6 +321,7 @@ window.openPowerCrafter = function(freeMode, target) {
     // to Int/Cha Powers rank-ups -- companions never have one.
     pcFreeMode = pcTarget === 'player' && !!freeMode && (window.state.freePowersOwed || 0) > 0;
     pcDraft = getBlankPowerDraft();
+    if (pcTarget === 'player' || pcTarget === 'item') { pcDraft.coreAttr = pcDefaultAttr(); if (pcTarget === 'player') pcDraft.pool = pcDefaultPool(); }
     pcChaFreeCredit = null; pcChaFreeCreditDeclined = false; // freshly derived by pcRenderFreeBanner() once the modal opens
     document.getElementById('pcName').value = '';
     pcOpenCommon();
@@ -306,7 +337,7 @@ window.openPowerEditor = function(idx, target) {
         return;
     }
     if (pcTarget === 'player' && pcMaxUnlockedLevel() < 1) {
-        window.showConfirm("You need at least Rank 1 of Intelligence Powers or Charisma Powers before you can use the Power Crafter.", null, true);
+        window.showConfirm("You need at least Rank 1 of Full Rest Powers or Short Rest Powers before you can use the Power Crafter.", null, true);
         return;
     }
     pcEditIndex = idx;
@@ -314,6 +345,11 @@ window.openPowerEditor = function(idx, target) {
     pcFreeMode = false; // only relevant to the "Save as New" path; "Save Changes" follows the power's own wasFree flag
     pcIsLairAction = !!power.isLairAction; // preserve whichever section this power already belongs to
     pcDraft = JSON.parse(JSON.stringify(power.draft));
+    // older powers: the attribute and power type they used before each power chose its own
+    if (pcTarget === 'player' || pcTarget === 'item') {
+        if (!ATTRIBUTES.includes(pcDraft.coreAttr)) pcDraft.coreAttr = power.attr || pcDefaultAttr();
+        if (pcTarget === 'player' && pcDraft.pool !== 'full' && pcDraft.pool !== 'short') pcDraft.pool = power.pool || (window.apxPowerPool ? window.apxPowerPool(power) : pcDefaultPool());
+    }
     pcChaFreeCredit = null; pcChaFreeCreditDeclined = false; // freshly derived by pcRenderFreeBanner() once the modal opens
     document.getElementById('pcName').value = power.name || '';
     pcOpenCommon();
@@ -356,7 +392,7 @@ function pcRenderFreeBanner() {
             banner.innerHTML = `
                 <label class="flex items-center justify-center gap-2 cursor-pointer">
                     <input type="checkbox" ${pcChaFreeCreditDeclined ? '' : 'checked'} onchange="window.pcToggleChaFreeCredit(this.checked)">
-                    Use your free Charisma Powers upgrade (Level ${power.lvl} -> ${computedLevel}) -- no XP will be spent.
+                    Use your free Short Rest Powers upgrade (Level ${power.lvl} -> ${computedLevel}) -- no XP will be spent.
                 </label>
             `;
             return;
@@ -381,7 +417,7 @@ function pcRenderFreeBanner() {
         banner.innerHTML = `
             <label class="flex items-center justify-center gap-2 cursor-pointer">
                 <input type="checkbox" ${pcChaFreeCreditDeclined ? '' : 'checked'} onchange="window.pcToggleChaFreeCredit(this.checked)">
-                Use your free Charisma Powers Level ${computedLevel} Power -- no XP will be spent.
+                Use your free Short Rest Powers Level ${computedLevel} Power -- no XP will be spent.
             </label>
         `;
         return;
@@ -511,6 +547,7 @@ window.pcSetFlavorText = function(val) { pcDraft.flavorText = val; };
 // Rendering
 // ------------------------------------------------------------------
 function pcRenderAll() {
+    pcRenderPlayerAttr();
     pcRenderStep1();
     pcRenderStep2();
     pcRenderStep3();
@@ -1025,9 +1062,12 @@ window.finishPowerCrafter = function() {
         getTargetPowers().push({
             name, lvl: t.level, ap: t.ap, atk: summary.atk, rng: summary.rng, dmg: summary.dmg, desc: finalDesc,
             draft: JSON.parse(JSON.stringify(pcDraft)), rulesRev: window.APX_POWER_RULES_REV || 1, tp, isLairAction: pcIsLairAction,
-            usageType: pcDraft.usageType, maxCharges: pcDraft.maxCharges, rechargeOn: pcDraft.rechargeOn
+            usageType: pcDraft.usageType, maxCharges: pcDraft.maxCharges, rechargeOn: pcDraft.rechargeOn,
+            attr: pcTarget === 'item' ? (pcDraft.coreAttr || undefined) : undefined
         });
         pcIsLairAction = false;
+        // A GM NPC's power is kept in the Library too, to give to other NPCs (or put on items)
+        if (pcTarget === 'gm' && window.apxLibAdd) { let made = getTargetPowers()[getTargetPowers().length - 1]; try { window.apxLibAdd('power', made, { quiet: true }); } catch (e) { } }
         window.closeModal('powerCrafterModal');
         pcAfterNpcSave();
         return;
@@ -1053,6 +1093,7 @@ window.finishPowerCrafter = function() {
 
     window.state.powers.push({
         name, lvl: t.level, ap: t.ap, atk: summary.atk, rng: summary.rng, dmg: summary.dmg, desc: finalDesc,
+        attr: pcDraft.coreAttr || pcDefaultAttr(), pool: pcDraft.pool || pcDefaultPool(),
         draft: JSON.parse(JSON.stringify(pcDraft)), rulesRev: window.APX_POWER_RULES_REV || 1, wasFree: useFree || useChaFree, paidXP
     });
 
@@ -1150,6 +1191,7 @@ window.savePowerChanges = function() {
     power.name = name;
     power.lvl = t.level; power.ap = t.ap;
     power.atk = summary.atk; power.rng = summary.rng; power.dmg = summary.dmg; power.desc = finalDesc;
+    power.attr = pcDraft.coreAttr || power.attr || pcDefaultAttr(); power.pool = pcDraft.pool || power.pool || pcDefaultPool();
     power.draft = JSON.parse(JSON.stringify(pcDraft));
     power.rulesRev = window.APX_POWER_RULES_REV || 1;
 
@@ -1200,6 +1242,7 @@ window.savePowerAsNew = function() {
 
     window.state.powers.push({
         name, lvl: t.level, ap: t.ap, atk: summary.atk, rng: summary.rng, dmg: summary.dmg, desc: finalDesc,
+        attr: pcDraft.coreAttr || pcDefaultAttr(), pool: pcDraft.pool || pcDefaultPool(),
         draft: JSON.parse(JSON.stringify(pcDraft)), rulesRev: window.APX_POWER_RULES_REV || 1, wasFree: useFree || useChaFreeUpgrade, paidXP
     });
 

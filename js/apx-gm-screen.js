@@ -43,13 +43,13 @@ function computeCharSummary(state) {
     let fragCount = state.ancestry.flaws.filter(x => x === 'f_frag').length;
     if (fragCount) calc.maxHpPenalty += 5 * fragCount;
 
-    ATTRIBUTES.forEach(a => { calc.scores[a] = state.baseStats[a] + (state.ancestry.bonuses[a] || 0); });
+    ATTRIBUTES.forEach(a => { calc.scores[a] = state.baseStats[a] + (state.ancestry.bonuses[a] || 0) + ((state.attrAdj || {})[a] || 0); });
 
     Object.keys(state.perks || {}).forEach(perkId => {
         let pDef = PERKS_DB.find(p => p.id === perkId);
         let rank = state.perks[perkId];
         let choices = (state.perkChoices || {})[perkId] || null;
-        if (pDef && pDef.effect) pDef.effect(calc, rank, choices);
+        if (pDef && pDef.effect && rank > 0) pDef.effect(calc, rank, choices);
     });
     (state.ancestryBonusPerks || []).forEach(bp => {
         let bpDef = PERKS_DB.find(p => p.id === bp.perkId);
@@ -1075,6 +1075,8 @@ window.renderGmLoot = function() {
         </div>`).join('') : '<div class="text-[10px] text-slate-500 mb-2">Nothing yet. When an enemy dies, its weapons, armor, shield and helmet appear here. Use Loot Maker to create your own.</div>';
     let cuTo = form.to === '__split' || partyIds.has(form.to) ? form.to : '';
     el.innerHTML = `
+        <label class="flex items-center gap-1.5 mb-1.5 text-[10px] text-slate-300 cursor-pointer" title="On: what you hand out isn't announced to the other players (the player who gets it still sees it). Off: everyone sees who got what.">
+            <input type="checkbox" ${window._gmLootSecret ? 'checked' : ''} onchange="window._gmLootSecret=this.checked" class="w-3 h-3"> Hide what I give from the other players</label>
         <div class="flex items-center justify-between mb-1">${head('Gear').replace('mb-1', 'mb-0')}
             <button onclick="window.openLootMaker({ kind: 'pool' })" class="text-[10px] px-2 py-0.5 rounded bg-indigo-700 hover:bg-indigo-600 text-white font-bold" title="Forge weapons and armor, pick gear or make custom items">+ Loot Maker</button></div>
         ${itemsHtml}
@@ -1142,7 +1144,7 @@ window.gmGiveLoot = function(id, btn, all) {
     if (!_gmSendGift(uid, { id: crypto.randomUUID(), item: g.gift, from: 'GM', at: Date.now() })) return;
     if (g.left > 0) { l.item.ct = g.left; window._gmLootSel[id] = uid; }
     else { list.splice(i, 1); delete window._gmLootSel[id]; }
-    if (typeof gmLog === 'function') gmLog({ text: `${_gmPartyName(uid)} received ${g.n > 1 ? g.n + '× ' : ''}${l.item.name}.`, kind: 'loot', force: true });
+    if (typeof gmLog === 'function') gmLog({ text: `${_gmPartyName(uid)} received ${g.n > 1 ? g.n + '× ' : ''}${l.item.name}.`, kind: 'loot', force: true, gmOnly: !!window._gmLootSecret });
     window.renderGmLoot();
     if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
 };
@@ -1164,10 +1166,10 @@ window._gmGiveCu = function(amt, to, where) {
         let ok = true;
         party.forEach((uid, k) => { let n = each + (k < extra ? 1 : 0); if (n > 0 && ok) ok = _gmSendGift(uid, { id: crypto.randomUUID(), cu: n, from: 'GM', at: Date.now() }); });
         if (!ok) return false;
-        if (typeof gmLog === 'function') gmLog({ text: `The party split ${amt} Cu${src}.`, kind: 'loot', force: true });
+        if (typeof gmLog === 'function') gmLog({ text: `The party split ${amt} Cu${src}.`, kind: 'loot', force: true, gmOnly: !!window._gmLootSecret });
     } else {
         if (!_gmSendGift(to, { id: crypto.randomUUID(), cu: amt, from: 'GM', at: Date.now() })) return false;
-        if (typeof gmLog === 'function') gmLog({ text: `${_gmPartyName(to)} found ${amt} Cu${src}.`, kind: 'loot', force: true });
+        if (typeof gmLog === 'function') gmLog({ text: `${_gmPartyName(to)} found ${amt} Cu${src}.`, kind: 'loot', force: true, gmOnly: !!window._gmLootSecret });
     }
     return true;
 };
@@ -1320,12 +1322,13 @@ function _gmLogHpChange(entry, before, after, wasAboveZero, rawDmg, hit, why) {
     // A player hurting an NPC doesn't reveal the amount (players could work out its DR/ER);
     // damage to players, and anything NPCs do, is shown in full.
     let hideAmt = entry.faction !== 'player' && cur && (cur.faction === 'player' || !!cur.companionOf);
+    let srcWhy = d > 0 && why ? why : null;   // damage with a named source (a fall, an aura…), not the active creature
     let text = d > 0
-        ? (cur && cur !== entry ? (hideAmt ? `${_gmPublicName(cur)} hit ${tgt}.` : `${_gmPublicName(cur)} dealt ${d} damage to ${tgt}.`) : `${tgt} took ${entry.faction !== 'player' ? 'damage' : d + ' damage'}.`)
+        ? (srcWhy ? `${tgt} took ${entry.faction !== 'player' ? 'damage' : d + ' damage'} (${srcWhy}).` : cur && cur !== entry ? (hideAmt ? `${_gmPublicName(cur)} hit ${tgt}.` : `${_gmPublicName(cur)} dealt ${d} damage to ${tgt}.`) : `${tgt} took ${entry.faction !== 'player' ? 'damage' : d + ' damage'}.`)
         : (entry.faction !== 'player' ? `${tgt} regained HP.` : `${tgt} regained ${-d} HP${why ? ` (${why})` : ''}.`);
     // The GM always sees real names and amounts (hidden tokens are marked as such)
     let gTgt = _gmGmName(entry);
-    let gmText = d > 0 ? `${cur && cur !== entry ? _gmGmName(cur) + ' dealt ' + d + ' damage to ' + gTgt : gTgt + ' took ' + d + ' damage'}.` : `${gTgt} regained ${-d} HP${why ? ` (${why})` : ''}.`;
+    let gmText = d > 0 ? `${srcWhy ? gTgt + ' took ' + d + ' damage (' + srcWhy + ')' : cur && cur !== entry ? _gmGmName(cur) + ' dealt ' + d + ' damage to ' + gTgt : gTgt + ' took ' + d + ' damage'}.` : `${gTgt} regained ${-d} HP${why ? ` (${why})` : ''}.`;
     if (gmText === text) gmText = null;
     if (d > 0 && wasAboveZero && entry.currentHp !== null && entry.currentHp <= 0) { text += ` ${tgt} is down!`; if (gmText) gmText += ` ${gTgt} is down!`; }
     gmLog({ text, gmText, kind: d > 0 ? 'dmg' : 'heal' });
@@ -1347,18 +1350,30 @@ function _gmRecordAttack(a) {
     if (!a || !a.attacker) return;
     let prev = window._gmLastAttack;
     if (prev && prev.id === a.id) { Object.assign(prev, a, { used: prev.used }); return; }   // a reroll of the same attack
-    window._gmLastAttack = Object.assign({ t: Date.now(), used: new Set() }, a);
+    window._gmLastAttack = Object.assign({ t: Date.now(), used: new Set(), turn: window.gmCombatStarted ? window.gmTurnNumber : null, round: window.gmCombatStarted ? window.gmRoundNumber : null }, a);
 }
-// Which creature in initiative a GM-side attack roll belongs to
-function _gmAttackerFor(o) {
+// Which creature in initiative a GM-side attack roll belongs to. When several creatures share a
+// stat block, the one taking its turn is the one attacking, whichever copy's window was used.
+function _gmAttackerFor(o, kind) {
     let init = window.gmInitiative || [], cur = init[window.gmCurrentTurnIdx];
     if (o.companion && o.compOwner) return init.find(x => x.companionOf === o.compOwner) || null;
-    if (o.initId) { let e = init.find(x => x.id === o.initId); if (e) return e; }
-    if (o.npcId) {
-        let list = init.filter(x => x.sourceNpcId === o.npcId && x.faction !== 'player');
-        return (cur && list.includes(cur)) ? cur : (list.length === 1 ? list[0] : list[0] || null);
+    let byId = o.initId ? init.find(x => x.id === o.initId) || null : null;
+    let npcId = o.npcId || (byId && byId.sourceNpcId) || null;
+    if ((kind || 'attack') === 'attack' && npcId && window.gmCombatStarted && cur && cur.faction !== 'player' && !cur.companionOf && cur.sourceNpcId === npcId) return cur;
+    if (byId) return byId;
+    if (npcId) {
+        let list = init.filter(x => x.sourceNpcId === npcId && x.faction !== 'player');
+        return (cur && list.includes(cur)) ? cur : (list[0] || null);
     }
     return cur || null;
+}
+window._gmAttackerFor = _gmAttackerFor;
+// An attack only counts as "what just hit" during the turn it was rolled (in combat), or for two
+// minutes outside combat. Older ones are never reused for later damage.
+function _gmAtkLive(a) {
+    if (!a) return false;
+    if (window.gmCombatStarted) return a.turn === window.gmTurnNumber && a.round === window.gmRoundNumber;
+    return Date.now() - (a.t || 0) < 120000;
 }
 window.apxOnAttackRoll = function(o, r) {
     if (!o || !_gmFightOn()) return;
@@ -1367,10 +1382,28 @@ window.apxOnAttackRoll = function(o, r) {
         dice: o.dice || '', critMult: o.critMult || 2, reroll12: false, critExtra: r.critExtra || 0, dmgType: o.dmgType || (o.hit && o.hit.dmgType) || '' });   // (NPC stat blocks don't use perks)
     // Players' sheets learn what just attacked (and its damage type), so they can reduce damage typed there
     if (e.faction !== 'player' && !e.companionOf) {
-        window._gmLastNpcAtk = { id: r.id, t: Date.now(), by: _gmPublicName(e), label: o.label || 'an attack', dmgType: o.dmgType || (o.hit && o.hit.dmgType) || '', props: (o.hit && o.hit.props) || [], tier: (o.hit && o.hit.tier) || 0, crit: !!r.crit };
+        window._gmLastNpcAtk = { id: r.id, t: Date.now(), turnNo: window.gmCombatStarted ? window.gmTurnNumber : null, round: window.gmCombatStarted ? window.gmRoundNumber : null, by: _gmPublicName(e), label: o.label || 'an attack', dmgType: o.dmgType || (o.hit && o.hit.dmgType) || '', props: (o.hit && o.hit.props) || [], tier: (o.hit && o.hit.tier) || 0, crit: !!r.crit };
         _gmPublishLogSoon();
     }
 };
+// A power used from a stat block that has no attack roll (a save power, or one that just deals
+// damage): it becomes "what just hit" for the damage the GM enters next, with its own damage type,
+// so a save-for-half power is never mistaken for an earlier weapon attack.
+window.apxOnNpcPowerUse = function(o, info) {
+    if (!o || !info) return null;
+    let e = _gmAttackerFor(o); if (!e) return null;
+    if (!_gmFightOn()) return e;
+    let id = info.id || ('pw' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5));
+    _gmRecordAttack({ id, attacker: e, label: info.label || o.label || 'a power', hit: { weapon: info.label || 'Power', props: [], dmgType: info.dmgType || '' }, crit: false, fumble: false, total: 0,
+        dice: info.dice || '', critMult: 2, reroll12: false, critExtra: 0, dmgType: info.dmgType || '', power: true, save: info.save || null });
+    if (e.faction !== 'player' && !e.companionOf) {
+        window._gmLastNpcAtk = { id, t: Date.now(), turnNo: window.gmCombatStarted ? window.gmTurnNumber : null, round: window.gmCombatStarted ? window.gmRoundNumber : null, by: _gmPublicName(e), label: info.label || 'a power', dmgType: info.dmgType || '', props: [], tier: 0, crit: false, save: info.save || null };
+        _gmPublishLogSoon();
+    }
+    return e;
+};
+window._gmPublicName = function(e) { return _gmPublicName(e); };
+window._gmGmName = function(e) { return _gmGmName(e); };
 // No attack roll to match (dice rolled at the table): a typed "-N" (even -0) is still a hit,
 // by whoever is taking their turn
 function _gmTurnHit(target) {
@@ -1382,13 +1415,13 @@ function _gmTurnHit(target) {
 // The attack that would hit `target` right now (not used up): for its damage type
 function _gmPeekHit(target) {
     let a = window._gmLastAttack;
-    if (!a || !_gmFightOn() || Date.now() - a.t > 600000) return null;
+    if (!a || !_gmFightOn() || !_gmAtkLive(a)) return null;
     if (a.attacker.id === target.id || a.used.has(target.id) || a.fumble) return null;
     return a;
 }
 function _gmTakeHit(target) {
     let a = window._gmLastAttack;
-    if (!a || !_gmFightOn() || Date.now() - a.t > 600000) return null;
+    if (!a || !_gmFightOn() || !_gmAtkLive(a)) return null;
     let atk = (window.gmInitiative || []).find(x => x.id === a.attacker.id) || a.attacker;
     if (!atk || atk.id === target.id || a.used.has(target.id) || a.fumble) return null;
     a.used.add(target.id);
@@ -1448,9 +1481,10 @@ function _gmHitExtraDamage(target, hit) {
         hit._crushedProne = true;
     }
     // Torso Wound: every time they take damage, they take one more die of it (the largest die the attack rolled)
-    if (target.faction === 'player') {
-        let pm = (window.gmParty || []).find(p => p.fileName === target.playerUid);
-        if ((pm?.state?.woundedLimbs || []).includes('Torso')) {
+    {
+        let pm = target.faction === 'player' ? (window.gmParty || []).find(p => p.fileName === target.playerUid) : null;
+        let torso = target.faction === 'player' ? (pm?.state?.woundedLimbs || []).includes('Torso') : (target.wounds || []).includes('Torso');
+        if (torso) {
             let sides = 0;
             String(hit.dice || (hit.hit && hit.hit.die) || '').replace(/(\d*)d(\d+)/gi, (m, n, s) => { sides = Math.max(sides, parseInt(s, 10)); return m; });
             if (sides) {
@@ -1476,6 +1510,15 @@ function _gmHitEffects(target, hit, extras) {
         _gmAskSave(target, { attr: 'CON', dc: 10 + (h.elec ? Math.max(str, int) : str), cond: 'stunned', why: 'Stunning', byId: a && a.id, turn: window.gmTurnNumber, failInf: `be Stunned until the end of ${_gmPublicName(a)}'s next turn`, fail: `is Stunned until the end of ${_gmPublicName(a)}'s next turn` });
     if (props.includes('grappling'))
         gmLog({ text: `${_gmPublicName(target)} is grappled by ${_gmPublicName(a)}'s ${h.weapon || 'weapon'} (Grappling).`, kind: 'info' });
+    // Ammo: Medium slows (crit: Staggered until the end of its next turn); Heavy can push 2 squares (crit: Prone)
+    if (h.ammo === 'medium') {
+        gmLog({ text: `${_gmPublicName(target)}'s Speed is 1 lower until the end of its next turn (Medium Ammo).`, kind: 'info' });
+        if (hit.crit) { _gmAddCondition(target, 'staggered'); _gmSetCondTimer(target, { cond: 'staggered', byId: target.id, turn: window.gmTurnNumber });
+            gmLog({ text: `Critical Hit: ${_gmPublicName(target)} is Staggered until the end of its next turn (Medium Ammo).`, kind: 'info' }); }
+    } else if (h.ammo === 'heavy') {
+        gmLog({ text: `${_gmPublicName(a)} can push ${_gmPublicName(target)} up to 2 squares away (Heavy Ammo).${hit.crit ? ` Critical Hit: ${_gmPublicName(target)} is knocked Prone.` : ''}`, kind: 'info' });
+        if (hit.crit) _gmAddCondition(target, 'prone');
+    }
     if (props.includes('flurry')) {
         window._gmFlurry[a.id] = { weapon: h.weapon, targetId: target.id, targetName: _gmPublicName(target), turn: window.gmTurnNumber };
         gmLog({ text: `Flurry: ${_gmPublicName(a)}'s next attacks on ${_gmPublicName(target)} with ${h.weapon || 'that weapon'} cost 1 less AP this turn.`, gmOnly: a.faction !== 'player', kind: 'info' });
@@ -1550,19 +1593,22 @@ function _gmIsStunned(e) {
 // (Paralyzed STR/AGI…), and a warning before an Incapacitated creature attacks
 window.apxRollConditions = function(o, kind) {
     let init = window.gmInitiative || []; if (!init.length || !o) return null;
-    let e = null, cur = init[window.gmCurrentTurnIdx];
-    if (o.companion && o.compOwner) e = init.find(x => x.companionOf === o.compOwner) || null;
-    else if (o.initId) e = init.find(x => x.id === o.initId) || null;
-    if (!e && o.npcId) { let list = init.filter(x => x.sourceNpcId === o.npcId && x.faction !== 'player'); e = list.includes(cur) ? cur : (list.length === 1 ? list[0] : null); }
+    let e = _gmAttackerFor(o, kind);
     if (!e || e.faction === 'player') return null;
-    let conds = _gmEffConds(e); if (!conds.length) return null;
-    return window.apxConditionRollMods ? window.apxConditionRollMods(conds, kind, o.attr, !!o.ranged) : null;
+    let conds = _gmEffConds(e), wdis = _gmWoundRollMods(e, kind, o.attr);
+    if (!conds.length && !wdis.length) return null;
+    let m = conds.length && window.apxConditionRollMods ? window.apxConditionRollMods(conds, kind, o.attr, !!o.ranged) : null;
+    m = m || { dis: [], adv: [], autoFail: [] };
+    if (wdis.length) m.dis = (m.dis || []).concat(wdis);
+    return m;
 };
 // NPC saves from the GM's dice tray button (the log message asks for them)
 window.apxLogAsk = function(ask) { return !!(ask && ask.gm && (window.gmInitiative || []).some(e => e.id === ask.entryId)); };
 window.apxRollFromAsk = function(ask, choice) {
     let e = (window.gmInitiative || []).find(x => x.id === ask.entryId); if (!e || !window.APXDice) return;
     if (ask.kind === 'limb') { if (choice) _gmApplyWound(e, choice, ask.logId); return; }
+    if (ask.kind === 'npclimb') { if (choice) _gmApplyNpcWound(e, choice, ask.logId); return; }
+    if (ask.kind === 'npcwound') { _gmNpcWoundSave(e, ask); return; }
     let sb = e.sourceNpcId && typeof ncStatBlockFor === 'function' ? ncStatBlockFor(e.sourceNpcId) : null;
     let bonus = sb ? ((sb.saves || {})[ask.attr] ?? (sb.mods ? (sb.mods[ask.attr] || 0) : 0)) : 0;   // trained saves add the Training Bonus
     let item = { attr: ask.attr, dc: ask.dc, cond: ask.cond, fail: ask.fail, byId: ask.byId || null, turn: ask.turn || null };
@@ -1756,7 +1802,18 @@ function _gmHandleRollEvent(uid, ev) {
         window.renderGmLoot && window.renderGmLoot();
         return;
     }
-    if (!_gmFightOn()) return;
+    let entry0 = (window.gmInitiative || []).find(e => e.playerUid === uid && e.faction === 'player');
+    if (entry0 && ev.kind === 'check' && _gmFallFromRoll(entry0, ev)) return;
+    // Checks and saves show for the GM whenever a player in this world rolls one (not only in combat)
+    if (!_gmFightOn()) {
+        if ((ev.kind === 'check' || ev.kind === 'save') && (ev.t || 0) > Date.now() - 300000) {
+            let pname = ((window.gmParty || []).find(p => p.fileName === uid)?.summary?.name) || ev.who || 'A player';
+            let mode0 = ev.mode === 'adv' ? ', Advantage' : ev.mode === 'dis' ? ', Disadvantage' : '';
+            gmLog({ id: 'ev_' + ev.id, gmOnly: true, force: true, kind: 'roll',
+                text: `${pname} rolled ${ev.label || 'a d20'}: ${ev.total} (d20 ${ev.nat}${ev.bonus ? (ev.bonus > 0 ? ' +' : ' −') + Math.abs(ev.bonus) : ''}${mode0})${ev.luck ? ' · Luck reroll' : ''}${ev.omen ? ' · Omen' : ''}${ev.autoFail ? ' · auto-fail' : ''}` });
+        }
+        return;
+    }
     let entry = (window.gmInitiative || []).find(e => e.playerUid === uid);
     if (ev.kind === 'react') { if (entry && firstSeen) _gmDefensiveReact(entry, ev.hitId, ev.via); return; }
     if (ev.kind === 'damage') { if (firstSeen) _gmSheetDamageEvent(uid, ev); return; }
@@ -1773,6 +1830,10 @@ function _gmHandleRollEvent(uid, ev) {
     // A power used from a player's sheet (and whether its targets must save)
     if (ev.kind === 'power') {
         if (firstSeen && ev.text) gmLog({ id: 'pw_' + ev.id, text: ev.text, kind: 'info' });
+        // A save / damage power (no attack roll): the next damage entered is this power, with its type
+        let pwEntry = ev.companion ? (window.gmInitiative || []).find(e => e.companionOf === uid) : entry;
+        if (firstSeen && pwEntry && !ev.attackRoll && (ev.dmgType || ev.save)) _gmRecordAttack({ id: ev.id, attacker: pwEntry, label: ev.label || 'a power', hit: { weapon: ev.label || 'Power', props: [], dmgType: ev.dmgType || '' },
+            crit: false, fumble: false, total: 0, dice: ev.dice || '', critMult: 2, reroll12: false, dmgType: ev.dmgType || '', power: true, save: ev.save || null });
         return;
     }
     // Burning ticked at the start of their turn: say why they lost HP (instead of a plain damage line)
@@ -1915,6 +1976,231 @@ function _gmCheckWoundThreshold(entry, dmg, hitId) {
         ask: entry.playerUid ? { uid: entry.playerUid, roll: 'save', dc } : null });
 }
 window._gmCheckWoundThreshold = _gmCheckWoundThreshold;
+
+// ── NPC Wound Threshold and Wounds ─────────────────────────────────────────
+// NPCs have a Wound Threshold too (double their CON score, plus worn items). A single hit past it
+// calls for a CON save (DC 10 or half the damage, whichever is higher); on a failure the GM picks
+// the limb, and the Wound is tracked on the creature's tracker card (each copy separately).
+function _gmNpcSb(entry) {
+    try { return entry && entry.sourceNpcId && typeof ncStatBlockFor === 'function' && (window.gmNpcs || []).some(n => n.id === entry.sourceNpcId) ? ncStatBlockFor(entry.sourceNpcId) : null; } catch (e) { return null; }
+}
+function _gmNpcWt(entry) {
+    let sb = _gmNpcSb(entry);
+    return sb && sb.woundThreshold ? sb.woundThreshold : null;
+}
+window._gmNpcWt = _gmNpcWt;
+function _gmNpcWoundCheck(entry, dmg, hit) {
+    if (!entry || !(dmg > 0) || entry.currentHp === null || entry.currentHp <= 0) return;
+    let wt = _gmNpcWt(entry); if (wt == null || dmg <= wt) return;
+    let dc = Math.max(10, Math.floor(dmg / 2));
+    let sb = _gmNpcSb(entry), traits = (sb && sb.traitList || []).map(t => t.key);
+    let notes = [];
+    if (traits.includes('multiheaded')) notes.push('Multi-Headed: one of its heads is severed (two grow back at the start of its next turn unless it took Energy damage)');
+    if (traits.includes('swallowwhole')) notes.push('Swallow Whole: it regurgitates any creature it has swallowed');
+    let id = 'nwt_' + entry.id + '_' + Date.now().toString(36);
+    gmLog({ id, gmOnly: true, force: true, kind: 'wt',
+        text: `${_gmGmName(entry)} took ${dmg} damage, more than its Wound Threshold (${wt}): DC ${dc} CON save, or a limb is Wounded.${notes.length ? ' ' + notes.join('. ') + '.' : ''}`,
+        ask: { gm: true, entryId: entry.id, roll: 'save', kind: 'npcwound', attr: 'CON', dc, logId: id, label: `Roll ${_gmGmName(entry)}'s CON save (DC ${dc})` } });
+    if (notes.length) gmLog({ text: `${_gmPublicName(entry)} reels from the blow!`, kind: 'wt' });
+}
+window._gmNpcWoundCheck = _gmNpcWoundCheck;
+function _gmNpcLimbs(entry) {
+    let base = (typeof WOUND_LIMBS_BASE !== 'undefined' ? WOUND_LIMBS_BASE : ['Head', 'Torso', 'Left Arm', 'Right Arm', 'Left Leg', 'Right Leg']).slice();
+    (entry.wounds || []).forEach(l => { if (!base.includes(l)) base.push(l); });
+    return base;
+}
+// The NPC's CON save for a Wound (from the GM's dice tray button). Rerolls (Luck, Omen) re-judge it.
+function _gmNpcWoundSave(e, ask) {
+    let sb = _gmNpcSb(e);
+    let bonus = sb ? ((sb.saves || {}).CON ?? ((sb.mods || {}).CON || 0)) : 0;
+    let st = { limbLog: null };
+    APXDice.check({ kind: 'save', attr: 'CON', label: `CON Save (DC ${ask.dc}): Wound`, who: e.name, bonus, perks: false, initId: e.id,
+        onResult: r => {
+            let pass = !r.autoFail && r.total >= ask.dc;
+            if (pass) {
+                if (st.limbLog) {
+                    if (st.limb) _gmHealNpcWound(e, st.limb, true);
+                    gmLog({ id: st.limbLog, gmOnly: true, force: true, kind: 'wt', ask: null, text: `${_gmGmName(e)} succeeded on the reroll (${r.total} vs DC ${ask.dc}): no limb is Wounded.` });
+                }
+                gmLog({ id: ask.logId, gmOnly: true, force: true, kind: 'wt', ask: null, text: `${_gmGmName(e)} succeeds on the CON save (${r.total} vs DC ${ask.dc}): no Wound.` });
+                return `Success: no Wound`;
+            }
+            gmLog({ id: ask.logId, gmOnly: true, force: true, kind: 'wt', ask: null, text: `${_gmGmName(e)} fails the CON save (${r.total} vs DC ${ask.dc}): a limb is Wounded.` });
+            if (!st.limbLog) {
+                st.limbLog = 'nlimb_' + ask.logId;
+                let already = e.wounds || [];
+                gmLog({ id: st.limbLog, gmOnly: true, force: true, kind: 'wt',
+                    text: `Choose the limb ${_gmGmName(e)} Wounds (based on the attack)${already.length ? `. Already Wounded: ${already.join(', ')}` : ''}:`,
+                    ask: { gm: true, entryId: e.id, kind: 'npclimb', logId: st.limbLog, choices: _gmNpcLimbs(e).map(l => already.includes(l) ? l + ' (again)' : l) } });
+                window._gmNpcLimbState = window._gmNpcLimbState || {};
+                window._gmNpcLimbState[st.limbLog] = st;
+            }
+            return `Failed: a limb is Wounded`;
+        } });
+}
+function _gmApplyNpcWound(e, choice, logId) {
+    let limb = String(choice).replace(/ \(again\)$/, '');
+    let again = (e.wounds || []).includes(limb);
+    e.wounds = (e.wounds || []).filter(l => l !== limb).concat([limb]);
+    let st = (window._gmNpcLimbState || {})[logId]; if (st) st.limb = limb;
+    // Leg: Staggered; both legs: Prone
+    if (/Leg/.test(limb)) {
+        if (window._gmAddEntryCondition) window._gmAddEntryCondition(e.id, 'staggered');
+        if (e.wounds.filter(l => /Leg/.test(l)).length >= 2 && window._gmAddEntryCondition) window._gmAddEntryCondition(e.id, 'prone');
+    }
+    gmLog({ id: logId, gmOnly: true, force: true, kind: 'wt', ask: null, text: `${_gmGmName(e)}'s ${limb} is Wounded${again ? ' again (a lasting injury)' : ''}. ${_gmWoundEffect(limb)}` });
+    gmLog({ text: `${_gmPublicName(e)}'s ${limb} is Wounded.`, kind: 'wt' });
+    window.renderInitiativeTracker();
+    if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
+}
+function _gmHealNpcWound(e, limb, quiet) {
+    e.wounds = (e.wounds || []).filter(l => l !== limb);
+    if (/Leg/.test(limb) && !(e.wounds || []).some(l => /Leg/.test(l)) && window._gmRemoveEntryCondition) window._gmRemoveEntryCondition(e.id, 'staggered');
+    if (!quiet) gmLog({ gmOnly: true, force: true, kind: 'info', text: `${_gmGmName(e)}'s ${limb} is no longer Wounded.` });
+    window.renderInitiativeTracker();
+}
+window._gmHealNpcWound = function(entryId, limb) { let e = (window.gmInitiative || []).find(x => x.id === entryId); if (e) _gmHealNpcWound(e, limb); };
+function _gmWoundEffect(limb) {
+    let k = /Leg/.test(limb) ? 'Leg' : /Arm/.test(limb) ? 'Arm' : limb;
+    let d = (typeof WOUND_LIMB_EFFECTS !== 'undefined' && WOUND_LIMB_EFFECTS[k]) ? WOUND_LIMB_EFFECTS[k].desc : '';
+    return d.replace(/ \(Added automatically[^)]*\)/, '');
+}
+// Its Wounds change its rolls like a player's: Head (Disadvantage on attacks, saves, PER/INT checks), Arm (attacks)
+function _gmWoundRollMods(e, kind, attr) {
+    let w = e && e.wounds || [], dis = [];
+    if (!w.length) return dis;
+    if (w.includes('Head') && (kind === 'attack' || kind === 'save' || (kind === 'check' && (attr === 'PER' || attr === 'INT')))) dis.push('Head Wound');
+    if (kind === 'attack' && w.some(l => /Arm/.test(l))) dis.push('Arm Wound');
+    return dis;
+}
+
+// ── Fall damage ────────────────────────────────────────────────────────────
+// 1d10 for every square fallen after the first (Bludgeoning or Force). An AGI (Acrobatics) check
+// as a Reaction takes off 1d10 for every 5 rolled (a natural 20 takes off at least 4d10); no
+// Reaction, full damage. Soft Landing shortens the fall by 5 squares per rank, and Defensive
+// Rank 4 (unarmored) adds the CON score to DR/ER. Any damage from the fall knocks it Prone.
+window._gmFallPending = {};
+function _gmPerkCount(st, id) {
+    return ((st && st.perks || {})[id] || 0) + ((st && st.ancestryBonusPerks) || []).filter(b => b.perkId === id).length;
+}
+window.gmFallDamage = async function(entryId) {
+    let e = (window.gmInitiative || []).find(x => x.id === entryId); if (!e || !window.apxForm) return;
+    let pm = e.faction === 'player' ? (window.gmParty || []).find(p => p.fileName === e.playerUid) : null;
+    let st = pm && pm.state;
+    let soft = st ? _gmPerkCount(st, 'gen_softlanding') : 0;
+    let isPc = e.faction === 'player' && !!e.playerUid;
+    let f = await window.apxForm(`Fall damage: ${_gmGmName(e)}`, [
+        { key: 'sq', label: 'Squares fallen', type: 'number', value: 3, min: 1, hint: `1d10 for every square after the first.${soft ? ` Soft Landing ${soft}: the fall counts as ${soft * 5} squares shorter.` : ''}` },
+        { key: 'type', label: 'Damage type', type: 'select', value: 'Bludgeoning', options: [['Bludgeoning', 'Bludgeoning (Physical: DR)'], ['Force', 'Force (Energy: ER)']] },
+        { key: 'react', label: 'Reaction: AGI (Acrobatics)', type: 'select', value: 'roll', options: [['roll', isPc ? 'Ask the player to roll it' : 'Roll it now'], ['typed', 'I\'ll type the result below'], ['none', 'No Reaction: full damage']] },
+        { key: 'total', label: 'Acrobatics result (if typed)', type: 'number', value: '' },
+        { key: 'nat20', label: 'It was a natural 20', type: 'checkbox', value: false }
+    ], { okLabel: 'Fall', text: 'Every 5 on the Acrobatics check takes off 1d10. Any damage taken knocks it Prone.' });
+    if (!f) return;
+    let sq = Math.max(1, Math.floor(f.sq || 1));
+    let eff = Math.max(0, sq - soft * 5), n = Math.max(0, eff - 1);
+    let who = _gmPublicName(e);
+    if (n <= 0) {
+        gmLog({ text: `${who} falls ${sq} square${sq === 1 ? '' : 's'} and lands without harm${soft && sq > 1 ? ' (Soft Landing)' : ''}.`, kind: 'info', force: true });
+        return;
+    }
+    let pool = Array.from({ length: n }, () => window.APXDice ? APXDice.rnd(10) : 1 + Math.floor(Math.random() * 10));
+    // Defensive Rank 4, unarmored: + CON score to DR and ER against falling
+    let defAdd = null;
+    if (st) {
+        let d = st.derived || {}, defR = d.defensive != null ? d.defensive : ((st.perks || {}).con_defensive || 0);
+        let unarmored = typeof d.unarmored === 'boolean' ? d.unarmored : !((st.equippedArmor || {}).wt > 0);
+        let sum = null; try { sum = computeCharSummary(st); } catch (er) { }
+        let con = sum && sum.mods ? (sum.mods.CON || 0) + 5 : 5;
+        if (defR >= 4 && unarmored) defAdd = { dr: con, er: con, why: `Defensive R4 +${con}` };
+    }
+    let item = { id: 'fall_' + Date.now().toString(36), entryId: e.id, sq, eff, soft, n, pool, type: f.type || 'Bludgeoning', defAdd, applied: null };
+    gmLog({ id: item.id, text: `${who} falls ${sq} square${sq === 1 ? '' : 's'}${soft ? ` (Soft Landing: as ${eff})` : ''}: ${n}d10 ${item.type} damage${f.react === 'none' ? ', with no Reaction' : ''}.`, kind: 'dmg', force: true });
+    if (f.react === 'none') { _gmFallResolve(item, null); return; }
+    if (f.react === 'typed') { _gmFallResolve(item, { total: Number(f.total) || 0, nat: f.nat20 ? 20 : 0 }); return; }
+    if (isPc) {
+        item.known = new Set((window._gmPlayerRollLogs[e.playerUid] || []).map(x => x.id));
+        window._gmFallPending[e.id] = item;
+        gmLog({ id: item.id + '_ask', text: `${e.name} can use their Reaction to roll AGI (Acrobatics) and soften the fall: every 5 takes off 1d10.`, kind: 'wt', force: true,
+            ask: { uid: e.playerUid, roll: 'check', skill: 'Acrobatics', attr: 'AGI', label: 'Roll AGI (Acrobatics): soften the fall' } });
+        if (window.APXDice && APXDice.notify) APXDice.notify(`Waiting for ${e.name}'s Acrobatics roll. (No roll? Use Fall again with "No Reaction".)`, { kind: 'note' });
+        return;
+    }
+    // NPCs and companions roll it here: trained Acrobatics, or its AGI modifier
+    let sb = e.companionOf ? null : _gmNpcSb(e);
+    let tr = sb && (sb.trainedSkills || []).find(x => /^Acrobatics$/i.test(x.name));
+    let bonus = tr ? tr.total : (sb && sb.mods ? (sb.mods.AGI || 0) : 0);
+    if (!window.APXDice) { _gmFallResolve(item, null); return; }
+    APXDice.check({ kind: 'check', attr: 'AGI', skill: 'Acrobatics', label: 'AGI (Acrobatics) Reaction: fall', who: e.name, bonus, perks: false, initId: e.id,
+        note: sb ? null : 'No stat block: add its bonus yourself',
+        onResult: r => _gmFallResolve(item, { total: r.total, nat: r.nat, autoFail: r.autoFail }) });
+};
+// (re-run when a Luck reroll or Omen changes the Acrobatics roll: the HP difference is made up)
+function _gmFallResolve(item, roll) {
+    let e = (window.gmInitiative || []).find(x => x.id === item.entryId); if (!e) return '';
+    let off = 0;
+    if (roll && !roll.autoFail) { off = Math.floor(Math.max(0, roll.total || 0) / 5); if (roll.nat === 20) off = Math.max(off, 4); }
+    let k = Math.max(0, item.n - off);
+    let raw = item.pool.slice(0, k).reduce((t, v) => t + v, 0);
+    let rollTxt = roll ? `Acrobatics ${roll.total}${roll.nat === 20 ? ' (natural 20)' : ''}: −${Math.min(item.n, off)}d10` : 'no Reaction';
+    if (item.applied == null) {
+        let wasProne = _gmEffConds(e).includes('prone');
+        let res = k > 0 ? _gmDamage(e, { raw, types: [item.type], hit: null, src: `fall, ${k}d10 ${item.type}`, defAdd: item.defAdd }) : { dmg: 0 };
+        item.applied = res.dmg; item.k = k;
+        if (res.dmg > 0 && !wasProne && (window.gmInitiative || []).includes(e)) { _gmAddCondition(e, 'prone'); item.proned = true; }
+        gmLog({ id: item.id + '_res', text: `${_gmPublicName(e)}'s fall: ${rollTxt} → ${k}d10${k ? ` = ${raw}` : ''}. ${res.dmg > 0 ? `${e.faction === 'player' ? res.dmg + ' damage after DR/ER, and' : 'It takes damage and'} falls Prone.` : 'No damage.'}`, kind: 'dmg', force: true });
+        return `${k}d10 = ${raw}${res.dmg > 0 ? ' · Prone' : ''}`;
+    }
+    // A reroll changed it: take back or add the difference
+    let def = _gmDefenseOf(e); if (item.defAdd) { def.dr += item.defAdd.dr; def.er += item.defAdd.er; }
+    let now = k > 0 && window.APXDamage ? APXDamage.mitigate(raw, [item.type], def, { halfBypass: def.halfBypass }).dmg : raw;
+    let diff = now - item.applied;
+    if (diff) {
+        let wasUp = e.currentHp === null || e.currentHp > 0;
+        let r = window.apxApplyHpInput((diff > 0 ? '-' : '+') + Math.abs(diff), e.currentHp, e.tempHp, e.maxHp);
+        if (r) { e.currentHp = r.currentHp; e.tempHp = r.tempHp; }
+        item.applied = now;
+        if (now === 0 && item.proned) { if (e.faction === 'player') _gmSetPlayerCondition(e, 'prone', false); else if (window._gmRemoveEntryCondition) window._gmRemoveEntryCondition(e.id, 'prone'); item.proned = false; }
+        if (now > 0 && !item.proned && !_gmEffConds(e).includes('prone')) { _gmAddCondition(e, 'prone'); item.proned = true; }
+        _afterHpChange(e, wasUp);
+    }
+    gmLog({ id: item.id + '_res', text: `${_gmPublicName(e)}'s fall (rerolled): ${rollTxt} → ${k}d10${k ? ` = ${raw}` : ''}. ${now > 0 ? 'Takes damage and falls Prone.' : 'No damage.'}`, kind: 'dmg', force: true });
+    return `${k}d10 = ${raw}`;
+}
+// A player's Acrobatics roll answering a fall (from their roll log)
+function _gmFallFromRoll(entry, ev) {
+    let item = entry && window._gmFallPending[entry.id];
+    if (!item || ev.skill !== 'Acrobatics') return false;
+    if (!item.evId) { if (item.known && item.known.has(ev.id)) return false; item.evId = ev.id; }
+    else if (item.evId !== ev.id) return false;
+    _gmFallResolve(item, { total: ev.total, nat: ev.nat, autoFail: ev.autoFail });
+    gmLog({ id: item.id + '_ask', ask: null, kind: 'wt', force: true, text: `${entry.name} rolled AGI (Acrobatics) ${ev.total} to soften the fall.` });
+    return true;
+}
+
+// ── Damage Aura (NPC trait) ────────────────────────────────────────────────
+// A creature that ends its turn within 1 square of it takes Xd6 of its Energy type (X = its Tier,
+// min 1). Automatic only while combat is running, on a battle map in use (it needs both tokens).
+function _gmAuraTick(ending) {
+    if (!ending || !window.gmCombatStarted || typeof window._btFootprintOf !== 'function') return;
+    if (ending.currentHp !== null && ending.currentHp <= 0 && ending.faction !== 'player') return;
+    let fpE = window._btFootprintOf(ending.id); if (!fpE) return;
+    (window.gmInitiative || []).slice().forEach(src => {
+        if (src.id === ending.id || src.faction === 'player' || src.companionOf || !src.sourceNpcId) return;
+        if (src.currentHp !== null && src.currentHp <= 0) return;
+        if (!(window.gmInitiative || []).includes(ending)) return;
+        let sb = _gmNpcSb(src); if (!sb || !sb.aura) return;
+        let fpS = window._btFootprintOf(src.id); if (!fpS || fpS.mapId !== fpE.mapId) return;
+        let dx = Math.max(0, fpS.x0 - fpE.x1, fpE.x0 - fpS.x1), dy = Math.max(0, fpS.y0 - fpE.y1, fpE.y0 - fpS.y1);
+        if (Math.max(dx, dy) > (sb.aura.radius || 1)) return;
+        let type = sb.aura.type || 'Fire';
+        let card = window.APXDice ? APXDice.damage({ label: `Damage Aura (${type}) → ${ending.name}`, who: src.name, formula: sb.aura.dice, dmgType: type, perks: false }) : null;
+        let raw = card && card.parts && card.parts[0] ? card.parts[0].total : _gmRollDie(sb.aura.dice);
+        gmLog({ text: `${_gmPublicName(ending)} ends its turn in ${_gmPublicName(src)}'s ${type} aura.`, gmText: `${_gmGmName(ending)} ends its turn in ${_gmGmName(src)}'s Damage Aura: ${sb.aura.dice} ${type} = ${raw}.`, kind: 'dmg' });
+        _gmDamage(ending, { raw, types: [type], hit: null, src: `${_gmPublicName(src)}'s ${type} aura` });
+    });
+}
+window._gmAuraTick = _gmAuraTick;
 // ════════════════════════════════════════════════════════════════════════════
 // COMBAT CORE: damage
 // ════════════════════════════════════════════════════════════════════════════
@@ -2018,6 +2304,7 @@ function _gmDamage(entry, opts) {
     let extras = hit ? _gmHitExtraDamage(entry, hit) : [];
     let extraSum = extras.reduce((t, x) => t + x.n, 0);
     let def = _gmDefenseOf(entry);
+    if (opts.defAdd) { def.dr += opts.defAdd.dr || 0; def.er += opts.defAdd.er || 0; if (opts.defAdd.why) def.src = (def.src || 'tracker') + ', ' + opts.defAdd.why; }
     let incap = _gmEffConds(entry).includes('incapacitated');
     let mopt = { ignore: hit && hit.hit && window.APXDamage ? window.APXDamage.ignoreOf(hit.hit) : null, bypassRes: incap, halfBypass: def.halfBypass };
     let M = (raw) => window.APXDamage ? window.APXDamage.mitigate(raw, opts.types, def, mopt) : { dmg: raw, raw, reduced: 0, text: `${raw} damage` };
@@ -2039,13 +2326,14 @@ function _gmDamage(entry, opts) {
         if (r) { entry.currentHp = r.currentHp; entry.tempHp = r.tempHp; }
     }
     let after = (entry.currentHp || 0) + (entry.tempHp || 0);
-    let who = hit && hit.attacker ? `${_gmGmName(hit.attacker)}'s ${hit.label || 'attack'}` : 'damage';
+    let who = hit && hit.attacker ? `${_gmGmName(hit.attacker)}'s ${hit.label || 'attack'}` : (opts.src || 'damage');
     let math = `${opts.raw}${extraSum ? ' + ' + extraSum + ' (' + extras.map(x => x.why).join(', ') + ')' : ''} → ${res.text}${incap ? ' · Incapacitated: resistances bypassed' : ''}`;
     entry.lastHit = { text: `${who}: ${math}`, dmg, t: Date.now() };
     gmLog({ gmOnly: true, kind: 'info', force: true, text: `${_gmGmName(entry)} ← ${who}: ${math}. (${_gmDefText(def)}, from ${def.src || 'tracker'})` });
-    _gmLogHpChange(entry, before, after, wasAboveZero, dmg, hit);
+    _gmLogHpChange(entry, before, after, wasAboveZero, dmg, hit, hit ? null : opts.src);
     let defId = hit ? _gmOfferDefensive(entry, hit, dmg, extras) : null;   // a Reaction to a Critical Hit, before the saves
     _gmCheckWoundThreshold(entry, dmg, defId);                            // Wound Threshold, then the hit's own saves, then Bleed Out
+    if (entry.faction !== 'player' && !entry.companionOf) _gmNpcWoundCheck(entry, dmg, hit);   // NPCs have a Wound Threshold too
     if (hit) _gmHitEffects(entry, hit, extras);
     if (opts.sheet) {
         _syncHpToPlayer(entry);
@@ -2359,7 +2647,13 @@ window.startCombat = function() {
 
 window.nextInitiativeTurn = function() {
     if (!window.gmInitiative.length) return;
-    _gmExpireCondTimers(window.gmInitiative[window.gmCurrentTurnIdx]);
+    // Damage Aura: the creature ending its turn next to one takes its damage (it may not survive it)
+    let endIdx = window.gmCurrentTurnIdx, ending = window.gmInitiative[endIdx];
+    if (window.gmCombatStarted && ending) { try { _gmAuraTick(ending); } catch (e) { console.warn('Damage Aura:', e); } }
+    if (ending && !window.gmInitiative.includes(ending)) {
+        if (!window.gmInitiative.length) { window.renderInitiativeTracker(); return; }
+        window.gmCurrentTurnIdx = endIdx - 1;   // it was removed: the turn goes to whoever came after it
+    } else _gmExpireCondTimers(ending);
     window.gmCurrentTurnIdx++;
     if (window.gmCurrentTurnIdx >= window.gmInitiative.length) {
         window.gmCurrentTurnIdx = 0;
@@ -2397,13 +2691,45 @@ window.prevInitiativeTurn = function() {
 // Usage lives on the initiative entry itself, not the NPC's saved data,
 // so multiple copies of the same monster track independently and closing
 // the tracker never burns a charge off the NPC's master sheet.
+// Caster (Power) Slots of an NPC in the tracker, used up per creature (each copy has its own)
+function _gmCasterSlotsHtml(e, sb) {
+    let cs = (sb && sb.casterSlots) || {};
+    let levels = [1, 2, 3, 4, 5].filter(L => (parseInt(cs[L]) || 0) > 0);
+    if (!levels.length) return '';
+    e.slotUsed = e.slotUsed || {};
+    return `<div class="flex items-center gap-2 text-[9px] text-slate-400 flex-wrap"><span class="font-bold">Power Slots</span>${levels.map(L => {
+        let max = parseInt(cs[L]) || 0, used = Math.min(max, e.slotUsed[L] || 0);
+        return `<span class="flex items-center gap-0.5" title="Level ${L}: ${max - used} of ${max} left. Click a pip to use or restore one.">L${L}${Array.from({ length: max }, (_, i) => `<button onclick="window.gmToggleCasterSlot('${e.id}', ${L}, ${i})" style="width:8px;height:8px;border-radius:50%;padding:0;border:1px solid #a78bfa;background:${i < max - used ? '#8b5cf6' : 'transparent'};cursor:pointer"></button>`).join('')}</span>`;
+    }).join('')}</div>`;
+}
+window.gmToggleCasterSlot = function(entryId, L, i) {
+    let e = (window.gmInitiative || []).find(x => x.id === entryId); if (!e) return;
+    let sb = e.sourceNpcId ? ncStatBlockFor(e.sourceNpcId) : null; let max = parseInt(((sb && sb.casterSlots) || {})[L]) || 0;
+    e.slotUsed = e.slotUsed || {};
+    let avail = max - (e.slotUsed[L] || 0);
+    e.slotUsed[L] = i < avail ? Math.min(max, (e.slotUsed[L] || 0) + 1) : Math.max(0, max - (i + 1));
+    window.renderInitiativeTracker();
+    if (typeof window.refreshOpenStatBlocks === 'function') window.refreshOpenStatBlocks();
+};
+// Spends a Power Slot of this Level, or the lowest higher one left. Returns the Level used, or null.
+window.gmSpendCasterSlot = function(entryId, lvl) {
+    let e = (window.gmInitiative || []).find(x => x.id === entryId); if (!e) return null;
+    let sb = e.sourceNpcId ? ncStatBlockFor(e.sourceNpcId) : null; let cs = (sb && sb.casterSlots) || {};
+    e.slotUsed = e.slotUsed || {};
+    for (let L = Math.max(1, lvl || 1); L <= 5; L++) {
+        let max = parseInt(cs[L]) || 0;
+        if ((e.slotUsed[L] || 0) < max) { e.slotUsed[L] = (e.slotUsed[L] || 0) + 1; window.renderInitiativeTracker(); return L; }
+    }
+    return null;
+};
 function renderInitiativePowerBubbles(e) {
     let sb = ncStatBlockFor(e.sourceNpcId);
     if (!sb) return '';
+    let slotsHtml = _gmCasterSlotsHtml(e, sb);
     let limitedPowers = sb.powerCards.concat(sb.lairActionPowerCards).filter(p => p.usageType === 'charges' || p.usageType === 'recharge');
-    if (!limitedPowers.length) return '';
+    if (!limitedPowers.length) return slotsHtml;
     if (!e.powerUsage) e.powerUsage = {};
-    return limitedPowers.map(p => {
+    return slotsHtml + limitedPowers.map(p => {
         let used = e.powerUsage[p.name] || 0;
         if (p.usageType === 'charges') {
             let max = p.maxCharges || 1;
@@ -2560,6 +2886,47 @@ window.gmClickApPip = function(id, i) {
     window.renderInitiativeTracker();
 };
 
+// Conditions on a player from the tracker (any time, like an NPC's): their sheet picks it up
+window._gmTogglePlayerCond = function(entryId, condId, on) {
+    let e = (window.gmInitiative || []).find(x => x.id === entryId); if (!e || !e.playerUid) return;
+    let pm = (window.gmParty || []).find(p => p.fileName === e.playerUid);
+    if (pm && pm.state) {   // show it at once; the player's sheet confirms it on its next save
+        let list = (pm.state.conditions || []).filter(c => c !== condId);
+        if (on) list.push(condId);
+        pm.state = Object.assign({}, pm.state, { conditions: list });
+    }
+    _gmSetPlayerCondition(e, condId, on);
+    gmLog({ text: `${e.name} ${on ? 'is now' : 'is no longer'} ${window._gmCondName ? window._gmCondName(condId) : condId}.`, kind: 'info', force: true });
+    window.renderInitiativeTracker();
+    if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
+};
+window._gmPlayerCondPicker = function(entryId, ev) {
+    let e = (window.gmInitiative || []).find(x => x.id === entryId); if (!e || typeof window._apxCondPicker !== 'function') return;
+    let r = ev?.target?.getBoundingClientRect?.() || { left: 200, bottom: 200 };
+    let pmOf = () => (window.gmParty || []).find(p => p.fileName === e.playerUid);
+    window._apxCondPicker(r.left, r.bottom + 4, () => (pmOf()?.state?.conditions || []).slice(), (id, on) => window._gmTogglePlayerCond(entryId, id, on), 'Conditions: ' + (e.name || ''));
+};
+// A player's Power Slots (live from their sheet) and powers, for the GM's stat block window
+window._gmPlayerPowersHtml = function(st, hdr) {
+    if (!st) return '';
+    let perks = st.perks || {}, used = st.usedPowerSlots || {};
+    let fx = {}; try { fx = (window.apxItemEffects ? window.apxItemEffects(st).stat : {}) || {}; } catch (e) { }
+    let pips = (max, u) => Array.from({ length: max }, (_, i) => `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:2px;border:1px solid #a78bfa;background:${i < max - u ? '#8b5cf6' : 'transparent'}"></span>`).join('');
+    let rows = [];
+    let ranks = st.pwrIntRanks || {};
+    let per = { 1: 3, 2: 2, 3: 2, 4: 1, 5: 1 };
+    for (let L = 1; L <= 5; L++) {
+        let max = Math.max(0, per[L] * (ranks[L] || 0) + (fx['slot_' + L] || 0));
+        if (max) { let u = Math.min(max, used[L] || 0); rows.push(`<div style="display:flex;align-items:center;gap:.4rem;font-size:.6rem;color:#cbd5e1"><span style="width:62px;color:#93c5fd;font-weight:800">Full L${L}</span>${pips(max, u)}<span style="color:#94a3b8">${max - u}/${max}</span></div>`); }
+    }
+    let cmax = Math.max(0, (perks.pwr_cha || 0) + (fx.slot_CHA || 0));
+    if (cmax) { let u = Math.min(cmax, used.CHA || 0); rows.push(`<div style="display:flex;align-items:center;gap:.4rem;font-size:.6rem;color:#cbd5e1"><span style="width:62px;color:#fcd34d;font-weight:800">Short Rest</span>${pips(cmax, u)}<span style="color:#94a3b8">${cmax - u}/${cmax}${(perks.pwr_cha || 0) >= 5 ? ' · L1 free' : ''}</span></div>`); }
+    let powers = (st.powers || []).map(p => `${String(p.name || 'Power').replace(/</g, '&lt;')} <span style="color:#64748b">(L${p.lvl}${window.apxPowerAttr ? ', ' + window.apxPowerAttr(p, st) : ''}${window.apxPowerPool ? ', ' + (window.apxPowerPool(p, st) === 'short' ? 'Short' : 'Full') : ''})</span>`);
+    if (!rows.length && !powers.length) return '';
+    return (hdr ? hdr('Powers') : '<div style="font-weight:900;font-size:.6rem">Powers</div>')
+        + (rows.length ? `<div style="display:flex;flex-direction:column;gap:2px;padding:.15rem 0">${rows.join('')}</div>` : '')
+        + (powers.length ? `<div style="font-size:0.6rem;color:#d8b4fe;padding:0.15rem 0;line-height:1.45">${powers.join(', ')}</div>` : '');
+};
 window.renderInitiativeTracker = function() {
     let body = document.getElementById('initiativeTrackerBody');
     if (!body) return;
@@ -2622,6 +2989,7 @@ window.renderInitiativeTracker = function() {
                     <span>${fs.label}</span>
                     ${e.ap !== undefined && e.ap !== null ? gmApPipsHtml(e) : ''}
                     ${(e.ac !== undefined && e.ac !== null) ? `<span>AC <b class="text-white">${e.ac}</b></span>` : ''}
+                    ${e.faction !== 'player' && !e.companionOf ? (() => { let wt = _gmNpcWt(e); return wt != null ? `<span title="Wound Threshold: a single hit of more damage than this (after DR/ER) calls for a CON save or a limb is Wounded">WT <b class="text-white">${wt}</b></span>` : ''; })() : ''}
                     ${(() => {
                         // The DR and ER damage is actually reduced by (live: stat block, the player's own sheet…)
                         let d = _gmDefenseOf(e), tip = `Damage typed as "-N" is reduced by these. ${_gmDefText(d)} (from ${d.src || 'tracker'})`.replace(/"/g, '&quot;');
@@ -2649,11 +3017,28 @@ window.renderInitiativeTracker = function() {
                         <button onclick="window._gmEntryCondPicker && window._gmEntryCondPicker('${e.id}', event)" class="text-[9px] font-bold text-orange-300 hover:text-orange-200">+ Condition</button>
                     </div>`;
                 })() : ''}
+                ${e.faction === 'player' && e.playerUid ? (() => {
+                    // Players' conditions: shown and changed here like an NPC's (synced to their sheet)
+                    let pm = (window.gmParty || []).find(p => p.fileName === e.playerUid);
+                    let conds = (pm?.state?.conditions || []).filter(c => c !== 'bleedingout' || e.bleedOutTurns != null);
+                    let nm = id => window._gmCondName ? window._gmCondName(id) : id;
+                    let eff = window.apxEffectiveConditions ? window.apxEffectiveConditions(conds) : conds.map(id => ({ id }));
+                    return `<div class="flex items-center gap-1 flex-wrap">
+                        ${eff.map(c => c.from
+                            ? `<span class="apx-cond-chip" style="border-style:dashed;opacity:.8" title="From ${nm(c.from)}">${nm(c.id)}</span>`
+                            : `<span class="apx-cond-chip" title="Click × to remove (their sheet updates)">${nm(c.id)}<button onclick="window._gmTogglePlayerCond('${e.id}','${c.id}',false)">&times;</button></span>`).join('')}
+                        <button onclick="window._gmPlayerCondPicker('${e.id}', event)" class="text-[9px] font-bold text-orange-300 hover:text-orange-200">+ Condition</button>
+                    </div>`;
+                })() : ''}
+                ${(e.wounds || []).length ? `<div class="flex items-center gap-1 flex-wrap">${e.wounds.map(l => `<span class="apx-cond-chip" style="border-color:#f87171;color:#fecaca" title="${String(_gmWoundEffect(l)).replace(/"/g, '&quot;')} Click × when it heals.">${l} Wound<button onclick="window._gmHealNpcWound('${e.id}','${l.replace(/'/g, '')}')">&times;</button></span>`).join('')}</div>` : ''}
                 ${e.sourceNpcId ? renderInitiativePowerBubbles(e) : ''}
                 ${isCurrent ? '<div class="text-[9px] text-amber-300 font-bold">Current Turn</div>' : ''}
-                <label class="flex items-center gap-1 text-[9px] text-slate-400">
-                    <input type="checkbox" ${e.surprised ? 'checked' : ''} onchange="window.toggleSurprised('${e.id}', this.checked)" title="-10 initiative, and gains only 1 AP at the start of its first turn"> Surprised (-10)
-                </label>
+                <div class="flex items-center gap-3">
+                    <label class="flex items-center gap-1 text-[9px] text-slate-400">
+                        <input type="checkbox" ${e.surprised ? 'checked' : ''} onchange="window.toggleSurprised('${e.id}', this.checked)" title="-10 initiative, and gains only 1 AP at the start of its first turn"> Surprised (-10)
+                    </label>
+                    ${e.maxHp !== null ? `<button onclick="window.gmFallDamage('${e.id}')" class="text-[9px] font-bold text-sky-300 hover:text-sky-200" title="Fall damage: 1d10 per square after the first, softened by an Acrobatics Reaction; any damage knocks it Prone">⤓ Fall</button>` : ''}
+                </div>
                 ${e.bleedOutTurns !== null && e.bleedOutTurns !== undefined ? `
                     <div class="mt-1 flex items-center gap-2 flex-wrap rounded border border-red-800/70 bg-red-950/40 px-2 py-1" title="Rounds until ${String(e.name || '').replace(/"/g, '&quot;')} bleeds out. It ticks down at the start of each of their turns.">
                         <span class="text-[10px] font-black uppercase tracking-wide text-red-300">Bleeding Out</span>

@@ -18,6 +18,12 @@
 // ============================================================
 (function () {
     'use strict';
+    // Ammo effects (Ch.8 Ammo Types), shown on ranged attacks
+    const AMMO_FX = {
+        light:  { name: 'Light Ammo', hit: 'once per turn, after spending AP to move, one attack with it costs 0 AP', crit: '', tip: 'Light Ammo: nimble rounds, easy to fire on the run.' },
+        medium: { name: 'Medium Ammo', hit: 'on a hit, the target\'s Speed is 1 lower until the end of its next turn', crit: 'the target is also Staggered', tip: 'Medium Ammo: heavier rounds that throw targets off balance.' },
+        heavy:  { name: 'Heavy Ammo', hit: 'on a hit, you can push the target up to 2 squares away; double damage to objects, structures and vehicles', crit: 'the target is also knocked Prone', tip: 'Heavy Ammo: massive rounds that physically move what they hit.' }
+    };
 
     // Critical hits multiply the NUMBER of damage dice rolled: 2d4 at x2 rolls 4d4,
     // 4d12 at x3 rolls 12d12. Flat modifiers are added once.
@@ -228,6 +234,11 @@
         .apxd-acts{display:flex;flex-wrap:wrap;gap:.25rem;margin-top:.35rem}
         .apxd-acts button{font-size:.65rem;font-weight:800;padding:.15rem .4rem;border-radius:.3rem;cursor:pointer;background:none;border:1px solid var(--c-border2,#475569);color:var(--c-text-dimmer,#cbd5e1)}
         .apxd-acts button.omen{border-color:#a855f7;color:#e9d5ff} .apxd-acts button.luck{border-color:#10b981;color:#a7f3d0}
+        [data-theme="kawaii"] .apxd-acts button.luck{border-color:#059669;color:#065f46;background:#d1fae5}
+        [data-theme="kawaii"] .apxd-acts button.omen{border-color:#9333ea;color:#6b21a8;background:#f3e8ff}
+        [data-theme="kawaii"] .apxd-b.crit{color:#854d0e;border-color:#ca8a04;background:#fef9c3}
+        [data-theme="kawaii"] .apxd-b.adv{color:#065f46;border-color:#059669} [data-theme="kawaii"] .apxd-b.dis,[data-theme="kawaii"] .apxd-b.fum{color:#991b1b;border-color:#dc2626}
+        [data-theme="kawaii"] .apxd-omen{color:#6b21a8}
         .apxd-omen{display:flex;align-items:center;gap:.25rem;flex-wrap:wrap;padding:.35rem .6rem;border-bottom:1px solid var(--c-border,#334155);font-size:.69rem;font-weight:800;color:#e9d5ff}
         .apxd-roll-link{text-decoration:underline dotted;text-underline-offset:2px;cursor:pointer;color:inherit;font-weight:inherit}
         .apxd-roll-link:hover{color:var(--c-indigo-lt,#a5b4fc)}
@@ -768,6 +779,12 @@
                 dmg.total = Math.max(0, total);
                 c.badges = modeBadges(atk.badgeMode || mode, o.advSources, o.disSources, gamble);
                 if (o.dmgType) c.badges.push(['info', o.dmgType]);
+                // Ammo (Ch.8): what a hit (and a critical hit) does
+                let ammo = o.ammo || (o.hit && o.hit.ammo);
+                if (ammo && AMMO_FX[ammo] && !atk.fumble) {
+                    let fx = AMMO_FX[ammo];
+                    c.badges.push([atk.crit && fx.crit ? 'crit' : 'info', `${fx.name}: ${fx.hit}${atk.crit && fx.crit ? ' · Critical: ' + fx.crit : ''}`, fx.tip]);
+                }
                 if (gamble && !atk.fumble) c.badges.push(['info', `Gamble: +${gambleBonus} is included, only if it hits` + (hr >= 4 ? '. Hit = +1 AP' : '')]);
                 if (res.other) c.badges.push(['info', `${dp.keepSrc}: rolled damage twice, kept ${res.roll.diceTotal + flat} (other ${res.other.diceTotal + flat})`, 'Rank 2: roll damage twice and keep the highest total']);
                 if (dm.rerolled()) c.badges.push(['info', 'High Roller: rerolled 1s & 2s, and any 1 again (*)']);
@@ -832,6 +849,12 @@
                 p.total = Math.max(0, res.roll.diceTotal + dm.parsed.flat); p.crit = dst.crit; p.mult = res.roll.mult;
                 c.badges = [];
                 if (o.dmgType) c.badges.push(['info', o.dmgType]);
+                // Ammo (Ch.8): what a hit (and a critical hit) does
+                let ammo = o.ammo || (o.hit && o.hit.ammo);
+                if (ammo && AMMO_FX[ammo] && !atk.fumble) {
+                    let fx = AMMO_FX[ammo];
+                    c.badges.push([atk.crit && fx.crit ? 'crit' : 'info', `${fx.name}: ${fx.hit}${atk.crit && fx.crit ? ' · Critical: ' + fx.crit : ''}`, fx.tip]);
+                }
                 if (res.other) c.badges.push(['info', `${dp.keepSrc}: rolled damage twice, kept ${p.total} (other ${res.other.diceTotal + dm.parsed.flat})`]);
                 if (dm.rerolled()) c.badges.push(['info', 'High Roller: rerolled 1s & 2s, and any 1 again (*)']);
                 if (explode) c.badges.push(['info', 'Dice Explosion: max rolls rolled again and added']);

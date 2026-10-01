@@ -450,8 +450,8 @@
                 }
         
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20269282122">
-    <link rel="stylesheet" href="css/tailwind.css?v=20269282122">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20261011200">
+    <link rel="stylesheet" href="css/tailwind.css?v=20261011200">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
@@ -1083,10 +1083,12 @@
                 <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Power Name</label>
                 <input type="text" id="pcName" placeholder="e.g. Ember Lance" class="bg-slate-900 border-purple-900/50 text-purple-300 font-bold">
             </div>
+            <div id="pcPlayerAttrRow" class="hidden mb-3 grid grid-cols-2 gap-2"></div>
             <div id="pcUsageTypeSection" class="hidden mb-3 bg-slate-900 border border-slate-700 rounded p-2">
                 <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Usage</label>
                 <div class="flex flex-col gap-1 text-xs text-slate-200 mb-2">
                     <label class="flex items-center gap-1"><input type="radio" name="pcUsageType" value="unlimited" onchange="window.pcSetUsageType('unlimited')"> Once per Full Rest <span class="text-[9px] text-slate-500">(no extra TP)</span></label>
+                    <label class="flex items-center gap-1" title="Uses one of its Caster Slots of this power's Level, or a higher one when those are gone"><input type="radio" name="pcUsageType" value="slot" onchange="window.pcSetUsageType('slot')"> Power Slot <span class="text-[9px] text-slate-500">(uses a Caster Slot of its Level or higher, no extra TP)</span></label>
                     <label class="flex items-center gap-1"><input type="radio" name="pcUsageType" value="charges" onchange="window.pcSetUsageType('charges')"> Charges <span class="text-[9px] text-slate-500">(+half base TP per extra charge)</span></label>
                     <label class="flex items-center gap-1"><input type="radio" name="pcUsageType" value="recharge" onchange="window.pcSetUsageType('recharge')"> Recharge (5-6 on a d6) <span class="text-[9px] text-slate-500">(+1 TP per Power Level)</span></label>
                     <label class="flex items-center gap-1" id="pcUnlimitedPaidLabel"><input type="radio" name="pcUsageType" value="unlimitedPaid" onchange="window.pcSetUsageType('unlimitedPaid')"> Unlimited Uses <span class="text-[9px] text-slate-500">(+5 TP per Power Level)</span></label>
@@ -1248,6 +1250,10 @@
                 <option value="futuristic">Futuristic</option>
                 <option value="kawaii">Kawaii</option>
             </select>
+        </div>
+        <div class="mb-4 border-t border-slate-700 pt-3 flex flex-wrap gap-2">
+            <button onclick="window.closeModal('settingsModal'); window.apxShowTutorial && window.apxShowTutorial()" class="px-3 py-1.5 rounded bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-bold transition">Show Tutorial</button>
+            <button onclick="window.closeModal('settingsModal'); window.apxPatchNotes && window.apxPatchNotes.show()" class="px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold transition">Patch Notes</button>
         </div>
         <div class="flex justify-between items-center">
             <div class="text-[10px] text-slate-600" id="gmSettingsVersionLabel"></div>
@@ -1508,35 +1514,36 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20269282122"></script>
-    <script src="js/apx-patch-notes.js?v=20269282122"></script>
-    <script src="js/apx-dice.js?v=20269282122"></script>
-    <script src="js/apx-data.js?v=20269282122"></script>
-    <script src="js/apx-item-effects.js?v=20269282122"></script>
-    <script src="js/apx-perks-db.js?v=20269282122"></script>
-    <script src="js/apx-migrations.js?v=20269282122"></script>
-    <script src="js/apx-state.js?v=20269282122"></script>
-    <script src="js/apx-craft-shared.js?v=20269282122"></script>
-    <script src="js/apx-armor-forge.js?v=20269282122"></script>
-    <script src="js/apx-weapon-forge.js?v=20269282122"></script>
-    <script src="js/apx-consumable-crafter.js?v=20269282122"></script>
-    <script src="js/apx-perks-ui.js?v=20269282122"></script>
-    <script src="js/apx-power-crafter.js?v=20269282122"></script>
-    <script src="js/apx-npc-crafter.js?v=20269282122"></script>
-    <script src="js/apx-inventory-ui.js?v=20269282122"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20269282122"></script>
-    <script src="js/apx-gm-screen.js?v=20269282122"></script>
-    <script src="js/apx-loot-maker.js?v=20269282122"></script>
-    <script src="js/apx-gmtools-main.js?v=20269282122"></script>
+    <script src="js/apx-dialogs.js?v=20261011200"></script>
+    <script src="js/apx-patch-notes.js?v=20261011200"></script>
+    <script src="js/apx-dice.js?v=20261011200"></script>
+    <script src="js/apx-data.js?v=20261011200"></script>
+    <script src="js/apx-item-effects.js?v=20261011200"></script>
+    <script src="js/apx-perks-db.js?v=20261011200"></script>
+    <script src="js/apx-migrations.js?v=20261011200"></script>
+    <script src="js/apx-state.js?v=20261011200"></script>
+    <script src="js/apx-craft-shared.js?v=20261011200"></script>
+    <script src="js/apx-armor-forge.js?v=20261011200"></script>
+    <script src="js/apx-weapon-forge.js?v=20261011200"></script>
+    <script src="js/apx-consumable-crafter.js?v=20261011200"></script>
+    <script src="js/apx-perks-ui.js?v=20261011200"></script>
+    <script src="js/apx-power-crafter.js?v=20261011200"></script>
+    <script src="js/apx-npc-crafter.js?v=20261011200"></script>
+    <script src="js/apx-inventory-ui.js?v=20261011200"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20261011200"></script>
+    <script src="js/apx-gm-screen.js?v=20261011200"></script>
+    <script src="js/apx-loot-maker.js?v=20261011200"></script>
+    <script src="js/apx-library.js?v=20261011200"></script>
+    <script src="js/apx-gmtools-main.js?v=20261011200"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20269282122"></script>
-    <script src="js/apx-firebase.js?v=20269282122"></script>
-    <script src="js/apx-battlemap.js?v=20269282122"></script>
-    <script src="js/apx-map-tiles.js?v=20269282122"></script>
+    <script src="js/firebase-config.js?v=20261011200"></script>
+    <script src="js/apx-firebase.js?v=20261011200"></script>
+    <script src="js/apx-battlemap.js?v=20261011200"></script>
+    <script src="js/apx-map-tiles.js?v=20261011200"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -1550,6 +1557,8 @@ document.addEventListener('DOMContentLoaded', () => {
             let cloudNpcs = await window.apxAuth.loadGmNpcs();
             cloudNpcs.forEach(n => { if (!window.gmNpcs.find(x => x.id === n.id)) window.gmNpcs.push(n); });
         } catch(e) { console.warn('Cloud GM NPC load failed:', e.message); }
+        // The GM's Library (everything made with the Loot Maker and Power Crafter, per world)
+        try { if (window.apxLibLoad) await window.apxLibLoad(); } catch(e) { console.warn('Library load failed:', e.message); }
     };
     // GM races are saved to Firestore whenever finishAncestry saves a race
     document.addEventListener('apxGmRacesSaved', async () => {
@@ -1806,6 +1815,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     worldSettings: w.notesV2.settings || window.apxDefaultWorldSettings(),
                     combatTurn: window.gmCombatStarted ? {
                         id: _ct?.id || null, turnNo: window.gmTurnNumber || 0, round: window.gmRoundNumber || 1,
+                        session: (typeof _gmLogSession !== 'undefined' && _gmLogSession) || null,   // this fight (combat-start AP is granted once per fight)
                         playerUid: _ct && _ct.faction === 'player' ? (_ct.playerUid || null) : null,
                         companionOf: _ct?.companionOf || null,
                         apGain1: !!_ct?._apFirstSurprised,
@@ -1844,7 +1854,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                         _bleedTurns:  (isBO && entry?.bleedOutTurns != null) ? entry.bleedOutTurns : null,
                                         _faction:     t.faction || entry?.faction  || null,
                                         layer:        t.layer == null ? 1 : t.layer,
-                                        _conds:       t.type === 'player' ? [] : (window._gmEffCondNames ? window._gmEffCondNames(t.conditions) : (t.conditions || []))
+                                        _conds:       t.type === 'player' ? [] : (window._gmEffCondNames ? window._gmEffCondNames(t.conditions) : (t.conditions || [])),
+                                        _aura:        isDead ? null : window._btTokenAura(t)
                                     };
                                 });
                                 let btImages = (m.battleImages||[]).filter(i=>i.revealed!==false).map(i=>({
@@ -1998,13 +2009,39 @@ document.addEventListener('DOMContentLoaded', () => {
         ).sort((a,b) => (b.date||'').localeCompare(a.date||''));
         let el = document.getElementById('sessionList');
         if (!el) return;
+        // Each session shows its notes as written (line breaks, bullet points); clicking one opens it to read
         el.innerHTML = list.length
-            ? list.map(n=>`<div class="bg-slate-900 border border-slate-700 rounded p-3 cursor-pointer hover:border-slate-500" onclick="window.openNoteModal('session','${n.id}')">
-                <div class="text-xs font-bold text-slate-200">${n.title||'Untitled Session'}</div>
-                ${n.date?`<div class="text-[10px] text-slate-500 mt-0.5">${n.date}</div>`:''}
-                ${n.content?`<div class="text-[10px] text-slate-400 mt-1.5 line-clamp-2">${n.content}</div>`:''}
+            ? list.map(n=>`<div class="bg-slate-900 border border-slate-700 rounded p-3 cursor-pointer hover:border-slate-500" onclick="window.openSessionReadWin('${n.id}')" title="Click to read">
+                <div class="flex items-start justify-between gap-2">
+                    <div class="text-sm font-bold text-slate-200">${n.title||'Untitled Session'}</div>
+                    <button onclick="event.stopPropagation();window.openNoteModal('session','${n.id}')" class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-800 border border-slate-600 text-slate-300 hover:border-slate-400 shrink-0">Edit</button>
+                </div>
+                ${n.date?`<div class="text-[11px] text-slate-500 mt-0.5">${n.date}</div>`:''}
+                ${n.content?`<div class="text-xs text-slate-300 mt-1.5 leading-relaxed" style="max-height:7.5em;overflow:hidden;-webkit-mask-image:linear-gradient(#000 70%,transparent);mask-image:linear-gradient(#000 70%,transparent);">${_fmtText(n.content)}</div>`:''}
             </div>`).join('')
             : emptyState('No sessions yet — add one above');
+    };
+    // Read a session's notes in a window (Edit opens the editor)
+    window.openSessionReadWin = function(id) {
+        let n = (_wNotes.session||[]).find(x=>x.id===id); if (!n) return;
+        let winId = 'sessRead_'+id;
+        document.getElementById(winId)?.remove();
+        window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1;
+        let spot = window.apxWindowSpot ? window.apxWindowSpot(560, 520, 0) : { left: 120, top: 80, w: 560, h: 520 };
+        let win = document.createElement('div');
+        win.id = winId;
+        win.style.cssText = `position:fixed;left:${spot.left}px;top:${spot.top}px;width:${spot.w}px;max-height:${spot.h}px;background:#1e293b;border:1px solid #475569;border-radius:0.75rem;z-index:${Math.max(window.apxFloatingZTop, 10050)};box-shadow:0 20px 60px rgba(0,0,0,.85);display:flex;flex-direction:column;overflow:hidden;`;
+        let esc = t => String(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+        win.innerHTML = `<div id="${winId}_hdr" style="padding:0.6rem 0.8rem;background:#0f172a;border-bottom:1px solid #334155;display:flex;align-items:center;gap:0.5rem;">
+                <div style="flex:1;min-width:0"><div style="font-size:0.95rem;font-weight:800;color:#f1f5f9;">${esc(n.title||'Untitled Session')}</div>${n.date?`<div style="font-size:0.7rem;color:#94a3b8;">${esc(n.date)}</div>`:''}</div>
+                <button data-edit style="font-size:0.72rem;font-weight:800;padding:0.25rem 0.7rem;border-radius:0.35rem;background:#4f46e5;border:none;color:#fff;cursor:pointer;">Edit</button>
+                <button data-x title="Close" style="background:none;border:none;color:#94a3b8;font-size:1.1rem;font-weight:700;cursor:pointer;line-height:1;">X</button></div>
+            <div style="padding:0.8rem 1rem;overflow-y:auto;font-size:0.9rem;line-height:1.55;color:#e2e8f0;">${n.content ? _fmtText(n.content) : '<span style="color:#64748b">No notes for this session yet.</span>'}</div>`;
+        document.body.appendChild(win);
+        win.querySelector('[data-x]').onclick = () => win.remove();
+        win.querySelector('[data-edit]').onclick = () => { win.remove(); window.openNoteModal('session', id); };
+        win.addEventListener('mousedown', () => { window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; win.style.zIndex=Math.max(window.apxFloatingZTop, 10050); });
+        if (window.apxMakeDraggable) window.apxMakeDraggable(win, document.getElementById(winId+'_hdr'));
     };
     window.clearSessionFilter = function() {
         let s = document.getElementById('sessionSearch'); if(s) s.value='';
@@ -2103,7 +2140,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let fullSrc = data?.portraitFull || data?.portrait;
                 if (!fullSrc) return;
                 let ia = document.getElementById(winId+'_img');
-                if (ia) ia.innerHTML = `<img src="${fullSrc}" style="width:100%;height:100%;object-fit:cover;">`;
+                if (ia) { ia.innerHTML = `<img src="${fullSrc}" style="width:100%;height:100%;object-fit:contain;">`; window.apxAspectFit && window.apxAspectFit(document.getElementById(winId), ia, fullSrc); }
             });
         };
 
@@ -2124,7 +2161,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
         <div id="${winId}_img" style="width:${initSz}px;height:${initSz}px;background:#0f172a;
             display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">
-            ${src ? `<img src="${src}" style="width:100%;height:100%;object-fit:cover;">` : `<span style="font-size:64px;opacity:0.15;"></span>`}
+            ${src ? `<img src="${src}" style="width:100%;height:100%;object-fit:contain;">` : `<span style="font-size:64px;opacity:0.15;"></span>`}
         </div>
         <div id="${winId}_resize" style="position:absolute;bottom:0;right:0;width:18px;height:18px;
             cursor:se-resize;display:flex;align-items:flex-end;justify-content:flex-end;padding:3px;opacity:0.5;">
@@ -2141,7 +2178,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('mousemove', e=>{ if(!wDrag)return; win.style.right='auto'; win.style.left=Math.max(0,e.clientX-wOX)+'px'; win.style.top=Math.max(0,e.clientY-wOY)+'px'; });
         document.addEventListener('mouseup', ()=>{ wDrag=false; });
 
-        // Fixed-ratio resize (square)
+        // Resize keeps the picture's own shape
         let rh=document.getElementById(winId+'_resize'), rDrag=false, rSX=0, rSW=0;
         rh.addEventListener('mousedown', e=>{ rDrag=true; rSX=e.clientX; rSW=win.offsetWidth; e.stopPropagation(); e.preventDefault(); });
         document.addEventListener('mousemove', e=>{
@@ -2149,7 +2186,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let ns = Math.max(160, rSW + e.clientX - rSX);
             win._sz = ns; win.style.width = ns+'px';
             let ia = document.getElementById(winId+'_img');
-            if (ia) { ia.style.width=ns+'px'; ia.style.height=ns+'px'; }
+            if (ia) { ia.style.width=ns+'px'; ia.style.height=Math.round(ns*(win._ratio||1))+'px'; }
         });
         document.addEventListener('mouseup', ()=>{ rDrag=false; });
     };
@@ -2313,7 +2350,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Refresh any open windows for this NPC
         let pw=document.getElementById('npcPortrait_'+npcId);
-        if(pw){let ia=document.getElementById('npcPortrait_'+npcId+'_img');if(ia)ia.innerHTML=`<img src="${fullData}" style="width:100%;height:100%;object-fit:cover;">`;}
+        if(pw){let ia=document.getElementById('npcPortrait_'+npcId+'_img');if(ia){ia.innerHTML=`<img src="${fullData}" style="width:100%;height:100%;object-fit:contain;">`;window.apxAspectFit&&window.apxAspectFit(pw, ia, fullData);}}
         window._refreshNpcInfoWin(npcId);
     };
 
@@ -2628,7 +2665,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let out = [];
         let inList = false;
         for (let line of lines) {
-            let bullet = line.match(/^\s*[-*]\s+(.*)/);
+            let bullet = line.match(/^\s*[-*•]\s+(.*)/);
             if (bullet) {
                 if (!inList) { out.push('<ul style="margin:0.2rem 0 0.2rem 1rem;padding:0;list-style:disc;">'); inList=true; }
                 out.push(`<li style="margin:0.05rem 0;font-size:inherit;color:inherit;">${bullet[1]}</li>`);
@@ -2949,7 +2986,7 @@ document.addEventListener('DOMContentLoaded', () => {
             min-width:380px;min-height:300px;overflow:hidden;contain:layout paint;`;
 
         win.innerHTML = `
-            <div id="${winId}_hdr" style="cursor:grab;user-select:none;background:#1e293b;padding:0.4rem 0.6rem;
+            <div id="${winId}_hdr" style="cursor:grab;user-select:none;background:#1e293b;padding:0.4rem 2.1rem 0.4rem 0.6rem;position:relative;
                 border-bottom:1px solid #334155;border-radius:0.75rem 0.75rem 0 0;
                 display:flex;align-items:center;gap:0.35rem;flex-shrink:0;flex-wrap:wrap;">
                 <span style="font-size:0.75rem;font-weight:700;color:#e2e8f0;flex:1;min-width:80px;">${map.name}</span>
@@ -2979,6 +3016,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     <input type="number" id="${winId}_gridOX" value="${(map.battleGrid||{}).offsetX||0}" min="0" max="400" step="0.5" style="width:36px;background:#0f172a;border:1px solid #334155;color:#e2e8f0;font-size:0.6rem;border-radius:0.2rem;padding:0.1rem 0.2rem;text-align:center;" oninput="window._btUpdateGrid('${mapId}','${winId}')">
                     <span style="font-size:0.6rem;color:#6ee7b7;">Y:</span>
                     <input type="number" id="${winId}_gridOY" value="${(map.battleGrid||{}).offsetY||0}" min="0" max="400" step="0.5" style="width:36px;background:#0f172a;border:1px solid #334155;color:#e2e8f0;font-size:0.6rem;border-radius:0.2rem;padding:0.1rem 0.2rem;text-align:center;" oninput="window._btUpdateGrid('${mapId}','${winId}')">
+                    <span style="font-size:0.6rem;color:#6ee7b7;margin-left:0.2rem;">Color:</span>
+                    <input type="color" id="${winId}_gridColor" value="${(map.battleGrid||{}).color||'#ffffff'}" title="Grid line color" style="width:26px;height:18px;padding:0;border:1px solid #334155;border-radius:0.2rem;background:#0f172a;cursor:pointer;" oninput="window._btUpdateGrid('${mapId}','${winId}')">
+                    <span style="font-size:0.6rem;color:#6ee7b7;">Thick:</span>
+                    <input type="number" id="${winId}_gridThick" value="${(map.battleGrid||{}).thickness||1}" min="1" max="8" step="1" title="Grid line thickness (pixels)" style="width:32px;background:#0f172a;border:1px solid #334155;color:#e2e8f0;font-size:0.6rem;border-radius:0.2rem;padding:0.1rem 0.2rem;text-align:center;" oninput="window._btUpdateGrid('${mapId}','${winId}')">
+                    <span style="font-size:0.6rem;color:#6ee7b7;">Opacity:</span>
+                    <input type="range" id="${winId}_gridOpacity" value="${Math.round(((map.battleGrid||{}).opacity ?? 0.35)*100)}" min="0" max="100" step="5" title="Grid opacity" style="width:56px;accent-color:#10b981;" oninput="window._btUpdateGrid('${mapId}','${winId}')">
                 </div>
                 <div id="${winId}_fogControls" style="display:none;align-items:center;gap:0.25rem;">
                     <span style="font-size:0.6rem;color:#94a3b8;">Size:</span>
@@ -2990,8 +3033,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <button onclick="document.getElementById('${winId}_fileInput').click()"
                     style="background:#1d4ed8;border:none;color:#fff;font-size:0.65rem;font-weight:700;padding:0.15rem 0.5rem;border-radius:0.2rem;cursor:pointer;">Upload Image</button>
-                <button onclick="document.getElementById('${winId}').remove();window.renderInitiativeTracker&&window.renderInitiativeTracker()"
-                    style="background:none;border:none;color:#94a3b8;font-size:1.1rem;font-weight:700;cursor:pointer;line-height:1;padding:0 0.15rem;">X</button>
+                <!-- Close: always in the top-right corner (the tools wrap onto the next line instead) -->
+                <button onclick="window._omCloseWindow('${mapId}')" title="Close this map"
+                    style="position:absolute;top:0.32rem;right:0.5rem;background:none;border:none;color:#94a3b8;font-size:1.1rem;font-weight:700;cursor:pointer;line-height:1;padding:0 0.15rem;">X</button>
             </div>
             <input type="file" id="${winId}_fileInput" accept="image/*" style="display:none"
                 onchange="window._omHandleUpload('${mapId}','${winId}',this)">
@@ -3121,6 +3165,27 @@ document.addEventListener('DOMContentLoaded', () => {
         } else { win._scale=1; win._offX=0; win._offY=0; }
         win._tokScale = null;   // force a full redraw
         _omTransform(winId, win);
+    };
+
+    // Closing a map window. A map that isn't the tracker's chosen battle map stops being "in use":
+    // its tokens let go of their initiative entries (their conditions move to the entries), so a
+    // fight with "No map (or whichever map is open)" never keeps using a map that was closed.
+    window._omCloseWindow = function(mapId) {
+        let win = document.getElementById('omWin_'+mapId);
+        if (win) { try { win._winDragCleanup && win._winDragCleanup(); } catch (e) {} if (window.APXBattle) window.APXBattle.clear('omWin_'+mapId); win.remove(); }
+        if (_fogMode === mapId && typeof window.toggleFogMode === 'function') { try { window.toggleFogMode(mapId); } catch (e) {} }
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+        if (map && mapId !== window.gmCombatMapId) {
+            let any = false;
+            (map.battleTokens||[]).forEach(t => {
+                if (!t.initiativeId) return;
+                let e = (window.gmInitiative||[]).find(x=>x.id===t.initiativeId);
+                if (e && t.type !== 'player' && (t.conditions||[]).length) { e.conditions = [...new Set([...(e.conditions||[]), ...t.conditions])]; }
+                t.initiativeId = null; any = true;
+            });
+            if (any) saveWorldNotes();
+        }
+        if (window.renderInitiativeTracker) window.renderInitiativeTracker();
     };
 
     // Special Map Markers (a single character, no circle)
@@ -3502,6 +3567,18 @@ document.addEventListener('DOMContentLoaded', () => {
         let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
         let tok = map?.tokens?.find(t=>t.id===tokenId); if(!tok) return;
         tok.subnotes = (tok.subnotes||[]);
+        // Keep what's been typed (but not saved yet) in the OTHER sub-notes before the list is rebuilt
+        let el0 = document.getElementById(winId+'_subnotes');
+        if (el0) {
+            el0.querySelectorAll(':scope > div').forEach((row, i) => {
+                if (i >= tok.subnotes.length) return;
+                let ti = row.querySelector('input[type="text"]'), ta = row.querySelector('textarea'), cb = row.querySelector('input[type="checkbox"]');
+                if (ti) tok.subnotes[i].title = ti.value;
+                if (ta) tok.subnotes[i].content = ta.value;
+                if (cb) tok.subnotes[i].revealed = cb.checked;
+            });
+        }
+        if (window._tokenSnBuf) delete window._tokenSnBuf[winId];   // (its row numbers shift; the values are in the notes now)
         tok.subnotes.splice(idx, 1);
         saveWorldNotes();
         let el = document.getElementById(winId+'_subnotes');
@@ -3628,7 +3705,12 @@ document.addEventListener('DOMContentLoaded', () => {
         let cs = parseFloat(document.getElementById(winId+'_cellSize')?.value||50) || 50;
         let ox = parseFloat(document.getElementById(winId+'_gridOX')?.value||0) || 0;
         let oy = parseFloat(document.getElementById(winId+'_gridOY')?.value||0) || 0;
-        map.battleGrid = {cellSize:cs, offsetX:ox, offsetY:oy};
+        let prev = map.battleGrid || {};
+        let color = document.getElementById(winId+'_gridColor')?.value || prev.color || '#ffffff';
+        let thickness = Math.max(1, Math.min(8, parseInt(document.getElementById(winId+'_gridThick')?.value, 10) || prev.thickness || 1));
+        let opEl = document.getElementById(winId+'_gridOpacity');
+        let opacity = opEl ? Math.max(0, Math.min(1, (parseFloat(opEl.value) || 0) / 100)) : (prev.opacity ?? 0.35);
+        map.battleGrid = {cellSize:cs, offsetX:ox, offsetY:oy, color, thickness, opacity};
         saveWorldNotes();
         _btDrawGrid(mapId, winId);
         _btRenderTokens(mapId, winId);
@@ -3713,6 +3795,38 @@ document.addEventListener('DOMContentLoaded', () => {
         window.APXBattle.onChange(_gmOnPlayerPositions);
     }
 
+    // A token's Damage Aura (from its NPC stat block): { type, radius, dice } or null
+    window._btTokenAura = function(t) {
+        if (!t || t.type !== 'npc' || !t.worldNpcId || typeof ncStatBlockFor !== 'function') return null;
+        let wn = (_wNotes.npcs||[]).find(n=>n.id===t.worldNpcId);
+        if (!wn?.statBlockId || !(window.gmNpcs||[]).some(g=>g.id===wn.statBlockId)) return null;
+        try { let a = ncStatBlockFor(wn.statBlockId)?.aura; return a ? { type: a.type, radius: a.radius || 1, dice: a.dice } : null; } catch (e) { return null; }
+    };
+    // The creature taking its turn: dragging its token shows the path's squares and AP
+    // (an NPC's AP comes off its tracker card; a player's token is moved by the player)
+    function _btMovePathFor(t) {
+        if (!window.gmCombatStarted || !t || !t.initiativeId) return null;
+        let cur = (window.gmInitiative||[])[window.gmCurrentTurnIdx];
+        if (!cur || cur.id !== t.initiativeId || cur.faction === 'player') return null;
+        let speed = 3;
+        if (cur.sourceNpcId && typeof ncStatBlockFor === 'function' && (window.gmNpcs||[]).some(g=>g.id===cur.sourceNpcId)) { try { speed = ncStatBlockFor(cur.sourceNpcId).speed; } catch (e) {} }
+        else if (cur.companionOf) { let pm = (window.gmParty||[]).find(p=>p.fileName===cur.companionOf); let csb = pm && typeof gmCompanionSb === 'function' ? gmCompanionSb(pm) : null; if (csb) speed = csb.speed; }
+        let key = cur.id + ':' + window.gmTurnNumber;
+        let tm = cur._moves && cur._moves.key === key ? cur._moves : { key, n: 0, left: 0 };
+        let conds = window._gmEntryConditions ? window._gmEntryConditions(cur.id) : (cur.conditions || []);
+        let eff = window.apxEffectiveConditions ? window.apxEffectiveConditions(conds).map(c => c.id) : conds;
+        let apHave = cur.apCur == null ? (parseInt(cur.ap) || 0) : Math.max(0, Math.floor(Number(cur.apCur) || 0));
+        return { speed, moves: tm.n, left: tm.left, mobile: 0, staggered: eff.includes('staggered'), apHave, key, entryId: cur.id };
+    }
+    function _btPayMove(info) {
+        let e = (window.gmInitiative||[]).find(x=>x.id===info.mp.entryId); if (!e) return;
+        let c = info.cost;
+        e._moves = { key: info.mp.key, n: c.moves, left: c.left };
+        let have = info.mp.apHave;
+        if (c.ap > have) { window.gmLog && window.gmLog({ gmOnly:true, force:true, kind:'info', text:`${e.name} moved ${info.squares} squares (${c.ap} AP) with only ${have} AP: no AP taken. Adjust its pips if needed.` }); }
+        else { e.apCur = have - c.ap; window.gmLog && window.gmLog({ gmOnly:true, kind:'info', text:`${e.name} moves ${info.squares} square${info.squares===1?'':'s'}: −${c.ap} AP (${e.apCur} left).` }); }
+        if (typeof window.renderInitiativeTracker === 'function') window.renderInitiativeTracker();
+    }
     function _btRenderTokens(mapId, winId) {
         let win  = document.getElementById(winId);
         let area = document.getElementById(winId+'_area');
@@ -3724,10 +3838,11 @@ document.addEventListener('DOMContentLoaded', () => {
         let curInitId = window.gmInitiative?.[window.gmCurrentTurnIdx??0]?.id || null;
         let interactive = (_fogMode !== mapId);   // fog painting mode: tokens must not eat clicks
 
-        // Player tokens always match the character's size on their sheet
+        // Player tokens match the character's size on their sheet, unless the GM resized the token
+        // (a power, squeezing…): then it keeps that size until "Sheet size" in its menu
         let sizeChanged = false;
         (map.battleTokens||[]).forEach(t => {
-            if (t.type !== 'player' || !t.playerUid) return;
+            if (t.type !== 'player' || !t.playerUid || t.sizeOverride) return;
             let pm = (window.gmParty||[]).find(p=>p.fileName===t.playerUid||p.summary?.playerUid===t.playerUid);
             let sz = window.APXBattle.sizeFromCharState(pm?.state);
             if (sz && sz !== (t.size || 'medium')) { t.size = sz; sizeChanged = true; }
@@ -3777,6 +3892,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 num: t.type === 'player' ? null : window.APXBattle.numberOf(linkedEntry?.name || t.name),
                 layer: t.layer == null ? 1 : t.layer,
                 conds: t.type === 'player' ? [] : window._gmEffCondNames(t.conditions),
+                aura: isDead ? null : (() => { let a = window._btTokenAura(t); return a ? { type: a.type, radius: a.radius, title: `Damage Aura: ${a.dice} ${a.type}` } : null; })(),
                 numColor: factionBorder,
                 portrait,
                 title: `${t.name} (${t.size||'medium'})${isHidden?' [Hidden]':''} — dbl-click for stat block, right-click for options`,
@@ -3811,7 +3927,8 @@ document.addEventListener('DOMContentLoaded', () => {
             previewBlocked: (vm, gx, gy) => !_btCanPlace(map, vm.id, gx, gy),
             // Occupied by a same-size token -> null -> token returns to its last spot
             resolveDrop:    (vm, gx, gy) => _btCanPlace(map, vm.id, gx, gy) ? {gridX:gx, gridY:gy} : null,
-            onMove:         (vm, gx, gy) => _btCommitMove(mapId, winId, vm.id, gx, gy),
+            movePath:       (vm) => _btMovePathFor((map.battleTokens||[]).find(t=>t.id===vm.id)),
+            onMove:         (vm, gx, gy, info) => { _btCommitMove(mapId, winId, vm.id, gx, gy); if (info && !info.free && info.squares > 0) _btPayMove(info); },
             onContextMenu:  (vm, e) => {
                 let sel = _btSelFor(mapId);
                 if (sel.size > 1 && sel.has(vm.id)) window._btShowGroupMenu(mapId, winId, e);
@@ -4193,6 +4310,19 @@ document.addEventListener('DOMContentLoaded', () => {
         return (_wNotes.otherMaps||[]).filter(m => onlyMapId ? m.id === onlyMapId
             : (document.getElementById('omWin_'+m.id) || m.id === window.gmCombatMapId));
     };
+    // Where an initiative entry's token stands (the combat map first, then any open battle map):
+    // { mapId, x0, y0, x1, y1 } in grid squares, or null with no token on a map in use
+    window._btFootprintOf = function(entryId) {
+        let maps = window._btMapsInUse().filter(m => m.battleMapEnabled);
+        maps.sort((a, b) => (b.id === window.gmCombatMapId) - (a.id === window.gmCombatMapId));
+        for (let m of maps) {
+            let t = (m.battleTokens||[]).find(x => x.initiativeId === entryId && !x._explicitDead);
+            if (!t) continue;
+            let p = _btPos(m.id, t), sp = window.APXBattle.span(t.size || 'medium');
+            return { mapId: m.id, x0: p.gridX, y0: p.gridY, x1: p.gridX + sp - 1, y1: p.gridY + sp - 1 };
+        }
+        return null;
+    };
     // Link every tracker entry that has no token yet to a matching token on the map(s) in use
     window._btLinkUnlinked = function(onlyMapId) {
         let linked = new Set();
@@ -4321,7 +4451,8 @@ document.addEventListener('DOMContentLoaded', () => {
             ${isPlayer ? '' : `<div style="${row}"><span style="${lbl}">Side</span>${btn('Enemy', `window._btSetFaction(${a},'enemy')${close}`, '#fca5a5', curFaction==='enemy')}${btn('Neutral', `window._btSetFaction(${a},'neutral')${close}`, '#fde68a', curFaction==='neutral')}${btn('Ally', `window._btSetFaction(${a},'ally')${close}`, '#6ee7b7', curFaction==='ally')}</div>`}
             ${initRow}
             ${isPlayer ? '' : `<div style="${row}"><span style="${lbl}">Cond</span><span style="flex:1;font-size:0.56rem;color:#fdba74;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px;" title="${esc(window._gmEffCondNames(tok.conditions).join(', '))}">${(tok.conditions||[]).length ? esc(window._gmEffCondNames(tok.conditions).join(', ')) : '<span style=\'color:#475569\'>none</span>'}</span><button onclick="window._btTokenCondPicker(${a}, event.clientX, event.clientY)" style="background:none;border:none;color:#fdba74;font-size:0.6rem;font-weight:800;cursor:pointer;padding:0 4px;">Edit</button></div>`}
-            <div style="${row}"><span style="${lbl}">Size</span>${btn('−', `window._btResizeToken(${a},-1)${close}`, '#c4b5fd', false, sizeIdx<=0)}${btn('+', `window._btResizeToken(${a},1)${close}`, '#c4b5fd', false, sizeIdx>=BT_SIZE_LIST.length-1)}</div>
+            <div style="${row}"><span style="${lbl}">Size</span>${btn('−', `window._btResizeToken(${a},-1)${close}`, '#c4b5fd', false, sizeIdx<=0)}${btn('+', `window._btResizeToken(${a},1)${close}`, '#c4b5fd', false, sizeIdx>=BT_SIZE_LIST.length-1)}${tok.sizeOverride ? btn('Sheet size', `window._btResetTokenSize(${a})${close}`, '#a5b4fc', false, false, 'Go back to the size on their character sheet') : ''}</div>
+            ${tok.initiativeId && initEntry && initEntry.maxHp !== null ? `<div style="${row}">${btn('⤓ Fall damage…', `window.gmFallDamage('${tok.initiativeId}')${close}`, '#7dd3fc', false, false, 'Fall damage: 1d10 per square after the first, softened by an Acrobatics Reaction')}</div>` : ''}
             <div style="${row}"><span style="${lbl}">Layer ${tok.layer==null?1:tok.layer}</span>${btn('Down', `window._btTokLayer('${mapId}','${winId}','${tokenId}','down')${close}`, '#c4b5fd', false, false, 'Move under images on higher layers')}${btn('Up', `window._btTokLayer('${mapId}','${winId}','${tokenId}','up')${close}`, '#c4b5fd', false, false, 'Move above images on lower layers')}</div>
             <div style="${row}">${btn('Remove Token', `window.removeBattleToken(${a})${close}`, '#f87171')}</div>`;
         document.body.appendChild(menu);
@@ -4348,6 +4479,18 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         tok.size = newSize;
+        if (tok.type === 'player' || tok.type === 'companion') tok.sizeOverride = true;   // keep it (powers, squeezing…)
+        saveWorldNotes();
+        _btRenderTokens(mapId, winId);
+    };
+    // Back to the size on the character's sheet
+    window._btResetTokenSize = function(mapId, winId, tokenId) {
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+        let tok = (map?.battleTokens||[]).find(t=>t.id===tokenId); if(!tok) return;
+        delete tok.sizeOverride;
+        let pm = (window.gmParty||[]).find(p=>p.fileName===tok.playerUid||p.summary?.playerUid===tok.playerUid);
+        let sz = tok.type === 'player' ? window.APXBattle.sizeFromCharState(pm?.state) : String(pm?.state?.companion?.size || 'medium').toLowerCase();
+        if (sz) tok.size = sz;
         saveWorldNotes();
         _btRenderTokens(mapId, winId);
     };
@@ -4621,6 +4764,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ${envSection}
             ${hdr('Trained Skills')}<div style="font-size:0.62rem;color:#a3e635;padding:0.15rem 0;">${skillsList}</div>
             ${hdr('Languages')}<div style="font-size:0.62rem;color:#c4b5fd;padding:0.15rem 0;">${languages}</div>
+            ${window._gmPlayerPowersHtml ? window._gmPlayerPowersHtml(st, hdr) : ''}
         </div>` };
     };
 
@@ -4763,14 +4907,17 @@ document.addEventListener('DOMContentLoaded', () => {
         let tok=map?.tokens?.find(t=>t.id===tokenId); if(!tok) return;
         let winId='omTok_'+tokenId;
         let existing=document.getElementById(winId);
-        if(existing){ window.apxFloatingZTop++; existing.style.zIndex=window.apxFloatingZTop; return; }
-        window.apxFloatingZTop++;
+        // Area popups open in front of everything (the dice tray too), beside the map window
+        let popZ = () => (window._apxPopZ = Math.max((window._apxPopZ||2147483100)+1, 2147483100));
+        if(existing){ existing.style.zIndex=popZ(); return; }
         let pWin=document.getElementById(parentWinId);
-        let pr=pWin?pWin.getBoundingClientRect():{left:200,top:100,width:730};
-        let lx=Math.min(pr.left+pr.width+8, window.innerWidth-310);
+        let pr=pWin?pWin.getBoundingClientRect():{left:200,top:100,width:730,right:930};
+        let lx=pr.left+pr.width+8;
+        if (lx + 300 > window.innerWidth - 8) lx = pr.left - 308;
+        if (lx < 8) lx = Math.max(8, window.innerWidth-310);
         let win=document.createElement('div');
         win.id=winId;
-        win.style.cssText=`position:fixed;left:${lx}px;top:${pr.top}px;width:300px;max-height:75vh;background:#1e293b;border:1px solid #6366f1;border-radius:0.5rem;z-index:${window.apxFloatingZTop};box-shadow:0 10px 40px rgba(0,0,0,.8);display:flex;flex-direction:column;overflow:hidden;`;
+        win.style.cssText=`position:fixed;left:${lx}px;top:${Math.max(8, pr.top)}px;width:300px;max-height:75vh;background:#1e293b;border:1px solid #6366f1;border-radius:0.5rem;z-index:${popZ()};box-shadow:0 10px 40px rgba(0,0,0,.8);display:flex;flex-direction:column;overflow:hidden;`;
         win.innerHTML=`
             <div id="${winId}_hdr" style="cursor:grab;user-select:none;background:#312e81;padding:0.5rem 0.75rem;
                 border-bottom:1px solid #4f46e5;border-radius:0.5rem 0.5rem 0 0;display:flex;align-items:center;gap:0.5rem;">
@@ -4828,7 +4975,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>`;
 
         document.getElementById('floatingWindowContainer').appendChild(win);
-        win.addEventListener('mousedown', ()=>{ window.apxFloatingZTop++; win.style.zIndex=window.apxFloatingZTop; });
+        win.addEventListener('mousedown', ()=>{ win.style.zIndex=popZ(); });
         let hdr=document.getElementById(winId+'_hdr'), wDrag=false, wOX=0, wOY=0;
         hdr.addEventListener('mousedown', e=>{ if(e.target.tagName==='BUTTON'||e.target.tagName==='INPUT')return; wDrag=true; let r=win.getBoundingClientRect(); wOX=e.clientX-r.left; wOY=e.clientY-r.top; e.preventDefault(); });
         let mm=e=>{ if(!wDrag)return; win.style.left=Math.max(0,Math.min(window.innerWidth-60,e.clientX-wOX))+'px'; win.style.top=Math.max(0,Math.min(window.innerHeight-40,e.clientY-wOY))+'px'; };
@@ -5991,5 +6138,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </script>
     <div id="floatingWindowContainer"></div>
 
+    <script src="js/apx-chat.js?v=20261011200"></script>
+    <script src="js/apx-extras.js?v=20261011200"></script>
 </body>
 </html>

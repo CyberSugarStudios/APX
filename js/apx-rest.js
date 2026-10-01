@@ -4,7 +4,7 @@
 // Short Rest (1 hour, need at least 1 HP)
 //   Spend any number of Rest Dice, one at a time: each heals the die roll + CON mod
 //   (Well Rested: roll twice, keep the higher). Spent dice stay spent until a Full Rest.
-//   CHA-based Power Slots come back.
+//   Short Rest Powers uses come back.
 // Full Rest (8 hours, need at least 1 HP)
 //   All HP, -1 Fatigue, half your MAX Rest Dice back (rounded down, up to max), all Power
 //   Slots (INT and CHA), Luck Points refilled, companion slots/charges/HP, High
@@ -139,7 +139,7 @@
                     <button class="apxdlg-btn apxdlg-ok" data-finish style="background:var(--c-indigo,#4f46e5)">Finish Short Rest</button>
                 </div>`;
             back.querySelector('[data-cancel]').onclick = () => {
-                if (log.length) { window.apxAlert('Rest Dice already spent stay spent. Press "Finish Short Rest" to also get your CHA Power Slots back.', { title: 'Short Rest' }); return; }
+                if (log.length) { window.apxAlert('Rest Dice already spent stay spent. Press "Finish Short Rest" to also get your Short Rest Power uses back.', { title: 'Short Rest' }); return; }
                 back.remove();
             };
             let sp = back.querySelector('[data-spend]');
@@ -159,7 +159,7 @@
                 refresh();
                 back.remove();
                 let spent = log.length;
-                toast(`Short Rest done${spent ? `: ${spent} Rest Di${spent > 1 ? 'ce' : 'e'} spent` : ''}${chaBack ? `, ${chaBack} CHA Power use${chaBack > 1 ? 's' : ''} restored` : ''}${recBack ? `, ${recBack} ready again` : ''}${compSlots ? `, companion's CHA power slots restored` : ''}.`);
+                toast(`Short Rest done${spent ? `: ${spent} Rest Di${spent > 1 ? 'ce' : 'e'} spent` : ''}${chaBack ? `, ${chaBack} Short Rest Power use${chaBack > 1 ? "s" : ""} restored` : ''}${recBack ? `, ${recBack} ready again` : ''}${compSlots ? `, companion's CHA power slots restored` : ''}.`);
             };
         };
         draw();

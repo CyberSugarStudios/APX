@@ -190,7 +190,7 @@
             if(fragCount) calc.maxHpPenalty += 5 * fragCount;
 
             ATTRIBUTES.forEach(a => {
-                calc.scores[a] = window.state.baseStats[a] + (window.state.ancestry.bonuses[a] || 0);
+                calc.scores[a] = window.state.baseStats[a] + (window.state.ancestry.bonuses[a] || 0) + ((window.state.attrAdj || {})[a] || 0);
             });
 
             // Custom equippable items (rings, circlets, etc. from the Add
@@ -212,7 +212,7 @@
                 let pDef = PERKS_DB.find(p => p.id === perkId);
                 let rank = window.state.perks[perkId];
                 let choices = window.state.perkChoices[perkId] || null;
-                if(pDef && pDef.effect) pDef.effect(calc, rank, choices);
+                if(pDef && pDef.effect && rank > 0) pDef.effect(calc, rank, choices);
             });
 
             (window.state.ancestryBonusPerks || []).forEach(bp => {
@@ -249,7 +249,7 @@
             document.getElementById('dispMaxHp').innerText = maxHp;
 
             let sizeMult = (parseInt(window.state.ancestry.size) || 30);
-            if (calc.sizeMultBoost > 0) sizeMult *= 2; 
+            if (calc.sizeMultBoost > 0) sizeMult *= Math.pow(2, calc.sizeMultBoost);   // each step (Brute R1, Load-Bearing) is one size larger: stacks with the ancestry size
             calc.carryCap = calc.scores.STR * sizeMult + (calc.carryCap - 150) + fxStat('carryCap');
 
             let armorWt = window.state.equippedArmor.wt;
@@ -531,6 +531,15 @@
             let tirelessRank = window.state.perks['gen_tireless'] || 0;
             let effectiveFatigue = Math.max(0, window.state.fatigue - tirelessRank);
             calc.effectiveFatigue = effectiveFatigue;
+            // AP gained at the start of combat (on your first turn of the fight): Adrenaline, Relentless R5, items
+            {
+                let pk = window.state.perks || {}, src = [], n = 0;
+                let adr = (pk.gen_adrenaline || 0) + (window.state.ancestryBonusPerks || []).filter(b => b.perkId === 'gen_adrenaline').length;
+                if (adr) { n += adr; src.push(`Adrenaline +${adr}`); }
+                if ((pk.agi_relentless || 0) >= 5) { n += 4; src.push('Relentless +4'); }
+                let fxc = fxStat('combatAp'); if (fxc) { n += fxc; src.push(`items ${fxc > 0 ? '+' : ''}${fxc}`); }
+                calc.combatStartAp = Math.max(0, n); calc.combatStartApSrc = src;
+            }
             calc.maxAp = calc.apForcedZero ? 0 : Math.max(0, Math.max(6, 6 + Math.floor(calc.mods.AGI / 2)) - effectiveFatigue + fxStat('maxAp'));   // 6 + half AGI mod (round down), min 6 — Sept 23, 2026 update
             
             window.syncInitStatCheckboxes(); // may revert state.initStat if its perk was removed, so this runs before calc.init uses it
@@ -685,7 +694,9 @@
                         // to get it (the shared training picker), not
                         // something that only appears once you already
                         // have one.
-                        html += `<div class="pl-5 pr-2 py-0.5 text-[10px] text-slate-500 font-bold uppercase tracking-wide">Encyclopedia</div>`;
+                        // Clicking the header rolls an untrained Encyclopedia check (any topic you have no entry for)
+                        let encBonus = mod + checkItemBonus + (window.state.perks['int_scholar'] || 0);
+                        html += `<div class="pl-5 pr-2 py-0.5 text-[10px] text-slate-500 font-bold uppercase tracking-wide apx-rollable flex justify-between" style="cursor:pointer" title="Roll an INT check for a topic you have no Encyclopedia entry for"${apxRollAttr({ type: 'check', label: 'Encyclopedia - Generic (No Training)', bonus: encBonus, attr: 'INT', skill: 'Encyclopedia', disSources: calc.disadv.checkByAttr[attr] || [], autoFail: (calc.disadv.autoFailCheckByAttr[attr] || []).join(', ') || undefined })}><span>Encyclopedia</span><span class="normal-case font-bold">${encBonus >= 0 ? '+' + encBonus : encBonus}</span></div>`;
                         html += encyclopediaSkills.map(es => renderSkillRow(es, true)).join('');
                     }
                 });
@@ -1069,6 +1080,15 @@
             if (idx <= 0) return null;
             return WEAPON_DMG_TIERS[idx - 1].dice;
         }
+        // "One die step" (two-handed Medium melee): the die gets bigger, the number of dice stays
+        // (2d4 → 2d6, 2d6 → 2d8, 2d8 → 2d10, 3d10 → 3d12)
+        function dieStepUp(dice) {
+            let m = String(dice || '').trim().match(/^(\d*)d(\d+)$/i);
+            if (!m) return dice;
+            let next = { 4: 6, 6: 8, 8: 10, 10: 12, 12: 12 }[parseInt(m[2], 10)];
+            return next ? `${m[1] || 1}d${next}` : dice;
+        }
+        window.apxDieStepUp = dieStepUp;
         window.nextDieTier = nextDieTier;
         window.prevDieTier = prevDieTier;
 
@@ -1195,7 +1215,9 @@
             let rollName = (w.name || 'Weapon') + (opts.label ? (opts.attr === 'STR' && /2-Handed/.test(opts.label) ? ' (2-Handed)' : /Aimed/.test(opts.label) ? ' (Aimed)' : '') : '');
             // What a hit with it can do (Crushing, Stunning, Flurry…): read by the GM's tracker
             let hitMeta = { weapon: w.name || 'Weapon', props: Object.keys(w.properties || {}).filter(k => { let v = w.properties[k]; return typeof v === 'number' ? v > 0 : !!v; }),
-                die: '1d' + ((String(opts.dice || '').match(/\d*d(\d+)/) || [0, 6])[1]), dmgType: apxWeaponDmgType(w), strMod: calc.mods.STR || 0, intMod: calc.mods.INT || 0, elec: w.elemental === 'Electric' };
+                die: '1d' + ((String(opts.dice || '').match(/\d*d(\d+)/) || [0, 6])[1]), dmgType: apxWeaponDmgType(w), strMod: calc.mods.STR || 0, intMod: calc.mods.INT || 0, elec: w.elemental === 'Electric',
+                // Ranged weapons fire Light / Medium / Heavy Ammo by weight (its effect shows in the roller)
+                ammo: cat === 'ranged' && !(w.properties && w.properties.thrown) && ['light', 'medium', 'heavy'].includes(w.weightClass) ? w.weightClass : null };
             // pcAttack/apCost/aimed: the sheet's AP hook (apxBeforeAttack) spends AP for this attack
             let atkRoll = apxRollAttr({ type: 'attack', label: rollName, bonus: atk, dice: opts.dice, dmgMod, critMult, dmgType: apxWeaponDmgType(w), disSources: disadvSources, advSources,
                 pcAttack: true, wcat: cat, apCost: parseInt(opts.ap) || 0, ranged: cat === 'ranged', aimed: cat === 'ranged' && !!w.aimed, unarmed: !!w.isUnarmed,
@@ -1301,7 +1323,7 @@
                 let couldGoTwoHanded = handsFreeForThis >= 2;
                 html += renderWeaponRow(w, idx, { attr: w.attr, dice: w.dmg, ap: w.ap, editable: true });
                 if (isMediumMelee && couldGoTwoHanded) {
-                    let twoHDice = nextDieTier(w.dmg) || w.dmg;
+                    let twoHDice = dieStepUp(w.dmg);
                     let reachVal = w.properties?.reach;
                     let reachCount = reachVal ? (typeof reachVal === 'number' ? reachVal : 1) : 0;
                     let twoHLabel = '↳ 2-Handed (STR, +1 AP, +1 die step)' + (reachCount ? `, Reach ${reachCount} sq` : '');
@@ -1434,17 +1456,25 @@
             document.getElementById('weaponsBody').innerHTML = html;
         }
 
+        // Power Slots. Levels 1-5: Full Rest Powers (3/2/2/1/1 slots per purchase of that Rank).
+        // 'CHA': the Short Rest Powers pool (uses per Short Rest = your Rank). Items can add more.
         function getMaxSlotsForLevel(lvl) {
-            let attr = window.state.powerAttr;
             let fx = (typeof calc !== 'undefined' && calc && calc.itemFx && calc.itemFx.stat) || {};
-            if(attr === 'INT') {
-                let timesBought = (window.state.pwrIntRanks && window.state.pwrIntRanks[lvl]) ? window.state.pwrIntRanks[lvl] : 0;
-                let per = { 1: 3, 2: 2, 3: 2, 4: 1, 5: 1 }[lvl] || 0;
-                return Math.max(0, per * timesBought + (fx['slot_' + lvl] || 0));   // + items that grant extra slots
-            } else {
-                return Math.max(0, (window.state.perks["pwr_cha"] || 0) + (fx.slot_CHA || 0));
-            }
+            if (lvl === 'CHA') return Math.max(0, (window.state.perks["pwr_cha"] || 0) + (fx.slot_CHA || 0));
+            let timesBought = (window.state.pwrIntRanks && window.state.pwrIntRanks[lvl]) ? window.state.pwrIntRanks[lvl] : 0;
+            let per = { 1: 3, 2: 2, 3: 2, 4: 1, 5: 1 }[lvl] || 0;
+            return Math.max(0, per * timesBought + (fx['slot_' + lvl] || 0));   // + items that grant extra slots
         }
+        window.apxMaxPowerSlots = getMaxSlotsForLevel;
+        // A power's own Attack Bonus and Save DC: its Core Attribute + Training Bonus (attack) + the
+        // highest Power Level you can use (+ item bonuses)
+        function apxPowerNums(p) {
+            let attr = window.apxPowerAttr ? window.apxPowerAttr(p) : (window.state.powerAttr || 'INT');
+            let mod = calc.mods[attr] || 0, top = window.apxPowerMaxLevel ? window.apxPowerMaxLevel() : 0;
+            let pfx = k => (calc.itemFx && calc.itemFx.stat && calc.itemFx.stat[k]) || 0;
+            return { attr, mod, atk: mod + window.state.trainingBonus + top + pfx('powerAtk'), dc: 10 + mod + top + pfx('powerDc') };
+        }
+        window.apxPowerNums = apxPowerNums;
 
         // delta directly represents the change to charges REMAINING
         // (matching what the +/- buttons visually show), so a NEGATIVE
@@ -1488,13 +1518,13 @@
         }
 
         function renderPowerStats() {
-            let attr = window.state.powerAttr;
-            let mod = calc.mods[attr] || 0;
-            let maxLvl = (attr === 'INT') ? (window.state.perks["pwr_int"] || 0) : (window.state.perks["pwr_cha"] || 0);
-
+            // The header's Atk / DC: for the attribute picked there (each power shows its own on its card)
+            let attr = ATTRIBUTES.includes(window.state.powerAttr) ? window.state.powerAttr : 'INT';
+            let sel = document.getElementById('powerAttr'); if (sel && sel.value !== attr) sel.value = attr;
+            let hn = apxPowerNums({ attr });
+            let atk = hn.atk, dc = hn.dc;
+            let maxInt = window.state.perks["pwr_int"] || 0, maxCha = window.state.perks["pwr_cha"] || 0;
             let pfx = k => (calc.itemFx && calc.itemFx.stat && calc.itemFx.stat[k]) || 0;
-            let atk = mod + window.state.trainingBonus + maxLvl + pfx('powerAtk');
-            let dc = 10 + mod + maxLvl + pfx('powerDc');
 
             document.getElementById('dispPwrAtk').innerText = (atk >= 0 ? '+'+atk : atk);
             calc.powerAtk = atk; calc.powerDc = dc;
@@ -1506,45 +1536,37 @@
                     atkWrap.removeAttribute('data-apx-roll'); atkWrap.setAttribute('data-apx-blocked', calc.cantActLabel); atkWrap.title = `You're ${calc.cantActLabel}`;
                 } else {
                     atkWrap.removeAttribute('data-apx-blocked');
-                    atkWrap.setAttribute('data-apx-roll', JSON.stringify({ type: 'check', kind: 'attack', label: 'Power Attack', who: window.state?.name || '', bonus: atk, omen: true,
+                    atkWrap.setAttribute('data-apx-roll', JSON.stringify({ type: 'check', kind: 'attack', label: `Power Attack (${attr})`, who: window.state?.name || '', bonus: atk, omen: true,
                         disSources: (calc.disadv && calc.disadv.atkGeneral) || [] }));
-                    atkWrap.title = 'Roll a power attack (d20 ' + (atk >= 0 ? '+' : '') + atk + ')';
+                    atkWrap.title = `Roll a power attack with ${attr} (d20 ${atk >= 0 ? '+' : ''}${atk})`;
                 }
             }
             document.getElementById('dispPwrDc').innerText = dc;
 
             let html = '';
-            if (attr === 'INT') {
+            if (maxInt > 0 || [1, 2, 3, 4, 5].some(l => getMaxSlotsForLevel(l) > 0)) {
+                html += `<div class="col-span-5 text-[9px] text-slate-400 uppercase font-black tracking-wide text-left -mb-1">Full Rest Powers <span class="normal-case font-bold text-slate-500">(slots back after a Full Rest)</span></div>`;
                 for(let lvl = 1; lvl <= 5; lvl++) {
                     let slotMax = getMaxSlotsForLevel(lvl);
-                    
                     html += `<div><div class="text-[9px] text-slate-500 uppercase font-bold mb-1">Lvl ${lvl}</div><div class="flex flex-wrap items-center justify-center gap-1">`;
                     if(slotMax === 0) html += `<span class="text-[10px] text-slate-600">-</span>`;
                     for(let i=0; i<slotMax; i++) {
-                        let isUsed = i < window.state.usedPowerSlots[lvl];
-                        let filledClass = isUsed ? 'empty' : 'filled';
-                        html += `<div class="power-bubble ${filledClass}" onclick="window.togglePowerSlot(${lvl}, ${i})"></div>`;
+                        let isUsed = i < (window.state.usedPowerSlots[lvl] || 0);
+                        html += `<div class="power-bubble ${isUsed ? 'empty' : 'filled'}" onclick="window.togglePowerSlot(${lvl}, ${i})"></div>`;
                     }
                     html += `</div></div>`;
                 }
-            } else if (attr === 'CHA') {
-                let slotMax = Math.max(0, maxLvl + pfx('slot_CHA'));
-                let used = window.state.usedPowerSlots['CHA'] || 0;
-                if (used > slotMax) used = slotMax;
+            }
+            if (maxCha > 0 || pfx('slot_CHA') > 0) {
+                let slotMax = getMaxSlotsForLevel('CHA');
+                let used = Math.min(slotMax, window.state.usedPowerSlots['CHA'] || 0);
                 let available = slotMax - used;
-                let displayLvl = maxLvl > 0 ? maxLvl : 1;
-
-                html += `<div class="col-span-5 flex flex-col items-center justify-center pt-1"><div class="text-[10px] text-slate-500 uppercase font-bold mb-2">LVL ${displayLvl} (Unified Pool)</div><div class="flex flex-wrap items-center justify-center gap-3">`;
-                if(slotMax === 0) {
-                    html += `<span class="text-[10px] text-slate-600">No powers unlocked.</span>`;
-                } else {
-                    for(let i=0; i<slotMax; i++) {
-                        let filledClass = i < available ? 'filled' : 'empty';
-                        html += `<div class="power-bubble ${filledClass} scale-125" onclick="window.togglePowerSlot('CHA', ${i})"></div>`;
-                    }
-                }
+                html += `<div class="col-span-5 flex flex-col items-center justify-center pt-1 ${maxInt > 0 ? 'border-t border-slate-700/60 mt-1' : ''}"><div class="text-[10px] text-slate-500 uppercase font-bold mb-2">Short Rest Powers: up to Level ${Math.max(1, maxCha)} <span class="normal-case">(${slotMax} use${slotMax === 1 ? '' : 's'} per Short Rest${maxCha >= 5 ? '; Level 1 Powers are free' : ''})</span></div><div class="flex flex-wrap items-center justify-center gap-3">`;
+                if (slotMax === 0) html += `<span class="text-[10px] text-slate-600">No uses.</span>`;
+                for(let i=0; i<slotMax; i++) html += `<div class="power-bubble ${i < available ? 'filled' : 'empty'} scale-125" onclick="window.togglePowerSlot('CHA', ${i})"></div>`;
                 html += `</div></div>`;
             }
+            if (!html) html = `<div class="col-span-5 text-[10px] text-slate-500 py-1">No Power perks yet: buy Full Rest Powers or Short Rest Powers with XP to use powers.</div>`;
             document.getElementById('powerSlotsContainer').innerHTML = html;
         }
 
@@ -1566,15 +1588,16 @@
         function apxPowerAtkInfo(p) {
             let d = p.draft || {};
             let step = d.step1 || (/save halves/i.test(p.atk || '') ? 'saveHalves' : /guaranteed/i.test(p.atk || '') ? 'guaranteed' : /friendly/i.test(p.atk || '') ? 'friendly' : /hp capacity/i.test(p.atk || '') ? 'hpPool' : 'atkSave');
-            if (step === 'saveHalves') return { kind: 'save', text: `Save Halves · DC ${calc.powerDc}` };
+            let pn = apxPowerNums(p);
+            if (step === 'saveHalves') return { kind: 'save', text: `Save Halves · DC ${pn.dc}`, dc: pn.dc };
             if (step !== 'atkSave') return { kind: 'none', text: p.atk || '-' };
-            if (d.atkMode === 'save') return { kind: 'save', text: `Save Negates · DC ${calc.powerDc}` };
+            if (d.atkMode === 'save') return { kind: 'save', text: `Save Negates · DC ${pn.dc}`, dc: pn.dc };
             if (d.atkKind === 'martial') {
                 let opts = calc.weaponAttacks || [];
                 let w = opts.find(x => x.key === d.atkWeapon) || opts.find(x => x.key.split('|')[0] === String(d.atkWeapon || '').split('|')[0]) || opts[0];
                 return { kind: 'martial', w, text: w ? `Martial · ${w.label} ${w.bonus >= 0 ? '+' : ''}${w.bonus}` : 'Martial · no weapon' };
             }
-            return { kind: 'power', text: `Power Attack ${calc.powerAtk >= 0 ? '+' : ''}${calc.powerAtk}` };
+            return { kind: 'power', text: `Power Attack ${pn.atk >= 0 ? '+' : ''}${pn.atk}`, bonus: pn.atk };
         }
         function apxPowerAtkHtml(p, idx) {
             let info = apxPowerAtkInfo(p);
@@ -1582,7 +1605,7 @@
             if (info.kind === 'none' || info.kind === 'save') return esc(info.text);
             let blocked = calc.cantAct ? ` data-no-roll data-apx-blocked="${calc.cantActLabel}"` : '';
             let roll = info.kind === 'power'
-                ? apxRollAttr({ type: 'check', kind: 'attack', label: (p.name || 'Power') + ': Power Attack', bonus: calc.powerAtk, omen: true, disSources: (calc.disadv && calc.disadv.atkGeneral) || [] })
+                ? apxRollAttr({ type: 'check', kind: 'attack', label: (p.name || 'Power') + ': Power Attack', bonus: info.bonus, omen: true, disSources: (calc.disadv && calc.disadv.atkGeneral) || [] })
                 : info.w ? apxRollAttr({ type: 'check', kind: 'attack', label: (p.name || 'Power') + ': ' + info.w.label + ' attack', bonus: info.w.bonus, omen: true, disSources: info.w.disSources, advSources: info.w.advSources }) : '';
             let span = `<span class="apx-rollable" style="text-decoration:underline dotted;text-underline-offset:2px;cursor:pointer" title="Roll the attack (d20)"${blocked || roll}>${esc(info.text)}</span>`;
             if (info.kind !== 'martial') return span;
@@ -1621,7 +1644,7 @@
             if (!m) return null;
             let heal = /heal/i.test(m[2]);
             let formula = m[1].replace(/\s+/g, '');
-            if (/\+\s*Attr/i.test(m[2])) { let am = calc.mods[window.state.powerAttr] || 0; if (am) formula += (am > 0 ? '+' : '') + am; }
+            if (/\+\s*Attr/i.test(m[2])) { let am = calc.mods[window.apxPowerAttr ? window.apxPowerAttr(p) : window.state.powerAttr] || 0; if (am) formula += (am > 0 ? '+' : '') + am; }
             return { formula, heal, type: m[2].replace(/\+\s*Attr/i, '').replace(/\(Heal\)/i, '').trim() };
         }
         window.apxUsePower = async function(idx) {
@@ -1630,38 +1653,58 @@
             let name = p.name || 'Power', who = window.state.name || '';
             // An item's power runs on the item (its uses are on the card), not on your Power Slots
             let itemSrc = /^i\d+_\d+$/.test(String(idx)) ? (window.state.items || [])[+String(idx).slice(1).split('_')[0]] : null;
-            // Power Slot: INT uses a slot of the power's level, CHA one from its pool
-            let isCha = window.state.powerAttr === 'CHA', slotKey = isCha ? 'CHA' : (parseInt(p.lvl) || 1);
-            let slotMax = itemSrc ? 1 : getMaxSlotsForLevel(slotKey), slotUsed = itemSrc ? 0 : (window.state.usedPowerSlots[slotKey] || 0);
-            let slotLabel = isCha ? 'Power Slot' : `Level ${slotKey} Power Slot`;
+            // What the power runs on: Full Rest Powers use a Power Slot of its Level (or a higher one when
+            // those are gone); Short Rest Powers use one of your uses per Short Rest (Rank 5: Level 1 Powers
+            // are free). With both kinds of power user, the other kind is offered when one runs out.
+            let lvl = parseInt(p.lvl) || 1;
+            let pool = window.apxPowerPool ? window.apxPowerPool(p) : 'full';
+            let perks = window.state.perks || {};
+            let fullSlot = () => { for (let L = lvl; L <= 5; L++) { let mx = getMaxSlotsForLevel(L), u = window.state.usedPowerSlots[L] || 0; if (u < mx) return { key: L, max: mx, used: u, label: `Level ${L} Power Slot${L > lvl ? ' (higher Level)' : ''}` }; } return null; };
+            let shortSlot = () => {
+                if ((perks.pwr_cha || 0) < lvl && !(lvl === 1 && (perks.pwr_cha || 0) >= 1)) return null;
+                if ((perks.pwr_cha || 0) >= 5 && lvl === 1) return { key: null, free: true, label: 'Short Rest Power (Level 1: free at Rank 5)' };
+                let mx = getMaxSlotsForLevel('CHA'), u = window.state.usedPowerSlots.CHA || 0;
+                return u < mx ? { key: 'CHA', max: mx, used: u, label: 'Short Rest use' } : null;
+            };
+            let slot = itemSrc ? { key: null, free: true } : (pool === 'short' ? shortSlot() : fullSlot());
+            let alt = itemSrc || slot ? null : (pool === 'short' ? (perks.pwr_int > 0 ? fullSlot() : null) : (perks.pwr_cha > 0 ? shortSlot() : null));
             let cost = window.apxPowerIsReaction && window.apxPowerIsReaction(p) ? 0 : Math.max(0, parseInt(p.ap) || 0);   // a Reaction power costs no AP
             let have = typeof window.apxApCurrent === 'function' ? window.apxApCurrent() : cost;
             // Whatever you have is spent: a slot if one's left, the AP if there's enough. Short on
             // either, you're asked first; "Use anyway" still takes what's there.
-            let slotOk = slotUsed < slotMax, apOk = cost <= have;
+            let apOk = cost <= have;
             let short = [];
-            if (!slotOk) short.push(`You have no ${slotLabel}s left (${slotUsed}/${slotMax} used).`);
+            let poolName = pool === 'short' ? 'Short Rest uses' : `Level ${lvl}+ Power Slots`;
+            if (!slot) short.push(`You have no ${poolName} left.`);
             if (!apOk) short.push(`It costs ${cost} AP and you have ${have}.`);
             let pay = true;
             if (short.length) {
-                let ans = APXDice.ask ? await APXDice.ask(`${name}`, short.join('\n'), [['use', 'Use anyway', 'pri']]) : 'use';
-                if (ans !== 'use') return;
-                pay = false;
+                let choices = [];
+                if (!slot && alt && apOk) choices.push(['alt', `Use a ${alt.label}`, 'pri']);
+                choices.push(['use', 'Use anyway', choices.length ? '' : 'pri']);
+                let ans = APXDice.ask ? await APXDice.ask(`${name}`, short.join('\n') + (!slot && alt ? `\nYou could use a ${alt.label} instead.` : ''), choices) : 'use';
+                if (ans === 'alt') { slot = alt; }
+                else if (ans !== 'use') return;
+                else pay = false;
             }
             let notes = [];
             if (apOk && cost > 0) { window.apxSpendAp(cost); notes.push(`-${cost} AP (${window.apxApCurrent()} left)`); }
             else if (!apOk) notes.push(`AP short (needed ${cost}, had ${have})`);
             if (itemSrc) notes.push(`from ${itemSrc.name || 'an item'} (${window.apxItemPowerUsage ? window.apxItemPowerUsage(p) : 'item power'})`);
-            else if (slotOk) { window.state.usedPowerSlots[slotKey] = slotUsed + 1; notes.push(`-1 ${slotLabel} (${Math.max(0, slotMax - slotUsed - 1)} left)`); }
-            else notes.push(`no ${slotLabel} left`);
+            else if (slot && slot.free) notes.push(slot.label);
+            else if (slot) { window.state.usedPowerSlots[slot.key] = slot.used + 1; notes.push(`-1 ${slot.label} (${Math.max(0, slot.max - slot.used - 1)} left)`); }
+            else notes.push(`no ${poolName} left`);
             window.recalculateMath();
             let useNote = notes.join(' · ');
             let info = apxPowerAtkInfo(p), dmg = apxPowerDamage(p);
             let flavor = String(p.desc || '').trim();
-            let dc = calc.powerDc;
-            let tell = text => { if (typeof window.apxOnRollEvent === 'function') window.apxOnRollEvent({ id: 'pw' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), kind: 'power', label: name, text }); };
+            let pnums = apxPowerNums(p), dc = pnums.dc;
+            let saveKind0 = info.kind === 'save' ? (/halves/i.test(info.text) ? 'halves' : 'negates') : null;
+            // The GM's tracker learns what this power is (its damage type, its save), so the damage
+            // entered next is this power, not an earlier attack
+            let tell = (text, extra) => { if (typeof window.apxOnRollEvent === 'function') window.apxOnRollEvent(Object.assign({ id: 'pw' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), kind: 'power', label: name, text }, extra || {})); };
             if (info.kind === 'power' || info.kind === 'martial') {
-                let bonus = info.kind === 'power' ? calc.powerAtk : (info.w ? info.w.bonus : calc.powerAtk);
+                let bonus = info.kind === 'power' ? pnums.atk : (info.w ? info.w.bonus : pnums.atk);
                 let via = info.kind === 'martial' && info.w ? ` (${info.w.label})` : '';
                 let o = { label: name + via, who, bonus, perks: true, gambleAllowed: false, omen: true, power: true, useNote, useWarn: !pay, flavor,
                     disSources: info.kind === 'martial' && info.w ? info.w.disSources : ((calc.disadv && calc.disadv.atkGeneral) || []),
@@ -1673,10 +1716,10 @@
                 if (dmg && !dmg.heal) { o.dice = wf ? wf + '+' + dmg.formula : dmg.formula; o.dmgType = [wpn && wpn.dmgType, dmg.type].filter(Boolean).join(' + '); o.critMult = wpn ? (wpn.critMult || 2) : 2; o.wcat = wpn && wpn.wcat ? wpn.wcat : 'power'; APXDice.attack(o); }
                 else if (wpn) { o.dice = wf; o.dmgType = wpn.dmgType; o.critMult = wpn.critMult || 2; o.wcat = wpn.wcat || ''; APXDice.attack(o); }
                 else { o.kind = 'attack'; o.note = useNote; APXDice.check(o); }
-                tell(`${who || 'A player'} uses ${name}${via}: attack roll.`);
+                tell(`${who || 'A player'} uses ${name}${via}: attack roll.`, { attackRoll: true });
                 return;
             }
-            let saveKind = info.kind === 'save' ? (/halves/i.test(info.text) ? 'halves' : 'negates') : null;
+            let saveKind = saveKind0;
             let saveText = saveKind ? `Targets make a saving throw against DC ${dc}: a success ${saveKind === 'halves' ? 'halves it' : 'negates it'}.` : '';
             if (dmg) {
                 APXDice.damage({ label: name + (dmg.heal ? ' healing' : ' damage'), who, formula: dmg.formula, dmgType: dmg.heal ? '' : dmg.type, heal: dmg.heal || undefined, wcat: 'power',
@@ -1684,7 +1727,8 @@
             } else {
                 APXDice.info({ label: name, who, text: flavor || 'Power used.', badges: [[pay ? 'info' : 'fum', useNote]].concat(saveText ? [['info', saveText]] : []) });
             }
-            tell(saveText ? `${who || 'A player'} uses ${name}. ${saveText}` : `${who || 'A player'} uses ${name}.`);
+            tell(saveText ? `${who || 'A player'} uses ${name}. ${saveText}` : `${who || 'A player'} uses ${name}.`,
+                dmg && !dmg.heal ? { dmgType: dmg.type, dice: dmg.formula, save: saveKind ? { dc, kind: saveKind } : null } : (saveKind ? { save: { dc, kind: saveKind } } : null));
         };
 
         function renderPowers() {
@@ -1695,6 +1739,8 @@
                         <span class="font-bold text-sm text-indigo-300 cursor-pointer hover:text-indigo-200" onclick="window.apxUsePower(${idx})" title="Use this power: spend its AP and a Power Slot, and roll it">${p.name}</span>
                         <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded border border-slate-600 text-slate-400 font-bold shadow cursor-pointer hover:border-indigo-400 hover:text-indigo-200" onclick="window.apxUsePower(${idx})" title="Use this power: ${window.apxPowerIsReaction(p) ? 'as your Reaction' : 'spend ' + p.ap + ' AP'} and a Power Slot, and roll it">Lvl ${p.lvl} | ${window.apxPowerApLabel(p)}</span>
                     </div>
+                    ${(() => { let pn = apxPowerNums(p), pool = window.apxPowerPool ? window.apxPowerPool(p) : 'full';
+                        return `<div class="text-[9px] font-bold mb-1 ${pool === 'short' ? 'text-amber-300/90' : 'text-sky-300/90'}" title="Each power uses the Core Attribute chosen for it in the Power Crafter">${pool === 'short' ? 'Short Rest Power' : 'Full Rest Power'} · ${pn.attr} · Atk ${pn.atk >= 0 ? '+' : ''}${pn.atk} · DC ${pn.dc}</div>`; })()}
                     <div class="grid grid-cols-3 gap-1 mb-1 text-[10px] text-slate-400">
                         <div><span class="text-slate-500">A/S:</span> ${apxPowerAtkHtml(p, idx)}</div>
                         <div><span class="text-slate-500">R/A:</span> ${p.rng}</div>

@@ -474,8 +474,8 @@
         }
 
     </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20269282122">
-    <link rel="stylesheet" href="css/tailwind.css?v=20269282122">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20261011200">
+    <link rel="stylesheet" href="css/tailwind.css?v=20261011200">
 </head>
 <body class="p-2 md:p-6 flex justify-center text-sm ml-0 lg:ml-8 transition-all" style="padding-top:4.25rem"><!-- (room for the floating Roster / Settings buttons) -->
     <!-- Auth bar removed — account controls are in the sidebar -->
@@ -609,7 +609,7 @@
                         <div class="flex items-baseline justify-center gap-0.5 mt-0.5"><span class="text-2xl font-black text-blue-400" id="dispApLeft">6</span><span class="text-xs font-bold text-slate-500">/<span id="dispAp">6</span></span></div>
                         <div id="apPips" class="flex flex-wrap justify-center gap-0.5 mt-0.5"></div>
                         <div class="flex justify-center gap-2 mt-0.5">
-                            <button onclick="window.apxResetAp()" class="text-[9px] font-bold text-blue-300 hover:text-blue-200" title="Start of your turn: gain your AP. Unspent AP carries over (no cap).">New Turn</button>
+                            <button onclick="window.apxNewTurnClick()" class="text-[9px] font-bold text-blue-300 hover:text-blue-200" title="Start of your turn: gain your AP (including perks and items that raise it). Unspent AP carries over (no cap). In combat, your GM's initiative tracker does this for you when your turn comes up.">New Turn</button>
                             <button id="regenBtn" onclick="window.apxRegenerate()" class="hidden text-[9px] font-bold text-emerald-300 hover:text-emerald-200" title="Regenerative: at the start of your turn in combat, expend a Rest Die and heal the result">Regen</button>
                         </div>
                     </div>
@@ -744,7 +744,8 @@
                 </div>
             </div>
 
-            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg flex flex-col" style="height:440px;">
+            <!-- Notes: always exactly as tall as Vitals and Defenses beside it (its list scrolls inside) -->
+            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-lg flex flex-col" style="min-height:320px;">
                 <div class="flex items-center justify-between border-b border-slate-700 pb-2 mb-3 flex-shrink-0">
                     <h2 class="section-title border-none mb-0 pb-0" style="color:var(--c-indigo-lt,#a5b4fc);">Notes</h2>
                     <div class="flex gap-2 items-center">
@@ -753,7 +754,7 @@
                         <button onclick="window.openCharNoteModal()" class="px-2 py-1 rounded text-[10px] font-bold" style="background:var(--c-emerald,#059669);color:#fff;">+ Add Note</button>
                     </div>
                 </div>
-                <div id="charNoteList" class="flex-1 overflow-y-auto space-y-1.5 min-h-0 pr-0.5"></div>
+                <div class="flex-1 relative min-h-0"><div id="charNoteList" class="absolute inset-0 overflow-y-auto space-y-1.5 pr-0.5"></div></div>
             </div>
         </div>
 
@@ -832,10 +833,10 @@
                     <div>
                         <h2 class="section-title border-none mb-0 pb-0 text-indigo-400">Crafted Powers</h2>
                         <div class="flex items-center gap-2 mt-1">
-                            <span class="text-[10px] text-slate-500 font-bold">Casting Stat:</span>
+                            <span class="text-[10px] text-slate-500 font-bold" title="Each power uses the Core Attribute chosen for it (shown on its card). This shows the numbers for one attribute, for a quick roll.">Atk / DC with:</span>
                             <select id="powerAttr" class="text-[10px] p-0.5 w-16 bg-slate-900 border-slate-600 text-indigo-300 font-bold" onchange="window.updateState('powerAttr', this.value)">
-                                <option value="INT">INT</option>
-                                <option value="CHA">CHA</option>
+                                <option value="STR">STR</option><option value="AGI">AGI</option><option value="CON">CON</option><option value="PER">PER</option>
+                                <option value="INT">INT</option><option value="CHA">CHA</option><option value="LUC">LUC</option>
                             </select>
                             <div class="bg-slate-900 px-2 py-0.5 rounded border border-slate-700 flex gap-3 ml-2">
                                 <span class="text-[10px] text-emerald-400 font-bold">Atk: <span id="dispPwrAtk" class="font-black text-sm">+0</span></span>
@@ -1302,47 +1303,16 @@
                 </div>
                 <label class="flex items-center gap-2 text-xs text-slate-300 font-bold cursor-pointer border-t border-slate-700 pt-3">
                     <input type="checkbox" id="newItemEquippable" onchange="window.toggleNewItemEquippable(this.checked)">
-                    Equippable (grants a bonus while equipped -- rings, circlets, etc.)
+                    Equippable (gives bonuses and powers while worn)
                 </label>
-                <div id="newItemEquipFields" class="hidden space-y-3 bg-slate-900 border border-slate-700 rounded p-2">
-                    <div class="grid grid-cols-3 gap-2">
-                        <div>
-                            <label class="block text-[10px] text-slate-500 mb-1" data-tip="Negative values are allowed -- a cursed or flawed item can penalize AC instead of boosting it.">+AC</label>
-                            <input type="number" id="newItemAcBonus" value="0" class="bg-slate-800 text-xs">
-                        </div>
-                        <div>
-                            <label class="block text-[10px] text-slate-500 mb-1" data-tip="Negative values are allowed -- a cursed or flawed item can penalize DR instead of boosting it.">+DR</label>
-                            <input type="number" id="newItemDrBonus" value="0" class="bg-slate-800 text-xs">
-                        </div>
-                        <div>
-                            <label class="block text-[10px] text-slate-500 mb-1" data-tip="Negative values are allowed -- a cursed or flawed item can penalize ER instead of boosting it.">+ER (generic)</label>
-                            <input type="number" id="newItemErBonus" value="0" class="bg-slate-800 text-xs">
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-[10px] text-slate-500 mb-1" data-tip="Negative values are allowed -- a cursed or flawed item can slow the wearer down instead of speeding them up.">+Speed</label>
-                        <input type="number" id="newItemSpeedBonus" value="0" class="bg-slate-800 text-xs w-full">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] text-slate-500 mb-1" data-tip="Amounts can be negative -- a cursed item can impose an Attribute penalty instead of a bonus.">Attribute Bonuses</label>
-                        <div id="newItemAttrBonusList" class="space-y-1 mb-1"><!-- JS injected --></div>
-                        <button type="button" onclick="window.addBonusDraftRow('newItem', 'attr')" class="text-[10px] text-cyan-400 hover:text-cyan-300 font-bold">+ Add Attribute Bonus</button>
-                    </div>
-                    <div>
-                        <label class="block text-[10px] text-slate-500 mb-1" data-tip="Amounts can be negative -- a cursed item can impose a Skill penalty instead of a bonus.">Skill Bonuses</label>
-                        <div id="newItemSkillBonusList" class="space-y-1 mb-1"><!-- JS injected --></div>
-                        <button type="button" onclick="window.addBonusDraftRow('newItem', 'skill')" class="text-[10px] text-cyan-400 hover:text-cyan-300 font-bold">+ Add Skill Bonus</button>
-                    </div>
-                    <div>
-                        <label class="block text-[10px] text-slate-500 mb-1" data-tip="Amounts can be negative -- a cursed item can grant an Energy Vulnerability instead of a Resistance.">Energy Resistance Bonuses</label>
-                        <div id="newItemErBonusList" class="space-y-1 mb-1"><!-- JS injected --></div>
-                        <button type="button" onclick="window.addBonusDraftRow('newItem', 'er')" class="text-[10px] text-cyan-400 hover:text-cyan-300 font-bold">+ Add Energy Resistance Bonus</button>
-                    </div>
-                    <div>
-                        <label class="block text-[10px] text-slate-500 mb-1" data-tip="Max HP, AP, Initiative, Wound Threshold, Rest Dice, Luck Points, Power Slots, attack and damage rolls, saves, checks and more. Amounts can be negative.">Other Bonuses</label>
-                        <div id="newItemStatBonusList" class="space-y-1 mb-1"><!-- JS injected --></div>
-                        <button type="button" onclick="window.addBonusDraftRow('newItem', 'stat')" class="text-[10px] text-cyan-400 hover:text-cyan-300 font-bold">+ Add Other Bonus</button>
-                    </div>
+                <div id="newItemEquipFields" class="hidden space-y-2 bg-slate-900 border border-slate-700 rounded p-2">
+                    <div class="text-[10px] text-slate-400 leading-snug">Add as many bonuses as you like: Core Attributes, skills, AC/DR/ER, Speed, Max HP, AP, Initiative, Wound Threshold, Rest Dice, Luck Points, Power Slots, attack and damage rolls, saves, checks, energy resistances. Negative amounts make a cursed item.</div>
+                    <div id="newItemRows" class="space-y-1"></div>
+                    <button type="button" onclick="window.apxNewItemAddRow('stat:maxHp', 1)" class="text-[10px] font-bold px-2 py-1 rounded border border-dashed border-slate-600 text-sky-300 hover:text-sky-200">+ Add bonus</button>
+                    <div class="text-[10px] font-black uppercase text-slate-400 pt-2">Powers while equipped</div>
+                    <div class="text-[10px] text-slate-500 leading-snug">You get these powers while it's equipped (no Power Slot needed).</div>
+                    <div id="newItemPowers" class="space-y-1"></div>
+                    <button type="button" onclick="window.apxNewItemCraftPower()" class="text-[10px] font-bold px-2 py-1 rounded bg-purple-900 border border-purple-600 text-purple-100 hover:bg-purple-800">+ Craft Power</button>
                 </div>
             </div>
             <div class="flex justify-end gap-2 mt-6">
@@ -1698,10 +1668,12 @@
                 <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Power Name</label>
                 <input type="text" id="pcName" placeholder="e.g. Ember Lance" class="bg-slate-900 border-purple-900/50 text-purple-300 font-bold">
             </div>
+            <div id="pcPlayerAttrRow" class="hidden mb-3 grid grid-cols-2 gap-2"></div>
             <div id="pcUsageTypeSection" class="hidden mb-3 bg-slate-900 border border-slate-700 rounded p-2">
                 <label class="block text-[10px] text-slate-400 uppercase tracking-wider mb-1">Usage</label>
                 <div class="flex flex-col gap-1 text-xs text-slate-200 mb-2">
                     <label class="flex items-center gap-1"><input type="radio" name="pcUsageType" value="unlimited" onchange="window.pcSetUsageType('unlimited')"> Once per Full Rest <span class="text-[9px] text-slate-500">(no extra TP)</span></label>
+                    <label class="flex items-center gap-1" title="Uses one of its Caster Slots of this power's Level, or a higher one when those are gone"><input type="radio" name="pcUsageType" value="slot" onchange="window.pcSetUsageType('slot')"> Power Slot <span class="text-[9px] text-slate-500">(uses a Caster Slot of its Level or higher, no extra TP)</span></label>
                     <label class="flex items-center gap-1"><input type="radio" name="pcUsageType" value="charges" onchange="window.pcSetUsageType('charges')"> Charges <span class="text-[9px] text-slate-500">(+half base TP per extra charge)</span></label>
                     <label class="flex items-center gap-1"><input type="radio" name="pcUsageType" value="recharge" onchange="window.pcSetUsageType('recharge')"> Recharge (5-6 on a d6) <span class="text-[9px] text-slate-500">(+1 TP per Power Level)</span></label>
                     <label class="flex items-center gap-1" id="pcUnlimitedPaidLabel"><input type="radio" name="pcUsageType" value="unlimitedPaid" onchange="window.pcSetUsageType('unlimitedPaid')"> Unlimited Uses <span class="text-[9px] text-slate-500">(+5 TP per Power Level)</span></label>
@@ -1841,6 +1813,16 @@
                 <div>
                     <label class="block text-xs text-slate-400 mb-1">Utility & Effects</label>
                     <textarea id="newPwrDesc" class="bg-slate-900 text-xs h-16 resize-none" placeholder="Target is Stunned..."></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Core Attribute</label>
+                        <select id="newPwrAttr" class="bg-slate-900 text-xs"><option>STR</option><option>AGI</option><option>CON</option><option>PER</option><option selected>INT</option><option>CHA</option><option>LUC</option></select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Power type</label>
+                        <select id="newPwrPool" class="bg-slate-900 text-xs"><option value="full">Full Rest Power</option><option value="short">Short Rest Power</option></select>
+                    </div>
                 </div>
             </div>
             <div class="flex justify-end gap-2 mt-6">
@@ -1990,7 +1972,10 @@
                 </select>
             </div>
 
-            <div class="text-xs text-slate-500 italic mb-4 border-t border-slate-700 pt-3">Alt Rule toggles will live here in a future update.</div>
+            <div class="mb-4 border-t border-slate-700 pt-3 flex flex-wrap gap-2">
+                <button onclick="window.closeModal('settingsModal'); window.apxShowTutorial && window.apxShowTutorial()" class="px-3 py-1.5 rounded bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-bold transition">Show Tutorial</button>
+                <button onclick="window.closeModal('settingsModal'); window.apxPatchNotes && window.apxPatchNotes.show()" class="px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold transition">Patch Notes</button>
+            </div>
 
             <div class="flex justify-between items-center">
                 <div class="text-[10px] text-slate-600" id="settingsVersionLabel"></div>
@@ -2371,38 +2356,38 @@
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20269282122"></script>
-    <script src="js/apx-patch-notes.js?v=20269282122"></script>
-    <script src="js/apx-dice.js?v=20269282122"></script>
-    <script src="js/apx-data.js?v=20269282122"></script>
-    <script src="js/apx-item-effects.js?v=20269282122"></script>
-    <script src="js/apx-perks-db.js?v=20269282122"></script>
-    <script src="js/apx-migrations.js?v=20269282122"></script>
-    <script src="js/apx-roster.js?v=20269282122"></script>
-    <script src="js/apx-state.js?v=20269282122"></script>
-    <script src="js/apx-origin-wizard.js?v=20269282122"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20269282122"></script>
-    <script src="js/apx-inventory-ui.js?v=20269282122"></script>
-    <script src="js/apx-craft-shared.js?v=20269282122"></script>
-    <script src="js/apx-armor-forge.js?v=20269282122"></script>
-    <script src="js/apx-weapon-forge.js?v=20269282122"></script>
-    <script src="js/apx-power-crafter.js?v=20269282122"></script>
-    <script src="js/apx-consumable-crafter.js?v=20269282122"></script>
-    <script src="js/apx-npc-crafter.js?v=20269282122"></script>
-    <script src="js/apx-engine.js?v=20269282122"></script>
-    <script src="js/apx-perks-ui.js?v=20269282122"></script>
-    <script src="js/apx-rest.js?v=20269282122"></script>
-    <script src="js/apx-looting.js?v=20269282122"></script>
-    <script src="js/apx-main.js?v=20269282122"></script>
+    <script src="js/apx-dialogs.js?v=20261011200"></script>
+    <script src="js/apx-patch-notes.js?v=20261011200"></script>
+    <script src="js/apx-dice.js?v=20261011200"></script>
+    <script src="js/apx-data.js?v=20261011200"></script>
+    <script src="js/apx-item-effects.js?v=20261011200"></script>
+    <script src="js/apx-perks-db.js?v=20261011200"></script>
+    <script src="js/apx-migrations.js?v=20261011200"></script>
+    <script src="js/apx-roster.js?v=20261011200"></script>
+    <script src="js/apx-state.js?v=20261011200"></script>
+    <script src="js/apx-origin-wizard.js?v=20261011200"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20261011200"></script>
+    <script src="js/apx-inventory-ui.js?v=20261011200"></script>
+    <script src="js/apx-craft-shared.js?v=20261011200"></script>
+    <script src="js/apx-armor-forge.js?v=20261011200"></script>
+    <script src="js/apx-weapon-forge.js?v=20261011200"></script>
+    <script src="js/apx-power-crafter.js?v=20261011200"></script>
+    <script src="js/apx-consumable-crafter.js?v=20261011200"></script>
+    <script src="js/apx-npc-crafter.js?v=20261011200"></script>
+    <script src="js/apx-engine.js?v=20261011200"></script>
+    <script src="js/apx-perks-ui.js?v=20261011200"></script>
+    <script src="js/apx-rest.js?v=20261011200"></script>
+    <script src="js/apx-looting.js?v=20261011200"></script>
+    <script src="js/apx-main.js?v=20261011200"></script>
 
     <!-- Firebase (cloud sync — requires firebase-config.js to be configured) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20269282122"></script>
-    <script src="js/apx-firebase.js?v=20269282122"></script>
-    <script src="js/apx-battlemap.js?v=20269282122"></script>
-    <script src="js/apx-map-tiles.js?v=20269282122"></script>
+    <script src="js/firebase-config.js?v=20261011200"></script>
+    <script src="js/apx-firebase.js?v=20261011200"></script>
+    <script src="js/apx-battlemap.js?v=20261011200"></script>
+    <script src="js/apx-map-tiles.js?v=20261011200"></script>
     <script>
     // ── Sidebar: folders, worlds, meatball menus ─────────────
     window._sidebarChars = [];
@@ -2626,6 +2611,7 @@
                     window.closeModal('addToFolderModal');
                     return;
                 }
+                if (!(await _oneCharPerWorld(folder.worldCode, charId))) { window.closeModal('addToFolderModal'); return; }
                 // Set worldCode to match the world folder
                 c.worldCode = folder.worldCode;
             }
@@ -2703,6 +2689,20 @@
     window.apxActivateCharacterWorld = function() {
         let code = window.apxActiveWorldCode ? window.apxActiveWorldCode() : null;
         let me = window.apxAuth?.user?.uid;
+        // One character per world: an older character still linked to a world whose folder holds
+        // another character isn't in that world any more (it would move that one's token)
+        if (code) {
+            let mine = (window._sidebarChars || []).find(c => c.id === window._activeCloudCharId);
+            let wf = (window._sidebarFolders || []).find(f => f.worldCode === code);
+            let occupant = wf && (window._sidebarChars || []).find(c => c.folderId === wf.id);
+            if (mine && occupant && occupant.id !== mine.id && mine.folderId !== wf.id) {
+                mine.worldCode = null;
+                if (window.apxAuth?.enabled) window.apxAuth.saveCharacter(mine.id, window.state, { folderId: mine.folderId || null, worldCode: null }).catch(() => {});
+                window.APXDice?.notify(`${mine.name || 'This character'} is no longer in that world: ${occupant.name || 'another character'} plays there (one character per world).`, { kind: 'warn', open: true });
+                code = null;
+                setTimeout(() => window.renderSidebarCharList && window.renderSidebarCharList(), 0);
+            }
+        }
         // Switching to another world (or to none): nothing from the previous one stays on screen
         if (window._pwViewCode !== code) { window._pwViewCode = code; if (window._pwClearWorldView) window._pwClearWorldView(); }
         if (!code) {
@@ -3028,6 +3028,48 @@
         } catch (e) { }
     };
 
+    // Archive a character (out of any world) without asking
+    async function _archiveCharQuiet(c) {
+        let archiveFolder = (window._sidebarFolders || []).find(f => f.name.toLowerCase() === 'archived' && !f.worldCode);
+        if (!archiveFolder) {
+            archiveFolder = { id: 'folder_archive', name: 'Archived' };
+            window._sidebarFolders = (window._sidebarFolders || []).concat([archiveFolder]);
+            if (window.apxAuth?.enabled) await window.apxAuth.saveFolder(archiveFolder.id, 'Archived').catch(() => {});
+            else localStorage.setItem('apxFolders', JSON.stringify(window._sidebarFolders));
+        }
+        c.folderId = archiveFolder.id; c.worldCode = null;
+        if (window.apxAuth?.enabled && c.id) {
+            let st = (c.id === window._activeCloudCharId || !c.state) ? window.state : c.state;
+            await window.apxAuth.saveCharacter(c.id, st, { folderId: archiveFolder.id, worldCode: null }).catch(() => {});
+        }
+    }
+    async function _deleteCharQuiet(c) {
+        window._sidebarChars = (window._sidebarChars || []).filter(x => x.id !== c.id);
+        if (window.apxAuth?.enabled) await window.apxAuth.deleteCharacter(c.id).catch(e => console.warn('Delete failed:', e.message));
+    }
+    // One character per world. Another of your characters already in this world is deleted
+    // (or archived, if you'd rather keep it). Returns false when you cancel.
+    async function _oneCharPerWorld(code, keepId) {
+        let others = (window._sidebarChars || []).filter(c => c.worldCode === code && c.id !== keepId);
+        if (!others.length) return true;
+        let names = others.map(c => '"' + (c.name || 'Unnamed') + '"').join(', ');
+        if (window.apxInjectDialogStyles) window.apxInjectDialogStyles();
+        let pick = await new Promise(res => {
+            let back = document.createElement('div');
+            back.className = 'apxdlg-back'; back.style.zIndex = 2147483600;
+            back.innerHTML = `<div class="apxdlg" style="width:min(430px,100%)"><div class="apxdlg-title">One character per world</div>
+                <div class="apxdlg-msg">${names.replace(/</g, '&lt;')} already ${others.length > 1 ? 'play' : 'plays'} in this world. You can only have one character in a world, so ${others.length > 1 ? 'they are' : 'it is'} deleted. Archive ${others.length > 1 ? 'them' : 'it'} instead to keep ${others.length > 1 ? 'them' : 'it'} outside any world.</div>
+                <div class="apxdlg-row"><button class="apxdlg-btn apxdlg-cancel" data-v="">Cancel</button><button class="apxdlg-btn apxdlg-ok" data-v="archive">Archive instead</button><button class="apxdlg-btn apxdlg-danger" data-v="delete">Delete</button></div></div>`;
+            back.querySelectorAll('[data-v]').forEach(b => b.onclick = () => { back.remove(); res(b.dataset.v || null); });
+            document.body.appendChild(back);
+        });
+        if (!pick) return false;
+        for (let c of others) { if (pick === 'delete') await _deleteCharQuiet(c); else await _archiveCharQuiet(c); }
+        window.renderSidebarCharList();
+        return true;
+    }
+    window._apxOneCharPerWorld = _oneCharPerWorld;
+
     // Join via code (lobby or in-world modal)
     async function _doJoinWorld(code, errEl) {
         if (!code) { if(errEl) errEl.innerText='Enter a world code.'; return; }
@@ -3039,8 +3081,10 @@
             let worlds = _getWorlds();
             let existing = worlds.find(w=>w.code===code);
 
-            // Auto-create a world folder named after the world
+            // Auto-create a world folder named after the world (again, if it was removed: a kick,
+            // or leaving, deletes the folder but this browser may still remember it)
             let folderId = existing?.folderId || null;
+            if (folderId && !(window._sidebarFolders || []).some(f => f.id === folderId)) folderId = null;
             if (!folderId) {
                 folderId = 'wfolder_' + code;
                 let folderName = world.worldName || world.name || ('World '+code);
@@ -3069,6 +3113,8 @@
 
             // Mark the active character as linked to this world
             let charEntry = window._sidebarChars.find(c => c.id === window._activeCloudCharId);
+            let slotTaken = (window._sidebarChars || []).some(c => c.worldCode === code && c.id !== window._activeCloudCharId);
+            if (charEntry && !charEntry.worldCode && slotTaken && !(await _oneCharPerWorld(code, charEntry.id))) charEntry = null;   // kept the other one
             if (charEntry && !charEntry.worldCode) {
                 charEntry.worldCode = code;
                 charEntry.folderId  = folderId;
@@ -3139,6 +3185,7 @@
         document.getElementById('worldCharPickerOverlay')?.remove();
         let c = (window._sidebarChars||[]).find(x=>x.id===charId);
         if (!c) return;
+        if (!(await _oneCharPerWorld(worldCode, charId))) return;
         // If moving from a different world folder, clear the old association first
         let oldWorldCode = c.worldCode;
         c.folderId  = folderId;
@@ -3184,6 +3231,36 @@
         window.renderSidebarCharList();
     }
     window._apxLeaveWorld = _leaveWorldCompletely;
+
+    // The GM deleted a world: your characters there move to the Archived folder (nothing is lost),
+    // the world's folder goes, and the world is forgotten
+    async function _pwWorldDeleted(code) {
+        if (window._pwDeletedWorlds && window._pwDeletedWorlds[code]) return;
+        (window._pwDeletedWorlds = window._pwDeletedWorlds || {})[code] = true;
+        let wasActiveHere = window.apxActiveWorldCode && window.apxActiveWorldCode() === code;
+        let fids = new Set();
+        _getWorlds().forEach(w => { if (w.code === code && w.folderId) fids.add(w.folderId); });
+        (window._sidebarFolders || []).forEach(f => { if (f.worldCode === code) fids.add(f.id); });
+        let moved = [];
+        for (let c of (window._sidebarChars || [])) {
+            if (!(c.worldCode === code || fids.has(c.folderId))) continue;
+            await _archiveCharQuiet(c);
+            moved.push(c.name || 'Unnamed');
+        }
+        window._sidebarFolders = (window._sidebarFolders || []).filter(f => !fids.has(f.id));
+        if (window.apxAuth?.enabled) { for (let id of fids) await window.apxAuth.deleteFolder(id).catch(() => {}); }
+        else localStorage.setItem('apxFolders', JSON.stringify(window._sidebarFolders));
+        _saveWorlds(_getWorlds().filter(w => w.code !== code));
+        if (window._playerWorldsData) delete window._playerWorldsData[code];
+        if (window._pwWorldSettings) delete window._pwWorldSettings[code];
+        if (window._pwWorldRaces) delete window._pwWorldRaces[code];
+        document.querySelectorAll('[data-pwom-win]').forEach(w => { try { w._fogUnsub && w._fogUnsub(); } catch (e) {} w.remove(); });
+        if (wasActiveHere) window.apxActivateCharacterWorld();
+        if (!_getWorlds().length && !(window._sidebarChars || []).some(c => c.worldCode)) document.getElementById('playerWorldBtn')?.classList.add('hidden');
+        window.renderSidebarCharList();
+        let msg = `Your GM deleted the world ${code}.` + (moved.length ? ` ${moved.join(', ')} ${moved.length > 1 ? 'were' : 'was'} moved to your Archived folder.` : '');
+        if (window.apxAlertDialog) window.apxAlertDialog(msg, { title: 'World deleted' }); else window.APXDice?.notify(msg, { kind: 'warn', open: true });
+    }
 
     // Clean up a world that the player has been banned from or should no longer access.
     // Removes the world folder, clears worldCode/folderId on any character in it,
@@ -3264,7 +3341,7 @@
         </div>
         <div id="charPortraitFloatImg" style="width:${initW}px;height:${initW}px;background:${bg2};
             display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">
-            ${src ? `<img src="${src}" style="width:100%;height:100%;object-fit:cover;">` : `<span style="font-size:80px;opacity:0.15;"></span>`}
+            ${src ? `<img src="${src}" style="width:100%;height:100%;object-fit:contain;">` : `<span style="font-size:80px;opacity:0.15;"></span>`}
         </div>
         <div id="cpfResizeHandle" style="position:absolute;bottom:0;right:0;width:18px;height:18px;cursor:se-resize;
             display:flex;align-items:flex-end;justify-content:flex-end;padding:3px;opacity:0.5;">
@@ -3273,6 +3350,7 @@
         </div>`;
 
         document.body.appendChild(win);
+        if (src && window.apxAspectFit) window.apxAspectFit(win, document.getElementById('charPortraitFloatImg'), src);   // the picture's own shape
         win.addEventListener('mousedown', ()=>{ window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; win.style.zIndex=window.apxFloatingZTop; });
 
         // Header drag
@@ -3281,7 +3359,7 @@
         document.addEventListener('mousemove', e=>{ if(!wDrag)return; win.style.left=Math.max(0,e.clientX-wOX)+'px'; win.style.top=Math.max(0,e.clientY-wOY)+'px'; });
         document.addEventListener('mouseup', ()=>{ wDrag=false; });
 
-        // Fixed-ratio resize: height always equals width (square)
+        // Resize keeps the picture's own shape
         let rh=document.getElementById('cpfResizeHandle'), rDrag=false, rSX=0, rSW=0;
         rh.addEventListener('mousedown', e=>{ rDrag=true; rSX=e.clientX; rSW=win.offsetWidth; e.stopPropagation(); e.preventDefault(); });
         document.addEventListener('mousemove', e=>{
@@ -3290,7 +3368,7 @@
             win._sz = ns;
             win.style.width = ns+'px';
             let imgArea = document.getElementById('charPortraitFloatImg');
-            if (imgArea) { imgArea.style.width=ns+'px'; imgArea.style.height=ns+'px'; }
+            if (imgArea) { imgArea.style.width=ns+'px'; imgArea.style.height=Math.round(ns*(win._ratio||1))+'px'; }
         });
         document.addEventListener('mouseup', ()=>{ rDrag=false; });
 
@@ -3443,8 +3521,9 @@
             let fullSrc = window.state?.charPortraitFull || window.state?.charPortrait || '';
             let imgArea = document.getElementById('charPortraitFloatImg');
             if (imgArea) imgArea.innerHTML = fullSrc
-                ? `<img src="${fullSrc}" style="width:100%;height:100%;object-fit:cover;">`
+                ? `<img src="${fullSrc}" style="width:100%;height:100%;object-fit:contain;">`
                 : `<span style="font-size:80px;opacity:0.15;"></span>`;
+            if (imgArea && fullSrc && window.apxAspectFit) window.apxAspectFit(floatWin, imgArea, fullSrc);
         }
         let src = window.state?.charPortrait || '';
         let img  = document.getElementById('charPortraitImg');
@@ -3531,6 +3610,8 @@
         window._pwBattleCode = code;
         if (typeof window.apxAuth.listenPublicWorldNotes !== 'function') return;
         _worldNotesUnsub = window.apxAuth.listenPublicWorldNotes(code, data => {
+            // The GM deleted this world: its characters go to Archived and its folder is removed
+            if (data === null) { _pwWorldDeleted(code); return; }
             // Only ever this code's own world object (never another world's)
             let world = window._playerWorldsData?.[code];
             if (!world) {
@@ -3554,6 +3635,16 @@
             };
             // World Settings (Starting XP, Max GP, starting Cu, attribute method)
             if (data.worldSettings) window._pwSetWorldSettings(code, data.worldSettings);
+            // Race templates the GM adds to (or takes out of) this world show up in the Ancestry builder at once
+            if (Array.isArray(data.races)) {
+                let sig = JSON.stringify(data.races);
+                if (world._racesSig !== sig) {
+                    let first = world._racesSig === undefined;
+                    world._racesSig = sig; world.races = data.races;
+                    window._pwSetWorldRaces(code, data.races);
+                    if (!first && window.apxActiveWorldCode && window.apxActiveWorldCode() === code) window.APXDice?.notify('Your GM updated this world\'s race templates. They\'re in the Ancestry & Genetics Builder.', { kind: 'note' });
+                }
+            }
             // The GM asked for a LUC (Loot) check
             try {
                 let lr = data.lootRequest;
@@ -3588,6 +3679,7 @@
                 let inCombat = ct ? !!ct.id : (world.notesV2.otherMaps || []).some(m => m._currentInitId);
                 window._pwCombatCode = inCombat ? code : null;
                 if (inCombat && window._pwWasInCombat === false && window.state) {
+                    window._pwCombatStartPending = true;   // your first turn of this fight adds your combat-start AP
                     window.state.apCurrent = 0; window._pwLastTurnKey = null; window.apxRenderApPips?.();
                     if (window.state.companion && window.apxCompSetAp) { window._pwCompTurnKey = null; window.apxCompSetAp(0); }   // the companion too
                     window.scheduleAutoSave?.();
@@ -3609,6 +3701,20 @@
                     window._pwLastTurnKey = key;
                     if (!first && ct.apGain1 && window.apxSetApValue) window.apxSetApValue(1);   // Surprised on your first turn: just 1 AP
                     else if (!first && window.apxResetAp) window.apxResetAp();
+                    // Your first turn of this fight: AP from perks that grant it "at the start of combat"
+                    // (Adrenaline, Relentless R5…), once per fight
+                    if (!first && window.state) {
+                        let isFirst = ct.session ? window.state.apCombatSession !== ct.session : !!window._pwCombatStartPending;
+                        if (isFirst) {
+                            window.state.apCombatSession = ct.session || ('t' + Date.now());
+                            window._pwCombatStartPending = false;
+                            let extra = (typeof calc !== 'undefined' && calc.combatStartAp) || 0;
+                            if (extra > 0 && window.apxSetApValue) {
+                                window.apxSetApValue((window.apxApCurrent ? window.apxApCurrent() : 0) + extra);
+                                window.APXDice?.notify(`Start of combat: +${extra} AP (${(calc.combatStartApSrc || []).join(', ')}).`, { kind: 'note' });
+                            }
+                        }
+                    }
                     if (!first) window.apxStunnedTurnStart?.();   // Stunned: no AP this turn
                     if (!first && window.apxBurnTick) window.apxBurnTick();   // Burning: 1d10 Fire at the start of your turn
                 }
@@ -3684,6 +3790,13 @@
             window.APXDice?.notify('Reaction used' + (helmet ? ' (your Helmet is destroyed)' : ' (Defensive)') + ': the Critical Hit becomes a normal hit. Your GM\'s tracker gives back the extra crit damage.', { kind: 'note' });
             return;
         }
+        // A skill check the GM asked for (Acrobatics to soften a fall, …): your sheet's own skill roll
+        if (ask.roll === 'check' && ask.skill) {
+            let el = document.querySelector(`#attrSkillContainer [data-apx-roll*='"skill":"${ask.skill}"']`) || document.querySelector(`[data-apx-roll*='"skill":"${ask.skill}"']`);
+            if (el) { el.click(); return; }
+            window.APXDice?.check({ kind: 'check', attr: ask.attr || 'AGI', skill: ask.skill, label: `${ask.skill} (${ask.attr || 'AGI'})`, who: window.state?.name || '', bonus: 0 });
+            return;
+        }
         let attr = ask.attr || 'CON';
         let sel = ask.roll === 'survive' ? `[data-apx-roll*='"skill":"Survive"']` : `[data-apx-roll*='"kind":"save"'][data-apx-roll*='"attr":"${attr}"']`;
         let el = document.querySelector(sel);
@@ -3702,7 +3815,7 @@
             dice: o.dice || '', critMult: o.critMult || 2, reroll12: !o.companion && o.perks !== false && ((window.state?.perks || {}).luc_highroller || 0) >= 2 });
     };
 
-    // Your checks and saves go to the GM's combat log while combat is running
+    // Your checks and saves go to the GM's notifications whenever you're in a world
     // (a Luck reroll or Omen updates the same entry)
     window._pwRollLog = [];
     window.apxPromptLootCheck = function() {
@@ -3717,7 +3830,8 @@
         // An Omen die spent on another creature's roll goes to the GM whenever you're in a world
         let omenCode = ev.kind === 'omen' && window.apxActiveWorldCode && window.apxActiveWorldCode() === window._pwBattleCode ? window._pwBattleCode : null;
         // Attacks, damage you type and Reactions reach your GM whenever you're in a world (combat started or not)
-        let fightCode = /^(attack|damage|react)$/.test(ev.kind || '') && window.apxActiveWorldCode ? window.apxActiveWorldCode() : null;
+        // …and so do your checks and saves (the GM sees them in their notifications, in or out of combat)
+        let fightCode = /^(attack|damage|react|check|save|power)$/.test(ev.kind || '') && window.apxActiveWorldCode ? window.apxActiveWorldCode() : null;
         let code = window._pwCombatCode || lootCode || omenCode || fightCode, uid = window.apxAuth?.user?.uid;
         if (ev.kind === 'omen') window._pwOmenSent = !!(code && uid && typeof window.apxAuth?.writeRollLog === 'function');
         if (!code || !uid || typeof window.apxAuth?.writeRollLog !== 'function') return false;
@@ -4251,7 +4365,9 @@
                 </div>`).join('')}</div>` : '';
             return `<div class="bg-slate-900 border border-slate-700 rounded p-3">
                 <div class="flex items-start gap-2">
-                    ${n.portrait?`<img src="${n.portrait}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid #334155;flex-shrink:0;">`:''}
+                    ${(() => { let pic = n.hasPortrait || n.portrait ? _pwNpcPortrait(n.id, () => renderPlayerWorld()) : ''; return pic
+                        ? `<img src="${pic}" title="Show the full image" onclick="window.pwShowNpcImage('${n.id}')" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid #334155;flex-shrink:0;cursor:zoom-in;">`
+                        : `<div style="width:44px;height:44px;border-radius:50%;border:2px solid #334155;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:900;color:#94a3b8;background:#0f172a;">${_pwEsc((n.name||'?')[0].toUpperCase())}</div>`; })()}
                     <div class="flex-1 min-w-0">
                         <div class="flex items-baseline gap-2">
                             <div class="text-xs font-bold text-indigo-300">${n.name||'NPC'}</div>
@@ -4267,16 +4383,41 @@
         // Discoveries (revealed notes from GM)
         let notesEl = document.getElementById('pwPanelNotes');
         let rnotes = notes.notes||[];
-        if (notesEl) notesEl.innerHTML = rnotes.length ? rnotes.map(s=>`
+        // …plus the notes the GM revealed on map areas
+        let mapNotes = [];
+        (notes.otherMaps||[]).forEach(m => (m.tokens||[]).forEach(t => (t.subnotes||[]).forEach(sn => {
+            if (sn.title || sn.content) mapNotes.push({ map: m, tok: t, sn });
+        })));
+        let discHtml = rnotes.map(s=>`
             <div class="bg-slate-900 border border-amber-700/30 rounded p-3">
-                <div class="text-xs font-bold text-amber-300">${s.title||'Discovery'}</div>
-                ${s.content?`<div class="text-[10px] text-slate-300 mt-1">${s.content}</div>`:''}
-            </div>`).join('') : '<div class="text-slate-600 text-sm text-center py-6">No discoveries yet</div>';
+                <div class="text-xs font-bold text-amber-300">${_pwEsc(s.title||'Discovery')}</div>
+                ${s.content?`<div class="text-[11px] text-slate-300 mt-1">${_fmtText(s.content)}</div>`:''}
+            </div>`).join('');
+        if (mapNotes.length) discHtml += `<div class="text-[10px] font-black uppercase tracking-wide text-slate-500 mt-2">From the maps</div>` + mapNotes.map(x => `
+            <div class="bg-slate-900 border border-sky-700/30 rounded p-3">
+                <div class="flex items-start justify-between gap-2">
+                    <div class="text-xs font-bold text-sky-300">${_pwEsc(x.sn.title||'Note')}</div>
+                    <button onclick="window.openPlayerOtherMapWindow('${x.map.id}')" class="text-[9px] px-1.5 py-0.5 rounded font-bold shrink-0" style="background:#312e81;border:1px solid #4f46e5;color:#c7d2fe;">Open Map</button>
+                </div>
+                <div class="text-[9px] text-slate-500 font-bold mt-0.5">${_pwEsc(x.map.name||'Map')} · ${_pwEsc(x.tok.name || ('Area ' + (x.tok.letter||'')))}</div>
+                ${x.sn.content?`<div class="text-[11px] text-slate-300 mt-1">${_fmtText(x.sn.content)}</div>`:''}
+            </div>`).join('');
+        if (notesEl) notesEl.innerHTML = discHtml || '<div class="text-slate-600 text-sm text-center py-6">No discoveries yet</div>';
 
         // Other Maps panel — just list them; actual viewing is via floating window
         renderPlayerOtherMaps();
         // Restore the tab that was active before this re-render (real-time updates shouldn't reset it)
         if (currentTab) window.showPlayerWorldTab(currentTab);
+        // The GM stopped sharing a map: close its window
+        let sharedIds = new Set((world?.notesV2?.otherMaps||[]).map(m => m.id));
+        document.querySelectorAll('[data-pwom-win]').forEach(w => {
+            let mid = w.id.replace('pwOmWin_', '');
+            if (sharedIds.has(mid)) return;
+            try { if (w._fogUnsub) w._fogUnsub(); } catch (e) {}
+            if (window.APXBattle) window.APXBattle.clear(w.id);
+            w.remove();
+            window.APXDice?.notify('The GM stopped sharing that map, so its window closed.', { kind: 'note' });
+        });
         // Refresh ALL open player Other Map floating windows — area circles, special markers, battle tokens
         (world?.notesV2?.otherMaps||[]).forEach(m=>{
             let winId='pwOmWin_'+m.id;
@@ -4433,7 +4574,7 @@
                         // Re-render tokens once the fog is actually drawn so fog-visibility is correct
                         let rerender = () => {
                             let latestMap = (window._playerWorldData?.notesV2?.otherMaps||[]).find(m=>m.id===mapId);
-                            if (latestMap) { _pwBtRenderTokens(winId, win, latestMap); }
+                            if (latestMap) { _pwBtRenderTokens(winId, win, latestMap); _pwOmRenderTok(winId, win, latestMap); }
                         };
                         if (fog) _pwLoadFog(winId+'_fog', fog, img, rerender);
                         else {
@@ -4464,6 +4605,8 @@
         let world = window._playerWorldData;
         let revealedMapIds = new Set((world?.notesV2?.otherMaps||[]).map(x=>x.id));
         layer.innerHTML=(m.tokens||[]).map(t=>{
+            // Under Fog of War: not drawn at all (no peeking out at the fog's edge, no tooltip, no click)
+            if (_pwPointUnderFog(winId, t.x * iw, t.y * ih)) return '';
             let isSpecial = t.type === 'special';
             let hasInfo = !!(t.name||t.description||(t.subnotes&&t.subnotes.length)||(t.linkedNpcs&&t.linkedNpcs.length));
             let hasLinkedMap = (t.linkedOtherMapIds||[]).some(mid=>revealedMapIds.has(mid));
@@ -4510,24 +4653,55 @@
             if (gmUid && worldId && window.apxAuth?.loadNpcPortraitForPlayer) {
                 window._pwNpcPortraitCache[npcId] = null;
                 window.apxAuth.loadNpcPortraitForPlayer(gmUid, worldId, npcId)
-                    .then(d => { window._pwNpcPortraitCache[npcId] = d?.portrait || ''; if (d?.portrait && cb) cb(); })
+                    .then(d => { window._pwNpcPortraitCache[npcId] = d?.portrait || ''; (window._pwNpcFullCache = window._pwNpcFullCache || {})[npcId] = d?.portraitFull || d?.portrait || ''; if (d?.portrait && cb) cb(); })
                     .catch(() => { window._pwNpcPortraitCache[npcId] = ''; });
             }
         }
         let n = (window._playerWorldData?.notesV2?.npcs || []).find(x => x.id === npcId);
         return n?.portrait || '';
     }
-    function _pwFloatWin(winId, headerHtml, bodyHtml, width) {
+    // The full picture of an NPC (from a map token or the NPC list): the image only, no stats
+    window.pwShowNpcImage = function(npcId, nameOverride) {
+        let n = (window._playerWorldData?.notesV2?.npcs || []).find(x => x.id === npcId);
+        let name = nameOverride || n?.name || '';
+        let show = () => {
+            let full = (window._pwNpcFullCache || {})[npcId], crop = (window._pwNpcPortraitCache || {})[npcId];
+            if (full || crop) { window.pwShowPortrait(full || crop, name, !!full); return true; }
+            return false;
+        };
+        if (show()) return;
+        let { gmUid, worldId } = _pwWorldIds();
+        if (gmUid && worldId && window.apxAuth?.loadNpcPortraitForPlayer) {
+            window.apxAuth.loadNpcPortraitForPlayer(gmUid, worldId, npcId).then(d => {
+                if (!window._pwNpcPortraitCache) window._pwNpcPortraitCache = {};
+                window._pwNpcPortraitCache[npcId] = d?.portrait || '';
+                (window._pwNpcFullCache = window._pwNpcFullCache || {})[npcId] = d?.portraitFull || d?.portrait || '';
+                if (!show()) window.APXDice?.notify(`There's no picture of ${name || 'them'} yet.`, { kind: 'note' });
+            }).catch(() => window.APXDice?.notify(`Couldn't load that picture.`, { kind: 'warn' }));
+        } else window.APXDice?.notify(`There's no picture of ${name || 'them'} yet.`, { kind: 'note' });
+    };
+    // Popups (area notes, NPCs, places) open in front of everything, the dice tray included, right
+    // beside the map window they came from (or the right edge of the screen without one)
+    function _pwFloatWin(winId, headerHtml, bodyHtml, width, anchor) {
         document.getElementById(winId)?.remove();
-        window.apxFloatingZTop = (window.apxFloatingZTop||2000)+1;
+        window._apxPopZ = Math.max((window._apxPopZ || 2147483100) + 1, 2147483100);
+        let w = width || 300;
         let win = document.createElement('div');
         win.id = winId;
         win.className = 'apx-pw-pop';
-        win.style.cssText = `position:fixed;right:24px;top:110px;width:${width||300}px;max-height:70vh;z-index:${window.apxFloatingZTop};display:flex;flex-direction:column;`;
+        let pos = 'right:24px;top:110px;';
+        let ar = anchor && anchor.getBoundingClientRect ? anchor.getBoundingClientRect() : null;
+        if (ar && ar.width) {
+            let left = ar.right + 8;
+            if (left + w > window.innerWidth - 8) left = ar.left - w - 8;
+            if (left < 8) left = Math.max(8, window.innerWidth - w - 8);
+            pos = `left:${Math.round(left)}px;top:${Math.round(Math.max(8, Math.min(ar.top, window.innerHeight - 200)))}px;`;
+        }
+        win.style.cssText = `position:fixed;${pos}width:${w}px;max-height:70vh;z-index:${window._apxPopZ};display:flex;flex-direction:column;`;
         win.innerHTML = `<div id="${winId}_hdr" class="apx-pw-pop-hdr">${headerHtml}<button data-x title="Close">X</button></div><div class="apx-pw-pop-body">${bodyHtml}</div>`;
         document.body.appendChild(win);
         win.querySelector('[data-x]').onclick = () => win.remove();
-        win.addEventListener('mousedown', () => { window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; win.style.zIndex=window.apxFloatingZTop; });
+        win.addEventListener('mousedown', () => { window._apxPopZ = (window._apxPopZ || 2147483100) + 1; win.style.zIndex = window._apxPopZ; });
         if (window.apxMakeDraggable) window.apxMakeDraggable(win, document.getElementById(winId+'_hdr'));
         return win;
     }
@@ -4562,7 +4736,7 @@
             redraw: () => { if (document.getElementById('pLocInfo_'+locationId)) window.pwOpenLocationInfo(locationId); } };
         _pwFloatWin('pLocInfo_'+locationId,
             `<span style="width:12px;height:12px;border-radius:3px;background:${col};flex-shrink:0;"></span><span class="apx-pw-pop-title">${_pwEsc(loc.name||'Location')}</span>`,
-            _pwPinBody(info));
+            _pwPinBody(info), 300, document.querySelector('#playerWorldModal.active .modal-content, #playerWorldModal.active > div') || null);
     };
     window.openPlayerTokenInfo = function(mapId, tokenId) {
         let world = window._playerWorldData;
@@ -4572,17 +4746,17 @@
             redraw: () => { if (document.getElementById('ptokInfo_'+tokenId)) window.openPlayerTokenInfo(mapId, tokenId); } };
         _pwFloatWin('ptokInfo_'+tokenId,
             `<span class="apx-pw-pop-letter">${_pwEsc(tok.letter)}</span><span class="apx-pw-pop-title">${_pwEsc(tok.name||'Area '+tok.letter)}</span>`,
-            _pwPinBody(info));
+            _pwPinBody(info), 300, document.getElementById('pwOmWin_'+mapId));
     };
     window.pwOpenNpcInfo = function(npcId) {
         let n = (window._playerWorldData?.notesV2?.npcs||[]).find(x => x.id === npcId); if (!n) return;
         let pic = _pwNpcPortrait(npcId, () => { if (document.getElementById('pNpcInfo_'+npcId)) window.pwOpenNpcInfo(npcId); });
         let notes = (n.notes||[]).map(sn => `<div class="apx-pw-pop-note">${sn.title ? `<div class="apx-pw-pop-notet">${_pwEsc(sn.title)}</div>` : ''}${sn.content ? `<div>${_fmtText(sn.content)}</div>` : ''}</div>`).join('');
+        let anchorEl = [...document.querySelectorAll('.apx-pw-pop')].pop() || null;
         let win = _pwFloatWin('pNpcInfo_'+npcId, `<span class="apx-pw-pop-title">${_pwEsc(n.name||'NPC')}</span>`,
-            `${pic ? `<img src="${pic}" alt="" class="apx-pw-pop-portrait" data-name="${_pwEsc(n.name||'')}" onclick="window.pwShowPortrait && window.pwShowPortrait(this.src, this.dataset.name)">` : ''}
+            `${pic ? `<img src="${pic}" alt="" class="apx-pw-pop-portrait" data-name="${_pwEsc(n.name||'')}" onclick="window.pwShowNpcImage('${npcId}')">` : ''}
              ${n.role ? `<div class="apx-pw-pop-role" style="text-align:center;margin-bottom:.35rem">${_pwEsc(n.role)}</div>` : ''}
-             ${n.description ? `<div class="apx-pw-pop-desc">${_fmtText(n.description)}</div>` : ''}${notes}`, 280);
-        win.style.right = '340px';
+             ${n.description ? `<div class="apx-pw-pop-desc">${_fmtText(n.description)}</div>` : ''}${notes}`, 280, anchorEl);
     };
     window.pwOmZoom = function(winId, factor) {
         let win=document.getElementById(winId); if(!win) return;
@@ -4609,6 +4783,38 @@
         window.APXBattle.onChange(_pwRefreshBattleWindows);
     }
 
+    // Moving on your turn in combat: Speed, Move actions already taken this turn (1 AP, then 2, then 3…),
+    // Mobile R1 (−1 AP per Move), Staggered (double AP). Your Loyal Companion uses its own Speed and AP.
+    function _pwTurnKey() { let ct = window._pwCombatTurn; return ct && ct.id ? ct.id + ':' + (ct.turnNo || 0) : null; }
+    function _pwMovePathFor(map, vm) {
+        let ct = window._pwCombatTurn, myUid = window.apxAuth?.user?.uid;
+        if (!ct || !ct.id || !myUid || !window.state) return null;
+        let key = _pwTurnKey();
+        let comp = vm.type === 'companion';
+        if (comp ? ct.companionOf !== myUid : ct.playerUid !== myUid) return null;   // not your (or its) turn: free positioning
+        let st = window.state;
+        let tm = (comp ? st.compTurnMoves : st.turnMoves) || {};
+        if (tm.key !== key) tm = { key, n: 0, left: 0 };
+        let conds = window.apxEffectiveConditions ? window.apxEffectiveConditions(st.conditions || [], st).map(c => c.id) : (st.conditions || []);
+        if (comp) {
+            let csb = window.companionStatBlock ? (() => { try { return window.companionStatBlock(); } catch (e) { return null; } })() : null;
+            return { speed: csb ? csb.speed : 3, moves: tm.n, left: tm.left, mobile: 0, staggered: false, apHave: window.apxCompApCurrent ? window.apxCompApCurrent() : null, comp: true, key };
+        }
+        let speed = st.derived && typeof st.derived.speed === 'number' ? st.derived.speed : ((typeof calc !== 'undefined' && calc.speed) || 3);
+        return { speed, moves: tm.n, left: tm.left, mobile: ((st.perks || {}).agi_mobile || 0) >= 1 ? 1 : 0, staggered: conds.includes('staggered'),
+            apHave: window.apxApCurrent ? window.apxApCurrent() : null, key };
+    }
+    function _pwPayMove(info) {
+        let st = window.state; if (!st) return;
+        let c = info.cost, mp = info.mp;
+        let rec = { key: mp.key, n: c.moves, left: c.left };
+        if (mp.comp) { st.compTurnMoves = rec; if (c.ap > 0 && window.apxCompSpendAp) window.apxCompSpendAp(c.ap); }
+        else { st.turnMoves = rec; if (c.ap > 0 && window.apxSpendAp) window.apxSpendAp(c.ap); }
+        window.scheduleAutoSave?.();
+        let left = mp.comp ? (window.apxCompApCurrent ? window.apxCompApCurrent() : '?') : (window.apxApCurrent ? window.apxApCurrent() : '?');
+        let movesTxt = c.actions ? ` (${c.actions} Move action${c.actions > 1 ? 's' : ''}${mp.mobile ? ', Mobile −1 each' : ''}${mp.staggered ? ', Staggered ×2' : ''})` : ' (rest of your last Move)';
+        window.APXDice?.notify(`${mp.comp ? 'Your companion moved' : 'Moved'} ${info.squares} square${info.squares === 1 ? '' : 's'}: −${c.ap} AP${movesTxt}. ${left} AP left${c.left ? `, ${c.left} square${c.left === 1 ? '' : 's'} of this Move unused` : ''}.`, { kind: 'note' });
+    }
     function _pwBtRenderTokens(winId, win, map) {
         let area = document.getElementById(winId+'_area');
         let img  = document.getElementById(winId+'_img');
@@ -4686,7 +4892,10 @@
                 conds: t._conds || [],
                 portrait,
                 title: t.name || '',
+                name: t.name || '',
                 draggable: mine, interactive: true,
+                aura: t._aura && !isDead ? { type: t._aura.type, radius: t._aura.radius || 1, title: `${t._aura.type} aura` } : null,
+                type: t.type, worldNpcId: t.worldNpcId || null, playerUid: t.playerUid || null,
                 attrs: t.type==='npc' && t.worldNpcId ? {'data-pwbt-npc': t.worldNpcId} : null
             };
         });
@@ -4722,10 +4931,28 @@
             previewBlocked: (vm, gx, gy) => _pwCellUnderFog(winId, gx, gy, g) ||
                 !!window.APXBattle.findBlocker(visible, {id: vm.id, size: vm.size}, gx, gy, posOf),
             resolveDrop: landing,
-            onMove: (vm, gx, gy) => {
+            // Clicking someone else's token shows their picture (never their stats)
+            onClick: (vm) => {
+                if (vm.type === 'npc' && vm.worldNpcId) window.pwShowNpcImage(vm.worldNpcId, vm.name);
+                else if (vm.type === 'player' && vm.playerUid) window.pwShowPartyImage(vm.playerUid);
+                else if (vm.type === 'companion' && vm.playerUid) window.pwShowPartyImage(vm.playerUid + ':companion');
+            },
+            // In combat, on your turn: the path you drag shows its squares and AP; dropping spends it
+            movePath: (vm) => _pwMovePathFor(map, vm),
+            beforeMove: (vm, gx, gy, info) => {
+                if (!info || info.free || !info.squares) return true;
+                if (info.cost.stuck) { window.APXDice?.notify('Your Speed is 0, so you can\'t move.', { kind: 'warn', open: true }); return false; }
+                if (info.mp.apHave != null && info.cost.ap > info.mp.apHave) {
+                    window.APXDice?.notify(`That move costs ${info.cost.ap} AP and you have ${info.mp.apHave}. Hold Alt while dragging to move without spending AP (when the GM allows it).`, { kind: 'warn', open: true });
+                    return false;
+                }
+                return true;
+            },
+            onMove: (vm, gx, gy, info) => {
                 let code = window._playerWorldData?.inviteCode;
                 let tok = (map.battleTokens||[]).find(t => t.id === vm.id);
                 window.APXBattle.move(code, tok?.playerUid || myUid, map.id, vm.id, gx, gy);
+                if (info && !info.free && info.squares > 0) _pwPayMove(info);
             }
         });
     }
@@ -4734,6 +4961,15 @@
     // ── Fog-aware player token movement ──────────────────────────
     // Samples the fog canvas at a grid cell center.
     // Returns true if the cell is under fog (alpha > 50 = still covered).
+    // Is this map point (map pixels) still covered by the GM's fog?
+    function _pwPointUnderFog(winId, x, y) {
+        let canvas = document.getElementById(winId+'_fog');
+        if (!canvas || !canvas._fogLoaded || !canvas.width || !canvas.height) return false;
+        let k = canvas._k || 1;
+        let px = Math.round(x * k), py = Math.round(y * k);
+        if (px < 0 || px >= canvas.width || py < 0 || py >= canvas.height) return false;
+        try { return canvas.getContext('2d', { willReadFrequently: true }).getImageData(px, py, 1, 1).data[3] > 50; } catch (e) { return false; }
+    }
     function _pwCellUnderFog(winId, gridX, gridY, g) {
         let canvas = document.getElementById(winId+'_fog');
         // No fog loaded = all open. (An untouched <canvas> is 300×150 by default — it must
@@ -5305,5 +5541,7 @@
         });
     }
     </script>
+    <script src="js/apx-chat.js?v=20261011200"></script>
+    <script src="js/apx-extras.js?v=20261011200"></script>
 </body>
 </html>

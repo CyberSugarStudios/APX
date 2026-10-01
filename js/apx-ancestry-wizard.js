@@ -1006,9 +1006,32 @@
             window.recalculateMath();
         };
 
-        window.finishAncestry = function() {
+        window.finishAncestry = async function(skipChecks) {
             let limit = parseInt(document.getElementById('wizGpLimit').value) || 15;
             if(window.state.ancestry.gpUsed > limit) return;
+            // A character's Ancestry isn't done without its training (Step 4), and unspent GP is
+            // worth a second thought (it doesn't carry over)
+            if (ancTarget !== 'gmRace' && skipChecks !== true) {
+                let ft = window.state.ancestryFinalTraining || { skills: [], saves: [] };
+                let needSk = Math.max(0, ancFinalSkillLimit() - (ft.skills || []).length), needSv = Math.max(0, 2 - (ft.saves || []).length);
+                if (needSk || needSv) {
+                    let st0 = window.state || {};
+                    let established = (st0.spentXp > 0) || Object.keys(st0.perks || {}).some(k => st0.perks[k] > 0);
+                    window.jumpToAncStep(4);
+                    let what = [needSk ? `${needSk} more skill${needSk > 1 ? 's' : ''}` : '', needSv ? `${needSv} more Saving Throw${needSv > 1 ? 's' : ''}` : ''].filter(Boolean).join(' and ');
+                    if (!established) {
+                        if (window.apxAlertDialog) await window.apxAlertDialog(`Before saving, choose your training here in Step 4: ${what}.`, { title: 'Step 4: Training' });
+                        return;
+                    }
+                    let go = window.apxConfirm ? await window.apxConfirm(`Step 4 still has training to choose: ${what}. Choose it now?`, { title: 'Step 4: Training', okLabel: 'Choose training', cancelLabel: 'Save anyway' }) : false;
+                    if (go) return;
+                }
+                let used = window.state.ancestry.gpUsed || 0;
+                if (used < limit) {
+                    let ok = window.apxConfirm ? await window.apxConfirm(`You've spent ${used} of your ${limit} GP. GP you don't spend now is lost, so it's usually best to spend all of it (attributes, size, speed, traits). Save anyway?`, { title: 'GP left to spend', okLabel: 'Save anyway', cancelLabel: 'Keep building' }) : true;
+                    if (!ok) return;
+                }
+            }
             window.state.ancestry.name = document.getElementById('wizName').value || "Unknown Species";
 
             // Only apply biology fields that the GM hasn't locked -- if a

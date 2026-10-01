@@ -174,11 +174,11 @@
             { key: "tricky", label: "Tricky", tp: 2, desc: "Movement doesn't provoke attacks of opportunity." },
             { key: "ambusher", label: "Ambusher", tp: 2, desc: "Advantage on attacks against Surprised creatures and on AGI (Stealth) checks." },
             { key: "packtactics", label: "Pack Tactics", tp: 2, desc: "Advantage on attack rolls with a conscious ally within 1 square of the target." },
-            { key: "deathburst", label: "Death Burst", tp: 2, desc: "On 0 HP, explodes: creatures within 2 sq make an AGI save (DC 10+X) or take Xd6 chosen Energy damage (X = Tier, min 1, + innate weapon dice).", tierCalc: (tier) => { let x = Math.max(1, tier); return `At Tier ${tier}: ${x}d6 (+ innate weapon dice) damage, DC ${10 + x} AGI save.`; } },
+            { key: "deathburst", chooseEnergy: true, label: "Death Burst", tp: 2, desc: "On 0 HP, explodes: creatures within 2 sq make an AGI save (DC 10+X) or take Xd6 chosen Energy damage (X = Tier, min 1, + innate weapon dice).", tierCalc: (tier) => { let x = Math.max(1, tier); return `At Tier ${tier}: ${x}d6 (+ innate weapon dice) damage, DC ${10 + x} AGI save.`; } },
             { key: "maul", label: "Maul", tp: 2, desc: "Deals an additional die of damage to a creature it has grappled with the same innate weapon." },
-            { key: "energyblood", label: "Energy Blood", tp: 2, desc: "Melee attackers within 1 sq make an AGI save (DC 10+X) or take Xd6 Energy damage (X = Tier, min 1); a mundane weapon used also takes this damage.", tierCalc: (tier) => { let x = Math.max(1, tier); return `At Tier ${tier}: ${x}d6 damage, DC ${10 + x} AGI save.`; } },
+            { key: "energyblood", chooseEnergy: true, label: "Energy Blood", tp: 2, desc: "Melee attackers within 1 sq make an AGI save (DC 10+X) or take Xd6 Energy damage (X = Tier, min 1); a mundane weapon used also takes this damage.", tierCalc: (tier) => { let x = Math.max(1, tier); return `At Tier ${tier}: ${x}d6 damage, DC ${10 + x} AGI save.`; } },
             { key: "vampiric", label: "Vampiric", tp: 3, desc: "Regains HP equal to half the damage dealt (rounded down) with innate melee weapons." },
-            { key: "damageaura", label: "Damage Aura", tp: 3, desc: "Creatures ending their turn within 1 sq take Xd6 chosen Energy damage (X = Tier, min 1).", tierCalc: (tier) => { let x = Math.max(1, tier); return `At Tier ${tier}: ${x}d6 damage.`; } },
+            { key: "damageaura", chooseEnergy: true, label: "Damage Aura", tp: 3, desc: "Creatures ending their turn within 1 sq take Xd6 chosen Energy damage (X = Tier, min 1).", tierCalc: (tier) => { let x = Math.max(1, tier); return `At Tier ${tier}: ${x}d6 damage.`; } },
             { key: "incorporeal", label: "Incorporeal Movement", tp: 3, desc: "Moves through solid objects/creatures as difficult terrain. Ending its turn inside an object deals 1d10 Force damage to it." },
             { key: "shapechanger", label: "Shapechanger", tp: 3, desc: "4 AP: mimic any creature/object of its Size. Advantage on AGI (Stealth)/CHA (Deceive) to pass as that form." },
             { key: "bloodiedfrenzy", label: "Bloodied Frenzy", tp: 4, desc: "At or below half HP: +2 AP at the start of its turn, weapon attacks gain Flurry." },
@@ -616,9 +616,17 @@
         // ------------------------------------------------------------------
         // Your INT modifier is added to every XP gain (a negative modifier never takes XP away).
         // intMod: the live modifier when the caller knows it (sheet calc / GM party summary).
+        // A Core Attribute score: the base set at creation (Point Buy / Standard Array) + ancestry +
+        // what changed afterwards (attrAdj: Core Attributes bought with XP, Permanent Injuries). The
+        // base stays what was set at creation, so the creation rules ("Point Buy: 7 of 7") stay right.
+        function apxAttrScore(st, a) {
+            st = st || {};
+            return ((st.baseStats && st.baseStats[a]) || 5) + ((st.ancestry && st.ancestry.bonuses && st.ancestry.bonuses[a]) || 0) + ((st.attrAdj && st.attrAdj[a]) || 0);
+        }
+        window.apxAttrScore = apxAttrScore;
         function apxXpIntBonus(st, category, base, intMod) {
             if (typeof intMod !== 'number') {
-                let score = ((st.baseStats && st.baseStats.INT) || 5) + ((st.ancestry && st.ancestry.bonuses && st.ancestry.bonuses.INT) || 0);
+                let score = apxAttrScore(st, 'INT');
                 intMod = score - 5;
             }
             return Math.max(0, intMod);
@@ -788,6 +796,31 @@
         }
         window.apxWindowSpot = apxWindowSpot;
         // A power's action cost as shown: "3 AP", or "Reaction" for a 1 AP / Reaction power set to Reaction
+        // ── Powers (Playtest 2 rework) ──────────────────────────────
+        // Each power picks its own Core Attribute (its Attack Bonus and Save DC) and which kind of
+        // power user's resource it runs on: Full Rest Powers (Power Slots by Level, back after a Full
+        // Rest; perk pwr_int) or Short Rest Powers (uses = highest Rank, back after a Short Rest; pwr_cha).
+        window.APX_POWER_POOLS = { full: 'Full Rest', short: 'Short Rest' };
+        window.apxPowerAttr = function(p, st) {
+            st = st || window.state || {};
+            let a = p && (p.attr || (p.draft && p.draft.coreAttr));
+            return (a && ATTRIBUTES.includes(a)) ? a : (ATTRIBUTES.includes(st.powerAttr) ? st.powerAttr : 'INT');
+        };
+        window.apxPowerPool = function(p, st) {
+            st = st || window.state || {};
+            let perks = st.perks || {};
+            let want = p && (p.pool || (p.draft && p.draft.pool));
+            if (!want) want = st.powerAttr === 'CHA' ? 'short' : 'full';
+            if (want === 'full' && !(perks.pwr_int > 0) && perks.pwr_cha > 0) want = 'short';
+            if (want === 'short' && !(perks.pwr_cha > 0) && perks.pwr_int > 0) want = 'full';
+            return want;
+        };
+        // The highest Level of Power this character can use (and craft): the higher of the two perks
+        window.apxPowerMaxLevel = function(st) {
+            st = st || window.state || {};
+            let perks = st.perks || {};
+            return Math.max(perks.pwr_int || 0, perks.pwr_cha || 0);
+        };
         window.apxPowerIsReaction = p => !!(p && p.draft && p.draft.apMod === 'ap1' && p.draft.apReaction);
         window.apxPowerApLabel = p => window.apxPowerIsReaction(p) ? 'Reaction' : `${p && p.ap != null ? p.ap : 0} AP`;
         // Instant tooltip for map markers (an area's name as soon as the cursor is over it)
@@ -957,5 +990,14 @@
         (sb.itemEr || []).forEach(r => { let k = N(r && r.type); if (k) def.res[k] = (def.res[k] || 0) + (parseInt(r.amount) || 0); });
         return def;
     }
+    // Player side: is the attack the GM's tracker last published still "what just hit you"?
+    // Only during the combat turn it was rolled on (or two minutes outside combat), never an older one.
+    window.apxPwAtkFresh = function(atk) {
+        if (!atk || !atk.id || (window._pwUsedAtk || {})[atk.id]) return false;
+        if (!(window._pwCombatCode || (window.apxActiveWorldCode && window.apxActiveWorldCode()))) return false;
+        let ct = window._pwCombatTurn;
+        if (ct && ct.id && !ct.ended) return atk.turnNo != null && atk.turnNo === ct.turnNo && (atk.round == null || atk.round === ct.round);
+        return Date.now() - (atk.t || 0) < 120000;
+    };
     window.APXDamage = { PHYS, ENERGY, norm, parts, isEnergy, mitigate, ignoreOf, askType, parseHpEntry, fromStatBlock };
 })();

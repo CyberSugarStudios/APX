@@ -211,6 +211,7 @@ window.renderArmorForge = function() {
                 <div class="text-xl font-black ${delta > 0 ? 'text-emerald-400' : 'text-slate-500'}">${delta} Cu</div>
             </div>
         </div>
+        ${armorForgeTarget === 'player' ? craftBuyOrCraftHtml(delta, armorForgeCraftMath()) : ''}
     `;
     if (armorForgeTarget !== 'player' && armorForgeTarget !== 'loot' && window.npcArmorTp) {
         let tpNow = window.npcArmorTp({ name: 'x', ac: totals.ac, dr: totals.dr, er: totals.er }).tp;
@@ -411,19 +412,8 @@ window.renderArmorCraftBody = function() {
         ${!canAfford && m.nominalDelta > 0 ? '<div class="text-[11px] text-red-400 font-bold mt-2 text-center">Not enough Crafting Materials on hand for a Success/partial-Fail outcome.</div>' : ''}
         ${removalsHtml}
 
-        ${m.nominalDelta > 0 ? `
-        <div class="mt-4 bg-slate-900 border border-orange-800/50 rounded-lg p-3">
-            <div class="text-[10px] text-slate-500 uppercase font-bold mb-1 text-center">Your Craft Check</div>
-            <div class="text-center text-xs text-slate-400 mb-2">${m.craftAttr} (Craft) bonus: <span class="font-bold text-white">${craftBonus >= 0 ? '+' : ''}${craftBonus}</span> vs DC <span class="font-bold text-white">${m.dc}</span></div>
-            <button onclick="window.armorForgeRollForMe()" class="w-full bg-indigo-600/20 border border-indigo-700/50 text-indigo-300 hover:bg-indigo-600/40 text-xs font-bold py-2 rounded transition mb-3">[dice] Roll For Me</button>
-            <div class="text-[10px] text-slate-500 uppercase font-bold mb-1 text-center">Or Enter Your Own Roll's Outcome</div>
-            <div class="grid grid-cols-3 gap-2">
-                <button onclick="window.armorForgeApplyOutcome('success')" ${!canAfford ? 'disabled' : ''} class="px-2 py-2 rounded ${!canAfford ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-500 text-white'} text-xs font-bold transition">Success</button>
-                <button onclick="window.armorForgeApplyOutcome('fail')" class="px-2 py-2 rounded bg-amber-700 hover:bg-amber-600 text-white text-xs font-bold transition">Failed<br><span class="text-[9px] font-normal">${m.hasFailRecovery ? '(half mats back)' : '(all mats lost)'}</span></button>
-                <button onclick="window.armorForgeApplyOutcome('failhard')" class="px-2 py-2 rounded bg-red-700 hover:bg-red-600 text-white text-xs font-bold transition">Failed by 5+<br><span class="text-[9px] font-normal">/ Crit Fail</span></button>
-            </div>
-        </div>
-        ` : `<div class="flex justify-end mt-4"><button onclick="window.armorForgeApplyOutcome('success')" class="px-6 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-black transition">Confirm (Removals Only)</button></div>`}
+        ${m.nominalDelta > 0 ? craftCheckPanelHtml('armor', m, canAfford)
+ : `<div class="flex justify-end mt-4"><button onclick="window.armorForgeApplyOutcome('success')" class="px-6 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-black transition">Confirm (Removals Only)</button></div>`}
 
         <div class="flex justify-end mt-3">
             <button onclick="window.closeModal('armorCraftModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Cancel</button>
@@ -431,16 +421,7 @@ window.renderArmorCraftBody = function() {
     `;
 };
 
-window.armorForgeRollForMe = function() {
-    let m = armorForgeCraftMath();
-    let craftBonus = craftBonusFor(m.craftAttr);
-    let d20 = 1 + Math.floor(Math.random() * 20);
-    let result = craftRollOutcome(d20, craftBonus, m.dc);
-
-    window.showConfirm(`Rolled ${d20} + ${craftBonus} = ${result.total} vs DC ${m.dc}.\nResult: ${result.label}.\n\nApply this result?`, () => {
-        window.armorForgeApplyOutcome(result.outcome);
-    });
-};
+window.armorForgeRollForMe = function() { window.craftRollCheck('armor'); };
 
 window.armorForgeApplyOutcome = function(outcome) {
     let m = armorForgeCraftMath();

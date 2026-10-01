@@ -131,12 +131,12 @@
             if (!ask) return;
             let area = /head/i.test(limb) ? 'Head' : /torso|chest|body/i.test(limb) ? 'Torso' : 'Limbs';
             let attrs = (typeof ATTRIBUTES !== 'undefined' ? ATTRIBUTES : Object.keys(ATTR_NAMES));
-            let score = a => (st.baseStats[a] || 0) + ((st.ancestry && st.ancestry.bonuses && st.ancestry.bonuses[a]) || 0);
+            let score = a => window.apxAttrScore ? window.apxAttrScore(st, a) : (st.baseStats[a] || 0) + ((st.ancestry && st.ancestry.bonuses && st.ancestry.bonuses[a]) || 0);
             let pick = await ask('Permanent Injury: ' + limb,
                 `Your ${limb} was Wounded again before it healed, so it suffers permanent damage (${area}). Choose a Core Attribute to permanently reduce by 1.\n\nYou can raise it again with XP (at the new, lower cost), or heal the injury with the Relaxation downtime activity, a Medical plot or a Power.`,
                 attrs.filter(a => score(a) > 1).map(a => [a, `${a} ${score(a)} → ${score(a) - 1}`, 'pri']));
             if (!pick) return;
-            st.baseStats[pick] = (st.baseStats[pick] || 0) - 1;
+            st.attrAdj = st.attrAdj || {}; st.attrAdj[pick] = (st.attrAdj[pick] || 0) - 1;   // (the creation base stays as it was)
             st.permanentInjuries = (st.permanentInjuries || []).concat([{ id: 'pi_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), limb, attr: pick, at: new Date().toISOString().slice(0, 10) }]);
             window.recalculateMath();
         };
@@ -148,7 +148,7 @@
                 `Permanent Injury${pi.limb ? ' (' + pi.limb + ')' : ''}: ${pi.attr} −1.\n\nHealed (Relaxation downtime, a Medical plot or a Power): ${pi.attr} goes back up by 1.`,
                 [['keep', 'Remove only'], ['heal', `Healed: ${pi.attr} +1`, 'ok']]) : 'heal';
             if (!v) return;
-            if (v === 'heal') st.baseStats[pi.attr] = (st.baseStats[pi.attr] || 0) + 1;
+            if (v === 'heal') { st.attrAdj = st.attrAdj || {}; st.attrAdj[pi.attr] = (st.attrAdj[pi.attr] || 0) + 1; }
             st.permanentInjuries = (st.permanentInjuries || []).filter(x => x.id !== id);
             window.recalculateMath();
         };
@@ -1023,12 +1023,48 @@
             ['attr', 'skill', 'er', 'stat'].forEach(type => window.renderBonusDraftList(prefix, type));
         }
 
+        // ── Add Custom Item: the same maker the GM's Loot Maker uses (one bonus list, item powers) ──
+        window._newItemDraft = { rows: [], powers: [] };
+        function newItemSyncRows() {
+            let box = document.getElementById('newItemRows'); if (!box) return;
+            window._newItemDraft.rows = [...box.querySelectorAll('[data-ni-row]')].map(r => ({ key: r.querySelector('select').value, amount: r.querySelector('input').value }));
+        }
+        function newItemRenderRows() {
+            let box = document.getElementById('newItemRows'); if (!box) return;
+            box.innerHTML = window._newItemDraft.rows.map((r, i) => `<div data-ni-row class="flex items-center gap-1">
+                <select onchange="window.apxNewItemSync()" class="bg-slate-800 text-xs flex-1 min-w-0">${window.apxItemBonusOptions ? window.apxItemBonusOptions(r.key) : ''}</select>
+                <input type="number" value="${r.amount}" onchange="window.apxNewItemSync()" title="Negative for a penalty" class="bg-slate-800 text-xs w-14 text-center">
+                <button type="button" onclick="window.apxNewItemDelRow(${i})" class="text-red-400 hover:text-red-300 font-bold text-sm px-1" title="Remove">&times;</button></div>`).join('');
+        }
+        function newItemRenderPowers() {
+            let box = document.getElementById('newItemPowers'); if (!box) return;
+            let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+            box.innerHTML = (window._newItemDraft.powers || []).map((p, i) => `<div class="flex items-center gap-1 bg-purple-950/40 border border-purple-800 rounded px-1.5 py-1">
+                <div class="flex-1 min-w-0"><div class="text-[11px] font-bold text-purple-200">${esc(p.name || 'Power')} <span class="text-[9px] text-purple-400">Lvl ${esc(p.lvl)} | ${esc(window.apxPowerApLabel ? window.apxPowerApLabel(p) : (p.ap + ' AP'))}</span></div>
+                    <div class="text-[9px] text-slate-400 truncate">${esc([p.atk, p.dmg && p.dmg !== '-' ? p.dmg : '', window.apxItemPowerUsage ? window.apxItemPowerUsage(p) : ''].filter(Boolean).join(' · '))}</div></div>
+                ${p.draft ? `<button type="button" onclick="window.apxNewItemCraftPower(${i})" class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-800 border border-slate-600 text-slate-200">Edit</button>` : ''}
+                <button type="button" onclick="window.apxNewItemDelPower(${i})" class="text-red-400 hover:text-red-300 font-bold text-sm px-1" title="Remove">&times;</button></div>`).join('');
+        }
+        window.apxNewItemSync = newItemSyncRows;
+        window.apxNewItemAddRow = function(key, amount) { newItemSyncRows(); window._newItemDraft.rows.push({ key: key || 'stat:maxHp', amount: amount == null ? 1 : amount }); newItemRenderRows(); };
+        window.apxNewItemDelRow = function(i) { newItemSyncRows(); window._newItemDraft.rows.splice(i, 1); newItemRenderRows(); };
+        window.apxNewItemDelPower = function(i) { window._newItemDraft.powers.splice(i, 1); newItemRenderPowers(); };
+        // Item powers come with the item (nothing is spent): made in the Power Crafter
+        window.apxNewItemCraftPower = function(editIdx) {
+            newItemSyncRows();
+            window._pcItemPowers = window._newItemDraft.powers;
+            window._pcItemOnChange = () => newItemRenderPowers();
+            if (editIdx == null) window.openPowerCrafter(false, 'item'); else window.openPowerEditor(editIdx, 'item');
+            let pm = document.getElementById('powerCrafterModal');
+            if (pm) {   // above the Add Item window while it's open
+                let old = pm.style.zIndex; pm.style.zIndex = 2147482500;
+                let w = setInterval(() => { if (pm.classList.contains('active')) return; clearInterval(w); pm.style.zIndex = old; }, 300);
+            }
+        };
         window.toggleNewItemEquippable = function(checked) {
             document.getElementById('newItemEquipFields').classList.toggle('hidden', !checked);
-            if (checked) {
-                window._bonusDrafts['newItem'] = { attr: [], skill: [], er: [], stat: [] };
-                renderAllBonusDraftLists('newItem');
-            }
+            if (checked && !window._newItemDraft.rows.length && !window._newItemDraft.powers.length) window._newItemDraft.rows = [{ key: 'attr:STR', amount: 1 }];
+            newItemRenderRows(); newItemRenderPowers();
         };
         window.toggleCustomItemEquip = function(idx) {
             let st = window.state, item = st.items[idx];
@@ -1061,25 +1097,18 @@
                 desc: document.getElementById('newItemDesc').value || ""
             };
             if (isEquippable) {
+                newItemSyncRows();
                 newItem.isCustomEquippable = true;
                 newItem.equipped = false;
-                let draft = getBonusDraft('newItem');
-                newItem.bonuses = {
-                    ac: parseInt(document.getElementById('newItemAcBonus').value) || 0,
-                    dr: parseInt(document.getElementById('newItemDrBonus').value) || 0,
-                    er: parseInt(document.getElementById('newItemErBonus').value) || 0,
-                    speedBonus: parseInt(document.getElementById('newItemSpeedBonus').value) || 0,
-                    attrBonuses: JSON.parse(JSON.stringify(draft.attr)),
-                    skillBonuses: JSON.parse(JSON.stringify(draft.skill)),
-                    erBonuses: JSON.parse(JSON.stringify(draft.er)),
-                    statBonuses: JSON.parse(JSON.stringify(draft.stat || [])),
-                };
+                newItem.bonuses = window.apxItemBonusesFromRows ? window.apxItemBonusesFromRows(window._newItemDraft.rows) : { ac: 0, dr: 0, er: 0, speedBonus: 0, attrBonuses: [], skillBonuses: [], erBonuses: [], statBonuses: [] };
+                if ((window._newItemDraft.powers || []).length) newItem.powers = JSON.parse(JSON.stringify(window._newItemDraft.powers));
             }
             window.state.items.unshift(newItem);
             document.getElementById('newItemName').value = "";
             document.getElementById('newItemDesc').value = "";
             document.getElementById('newItemEquippable').checked = false;
             document.getElementById('newItemEquipFields').classList.add('hidden');
+            window._newItemDraft = { rows: [], powers: [] };
             window.closeModal('itemModal');
             // Adding an item to inventory represents acquiring it -- ask
             // whether it's a purchase (deduct Currency) or GM-granted
@@ -1097,7 +1126,8 @@
                 name: name, lvl: document.getElementById('newPwrLvl').value,
                 ap: document.getElementById('newPwrAp').value, atk: document.getElementById('newPwrAtk').value,
                 rng: document.getElementById('newPwrRng').value, dmg: document.getElementById('newPwrDmg').value,
-                desc: document.getElementById('newPwrDesc').value
+                desc: document.getElementById('newPwrDesc').value,
+                attr: document.getElementById('newPwrAttr')?.value || 'INT', pool: document.getElementById('newPwrPool')?.value || 'full'
             });
             
             document.getElementById('newPwrName').value = "";

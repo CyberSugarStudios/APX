@@ -97,8 +97,10 @@
         window.refreshOpenStatBlocks && window.refreshOpenStatBlocks();
         document.querySelectorAll(`[data-npc-loot="${npcId}"]`).forEach(el => { el.innerHTML = window.apxNpcLootHtml(npcId); });
     }
-    function addTo(t, item) {
+    // lib: something the GM just made (forge, custom, consumable): it's also kept in the Library
+    function addTo(t, item, lib) {
         let r = resolve(t); if (!r) return;
+        if (lib && window.apxLibAdd) { try { window.apxLibAdd('item', item, { quiet: true }); } catch (e) { console.warn('Library:', e); } }
         // The same item added again joins its stack ("Black Cloak ×3", "3× Healing Draught")
         let same = window.apxItemsStack && r.items.find(l => (r.tok || r.npc || l.from === 'Loot Maker') && window.apxItemsStack(l.item, item));
         if (same) same.item.ct = (parseInt(same.item.ct) || 1) + Math.max(1, parseInt(item.ct) || 1);
@@ -191,6 +193,12 @@
                     <input type="number" min="1" value="1" data-lm-gqty style="${inCss};width:3.2rem;text-align:center">
                     <button data-lm-gadd="${esc(g.name)}" class="apxdlg-btn apxdlg-ok" style="padding:.25rem .6rem;font-size:.7rem">Add</button></div>`).join('') || '<div style="padding:.6rem;font-size:.7rem;color:#64748b">No gear matches.</div>'}
                 </div>`;
+        } else if (view === 'library') {
+            form = `<div style="display:flex;gap:.4rem;align-items:center;margin-bottom:.45rem">
+                    <input data-lm-libq placeholder="Search the Library…" value="${esc(maker.libQ || '')}" style="${inCss};flex:1">
+                    <label style="display:flex;align-items:center;gap:.3rem;font-size:.68rem;color:#cbd5e1;white-space:nowrap;cursor:pointer"><input type="checkbox" data-lm-liball ${maker.libAll ? 'checked' : ''}> All worlds</label></div>
+                <div style="font-size:.62rem;color:#94a3b8;margin-bottom:.35rem">Everything you've made (custom items, forged gear, consumables) is kept here, tagged with the world it was made in. Add a copy here, or tag it with other worlds.</div>
+                <div data-lm-lib style="max-height:260px;overflow-y:auto">${window.apxLibListHtml ? window.apxLibListHtml({ kind: 'item', all: maker.libAll, q: maker.libQ, onPick: true, pickLabel: 'Add' }) : ''}</div>`;
         } else if (view === 'cweapon') {
             form = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
                 ${field('Name', `<input data-cw="name" placeholder="Rusty Cleaver" style="${inCss}">`)}
@@ -250,6 +258,7 @@
                 ${sourceBtn('aforge', 'Armor Forge', 'Build armor from mods', '#93c5fd')}
                 ${sourceBtn('consumable', 'Consumable', 'Potions, grenades, scrolls…', '#f0abfc')}
                 ${sourceBtn('gear', 'Adventuring Gear', 'Pick from the gear list', '#fde68a')}
+                ${sourceBtn('library', 'Library', 'Reuse anything you made before', '#5eead4')}
                 ${sourceBtn('cweapon', 'Custom Weapon', 'Quick weapon: damage, AP, weight', '#fdba74')}
                 ${sourceBtn('citem', 'Custom Item', 'Anything else, equippable or not', '#c4b5fd')}
                 ${sourceBtn('shield', 'Shield', '+2 AC/DR/ER, one hand', '#86efac')}
@@ -262,6 +271,13 @@
                 <label style="display:flex;align-items:center;gap:.35rem">${r.npc ? 'Currency carried' : 'Currency here'} <input data-lm-cu type="number" min="0" value="${r.cu()}" style="${inCss};width:5rem;text-align:center"> Cu</label>
                 <span style="color:#64748b;font-size:.65rem">${r.npc ? 'Dropped with its gear when it dies.' : 'Hand it out from the area\'s popup.'}</span></div>` : ''}`;
         // Wire up
+        let libBox = body.querySelector('[data-lm-lib]');
+        if (libBox && window.apxLibWire) window.apxLibWire(libBox, item => addTo(maker.target, item));
+        let lq = body.querySelector('[data-lm-libq]');
+        if (lq) lq.oninput = () => { maker.libQ = lq.value; let pos = lq.selectionStart; renderMaker(); let n = document.querySelector('#apxLootMaker [data-lm-libq]'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } };
+        let la = body.querySelector('[data-lm-liball]');
+        if (la) la.onchange = () => { maker.libAll = la.checked; renderMaker(); };
+        window.apxLibRefresh = () => { if (document.getElementById('apxLootMaker') && maker && maker.view === 'library') renderMaker(); };
         body.querySelectorAll('[data-lm-ct]').forEach(b => b.onclick = () => {
             let [id, d] = b.dataset.lmCt.split('|');
             let r2 = resolve(maker.target); let l = r2 && r2.items.find(x => x.id === id); if (!l) return;
@@ -309,7 +325,7 @@
             let wc = v('wc'), apMap = { light: 2, medium: 3, heavy: 4 };
             let w = { name, attr: v('attr'), tr: false, dmg: dmg.replace(/\s+/g, ''), ap: apMap[wc] || 2, isUnarmed: false, isCustom: true,
                 category: v('category'), weightClass: wc, weight: parseFloat(v('wt')) || 0, paidCost: parseInt(v('val')) || 0, notes: v('notes').trim() };
-            addTo(maker.target, weaponItem(w));
+            addTo(maker.target, weaponItem(w), true);
         };
         let ci = body.querySelector('[data-ci="eq"]');
         let addBonusRow = (key, amount) => {
@@ -381,7 +397,7 @@
             }
             let item = applyEq(Object.assign({}, fields));
             maker.ci = blankCi();
-            addTo(maker.target, item);
+            addTo(maker.target, item, true);
         };
     }
 
@@ -396,7 +412,7 @@
         else if (which === 'armor') window.openArmorForge('loot');
         else {
             let t = maker.target;
-            window.openConsumableCrafter({ label: t.kind === 'npc' ? 'Give to NPC' : 'Add to Loot', onMade: item => addTo(t, item) });
+            window.openConsumableCrafter({ label: t.kind === 'npc' ? 'Give to NPC' : 'Add to Loot', onMade: item => addTo(t, item, true) });
         }
         // Put the z-order back once the forge closes (made something or cancelled)
         let el = document.getElementById(id);
@@ -408,8 +424,8 @@
     }
     window._lootMakerReceive = function (made) {
         let t = window._lootMakerTarget || (maker && maker.target) || { kind: 'pool' };
-        if (made.weapon) addTo(t, weaponItem(made.weapon));
-        if (made.armor) addTo(t, armorItem(made.armor));
+        if (made.weapon) addTo(t, weaponItem(made.weapon), true);
+        if (made.armor) addTo(t, armorItem(made.armor), true);
     };
 
     // ── Loot section (Area Circle popups, world NPC windows) ──────
@@ -467,7 +483,7 @@
                     <option value="">Give to…</option><option value="__split" ${cuTo === '__split' ? 'selected' : ''}>Split among the party</option>${opts(cuTo)}</select>
                 <button onclick="window.apxGiveSectionCu('${k}',this)" style="${btn('#047857', '#059669', '#fff')}" ${cu > 0 ? '' : 'disabled'}>Give</button>
             </div>
-            ${pl.length ? '' : '<div style="font-size:.58rem;color:#64748b;margin-top:.2rem">Load the party to hand loot out.</div>'}`;
+            ${pl.length ? `<label style="display:flex;align-items:center;gap:.3rem;margin-top:.3rem;font-size:.6rem;color:#94a3b8;cursor:pointer" title="On: what you hand out isn't announced to the other players (the player who gets it still sees it)"><input type="checkbox" ${window._gmLootSecret ? 'checked' : ''} onchange="window._gmLootSecret=this.checked;window.renderGmLoot&&window.renderGmLoot()" style="width:11px;height:11px"> Hide what I give from the other players</label>` : '<div style="font-size:.58rem;color:#64748b;margin-top:.2rem">Load the party to hand loot out.</div>'}`;
     }
     window.apxAreaLootHtml = (mapId, tokId) => sectionHtml({ kind: 'area', mapId, tokId });
     // Area Circle popup: the area's own loot (a chest, a hidden cache, a shop counter), stocked with the
@@ -499,7 +515,7 @@
         else { r.items.splice(i, 1); delete window._gmLootSel[id]; }
         let who = party().find(p => p.uid === to)?.name || 'A player';
         let from = t.kind === 'npc' ? (r.npc.name || 'an NPC') : areaLabel(r.tok);
-        if (typeof window.gmLog === 'function') window.gmLog({ text: `${who} took ${n > 1 ? n + '× ' : ''}${l.item.name} from ${from}.`, kind: 'loot', force: true });
+        if (typeof window.gmLog === 'function') window.gmLog({ text: `${who} took ${n > 1 ? n + '× ' : ''}${l.item.name} from ${from}.`, kind: 'loot', force: true, gmOnly: !!window._gmLootSecret });
         r.save(); refreshAll(t);
     };
     // Edit a custom item where it sits (an area, an NPC's carried gear): opens the Loot Maker's form, filled in

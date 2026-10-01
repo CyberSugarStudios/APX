@@ -17,14 +17,14 @@
     // Everything else an item can modify, grouped for the dropdown
     const STAT_GROUPS = [
         ['Defense', [['ac', 'AC'], ['dr', 'DR'], ['er', 'ER (all energy)'], ['wt', 'Wound Threshold']]],
-        ['Vitals and Movement', [['maxHp', 'Max HP'], ['maxAp', 'Max AP'], ['speed', 'Speed (squares)'], ['init', 'Initiative'],
+        ['Vitals and Movement', [['maxHp', 'Max HP'], ['maxAp', 'Max AP'], ['combatAp', 'AP at the start of combat'], ['speed', 'Speed (squares)'], ['init', 'Initiative'],
             ['maxRestDice', 'Max Rest Dice'], ['maxLuck', 'Max Luck Points'], ['carryCap', 'Carry Capacity (lbs)']]],
         ['Attacks and Powers', [['meleeAtk', 'Melee attack rolls'], ['meleeDmg', 'Melee damage'], ['rangedAtk', 'Ranged attack rolls'], ['rangedDmg', 'Ranged damage'],
             ['powerAtk', 'Power attack rolls'], ['powerDc', 'Power save DC']]],
         ['Saving Throws', [['saveAll', 'All saving throws']].concat(ATTRS.map(a => ['save_' + a, a + ' saves']))],
         ['Checks', [['checkAll', 'All checks (skills and attributes)']].concat(ATTRS.map(a => ['check_' + a, a + ' checks (and its skills)']))],
-        ['Power Slots', [['slot_1', 'Level 1 Power Slots (INT)'], ['slot_2', 'Level 2 Power Slots (INT)'], ['slot_3', 'Level 3 Power Slots (INT)'],
-            ['slot_4', 'Level 4 Power Slots (INT)'], ['slot_5', 'Level 5 Power Slots (INT)'], ['slot_CHA', 'Power Slots (CHA pool)']]]
+        ['Power Slots', [['slot_1', 'Level 1 Power Slots (Full Rest)'], ['slot_2', 'Level 2 Power Slots (Full Rest)'], ['slot_3', 'Level 3 Power Slots (Full Rest)'],
+            ['slot_4', 'Level 4 Power Slots (Full Rest)'], ['slot_5', 'Level 5 Power Slots (Full Rest)'], ['slot_CHA', 'Short Rest Power uses']]]
     ];
     const STAT_LABEL = {};
     STAT_GROUPS.forEach(([, list]) => list.forEach(([k, l]) => { STAT_LABEL[k] = l; }));

@@ -30,7 +30,12 @@
     function grid(g) {
         g = g || {};
         let cs = parseFloat(g.cellSize); if (!(cs > 0)) cs = 50;
-        return { cellSize: cs, offsetX: parseFloat(g.offsetX) || 0, offsetY: parseFloat(g.offsetY) || 0 };
+        let op = parseFloat(g.opacity);
+        return { cellSize: cs, offsetX: parseFloat(g.offsetX) || 0, offsetY: parseFloat(g.offsetY) || 0,
+            // line style (the GM's Grid settings): colour, thickness in screen pixels, opacity
+            color: /^#[0-9a-f]{3,8}$/i.test(g.color || '') ? g.color : '#ffffff',
+            thickness: Math.max(1, Math.min(8, parseInt(g.thickness, 10) || 1)),
+            opacity: isFinite(op) ? Math.max(0, Math.min(1, op)) : 0.35 };
     }
     // Same origin math as the grid-line drawing code on both pages
     function origin(g) { return { ox: g.offsetX % g.cellSize, oy: g.offsetY % g.cellSize }; }
@@ -204,7 +209,7 @@
         let l = document.getElementById(winId + '_btScreen');
         if (!l) return;
         _restoreFog(l);
-        l.querySelectorAll('[data-bt],[data-btp],[data-bt-ui],[data-bt-grid]').forEach(el => el.remove());
+        l.querySelectorAll('[data-bt],[data-btp],[data-bt-ui],[data-bt-grid],[data-bt-aura]').forEach(el => el.remove());
         l._opts = null;
         exitMeasure(winId);
     }
@@ -264,6 +269,38 @@
         _paintContent(el, vm);
     }
 
+    // Damage Aura ring (NPC trait): a see-through circle reaching `radius` squares past the token,
+    // in its Energy type's colour. Drawn under every token (but over map images), hidden with it.
+    const AURA_COLORS = { Fire: '#f97316', Cold: '#38bdf8', Electric: '#facc15', Acid: '#84cc16', Poison: '#a855f7', Sonic: '#e879f9', Radiation: '#22c55e', Force: '#818cf8', Psychic: '#ec4899' };
+    function auraColor(type) { return AURA_COLORS[type] || (/^#/.test(type || '') ? type : '#f97316'); }
+    function _hexA(hex, a) {
+        let h = String(hex).replace('#', ''); if (h.length === 3) h = h.split('').map(c => c + c).join('');
+        let n = parseInt(h.slice(0, 6), 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+    }
+    function _styleAura(layer, el, vm) {
+        if (!vm.aura) { if (el._aura) { el._aura.remove(); el._aura = null; } return; }
+        if (!el._aura) {
+            el._aura = document.createElement('div');
+            el._aura.setAttribute('data-bt-aura', vm.id);
+            el._aura.style.cssText = 'position:absolute;transform:translate(-50%,-50%);border-radius:50%;pointer-events:none;box-sizing:border-box;';
+            layer.appendChild(el._aura);
+        }
+        let c = auraColor(vm.aura.type);
+        el._aura.style.background = `radial-gradient(circle, ${_hexA(c, 0.10)} 0%, ${_hexA(c, 0.22)} 70%, ${_hexA(c, 0.32)} 100%)`;
+        el._aura.style.border = `2px solid ${_hexA(c, 0.75)}`;
+        el._aura.style.opacity = String(vm.opacity == null ? 1 : vm.opacity);
+        el._aura.title = vm.aura.title || '';
+    }
+    function _placeAura(el, g, s, offX, offY, gx, gy) {
+        let a = el._aura, vm = el._vm; if (!a) return;
+        let c = center(g, gx, gy, vm.size);
+        let side = (span(vm.size) + 2 * (vm.aura.radius || 1)) * g.cellSize * s;
+        a.style.left = (offX + c.px * s) + 'px'; a.style.top = (offY + c.py * s) + 'px';
+        a.style.width = side + 'px'; a.style.height = side + 'px';
+        let o = el._layerRef && el._layerRef._opts;
+        a.style.zIndex = String(zFor(o && o._minTokLayer != null ? o._minTokLayer : 0, 850));
+    }
+
     function _tokenZ(el) {
         let vm = el._vm;
         if (el._drag) return Z_DRAG;
@@ -294,6 +331,7 @@
             b.style.borderWidth = Math.max(1, Math.round(nd * 0.09)) + 'px';
         });
         el.style.zIndex = String(_tokenZ(el));
+        if (el._aura) _placeAura(el, g, s, offX, offY, gx, gy);
     }
 
     // ── Props (movable map images) ───────────────────────────────
@@ -364,6 +402,7 @@
         }
         _drawGrid(layer);
         _layoutMeasure(layer);
+        layer.querySelectorAll('[data-bt]').forEach(el => { if (el._drag && el._drag.path) _drawPath(layer, el); });
     }
 
     // Grid: a canvas the size of the visible map area (not the whole map), redrawn only
@@ -377,9 +416,10 @@
         let pw = Math.max(1, Math.round(W * dpr)), ph = Math.max(1, Math.round(H * dpr));
         let s = win?._scale || 1, ox = win?._offX || 0, oy = win?._offY || 0;
         let g = o.grid, org = origin(g), cs = g.cellSize * s;
-        let key = [pw, ph, s, ox, oy, g.cellSize, org.ox, org.oy, o.imgSize.w, o.imgSize.h].join('|');
+        let key = [pw, ph, s, ox, oy, g.cellSize, org.ox, org.oy, o.imgSize.w, o.imgSize.h, g.color, g.thickness, g.opacity].join('|');
         if (cv._key === key) return;
         cv._key = key;
+        cv.style.opacity = String(g.opacity);
         if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; cv.style.width = W + 'px'; cv.style.height = H + 'px'; }
         let ctx = cv.getContext('2d');
         ctx.clearRect(0, 0, pw, ph);
@@ -387,12 +427,12 @@
         let x0 = Math.max(0, ox), x1 = Math.min(W, ox + o.imgSize.w * s);
         let y0 = Math.max(0, oy), y1 = Math.min(H, oy + o.imgSize.h * s);
         if (x1 <= x0 || y1 <= y0) return;
-        let lw = Math.max(1, Math.round(dpr));
-        ctx.fillStyle = '#fff';
+        let lw = Math.max(1, Math.round(g.thickness * dpr)), half = Math.floor(lw / 2);
+        ctx.fillStyle = g.color;
         let startX = ox + org.ox * s; startX -= Math.ceil((startX - x0) / cs) * cs;
-        for (let x = startX; x <= x1; x += cs) { if (x < x0 - 0.01) continue; ctx.fillRect(Math.round(x * dpr), Math.round(y0 * dpr), lw, Math.round((y1 - y0) * dpr)); }
+        for (let x = startX; x <= x1; x += cs) { if (x < x0 - 0.01) continue; ctx.fillRect(Math.round(x * dpr) - half, Math.round(y0 * dpr), lw, Math.round((y1 - y0) * dpr)); }
         let startY = oy + org.oy * s; startY -= Math.ceil((startY - y0) / cs) * cs;
-        for (let y = startY; y <= y1; y += cs) { if (y < y0 - 0.01) continue; ctx.fillRect(Math.round(x0 * dpr), Math.round(y * dpr), Math.round((x1 - x0) * dpr), lw); }
+        for (let y = startY; y <= y1; y += cs) { if (y < y0 - 0.01) continue; ctx.fillRect(Math.round(x0 * dpr), Math.round(y * dpr) - half, Math.round((x1 - x0) * dpr), lw); }
     }
 
     function _imgPoint(layer, e) {
@@ -498,12 +538,15 @@
                 if (e.shiftKey || e.ctrlKey || e.metaKey) { o.onSelect([el._vm.id], 'toggle'); return; }
                 if (!o.selection || !o.selection.has(el._vm.id)) o.onSelect([el._vm.id], false);
             }
-            if (!el._vm.draggable || !o.onMove) return;
+            if (!el._vm.draggable || !o.onMove) { if (o.onClick) o.onClick(el._vm, e); return; }
             try { el.setPointerCapture(e.pointerId); } catch (_) {}
             let p = _imgPoint(layer, e);
-            el._drag = { sx: el._vm.gridX, sy: el._vm.gridY, gx: el._vm.gridX, gy: el._vm.gridY, px: p.x, py: p.y };
+            el._drag = { sx: el._vm.gridX, sy: el._vm.gridY, gx: el._vm.gridX, gy: el._vm.gridY, px: p.x, py: p.y, alt: e.altKey };
             el._group = _groupMembers(layer, el);
             _beginGroup(layer, el._group);
+            // In combat, a creature on its turn shows its path and what the move costs in AP
+            let mp = !el._group.length && o.movePath ? o.movePath(el._vm) : null;
+            if (mp) { el._drag.mp = mp; el._drag.path = [{ gx: el._vm.gridX, gy: el._vm.gridY }]; _drawPath(layer, el); }
             el.style.transition = 'none';
             el.style.cursor = 'grabbing';
             el.style.zIndex = String(Z_DRAG);
@@ -513,8 +556,10 @@
             if (!el._drag) return;
             let o = layer._opts; if (!o) return;
             let c = _pointerCell(layer, el, e);
+            if (el._drag.path && el._drag.alt !== e.altKey) { el._drag.alt = e.altKey; _drawPath(layer, el); }
             if (c.gridX === el._drag.gx && c.gridY === el._drag.gy) return;
             el._drag.gx = c.gridX; el._drag.gy = c.gridY;
+            if (el._drag.path) { _extendPath(el._drag.path, c.gridX, c.gridY); _drawPath(layer, el); }
             if (el._group && el._group.length) {
                 _applyGroupDelta(layer, el._group, c.gridX - el._drag.sx, c.gridY - el._drag.sy);
                 let ok = !o.canGroupMove || o.canGroupMove(_moveList(el, el._group));
@@ -538,15 +583,19 @@
                 _endGroup(layer, el, g, cancelled);
                 return;
             }
+            let pinfo = _pathInfo(d);
             el._drag = null;
+            _drawPath(layer, el);   // (clears the path)
             el.style.opacity = String(el._vm.opacity == null ? 1 : el._vm.opacity);
             if (!o) return;
             if (cancelled || (d.gx === d.sx && d.gy === d.sy)) { layout(o.winId); return; }
             let dest = o.resolveDrop ? o.resolveDrop(el._vm, d.gx, d.gy) : { gridX: d.gx, gridY: d.gy };
             if (!dest || (dest.gridX === d.sx && dest.gridY === d.sy)) { _glideBack(layer, [el]); return; }  // blocked -> back to last spot
+            // The page can refuse a move (not enough AP for the path): the token goes back
+            if (pinfo && o.beforeMove && o.beforeMove(el._vm, dest.gridX, dest.gridY, pinfo) === false) { _glideBack(layer, [el]); return; }
             el._vm.gridX = dest.gridX; el._vm.gridY = dest.gridY;
             layout(o.winId);
-            o.onMove(el._vm, dest.gridX, dest.gridY);
+            o.onMove(el._vm, dest.gridX, dest.gridY, pinfo);
         };
         el.addEventListener('pointerup',     () => finish(false));
         el.addEventListener('pointercancel', () => finish(true));
@@ -704,7 +753,7 @@
             if (!gridEl) {
                 gridEl = document.createElement('canvas');
                 gridEl.setAttribute('data-bt-grid', '1');
-                gridEl.style.cssText = 'position:absolute;left:0;top:0;pointer-events:none;opacity:.35;z-index:50;';
+                gridEl.style.cssText = 'position:absolute;left:0;top:0;pointer-events:none;opacity:' + opts.grid.opacity + ';z-index:50;';
                 layer.insertBefore(gridEl, layer.firstChild);
             }
             gridEl._key = null;
@@ -733,9 +782,11 @@
             if (el._drag) { vm.gridX = el._vm.gridX; vm.gridY = el._vm.gridY; }
             el._vm = vm;
             _styleStatic(el, vm, opts);
+            _styleAura(layer, el, vm);
         });
+        opts._minTokLayer = (opts.tokens || []).reduce((mn, t) => Math.min(mn, t.layer == null ? 1 : Number(t.layer) || 0), 1);
         // Remove tokens that are gone (never yank one out from under an active drag)
-        existing.forEach(el => { if (!el._drag) el.remove(); });
+        existing.forEach(el => { if (!el._drag) { if (el._aura) el._aura.remove(); el.remove(); } });
         layout(opts.winId);
     }
 
@@ -803,9 +854,80 @@
     // dx, dy squares costs max + floor(min / 2). Points snap DOWN to the square
     // they're in. Starting or ending on a token measures from its nearest edge
     // square, so two adjacent tokens are 1 square apart whatever their size.
+    // Modes: Line (right-click drops a corner point, for paths around walls), Cone, and
+    // Burst (a radius blast); Cone and Burst shade the squares they cover and name who's in them.
     function squaresBetween(dx, dy) {
         dx = Math.abs(dx); dy = Math.abs(dy);
         return Math.max(dx, dy) + Math.floor(Math.min(dx, dy) / 2);
+    }
+    // Squares along a path of cells; the 1, 2, 1, 2 diagonal count carries on across corners
+    function pathSquares(cells) {
+        let sq = 0, diag = 0;
+        for (let i = 1; i < (cells || []).length; i++) {
+            let dx = Math.abs(cells[i].gx - cells[i - 1].gx), dy = Math.abs(cells[i].gy - cells[i - 1].gy);
+            let d = Math.min(dx, dy), st = Math.max(dx, dy) - d;
+            sq += st + d + Math.floor((diag + d) / 2) - Math.floor(diag / 2);
+            diag += d;
+        }
+        return sq;
+    }
+    // AP for moving `squares` more this turn. mp = { speed, moves: Move actions already taken this turn,
+    // left: squares still unused from the last one, mobile: AP off each Move (Mobile R1, min 0),
+    // staggered: moving costs double AP }. The 1st Move costs 1 AP, the 2nd 2 AP, and so on;
+    // each one covers up to Speed squares.
+    function moveCost(mp, squares) {
+        mp = mp || {};
+        let speed = Math.max(0, parseInt(mp.speed, 10) || 0), left = Math.max(0, mp.left || 0), n = Math.max(0, mp.moves || 0), ap = 0, actions = 0;
+        let rem = Math.max(0, squares || 0), use = Math.min(left, rem);
+        rem -= use; left -= use;
+        while (rem > 0) {
+            if (speed <= 0) return { ap: Infinity, moves: n, left: 0, actions, stuck: true };
+            n++; actions++;
+            let c = Math.max(0, n - (mp.mobile || 0)); if (mp.staggered) c *= 2;
+            ap += c;
+            let take = Math.min(speed, rem); rem -= take; left = speed - take;
+        }
+        return { ap, moves: n, left, actions };
+    }
+    // King-step from the path's end to (gx, gy); stepping back onto the path erases the loop
+    function _extendPath(path, gx, gy) {
+        let last = path[path.length - 1];
+        if (last.gx === gx && last.gy === gy) return;
+        let cur = { gx: last.gx, gy: last.gy }, guard = 0;
+        while ((cur.gx !== gx || cur.gy !== gy) && guard++ < 400) {
+            cur = { gx: cur.gx + Math.sign(gx - cur.gx), gy: cur.gy + Math.sign(gy - cur.gy) };
+            let i = path.findIndex(p => p.gx === cur.gx && p.gy === cur.gy);
+            if (i >= 0) path.length = i + 1; else path.push(cur);
+        }
+    }
+    function _pathInfo(d) {
+        if (!d || !d.path) return null;
+        let squares = pathSquares(d.path);
+        return { squares, path: d.path.slice(), free: !!d.alt, mp: d.mp, cost: moveCost(d.mp, squares) };
+    }
+    function _drawPath(layer, el) {
+        let d = el._drag, o = layer._opts;
+        let svg = layer.querySelector('[data-bt-ui="path"]');
+        if (!d || !d.path || !o) { if (svg) svg.remove(); return; }
+        if (!svg) {
+            svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('data-bt-ui', 'path');
+            svg.setAttribute('width', '100%'); svg.setAttribute('height', '100%');
+            svg.style.cssText = `position:absolute;inset:0;pointer-events:none;overflow:visible;z-index:${Z_DRAG - 2};`;
+            layer.appendChild(svg);
+        }
+        let g = o.grid, win = o.win, sc = win._scale || 1, ox = win._offX || 0, oy = win._offY || 0;
+        let pts = d.path.map(c => { let p = center(g, c.gx, c.gy, el._vm.size); return { x: ox + p.px * sc, y: oy + p.py * sc }; });
+        let info = _pathInfo(d), cost = info.cost, have = d.mp.apHave;
+        let over = !d.alt && have != null && cost.ap > have;
+        let col = d.alt ? '#a5b4fc' : over ? '#f87171' : '#4ade80';
+        let label = info.squares === 0 ? 'Drag to move' : d.alt ? `${info.squares} sq · free move (Alt)` : cost.stuck ? `${info.squares} sq · Speed 0` : `${info.squares} sq · ${cost.ap} AP${have != null ? ` (of ${have})` : ''}`;
+        let end = pts[pts.length - 1];
+        svg.innerHTML = (pts.length > 1 ? `<polyline points="${pts.map(p => p.x + ',' + p.y).join(' ')}" fill="none" stroke="#000" stroke-opacity=".55" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>
+            <polyline points="${pts.map(p => p.x + ',' + p.y).join(' ')}" fill="none" stroke="${col}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>` : '')
+            + pts.slice(1).map(p => `<circle cx="${p.x}" cy="${p.y}" r="3" fill="${col}"/>`).join('')
+            + `<g transform="translate(${end.x + 16},${end.y - 18})"><rect x="-4" y="-15" rx="4" width="${label.length * 7 + 12}" height="22" fill="rgba(15,23,42,.94)" stroke="${col}"/><text x="2" y="1" fill="#f8fafc" font-size="12.5" font-weight="800" font-family="system-ui,sans-serif">${label}</text></g>`
+            + (over ? `<g transform="translate(${end.x + 16},${end.y + 8})"><rect x="-4" y="-15" rx="4" width="150" height="22" fill="rgba(127,29,29,.94)" stroke="#f87171"/><text x="2" y="1" fill="#fecaca" font-size="11.5" font-weight="800" font-family="system-ui,sans-serif">Not enough AP</text></g>` : '');
     }
     function _cellAt(g, x, y) {
         let o = origin(g);
@@ -816,7 +938,7 @@
         for (let vm of (o.tokens || [])) {
             let sp = span(vm.size);
             if (cell.gx >= vm.gridX && cell.gx < vm.gridX + sp && cell.gy >= vm.gridY && cell.gy < vm.gridY + sp)
-                return { x0: vm.gridX, y0: vm.gridY, x1: vm.gridX + sp - 1, y1: vm.gridY + sp - 1, name: vm.name || vm.title, token: true };
+                return { x0: vm.gridX, y0: vm.gridY, x1: vm.gridX + sp - 1, y1: vm.gridY + sp - 1, name: vm.name || vm.title, token: true, id: vm.id };
         }
         return { x0: cell.gx, y0: cell.gy, x1: cell.gx, y1: cell.gy };
     }
@@ -825,39 +947,114 @@
         let pick = (a0, a1, b0, b1) => b1 < a0 ? a0 : b0 > a1 ? a1 : Math.max(a0, b0);
         return { gx: pick(a.x0, a.x1, b.x0, b.x1), gy: pick(a.y0, a.y1, b.y0, b.y1) };
     }
+    const CONE_HALF = Math.atan(0.5);   // a cone is as wide at its end as it is long
+    let _measureMode = 'line';
+    function _measureLabel(x, y, label, color) {
+        let w = label.length * 7 + 12;
+        return `<g transform="translate(${x},${y})"><rect x="-4" y="-15" rx="4" width="${w}" height="22" fill="rgba(15,23,42,.92)" stroke="${color || '#facc15'}"/>
+            <text x="2" y="1" fill="#fde68a" font-size="12.5" font-weight="800" font-family="system-ui,sans-serif">${String(label).replace(/&/g, '&amp;').replace(/</g, '&lt;')}</text></g>`;
+    }
     // Square to square: counts every square the line covers, INCLUDING the starting
     // square (next-door squares = 2). Token to token (or token to square): counts the
     // squares between them the way movement does (adjacent = 1), and the line snaps to
     // the nearest CORNER of each token's space, so it doubles as a cover check.
     function _layoutMeasure(layer) {
-        let m = layer._measure; if (!m || !m.a || !m.b) { if (m && m.svg) m.svg.innerHTML = ''; return; }
+        let m = layer._measure; if (!m) return;
+        if (m.bar) m.bar.querySelectorAll('[data-mmode]').forEach(b => { let on = b.dataset.mmode === m.mode; b.style.background = on ? '#a16207' : 'rgba(15,23,42,.92)'; b.style.color = on ? '#fff' : '#fde68a'; });
+        if (!m.a || !m.b) { m.svg.innerHTML = ''; return; }
         let o = layer._opts, g = o.grid, win = o.win;
         let s = win._scale || 1, ox = win._offX || 0, oy = win._offY || 0;
+        let org = origin(g), cs = g.cellSize;
+        let scr = (x, y) => ({ x: ox + (org.ox + x * cs) * s, y: oy + (org.oy + y * cs) * s });   // grid units -> screen
+        let rect = (x0, y0, x1, y1, fill, stroke, dash) => { let tl = scr(x0, y0), br = scr(x1 + 1, y1 + 1);
+            return `<rect x="${tl.x}" y="${tl.y}" width="${br.x - tl.x}" height="${br.y - tl.y}" fill="${fill}" stroke="${stroke}" stroke-width="1" ${dash ? 'stroke-dasharray="4 3"' : ''}/>`; };
+        if (m.mode === 'cone' || m.mode === 'burst') { _layoutArea(layer, m, scr, rect, s, cs); return; }
+        if (m.way && m.way.length) {
+            // A path with corners: squares moved along it
+            let pts = [m.a].concat(m.way, [m.b]);
+            let n = pathSquares(pts);
+            let ps = pts.map(c => scr(c.gx + 0.5, c.gy + 0.5));
+            let poly = ps.map(p => `${p.x},${p.y}`).join(' ');
+            let end = ps[ps.length - 1];
+            m.svg.innerHTML = `${rect(m.a.gx, m.a.gy, m.a.gx, m.a.gy, 'rgba(250,204,21,.18)', 'rgba(250,204,21,.7)')}${rect(m.b.gx, m.b.gy, m.b.gx, m.b.gy, 'rgba(250,204,21,.18)', 'rgba(250,204,21,.7)')}
+                <polyline points="${poly}" fill="none" stroke="#000" stroke-opacity=".6" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
+                <polyline points="${poly}" fill="none" stroke="#facc15" stroke-width="2.5" stroke-dasharray="7 5" stroke-linejoin="round" stroke-linecap="round"/>
+                ${ps.map((p, i) => `<circle cx="${p.x}" cy="${p.y}" r="${i && i < ps.length - 1 ? 5 : 4}" fill="${i && i < ps.length - 1 ? '#fb923c' : '#facc15'}" stroke="#000" stroke-width="1"/>`).join('')}
+                ${_measureLabel(end.x + 14, end.y - 14, `${n} square${n === 1 ? '' : 's'} (path)`)}`;
+            m.last = n;
+            return;
+        }
         let fa = _footprintAt(layer, m.a), fb = _footprintAt(layer, m.b);
         let ca = _nearest(fa, fb), cb = _nearest(fb, fa);
         let anyToken = fa.token || fb.token;
         let n = squaresBetween(cb.gx - ca.gx, cb.gy - ca.gy) + (anyToken ? 0 : 1);
-        let org = origin(g), cs = g.cellSize;
-        let scr = (x, y) => ({ x: ox + (org.ox + x * cs) * s, y: oy + (org.oy + y * cs) * s });   // grid units -> screen
         let centerPts = f => [{ x: f.x0 + 0.5, y: f.y0 + 0.5 }];
         let cornerPts = f => [{ x: f.x0, y: f.y0 }, { x: f.x1 + 1, y: f.y0 }, { x: f.x0, y: f.y1 + 1 }, { x: f.x1 + 1, y: f.y1 + 1 }];
         let pa = fa.token ? cornerPts(fa) : centerPts(fa), pb = fb.token ? cornerPts(fb) : centerPts(fb);
         let best = null;
         pa.forEach(A => pb.forEach(B => { let d = (A.x - B.x) ** 2 + (A.y - B.y) ** 2; if (!best || d < best.d) best = { d, A, B }; }));
         let p1 = scr(best.A.x, best.A.y), p2 = scr(best.B.x, best.B.y);
-        let hl = f => { let tl = scr(f.x0, f.y0), br = scr(f.x1 + 1, f.y1 + 1);
-            return `<rect x="${tl.x}" y="${tl.y}" width="${br.x - tl.x}" height="${br.y - tl.y}" fill="rgba(250,204,21,${f.token ? '.08' : '.18'})" stroke="rgba(250,204,21,.7)" stroke-width="1" ${f.token ? 'stroke-dasharray="4 3"' : ''}/>`; };
+        let hl = f => rect(f.x0, f.y0, f.x1, f.y1, `rgba(250,204,21,${f.token ? '.08' : '.18'})`, 'rgba(250,204,21,.7)', f.token);
         let label = `${n} square${n === 1 ? '' : 's'}`;
-        let lx = p2.x + 14, ly = p2.y - 14;
         m.svg.innerHTML = `${hl(fa)}${hl(fb)}
             <line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="#000" stroke-opacity=".6" stroke-width="5" stroke-linecap="round"/>
             <line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="#facc15" stroke-width="2.5" stroke-dasharray="7 5" stroke-linecap="round"/>
             <circle cx="${p1.x}" cy="${p1.y}" r="4" fill="#facc15"/><circle cx="${p2.x}" cy="${p2.y}" r="4" fill="#facc15"/>
-            <g transform="translate(${lx},${ly})"><rect x="-4" y="-15" rx="4" width="${label.length * 7.4 + 10}" height="22" fill="rgba(15,23,42,.92)" stroke="#facc15"/>
-            <text x="1" y="1" fill="#fde68a" font-size="13" font-weight="800" font-family="system-ui,sans-serif">${label}</text></g>`;
+            ${_measureLabel(p2.x + 14, p2.y - 14, label)}`;
         m.last = n;
     }
-    function enterMeasure(winId) {
+    // Cone / Burst: the squares an area covers from its origin (a square, or a creature's edge)
+    function areaCells(fa, target, mode) {
+        let near = _nearest(fa, { x0: target.gx, x1: target.gx, y0: target.gy, y1: target.gy });
+        let L = Math.max(1, squaresBetween(target.gx - near.gx, target.gy - near.gy));
+        let cx = (fa.x0 + fa.x1 + 1) / 2, cy = (fa.y0 + fa.y1 + 1) / 2;
+        let dx = target.gx + 0.5 - cx, dy = target.gy + 0.5 - cy, dl = Math.hypot(dx, dy) || 1;
+        let cells = [];
+        for (let gx = fa.x0 - L; gx <= fa.x1 + L; gx++) for (let gy = fa.y0 - L; gy <= fa.y1 + L; gy++) {
+            let inside = gx >= fa.x0 && gx <= fa.x1 && gy >= fa.y0 && gy <= fa.y1;
+            if (inside) { if (mode === 'burst') cells.push({ gx, gy }); continue; }
+            let nn = _nearest(fa, { x0: gx, x1: gx, y0: gy, y1: gy });
+            if (squaresBetween(gx - nn.gx, gy - nn.gy) > L) continue;
+            if (mode === 'cone') {
+                let vx = gx + 0.5 - cx, vy = gy + 0.5 - cy;
+                let cos = (vx * dx + vy * dy) / ((Math.hypot(vx, vy) || 1) * dl);
+                if (cos < Math.cos(CONE_HALF) - 1e-9) continue;
+            }
+            cells.push({ gx, gy });
+        }
+        return { cells, L, cx, cy, ang: Math.atan2(dy, dx) };
+    }
+    function _layoutArea(layer, m, scr, rect, s, cs) {
+        let o = layer._opts;
+        let fa = _footprintAt(layer, m.a);
+        let A = areaCells(fa, m.b, m.mode);
+        let set = new Set(A.cells.map(c => c.gx + ',' + c.gy));
+        let hit = [];
+        (o.tokens || []).forEach(vm => {
+            if (m.mode === 'cone' && fa.token && fa.id === vm.id) return;
+            let sp = span(vm.size), inside = false;
+            for (let x = vm.gridX; x < vm.gridX + sp && !inside; x++) for (let y = vm.gridY; y < vm.gridY + sp && !inside; y++) if (set.has(x + ',' + y)) inside = true;
+            if (inside) hit.push(vm.name || String(vm.title || '').split(' (')[0] || 'Token');
+        });
+        let fill = m.mode === 'cone' ? 'rgba(251,146,60,.26)' : 'rgba(248,113,113,.24)';
+        let line = m.mode === 'cone' ? 'rgba(251,146,60,.85)' : 'rgba(248,113,113,.85)';
+        let html = A.cells.map(c => rect(c.gx, c.gy, c.gx, c.gy, fill, 'rgba(0,0,0,.25)')).join('');
+        html += rect(fa.x0, fa.y0, fa.x1, fa.y1, 'rgba(250,204,21,.12)', 'rgba(250,204,21,.8)', fa.token);
+        let c0 = scr(A.cx, A.cy), R = (A.L + (fa.x1 - fa.x0 + 1) / 2) * cs * s;
+        if (m.mode === 'burst') html += `<circle cx="${c0.x}" cy="${c0.y}" r="${R}" fill="none" stroke="${line}" stroke-width="2" stroke-dasharray="6 4"/>`;
+        else {
+            let e1 = { x: c0.x + R * Math.cos(A.ang - CONE_HALF), y: c0.y + R * Math.sin(A.ang - CONE_HALF) }, e2 = { x: c0.x + R * Math.cos(A.ang + CONE_HALF), y: c0.y + R * Math.sin(A.ang + CONE_HALF) };
+            html += `<path d="M${c0.x},${c0.y} L${e1.x},${e1.y} A${R},${R} 0 0 1 ${e2.x},${e2.y} Z" fill="none" stroke="${line}" stroke-width="2" stroke-dasharray="6 4"/>`;
+        }
+        let tgt = scr(m.b.gx + 0.5, m.b.gy + 0.5);
+        html += `<circle cx="${c0.x}" cy="${c0.y}" r="4" fill="#facc15"/><circle cx="${tgt.x}" cy="${tgt.y}" r="3" fill="${line}"/>`;
+        let label = `${m.mode === 'cone' ? 'Cone' : 'Radius'} ${A.L} sq · ${A.cells.length} squares`;
+        html += _measureLabel(tgt.x + 14, tgt.y - 14, label, line);
+        if (hit.length) html += _measureLabel(tgt.x + 14, tgt.y + 12, 'In it: ' + hit.slice(0, 5).join(', ') + (hit.length > 5 ? ` +${hit.length - 5}` : ''), line);
+        m.svg.innerHTML = html;
+        m.last = A.L;
+    }
+    function enterMeasure(winId, mode) {
         let layer = document.getElementById(winId + '_btScreen');
         if (!layer || !layer._opts || layer._measure) return false;
         let ov = document.createElement('div');
@@ -866,20 +1063,45 @@
         let svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         svg.setAttribute('width', '100%'); svg.setAttribute('height', '100%');
         svg.style.cssText = 'position:absolute;inset:0;pointer-events:none;overflow:visible;';
-        let tip = document.createElement('div');
-        tip.textContent = 'Measure: drag between squares or tokens. Middle-drag to pan. M or Esc to exit.';
-        tip.style.cssText = 'position:absolute;left:50%;top:8px;transform:translateX(-50%);background:rgba(15,23,42,.92);border:1px solid #facc15;color:#fde68a;font-size:11px;font-weight:700;padding:3px 8px;border-radius:5px;pointer-events:none;white-space:nowrap;';
-        ov.appendChild(svg); ov.appendChild(tip);
+        let bar = document.createElement('div');
+        bar.style.cssText = 'position:absolute;left:50%;top:8px;transform:translateX(-50%);display:flex;align-items:center;gap:4px;pointer-events:auto;cursor:default;';
+        let tipTxt = { line: 'Drag between squares or tokens · right-click adds a corner', cone: 'Drag from where the cone starts, toward where it points', burst: 'Drag from the center out to the radius' };
+        bar.innerHTML = ['line', 'cone', 'burst'].map(md => `<button data-mmode="${md}" style="border:1px solid #facc15;border-radius:5px;font-size:11px;font-weight:800;padding:2px 8px;cursor:pointer;background:rgba(15,23,42,.92);color:#fde68a">${md === 'line' ? 'Line' : md === 'cone' ? 'Cone' : 'Burst'}</button>`).join('')
+            + `<span data-mtip style="background:rgba(15,23,42,.92);border:1px solid #facc15;color:#fde68a;font-size:11px;font-weight:700;padding:3px 8px;border-radius:5px;white-space:nowrap;pointer-events:none"></span>`;
+        ov.appendChild(svg); ov.appendChild(bar);
         layer.appendChild(ov);
-        let m = layer._measure = { ov, svg, a: null, b: null, down: false };
+        let m = layer._measure = { ov, svg, bar, a: null, b: null, down: false, follow: false, way: [], mode: mode || _measureMode };
+        let setTip = () => { let t = bar.querySelector('[data-mtip]'); if (t) t.textContent = tipTxt[m.mode] + ' · M or Esc to exit'; };
+        setTip();
+        bar.addEventListener('mousedown', e => e.stopPropagation());
+        bar.querySelectorAll('[data-mmode]').forEach(b => b.addEventListener('click', e => {
+            e.stopPropagation(); m.mode = _measureMode = b.dataset.mmode; m.way = []; m.follow = false; setTip(); _layoutMeasure(layer);
+        }));
         let cellOf = e => { let p = _imgPoint(layer, e); return _cellAt(layer._opts.grid, p.x, p.y); };
         // Middle-click (or Ctrl+left) passes through to the map so it can pan while measuring
         let isPan = e => e.button === 1 || (e.button === 0 && (e.ctrlKey || e.metaKey));
-        ov.addEventListener('mousedown', e => { if (isPan(e)) return; e.stopPropagation(); e.preventDefault(); if (e.button !== 0) return; m.down = true; m.a = cellOf(e); m.b = m.a; _layoutMeasure(layer); });
-        ov.addEventListener('mousemove', e => { if (!m.down) return; let c = cellOf(e); if (m.b && c.gx === m.b.gx && c.gy === m.b.gy) return; m.b = c; _layoutMeasure(layer); });
+        ov.addEventListener('mousedown', e => {
+            if (isPan(e)) return; e.stopPropagation(); e.preventDefault(); if (e.button !== 0) return;
+            if (m.follow) { m.follow = false; m.b = cellOf(e); _layoutMeasure(layer); return; }   // a click ends a path being extended
+            m.down = true; m.a = cellOf(e); m.b = m.a; m.way = []; _layoutMeasure(layer);
+        });
+        ov.addEventListener('mousemove', e => { if (!m.down && !m.follow) return; let c = cellOf(e); if (m.b && c.gx === m.b.gx && c.gy === m.b.gy) return; m.b = c; _layoutMeasure(layer); });
         ov.addEventListener('mouseup', e => { if (!m.down) return; e.stopPropagation(); m.down = false; });
-        ov.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); exitMeasure(winId); });
+        // Right-click: a corner point on a Line (keeps going from there; click to finish). With nothing measured, it exits.
+        ov.addEventListener('contextmenu', e => {
+            e.preventDefault(); e.stopPropagation();
+            if (m.mode === 'line' && m.a && m.b) {
+                let c = cellOf(e), last = m.way.length ? m.way[m.way.length - 1] : m.a;
+                if (c.gx !== last.gx || c.gy !== last.gy) m.way.push(c);
+                m.b = c;
+                if (!m.down) m.follow = true;
+                _layoutMeasure(layer);
+                return;
+            }
+            if (!m.a) exitMeasure(winId);
+        });
         (layer._opts.onMeasureChange || (() => {}))(true);
+        _layoutMeasure(layer);
         return true;
     }
     function exitMeasure(winId) {
@@ -1044,6 +1266,6 @@
         party: () => Object.values(store.profiles), companionOf, mail: () => store.mail,
         render, layout, clear, toast,
         numberOf, sizeFromCharState, compressImage,
-        squaresBetween, enterMeasure, exitMeasure, toggleMeasure, isMeasuring
+        squaresBetween, pathSquares, areaCells, moveCost, auraColor, enterMeasure, exitMeasure, toggleMeasure, isMeasuring
     };
 })();

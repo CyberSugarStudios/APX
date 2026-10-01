@@ -1,3 +1,7 @@
+// +1 AP for an NPC. Players' AP is now 6 + HALF their AGI modifier, so an extra AP costs a
+// player twice what it used to; NPC AP follows: 3 TP → 6 TP each, and at most +1 per Tier (was +2).
+const NPC_AP_TP = 6, NPC_AP_PER_TIER = 1;
+window.NPC_AP_TP = NPC_AP_TP;
 // Saving Throw Training (NPCs and Loyal Companions): 2 TP each
 var NPC_FREE_SAVES = 0, NPC_SAVE_TP = 2;
 // APX npc-crafter v2026.9.18.0950 build 1789749908
@@ -61,6 +65,7 @@ function ncMigrateCompanionFields(c) {
     if (c.mythicAwakening === undefined) c.mythicAwakening = false;
     if (c.mythicAwakeningText === undefined) c.mythicAwakeningText = '';
     if (!c.traitEnergyTypes) c.traitEnergyTypes = {};
+    if (!c.traitChoice) c.traitChoice = {};   // trait key -> the Energy type it deals (Damage Aura, Death Burst, Energy Blood: no TP)
     if (c.lairSharedTraitKey === undefined) c.lairSharedTraitKey = null;
     if (!Array.isArray(c.damageResistances)) c.damageResistances = [];
     if (!Array.isArray(c.saveTraining)) c.saveTraining = [];
@@ -214,7 +219,7 @@ window.companionTpSpent = function() {
     spent += c.hpTierBonus;
     // Manufactured gear (Sept 23, 2026 rule): priced like the innate equivalent -- see npcWeaponTp / npcArmorTp in apx-data.js
     spent += window.companionGearTp(c).total;
-    spent += c.apBonus * 3;
+    spent += c.apBonus * NPC_AP_TP;   // (AP got pricier after the player AP change: see NPC_AP_TP)
     let sizeDef = NPC_SIZES.find(s => s.key === c.size);
     spent += sizeDef ? sizeDef.tp : 0;
     if (c.swarm) spent += 3;
@@ -381,9 +386,10 @@ window.ncAdjustHpTier = function(delta) {
 window.ncAdjustAp = function(delta) {
     let c = ncActiveCompanion();
     let tierInfo = npcTierForTP(window.companionTotalTp());
-    let maxApBonus = (tierInfo.tier + 1) * 2; // "+2 AP per Tier" max, tier 0 allows 2
-    if (c.apBonus + delta < 0 || c.apBonus + delta > maxApBonus) return;
-    ncSpend(delta * 3, () => { c.apBonus += delta; });
+    let maxApBonus = (tierInfo.tier + 1) * NPC_AP_PER_TIER; // "+1 AP per Tier" max, Tier 0 allows 1
+    if (delta > 0 && c.apBonus + delta > maxApBonus) return;
+    if (c.apBonus + delta < 0) return;
+    ncSpend(delta * NPC_AP_TP, () => { c.apBonus += delta; });
 };
 
 // ---- Step 2: Size & Locomotion ----
@@ -730,15 +736,30 @@ window.ncOpenPowerPicker = function() {
             </div>
         `;
     }).join('');
+    // GM NPCs: powers from the Library (any NPC power you've made, in this world or tagged for it)
+    let libHtml = ncTarget === 'gm' && window.apxLibListHtml ? `
+        <div class="flex items-center justify-between mt-1 mb-1"><div class="text-[10px] font-black text-teal-300 uppercase">Library Powers</div>
+            <label class="text-[10px] text-slate-400 flex items-center gap-1 cursor-pointer"><input type="checkbox" ${window._ncLibAll ? 'checked' : ''} onchange="window._ncLibAll=this.checked;window.ncOpenPowerPicker()"> All worlds</label></div>
+        <div id="ncLibPowerList">${window.apxLibListHtml({ kind: 'power', all: !!window._ncLibAll, onPick: true, pickLabel: '+ Add' })}</div>` : '';
     document.getElementById('ncTrainingPickerBody').innerHTML = `
-        <div class="text-[10px] font-black text-amber-400 uppercase mb-1">Your Powers</div>
-        ${rows || '<div class="text-[10px] text-slate-600">You have not crafted any powers of your own yet.</div>'}
+        ${libHtml}
+        ${ncTarget === 'gm' && !playerPowers.length ? '' : `<div class="text-[10px] font-black text-amber-400 uppercase mb-1 mt-2">Your Powers</div>
+        ${rows || '<div class="text-[10px] text-slate-600">You have not crafted any powers of your own yet.</div>'}`}
     `;
+    if (libHtml && window.apxLibWire) {
+        window.apxLibWire(document.getElementById('ncLibPowerList'), p => window.ncQuickAddPowerObj(p));
+        window.apxLibRefresh = () => { if (document.getElementById('ncTrainingPickerModal')?.classList.contains('active')) window.ncOpenPowerPicker(); };
+    }
     document.getElementById('ncTrainingPickerModal').querySelector('h3').innerText = 'Quick Add a Power';
     window.openModal('ncTrainingPickerModal');
 };
 window.ncQuickAddPower = function(playerPowerIdx) {
     let p = window.state.powers[playerPowerIdx];
+    if (!p) return;
+    window.ncQuickAddPowerObj(p);
+};
+// Adds a copy of a power (yours, or one from the Library) to this NPC, paying its TP
+window.ncQuickAddPowerObj = function(p) {
     if (!p) return;
     let tp = NPC_POWER_LEVEL_TP[p.lvl];
     if (ncTarget === 'gm') {
@@ -752,7 +773,8 @@ window.ncQuickAddPower = function(playerPowerIdx) {
     }
     ncActiveCompanion().powers.push({
         name: p.name, lvl: p.lvl, ap: p.ap, atk: p.atk, rng: p.rng, dmg: p.dmg, desc: p.desc,
-        draft: p.draft ? JSON.parse(JSON.stringify(p.draft)) : null, tp
+        draft: p.draft ? JSON.parse(JSON.stringify(p.draft)) : null, tp,
+        usageType: p.usageType || 'unlimited', maxCharges: p.maxCharges, rechargeOn: p.rechargeOn, rulesRev: p.rulesRev
     });
     window.closeModal('ncTrainingPickerModal');
     document.getElementById('ncTrainingPickerModal').querySelector('h3').innerText = 'Choose Training';
@@ -1178,6 +1200,7 @@ window.companionStatBlock = function() {
 
     let traitList = c.traits.map(k => NPC_TRAITS.find(t => t.key === k)).filter(Boolean)
         .map(t => (c.traitEnergyTypes || {})[t.key] ? { ...t, label: `${t.label} (${(c.traitEnergyTypes || {})[t.key]})` } : t)
+        .map(t => t.chooseEnergy ? { ...t, label: `${t.label} (${(c.traitChoice || {})[t.key] || 'Fire'})` } : t)
         .map(t => t.tierCalc ? { ...t, tierNote: t.tierCalc(tier) } : t);
     let card = p => ({ name: p.name, lvl: p.lvl, ap: p.ap, atk: p.atk, rng: p.rng, dmg: p.dmg, desc: p.desc, usageType: p.usageType, maxCharges: p.maxCharges, rechargeOn: p.rechargeOn, draft: p.draft || null });
     let powerCards = c.powers.filter(p => !p.isLairAction).map(card);
@@ -1231,6 +1254,9 @@ window.companionStatBlock = function() {
             typeLabel: companionWeaponTypeLabel(w), category: w.category, aimed: !!w.aimed, flurry: !!(w.properties && w.properties.flurry),
             props: Object.keys(w.properties || {}).filter(k => { let v = w.properties[k]; return typeof v === 'number' ? v > 0 : !!v; }), elemental: w.elemental || null,
             dmgType: w.elemental || w.dmgType || '',
+            ammo: w.category === 'ranged' && !(w.properties && w.properties.thrown) ? (w.weightClass || null) : null,
+            // Effective / Long Range in squares (Thrown: STR score / double it)
+            range: w.range || (w.properties && w.properties.thrown ? `${5 + (mods.STR || 0)}/${2 * (5 + (mods.STR || 0))}` : null),
             hand, handLabel: hand === 'both' ? 'Both Hands' : hand === 'main' ? 'Main Hand' : hand === 'off' ? 'Off Hand' : 'No free hand',
             hands: w.weightClass === 'heavy' ? 2 : 1
         });
@@ -1295,6 +1321,10 @@ window.companionStatBlock = function() {
         damageResistances: c.damageResistances || [],
         carriedItems: Array.isArray(c.carriedItems) ? c.carriedItems : [], carriedCu: c.carriedCu || 0,
         wornItemNames: wornItems.map(it => it.name || 'Item'), itemEr: ifx ? ifx.er : [],
+        // Wound Threshold: double its CON score (score = 5 + modifier), plus worn items
+        woundThreshold: Math.max(1, (5 + (mods.CON || 0)) * 2 + ist('wt')),
+        // Damage Aura: its Energy type (colours the ring on battle maps) and damage dice
+        aura: c.traits.includes('damageaura') ? { type: (c.traitChoice || {}).damageaura || 'Fire', dice: Math.max(1, tier) + 'd6', radius: 1 } : null,
         _isCompanion: ncTarget === 'companion'
     };
 };
@@ -1405,7 +1435,7 @@ window.setCompanionHp = function(val) {
     let pe = D && D.parseHpEntry ? D.parseHpEntry(val, sb.currentHp) : null;
     if (pe) {
         let atk = window._pwLastNpcAtk;
-        let fresh = atk && atk.id && Date.now() - (atk.t || 0) < 600000 && !(window._pwUsedAtk || {})[atk.id] && (window._pwCombatCode || (window.apxActiveWorldCode && window.apxActiveWorldCode()));
+        let fresh = window.apxPwAtkFresh ? window.apxPwAtkFresh(atk) : false;
         let types = pe.typed ? pe.types : (fresh && atk.dmgType ? D.parts(atk.dmgType) : []);
         let def = D.fromStatBlock ? D.fromStatBlock(sb) : { dr: sb.dr || 0, er: sb.er || 0, res: {}, immune: [] };
         let finish = t => {
@@ -1676,7 +1706,7 @@ function buildStatBlockHtml(sb, editable) {
     let R = o => window.APXDice ? ` data-apx-roll='${window.APXDice.attr(Object.assign({ who: sb.name, perks: false, gambleAllowed: false }, compFlags, o))}' title="Click to roll"` : '';
     // What a hit with this weapon can do (Crushing, Stunning, Flurry…): read by the GM's tracker
     let hitOf = w => ({ weapon: w.name, props: w.props || [], die: (String(w.dmgText || w.dmg || '').match(/\d*d(\d+)/) || [0, 6])[1] ? '1d' + (String(w.dmgText || w.dmg || '').match(/\d*d(\d+)/) || [0, 6])[1] : '1d6',
-        strMod: sb.mods.STR || 0, intMod: sb.mods.INT || 0, elec: w.elemental === 'Electric', dmgType: w.typeText || w.dmgType || '', tier: sb.tier || 0 });
+        strMod: sb.mods.STR || 0, intMod: sb.mods.INT || 0, elec: w.elemental === 'Electric', dmgType: w.typeText || w.dmgType || '', tier: sb.tier || 0, ammo: w.ammo || null });
     return `<div class="apx-dice-scope" data-roll-who="${esc(sb.name)}" data-sb-npc="${sb._npcId || ''}" data-sb-init="${sb._initId || ''}">
         <div class="grid grid-cols-5 gap-2 mb-3 bg-slate-900 border border-purple-800/50 rounded-lg p-2">
             <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">Tier</div><div class="text-lg font-black text-white">${sb.tier}</div></div>
@@ -1710,8 +1740,8 @@ function buildStatBlockHtml(sb, editable) {
                 let blocked = (w.hands || 1) > sb.freeHands;
                 let handTag = w.handLabel ? ` <span class="text-[9px] font-bold text-cyan-300/80">(${w.handLabel}${!w.isTwoHanded && (w.hand === 'main' || w.hand === 'off') ? `<button type="button" title="Switch hands" onclick="window.npcSwapWeaponHand(${sb._npcId ? `'${sb._npcId}'` : 'null'}, ${w.weaponIdx})" class="ml-0.5 text-cyan-400 hover:text-white">⇄</button>` : ''})</span>` : '';
                 return `<div class="text-xs ${blocked ? 'text-slate-500' : 'text-slate-200'}" data-roll-label="${esc(w.name)} damage">${esc(w.name)}${handTag}: ${blocked
-                    ? `<span data-no-roll title="Needs ${w.hands} free hands. Stow the shield to use it.">+${w.atk} to hit, ${w.dmg} damage</span>, ${w.ap} AP <span class="text-[10px] text-amber-500/80">(needs ${w.hands} free hands)</span>`
-                    : `<span class="apxd-atk"${R({ type: 'attack', label: w.name, bonus: w.atk, dice: String(w.dmg), critMult: w.critMult || 2, npcId: sb._npcId || null, initId: sb._initId || null, apCost: parseInt(w.ap) || 3, flurry: w.flurry || undefined, ranged: w.category === 'ranged' || undefined, dmgType: w.dmgType || undefined, hit: hitOf(w) })}>+${w.atk} to hit</span>, ${w.dmg} damage, ${w.ap} AP <span class="text-[10px] text-slate-500">(${w.typeLabel})</span>`}</div>`;
+                    ? `<span data-no-roll title="Needs ${w.hands} free hands. Stow the shield to use it.">+${w.atk} to hit, ${w.dmg} damage</span>, ${w.ap} AP${w.range ? `, Range ${esc(String(w.range))} sq` : ''} <span class="text-[10px] text-amber-500/80">(needs ${w.hands} free hands)</span>`
+                    : `<span class="apxd-atk"${R({ type: 'attack', label: w.name, bonus: w.atk, dice: String(w.dmg), critMult: w.critMult || 2, npcId: sb._npcId || null, initId: sb._initId || null, apCost: parseInt(w.ap) || 3, flurry: w.flurry || undefined, ranged: w.category === 'ranged' || undefined, dmgType: w.dmgType || undefined, hit: hitOf(w) })}>+${w.atk} to hit</span>, ${w.dmg} damage, ${w.ap} AP${w.range ? `, Range ${esc(String(w.range))} sq` : ''} <span class="text-[10px] text-slate-500">(${w.typeLabel})</span>`}</div>`;
             }).join('') : ''}
             ${sb.equippedArmorName ? `<div class="text-xs text-slate-200 mt-1">Armor: ${esc(sb.equippedArmorName)}</div>` : ''}
             ${sb.hasShield ? `<div class="text-xs text-slate-200 mt-1 flex items-center gap-2">Shield (+2 AC/DR/ER, 1 hand): <b class="${sb.shieldOn ? 'text-emerald-400' : 'text-slate-500'}">${sb.shieldOn ? 'held' : 'stowed'}</b>
@@ -1763,6 +1793,15 @@ function buildStatBlockHtml(sb, editable) {
                 <div class="text-[10px] font-black text-purple-400 uppercase">Powers</div>
                 <div class="text-[10px] text-slate-300 font-bold">Power Attack Bonus: <span class="text-white">${sb.powerAttackBonus >= 0 ? '+' : ''}${sb.powerAttackBonus}</span> &middot; Save DC: <span class="text-white">${sb.powerSaveDc}</span> <span class="text-slate-500 font-normal">(${sb.powerAttrChoice})</span></div>
             </div>
+            ${(() => {
+                // Caster (Power) Slots: per creature in the tracker when this window belongs to one
+                let cs = sb.casterSlots || {}, lv = [1, 2, 3, 4, 5].filter(L => (parseInt(cs[L]) || 0) > 0);
+                if (!lv.length) return '';
+                let entry = sb._initId ? (window.gmInitiative || []).find(x => x.id === sb._initId) : null;
+                let used = (entry && entry.slotUsed) || {};
+                return `<div class="flex items-center gap-2 flex-wrap text-[10px] text-slate-300 mb-1"><span class="font-bold text-purple-300">Power Slots</span>${lv.map(L => { let max = parseInt(cs[L]) || 0, u = Math.min(max, used[L] || 0);
+                    return `<span title="${entry ? 'Level ' + L + ': ' + (max - u) + ' of ' + max + ' left' : 'Level ' + L + ': ' + max + ' per Full Rest'}">L${L} ${entry ? (max - u) + '/' + max : '×' + max}</span>`; }).join('')}</div>`;
+            })()}
             ${sb.powerCards.map((p, i) => powerCardHtml(p, sb._isCompanion && editable, sb, 'pw', i)).join('')}
         </div>` : ''}
     </div>`;
@@ -1797,14 +1836,29 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
         dmg = { formula, heal, type: m[2].replace(/\+\s*Attr/i, '').replace(/\(Heal\)/i, '').trim() };
     }
     let flags = sb._isCompanion ? { companion: true, compOwner: sb._compOwner || null, omen: true } : { npcId: sb._npcId || key, initId: initId || sb._initId || undefined };
-    let o = Object.assign({ label: p.name || 'Power', who: sb.name, perks: false, gambleAllowed: false, apCost: cost, flavor: p.desc || '', power: true }, flags);
-    let tell = text => { if (typeof window.gmLog === 'function') window.gmLog({ text, kind: 'info' }); };
+    // The creature acting: when several share this stat block, the one taking its turn
+    let actor = !sb._isCompanion && typeof window._gmAttackerFor === 'function' ? window._gmAttackerFor(flags) : null;
+    let whoGm = actor ? (window._gmGmName ? window._gmGmName(actor) : actor.name) : sb.name;
+    let whoPub = actor ? (window._gmPublicName ? window._gmPublicName(actor) : actor.name) : sb.name;
+    if (actor && !sb._isCompanion) flags.initId = actor.id;
+    let o = Object.assign({ label: p.name || 'Power', who: whoGm, perks: false, gambleAllowed: false, apCost: cost, flavor: p.desc || '', power: true }, flags);
+    // Power Slot powers spend a Caster Slot of their Level (or the lowest higher one left)
+    if (p.usageType === 'slot' && !sb._isCompanion) {
+        let lvl = parseInt(p.lvl) || 1;
+        if (actor && typeof window.gmSpendCasterSlot === 'function') {
+            let L = window.gmSpendCasterSlot(actor.id, lvl);
+            o.useNote = L ? `Used a Level ${L} Power Slot${L > lvl ? ' (higher Level)' : ''}` : `No Level ${lvl}+ Power Slot left`;
+            o.useWarn = !L;
+            if (!L && window.APXDice) APXDice.notify(`${whoGm} has no Level ${lvl} or higher Power Slots left.`, { kind: 'warn', open: true });
+        } else o.useNote = `Uses a Level ${lvl}+ Power Slot (track it in the initiative tracker)`;
+    }
+    let tell = (text, gmText) => { if (typeof window.gmLog === 'function') window.gmLog({ text, gmText: gmText || text, kind: 'info' }); };
     if (step === 'atkSave' && d.atkMode !== 'save' && d.atkKind !== 'martial') {
         o.bonus = sb.powerAttackBonus || 0;
         o.hit = { weapon: p.name || 'Power', props: [], die: dmg ? '1d' + ((dmg.formula.match(/d(\d+)/) || [0, 6])[1]) : '1d6', dmgType: dmg && !dmg.heal ? dmg.type : '' };
         if (dmg && !dmg.heal) { o.dice = dmg.formula; o.dmgType = dmg.type; APXDice.attack(o); }
         else APXDice.check(Object.assign(o, { kind: 'attack', label: (p.name || 'Power') + ': Power Attack' }));
-        tell(`${sb.name} uses ${p.name || 'a power'}${isReact ? ' (Reaction)' : ''}: attack roll.`);
+        tell(`${whoPub} uses ${p.name || 'a power'}${isReact ? ' (Reaction)' : ''}: attack roll.`, `${whoGm} uses ${p.name || 'a power'}${isReact ? ' (Reaction)' : ''}: attack roll.`);
         return;
     }
     // Not an attack: spend its AP (the tracker's creature), then show the DC and roll the effect
@@ -1812,16 +1866,20 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
     if (typeof window.apxBeforeAttack === 'function' && cost > 0) { try { pre = await window.apxBeforeAttack(Object.assign({}, o)); } catch (e) { } if (pre === false) return; }
     let saveKind = step === 'saveHalves' ? 'halves' : (step === 'atkSave' && d.atkMode === 'save') ? 'negates' : null;
     let dc = sb.powerSaveDc;
-    let bits = [isReact ? 'Reaction' : `${cost} AP`].concat(saveKind ? [`Targets save against DC ${dc}: success ${saveKind === 'halves' ? 'halves it' : 'negates it'}`] : []).concat(pre && pre.note ? [pre.note] : []);
-    if (dmg) APXDice.damage({ label: (p.name || 'Power') + (dmg.heal ? ' healing' : ' damage'), who: sb.name, formula: dmg.formula, dmgType: dmg.heal ? '' : dmg.type, heal: dmg.heal || undefined, perks: false, note: bits.join(' · ') });
-    else APXDice.info({ label: p.name || 'Power', who: sb.name, text: p.desc || '', badges: bits });
-    tell(`${sb.name} uses ${p.name || 'a power'}${isReact ? ' (Reaction)' : ''}${saveKind ? `: targets make a DC ${dc} save (success ${saveKind === 'halves' ? 'halves it' : 'negates it'})` : ''}.`);
+    let bits = [isReact ? 'Reaction' : `${cost} AP`].concat(saveKind ? [`Targets save against DC ${dc}: success ${saveKind === 'halves' ? 'halves it' : 'negates it'}`] : []).concat(pre && pre.note ? [pre.note] : []).concat(o.useNote ? [o.useNote] : []);
+    // The tracker learns this power (and its damage type) is what hits next, not an earlier attack
+    if (dmg && !dmg.heal && typeof window.apxOnNpcPowerUse === 'function') { try { window.apxOnNpcPowerUse(o, { label: p.name || 'Power', dmgType: dmg.type, dice: dmg.formula, save: saveKind ? { dc, kind: saveKind } : null }); } catch (e) { console.warn('Power hook:', e); } }
+    if (dmg) APXDice.damage({ label: (p.name || 'Power') + (dmg.heal ? ' healing' : ' damage'), who: whoGm, formula: dmg.formula, dmgType: dmg.heal ? '' : dmg.type, heal: dmg.heal || undefined, perks: false, note: bits.join(' · ') });
+    else APXDice.info({ label: p.name || 'Power', who: whoGm, text: p.desc || '', badges: bits });
+    let saveTxt = saveKind ? `: targets make a DC ${dc} save (success ${saveKind === 'halves' ? 'halves it' : 'negates it'})` : '';
+    tell(`${whoPub} uses ${p.name || 'a power'}${isReact ? ' (Reaction)' : ''}${saveTxt}.`, `${whoGm} uses ${p.name || 'a power'}${isReact ? ' (Reaction)' : ''}${saveTxt}.`);
 };
 function powerCardHtml(p, compUse, sb, list, idx) {
     let key = npcPowerKey(sb);
     let useAttr = key ? ` onclick="window.apxNpcUsePower(decodeURIComponent('${encodeURIComponent(key)}'), '${list}', ${idx}, ${sb._initId ? `'${sb._initId}'` : 'null'})" title="Use this power: roll it${window.apxPowerIsReaction(p) ? ' (Reaction)' : ', spending ' + p.ap + ' AP'}" style="cursor:pointer"` : '';
     let usageLabel = '';
-    if (p.usageType === 'charges') usageLabel = `Charges: ${p.maxCharges}/day`;
+    if (p.usageType === 'slot') usageLabel = `Power Slot (Level ${p.lvl} or higher)`;
+    else if (p.usageType === 'charges') usageLabel = `Charges: ${p.maxCharges}/day`;
     else if (p.usageType === 'recharge') usageLabel = `Recharge ${p.rechargeOn === 6 ? '6' : p.rechargeOn + '-6'}`;
     return `
         <div class="bg-slate-800 p-1.5 rounded border border-slate-700 mb-1" data-roll-label="${String(p.name||'Power').replace(/"/g,'&quot;')}">
@@ -1960,7 +2018,7 @@ function ncRenderStep1() {
             </div>
         </div>
         <div class="flex items-center justify-between bg-slate-900 border border-slate-700 rounded px-2 py-1.5">
-            <span class="text-xs font-bold text-white">+1 AP (max +2/Tier, 3 TP each): x${c.apBonus}</span>
+            <span class="text-xs font-bold text-white">+1 AP (max +${NPC_AP_PER_TIER}/Tier, ${NPC_AP_TP} TP each): x${c.apBonus}</span>
             <div class="flex items-center gap-1">
                 <button onclick="window.ncAdjustAp(-1)" class="w-6 h-6 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">-</button>
                 <button onclick="window.ncAdjustAp(1)" class="w-6 h-6 rounded bg-amber-700 hover:bg-amber-600 text-white font-bold">+</button>
@@ -2240,6 +2298,13 @@ function ncRenderStep7() {
     let c = ncActiveCompanion();
     document.getElementById('ncStep7').querySelector('.ncTraitList').innerHTML = NPC_TRAITS.map(t => {
         let checked = c.traits.includes(t.key);
+        let chooseOption = (t.chooseEnergy && checked) ? `
+            <div class="mt-1.5 pl-1 border-l-2 border-slate-700 flex items-center gap-2">
+                <span class="text-[10px] text-slate-400">Energy type</span>
+                <select onclick="event.stopPropagation()" onchange="window.ncSetTraitChoice('${t.key}', this.value)" class="bg-slate-800 border-slate-600 text-[10px]">
+                    ${NPC_ENERGY_TYPES.map(e => `<option value="${e}" ${((c.traitChoice || {})[t.key] || 'Fire') === e ? 'selected' : ''}>${e}</option>`).join('')}
+                </select>
+            </div>` : '';
         let energyOption = (t.hasEnergyTypeOption && checked) ? `
             <div class="mt-1.5 pl-1 border-l-2 border-slate-700">
                 <label class="flex items-center gap-1 text-[10px] text-slate-400 mb-1">
@@ -2256,7 +2321,7 @@ function ncRenderStep7() {
         return `
         <label class="flex items-start gap-2 bg-slate-900 border border-slate-700 rounded p-2 cursor-pointer">
             <input type="checkbox" class="mt-1" ${checked?'checked':''} onchange="window.ncToggleTrait('${t.key}', this.checked)">
-            <div class="flex-1"><div class="text-xs font-bold text-slate-200">${t.label} <span class="${t.tp<0?'text-emerald-400':'text-yellow-500'}">[${t.tp} TP]</span></div><div class="text-[10px] text-slate-500 leading-tight">${t.desc}</div>${energyOption}</div>
+            <div class="flex-1"><div class="text-xs font-bold text-slate-200">${t.label} <span class="${t.tp<0?'text-emerald-400':'text-yellow-500'}">[${t.tp} TP]</span></div><div class="text-[10px] text-slate-500 leading-tight">${t.desc}</div>${energyOption}${chooseOption}</div>
         </label>
     `; }).join('');
 }
@@ -2267,6 +2332,11 @@ window.ncToggleTraitEnergyType = function(traitKey, checked) {
     } else {
         ncSpend(-1, () => { delete c.traitEnergyTypes[traitKey]; });
     }
+};
+window.ncSetTraitChoice = function(traitKey, value) {
+    let c = ncActiveCompanion(); if (!c) return;
+    (c.traitChoice = c.traitChoice || {})[traitKey] = value;
+    ncRenderAll();
 };
 window.ncSetTraitEnergyType = function(traitKey, value) {
     ncActiveCompanion().traitEnergyTypes[traitKey] = value;

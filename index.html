@@ -7,16 +7,16 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/apx-themes.css?v=20269282122">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20261011200">
 
     <!-- Firebase SDK (auth + firestore) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20269282122"></script>
-    <script src="js/apx-firebase.js?v=20269282122"></script>
-    <script src="js/apx-dialogs.js?v=20269282122"></script>
-    <script src="js/apx-patch-notes.js?v=20269282122"></script>
+    <script src="js/firebase-config.js?v=20261011200"></script>
+    <script src="js/apx-firebase.js?v=20261011200"></script>
+    <script src="js/apx-dialogs.js?v=20261011200"></script>
+    <script src="js/apx-patch-notes.js?v=20261011200"></script>
 
     <style>
         input[type="email"], input[type="password"] {
@@ -79,7 +79,7 @@
         }
         .theme-swatch:hover, .theme-swatch.active { border-color: var(--c-text, #e2e8f0); transform: scale(1.2); }
     </style>
-    <link rel="stylesheet" href="css/tailwind.css?v=20269282122">
+    <link rel="stylesheet" href="css/tailwind.css?v=20261011200">
 </head>
 <body class="min-h-screen flex flex-col items-center justify-center p-6" style="background: var(--c-page-bg, #0f172a); color: var(--c-text, #cbd5e1); font-family: var(--c-font, 'Inter'), sans-serif;">
 
@@ -97,7 +97,7 @@
 
         <div>
             <h1 class="text-4xl md:text-5xl font-black mb-3 tracking-wider uppercase" style="color: var(--c-text, #fff);">APX System Tools</h1>
-            <p id="landingSubtitle" style="color: var(--c-text-muted, #94a3b8);">Sign in to sync your characters across devices</p>
+            <p id="landingSubtitle" style="color: var(--c-text-muted, #94a3b8);">Sign in to use the APX tools</p>
         </div>
 
         <!-- Auth panel -->
@@ -167,7 +167,7 @@
 
                 <div id="authError" class="text-xs font-bold" style="color: var(--c-red, #ef4444); min-height: 1.25rem;"></div>
                 <div id="firebaseOfflineNote" class="hidden text-[10px] italic" style="color: var(--c-text-dimmer, #475569);">
-                    Cloud sync is off — no Firebase credentials configured. Characters will be stored locally only.
+                    Accounts are off: no Firebase credentials are configured, so the tools can't be opened.
                 </div>
             </div>
         </div>
@@ -197,7 +197,7 @@
         </div>
 
         <!-- App launcher -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div id="launcherGrid" class="hidden grid grid-cols-1 md:grid-cols-2 gap-6">
             <a href="APX_CharSheet.html" class="launch-card launch-card-player group">
                 <div class="card-icon card-icon-player">P</div>
                 <h2 class="text-2xl font-bold mb-2 uppercase tracking-wide" style="color: var(--c-emerald, #34d399);">Player Tools</h2>
@@ -210,13 +210,11 @@
             </a>
         </div>
 
-        <div class="text-center">
-            <button onclick="playLocally()" class="text-xs transition" style="color: var(--c-text-dimmer, #475569);">
-                Continue without an account (local save only)
-            </button>
+        <div id="launcherLockNote" class="text-center text-xs" style="color: var(--c-text-dimmer, #64748b);">
+            Sign in or create a free account to open the Player and GM Tools.
         </div>
         <div class="text-center">
-            <span id="landingVersion" class="text-[10px]" style="color:var(--c-text-dimmer,#334155);">v2026.9.28.2122</span>
+            <span id="landingVersion" class="text-[10px]" style="color:var(--c-text-dimmer,#334155);">v2026.10.1.1200</span>
         </div>
 
         <!-- Delete account (shown only when signed in) -->
@@ -364,11 +362,8 @@
             setError('Reset email sent — check your inbox.');
         } catch(e) { setError(e.message || 'Could not send reset email.'); }
     }
-    function playLocally() {
-        sessionStorage.setItem('apxLocalOnly', '1');
-        localStorage.removeItem('apxConnectedWorld'); // never applicable without an account
-        window.location.href = 'APX_CharSheet.html';
-    }
+    // The tools need an account (Playtest 2): no more local-only play.
+    try { sessionStorage.removeItem('apxLocalOnly'); } catch (e) { }
 
     function openDeleteModal() {
         document.getElementById('dInput').value = '';
@@ -462,12 +457,16 @@
         document.getElementById('landingSubtitle').innerText = 'Select an application to launch';
         document.getElementById('deleteAccountSection').classList.remove('hidden');
         sessionStorage.setItem('apxUid', user.uid);
+        document.getElementById('launcherGrid').classList.remove('hidden');
+        document.getElementById('launcherLockNote').classList.add('hidden');
     }
     function showSignedOut() {
         document.getElementById('authSignedOut').classList.remove('hidden');
         document.getElementById('authSignedIn').classList.add('hidden');
         document.getElementById('deleteAccountSection').classList.add('hidden');
         sessionStorage.removeItem('apxUid');
+        document.getElementById('launcherGrid').classList.add('hidden');
+        document.getElementById('launcherLockNote').classList.remove('hidden');
     }
 
     if (!window.FIREBASE_ENABLED) {
