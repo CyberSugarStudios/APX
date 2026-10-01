@@ -307,7 +307,7 @@
         if (!inviteCode) return () => {};
         return db.collection('worldCodes').doc(inviteCode.toUpperCase().trim())
             .onSnapshot(snap => {
-                if (snap.exists) callback(snap.data());
+                if (snap.exists) callback(snap.data(), { fromCache: !!(snap.metadata && snap.metadata.fromCache) });
                 // gone from the server (not just missing from this device's cache): the GM deleted the world
                 else if (!(snap.metadata && snap.metadata.fromCache)) callback(null, { deleted: true });
             }, err => console.warn('World notes listener:', err.message));

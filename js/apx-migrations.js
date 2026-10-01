@@ -133,7 +133,7 @@
             }
         },
         {
-            v: 8, label: 'Core Attributes from XP kept apart (Playtest 2)',
+            v: 8, label: 'Core Attributes from XP kept apart',
             run(s) {
                 // Core Attributes bought with XP (and Permanent Injuries) used to be added to the base
                 // set at creation, so the Ancestry builder said things like "Point Buy: 10 of 7".
@@ -158,7 +158,7 @@
             }
         },
         {
-            v: 9, label: 'Powers rework (Playtest 2)',
+            v: 9, label: 'Powers rework',
             run(s) {
                 // Each power now picks its own Core Attribute, and INT/CHA Powers are now Full Rest /
                 // Short Rest Powers. Existing powers keep exactly what they used before.

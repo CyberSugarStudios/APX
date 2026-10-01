@@ -349,7 +349,7 @@ function startPartyListener(inviteCode) {
                         if (e.companionOf !== p.uid || e.currentHp === hp) return;
                         let before = e.currentHp || 0, wasUp = before > 0;
                         e.currentHp = Math.max(0, Math.min(e.maxHp || hp, hp));
-                        _gmLogHpChange(e, before, e.currentHp, wasUp);
+                        try { _gmLogHpChange(e, before, e.currentHp, wasUp); } catch (err) { console.warn('HP log:', err); }
                         if (typeof window.renderInitiativeTracker === 'function') window.renderInitiativeTracker();
                     });
                 }
@@ -418,7 +418,7 @@ function startPartyListener(inviteCode) {
                                 // Healing from the player's own sheet says where it came from (a rest, Recover…)
                                 let note = state.hpNote, why = null;
                                 if (note && note.t && Date.now() - note.t < 120000 && e._hpNoteT !== note.t) { why = note.text; e._hpNoteT = note.t; }
-                                _gmLogHpChange(e, before, after, wasUp, 0, null, why);
+                                try { _gmLogHpChange(e, before, after, wasUp, 0, null, why); } catch (err) { console.warn('HP log:', err); }
                             } else if (!(e._sheetDmgAt && Date.now() - e._sheetDmgAt < 8000)) {
                                 // wait a moment: the sheet's damage event (sent just before) may still be on its way
                                 let t0 = Date.now(), entryId = e.id;
@@ -1402,8 +1402,6 @@ window.apxOnNpcPowerUse = function(o, info) {
     }
     return e;
 };
-window._gmPublicName = function(e) { return _gmPublicName(e); };
-window._gmGmName = function(e) { return _gmGmName(e); };
 // No attack roll to match (dice rolled at the table): a typed "-N" (even -0) is still a hit,
 // by whoever is taking their turn
 function _gmTurnHit(target) {
@@ -2019,7 +2017,7 @@ function _gmNpcWoundSave(e, ask) {
             let pass = !r.autoFail && r.total >= ask.dc;
             if (pass) {
                 if (st.limbLog) {
-                    if (st.limb) _gmHealNpcWound(e, st.limb, true);
+                    if (st.limb) _gmHealNpcWoundEntry(e, st.limb, true);
                     gmLog({ id: st.limbLog, gmOnly: true, force: true, kind: 'wt', ask: null, text: `${_gmGmName(e)} succeeded on the reroll (${r.total} vs DC ${ask.dc}): no limb is Wounded.` });
                 }
                 gmLog({ id: ask.logId, gmOnly: true, force: true, kind: 'wt', ask: null, text: `${_gmGmName(e)} succeeds on the CON save (${r.total} vs DC ${ask.dc}): no Wound.` });
@@ -2053,13 +2051,13 @@ function _gmApplyNpcWound(e, choice, logId) {
     window.renderInitiativeTracker();
     if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
 }
-function _gmHealNpcWound(e, limb, quiet) {
+function _gmHealNpcWoundEntry(e, limb, quiet) {
     e.wounds = (e.wounds || []).filter(l => l !== limb);
     if (/Leg/.test(limb) && !(e.wounds || []).some(l => /Leg/.test(l)) && window._gmRemoveEntryCondition) window._gmRemoveEntryCondition(e.id, 'staggered');
     if (!quiet) gmLog({ gmOnly: true, force: true, kind: 'info', text: `${_gmGmName(e)}'s ${limb} is no longer Wounded.` });
     window.renderInitiativeTracker();
 }
-window._gmHealNpcWound = function(entryId, limb) { let e = (window.gmInitiative || []).find(x => x.id === entryId); if (e) _gmHealNpcWound(e, limb); };
+window._gmHealNpcWound = function(entryId, limb) { let e = (window.gmInitiative || []).find(x => x.id === entryId); if (e) _gmHealNpcWoundEntry(e, limb); };
 function _gmWoundEffect(limb) {
     let k = /Leg/.test(limb) ? 'Leg' : /Arm/.test(limb) ? 'Arm' : limb;
     let d = (typeof WOUND_LIMB_EFFECTS !== 'undefined' && WOUND_LIMB_EFFECTS[k]) ? WOUND_LIMB_EFFECTS[k].desc : '';

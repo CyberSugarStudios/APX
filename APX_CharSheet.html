@@ -474,8 +474,8 @@
         }
 
     </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20261011200">
-    <link rel="stylesheet" href="css/tailwind.css?v=20261011200">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20261011800">
+    <link rel="stylesheet" href="css/tailwind.css?v=20261011800">
 </head>
 <body class="p-2 md:p-6 flex justify-center text-sm ml-0 lg:ml-8 transition-all" style="padding-top:4.25rem"><!-- (room for the floating Roster / Settings buttons) -->
     <!-- Auth bar removed — account controls are in the sidebar -->
@@ -2356,38 +2356,38 @@
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20261011200"></script>
-    <script src="js/apx-patch-notes.js?v=20261011200"></script>
-    <script src="js/apx-dice.js?v=20261011200"></script>
-    <script src="js/apx-data.js?v=20261011200"></script>
-    <script src="js/apx-item-effects.js?v=20261011200"></script>
-    <script src="js/apx-perks-db.js?v=20261011200"></script>
-    <script src="js/apx-migrations.js?v=20261011200"></script>
-    <script src="js/apx-roster.js?v=20261011200"></script>
-    <script src="js/apx-state.js?v=20261011200"></script>
-    <script src="js/apx-origin-wizard.js?v=20261011200"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20261011200"></script>
-    <script src="js/apx-inventory-ui.js?v=20261011200"></script>
-    <script src="js/apx-craft-shared.js?v=20261011200"></script>
-    <script src="js/apx-armor-forge.js?v=20261011200"></script>
-    <script src="js/apx-weapon-forge.js?v=20261011200"></script>
-    <script src="js/apx-power-crafter.js?v=20261011200"></script>
-    <script src="js/apx-consumable-crafter.js?v=20261011200"></script>
-    <script src="js/apx-npc-crafter.js?v=20261011200"></script>
-    <script src="js/apx-engine.js?v=20261011200"></script>
-    <script src="js/apx-perks-ui.js?v=20261011200"></script>
-    <script src="js/apx-rest.js?v=20261011200"></script>
-    <script src="js/apx-looting.js?v=20261011200"></script>
-    <script src="js/apx-main.js?v=20261011200"></script>
+    <script src="js/apx-dialogs.js?v=20261011800"></script>
+    <script src="js/apx-patch-notes.js?v=20261011800"></script>
+    <script src="js/apx-dice.js?v=20261011800"></script>
+    <script src="js/apx-data.js?v=20261011800"></script>
+    <script src="js/apx-item-effects.js?v=20261011800"></script>
+    <script src="js/apx-perks-db.js?v=20261011800"></script>
+    <script src="js/apx-migrations.js?v=20261011800"></script>
+    <script src="js/apx-roster.js?v=20261011800"></script>
+    <script src="js/apx-state.js?v=20261011800"></script>
+    <script src="js/apx-origin-wizard.js?v=20261011800"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20261011800"></script>
+    <script src="js/apx-inventory-ui.js?v=20261011800"></script>
+    <script src="js/apx-craft-shared.js?v=20261011800"></script>
+    <script src="js/apx-armor-forge.js?v=20261011800"></script>
+    <script src="js/apx-weapon-forge.js?v=20261011800"></script>
+    <script src="js/apx-power-crafter.js?v=20261011800"></script>
+    <script src="js/apx-consumable-crafter.js?v=20261011800"></script>
+    <script src="js/apx-npc-crafter.js?v=20261011800"></script>
+    <script src="js/apx-engine.js?v=20261011800"></script>
+    <script src="js/apx-perks-ui.js?v=20261011800"></script>
+    <script src="js/apx-rest.js?v=20261011800"></script>
+    <script src="js/apx-looting.js?v=20261011800"></script>
+    <script src="js/apx-main.js?v=20261011800"></script>
 
     <!-- Firebase (cloud sync — requires firebase-config.js to be configured) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20261011200"></script>
-    <script src="js/apx-firebase.js?v=20261011200"></script>
-    <script src="js/apx-battlemap.js?v=20261011200"></script>
-    <script src="js/apx-map-tiles.js?v=20261011200"></script>
+    <script src="js/firebase-config.js?v=20261011800"></script>
+    <script src="js/apx-firebase.js?v=20261011800"></script>
+    <script src="js/apx-battlemap.js?v=20261011800"></script>
+    <script src="js/apx-map-tiles.js?v=20261011800"></script>
     <script>
     // ── Sidebar: folders, worlds, meatball menus ─────────────
     window._sidebarChars = [];
@@ -2904,9 +2904,18 @@
     // Race templates belong to ONE world. Keep each world's list separately and only
     // offer the active character's world races (plus any race files imported locally).
     window._pwWorldRaces = window._pwWorldRaces || {};
+    // What a race list says, independent of key order, and of the fields this page adds (_worldCode…)
+    function _pwRaceSig(races) {
+        let norm = v => Array.isArray(v) ? v.map(norm)
+            : (v && typeof v === 'object') ? Object.keys(v).filter(k => k[0] !== '_').sort().reduce((o, k) => (o[k] = norm(v[k]), o), {}) : v;
+        try { return JSON.stringify(norm(races || [])); } catch (e) { return ''; }
+    }
+    window._pwRacesSigByCode = window._pwRacesSigByCode || {};
     window._pwSetWorldRaces = function(code, races) {
         if (!code) return;
-        window._pwWorldRaces[code] = (races || []).map(r => Object.assign(window.apxMigrateRace ? window.apxMigrateRace(r) : r, { _worldCode: code }));
+        window._pwRacesSigByCode[code] = _pwRaceSig(races);   // the version this page has applied
+        let copy = JSON.parse(JSON.stringify(races || []));   // never change the world's own copy
+        window._pwWorldRaces[code] = copy.map(r => Object.assign(window.apxMigrateRace ? window.apxMigrateRace(r) : r, { _worldCode: code }));
         window._pwApplyWorldRaces();
     };
     window._pwApplyWorldRaces = function() {
@@ -3609,7 +3618,7 @@
         if (window.APXBattle) window.APXBattle.start(code);
         window._pwBattleCode = code;
         if (typeof window.apxAuth.listenPublicWorldNotes !== 'function') return;
-        _worldNotesUnsub = window.apxAuth.listenPublicWorldNotes(code, data => {
+        _worldNotesUnsub = window.apxAuth.listenPublicWorldNotes(code, (data, meta) => {
             // The GM deleted this world: its characters go to Archived and its folder is removed
             if (data === null) { _pwWorldDeleted(code); return; }
             // Only ever this code's own world object (never another world's)
@@ -3636,13 +3645,14 @@
             // World Settings (Starting XP, Max GP, starting Cu, attribute method)
             if (data.worldSettings) window._pwSetWorldSettings(code, data.worldSettings);
             // Race templates the GM adds to (or takes out of) this world show up in the Ancestry builder at once
+            // (only a real change from the server announces itself; the offline cache never does)
             if (Array.isArray(data.races)) {
-                let sig = JSON.stringify(data.races);
-                if (world._racesSig !== sig) {
-                    let first = world._racesSig === undefined;
-                    world._racesSig = sig; world.races = data.races;
+                let sig = _pwRaceSig(data.races), known = window._pwRacesSigByCode[code];
+                if (known !== sig) {
+                    world.races = data.races;
                     window._pwSetWorldRaces(code, data.races);
-                    if (!first && window.apxActiveWorldCode && window.apxActiveWorldCode() === code) window.APXDice?.notify('Your GM updated this world\'s race templates. They\'re in the Ancestry & Genetics Builder.', { kind: 'note' });
+                    let fromServer = !(meta && meta.fromCache);
+                    if (known !== undefined && fromServer && window.apxActiveWorldCode && window.apxActiveWorldCode() === code) window.APXDice?.notify('Your GM updated this world\'s race templates. They\'re in the Ancestry & Genetics Builder.', { kind: 'note' });
                 }
             }
             // The GM asked for a LUC (Loot) check
@@ -5541,7 +5551,7 @@
         });
     }
     </script>
-    <script src="js/apx-chat.js?v=20261011200"></script>
-    <script src="js/apx-extras.js?v=20261011200"></script>
+    <script src="js/apx-chat.js?v=20261011800"></script>
+    <script src="js/apx-extras.js?v=20261011800"></script>
 </body>
 </html>
