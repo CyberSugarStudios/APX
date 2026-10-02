@@ -173,6 +173,9 @@ window.pcCalcXP = function(draft) {
             step5Count += count;
         });
     });
+    // Summon a Creature: +15 XP per Tier above 1, for each creature summoned
+    let sumCount = (draft.utility.major || {}).summonCreature || 0;
+    if (sumCount && !pcMythic(draft)) step5Cost += sumCount * 15 * Math.max(0, (parseInt(draft.summonTier) || 1) - 1);
 
     let mythic = pcMythic(draft);
     let durationDef = POWER_DURATION.find(d => d.key === draft.duration);
@@ -497,6 +500,30 @@ window.pcToggleSecondType = function(checked) { pcDraft.addSecondType = checked;
 window.pcToggleFlatDmg = function(checked) { pcDraft.addFlatDmgPerDie = checked; pcRenderAll(); };
 window.pcToggleAttrToDmg = function(checked) { pcDraft.addAttrToDmg = checked; pcRenderAll(); };
 
+window.pcSetSummonTier = function(d) {
+    pcDraft.summonTier = Math.max(1, Math.min(10, (parseInt(pcDraft.summonTier) || 1) + d));
+    pcRenderAll();
+};
+// Opens the NPC Crafter on the draft's summoned creature (at the chosen Tier); cb runs after it closes
+window.pcEditSummon = function(cb) {
+    if (typeof window.openSummonCrafter !== 'function') { if (cb) cb(); return; }
+    let modal = document.getElementById('powerCrafterModal');
+    let wasOpen = modal && !modal.classList.contains('hidden') && getComputedStyle(modal).display !== 'none';
+    window.openSummonCrafter({ npc: pcDraft.summonNpc || null, tier: pcDraft.summonTier || 1, done: npc => {
+        pcDraft.summonNpc = JSON.parse(JSON.stringify(npc)); pcDraft.summonNpcTier = pcDraft.summonTier || 1;
+        if (cb) cb(npc); else if (wasOpen) pcRenderAll();
+    } });
+};
+// After a player power with Summon a Creature is saved: build (or rebuild) its creature
+function pcAfterSummonSave(power) {
+    if (!power || !((power.draft?.utility?.major || {}).summonCreature > 0)) return;
+    let tier = power.draft.summonTier || 1;
+    if (power.draft.summonNpc && power.draft.summonNpcTier === tier) return;
+    setTimeout(() => window.openSummonCrafter && window.openSummonCrafter({ npc: power.draft.summonNpc || null, tier, done: npc => {
+        power.draft.summonNpc = JSON.parse(JSON.stringify(npc)); power.draft.summonNpcTier = tier;
+        window.recalculateMath();
+    } }), 50);
+}
 window.pcSetUtilityCount = function(tier, key, delta) {
     if (!pcDraft.utility[tier]) pcDraft.utility[tier] = {};
     let cur = pcDraft.utility[tier][key] || 0;
@@ -684,7 +711,15 @@ function pcRenderUtilityTier(tier, label, colorClass) {
                     <button onclick="window.pcSetUtilityCount('${tier}','${u.key}', 1)" ${((!u.rep && count>=1) || blocked)?'disabled':''} class="w-5 h-5 rounded ${((!u.rep && count>=1) || blocked)?'bg-slate-800 text-slate-600':'bg-amber-700 hover:bg-amber-600 text-white'} text-xs font-bold" ${blocked ? 'title="A power with a Mythic Utility can\'t contain any other utilities"' : tier === 'mythic' && !count ? 'title="Replaces any other utilities in this power"' : ''}>+</button>
                 </div>
             </div>
-        `;
+        ` + (u.key === 'summonCreature' && count > 0 ? `
+            <div class="flex items-center justify-between bg-slate-950 border border-purple-700/60 rounded px-2 py-1.5 gap-2 ml-3">
+                <div class="flex-1 text-[10px] text-purple-200 leading-tight">Creature Tier <span class="text-slate-500">(+15 XP per Tier above 1, per creature)</span>${pcDraft.summonNpc ? `<div class="text-emerald-400">Built: ${String(pcDraft.summonNpc.name || 'Creature').replace(/</g, '&lt;')} <button onclick="window.pcEditSummon()" class="underline text-purple-300 hover:text-white">Edit creature</button></div>` : '<div class="text-slate-500">You build the creature in the NPC Crafter when you save this power.</div>'}</div>
+                <div class="flex items-center gap-1 shrink-0">
+                    <button onclick="window.pcSetSummonTier(-1)" class="w-5 h-5 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold">-</button>
+                    <span class="w-5 text-center text-xs font-bold text-white">${pcDraft.summonTier || 1}</span>
+                    <button onclick="window.pcSetSummonTier(1)" class="w-5 h-5 rounded bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold">+</button>
+                </div>
+            </div>` : '');
     }).join('');
     return `<div class="mb-3" style="break-inside:avoid-column"><div class="text-xs font-black ${colorClass} mb-1.5">${label}</div><div class="space-y-1">${rows}</div></div>`;
 }
@@ -1099,6 +1134,7 @@ window.finishPowerCrafter = function() {
 
     window.closeModal('powerCrafterModal');
     window.recalculateMath();
+    pcAfterSummonSave(window.state.powers[window.state.powers.length - 1]);
 
     // "When done it then asks which Level [X-1] Power to upgrade for
     // free" -- the upgrade offer comes right after finishing the new
@@ -1197,6 +1233,7 @@ window.savePowerChanges = function() {
 
     window.closeModal('powerCrafterModal');
     window.recalculateMath();
+    pcAfterSummonSave(power);
 };
 
 // Leaves the original power untouched and creates a separate new one from
@@ -1248,4 +1285,5 @@ window.savePowerAsNew = function() {
 
     window.closeModal('powerCrafterModal');
     window.recalculateMath();
+    pcAfterSummonSave(window.state.powers[window.state.powers.length - 1]);
 };

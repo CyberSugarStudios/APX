@@ -906,6 +906,14 @@
             cur = { gx: cur.gx + Math.sign(gx - cur.gx), gy: cur.gy + Math.sign(gy - cur.gy) };
             let i = path.findIndex(p => p.gx === cur.gx && p.gy === cur.gy);
             if (i >= 0) path.length = i + 1; else path.push(cur);
+            // A hand-drawn diagonal wobbles into a staircase (→ ↓ → ↓): whenever the square two back is a
+            // king's step from this one, the corner between them is dropped, so the path runs diagonally
+            // and costs what the move really is (bigger tokens, whose anchor jumps more, wobble the most)
+            while (path.length >= 3) {
+                let a = path[path.length - 3], c = path[path.length - 1];
+                if (Math.max(Math.abs(a.gx - c.gx), Math.abs(a.gy - c.gy)) > 1) break;
+                path.splice(path.length - 2, 1);
+            }
         }
     }
     function _pathInfo(d) {
@@ -1072,10 +1080,10 @@
         svg.setAttribute('width', '100%'); svg.setAttribute('height', '100%');
         svg.style.cssText = 'position:absolute;inset:0;pointer-events:none;overflow:visible;';
         let bar = document.createElement('div');
-        bar.style.cssText = 'position:absolute;left:50%;top:8px;transform:translateX(-50%);display:flex;align-items:center;gap:4px;pointer-events:auto;cursor:default;';
+        bar.style.cssText = 'position:absolute;left:8px;right:8px;top:8px;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:4px;pointer-events:none;cursor:default;';   // wraps in small windows instead of running off the edges
         let tipTxt = { line: 'Drag between squares or tokens · right-click adds a corner', cone: 'Drag from where the cone starts, toward where it points', burst: 'Drag from the center out to the radius' };
-        bar.innerHTML = ['line', 'cone', 'burst'].map(md => `<button data-mmode="${md}" style="border:1px solid #facc15;border-radius:5px;font-size:11px;font-weight:800;padding:2px 8px;cursor:pointer;background:rgba(15,23,42,.92);color:#fde68a">${md === 'line' ? 'Line' : md === 'cone' ? 'Cone' : 'Burst'}</button>`).join('')
-            + `<span data-mtip style="background:rgba(15,23,42,.92);border:1px solid #facc15;color:#fde68a;font-size:11px;font-weight:700;padding:3px 8px;border-radius:5px;white-space:nowrap;pointer-events:none"></span>`;
+        bar.innerHTML = ['line', 'cone', 'burst'].map(md => `<button data-mmode="${md}" style="pointer-events:auto;border:1px solid #facc15;border-radius:5px;font-size:11px;font-weight:800;padding:2px 8px;cursor:pointer;background:rgba(15,23,42,.92);color:#fde68a">${md === 'line' ? 'Line' : md === 'cone' ? 'Cone' : 'Burst'}</button>`).join('')
+            + `<span data-mtip style="background:rgba(15,23,42,.92);border:1px solid #facc15;color:#fde68a;font-size:11px;font-weight:700;padding:3px 8px;border-radius:5px;white-space:normal;max-width:100%;text-align:center;pointer-events:none"></span>`;
         ov.appendChild(svg); ov.appendChild(bar);
         layer.appendChild(ov);
         let m = layer._measure = { ov, svg, bar, a: null, b: null, down: false, follow: false, way: [], mode: mode || _measureMode };

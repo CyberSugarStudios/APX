@@ -474,8 +474,8 @@
         }
 
     </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20261021800">
-    <link rel="stylesheet" href="css/tailwind.css?v=20261021800">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20261031200">
+    <link rel="stylesheet" href="css/tailwind.css?v=20261031200">
 </head>
 <body class="p-2 md:p-6 flex justify-center text-sm ml-0 lg:ml-8 transition-all" style="padding-top:4.25rem"><!-- (room for the floating Roster / Settings buttons) -->
     <!-- Auth bar removed — account controls are in the sidebar -->
@@ -605,7 +605,7 @@
                     </div>
 
                     <div class="bg-slate-900 p-2 rounded border border-slate-700 text-center" id="apTrackerBox">
-                        <div class="text-[10px] text-slate-500 uppercase font-bold" data-tip="AP you have now / the AP you gain each turn (6 + half your AGI modifier, rounded down, minimum 6; reduced by unrecovered Fatigue). Unspent AP carries over to your next turn with no cap (the dashed pips; more appear as they fill). Click the pips to spend or refund AP.">Action Points</div>
+                        <div class="text-[10px] text-slate-500 uppercase font-bold apx-ap-title" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px" onclick="window.apxOpenActions && window.apxOpenActions(event)" data-tip="Click for Combat Maneuvers and Standard Actions: pick one to spend its AP and apply it. AP you have now / the AP you gain each turn (6 + half your AGI modifier, rounded down, minimum 6; reduced by unrecovered Fatigue). Unspent AP carries over to your next turn with no cap (the dashed pips; more appear as they fill). Click the pips to spend or refund AP.">Action Points</div>
                         <div class="flex items-baseline justify-center gap-0.5 mt-0.5"><span class="text-2xl font-black text-blue-400" id="dispApLeft">6</span><span class="text-xs font-bold text-slate-500">/<span id="dispAp">6</span></span></div>
                         <div id="apPips" class="flex flex-wrap justify-center gap-0.5 mt-0.5"></div>
                         <div class="flex justify-center gap-2 mt-0.5">
@@ -693,6 +693,7 @@
                     </div>
                 </div>
                 <div id="dispEnvResistances" class="text-[10px] text-slate-400 mt-1"><!-- JS injected: Environmental Resistance trait's energy types --></div>
+                <div id="dispTurnFx" class="flex flex-wrap gap-1 mt-1"><!-- JS injected: this turn's maneuvers (js/apx-actions.js) --></div>
                 
                 <div class="flex gap-2 mt-auto">
                     <div class="flex-1">
@@ -2357,38 +2358,38 @@
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20261021800"></script>
-    <script src="js/apx-patch-notes.js?v=20261021800"></script>
-    <script src="js/apx-dice.js?v=20261021800"></script>
-    <script src="js/apx-data.js?v=20261021800"></script>
-    <script src="js/apx-item-effects.js?v=20261021800"></script>
-    <script src="js/apx-perks-db.js?v=20261021800"></script>
-    <script src="js/apx-migrations.js?v=20261021800"></script>
-    <script src="js/apx-roster.js?v=20261021800"></script>
-    <script src="js/apx-state.js?v=20261021800"></script>
-    <script src="js/apx-origin-wizard.js?v=20261021800"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20261021800"></script>
-    <script src="js/apx-inventory-ui.js?v=20261021800"></script>
-    <script src="js/apx-craft-shared.js?v=20261021800"></script>
-    <script src="js/apx-armor-forge.js?v=20261021800"></script>
-    <script src="js/apx-weapon-forge.js?v=20261021800"></script>
-    <script src="js/apx-power-crafter.js?v=20261021800"></script>
-    <script src="js/apx-consumable-crafter.js?v=20261021800"></script>
-    <script src="js/apx-npc-crafter.js?v=20261021800"></script>
-    <script src="js/apx-engine.js?v=20261021800"></script>
-    <script src="js/apx-perks-ui.js?v=20261021800"></script>
-    <script src="js/apx-rest.js?v=20261021800"></script>
-    <script src="js/apx-looting.js?v=20261021800"></script>
-    <script src="js/apx-main.js?v=20261021800"></script>
+    <script src="js/apx-dialogs.js?v=20261031200"></script>
+    <script src="js/apx-patch-notes.js?v=20261031200"></script>
+    <script src="js/apx-dice.js?v=20261031200"></script>
+    <script src="js/apx-data.js?v=20261031200"></script>
+    <script src="js/apx-item-effects.js?v=20261031200"></script>
+    <script src="js/apx-perks-db.js?v=20261031200"></script>
+    <script src="js/apx-migrations.js?v=20261031200"></script>
+    <script src="js/apx-roster.js?v=20261031200"></script>
+    <script src="js/apx-state.js?v=20261031200"></script>
+    <script src="js/apx-origin-wizard.js?v=20261031200"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20261031200"></script>
+    <script src="js/apx-inventory-ui.js?v=20261031200"></script>
+    <script src="js/apx-craft-shared.js?v=20261031200"></script>
+    <script src="js/apx-armor-forge.js?v=20261031200"></script>
+    <script src="js/apx-weapon-forge.js?v=20261031200"></script>
+    <script src="js/apx-power-crafter.js?v=20261031200"></script>
+    <script src="js/apx-consumable-crafter.js?v=20261031200"></script>
+    <script src="js/apx-npc-crafter.js?v=20261031200"></script>
+    <script src="js/apx-engine.js?v=20261031200"></script>
+    <script src="js/apx-perks-ui.js?v=20261031200"></script>
+    <script src="js/apx-rest.js?v=20261031200"></script>
+    <script src="js/apx-looting.js?v=20261031200"></script>
+    <script src="js/apx-main.js?v=20261031200"></script>
 
     <!-- Firebase (cloud sync — requires firebase-config.js to be configured) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20261021800"></script>
-    <script src="js/apx-firebase.js?v=20261021800"></script>
-    <script src="js/apx-battlemap.js?v=20261021800"></script>
-    <script src="js/apx-map-tiles.js?v=20261021800"></script>
+    <script src="js/firebase-config.js?v=20261031200"></script>
+    <script src="js/apx-firebase.js?v=20261031200"></script>
+    <script src="js/apx-battlemap.js?v=20261031200"></script>
+    <script src="js/apx-map-tiles.js?v=20261031200"></script>
     <script>
     // ── Sidebar: folders, worlds, meatball menus ─────────────
     window._sidebarChars = [];
@@ -5595,8 +5596,9 @@
         });
     }
     </script>
-    <script src="js/apx-chat.js?v=20261021800"></script>
-    <script src="js/apx-extras.js?v=20261021800"></script>
-    <script src="js/apx-theme-light.js?v=20261021800"></script>
+    <script src="js/apx-chat.js?v=20261031200"></script>
+    <script src="js/apx-actions.js?v=20261031200"></script>
+    <script src="js/apx-extras.js?v=20261031200"></script>
+    <script src="js/apx-theme-light.js?v=20261031200"></script>
 </body>
 </html>

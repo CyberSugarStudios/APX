@@ -44,6 +44,8 @@ function ncActiveCompanion() {
     if (ncTarget === 'gm') {
         let entry = window.gmNpcs.find(n => n.id === ncActiveGmNpcId);
         c = entry ? entry.npc : null;
+    } else if (ncTarget === 'summon') {
+        c = window._ncSummon ? window._ncSummon.npc : null;   // the creature a Summon a Creature power calls
     } else {
         c = window.state.companion;
     }
@@ -168,8 +170,14 @@ function lcStepsUnlocked() {
 // Steps 1-8 are open immediately. Step 8 (Legendary Resistance, Legendary
 // Actions, Lair Actions, Mythic Awakening) is GM-only; a Loyal Companion
 // never unlocks it, matching its perk-defined cap of 7.
+// Traits that bring their own immunities / vulnerabilities (Undead, Unalive Structure)
+function ncTraitMerge(c, field, list) {
+    let out = (list || []).slice();
+    (c.traits || []).forEach(k => { let t = NPC_TRAITS.find(x => x.key === k); ((t && t.auto && t.auto[field]) || []).forEach(v => { if (!out.includes(v)) out.push(v); }); });
+    return out;
+}
 function ncStepsUnlocked() {
-    return ncTarget === 'gm' ? 8 : lcStepsUnlocked();
+    return ncTarget === 'gm' ? 8 : ncTarget === 'summon' ? 7 : lcStepsUnlocked();
 }
 function lcTpXpCost() {
     let rank = lcRank();
@@ -194,7 +202,7 @@ function parseDieStep(stepStr) {
 window.companionTotalTp = function() {
     let c = ncActiveCompanion();
     if (!c) return 0;
-    if (ncTarget === 'gm') return c.gmTpBudget || 0;
+    if (ncTarget === 'gm' || ncTarget === 'summon') return c.gmTpBudget || 0;
     return lcGrantedTp() + c.extraTpPurchased;
 };
 
@@ -916,6 +924,13 @@ window.ncSetPowerAttr = function(val) {
 };
 
 window.closeNpcCrafter = function() {
+    if (ncTarget === 'summon') {
+        let s = window._ncSummon; window._ncSummon = null; ncTarget = 'companion';
+        window.closeModal('npcCrafterModal');
+        if (s && typeof s.done === 'function') s.done(s.npc);
+        window.recalculateMath();
+        return;
+    }
     window.closeModal('npcCrafterModal');
     window.recalculateMath();
     if (ncTarget === 'gm') window.renderGmNpcList();
@@ -1321,8 +1336,9 @@ window.companionStatBlock = function() {
         hasShield: !!(c.shield && c.shield.owned), shieldOn, hasHelmet: helmetOn, hands, freeHands,
         senseList, traitList, powerList, powerCards, lairActionPowerCards, casterSlots: c.casterSlots,
         powerAttrChoice, powerAttackBonus, powerSaveDc,
-        conditionImmunities: c.conditionImmunities, conditionalDmgImmunities: c.conditionalDmgImmunities,
-        energyImmunities: c.energyImmunities, energyVulnerabilities: c.energyVulnerabilities,
+        conditionImmunities: ncTraitMerge(c, 'immuneConds', c.conditionImmunities), conditionalDmgImmunities: c.conditionalDmgImmunities,
+        energyImmunities: ncTraitMerge(c, 'immuneEnergy', c.energyImmunities), energyVulnerabilities: ncTraitMerge(c, 'vulnEnergy', c.energyVulnerabilities),
+        undead: (c.traits || []).includes('undead'), unalive: (c.traits || []).includes('unalive'),
         damageResistances: c.damageResistances || [],
         carriedItems: Array.isArray(c.carriedItems) ? c.carriedItems : [], carriedCu: c.carriedCu || 0,
         wornItemNames: wornItems.map(it => it.name || 'Item'), itemEr: ifx ? ifx.er : [],
@@ -1926,7 +1942,7 @@ function ncRenderAll() {
     // list -- rather than an unlabeled Close being the only way out.
     document.getElementById('ncBtnFinishGm').style.display = (ncTarget === 'gm' && ncStep >= unlocked) ? 'block' : 'none';
     let companionFinishBtn = document.getElementById('ncBtnFinishCompanion');
-    if (companionFinishBtn) companionFinishBtn.style.display = (ncTarget === 'companion' && ncStep >= unlocked) ? 'block' : 'none';
+    if (companionFinishBtn) companionFinishBtn.style.display = ((ncTarget === 'companion' || ncTarget === 'summon') && ncStep >= unlocked) ? 'block' : 'none';
 }
 
 // Live, full stat block beside the crafter — re-rendered on every change
@@ -1983,7 +1999,7 @@ function ncRenderSummary() {
         xpWrap.classList.toggle('hidden', ncTarget !== 'gm');
         if (ncTarget === 'gm') document.getElementById('ncSumXp').innerText = window.npcXpForTier(tierInfo.tier); // matches the XP stashed on defeat in the GM Screen's initiative tracker
     }
-    document.getElementById('npcCrafterTitle').innerText = ncTarget === 'gm' ? 'The NPC Crafter -- GM NPC' : 'The NPC Crafter -- Loyal Companion';
+    document.getElementById('npcCrafterTitle').innerText = ncTarget === 'gm' ? 'The NPC Crafter -- GM NPC' : ncTarget === 'summon' ? `The NPC Crafter -- Summoned Creature (Tier ${window._ncSummon?.tier || 1})` : 'The NPC Crafter -- Loyal Companion';
     let tpBanner = document.getElementById('ncTpBannerText');
     let tpButtons = document.getElementById('ncTpBannerButtons');
     if (ncTarget === 'gm') {
@@ -1994,6 +2010,9 @@ function ncRenderSummary() {
             <button onclick="window.ncBuyExtraTp(1)" class="px-2 py-1 rounded bg-amber-700 hover:bg-amber-600 text-white text-[10px] font-bold">+1 TP</button>
             <button onclick="window.ncBuyExtraTp(5)" class="px-2 py-1 rounded bg-amber-700 hover:bg-amber-600 text-white text-[10px] font-bold">+5 TP</button>
         `;
+    } else if (ncTarget === 'summon') {
+        tpBanner.innerText = `Summoned creature: ${window.companionTotalTp()} TP, set by the power's Tier (Tier ${window._ncSummon?.tier || 1}). Raise the Tier in the Power Crafter for more.`;
+        tpButtons.innerHTML = '';
     } else {
         tpBanner.innerText = `Buy more TP with XP -- currently ${lcTpXpCost()} XP/TP (Unspent XP: ${window.state.unspentXp || 0})`;
         tpButtons.innerHTML = `
@@ -2119,7 +2138,7 @@ function ncRenderStep4() {
         `<div class="bg-slate-900 border border-slate-700 rounded p-2">
             <div class="flex items-center justify-between mb-1">
                 <span class="text-xs font-bold text-white">Equipped Armor <span class="text-yellow-500 text-[10px]">[1 TP per AC, +1 TP per 2 DR/ER${c.equippedArmor.name ? ` = ${window.npcArmorTp(c.equippedArmor).tp} TP` : ''}]</span></span>
-                <button onclick="window.openArmorForge(ncTarget)" class="text-[10px] text-orange-400 hover:text-orange-300 font-bold">${c.equippedArmor.name ? 'Edit' : '+ Forge Armor'}</button>
+                <button onclick="window.openArmorForge(ncTarget === 'summon' ? 'gm' : ncTarget)" class="text-[10px] text-orange-400 hover:text-orange-300 font-bold">${c.equippedArmor.name ? 'Edit' : '+ Forge Armor'}</button>
             </div>
             ${c.equippedArmor.name ? `<div class="text-[10px] text-slate-300">${c.equippedArmor.name} (AC +${c.equippedArmor.ac}, DR +${c.equippedArmor.dr}, ER +${c.equippedArmor.er})</div>` : '<div class="text-[10px] text-slate-600">None equipped — use natural defenses below, or forge armor.</div>'}
         </div>` +
@@ -2237,13 +2256,13 @@ function ncRenderStep5() {
         <div class="bg-slate-900 border border-slate-700 rounded p-2">
             <div class="flex items-center justify-between mb-1">
                 <span class="text-xs font-bold text-white">Equipped Weapons</span>
-                <button onclick="window.openWeaponForge(null, ncTarget)" class="text-[10px] text-orange-400 hover:text-orange-300 font-bold">+ Forge Weapon</button>
+                <button onclick="window.openWeaponForge(null, ncTarget === 'summon' ? 'gm' : ncTarget)" class="text-[10px] text-orange-400 hover:text-orange-300 font-bold">+ Forge Weapon</button>
             </div>
             ${c.weapons.length ? c.weapons.map((w, i) => `
                 <div class="flex items-center justify-between text-[10px] text-slate-300 py-0.5">
                     <span title="${window.npcWeaponTp(w).parts.map(p => p.label + ': ' + p.tp + ' TP').join('\n')}">${w.name} (${w.dmg}, ${w.ap} AP) <b class="text-yellow-500">${window.npcWeaponTp(w).tp} TP</b></span>
                     <div class="flex gap-1">
-                        <button onclick="window.openWeaponForge(${i}, ncTarget)" class="text-orange-400 hover:text-orange-300 font-bold">Edit</button>
+                        <button onclick="window.openWeaponForge(${i}, ncTarget === 'summon' ? 'gm' : ncTarget)" class="text-orange-400 hover:text-orange-300 font-bold">Edit</button>
                         <button onclick="window.ncRemoveCompanionWeapon(${i})" class="text-red-400 hover:text-red-300 font-bold">Remove</button>
                     </div>
                 </div>`).join('') : '<div class="text-[10px] text-slate-600">None equipped. Add the matching Weapon Type training above so it gets the Training Bonus.</div>'}
@@ -2473,3 +2492,21 @@ function ncRenderStep8() {
     `;
 }
 
+
+// Summon a Creature (Power Crafter): build the creature in this crafter at the power's Tier.
+// opts = { npc (existing, to edit), tier, done(npc) }
+window.openSummonCrafter = function(opts) {
+    opts = opts || {};
+    let tier = Math.max(1, parseInt(opts.tier) || 1);
+    let npc = opts.npc ? JSON.parse(JSON.stringify(opts.npc)) : getBlankCompanion();
+    if (!opts.npc && !npc.name) npc.name = 'Summoned Creature';
+    let row = (typeof NPC_TIER_TP !== 'undefined' ? NPC_TIER_TP : []).find(t => t.tier === tier);
+    npc.gmTpBudget = row ? row.tp : 100 + (tier - 5) * 20;
+    window._ncSummon = { npc, tier, done: opts.done };
+    ncTarget = 'summon';
+    ncActiveGmNpcId = null;
+    ncStep = 1;
+    for (let i = 1; i <= 8; i++) { let el = document.getElementById(`ncStep${i}`); if (el) el.classList.toggle('active', i === 1); }
+    ncRenderAll();
+    window.openModal('npcCrafterModal');
+};

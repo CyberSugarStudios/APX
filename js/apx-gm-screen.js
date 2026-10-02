@@ -92,7 +92,8 @@ function computeCharSummary(state) {
     let meetsStr = calc.scores.STR >= reqStr;
     calc.hasArmorDisadvantage = (!meetsStr && armorWt > 0);
 
-    let armorClass = armorWt === 0 ? null : (armorWt > 70 ? 'Heavily' : (armorWt > 30 ? 'Moderately' : 'Lightly'));
+    let classWt = Math.max(0, armorWt - 5 * ((state.perks || {}).str_armormaster || 0));   // Armor Master: 5 lb lighter per rank
+    let armorClass = armorWt === 0 ? null : (classWt > 70 ? 'Heavily' : (classWt > 30 ? 'Moderately' : 'Lightly'));
     let isHeavy = armorClass === 'Heavily';
 
     let agiCap = Infinity;
@@ -587,7 +588,9 @@ const FACTION_STYLES = {
     neutral: { border: 'border-slate-500',  bg: 'bg-slate-800/60',  text: 'text-slate-300',  label: 'Neutral' },
 };
 
-function effInit(e) { return e.baseInitiative - (e.surprised ? 10 : 0); }
+// A Loyal Companion acts on its owner's turn, so it shares its owner's initiative (and sorts right after them)
+function _gmCompanionOwner(e) { let u = e && (e.companionOf || e.summonOf); return u ? (window.gmInitiative || []).find(x => x.playerUid === u && !x.companionOf && !x.summonOf) : null; }
+function effInit(e) { let o = _gmCompanionOwner(e); if (o) return effInit(o); return e.baseInitiative - (e.surprised ? 10 : 0); }
 
 // PCs automatically win initiative ties against non-PCs (no manual
 // resolution needed); everything else (PC-vs-PC, NPC-vs-NPC) is a true
@@ -595,6 +598,10 @@ function effInit(e) { return e.baseInitiative - (e.surprised ? 10 : 0); }
 function initiativeCompare(a, b) {
     let ea = effInit(a), eb = effInit(b);
     if (ea !== eb) return eb - ea;
+    let ua = a.companionOf || a.summonOf, ub = b.companionOf || b.summonOf;
+    if (ua && ua === b.playerUid && !ub) return 1;    // right after its owner
+    if (ub && ub === a.playerUid && !ua) return -1;
+    if (ua && ub && ua === ub && !!a.summonOf !== !!b.summonOf) return a.summonOf ? 1 : -1;   // companion before summons
     let aP = a.faction === 'player', bP = b.faction === 'player';
     if (aP && !bP) return -1;
     if (bP && !aP) return 1;
@@ -635,7 +642,11 @@ function insertInitiativeEntry(entry) {
         window.gmInitiative.splice(insertIdx, 0, entry);
         if (insertIdx <= window.gmCurrentTurnIdx) window.gmCurrentTurnIdx++;
     } else {
-        window.gmInitiative.push(entry);
+        let ou = entry.companionOf || entry.summonOf;
+        let oi = ou ? window.gmInitiative.findIndex(x => x.playerUid === ou && !x.companionOf && !x.summonOf) : -1;
+        while (oi >= 0 && oi + 1 < window.gmInitiative.length && (window.gmInitiative[oi + 1].companionOf === ou || window.gmInitiative[oi + 1].summonOf === ou)) oi++;   // after their other companions/summons
+        if (oi >= 0) { window.gmInitiative.splice(oi + 1, 0, entry); if (oi + 1 <= window.gmCurrentTurnIdx) window.gmCurrentTurnIdx++; }
+        else window.gmInitiative.push(entry);
     }
     window.renderInitiativeTracker();
 }
@@ -685,7 +696,8 @@ window.addToInitiative = function(sourceIdx, sourceType, faction, displayName) {
         let sb = gmCompanionSb(p);
         if (!sb) return;
         let hp = p.state.companion.currentHp ?? sb.maxHp;
-        entry = { id: crypto.randomUUID(), name: sb.name || 'Companion', baseInitiative: sb.initiative, surprised: false,
+        let owner = (window.gmInitiative || []).find(x => x.playerUid === p.fileName && !x.companionOf);
+        entry = { id: crypto.randomUUID(), name: sb.name || 'Companion', baseInitiative: owner ? owner.baseInitiative : (p.summary?.initiative ?? sb.initiative), surprised: false,
             currentHp: Math.min(hp, sb.maxHp), maxHp: sb.maxHp, tempHp: 0, ap: sb.ap, ac: sb.ac, dr: sb.dr, er: sb.er,
             faction: 'ally', bleedOutTurns: null, tpValue: 0, lairTraitNote: null, companionOf: p.fileName };
     } else if (sourceType === 'party') {
@@ -1819,6 +1831,10 @@ function _gmHandleRollEvent(uid, ev) {
         window.renderGmLoot && window.renderGmLoot();
         return;
     }
+    // Summon a Creature: its creatures join next to the caster (in or out of combat)
+    if (ev.kind === 'power' && ev.summon && firstSeen && (ev.t || Date.now()) > Date.now() - 600000) {
+        if (typeof window._gmSpawnSummon === 'function') window._gmSpawnSummon(uid, ev);
+    }
     let entry0 = (window.gmInitiative || []).find(e => e.playerUid === uid && e.faction === 'player');
     if (entry0 && ev.kind === 'check' && _gmFallFromRoll(entry0, ev)) return;
     // Checks and saves show for the GM whenever a player in this world rolls one (not only in combat)
@@ -1948,6 +1964,8 @@ function _afterHpChange(entry, wasAboveZero) {
             // A player with a sheet rolls their Bleed Out check from their dice roller, and the rounds fill in here
             // on their own. The popup is only for players without a linked sheet (or outside combat).
             if (!(entry.playerUid && window.gmCombatStarted)) window.openBleedOutModal(entry.id);
+        } else if (_gmUndeadDown(entry)) {
+            return;
         } else {
             window.gmPendingXp += window._gmEntryXp(entry);
             window.removeFromInitiative(entry.id, { dead: true });
@@ -2351,6 +2369,14 @@ function _gmDamage(entry, opts) {
     _gmCheckWoundThreshold(entry, dmg, defId);                            // Wound Threshold, then the hit's own saves, then Bleed Out
     if (entry.faction !== 'player' && !entry.companionOf) _gmNpcWoundCheck(entry, dmg, hit);   // NPCs have a Wound Threshold too
     if (hit) _gmHitEffects(entry, hit, extras);
+    // Undead / Unalive Structure traits
+    let tsb = _gmTraitSb(entry);
+    if (tsb && tsb.undead) {
+        let phys = ['Bludgeoning', 'Slashing', 'Piercing'], en = window.APXDamage ? window.APXDamage.ENERGY() : [];
+        let ok = (opts.types || []).length && opts.types.every(t => phys.includes(t) || (en.includes(t) && t !== 'Fire'));
+        entry._undeadOk = ok && !(hit && hit.crit); entry._undeadDc = dmg;
+    }
+    if (tsb && tsb.unalive && dmg > 0 && (opts.types || []).includes('Electric') && entry.currentHp > 0) _gmUnaliveShock(entry, tsb, dmg);
     if (opts.sheet) {
         _syncHpToPlayer(entry);
         if (wasAboveZero && entry.currentHp !== null && entry.currentHp <= 0 && entry.faction === 'player' && entry.bleedOutTurns == null) _gmQueueBleed(entry);
@@ -2359,6 +2385,58 @@ function _gmDamage(entry, opts) {
     return { dmg, res };
 }
 window._gmDamage = _gmDamage;
+
+// ── Undead / Unalive Structure (NPC traits) ──
+function _gmTraitSb(entry) {
+    if (!entry || entry.faction === 'player' || entry.companionOf || !entry.sourceNpcId) return null;
+    try { return (window.gmNpcs || []).some(n => n.id === entry.sourceNpcId) ? ncStatBlockFor(entry.sourceNpcId) : null; } catch (e) { return null; }
+}
+window._gmTraitSb = _gmTraitSb;
+// Undead at 0 HP from non-critical Physical (or non-Fire Energy) damage: Prone and Incapacitated instead of destroyed
+function _gmUndeadDown(entry) {
+    let sb = _gmTraitSb(entry);
+    if (!sb || !sb.undead) return false;
+    let ok = entry._undeadOk !== false, dc = entry._undeadDc || 0;
+    entry._undeadOk = undefined; entry._undeadDc = undefined;
+    if (!ok) { gmLog({ text: `${_gmGmName(entry)} (Undead) is destroyed: the final blow was a Critical Hit, Fire, or not Physical/Energy damage.`, kind: 'info' }); return false; }
+    entry.currentHp = 0; entry.undeadDown = { dc: Math.max(1, dc) };
+    ['prone', 'incapacitated'].forEach(c => { if (typeof window._gmAddEntryCondition === 'function') window._gmAddEntryCondition(entry.id, c); else { entry.conditions = entry.conditions || []; if (!entry.conditions.includes(c)) entry.conditions.push(c); } });
+    gmLog({ text: `${_gmGmName(entry)} (Undead) falls Prone and Incapacitated instead of being destroyed. At the start of its next turn it makes a CON save (DC ${entry.undeadDown.dc}).`, kind: 'info', force: true });
+    window.renderInitiativeTracker();
+    if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
+    return true;
+}
+async function _gmUndeadRevive(entry) {
+    let dc = entry.undeadDown.dc, sb = _gmTraitSb(entry);
+    let bonus = sb && sb.saves ? (parseInt(sb.saves.CON) || 0) : 0;
+    let nat = 1 + Math.floor(Math.random() * 20), total = nat + bonus;
+    let ans = window.APXDice && APXDice.ask ? await APXDice.ask(`${_gmGmName(entry)}: Undead revival`, `CON save, DC ${dc} (the damage of the final blow). Rolled ${total} (d20 ${nat}${bonus ? (bonus > 0 ? ' +' : ' −') + Math.abs(bonus) : ''}).`,
+        [['pass', 'Success: revives with 1 HP', total >= dc ? 'pri' : ''], ['fail', 'Failure: destroyed', total < dc ? 'pri' : '']]) : (total >= dc ? 'pass' : 'fail');
+    if (!window.gmInitiative.includes(entry)) return;
+    entry.undeadDown = null;
+    if (ans === 'pass') {
+        entry.currentHp = 1;
+        ['prone', 'incapacitated'].forEach(c => { if (typeof window._gmRemoveEntryCondition === 'function') window._gmRemoveEntryCondition(entry.id, c); else entry.conditions = (entry.conditions || []).filter(x => x !== c); });
+        gmLog({ text: `${_gmGmName(entry)} (Undead) rises again with 1 HP.`, kind: 'info', force: true });
+        window.renderInitiativeTracker();
+    } else {
+        gmLog({ text: `${_gmGmName(entry)} (Undead) is permanently destroyed.`, kind: 'info', force: true });
+        entry._undeadOk = false;
+        window.gmPendingXp += window._gmEntryXp(entry);
+        window.removeFromInitiative(entry.id, { dead: true });
+    }
+    if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
+}
+// Unalive Structure hit by Electric damage: CON save (DC 10 + half the damage) or Stunned until the end of its next turn
+async function _gmUnaliveShock(entry, sb, dmg) {
+    let dc = 10 + Math.floor(dmg / 2), bonus = sb.saves ? (parseInt(sb.saves.CON) || 0) : 0;
+    let nat = 1 + Math.floor(Math.random() * 20), total = nat + bonus;
+    let ans = window.APXDice && APXDice.ask ? await APXDice.ask(`${_gmGmName(entry)}: Electric surge`, `Unalive Structure: CON save, DC ${dc}. Rolled ${total} (d20 ${nat}${bonus ? (bonus > 0 ? ' +' : ' −') + Math.abs(bonus) : ''}).`,
+        [['pass', 'Saved', total >= dc ? 'pri' : ''], ['fail', 'Failed: Stunned', total < dc ? 'pri' : '']]) : (total >= dc ? 'pass' : 'fail');
+    if (ans !== 'fail' || !window.gmInitiative.includes(entry)) return;
+    if (typeof window._gmAddEntryCondition === 'function') window._gmAddEntryCondition(entry.id, 'stunned');
+    gmLog({ text: `${_gmGmName(entry)} is Stunned by the Electric surge until the end of its next turn.`, kind: 'info', force: true });
+}
 
 // Tracker HP box: "-N" is damage (in full), "+N" heals, "N" sets.
 window.updateInitiativeHp = function(id, value, pre) {
@@ -2383,6 +2461,13 @@ window.updateInitiativeHp = function(id, value, pre) {
     let wasAboveZero = entry.currentHp === null || entry.currentHp > 0;
     let r = window.apxApplyHpInput(value, entry.currentHp, entry.tempHp, entry.maxHp);
     if (!r) { window.renderInitiativeTracker(); return; }
+    // Unalive Structure: only mechanical repairs (3 AP, Xd6 HP) heal it
+    if (!(pre && pre.repair) && r.currentHp > (entry.currentHp || 0) && _gmTraitSb(entry)?.unalive && window.APXDice && APXDice.ask) {
+        window.renderInitiativeTracker();
+        APXDice.ask(`Heal ${_gmGmName(entry)}?`, `It's an Unalive Structure: it can't regain HP from resting or biological healing, only from mechanical repairs (an adjacent creature spends 3 AP: Xd6 HP, X = their INT modifier, min 1).`,
+            [['repair', 'It\'s a repair: heal it', 'pri'], ['no', 'Cancel']]).then(a => { if (a === 'repair') window.updateInitiativeHp(id, value, { repair: true }); });
+        return;
+    }
     let before = (entry.currentHp || 0) + (entry.tempHp || 0);
     entry.currentHp = r.currentHp;
     entry.tempHp = r.tempHp;
@@ -2390,6 +2475,7 @@ window.updateInitiativeHp = function(id, value, pre) {
     // A plain number that lowers HP is taken as the result, already reduced (no DR/ER applied)
     let dmg = Math.max(0, before - after);
     let hit = dmg > 0 ? _gmTakeHit(entry) : null;
+    if (dmg > 0) { entry._undeadDc = dmg; entry._undeadOk = !(hit && hit.crit); }
     _gmLogHpChange(entry, before, after, wasAboveZero, dmg, hit);
     _gmCheckWoundThreshold(entry, dmg);
     if (hit) _gmHitEffects(entry, hit, []);
@@ -2680,6 +2766,7 @@ window.nextInitiativeTurn = function() {
     let current = window.gmInitiative[window.gmCurrentTurnIdx];
     if (current) gmStartTurnAp(current);
     if (current) _gmBurnTick(current);
+    if (current && current.undeadDown) _gmUndeadRevive(current);
     if (current && current.bleedOutTurns > 0) {
         current.bleedOutTurns--;
         if (current.bleedOutTurns === 0) { _killBledOutPlayer(current); return; }
@@ -3138,8 +3225,8 @@ window.openFloatingStatBlock = function(entryId) {
     if (!entry || entry.faction === 'player') return;
 
     if (window.gmFloatingWindows[entryId]) {
-        window.apxFloatingZTop++;
-        window.gmFloatingWindows[entryId].style.zIndex = window.apxFloatingZTop;
+        if (window.apxFront) window.apxFront(window.gmFloatingWindows[entryId]);   // (also brings back a minimized one)
+        else { window.apxFloatingZTop++; window.gmFloatingWindows[entryId].style.zIndex = window.apxFloatingZTop; }
         return;
     }
 

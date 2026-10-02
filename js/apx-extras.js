@@ -98,10 +98,16 @@
             <ul><li>The tray has Advantage and Disadvantage for the next d20, a dice pool for any other roll, and buttons to spend <b>Luck Points</b> or <b>Omen dice</b> on a roll you just made.</li>
             <li>Conditions, wounds and your perks are added to rolls for you, and the badges on a roll show what changed it.</li>
             <li>The <b>Chat</b> at the bottom of the tray messages everyone, just the GM, or any players you pick.</li></ul>`],
+        ['Actions', 'Actions and AP', `
+            <ul><li>Click the <b>Action Points</b> title in Vitals for every Combat Maneuver and Standard Action. Clicking one spends its AP (short on AP? you're asked first) and applies what it can: Fight Defensively's AC, Power Attack's damage on your next melee attack, Feint's Advantage, and so on.</li>
+            <li>Active effects show under <b>Armor &amp; Defenses</b> with a red <b>✕</b> to end them early. Most end on their own at your next turn or when you attack.</li>
+            <li>Powers with <b>Summon a Creature</b> have you build the creature in the NPC Crafter when you save the power. Using it puts the creatures next to your token on your GM's battle map.</li></ul>`],
         ['Shortcuts', 'Shortcuts worth knowing', `
             <ul><li>Number boxes do math: type <kbd>+5</kbd> or <kbd>-3</kbd> to add or subtract, or <kbd>35-9</kbd> after what's there.</li>
             <li>Hit Points: <kbd>-9</kbd> takes 9 damage, through Temp HP first. <kbd>-9 fire</kbd> uses that damage type, so your DR/ER, resistances and immunities apply. Hit by the GM's creature? Its damage type is used for you.</li>
             <li><kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes and <kbd>Ctrl</kbd>+<kbd>Y</kbd> redoes changes on the sheet. <kbd>Enter</kbd> confirms a box.</li>
+            <li>Double-click a popup window's title bar to minimize it to a tab in the bottom-left corner; click the tab to bring it back.</li>
+            <li>A character can be open in one browser tab at a time: opening it in a second tab sends the first one back to the lobby, so AP and HP never get spent twice.</li>
             <li>On battle maps: <kbd>M</kbd> measures (right-click drops a waypoint, the toolbar switches to Cone or Burst, <kbd>Esc</kbd> stops). In combat, dragging your token shows the path and its AP cost; hold <kbd>Alt</kbd> to move without paying AP. Wheel zooms; <kbd>Ctrl</kbd>-drag or middle-drag pans.</li></ul>`],
         ['Worlds', 'Playing in your GM\'s world', `
             <ul><li>Your GM gives you an <b>invite code</b>. Join the world from the lobby (or the World screen's <b>+ Join World</b>) and pick, or make, the character you'll play there.</li>
@@ -125,13 +131,16 @@
         ['Combat', 'Running combat', `
             <ul><li>Add NPCs and players to the <b>initiative tracker</b>, then <b>Start Combat</b> and use <b>Next Turn</b>. AP, reactions, condition timers and auras are handled turn by turn.</li>
             <li>Damage is entered as a number (or <kbd>-12 fire</kbd>): DR/ER, resistances, wounds and Wound Thresholds are applied for you, and saves and wound checks are asked of the right player.</li>
-            <li>Click a creature's conditions to change them, players included. <b>⤓ Fall</b> rolls fall damage with the Acrobatics reaction.</li>
+            <li>Click a creature's conditions to change them, players included (Grabbed, Grappled and Pinned are there too). Condition immunities are enforced. <b>⤓ Fall</b> rolls fall damage with the Acrobatics reaction.</li>
+            <li>Loyal Companions and summoned creatures act on their owner's initiative, right after them. A player's Summon a Creature power places its creatures next to them on the battle map they're on.</li>
+            <li><b>Undead</b> and <b>Unalive Structure</b> NPC traits run themselves: immunities, vulnerabilities, the Undead revival save at the start of its turn, the Electric Stun save, and repair-only healing.</li>
             <li>The combat log and your players' rolls show up in your dice tray.</li></ul>`],
         ['Maps', 'Maps and battle maps', `
             <ul><li><b>Upload Map</b> for world maps, dungeons and buildings. Pin locations with notes and subnotes; what you reveal becomes your players' Discoveries.</li>
             <li>Turn on the <b>Grid</b> (size, offset, colour, thickness, opacity), place tokens, resize them, and paint <b>Fog</b> of war.</li>
             <li><b>Measure</b> (<kbd>M</kbd>) has Line, Cone and Burst modes and lists who's inside an area. Right-click drops waypoints.</li>
-            <li>Share a map with your players, and stop sharing to close it on their screens.</li></ul>`],
+            <li>Share a map with your players, and stop sharing to close it on their screens.</li>
+            <li>Tokens added with <b>+ Token</b> from the tracker start hidden; reveal them from the token's menu. Double-click a window's title bar to minimize it to a tab.</li></ul>`],
         ['Loot and notes', 'Loot, crafting and notes', `
             <ul><li>The <b>Loot Maker</b> builds loot boxes and gives items or Currency to players; a hidden grant isn't shown to the rest of the party.</li>
             <li>The Weapon and Armor Forges and the Consumable Crafter make custom gear for shops and loot.</li>
@@ -289,5 +298,34 @@
             if (!window.state) return;
             SHOP_MODALS.forEach(id => { let m = document.getElementById(id); if (m && m.classList.contains('active')) chipFor(m); });
         }, 400);
+    }
+
+    // ── One tab per character ────────────────────────────────────────────
+    // A character open in two tabs got its AP twice (both tabs reacted to New Turn and combat start)
+    // and the two tabs overwrote each other's saves. The tab that opens a character takes it over:
+    // any other tab of this browser with the same character goes back to the character list.
+    if (PAGE === 'sheet' && 'BroadcastChannel' in window) {
+        const bc = new BroadcastChannel('apx-sheet-tabs');
+        const me = Math.random().toString(36).slice(2);
+        let mine = null;
+        let claim = () => { if (mine) bc.postMessage({ t: 'claim', id: mine, from: me }); };
+        setInterval(() => {
+            let id = window._activeCloudCharId || null;
+            if (id !== mine) { mine = id; claim(); }
+        }, 600);
+        bc.onmessage = e => {
+            let m = e.data || {};
+            if (m.t !== 'claim' || m.from === me || !m.id || m.id !== window._activeCloudCharId) return;
+            // Another tab just opened this character: step aside (saves have already gone out as you played)
+            try { window.scheduleSave && window.scheduleSave(); } catch (er) { }
+            try { sessionStorage.setItem('apxTabMoved', (window.state && window.state.name) || 'This character'); } catch (er) { }
+            window._activeCloudCharId = null;   // stop reacting to this character while the page reloads
+            setTimeout(() => location.reload(), 150);
+        };
+        let moved = null; try { moved = sessionStorage.getItem('apxTabMoved'); sessionStorage.removeItem('apxTabMoved'); } catch (e) { }
+        if (moved) setTimeout(() => {
+            let msg = `${moved} was opened in another tab, so this tab went back to your characters. A character can only be open in one tab at a time (otherwise both tabs count its AP).`;
+            if (window.apxAlert) window.apxAlert(msg, { title: 'Opened in Another Tab' }); else window.APXDice?.notify(msg, { kind: 'note' });
+        }, 1200);
     }
 })();

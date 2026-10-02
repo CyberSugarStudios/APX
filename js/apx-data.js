@@ -39,11 +39,15 @@
             { id: "freezing", name: "Freezing", desc: "2x AP to move. +5 damage taken from Bludgeoning. Past your CON score in hours, gain 1 Fatigue/hour until warmed." },
             { id: "frightened", name: "Frightened", desc: "Disadvantage on all attribute checks and attack rolls while the fear source is visible/audible. Can't willingly move toward it.",
               atkDisadvantage: 'general', checkDisadvantage: 'all' },
+            { id: "grabbed", name: "Grabbed", desc: "Held by (or holding) another creature: Speed 0. The grabber has Disadvantage on attacks against anyone else. Ends if either breaks free or lets go.",
+              speedZero: true },
+            { id: "grappled", name: "Grappled", desc: "Also Restrained (both the grappler and the target). Speed 0, Disadvantage on your attack rolls and AGI saves; attacks against you have Advantage." },
             { id: "incapacitated", name: "Incapacitated", desc: "AP reduced to 0; can't take actions, Free Actions, or Reactions. Completely exposed: any hit against you is a Critical Hit and bypasses all your resistances.",
               apZero: true, noActions: true },
             { id: "infected", name: "Infected", desc: "Carries a disease with no symptoms or penalties yet. Becomes Diseased after the incubation period." },
             { id: "paralyzed", name: "Paralyzed", desc: "Also Incapacitated. Can't move or speak. Auto-fail STR/AGI saves. Melee hits within 1 square are automatic Critical Hits.",
               apZero: true, autoFailSaves: ['STR','AGI'], autoFailChecks: ['STR','AGI'] },
+            { id: "pinned", name: "Pinned", desc: "Also Restrained and Prone (both creatures). The pinner can spend 1 AP to deal unarmed strike damage; that damage is non-lethal (0 HP from it is Unconscious, not Bleeding Out)." },
             { id: "poisoned", name: "Poisoned", desc: "Disadvantage on all attack rolls and attribute checks. Specific poisons may add further effects.",
               atkDisadvantage: 'general', checkDisadvantage: 'all' },
             { id: "prone", name: "Prone", desc: "Disadvantage on melee attack rolls, Advantage on ranged attack rolls. Crawling costs 2x AP; standing costs 2 AP and ends this.",
@@ -186,6 +190,8 @@
             { key: "swallowwhole", label: "Swallow Whole", tp: 4, desc: "Large+ only: 2 AP to swallow a grappled smaller target (Blinded, Restrained, Xd6 Acid/turn, X=Tier). Regurgitates if WT is exceeded.", tierCalc: (tier) => `At Tier ${tier}: ${Math.max(1, tier)}d6 Acid/turn.` },
             { key: "hivemind", label: "Hive Mind", tp: 4, desc: "Telepathic link to others with this trait within 20 sq; shares Surprise and up to 3 banked AP; shares damage evenly among linked creatures." },
             { key: "energyabsorption", label: "Energy Absorption", tp: 5, desc: "Choose an Energy type it's already immune to; regains HP equal to that damage instead." },
+            { key: "undead", label: "Undead", tp: 4, auto: { immuneEnergy: ["Poison"], vulnEnergy: ["Fire"], immuneConds: ["Bleeding Out", "Dehydrated", "Diseased", "Infected", "Poisoned", "Starving", "Suffocating"] }, desc: "This creature is reanimated and lacks a living metabolism. It is immune to Energy (Poison) damage and the Bleeding Out, Dehydrated, Diseased, Infected, Poisoned, Starving, and Suffocating conditions. Additionally, if this creature is reduced to 0 HP by non-critical Physical damage or Energy damage (other than Fire), it falls Prone and Incapacitated instead of being destroyed. At the start of its next turn, it must make a CON saving throw with a DC equal to the damage taken from the final blow. On a success, it revives and stands up with 1 HP. On a failure, it is permanently destroyed. Additionally, it is Vulnerability to Energy (Fire) damage and if it gains the Burning condition, it cannot spend AP to extinguish itself (another creature can still spend AP to extinguish it.)." },
+            { key: "unalive", label: "Unalive Structure", tp: 5, auto: { immuneEnergy: ["Poison", "Psychic"], vulnEnergy: ["Electric"], immuneConds: ["Bleeding Out", "Dehydrated", "Diseased", "Fatigue", "Frightened", "Infected", "Poisoned", "Provoked", "Starving", "Suffocating"] }, desc: "This creature is an inorganic machine or animated object. It is immune to Energy (Poison) and Energy (Psychic) damage. It is also completely immune to the Bleeding Out, Dehydrated, Diseased, Fatigue, Frightened, Infected, Poisoned, Provoked, Starving, and Suffocating conditions. Because it has no natural biology, an Unalive creature cannot regain HP from standard resting or biological healing effects. It can only be healed when an adjacent creature spends 3 AP to perform mechanical repairs, which restores Xd6 HP, where X is the repairing creature's INT modifier (minimum 1). Additionally, it is Vulnerable to Energy (Electric) damage. Whenever it takes Energy (Electric) damage, it must succeed on a CON saving throw (DC 10 + half the damage taken) or gain the Stunned condition until the end of its next turn." },
             { key: "multiheaded", label: "Multi-Headed", tp: 5, desc: "Large+ only: a Critical Hit/WT-exceeded severs a head; two regrow next turn unless it took Energy damage. +1 AP per head." }
         ];
 
@@ -723,7 +729,9 @@
             unconscious: ['incapacitated'],
             paralyzed:   ['incapacitated'],
             stunned:     ['incapacitated'],   // a Stunned creature is also Incapacitated
-            diseased:    ['infected']
+            diseased:    ['infected'],
+            grappled:    ['restrained'],
+            pinned:      ['restrained', 'prone']
         };
         const CONDITION_ON_START = { unconscious: ['prone'] };
         // Exceptions from perks. Frenzy Rank 5: "If you drop to 0 HP while Provoked,

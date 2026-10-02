@@ -157,7 +157,7 @@
                 hasArmorDisadvantage: false, maxHpPenalty: 0,
                 speedForcedZero: false, apForcedZero: false,
                 disadv: {
-                    atkGeneral: [], atkMelee: [], atkRangedAdv: [],
+                    atkGeneral: [], atkMelee: [], atkRangedAdv: [], atkAdv: [],
                     saveByAttr: { STR: [], AGI: [], CON: [], PER: [], INT: [], CHA: [], LUC: [] },
                     checkByAttr: { STR: [], AGI: [], CON: [], PER: [], INT: [], CHA: [], LUC: [] },
                     autoFailSaveByAttr: { STR: [], AGI: [], CON: [], PER: [], INT: [], CHA: [], LUC: [] },
@@ -312,7 +312,11 @@
             if (window.state.equippedArmor.athleticsMod) calc.skills.Athletics = (calc.skills.Athletics || 0) + window.state.equippedArmor.athleticsMod;
             if (window.state.equippedArmor.speedMod) calc.speed += window.state.equippedArmor.speedMod;
 
-            let reqStr = Math.floor(armorWt / 10);
+            // Armor Master: each rank makes worn armor (with shield and helmet) count as 5 lb lighter
+            // for weight class and the STR requirement (carry weight still uses the real weight)
+            let classWt = armorWt === 0 ? 0 : Math.max(0, armorWt - 5 * (window.state.perks['str_armormaster'] || 0));
+            calc.armorClassWt = classWt;
+            let reqStr = Math.floor(classWt / 10);
             let meetsStr = calc.scores.STR >= reqStr;
             calc.hasArmorDisadvantage = (!meetsStr && armorWt > 0);
             
@@ -355,13 +359,16 @@
                 applyEffectSource('Both Legs Wounded (Prone)', { atkDisadvantage: 'melee', rangedAtkAdvantage: true });
             }
 
+            // This turn's maneuvers (Fight Defensively, Fight Offensively…): see js/apx-actions.js
+            if (window.apxTurnFxApply) { try { window.apxTurnFxApply(calc); } catch (e) { console.warn('Turn effects:', e); } }
+
             calc.hasDisadvantage = calc.disadv.atkGeneral.length > 0; // back-compat alias for any simple check
             calc.disadvantageSources = calc.disadv.atkGeneral;
 
             // Armor weight class, derived from total armor weight (no
             // separate tracked field needed): Heavy > 70 lbs, Moderate
             // 31-70 lbs, Light 1-30 lbs, none if unarmored.
-            let armorClass = armorWt === 0 ? null : (armorWt > 70 ? 'Heavily' : (armorWt > 30 ? 'Moderately' : 'Lightly'));
+            let armorClass = armorWt === 0 ? null : (calc.armorClassWt > 70 ? 'Heavily' : (calc.armorClassWt > 30 ? 'Moderately' : 'Lightly'));
             let isHeavy = armorClass === 'Heavily';
 
             let agiCap = Infinity;
@@ -409,6 +416,8 @@
                 calc.dr += window.state.perks["con_defensive"];
                 calc.er += window.state.perks["con_defensive"];
             }
+            let turnAc = window.apxTurnFxAc ? window.apxTurnFxAc() : 0;   // Fight Defensively, Block… (until your next turn)
+            armorAc += turnAc;
             calc.ac += allowedAgi + armorAc;
             document.getElementById('dispAc').innerText = calc.ac;
             // Update AC label tooltip dynamically
@@ -827,7 +836,7 @@
                         lines.push(`Climb Speed: ${walkSpeed}`);
                     }
                     if (window.state.ancestry.traits.includes('t_fly')) {
-                        let armorClassLocal = armorWt === 0 ? null : (armorWt > 70 ? 'Heavily' : (armorWt > 30 ? 'Moderately' : 'Lightly'));
+                        let armorClassLocal = armorWt === 0 ? null : (calc.armorClassWt > 70 ? 'Heavily' : (calc.armorClassWt > 30 ? 'Moderately' : 'Lightly'));
                         let flyBlocked = armorClassLocal === 'Heavily' || totWt > calc.carryCap;
                         lines.push(flyBlocked ? 'Fly Speed: 0 (Encumbered/Heavy Armor)' : `Fly Speed: ${walkSpeed}`);
                     }
@@ -1211,7 +1220,7 @@
             let dmgText = fmtDmg(opts.dice, dmgMod);
             let cat = weaponCategory(w);
             let disadvSources = calc.disadv.atkGeneral.concat(cat === 'melee' ? calc.disadv.atkMelee : []);
-            let advSources = cat === 'ranged' ? calc.disadv.atkRangedAdv : [];
+            let advSources = (calc.disadv.atkAdv || []).concat(cat === 'ranged' ? calc.disadv.atkRangedAdv : []);
             // Fortunate Fighter Rank 4: crit multiplier +1
             let critMult = (w.critMult || 2) + ((window.state.perks['luc_fortunatefighter'] || 0) >= 4 ? 1 : 0);
             let rollName = (w.name || 'Weapon') + (opts.label ? (opts.attr === 'STR' && /2-Handed/.test(opts.label) ? ' (2-Handed)' : /Aimed/.test(opts.label) ? ' (Aimed)' : '') : '');
@@ -1704,7 +1713,11 @@
             let saveKind0 = info.kind === 'save' ? (/halves/i.test(info.text) ? 'halves' : 'negates') : null;
             // The GM's tracker learns what this power is (its damage type, its save), so the damage
             // entered next is this power, not an earlier attack
-            let tell = (text, extra) => { if (typeof window.apxOnRollEvent === 'function') window.apxOnRollEvent(Object.assign({ id: 'pw' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), kind: 'power', label: name, text }, extra || {})); };
+            // Summon a Creature: the GM's map gets the creature(s), next to you
+            let sumN = (p.draft && p.draft.utility && p.draft.utility.major && p.draft.utility.major.summonCreature) || 0;
+            let summon = sumN && p.draft.summonNpc ? { npc: (n => { delete n.portraitFull; return n; })(JSON.parse(JSON.stringify(p.draft.summonNpc))), count: sumN, tier: p.draft.summonTier || 1, power: name } : null;
+            if (sumN && !summon) APXDice.notify(`${name} summons a creature, but it hasn't been built yet: edit the power and build it in the NPC Crafter.`, { kind: 'warn', open: true });
+            let tell = (text, extra) => { if (typeof window.apxOnRollEvent === 'function') window.apxOnRollEvent(Object.assign({ id: 'pw' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), kind: 'power', label: name, text }, extra || {}, summon ? { summon } : {})); };
             if (info.kind === 'power' || info.kind === 'martial') {
                 let bonus = info.kind === 'power' ? pnums.atk : (info.w ? info.w.bonus : pnums.atk);
                 let via = info.kind === 'martial' && info.w ? ` (${info.w.label})` : '';

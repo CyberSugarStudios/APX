@@ -450,8 +450,8 @@
                 }
         
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20261021800">
-    <link rel="stylesheet" href="css/tailwind.css?v=20261021800">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20261031200">
+    <link rel="stylesheet" href="css/tailwind.css?v=20261031200">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
@@ -1519,36 +1519,36 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20261021800"></script>
-    <script src="js/apx-patch-notes.js?v=20261021800"></script>
-    <script src="js/apx-dice.js?v=20261021800"></script>
-    <script src="js/apx-data.js?v=20261021800"></script>
-    <script src="js/apx-item-effects.js?v=20261021800"></script>
-    <script src="js/apx-perks-db.js?v=20261021800"></script>
-    <script src="js/apx-migrations.js?v=20261021800"></script>
-    <script src="js/apx-state.js?v=20261021800"></script>
-    <script src="js/apx-craft-shared.js?v=20261021800"></script>
-    <script src="js/apx-armor-forge.js?v=20261021800"></script>
-    <script src="js/apx-weapon-forge.js?v=20261021800"></script>
-    <script src="js/apx-consumable-crafter.js?v=20261021800"></script>
-    <script src="js/apx-perks-ui.js?v=20261021800"></script>
-    <script src="js/apx-power-crafter.js?v=20261021800"></script>
-    <script src="js/apx-npc-crafter.js?v=20261021800"></script>
-    <script src="js/apx-inventory-ui.js?v=20261021800"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20261021800"></script>
-    <script src="js/apx-gm-screen.js?v=20261021800"></script>
-    <script src="js/apx-loot-maker.js?v=20261021800"></script>
-    <script src="js/apx-library.js?v=20261021800"></script>
-    <script src="js/apx-gmtools-main.js?v=20261021800"></script>
+    <script src="js/apx-dialogs.js?v=20261031200"></script>
+    <script src="js/apx-patch-notes.js?v=20261031200"></script>
+    <script src="js/apx-dice.js?v=20261031200"></script>
+    <script src="js/apx-data.js?v=20261031200"></script>
+    <script src="js/apx-item-effects.js?v=20261031200"></script>
+    <script src="js/apx-perks-db.js?v=20261031200"></script>
+    <script src="js/apx-migrations.js?v=20261031200"></script>
+    <script src="js/apx-state.js?v=20261031200"></script>
+    <script src="js/apx-craft-shared.js?v=20261031200"></script>
+    <script src="js/apx-armor-forge.js?v=20261031200"></script>
+    <script src="js/apx-weapon-forge.js?v=20261031200"></script>
+    <script src="js/apx-consumable-crafter.js?v=20261031200"></script>
+    <script src="js/apx-perks-ui.js?v=20261031200"></script>
+    <script src="js/apx-power-crafter.js?v=20261031200"></script>
+    <script src="js/apx-npc-crafter.js?v=20261031200"></script>
+    <script src="js/apx-inventory-ui.js?v=20261031200"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20261031200"></script>
+    <script src="js/apx-gm-screen.js?v=20261031200"></script>
+    <script src="js/apx-loot-maker.js?v=20261031200"></script>
+    <script src="js/apx-library.js?v=20261031200"></script>
+    <script src="js/apx-gmtools-main.js?v=20261031200"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20261021800"></script>
-    <script src="js/apx-firebase.js?v=20261021800"></script>
-    <script src="js/apx-battlemap.js?v=20261021800"></script>
-    <script src="js/apx-map-tiles.js?v=20261021800"></script>
+    <script src="js/firebase-config.js?v=20261031200"></script>
+    <script src="js/apx-firebase.js?v=20261031200"></script>
+    <script src="js/apx-battlemap.js?v=20261031200"></script>
+    <script src="js/apx-map-tiles.js?v=20261031200"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -2999,8 +2999,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let winId = 'omWin_'+mapId;
         let existing = document.getElementById(winId);
         if (existing) {
-            window.apxFloatingZTop++;
-            existing.style.zIndex = window.apxFloatingZTop;
+            if (window.apxFront) window.apxFront(existing); else { window.apxFloatingZTop++; existing.style.zIndex = window.apxFloatingZTop; }
             // Ensure cursor is correct — fog mode may have left it as 'none'
             let ea = document.getElementById(winId+'_area');
             if (ea && _fogMode !== mapId) ea.style.cursor = 'crosshair';
@@ -4286,6 +4285,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof window._gmStandUpAp === 'function') window._gmStandUpAp(entryId);
     }
     function _toggleIn(holder, condId, on, entryId) {
+        // Condition immunities (the NPC's own, and its Undead / Unalive Structure traits)
+        if (on && entryId && typeof window._gmTraitSb === 'function') {
+            let en = (window.gmInitiative||[]).find(e=>e.id===entryId);
+            let sb = en ? window._gmTraitSb(en) : null;
+            let nm = _condName(condId);
+            if (sb && (sb.conditionImmunities||[]).some(c => String(c).toLowerCase() === String(nm).toLowerCase())) {
+                if (window.APXDice && APXDice.notify) APXDice.notify(`${en.name} is immune to ${nm}.`, { kind: 'warn', open: true });
+                return;
+            }
+        }
         _standUpAp(holder, condId, on, entryId);
         let before = window.apxEffectiveConditions ? window.apxEffectiveConditions(holder.conditions).map(c => c.id) : [];
         let list = holder.conditions = (holder.conditions || []).filter(c => c !== condId);
@@ -4515,8 +4524,12 @@ document.addEventListener('DOMContentLoaded', () => {
         let newSize = BT_SIZE_LIST[newIdx];
         let p = _btPos(mapId, tok);
         if (!_btCanPlace(map, tok.id, p.gridX, p.gridY, newSize)) {
-            window.APXBattle.toast(document.getElementById(winId+'_area'), `Can't resize — another ${newSize} token is in the way`);
-            return;
+            // Growing next to another token or the edge: shift it a square up / left to make room
+            let fit = [[0,-1],[-1,0],[-1,-1],[0,-2],[-2,0],[-2,-2]].map(([dx,dy]) => ({ gx: p.gridX+dx, gy: p.gridY+dy }))
+                .find(c => c.gx >= 0 && c.gy >= 0 && _btCanPlace(map, tok.id, c.gx, c.gy, newSize));
+            if (!fit) { window.APXBattle.toast(document.getElementById(winId+'_area'), `Can't resize: no room for a ${newSize} token here (another token is in the way)`); return; }
+            tok.gridX = fit.gx; tok.gridY = fit.gy;
+            if ((tok.type === 'player' || tok.type === 'companion') && tok.playerUid) window.APXBattle.move(getActiveWorld()?.inviteCode, tok.playerUid, mapId, tok.id, fit.gx, fit.gy);
         }
         tok.size = newSize;
         if (tok.type === 'player' || tok.type === 'companion') tok.sizeOverride = true;   // keep it (powers, squeezing…)
@@ -4720,11 +4733,60 @@ document.addEventListener('DOMContentLoaded', () => {
         let tok = window._btAddToken(target.id, 'omWin_'+target.id, entry.baseName || entry.name, 'npc', color, wn?.id||null, null, entry.faction);
         if (!tok) return;
         tok.initiativeId = initEntryId;
-        tok.revealed = true;
+        tok.revealed = false;   // added hidden: reveal it from the token's menu when the players should see it
         window._gmRenumber();
         if (typeof window.renderInitiativeTracker === 'function') window.renderInitiativeTracker();
         saveWorldNotes();
         _btRenderTokens(target.id, 'omWin_'+target.id);
+    };
+
+    // Summon a Creature (a player's power): the creature is saved to the GM's NPCs and, when the
+    // caster's token is on an open Battle Map, placed next to them (and into initiative, after them)
+    window._gmSpawnSummon = function(uid, ev) {
+        let sm = ev.summon; if (!sm || !sm.npc) return;
+        let pm = (window.gmParty||[]).find(p=>p.fileName===uid);
+        let caster = pm?.summary?.name || ev.who || 'A player';
+        let id = 'sum_' + uid + '_' + String(sm.power||'').replace(/[^a-z0-9]/gi,'').slice(0,24);
+        let npc = JSON.parse(JSON.stringify(sm.npc));
+        let ge = (window.gmNpcs||[]).find(n=>n.id===id);
+        if (ge) ge.npc = npc; else { window.gmNpcs.push({ id, npc, summonOf: uid }); }
+        if (typeof window.renderGmNpcList === 'function') window.renderGmNpcList();
+        let idx = window.gmNpcs.findIndex(n=>n.id===id);
+        let count = Math.max(1, parseInt(sm.count)||1);
+        // The caster's Battle Map: an enabled battle map with their token, preferring one that's open
+        let maps = (_wNotes.otherMaps||[]).filter(m => m.battleMapEnabled && (m.battleTokens||[]).some(t=>t.type==='player'&&t.playerUid===uid));
+        let map = maps.find(m=>document.getElementById('omWin_'+m.id)) || null;
+        let inFight = (window.gmInitiative||[]).some(e=>e.playerUid===uid);
+        let made = [];
+        for (let k = 0; k < count; k++) {
+            let tok = null;
+            if (map) {
+                let me = map.battleTokens.find(t=>t.type==='player'&&t.playerUid===uid);
+                let at = _btPos(map.id, me);
+                let size = String(npc.size||'medium').toLowerCase();
+                let free = window.APXBattle.findFreeCell(map.battleTokens, {id:null,size}, at.gridX+1, at.gridY, t=>_btPos(map.id,t)) || {gridX:at.gridX+1,gridY:at.gridY};
+                tok = {id:'bt_'+Date.now()+'_'+Math.random().toString(36).slice(2,6), type:'npc', name:npc.name||'Summoned Creature', baseName:npc.name||'Summoned Creature',
+                    color:'#16a34a', size, gridX:free.gridX, gridY:free.gridY, worldNpcId:null, playerUid:null, initiativeId:null, revealed:true, faction:'ally', summonOf: uid, portrait: npc.portrait || ''};
+                map.battleTokens.push(tok);
+            }
+            if (inFight && typeof window.addToInitiative === 'function') {
+                if (tok) window._pendingTokenInitLink = { mapId: map.id, tokenId: tok.id };
+                let en = window.addToInitiative(idx, 'npc', 'ally', npc.name);
+                if (en) { en.summonOf = uid; en.tpValue = 0; let o = (window.gmInitiative||[]).find(e=>e.playerUid===uid&&!e.companionOf&&!e.summonOf); if (o) en.baseInitiative = o.baseInitiative; }
+                window._pendingTokenInitLink = null;
+            }
+            made.push(tok);
+        }
+        if (inFight && typeof window.gmCombatStarted !== 'undefined' && !window.gmCombatStarted) {
+            window.gmInitiative.sort((a,b)=>initiativeCompare(a,b));
+        }
+        window._gmRenumber && window._gmRenumber();
+        window.renderInitiativeTracker && window.renderInitiativeTracker();
+        saveWorldNotes();
+        if (map) _btRenderTokens(map.id, 'omWin_'+map.id);
+        let where = map ? ` next to them on ${map.name||'the battle map'}` : ' (their token isn\'t on an open Battle Map, so place it from the Saved NPCs)';
+        if (typeof gmLog === 'function') gmLog({ id: 'sum_' + ev.id, text: `${caster} summons ${count > 1 ? count + '× ' : ''}${npc.name||'a creature'}${where}.`, kind: 'info', force: true });
+        if (window.APXDice && APXDice.notify) APXDice.notify(`${caster} summoned ${count > 1 ? count + '× ' : ''}${npc.name||'a creature'}${where}.`, { kind: 'note', open: true });
     };
 
     // Full player stat block popup — opened by double-clicking a player's battle token
@@ -6185,8 +6247,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </script>
     <div id="floatingWindowContainer"></div>
 
-    <script src="js/apx-chat.js?v=20261021800"></script>
-    <script src="js/apx-extras.js?v=20261021800"></script>
-    <script src="js/apx-theme-light.js?v=20261021800"></script>
+    <script src="js/apx-chat.js?v=20261031200"></script>
+    <script src="js/apx-extras.js?v=20261031200"></script>
+    <script src="js/apx-theme-light.js?v=20261031200"></script>
 </body>
 </html>

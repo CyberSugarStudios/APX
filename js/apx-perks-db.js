@@ -17,7 +17,7 @@
                 "Rank 4. Combat maneuvers with melee weapons gain Advantage.",
                 "Rank 5. On Critical hit, roll attack again. If hits, deal maximum possible critical damage."
             ], effect: (c, r) => { c.bonusMeleeAtk += r; c.bonusMeleeDmg += r; } },
-            { id: "str_armormaster", name: "Armor Master", attr: "STR", max: 5, baseDesc: "Mastery over wearing armor.", ranks: [
+            { id: "str_armormaster", name: "Armor Master", attr: "STR", max: 5, baseDesc: "Mastery over wearing armor. For each Rank of this perk, your worn armor (with shield and helmet) counts as 5 lbs lighter (for armor weight class and the STR requirement).", ranks: [
                 "Rank 1. Equip/remove armor in half time.",
                 "Rank 2. Choose Lightly, Moderately, or Heavily armored. While wearing it, gain +1 AC and +1 DR.",
                 "Rank 3. While at least Lightly armored, Speed increases by +1.",

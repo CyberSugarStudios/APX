@@ -217,6 +217,7 @@
             z++;
         }
         window._apxPopZ = z;
+        if (el && el.dataset && el.dataset.apxMin) { el.style.display = ''; delete el.dataset.apxMin; if (el._apxTab) el._apxTab.remove(); }   // minimized: bring it back
         if (el) { el.setAttribute('data-apx-front', ''); el.style.zIndex = z; }
         return z;
     };
@@ -239,6 +240,45 @@
     // (after the window's own handlers, which may set a z-index of their own)
     document.addEventListener('mousedown', e => { let w = floatingOf(e.target); if (w) setTimeout(() => window.apxFront(w), 0); }, true);
     document.addEventListener('touchstart', e => { let w = floatingOf(e.target); if (w) setTimeout(() => window.apxFront(w), 0); }, { capture: true, passive: true });
+    // ── Tabs: double-click a window's title bar to minimize it ───────────
+    // It becomes a tab along the bottom of the screen; click the tab to bring it back (in front).
+    function tabBar() {
+        let b = document.getElementById('apxTabBar');
+        if (!b) {
+            b = document.createElement('div');
+            b.id = 'apxTabBar';
+            b.style.cssText = 'position:fixed;left:8px;bottom:8px;right:84px;display:flex;flex-wrap:wrap-reverse;gap:4px;z-index:2147483260;pointer-events:none';
+            document.body.appendChild(b);
+        }
+        return b;
+    }
+    function minimize(w) {
+        if (!w || w.style.display === 'none') return;
+        let hdr = w.firstElementChild;
+        let title = ((hdr && hdr.textContent) || w.id || 'Window').replace(/\s+/g, ' ').replace(/[✕×X]\s*$/, '').trim().slice(0, 32) || 'Window';
+        w.dataset.apxMin = '1';
+        w.style.display = 'none';
+        let t = document.createElement('button');
+        t.textContent = title;
+        t.title = 'Bring it back';
+        t.style.cssText = 'pointer-events:auto;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.7rem;font-weight:800;padding:.3rem .6rem;border-radius:.4rem .4rem 0 0;border:1px solid var(--c-border2,#475569);background:var(--c-surface,#1e293b);color:var(--c-text,#fff);box-shadow:0 4px 14px rgba(0,0,0,.5);cursor:pointer';
+        t.onclick = () => { t.remove(); w.style.display = ''; delete w.dataset.apxMin; window.apxFront(w); };
+        // the window closing for good takes its tab with it
+        let mo = new MutationObserver(() => { if (!w.isConnected) { t.remove(); mo.disconnect(); } });
+        mo.observe(w.parentNode || document.body, { childList: true });
+        w._apxTab = t;
+        tabBar().appendChild(t);
+    }
+    window.apxMinimizeWindow = minimize;
+    document.addEventListener('dblclick', e => {
+        if (e.target.closest('button, input, select, textarea, a, [contenteditable="true"]')) return;
+        let w = floatingOf(e.target); if (!w) return;
+        let hdr = w.firstElementChild;
+        if (!hdr || !hdr.contains(e.target)) return;   // only the title bar (the top strip)
+        e.preventDefault();
+        minimize(w);
+    }, true);
+
     // A window that just opened goes on top too
     let watchNew = () => new MutationObserver(list => list.forEach(m => m.addedNodes.forEach(n => {
         if (n.nodeType !== 1) return;

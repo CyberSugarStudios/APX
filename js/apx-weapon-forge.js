@@ -181,7 +181,7 @@ window.jumpToWpnStep = function(n) {
     let atLastStep = currentWeaponStep === 3;
     let gmMade = weaponForgeTarget === 'gm' || weaponForgeTarget === 'loot';
     document.getElementById('wpnBtnPurchase').style.display = (atLastStep && !gmMade) ? 'block' : 'none';
-    document.getElementById('wpnBtnCraft').style.display = (atLastStep && !gmMade) ? 'block' : 'none';
+    document.getElementById('wpnBtnCraft').style.display = (atLastStep && !gmMade && weaponForgeTarget !== 'companion') ? 'block' : 'none';
     document.getElementById('wpnBtnGmAdd').style.display = (atLastStep && gmMade) ? 'block' : 'none';
 
     if (currentWeaponStep === 2) renderWeaponForgeStep2();
@@ -587,11 +587,12 @@ window.purchaseWeapon = function() {
             else if (key === 'rangeTier') { batches.rangeTier = []; } // not cumulative -- always a full replace
             else { craftReconcileBatchesDown(batches, key, 0); } // properties/elemental: fully off
         });
-        window.state.currency = (window.state.currency || 0) - delta;
+        // A Loyal Companion's gear is paid for in Threat Points only (its TP budget), never Currency
+        if (weaponForgeTarget !== 'companion') window.state.currency = (window.state.currency || 0) - delta;
         applyWeaponForgeFinal(weaponForgeDraft, batches);
     };
 
-    if (delta > (window.state.currency || 0)) {
+    if (weaponForgeTarget !== 'companion' && delta > (window.state.currency || 0)) {
         window.showConfirm(`You need ${delta} Currency but only have ${window.state.currency || 0}. Purchase anyway (currency will go negative)?`, doPurchase);
         return;
     }

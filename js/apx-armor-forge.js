@@ -64,7 +64,7 @@ window.openArmorForge = function(target) {
     document.getElementById('armorForgeName').value = armorForgeDraft.name;
     let gmMade = armorForgeTarget === 'gm' || armorForgeTarget === 'loot';
     document.getElementById('armorBtnPurchase').classList.toggle('hidden', gmMade);
-    document.getElementById('armorBtnCraft').classList.toggle('hidden', gmMade);
+    document.getElementById('armorBtnCraft').classList.toggle('hidden', gmMade || armorForgeTarget === 'companion');   // companions pay TP, nothing to craft
     document.getElementById('armorBtnGmAdd').classList.toggle('hidden', !gmMade);
     document.getElementById('armorBtnGmAdd').textContent = armorForgeTarget === 'loot' ? 'Add to Loot' : 'Equip on NPC (Free)';
     window.renderArmorForge();
@@ -174,6 +174,10 @@ window.renderArmorForge = function() {
     extraShields.forEach(x => { totalWt += x.wt || 0; });
     if (eqHelmet?.equipped && !eqHelmet.broken && eqHelmet.wt) totalWt += eqHelmet.wt;
     else eqHelmet = null;
+    // Armor Master: 5 lb lighter per rank for class and STR (shown, never below 0)
+    let amRank = (wearer && wearer.perks && wearer.perks.str_armormaster) || 0;
+    let realWt = totalWt;
+    if (amRank && totalWt > 0) totalWt = Math.max(0, totalWt - 5 * amRank);
     reqStr = Math.floor(totalWt / 10);
     let shieldWt = (eqShield ? eqShield.wt : 0) + extraShields.reduce((t, x) => t + (x.wt || 0), 0);
     let shieldCount = (eqShield ? 1 : 0) + extraShields.length;
@@ -181,7 +185,7 @@ window.renderArmorForge = function() {
     if (armorForgeTarget === 'player' && typeof calc !== 'undefined' && calc.scores) strNow = calc.scores.STR;
 
     // Correct thresholds (match engine): Light ≤30, Medium 31-70, Heavy >70
-    let armorWtClass = totalWt === 0 ? 'Unarmored' : totalWt <= 30 ? 'Lightly Armored' : totalWt <= 70 ? 'Moderately Armored' : 'Heavily Armored';
+    let armorWtClass = realWt === 0 ? 'Unarmored' : totalWt <= 30 ? 'Lightly Armored' : totalWt <= 70 ? 'Moderately Armored' : 'Heavily Armored';
     let armorWtColor = totalWt <= 30 ? '#4ade80' : totalWt <= 70 ? '#f59e0b' : '#f87171';
     let agiRuleText = totalWt === 0
         ? '[ok] Unarmored — Full AGI bonus to AC'
@@ -202,7 +206,7 @@ window.renderArmorForge = function() {
                 <span style="font-size:0.75rem;font-weight:900;color:${armorWtColor};flex-shrink:0">${armorWtClass}: ${totalWt} lb${incl.length ? ' worn' : ''}</span>
                 <span style="font-size:0.65rem;color:#94a3b8;margin-left:auto;overflow:hidden;text-overflow:ellipsis">${agiShort}</span>
             </div>
-            <div style="font-size:0.6rem;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${incl.length ? `Armor ${totals.wt} lb + ${incl.join(' + ')}` : 'Armor only (no shield or helmet worn)'}</div>
+            <div style="font-size:0.6rem;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${incl.length ? `Armor ${totals.wt} lb + ${incl.join(' + ')}` : 'Armor only (no shield or helmet worn)'}${amRank && realWt > 0 ? ` · ${realWt} lb, counts as ${totalWt} (Armor Master ${amRank})` : ''}</div>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 sm:grid-flow-col sm:grid-rows-5 gap-1.5 max-h-[40vh] overflow-y-auto pr-1">${rows}</div>
 
@@ -313,11 +317,12 @@ window.purchaseArmor = function() {
         Object.keys(decreased).forEach(key => {
             craftReconcileBatchesDown(getTargetArmor().craftBatches, key, armorForgeDraft.mods[key] || 0);
         });
-        window.state.currency = (window.state.currency || 0) - delta;
+        // A Loyal Companion's gear is paid for in Threat Points only (its TP budget), never Currency
+        if (armorForgeTarget !== 'companion') window.state.currency = (window.state.currency || 0) - delta;
         applyArmorForgeFinal(armorForgeDraft.mods);
     };
 
-    if (delta > (window.state.currency || 0)) {
+    if (armorForgeTarget !== 'companion' && delta > (window.state.currency || 0)) {
         window.showConfirm(`You need ${delta} Currency but only have ${window.state.currency || 0}. Purchase anyway (currency will go negative)?`, doPurchase);
         return;
     }
