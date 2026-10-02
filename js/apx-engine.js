@@ -37,6 +37,11 @@
             if (window.state.ancestry.bonusPerkChoice === undefined) window.state.ancestry.bonusPerkChoice = null;
             if (!window.state.conditions) window.state.conditions = [];
             // Bleeding Out ends as soon as the character has HP again
+            // Knocked out by non-lethal damage: healed above 0 HP, you come to
+            if ((window.state.currentHp || 0) > 0 && window.state.koNonlethal) {
+                window.state.koNonlethal = false;
+                window.state.conditions = (window.state.conditions || []).filter(c => c !== 'unconscious');
+            }
             if ((window.state.currentHp || 0) > 0 && window.state.conditions.includes('bleedingout'))
                 window.state.conditions = window.state.conditions.filter(c => c !== 'bleedingout');
             if (!window.state.woundedLimbs) window.state.woundedLimbs = [];
@@ -1054,6 +1059,7 @@
         // uses AGI, with no melee-style STR choice. Heavy ranged is the one
         // exception -- it ADDS STR on top of AGI, it doesn't replace it or
         // double it. Melee keeps its normal weight-class attribute rules.
+        window.apxWeaponDmgModifier = (w, a) => weaponDmgModifier(w, a);   // (the Actions list's Choke uses your unarmed strike)
         function weaponDmgModifier(w, attrOverride) {
             let cat = weaponCategory(w);
             // FF rank 3+ lets the player SELECT LUC as their attack attribute.

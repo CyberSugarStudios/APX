@@ -174,6 +174,17 @@
                     text: 'Intelligence Powers are now Full Rest Powers and Charisma Powers are now Short Rest Powers, and you can have both. Each power now uses the Core Attribute you choose for it in the Power Crafter (its Attack Bonus and Save DC). Your powers keep the attribute they used before (' + was + ').' }];
                 return [];
             }
+        },
+        {
+            v: 10, label: 'Grapple rework',
+            run(s) {
+                // Grab / Grapple / Pin became Grapple / Pin: Grabbed is now Grappled
+                if (Array.isArray(s.conditions) && s.conditions.includes('grabbed')) {
+                    s.conditions = s.conditions.map(c => c === 'grabbed' ? 'grappled' : c).filter((c, i, a) => a.indexOf(c) === i);
+                }
+                if (Array.isArray(s.pinnedActions)) s.pinnedActions = s.pinnedActions.filter(n => n !== 'Grab');
+                return [];
+            }
         }
     ];
     // Joins identical inventory rows into one stack (worn items and part-used consumables stay apart)

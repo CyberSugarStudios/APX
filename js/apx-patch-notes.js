@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.3.2200',
-        released: '2026-10-03T22:00:00',
-        releasedText: 'October 3, 2026 · 10:00 PM',
+        version: 'v2026.10.2.1530',
+        released: '2026-10-02T15:30:00',
+        releasedText: 'October 2, 2026 · 3:30 PM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs that wear, carry and use their gear, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -39,7 +39,9 @@
                 'The World screen has Loot & Items and Powers tabs listing everything in your Library for that world.',
                 'Before you press Start Combat, players only hear that a creature took damage or went down; the full combat log reaches them once the fight starts.',
                 'New NPC traits run themselves in the tracker: Undead (falls Prone and Incapacitated at 0 HP and may rise again) and Unalive Structure (repair-only healing, Stunned by Electric damage). Condition immunities are enforced.',
-                'Tokens added with + Token from the tracker start hidden, and companions and summoned creatures act right after their owner.'
+                'Tokens added with + Token from the tracker start hidden, and companions and summoned creatures act right after their owner.',
+                'Grapples, knockouts and summons run themselves in the tracker: whoever\'s next to a Grappled creature is linked as its grappler and Staggered, non-lethal 0 HP leaves a creature knocked out with snoring Z\'s, and NPCs can summon creatures next to themselves.',
+                'NPCs can be Tiny (+2 AC, reach 0, no Heavy weapons), Huge adds its STR modifier to melee damage at -2 AC, and Grant XP has a Start Session type (5 + INT).'
             ]],
             ['For Players', [
                 'Identical items stack: three Leather Armors from three bandits make one "Leather Armor ×3" row. Equipping takes one from the stack, taking it off puts it back, and older inventories are joined up the first time you open the character.',
@@ -54,7 +56,9 @@
                 'Edit Token re-crops the circle your portrait and token show, without uploading the picture again.',
                 'Custom items can set a Core Attribute to a total, "unless higher" if you like: an Exo Suit that makes your STR 15 unless it\'s already more.',
                 'Click the Action Points title for every Combat Maneuver and Standard Action, side by side: one click spends the AP and applies the effect (Fight Defensively\'s AC, Block\'s Sturdy-weapon roll, Power Attack\'s damage and more), shown under Armor & Defenses with a ✕ to end it. Pin the ones you use most to Weapons & Attacks.',
-                'Summon a Creature powers are built in the NPC Crafter at the Tier you choose (+15 XP per Tier above 1), and their creatures appear next to you on your GM\'s battle map.'
+                'Summon a Creature powers are built in the NPC Crafter at the Tier you choose (+15 XP per Tier above 1), and their creatures appear next to you on your GM\'s battle map.',
+                'Grappling is reworked: Grapple (3 AP) and Pin (2 AP) are contested checks, the grappler is Staggered while holding on, Choke (2 AP) deals unarmed damage to a Pinned creature with no attack roll, and Escape (4 AP) ends it all. The Actions list runs each step and tells your GM\'s tracker.',
+                'Non-lethal damage: type "-6 nl" or tick Non-lethal, and 0 HP knocks the creature out (Unconscious, snoring on the battle map) instead of Bleeding Out or dying.'
             ]],
             ['At the Table', [
                 'One tray holds every roll, the combat log and your messages, and every die has a shape of its own.',
@@ -139,7 +143,9 @@
                 'Existing powers keep the attribute and pool they used before.',
                 'Summon a Creature has a Tier (+15 XP per Tier above 1, per creature). Saving the power opens the NPC Crafter to build the creature at that Tier, and using it places the creatures next to your token on the battle map your GM has open.',
                 'A power that summons a creature has an Edit Summoned Creature button, so the creature can be changed without reopening the Power Crafter.',
-                'Powers for your Loyal Companion and for a summoned creature are priced in Threat Points from their own budget, never your XP. Building a summoned creature\'s powers from inside the Power Crafter picks your own power back up afterward.'
+                'Powers for your Loyal Companion and for a summoned creature are priced in Threat Points from their own budget, never your XP. Building a summoned creature\'s powers from inside the Power Crafter picks your own power back up afterward.',
+                'Summoned creatures can\'t summon creatures of their own (the utility is locked when crafting their powers), and have a hard 3 AP each turn with nothing banked.',
+                'Your Loyal Companion can have a Summon a Creature power, up to its own Tier. Saving it opens the NPC Crafter for the creature and then returns to your companion; using it puts the creatures next to your companion on the battle map.'
             ]],
             ['Magic and Custom Items', [
                 'Equippable items can carry any number of bonuses, or penalties if cursed: Core Attributes, skills, AC, DR, ER, one energy resistance, Max HP, Max AP, Speed, Initiative, Wound Threshold, Max Rest Dice, Max Luck Points, Carry Capacity, attack and damage rolls, power attack and DC, saves, checks and extra Power Slots.',
@@ -172,7 +178,8 @@
                 'Defensive Rank 4: while you\'re unarmored, the line under DR and ER gives your DR and ER against traps, hazards and falling.',
                 'The damage type chooser also asks for damage taken on your own turn, and a power that deals half damage on a save uses its own damage type, never an earlier attack\'s.',
                 'When your GM has you fall, your tray asks for the AGI (Acrobatics) Reaction: every 5 you roll takes off 1d10.',
-                'Typing "-5" in an HP box and pressing Enter asks for the damage type, the same as clicking away does (Enter no longer answers the question for you).'
+                'Typing "-5" in an HP box and pressing Enter asks for the damage type, the same as clicking away does (Enter no longer answers the question for you).',
+                'Non-lethal damage: add "nl" ("-6 nl", "-6 fire nl") or tick Non-lethal in the damage chooser. At 0 HP you\'re knocked out (Unconscious, no Bleeding Out) and come to when healed. Your companion\'s HP box works the same way.'
             ]],
             ['Conditions and Injuries', [
                 'Wound Threshold and Bleed Out: your next CON save decides the Wound, then CON (Survive) sets your Bleed Out rounds. If a Luck reroll or an Omen die turns the Wound save into a success, the GM\'s limb choice disappears and any limb already chosen heals.',
@@ -180,7 +187,7 @@
                 'A Torso Wound adds a die to every hit on you (the largest die the attack rolled), both legs Wounded keeps you Prone until one heals, and four arms add Left Arm 2 and Right Arm 2 to the Wound list.',
                 'Stunned starts your turn with 0 AP, and a Stunning weapon\'s stun ends at the end of the attacker\'s next turn. Burning deals 1d10 Fire at the start of your turn, ignoring ER.',
                 'Unconscious, Paralyzed and Incapacitated stop attacks and powers and automatically fail the right checks. Conditions bring along the conditions they include, and Permanent Injuries are tracked.',
-                'Grabbed, Grappled (Restrained) and Pinned (Restrained and Prone) are conditions.'
+                'Grappled and Pinned are conditions. Grappled: Speed 0 and Disadvantage on attacks against anyone but the grappler. Pinned: also Grappled, Restrained and Prone. (Grabbed became Grappled.)'
             ]],
             ['Dice and Notifications', [
                 'Rolls, rest results, XP, loot, HP changes and warnings share one tray, with a red dot when something new arrives.',
@@ -228,12 +235,13 @@
                 'Attacks and powers spend their own AP, and you\'re asked first when you\'re short or a perk might change the cost.',
                 'AP perks (Adrenaline, Relentless) add their AP when combat starts, and New Turn never gives AP twice.',
                 'Drag your token in combat to see its path and AP cost (1, then 2, then 3… per Move); it\'s paid when you drop it. Hold Alt to move without paying.',
-                'Click the Action Points title in Vitals for every Combat Maneuver (left) and Standard Action (right). A click spends the AP (asking first if you\'re short) and applies what it can: Fight Defensively adds +4 AC (+2 on a turn you attack), Block doubles your shield or rolls your Sturdy weapon\'s die for AC, Fight Offensively gives Advantage, Power and Precision Attack add STR or AGI to your next melee hit, Charge adds a die, and Feint, Vault, Grapple and Pin roll their checks.',
+                'Click the Action Points title in Vitals for every Combat Maneuver (left) and Standard Action (right). A click spends the AP (asking first if you\'re short) and applies what it can: Fight Defensively adds +4 AC (+2 on a turn you attack), Block doubles your shield or rolls your Sturdy weapon\'s die for AC, Fight Offensively gives Advantage, Power and Precision Attack add STR or AGI to your next melee hit, Charge adds a die, and Feint and Vault roll their checks.',
                 'Active effects show under Armor & Defenses with a red ✕ to end them early; they end on their own at your next turn or when you attack.',
                 'Repair (Unalive): 3 AP to restore Xd6 HP (X = your INT modifier, min 1) to an adjacent machine or animated object.',
                 'A character can be open in one browser tab at a time. Opening it in another tab saves and sends the first one back to the lobby, so AP is never spent twice.',
                 'Block needs a shield or a Sturdy weapon (unarmed strikes count from Martial Arts Rank 2) and Shield Bash needs a shield; without one they\'re greyed out. Martial Arts Rank 1 takes 1 AP off every maneuver (minimum 1).',
-                'The 📌 beside any action pins it to Weapons & Attacks for one-click use; ✕ unpins it. Recover keeps its own button.'
+                'The 📌 beside any action pins it to Weapons & Attacks for one-click use; ✕ unpins it. Recover keeps its own button.',
+                'Grapple (3 AP): roll STR (Athletics), say whether you won the contest, and the creature next to you is Grappled while you\'re Staggered. Pin (2 AP) makes it Pinned; Choke (2 AP) deals your unarmed strike damage to it with no attack roll, lethal or non-lethal; ✕ on "Grappling" lets go. Escape (4 AP) frees you from a grapple and any Pin. The grapple carries over between turns, and your GM\'s tracker follows every step.'
             ]],
             ['Maps', [
                 'Special Map Markers (the single letters your GM places) are larger and bright yellow with a dark outline, easy to spot on light and dark maps alike, and never too small to read when zoomed out.',
@@ -252,13 +260,15 @@
                 'Double-click any popup window\'s title bar to minimize it to a tab in the bottom-left corner.',
                 'The Measure buttons and tip sit below a map window\'s own controls instead of behind them.',
                 'A minimized map comes back with its map, tokens and pins intact.',
-                'Cones mark every square at least a quarter inside the cone as drawn, so the highlighted squares match the outline at every length and angle.'
+                'Cones mark every square at least a quarter inside the cone as drawn, so the highlighted squares match the outline at every length and angle.',
+                'Knocked-out creatures turn grey with three snoring Z\'s rising from them.'
             ]],
             ['Rules', [
                 'High Roller, Fortunate Fighter (Rank 1 uses LUC for AC when that\'s higher), Mobile and Regenerative are rewritten or updated.',
                 'Power Crafting allows at most 8 dice per die step, Sacrifice keeps the caster from regaining HP until their next turn, and Mythic Utilities cost a flat 130 XP. Powers this affects show "Recraft (Free)".',
                 'Brute\'s carry capacity stacks with your race\'s size: each step doubles it again.',
-                'Armor Master: each Rank makes your worn armor (with Shield and Helmet) count as 5 lbs lighter for its weight class and STR requirement.'
+                'Armor Master: each Rank makes your worn armor (with Shield and Helmet) count as 5 lbs lighter for its weight class and STR requirement.',
+                'Brute Rank 2: you aren\'t Staggered while you grapple a creature (the grapple rework\'s cost for holding on).'
             ]],
             ['Layout and Account', [
                 'Settings sits beside World, and Undo and Redo are at the bottom of the Roster menu (Ctrl+Z and Ctrl+Y still work).',
@@ -379,7 +389,9 @@
                 'Undead (4 TP): immune to Poison and seven conditions, vulnerable to Fire. At 0 HP from non-critical Physical or non-Fire Energy damage it falls Prone and Incapacitated, and at the start of its turn the tracker rolls its CON save (DC = the final blow) to rise with 1 HP or be destroyed.',
                 'Unalive Structure (5 TP): immune to Poison, Psychic and ten conditions, vulnerable to Electric. Electric damage asks for its CON save (DC 10 + half the damage) or it\'s Stunned, and healing it asks whether it\'s a mechanical repair.',
                 'NPCs wear armor by the players\' rules: the weight class (armor, Shield and Helmet) caps their AGI bonus to AC, and below the STR requirement they lose AGI to AC and 2 Speed and attack with Disadvantage. Their stat blocks show the weight class and STR needed.',
-                'The Armor and Weapon Forges show no Cu for NPCs: their gear costs TP.'
+                'The Armor and Weapon Forges show no Cu for NPCs: their gear costs TP.',
+                'Tiny size: a 1x1 square, +2 AC, Advantage on AGI (Stealth), melee reach 0 and no Heavy weapons. Huge now gives Advantage on STR (Athletics), its STR modifier on melee damage, Disadvantage on AGI (Stealth) and -2 AC. The stat block applies the AC, reach and damage and lists the rest.',
+                'An NPC or companion can\'t summon creatures above its own Tier, and a summoned creature can\'t summon at all. Saving an NPC\'s summon power opens the crafter for its creature, then returns to the NPC.'
             ]],
             ['Initiative and Combat', [
                 'The tracker stands on its own and uses a battle map only when one is open or chosen as the fight\'s Battle map.',
@@ -389,7 +401,11 @@
                 'An Omen die a player passes you waits in your tray and can replace any creature\'s d20.',
                 'Loyal Companions share their owner\'s initiative and act right after them. A player\'s Summon a Creature joins the same way, placed next to them on the battle map their token is on.',
                 'Tokens added with + Token from the tracker start hidden; reveal them from the token\'s menu.',
-                'Grabbed, Grappled (Restrained) and Pinned (Restrained and Prone) are conditions, and a creature\'s condition immunities keep those conditions off it.'
+                'Grappled and Pinned are conditions (Grabbed became Grappled), and a creature\'s condition immunities keep conditions off it.',
+                'Grapples: marking a creature Grappled or Pinned links it to the creature next to it (you choose when there are several) and makes that grappler Staggered. Unmarking it, an Escape, the grappler letting go, being Incapacitated or leaving the fight ends the grapple and its Staggered. A Grappling weapon hit grapples on its own, and players\' Grapple, Pin, Choke and Escape from their sheets apply here, Choke damage included.',
+                'Non-lethal damage ("-12 nl", or the Non-lethal box): at 0 HP a creature is knocked out: Unconscious, still in the fight, grey with snoring Z\'s on the map (players don\'t Bleed Out). Healing wakes it; lethal damage while it\'s down kills an NPC or starts a player Bleeding Out.',
+                'Summoned creatures have a hard 3 AP: 3 at the start of each turn (1 if Surprised), none banked. An NPC\'s Summon a Creature power places its creatures next to it, on its side, acting right after it.',
+                'Grant XP has a Start Session type: 5 XP, named for the session (each sheet adds INT), so attendance XP reads cleanly in the log.'
             ]],
             ['Party and Companions', [
                 'Party stat blocks show each player\'s AC, DR, ER, Max HP, AP, Initiative and Wound Threshold exactly as their sheet does.',

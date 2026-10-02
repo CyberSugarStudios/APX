@@ -101,13 +101,14 @@
         ['Actions', 'Actions and AP', `
             <ul><li>Click the <b>Action Points</b> title in Vitals for every Combat Maneuver and Standard Action. Clicking one spends its AP (short on AP? you're asked first) and applies what it can: Fight Defensively's AC, Power Attack's damage on your next melee attack, Feint's Advantage, and so on.</li>
             <li>Combat Maneuvers are on the left, Standard Actions on the right. Greyed-out ones need something you don't have (Block needs a shield or a Sturdy weapon, Shield Bash a shield). Block with a Sturdy weapon rolls its die for you.</li>
+            <li><b>Grappling:</b> Grapple (3 AP) and Pin (2 AP) roll your Athletics and ask whether you won the contest; you're Staggered while you hold on, and your GM's tracker marks the creature next to you. Choke (2 AP) deals your unarmed damage to a Pinned creature, lethal or non-lethal. Escape (4 AP) breaks free; ✕ on "Grappling" lets go.</li>
             <li>The 📌 beside an action pins it to <b>Weapons &amp; Attacks</b>, so the ones you build around are one click away. Click ✕ on a pinned action to unpin it.</li>
             <li>Active effects show under <b>Armor &amp; Defenses</b> with a red <b>✕</b> to end them early. Most end on their own at your next turn or when you attack.</li>
-            <li>Powers with <b>Summon a Creature</b> have you build the creature in the NPC Crafter when you save the power; <b>Edit Summoned Creature</b> on the power changes it later. The creature's own powers cost TP from its Tier's budget, never your XP. Using it puts the creatures next to your token on your GM's battle map.</li>
+            <li>Powers with <b>Summon a Creature</b> have you build the creature in the NPC Crafter when you save the power; <b>Edit Summoned Creature</b> on the power changes it later. The creature's own powers cost TP from its Tier's budget, never your XP. Summoned creatures have a hard 3 AP each turn and can't summon creatures of their own; a Loyal Companion's summons can't be a higher Tier than it. Using it puts the creatures next to your token on your GM's battle map.</li>
             <li>Your Loyal Companion's forged armor and weapons cost only Threat Points, and follow the same armor rules as yours (weight class, STR requirement).</li></ul>`],
         ['Shortcuts', 'Shortcuts worth knowing', `
             <ul><li>Number boxes do math: type <kbd>+5</kbd> or <kbd>-3</kbd> to add or subtract, or <kbd>35-9</kbd> after what's there.</li>
-            <li>Hit Points: <kbd>-9</kbd> takes 9 damage, through Temp HP first. <kbd>-9 fire</kbd> uses that damage type, so your DR/ER, resistances and immunities apply. Hit by the GM's creature? Its damage type is used for you.</li>
+            <li>Hit Points: <kbd>-9</kbd> takes 9 damage, through Temp HP first. <kbd>-9 fire</kbd> uses that damage type, so your DR/ER, resistances and immunities apply. Hit by the GM's creature? Its damage type is used for you. Add <kbd>nl</kbd> (or tick Non-lethal) for non-lethal damage: 0 HP knocks you out instead of Bleeding Out.</li>
             <li><kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes and <kbd>Ctrl</kbd>+<kbd>Y</kbd> redoes changes on the sheet. <kbd>Enter</kbd> confirms a box.</li>
             <li>Double-click a popup window's title bar to minimize it to a tab in the bottom-left corner; click the tab to bring it back.</li>
             <li>A character can be open in one browser tab at a time: opening it in a second tab sends the first one back to the lobby, so AP and HP never get spent twice.</li>
@@ -130,10 +131,13 @@
         ['NPCs', 'NPCs, races and the Library', `
             <ul><li>The <b>NPC Crafter</b> builds stat blocks from a Tier and a TP budget: attributes, weapons, armor, perks, traits and powers. Stat blocks roll straight from their dice.</li>
             <li><b>Race Templates</b> are the races your players can pick in their Race Builder; changes reach them live.</li>
+            <li>NPC sizes run from Tiny (+2 AC, reach 0, no Heavy weapons) to Gargantuan; Huge adds its STR modifier to melee damage and takes −2 AC.</li>
             <li>Items, forged weapons and armor, consumables and powers you make go into your <b>Library</b>, tagged with the world you made them in, so you can reuse them anywhere.</li></ul>`],
         ['Combat', 'Running combat', `
             <ul><li>Add NPCs and players to the <b>initiative tracker</b>, then <b>Start Combat</b> and use <b>Next Turn</b>. AP, reactions, condition timers and auras are handled turn by turn.</li>
-            <li>Damage is entered as a number (or <kbd>-12 fire</kbd>): DR/ER, resistances, wounds and Wound Thresholds are applied for you, and saves and wound checks are asked of the right player.</li>
+            <li>Damage is entered as a number (or <kbd>-12 fire</kbd>): DR/ER, resistances, wounds and Wound Thresholds are applied for you, and saves and wound checks are asked of the right player. <kbd>-12 nl</kbd> (or the Non-lethal box) is non-lethal: at 0 HP the creature is knocked out, grey with snoring Z's on the map, instead of dying or Bleeding Out.</li>
+            <li><b>Grapples</b> keep themselves in step: marking a creature Grappled or Pinned links it to whoever's next to it (you're asked if there's more than one), and the grappler is Staggered until the grapple ends (Escape, letting go, Incapacitated, or out of the fight). A Grappling weapon hit grapples on its own.</li>
+            <li>Summoned creatures (players', companions' and your NPCs') appear next to their summoner on the battle map and act right after it, with a hard 3 AP each turn.</li>
             <li>Click a creature's conditions to change them, players included (Grabbed, Grappled and Pinned are there too). Condition immunities are enforced. <b>⤓ Fall</b> rolls fall damage with the Acrobatics reaction.</li>
             <li>Loyal Companions and summoned creatures act on their owner's initiative, right after them. A player's Summon a Creature power places its creatures next to them on the battle map they're on.</li>
             <li>NPCs follow the armor rules too: weight class caps their AGI bonus to AC, and an unmet STR requirement costs them their AGI to AC, 2 Speed, and gives Disadvantage on attacks. Their forged gear costs TP, never Cu.</li>
@@ -148,7 +152,8 @@
         ['Loot and notes', 'Loot, crafting and notes', `
             <ul><li>The <b>Loot Maker</b> builds loot boxes and gives items or Currency to players; a hidden grant isn't shown to the rest of the party.</li>
             <li>The Weapon and Armor Forges and the Consumable Crafter make custom gear for shops and loot.</li>
-            <li><b>Session Notes</b> keep a log of each session, with bullets and bold, and a read view.</li></ul>`],
+            <li><b>Session Notes</b> keep a log of each session, with bullets and bold, and a read view.</li>
+            <li><b>Grant XP</b> has a <b>Start Session</b> type: 5 XP (each sheet adds its INT), named for the session, for everyone who showed up.</li></ul>`],
         ['Limits', 'What the tools do, and what they don\'t', `
             <p><b>They do:</b> track your worlds, NPCs and combat; do APX's math (damage, mitigation, conditions, wounds, AP); and keep your players' sheets in sync with your tracker in real time.</p>
             <p><b>Keep in mind:</b></p>

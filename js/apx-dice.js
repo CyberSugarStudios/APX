@@ -1027,7 +1027,7 @@
             let back = document.createElement('div');
             back.className = 'apxd-ask' + (opts.grid ? ' wide' : '');
             let btns = choices.map(c => `<button class="${c[2] || ''}" data-v="${c[0]}"${c[3] ? ` title="${esc(c[3])}"` : ''}>${esc(c[1])}${c[4] ? `<small>${esc(c[4])}</small>` : ''}</button>`).join('');
-            let check = opts.check ? `<label class="chk"><input type="checkbox" data-chk> <span><b>${esc(opts.check.label)}</b>${opts.check.hint ? `<small>${esc(opts.check.hint)}</small>` : ''}</span></label>` : '';
+            let check = opts.check ? `<label class="chk"><input type="checkbox" data-chk${opts.check.checked ? ' checked' : ''}> <span><b>${esc(opts.check.label)}</b>${opts.check.hint ? `<small>${esc(opts.check.hint)}</small>` : ''}</span></label>` : '';
             back.innerHTML = opts.grid
                 ? `<div><h4>${esc(title)}</h4><p>${esc(text)}</p><div class="grid">${btns}</div>${check}<div class="row"><button data-v="">Cancel</button></div></div>`
                 : `<div><h4>${esc(title)}</h4><p>${esc(text)}</p>${check}<div class="row"><button data-v="">Cancel</button>${btns}</div></div>`;

@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.10.3.2200';
+window.APX_VERSION = 'v2026.10.2.1530';
 
         window.state = getInitialState();
 
@@ -355,6 +355,7 @@ window.APX_VERSION = 'v2026.10.3.2200';
                         let useAtk = false;
                         let finish = (t) => {
                             if (!t) { window.apxRefreshHpInputs?.(); return; }
+                            let nl = !!(pe.nonlethal || t.nonlethal);   // non-lethal: 0 HP knocks you out instead
                             useAtk = !!(t.fromSuggest && fresh);
                             let eff = window.apxEffectiveConditions ? window.apxEffectiveConditions(window.state.conditions || [], window.state).map(c => c.id) : [];
                             let res = window.APXDamage.mitigate(raw, t, def, { ignore: useAtk ? window.APXDamage.ignoreOf(atk) : null, bypassRes: eff.includes('incapacitated'), halfBypass: def.halfBypass });
@@ -364,17 +365,18 @@ window.APX_VERSION = 'v2026.10.3.2200';
                             // Tell the GM first (their tracker turns it into a hit: extra dice, reactions, saves),
                             // even when it comes to 0
                             window.apxOnRollEvent?.({ id: 'dmg' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), kind: 'damage', label: 'Damage',
-                                raw, types: t.slice(), ignoreRes: !!t.ignoreRes, dmg: res.dmg, text: res.text, atkId: useAtk ? atk.id : null, hpAfter: r2.currentHp, tempAfter: r2.tempHp });
+                                raw, types: t.slice(), ignoreRes: !!t.ignoreRes, nonlethal: nl || undefined, dmg: res.dmg, text: res.text, atkId: useAtk ? atk.id : null, hpAfter: r2.currentHp, tempAfter: r2.tempHp });
                             window.state.tempHp = r2.tempHp;
                             window.updateState('currentHp', r2.currentHp);
                             window.apxRefreshHpInputs?.();
                             window.scheduleAutoSave?.();
-                            window.APXDice?.notify(`Damage${useAtk ? ` from ${atk.by}'s ${atk.label}` : ''}: ${res.text}.`, { kind: res.dmg ? 'warn' : 'note' });
+                            if (nl && r2.currentHp <= 0 && !(window.state.conditions || []).includes('unconscious') && typeof window.toggleCondition === 'function') { window.state.koNonlethal = true; window.toggleCondition('unconscious', true); }
+                            window.APXDice?.notify(`Damage${useAtk ? ` from ${atk.by}'s ${atk.label}` : ''}: ${res.text}${nl ? ' (non-lethal)' : ''}.${nl && r2.currentHp <= 0 ? ' You\'re knocked out: Unconscious, not Bleeding Out.' : ''}`, { kind: res.dmg ? 'warn' : 'note' });
                         };
-                        if (types.length) finish(types);
+                        if (types.length) { if (pe.nonlethal) types.nonlethal = true; finish(types); }
                         else {
                             let suggest = fresh && atk.dmgType ? { types: window.APXDamage.parts(atk.dmgType), label: `${atk.by}'s ${atk.label}` } : null;
-                            window.APXDamage.askType(`${raw} damage`, `What kind of damage is it? It's reduced by your DR ${def.dr} (physical) or ER ${def.er} (energy), plus any resistance or immunity.${suggest ? ` The first button is the attack your GM just rolled (${suggest.label}).` : ''} Tip: type "-${raw} fire" to skip this.`, def, { suggest }).then(finish);
+                            window.APXDamage.askType(`${raw} damage`, `What kind of damage is it? It's reduced by your DR ${def.dr} (physical) or ER ${def.er} (energy), plus any resistance or immunity.${suggest ? ` The first button is the attack your GM just rolled (${suggest.label}).` : ''} Tip: type "-${raw} fire" to skip this.`, def, { suggest, nonlethal: pe.nonlethal }).then(finish);
                         }
                         return;
                     }

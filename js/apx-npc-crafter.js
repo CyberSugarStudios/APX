@@ -925,10 +925,18 @@ window.ncSetPowerAttr = function(val) {
 
 window.closeNpcCrafter = function() {
     if (ncTarget === 'summon') {
-        let s = window._ncSummon; window._ncSummon = null; ncTarget = 'companion';
-        window.closeModal('npcCrafterModal');
+        let s = window._ncSummon; window._ncSummon = null;
+        let o = (s && s.outer) || { target: 'companion', gmId: null, step: 1, open: false };
+        ncTarget = o.target === 'summon' ? 'companion' : o.target; ncActiveGmNpcId = o.gmId;
         if (s && typeof s.done === 'function') s.done(s.npc);
-        window.recalculateMath();
+        if (o.open) {
+            // Built from inside a companion's / NPC's crafter: back to that creature, where it was
+            ncStep = o.step || 1;
+            for (let i = 1; i <= 8; i++) { let el = document.getElementById(`ncStep${i}`); if (el) el.classList.toggle('active', i === ncStep); }
+            ncRenderAll();
+            if (ncTarget === 'gm' && typeof window.renderGmNpcList === 'function') window.renderGmNpcList();
+        } else window.closeModal('npcCrafterModal');
+        if (typeof window.recalculateMath === 'function') window.recalculateMath();
         return;
     }
     window.closeModal('npcCrafterModal');
@@ -1194,9 +1202,14 @@ window.companionStatBlock = function() {
     if (shieldOn) er += NPC_SHIELD.er;
     if (helmetOn) er += NPC_HELMET.er;
     ac += ist('ac'); dr += ist('dr'); er += ist('er');
+    // Size: Tiny +2 AC (reach 0, no Heavy weapons); Huge -2 AC (+STR modifier to melee damage)
+    let isTiny = c.size === 'tiny', isHuge = c.size === 'huge';
+    if (isTiny) ac += 2;
+    if (isHuge) ac -= 2;
+    let hugeMelee = isHuge ? (mods.STR || 0) : 0;
     let speed = 3 + c.speedBonus + (armor.speedMod || 0) + ist('speed') - (armorStrShort ? 2 : 0);
     speed = Math.max(0, speed);
-    let ap = 6 + c.apBonus * 1 + ist('maxAp'); // AP purchases add flat +1 each (not tied to AGI for NPCs, per Ch.15 baseline "6 AP")
+    let ap = c.isSummon ? 3 : 6 + c.apBonus * 1 + ist('maxAp');   // summoned by a power: a hard 3 AP // AP purchases add flat +1 each (not tied to AGI for NPCs, per Ch.15 baseline "6 AP")
     // NPCs don't get a chosen initStat like players (AGI or PER) --
     // AGI is the standard default for Passive Initiative.
     let initiative = 10 + mods.AGI + ist('init');
@@ -1210,12 +1223,12 @@ window.companionStatBlock = function() {
     let innateAttacks = (c.innateWeapons || []).map(w => {
         let dieInfo = parseDieStep(NPC_DIE_STEPS[w.dieStepIndex || 0]);
         let dice = `${dieInfo.count + (w.extraDice || 0)}${dieInfo.type}`;
-        let bonusMod = ((w.dmgBonus === 'STR' || w.dmgBonus === 'AGI') ? (mods[w.dmgBonus] || 0) : 0) + ist('meleeDmg');
+        let bonusMod = ((w.dmgBonus === 'STR' || w.dmgBonus === 'AGI') ? (mods[w.dmgBonus] || 0) : 0) + ist('meleeDmg') + hugeMelee;
         let dmgText = dice + (bonusMod ? ` ${bonusMod >= 0 ? '+' : '-'} ${Math.abs(bonusMod)}` : '');
         let typeText = w.dmgBonus === 'energy' ? `${w.dmgType} + ${w.energyType} (split)` : w.dmgType;
         let props = (w.properties || []).map(k => NPC_WEAPON_PROPERTIES.find(p => p.key === k)).filter(Boolean)
             .map(p => p.tierCalc ? `${p.label} — ${p.tierCalc(tier)}` : p.label);
-        return { id: w.id, name: w.name || 'Innate Weapon', attackBonus, dmgText, typeText, range: 1 + (w.rangeBonus || 0), propNames: props, props: (w.properties || []).slice(),
+        return { id: w.id, name: w.name || 'Innate Weapon', attackBonus, dmgText, typeText, range: Math.max(0, 1 + (w.rangeBonus || 0) - (isTiny ? 1 : 0)), propNames: props, props: (w.properties || []).slice(),
             elemental: w.dmgBonus === 'energy' ? w.energyType : null, tp: ncInnateWeaponTp(w) };
     });
     // Back-compat fields (first innate weapon) for older views
@@ -1276,7 +1289,7 @@ window.companionStatBlock = function() {
     (c.weapons || []).forEach((w, wIdx) => {
         let hand = handOf(w);
         let rngd = w.category === 'ranged';
-        let dmgMod = companionWeaponDamageModifier(w, mods) + ist(rngd ? 'rangedDmg' : 'meleeDmg');
+        let dmgMod = companionWeaponDamageModifier(w, mods) + ist(rngd ? 'rangedDmg' : 'meleeDmg') + (rngd ? 0 : hugeMelee);
         let dmgText = dmgMod !== 0 ? `${w.dmg} ${dmgMod >= 0 ? '+' : '-'} ${Math.abs(dmgMod)}` : w.dmg;
         let atkInfo = companionWeaponAttackBonus(c, w, mods);
         equippedWeapons.push({
@@ -1289,7 +1302,8 @@ window.companionStatBlock = function() {
             // Effective / Long Range in squares (Thrown: STR score / double it)
             range: w.range || (w.properties && w.properties.thrown ? `${5 + (mods.STR || 0)}/${2 * (5 + (mods.STR || 0))}` : null),
             hand, handLabel: hand === 'both' ? 'Both Hands' : hand === 'main' ? 'Main Hand' : hand === 'off' ? 'Off Hand' : 'No free hand',
-            hands: w.weightClass === 'heavy' ? 2 : 1
+            hands: w.weightClass === 'heavy' ? 2 : 1,
+            tooBig: isTiny && w.weightClass === 'heavy'
         });
         // Medium melee weapons can also be wielded 2-handed: STR only,
         // +1 AP, +1 die step -- shown as a second linked row, same as the
@@ -1340,7 +1354,8 @@ window.companionStatBlock = function() {
         lairActionsText: c.lairActionsText || '',
         mythicAwakening: !!c.mythicAwakening,
         mythicAwakeningText: c.mythicAwakeningText || '',
-        size: sizeDef ? sizeDef.label : 'Medium', swarm: c.swarm,
+        size: sizeDef ? sizeDef.label : 'Medium', swarm: c.swarm, sizeKey: c.size || 'medium',
+        sizeNote: isTiny ? 'Tiny: Advantage on AGI (Stealth), +2 AC (included), melee reach 0, can\'t wield Heavy weapons.' : isHuge ? 'Huge: Advantage on STR (Athletics), +STR modifier to melee damage (included), Disadvantage on AGI (Stealth), -2 AC (included).' : '',
         altLocomotion: c.altLocomotion, hover: c.hover,
         mods, dmgText, attackBonus, range, propNames, innateAttacks, trainingBonus: c.trainingBonus,
         armorWt: wornWt, armorReqStr, armorStrShort, armorClass,
@@ -1480,11 +1495,13 @@ window.setCompanionHp = function(val) {
             let cc = ncActiveCompanion(), now = window.companionStatBlock();
             if (!cc || !now) return;
             cc.currentHp = Math.max(0, Math.min(now.maxHp, now.currentHp - res.dmg));
+            let nl = !!(pe.nonlethal || t.nonlethal);
+            if (cc.currentHp <= 0) cc.ko = nl;   // knocked out (non-lethal), not dying
             redraw();
-            window.APXDice?.notify(`${now.name || 'Companion'} takes damage${useAtk ? ` from ${atk.by}'s ${atk.label}` : ''}: ${res.text}.`, { kind: res.dmg ? 'warn' : 'note' });
+            window.APXDice?.notify(`${now.name || 'Companion'} takes damage${useAtk ? ` from ${atk.by}'s ${atk.label}` : ''}: ${res.text}${nl ? ' (non-lethal)' : ''}.${nl && cc.currentHp <= 0 ? ' It\'s knocked out (Unconscious).' : ''}`, { kind: res.dmg ? 'warn' : 'note' });
         };
         if (types.length) finish(types);
-        else D.askType(`${pe.raw} damage to ${sb.name || 'your companion'}`, `Nothing says what kind of damage this is. ${sb.name || 'Your companion'} has DR ${def.dr} (physical) and ER ${def.er} (energy), plus any resistance or immunity. Tip: type "-${pe.raw} fire" to skip this.`, def, { suggest: fresh && atk.dmgType ? { types: D.parts(atk.dmgType), label: `${atk.by}'s ${atk.label}` } : null }).then(finish);
+        else D.askType(`${pe.raw} damage to ${sb.name || 'your companion'}`, `Nothing says what kind of damage this is. ${sb.name || 'Your companion'} has DR ${def.dr} (physical) and ER ${def.er} (energy), plus any resistance or immunity. Tip: type "-${pe.raw} fire" to skip this.`, def, { suggest: fresh && atk.dmgType ? { types: D.parts(atk.dmgType), label: `${atk.by}'s ${atk.label}` } : null, nonlethal: pe.nonlethal }).then(finish);
         return;
     }
     let n;
@@ -1774,6 +1791,7 @@ function buildStatBlockHtml(sb, editable) {
                 // Two-handed attacks need 2 free hands: with a shield held they're listed but can't be rolled
                 let blocked = (w.hands || 1) > sb.freeHands;
                 let handTag = w.handLabel ? ` <span class="text-[9px] font-bold text-cyan-300/80">(${w.handLabel}${!w.isTwoHanded && (w.hand === 'main' || w.hand === 'off') ? `<button type="button" title="Switch hands" onclick="window.npcSwapWeaponHand(${sb._npcId ? `'${sb._npcId}'` : 'null'}, ${w.weaponIdx})" class="ml-0.5 text-cyan-400 hover:text-white">⇄</button>` : ''})</span>` : '';
+                if (w.tooBig) handTag += ` <span class="text-[9px] font-bold text-red-400">(Tiny: can't wield Heavy weapons)</span>`;
                 return `<div class="text-xs ${blocked ? 'text-slate-500' : 'text-slate-200'}" data-roll-label="${esc(w.name)} damage">${esc(w.name)}${handTag}: ${blocked
                     ? `<span data-no-roll title="Needs ${w.hands} free hands. Stow the shield to use it.">+${w.atk} to hit, ${w.dmg} damage</span>, ${w.ap} AP${w.range ? `, Range ${esc(String(w.range))} sq` : ''} <span class="text-[10px] text-amber-500/80">(needs ${w.hands} free hands)</span>`
                     : `<span class="apxd-atk"${R({ type: 'attack', label: w.name, bonus: w.atk, dice: String(w.dmg), critMult: w.critMult || 2, disSources: sb.armorStrShort ? ['Armor (STR requirement not met)'] : undefined, npcId: sb._npcId || null, initId: sb._initId || null, apCost: parseInt(w.ap) || 3, flurry: w.flurry || undefined, ranged: w.category === 'ranged' || undefined, dmgType: w.dmgType || undefined, hit: hitOf(w) })}>+${w.atk} to hit</span>, ${w.dmg} damage, ${w.ap} AP${w.range ? `, Range ${esc(String(w.range))} sq` : ''} <span class="text-[10px] text-slate-500">(${w.typeLabel})</span>`}</div>`;
@@ -1789,7 +1807,7 @@ function buildStatBlockHtml(sb, editable) {
             <div class="grid grid-cols-2 gap-x-3">${sb.trainedSkills.length ? sb.trainedSkills.map(s => `<div class="text-xs text-slate-200"${R({ type: 'check', attr: s.attr || undefined, label: s.name, bonus: s.total })}>${esc(s.name)} (${s.total >= 0 ? '+' : ''}${s.total})</div>`).join('') : '<div class="text-[10px] text-slate-600 col-span-2">No skills trained</div>'}</div>
         </div>
         <div class="grid grid-cols-2 gap-2 mb-2">
-            ${defBox('Size / Movement', 'text-blue-400', `<div class="text-[10px] text-slate-300">${sb.size}${sb.swarm ? ' (Swarm)' : ''} · Speed ${sb.speed}</div>
+            ${defBox('Size / Movement', 'text-blue-400', `<div class="text-[10px] text-slate-300">${sb.size}${sb.swarm ? ' (Swarm)' : ''} · Speed ${sb.speed}</div>${sb.sizeNote ? `<div class="text-[9px] text-slate-400 leading-tight">${esc(sb.sizeNote)}</div>` : ''}
                 ${sb.altLocomotion.map(l => `<div class="text-[10px] text-slate-300">${l.type} Speed ${sb.speed * (l.doubled ? 2 : 1)}</div>`).join('')}
                 ${sb.hover ? '<div class="text-[10px] text-slate-300">Hover</div>' : ''}`)}
             ${defBox('Senses', 'text-blue-400', sb.senseList.length ? sb.senseList.map(s => `<div class="text-[10px] text-slate-300">${esc(s)}</div>`).join('') : '<div class="text-[10px] text-slate-600">None</div>')}
@@ -1888,6 +1906,15 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
         } else o.useNote = `Uses a Level ${lvl}+ Power Slot (track it in the initiative tracker)`;
     }
     let tell = (text, gmText) => { if (typeof window.gmLog === 'function') window.gmLog({ text, gmText: gmText || text, kind: 'info' }); };
+    // Summon a Creature: the creatures appear next to this creature (a companion's: via the GM's tracker)
+    let sumN = ((d.utility || {}).major || {}).summonCreature || 0;
+    if (sumN) {
+        if (sb._isCompanion) {
+            if (!d.summonNpc) APXDice.notify(`${p.name || 'This power'} summons a creature, but it hasn't been built yet: edit the power in the NPC Crafter.`, { kind: 'warn', open: true });
+            else window.apxOnRollEvent?.({ id: 'pw' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), kind: 'power', label: p.name || 'Power', companion: true,
+                text: `${whoPub} uses ${p.name || 'a power'}.`, summon: { npc: (n => { delete n.portraitFull; return n; })(JSON.parse(JSON.stringify(d.summonNpc))), count: sumN, tier: d.summonTier || 1, power: p.name || 'Power' } });
+        } else if (typeof window._gmSpawnNpcSummon === 'function') window._gmSpawnNpcSummon(actor, p);
+    }
     if (step === 'atkSave' && d.atkMode !== 'save' && d.atkKind !== 'martial') {
         o.bonus = sb.powerAttackBonus || 0;
         o.hit = { weapon: p.name || 'Power', props: [], die: dmg ? '1d' + ((dmg.formula.match(/d(\d+)/) || [0, 6])[1]) : '1d6', dmgType: dmg && !dmg.heal ? dmg.type : '' };
@@ -2023,7 +2050,7 @@ function ncRenderSummary() {
             <button onclick="window.ncBuyExtraTp(5)" class="px-2 py-1 rounded bg-amber-700 hover:bg-amber-600 text-white text-[10px] font-bold">+5 TP</button>
         `;
     } else if (ncTarget === 'summon') {
-        tpBanner.innerText = `Summoned creature: ${window.companionTotalTp()} TP, set by the power's Tier (Tier ${window._ncSummon?.tier || 1}). Raise the Tier in the Power Crafter for more.`;
+        tpBanner.innerText = `Summoned creature: ${window.companionTotalTp()} TP, set by the power's Tier (Tier ${window._ncSummon?.tier || 1}). Raise the Tier in the Power Crafter for more. Summoned creatures have a hard 3 AP (3 each turn, none banked) and can't summon creatures themselves.`;
         tpButtons.innerHTML = '';
     } else {
         tpBanner.innerText = `Buy more TP with XP -- currently ${lcTpXpCost()} XP/TP (Unspent XP: ${window.state.unspentXp || 0})`;
@@ -2514,7 +2541,10 @@ window.openSummonCrafter = function(opts) {
     if (!opts.npc && !npc.name) npc.name = 'Summoned Creature';
     let row = (typeof NPC_TIER_TP !== 'undefined' ? NPC_TIER_TP : []).find(t => t.tier === tier);
     npc.gmTpBudget = row ? row.tp : 100 + (tier - 5) * 20;
-    window._ncSummon = { npc, tier, done: opts.done };
+    npc.isSummon = true;   // a hard 3 AP, and it can't summon creatures of its own
+    let modal = document.getElementById('npcCrafterModal');
+    let outer = { target: ncTarget, gmId: ncActiveGmNpcId, step: ncStep, open: !!(modal && modal.classList.contains('active')) && ncTarget !== 'summon' };
+    window._ncSummon = { npc, tier, done: opts.done, outer };
     ncTarget = 'summon';
     ncActiveGmNpcId = null;
     ncStep = 1;

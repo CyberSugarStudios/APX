@@ -39,15 +39,14 @@
             { id: "freezing", name: "Freezing", desc: "2x AP to move. +5 damage taken from Bludgeoning. Past your CON score in hours, gain 1 Fatigue/hour until warmed." },
             { id: "frightened", name: "Frightened", desc: "Disadvantage on all attribute checks and attack rolls while the fear source is visible/audible. Can't willingly move toward it.",
               atkDisadvantage: 'general', checkDisadvantage: 'all' },
-            { id: "grabbed", name: "Grabbed", desc: "Held by (or holding) another creature: Speed 0. The grabber has Disadvantage on attacks against anyone else. Ends if either breaks free or lets go.",
+            { id: "grappled", name: "Grappled", desc: "Held by another creature: Speed 0, and Disadvantage on attack rolls against anyone other than the grappler. Escape (4 AP): contested STR (Athletics) or AGI (Acrobatics) against the grappler's STR (Athletics). The grappler is Staggered while it holds you.",
               speedZero: true },
-            { id: "grappled", name: "Grappled", desc: "Also Restrained (both the grappler and the target). Speed 0, Disadvantage on your attack rolls and AGI saves; attacks against you have Advantage." },
             { id: "incapacitated", name: "Incapacitated", desc: "AP reduced to 0; can't take actions, Free Actions, or Reactions. Completely exposed: any hit against you is a Critical Hit and bypasses all your resistances.",
               apZero: true, noActions: true },
             { id: "infected", name: "Infected", desc: "Carries a disease with no symptoms or penalties yet. Becomes Diseased after the incubation period." },
             { id: "paralyzed", name: "Paralyzed", desc: "Also Incapacitated. Can't move or speak. Auto-fail STR/AGI saves. Melee hits within 1 square are automatic Critical Hits.",
               apZero: true, autoFailSaves: ['STR','AGI'], autoFailChecks: ['STR','AGI'] },
-            { id: "pinned", name: "Pinned", desc: "Also Restrained and Prone (both creatures). The pinner can spend 1 AP to deal unarmed strike damage; that damage is non-lethal (0 HP from it is Unconscious, not Bleeding Out)." },
+            { id: "pinned", name: "Pinned", desc: "Also Grappled, Restrained and Prone. The grappler can Choke you (2 AP): unarmed strike damage with no attack roll, lethal or non-lethal (0 HP from non-lethal damage is Unconscious, not Bleeding Out). Escape (4 AP) ends the Pin and the Grapple." },
             { id: "poisoned", name: "Poisoned", desc: "Disadvantage on all attack rolls and attribute checks. Specific poisons may add further effects.",
               atkDisadvantage: 'general', checkDisadvantage: 'all' },
             { id: "prone", name: "Prone", desc: "Disadvantage on melee attack rolls, Advantage on ranged attack rolls. Crawling costs 2x AP; standing costs 2 AP and ends this.",
@@ -138,10 +137,11 @@
         window.npcXpForTier = npcXpForTier;
 
         const NPC_SIZES = [
+            { key: "tiny", label: "Tiny (1x1)", tp: 0, hp: 0, desc: "One-quarter the size of a Medium creature (occupies a 1x1 square). Carrying capacity is one-quarter normal (STR × 8 lbs). Advantage on AGI (Stealth) checks and +2 AC, but it can't wield Heavy weapons and its melee reach is 0 squares." },
             { key: "small", label: "Small (1x1)", tp: 0, hp: 0, desc: "Halves carrying capacity. +2 AGI (Stealth)." },
             { key: "medium", label: "Medium (1x1)", tp: 0, hp: 0, desc: "No bonuses or penalties." },
             { key: "large", label: "Large (2x2)", tp: 3, hp: 15, desc: "Doubles carrying capacity. +2 STR (Athletics), -2 AGI (Stealth)." },
-            { key: "huge", label: "Huge (3x3)", tp: 6, hp: 20, desc: "Quadruples carrying capacity. +4 STR (Athletics), -4 AGI (Stealth)." },
+            { key: "huge", label: "Huge (3x3)", tp: 6, hp: 20, desc: "Three times the size of a Medium creature (occupies a 3x3 square). Carrying capacity is quadrupled (STR × 120 lbs). Advantage on STR (Athletics) checks and extra damage with melee weapons equal to its STR modifier, but Disadvantage on AGI (Stealth) checks and -2 AC." },
             { key: "gargantuan", label: "Gargantuan (4x4+)", tp: 10, hp: 30, desc: "x8 carrying capacity. +6 STR (Athletics), -6 AGI (Stealth)." }
         ];
 
@@ -654,7 +654,7 @@
             return { bonus: parts.reduce((a, p) => a + p.amount, 0), parts };
         }
         window.apxXpBonus = apxXpBonus;
-        const XP_CATEGORY_LABELS = { combat: 'Combat', discovery: 'Discovery', roleplay: 'Role Play', other: 'Other' };
+        const XP_CATEGORY_LABELS = { combat: 'Combat', discovery: 'Discovery', roleplay: 'Role Play', session: 'Start Session', other: 'Other' };
 
         // ------------------------------------------------------------------
         // Gear Threat Points (NPCs and Loyal Companions)
@@ -730,8 +730,7 @@
             paralyzed:   ['incapacitated'],
             stunned:     ['incapacitated'],   // a Stunned creature is also Incapacitated
             diseased:    ['infected'],
-            grappled:    ['restrained'],
-            pinned:      ['restrained', 'prone']
+            pinned:      ['grappled', 'restrained', 'prone']
         };
         const CONDITION_ON_START = { unconscious: ['prone'] };
         // Exceptions from perks. Frenzy Rank 5: "If you drop to 0 HP while Provoked,
@@ -744,7 +743,8 @@
         // stored: the conditions actually set. Returns [{id, from}] for every
         // condition in effect (from = the condition that caused it, or null).
         function apxEffectiveConditions(stored, st) {
-            stored = (stored || []).slice();
+            stored = (stored || []).map(id => id === 'grabbed' ? 'grappled' : id);   // (Grabbed was folded into Grappled)
+            stored = stored.filter((id, i) => stored.indexOf(id) === i);
             let out = stored.map(id => ({ id, from: null })), seen = new Set(stored);
             for (let i = 0; i < out.length; i++) {
                 (CONDITION_IMPLIES[out[i].id] || []).forEach(child => {
@@ -974,11 +974,16 @@
         let choices = (sug ? [['__suggest', sug.label, 'ok', 'Use the damage type of the attack that just hit', sug.types.join(' + ') + ' · ' + sug.types.map(note).join(' / ')]] : [])
             .concat(PHYS.map(t => btn(t, sug ? '' : 'pri'))).concat(ENERGY().map(t => btn(t)))
             .concat([['__bypass', 'Bypass resistances', 'ok', 'Full damage: no DR, ER, resistance or immunity reduces it', 'Full damage']]);
-        let r = await ask(title, text, choices, { grid: true });
-        if (!r) return null;
-        if (r === '__bypass') { let out = ['True']; out.ignoreRes = true; return out; }
-        if (r === '__suggest') { let out = sug.types.slice(); out.fromSuggest = true; return out; }
-        return [r];
+        // Non-lethal: 0 HP from it knocks the creature out (Unconscious, no Bleeding Out) instead
+        let res = await ask(title, text, choices, { grid: true, check: { label: 'Non-lethal', hint: 'At 0 HP it\'s knocked out (Unconscious), not Bleeding Out or killed', checked: !!opts.nonlethal } });
+        if (!res || !res.v) return null;
+        let r = res.v, nl = !!res.checked;
+        let out;
+        if (r === '__bypass') { out = ['True']; out.ignoreRes = true; }
+        else if (r === '__suggest') { out = sug.types.slice(); out.fromSuggest = true; }
+        else out = [r];
+        if (nl) out.nonlethal = true;
+        return out;
     }
 
     // What was typed in an HP box, as damage: "-7", "-7 fire", or "70-7" typed after the HP that was
@@ -986,12 +991,15 @@
     // Several hits at once add up: "-5-3" (or "-5 -3 fire") is 8 damage.
     function parseHpEntry(value, cur) {
         let v = String(value ?? '').replace(/[\u2212\u2012\u2013\u2014\uFE63\uFF0D]/g, '-').trim();
+        // "-6 nonlethal" / "-6 non-lethal" / "-6 nl": damage that knocks out at 0 HP instead of killing
+        let nonlethal = /\b(non-?lethal|nl)\b/i.test(v);
+        if (nonlethal) v = v.replace(/\b(non-?lethal|nl)\b/ig, ' ').replace(/\s+/g, ' ').trim();
         let m = v.match(/^(\d+)?\s*((?:-\s*\d+\s*)+)([a-z][a-z +&/,]*)?$/i);
         if (!m) return null;
         if (m[1] !== undefined && cur != null && parseInt(m[1], 10) !== Number(cur)) return null;   // "50-10" with 70 HP: a sum, not damage
         let raw = (m[2].match(/\d+/g) || []).reduce((t, n) => t + parseInt(n, 10), 0);
         let types = m[3] ? parts(m[3]) : [];
-        return { raw, types, typed: !!(m[3] && types.length) };
+        return { raw, types, typed: !!(m[3] && types.length), nonlethal };
     }
     // A stat block's defences (NPCs, Loyal Companions): DR, ER, resistances (+5), vulnerabilities (−5),
     // immunities, and worn items' ER

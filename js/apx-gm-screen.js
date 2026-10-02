@@ -589,7 +589,10 @@ const FACTION_STYLES = {
 };
 
 // A Loyal Companion acts on its owner's turn, so it shares its owner's initiative (and sorts right after them)
-function _gmCompanionOwner(e) { let u = e && (e.companionOf || e.summonOf); return u ? (window.gmInitiative || []).find(x => x.playerUid === u && !x.companionOf && !x.summonOf) : null; }
+function _gmCompanionOwner(e) {
+    if (e && e.summonOfEntry) return (window.gmInitiative || []).find(x => x.id === e.summonOfEntry) || null;   // summoned by a companion or an NPC
+    let u = e && (e.companionOf || e.summonOf); return u ? (window.gmInitiative || []).find(x => x.playerUid === u && !x.companionOf && !x.summonOf) : null;
+}
 function effInit(e) { let o = _gmCompanionOwner(e); if (o) return effInit(o); return e.baseInitiative - (e.surprised ? 10 : 0); }
 
 // PCs automatically win initiative ties against non-PCs (no manual
@@ -598,6 +601,8 @@ function effInit(e) { let o = _gmCompanionOwner(e); if (o) return effInit(o); re
 function initiativeCompare(a, b) {
     let ea = effInit(a), eb = effInit(b);
     if (ea !== eb) return eb - ea;
+    if (a.summonOfEntry && a.summonOfEntry === b.id) return 1;    // a creature's summons act right after it
+    if (b.summonOfEntry && b.summonOfEntry === a.id) return -1;
     let ua = a.companionOf || a.summonOf, ub = b.companionOf || b.summonOf;
     if (ua && ua === b.playerUid && !ub) return 1;    // right after its owner
     if (ub && ub === a.playerUid && !ua) return -1;
@@ -643,8 +648,10 @@ function insertInitiativeEntry(entry) {
         if (insertIdx <= window.gmCurrentTurnIdx) window.gmCurrentTurnIdx++;
     } else {
         let ou = entry.companionOf || entry.summonOf;
-        let oi = ou ? window.gmInitiative.findIndex(x => x.playerUid === ou && !x.companionOf && !x.summonOf) : -1;
-        while (oi >= 0 && oi + 1 < window.gmInitiative.length && (window.gmInitiative[oi + 1].companionOf === ou || window.gmInitiative[oi + 1].summonOf === ou)) oi++;   // after their other companions/summons
+        let oi = entry.summonOfEntry ? window.gmInitiative.findIndex(x => x.id === entry.summonOfEntry)
+            : ou ? window.gmInitiative.findIndex(x => x.playerUid === ou && !x.companionOf && !x.summonOf) : -1;
+        let ownerId = oi >= 0 ? window.gmInitiative[oi].id : null;
+        while (oi >= 0 && oi + 1 < window.gmInitiative.length && ((ou && (window.gmInitiative[oi + 1].companionOf === ou || window.gmInitiative[oi + 1].summonOf === ou)) || window.gmInitiative[oi + 1].summonOfEntry === ownerId)) oi++;   // after their other companions/summons
         if (oi >= 0) { window.gmInitiative.splice(oi + 1, 0, entry); if (oi + 1 <= window.gmCurrentTurnIdx) window.gmCurrentTurnIdx++; }
         else window.gmInitiative.push(entry);
     }
@@ -901,6 +908,8 @@ window.addSavedNpcFromPicker = function(npcIdx, btnEl) {
 window.removeFromInitiative = function(id, opts) {
     let idx = window.gmInitiative.findIndex(e => e.id === id);
     if (idx === -1) return;
+    // A grapple ends when either creature leaves the fight
+    try { let gone = window.gmInitiative[idx]; if (gone.grappling) { let t = _gmEntryById(gone.grappling); if (t) _gmEndGrapple(t, `${_gmPublicName(gone)} is out of the fight`); } if (gone.grappledBy) _gmEndGrapple(gone, null, true); } catch (e) { console.warn('Grapple end:', e); }
     let wasCurrent = (idx === window.gmCurrentTurnIdx) && window.gmCombatStarted;
     if (opts?.dead) {
         if (typeof window._gmMarkTokenDead === 'function') window._gmMarkTokenDead(id);
@@ -1464,6 +1473,113 @@ function _gmEffConds(entry) {
     } else ids = window._gmEntryConditions ? window._gmEntryConditions(entry.id) : (entry.conditions || []);
     return window.apxEffectiveConditions ? window.apxEffectiveConditions(ids).map(c => c.id) : ids;
 }
+// ── Grappling ─────────────────────────────────────────────────────────────
+// Grapple (3 AP, contested): the target is Grappled and the grappler is Staggered for as long as it
+// holds on. Pin (2 AP, contested): Grappled → Pinned (also Restrained and Prone). Choke (2 AP): unarmed
+// damage on a Pinned creature, no attack roll, lethal or non-lethal. Escape (4 AP, contested) ends both.
+// Links: target.grappledBy = grappler id; grappler.grappling = target id; grappler.grappleStagger when
+// the grapple is what made it Staggered (so ending the grapple takes only that off).
+function _gmEntryById(id) { return id ? (window.gmInitiative || []).find(e => e.id === id) || null : null; }
+function _gmRemoveCondition(entry, condId) {
+    if (entry.faction === 'player') _gmSetPlayerCondition(entry, condId, false);
+    else if (window._gmRemoveEntryCondition) window._gmRemoveEntryCondition(entry.id, condId);
+}
+let _gmGrappleBusy = false;
+function _gmStartGrapple(grappler, target, pin, opts) {
+    if (!grappler || !target || grappler === target) return;
+    _gmGrappleBusy = true;
+    try {
+        if (target.grappledBy && target.grappledBy !== grappler.id) _gmEndGrapple(target, null, true);
+        if (grappler.grappling && grappler.grappling !== target.id) { let old = _gmEntryById(grappler.grappling); if (old) _gmEndGrapple(old, null, true); }
+        target.grappledBy = grappler.id; grappler.grappling = target.id;
+        _gmAddCondition(target, pin ? 'pinned' : 'grappled');
+        let brute = grappler.faction === 'player' && ((((window.gmParty || []).find(p => p.fileName === grappler.playerUid) || {}).state || {}).perks || {}).str_brute >= 2;   // Brute Rank 2: not Staggered
+        if (!brute && ((opts && opts.staggered) || !_gmEffConds(grappler).includes('staggered'))) {
+            grappler.grappleStagger = true;
+            if (!(opts && opts.staggered)) _gmAddCondition(grappler, 'staggered');
+        }
+    } finally { _gmGrappleBusy = false; }
+    gmLog({ text: `${_gmPublicName(grappler)} ${pin ? 'pins' : 'grapples'} ${_gmPublicName(target)}${opts && opts.via ? ` (${opts.via})` : ''}. ${_gmPublicName(target)} is ${pin ? 'Pinned' : 'Grappled'}; ${_gmPublicName(grappler)} is Staggered while holding on.`, kind: 'info', force: true });
+    window.renderInitiativeTracker();
+    if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
+}
+function _gmPin(target) {
+    _gmGrappleBusy = true;
+    try { _gmAddCondition(target, 'pinned'); } finally { _gmGrappleBusy = false; }
+    let g = _gmEntryById(target.grappledBy);
+    gmLog({ text: `${g ? _gmPublicName(g) + ' pins ' : ''}${_gmPublicName(target)}${g ? '' : ' is Pinned'}: Restrained and Prone.`, kind: 'info', force: true });
+    window.renderInitiativeTracker();
+}
+function _gmEndGrapple(target, why, quiet) {
+    if (!target) return;
+    let g = _gmEntryById(target.grappledBy);
+    _gmGrappleBusy = true;
+    try {
+        target.grappledBy = null;
+        ['pinned', 'grappled'].forEach(c => _gmRemoveCondition(target, c));
+        if (g) {
+            g.grappling = null;
+            if (g.grappleStagger) { g.grappleStagger = false; _gmRemoveCondition(g, 'staggered'); }
+        }
+    } finally { _gmGrappleBusy = false; }
+    if (!quiet) gmLog({ text: `${why ? why + ': ' : ''}${g ? _gmPublicName(g) + '\'s grapple on ' : 'The grapple on '}${_gmPublicName(target)} ends.`, kind: 'info', force: true });
+    window.renderInitiativeTracker();
+    if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
+}
+// Who's doing the grappling? The creature touching it on the battle map when there's only one;
+// otherwise the GM picks (or leaves it unlinked)
+async function _gmPickGrappler(target, title, filterFn) {
+    let adj = typeof window._btAdjacentEntries === 'function' ? window._btAdjacentEntries(target) : [];
+    if (filterFn) adj = adj.filter(filterFn);
+    if (adj.length === 1) return adj[0];
+    let pool = adj.length ? adj : (window.gmInitiative || []).filter(e => e !== target && (!filterFn || filterFn(e)));
+    if (!pool.length || !window.APXDice || !APXDice.ask) return null;
+    let ans = await APXDice.ask(title, adj.length ? 'More than one creature is next to it.' : 'Nothing is next to it on a battle map.', pool.slice(0, 12).map((e, i) => [e.id, _gmGmName(e), i ? '' : 'pri']).concat([['__none', 'Nobody (no link)']]));
+    return ans && ans !== '__none' ? _gmEntryById(ans) : null;
+}
+// Conditions changed by hand (the tracker, a token, a player's own sheet): keep the grapple in step
+window._gmOnCondChange = async function(entryId, condId, on) {
+    if (_gmGrappleBusy) return;
+    let entry = _gmEntryById(entryId); if (!entry) return;
+    let eff = entry.faction === 'player' && typeof _gmPlayerCondList === 'function' && window.apxEffectiveConditions
+        ? window.apxEffectiveConditions(_gmPlayerCondList(entry)).map(c => c.id) : _gmEffConds(entry);   // (players: including what was just set)
+    if (on && (condId === 'grappled' || condId === 'pinned') && !entry.grappledBy) {
+        let g = await _gmPickGrappler(entry, `Who is grappling ${_gmGmName(entry)}?`);
+        if (g) {
+            entry.grappledBy = g.id; g.grappling = entry.id;
+            if (!_gmEffConds(g).includes('staggered')) { g.grappleStagger = true; _gmGrappleBusy = true; try { _gmAddCondition(g, 'staggered'); } finally { _gmGrappleBusy = false; } }
+            gmLog({ text: `${_gmPublicName(g)} is grappling ${_gmPublicName(entry)} (Staggered while holding on).`, kind: 'info', force: true });
+            window.renderInitiativeTracker();
+        }
+        return;
+    }
+    if (!on && (condId === 'grappled' || condId === 'pinned') && entry.grappledBy && !eff.includes('grappled')) { _gmEndGrapple(entry); return; }
+    if (on && entry.grappling && eff.includes('incapacitated')) { let t = _gmEntryById(entry.grappling); if (t) _gmEndGrapple(t, `${_gmPublicName(entry)} is Incapacitated`); }
+};
+// A player's grappling actions, from their sheet's Actions list
+async function _gmGrappleEvent(uid, ev) {
+    let me = ev.companion ? (window.gmInitiative || []).find(e => e.companionOf === uid) : (window.gmInitiative || []).find(e => e.playerUid === uid && !e.companionOf && !e.summonOf);
+    let who = me ? _gmPublicName(me) : (ev.who || 'A player');
+    if (!me) { gmLog({ text: `${who}: ${ev.text || ev.action}`, kind: 'info', force: true }); return; }
+    if (ev.action === 'grapple' || (ev.action === 'pin' && !me.grappling)) {
+        let t = await _gmPickGrappler(me, `Who did ${_gmGmName(me)} ${ev.action === 'pin' ? 'pin' : 'grapple'}?`, e => !(e.companionOf === uid));
+        if (t) _gmStartGrapple(me, t, ev.action === 'pin', { staggered: !!ev.staggered });
+        else gmLog({ text: `${who} grapples a creature: mark it Grappled from its conditions.`, kind: 'info', force: true });
+    } else if (ev.action === 'pin') {
+        let t = _gmEntryById(me.grappling); if (t) _gmPin(t);
+    } else if (ev.action === 'escape') {
+        if (me.grappledBy) _gmEndGrapple(me, `${who} escapes`);
+        else gmLog({ text: `${who} escapes a grapple.`, kind: 'info', force: true });
+    } else if (ev.action === 'release') {
+        let t = _gmEntryById(me.grappling); if (t) _gmEndGrapple(t, `${who} lets go`);
+    } else if (ev.action === 'choke') {
+        let t = _gmEntryById(me.grappling);
+        if (t && ev.total != null) _gmDamage(t, { raw: parseInt(ev.total) || 0, types: ['Bludgeoning'], hit: null, src: `${me.name}'s Choke`, nonlethal: !!ev.nonlethal });
+        else gmLog({ text: `${who} chokes a creature: ${ev.total} Bludgeoning${ev.nonlethal ? ' (non-lethal)' : ''}.`, kind: 'info', force: true });
+    }
+}
+window._gmGrappleEvent = _gmGrappleEvent;
+window._gmStartGrapple = _gmStartGrapple; window._gmEndGrapple = _gmEndGrapple;
 function _gmAddCondition(entry, condId) {
     if (entry.faction === 'player') _gmSetPlayerCondition(entry, condId, true);
     else if (window._gmAddEntryCondition) window._gmAddEntryCondition(entry.id, condId);
@@ -1537,8 +1653,7 @@ function _gmHitEffects(target, hit, extras) {
         _gmAskSave(target, { attr: 'STR', dc: 10 + str, cond: 'prone', why: 'Crushing', failInf: 'be knocked Prone', fail: 'is knocked Prone' });
     if (props.includes('stunning'))
         _gmAskSave(target, { attr: 'CON', dc: 10 + (h.elec ? Math.max(str, int) : str), cond: 'stunned', why: 'Stunning', byId: a && a.id, turn: window.gmTurnNumber, failInf: `be Stunned until the end of ${_gmPublicName(a)}'s next turn`, fail: `is Stunned until the end of ${_gmPublicName(a)}'s next turn` });
-    if (props.includes('grappling'))
-        gmLog({ text: `${_gmPublicName(target)} is grappled by ${_gmPublicName(a)}'s ${h.weapon || 'weapon'} (Grappling).`, kind: 'info' });
+    if (props.includes('grappling') && a) _gmStartGrapple(a, target, false, { via: `${h.weapon || 'weapon'}, Grappling` });
     // Ammo: Medium slows (crit: Staggered until the end of its next turn); Heavy can push 2 squares (crit: Prone)
     if (h.ammo === 'medium') {
         gmLog({ text: `${_gmPublicName(target)}'s Speed is 1 lower until the end of its next turn (Medium Ammo).`, kind: 'info' });
@@ -1831,6 +1946,8 @@ function _gmHandleRollEvent(uid, ev) {
         window.renderGmLoot && window.renderGmLoot();
         return;
     }
+    // Grapple / Pin / Escape / Choke / let go, from a player's Actions list
+    if (ev.kind === 'grapple') { if (firstSeen && (ev.t || Date.now()) > Date.now() - 600000) _gmGrappleEvent(uid, ev); return; }
     // Summon a Creature: its creatures join next to the caster (in or out of combat)
     if (ev.kind === 'power' && ev.summon && firstSeen && (ev.t || Date.now()) > Date.now() - 600000) {
         if (typeof window._gmSpawnSummon === 'function') window._gmSpawnSummon(uid, ev);
@@ -1947,7 +2064,46 @@ function _gmQueueBleed(entry) {
 }
 
 // Shared after-change handling: 0 HP → bleed out (players) / killed (NPCs); healed → clear bleed-out
+// ── Non-lethal damage ──
+// A creature brought to 0 HP by non-lethal damage is knocked out: Unconscious (no Bleeding Out, not
+// killed), shown grey with snoring Z's on the battle map. Healing wakes it; lethal damage while it's
+// down finishes the job as normal (Bleeding Out for players, defeated for NPCs).
+function _gmKoCheck(entry, wasAboveZero) {
+    let nl = entry._dmgNl, lethal = entry._dmgLethal;
+    entry._dmgNl = undefined; entry._dmgLethal = undefined;
+    let down = entry.currentHp !== null && entry.currentHp <= 0;
+    if (down && nl && (wasAboveZero || entry.ko)) { if (!entry.ko) _gmSetKo(entry, true); return 'ko'; }
+    if (entry.ko && !down) { _gmSetKo(entry, false); return 'woke'; }
+    if (entry.ko && down && lethal) { _gmSetKo(entry, false, true); return 'lethal'; }
+    return null;
+}
+function _gmSetKo(entry, on, quiet) {
+    entry.ko = !!on;
+    if (on) {
+        if (entry.faction === 'player' && entry.bleedOutTurns != null) { _gmSetPlayerCondition(entry, 'bleedingout', false); entry.bleedOutTurns = null; }
+        _gmAddCondition(entry, 'unconscious');
+        gmLog({ text: `${_gmPublicName(entry)} is knocked out (non-lethal damage): Unconscious, not Bleeding Out.`, kind: 'info', force: true });
+    } else {
+        if (entry.faction === 'player') _gmSetPlayerCondition(entry, 'unconscious', false);
+        else if (window._gmRemoveEntryCondition) window._gmRemoveEntryCondition(entry.id, 'unconscious');
+        if (!quiet) gmLog({ text: `${_gmPublicName(entry)} comes to.`, kind: 'info' });
+    }
+    // Tokens carry it too, so it shows (and is saved) on every map
+    (typeof _wNotes !== 'undefined' ? (_wNotes.otherMaps || []) : []).forEach(m => (m.battleTokens || []).forEach(t => {
+        if (t.initiativeId === entry.id || (entry.faction === 'player' && entry.playerUid && t.type === 'player' && t.playerUid === entry.playerUid)) t.ko = !!on;
+    }));
+    if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
+    if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
+}
+window._gmSetKo = _gmSetKo;
 function _afterHpChange(entry, wasAboveZero) {
+    let ko = _gmKoCheck(entry, wasAboveZero);
+    if (ko === 'lethal') wasAboveZero = true;   // treated as just dropping
+    if (ko === 'ko' && !entry.companionOf) {
+        if (entry.faction === 'player') _syncHpToPlayer(entry);
+        window.renderInitiativeTracker();
+        return;
+    }
     if (entry.companionOf) {
         // Loyal Companion: its HP lives on the owner's sheet; at 0 HP it stays in the fight (down)
         let code = _gmInviteCode();
@@ -2334,6 +2490,7 @@ function _gmDamageTypes(parsed, hit) {
 //   sheet        { dmg, raw } the player's sheet already reduced its own HP by dmg (their HP is synced)
 function _gmDamage(entry, opts) {
     let wasAboveZero = entry.currentHp === null || entry.currentHp > 0;
+    let nonlethal = !!(opts.nonlethal || (opts.types && opts.types.nonlethal) || (opts.hit && opts.hit.nonlethal));
     let hit = opts.hit || null;
     let extras = hit ? _gmHitExtraDamage(entry, hit) : [];
     let extraSum = extras.reduce((t, x) => t + x.n, 0);
@@ -2362,7 +2519,8 @@ function _gmDamage(entry, opts) {
     let after = (entry.currentHp || 0) + (entry.tempHp || 0);
     let who = hit && hit.attacker ? `${_gmGmName(hit.attacker)}'s ${hit.label || 'attack'}` : (opts.src || 'damage');
     let math = `${opts.raw}${extraSum ? ' + ' + extraSum + ' (' + extras.map(x => x.why).join(', ') + ')' : ''} → ${res.text}${incap ? ' · Incapacitated: resistances bypassed' : ''}`;
-    entry.lastHit = { text: `${who}: ${math}`, dmg, t: Date.now() };
+    entry.lastHit = { text: `${who}: ${math}${nonlethal ? ' (non-lethal)' : ''}`, dmg, t: Date.now() };
+    entry._dmgNl = nonlethal; entry._dmgLethal = !nonlethal && dmg > 0;
     gmLog({ gmOnly: true, kind: 'info', force: true, text: `${_gmGmName(entry)} ← ${who}: ${math}. (${_gmDefText(def)}, from ${def.src || 'tracker'})` });
     _gmLogHpChange(entry, before, after, wasAboveZero, dmg, hit, hit ? null : opts.src);
     let defId = hit ? _gmOfferDefensive(entry, hit, dmg, extras) : null;   // a Reaction to a Critical Hit, before the saves
@@ -2379,7 +2537,8 @@ function _gmDamage(entry, opts) {
     if (tsb && tsb.unalive && dmg > 0 && (opts.types || []).includes('Electric') && entry.currentHp > 0) _gmUnaliveShock(entry, tsb, dmg);
     if (opts.sheet) {
         _syncHpToPlayer(entry);
-        if (wasAboveZero && entry.currentHp !== null && entry.currentHp <= 0 && entry.faction === 'player' && entry.bleedOutTurns == null) _gmQueueBleed(entry);
+        let ko = _gmKoCheck(entry, wasAboveZero);
+        if (ko !== 'ko' && (wasAboveZero || ko === 'lethal') && entry.currentHp !== null && entry.currentHp <= 0 && entry.faction === 'player' && entry.bleedOutTurns == null) _gmQueueBleed(entry);
         window.renderInitiativeTracker();
     } else _afterHpChange(entry, wasAboveZero);
     return { dmg, res };
@@ -2450,12 +2609,12 @@ window.updateInitiativeHp = function(id, value, pre) {
             // Nothing says what kind of damage it was: one click picks it
             window.renderInitiativeTracker();
             let def = _gmDefenseOf(entry);
-            window.APXDamage.askType(`${parsed.raw} damage to ${_gmGmName(entry)}`, `Nothing says what kind of damage this is. ${entry.name}: ${_gmDefText(def)}. Tip: type "-${parsed.raw} fire" (or slashing, true…) to skip this.`, def)
-                .then(t => { if (t) window.updateInitiativeHp(id, '-' + parsed.raw, { types: t }); else window.renderInitiativeTracker(); });
+            window.APXDamage.askType(`${parsed.raw} damage to ${_gmGmName(entry)}`, `Nothing says what kind of damage this is. ${entry.name}: ${_gmDefText(def)}. Tip: type "-${parsed.raw} fire" (or slashing, true…, and "nl" for non-lethal) to skip this.`, def, { nonlethal: parsed.nonlethal })
+                .then(t => { if (t) window.updateInitiativeHp(id, '-' + parsed.raw, { types: t, nonlethal: !!t.nonlethal }); else window.renderInitiativeTracker(); });
             return;
         }
         let hit = _gmTakeHit(entry) || _gmTurnHit(entry);
-        _gmDamage(entry, { raw: parsed.raw, types, hit });
+        _gmDamage(entry, { raw: parsed.raw, types, hit, nonlethal: !!((pre && pre.nonlethal) || parsed.nonlethal || types.nonlethal) });
         return;
     }
     let wasAboveZero = entry.currentHp === null || entry.currentHp > 0;
@@ -2519,7 +2678,7 @@ function _gmSheetDamageEvent(uid, ev) {
     if (typeof ev.hpAfter === 'number') { e.currentHp = ev.hpAfter; e.tempHp = ev.tempAfter || 0; }
     let hit = (ev.atkId && window._gmLastAttack && window._gmLastAttack.id === ev.atkId ? _gmTakeHit(e) : null) || _gmTakeHit(e) || _gmTurnHit(e);
     e._sheetDmgAt = Date.now();
-    _gmDamage(e, { raw: ev.raw || 0, types, hit, sheet: { dmg: ev.dmg || 0 } });
+    _gmDamage(e, { raw: ev.raw || 0, types, hit, sheet: { dmg: ev.dmg || 0 }, nonlethal: !!ev.nonlethal });
 }
 
 window.toggleSurprised = function(id, checked) {
@@ -2881,7 +3040,7 @@ window.toggleInitiativePowerSlot = function(entryId, powerName, idx) {
 // AP pool per creature. Unspent AP carries over between turns with no cap;
 // pips show its AP plus one empty stored pip, growing as the pool fills.
 // NPCs: click pips to spend/refund. Players: mirrors their sheet.
-function gmApMax(e) { return Math.max(0, parseInt(e.ap) || 0); }
+function gmApMax(e) { return e && e.summoned ? 3 : Math.max(0, parseInt(e.ap) || 0); }
 function gmApCurrent(e) {
     let max = gmApMax(e);
     let cur = e.apCur;
@@ -2895,7 +3054,9 @@ function gmStartTurnAp(e) {
     e._apTurns = (e._apTurns || 0) + 1;
     e._apFirstSurprised = !!(first && e.surprised);
     if (e.faction === 'player') return;   // players' sheets add their own AP when their turn starts
-    e.apCur = gmApCurrent(e) + (e._apFirstSurprised ? 1 : gmApMax(e));
+    // A creature summoned by a power: a hard 3 AP, gained fresh each turn (nothing banked)
+    if (e.summoned) e.apCur = e._apFirstSurprised ? 1 : 3;
+    else e.apCur = gmApCurrent(e) + (e._apFirstSurprised ? 1 : gmApMax(e));
     // Conditions that take away AP (Stunned, Incapacitated, Paralyzed, Unconscious…): no AP this turn
     let noAp = _gmEffConds(e).map(id => (typeof CONDITIONS !== 'undefined' ? CONDITIONS : []).find(c => c.id === id)).filter(c => c && c.apZero);
     if (noAp.length) {
@@ -3036,6 +3197,7 @@ window._gmTogglePlayerCond = async function(entryId, condId, on) {
     (window._gmCondPending[e.playerUid] = window._gmCondPending[e.playerUid] || {})[condId] = { on: !!on, t: Date.now() };
     _gmSetPlayerCondition(e, condId, on);
     gmLog({ text: `${e.name} ${on ? 'is now' : 'is no longer'} ${name}.`, kind: 'info', force: true });
+    if (window._gmOnCondChange) window._gmOnCondChange(entryId, condId, on);
     window.renderInitiativeTracker();
     if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
 };
@@ -3403,6 +3565,7 @@ window.openGrantXpModal = function() {
             <div class="gx-full gx-radios"><span>Type</span>
                 <label><input type="radio" name="gxCat" value="discovery" checked> Discovery</label>
                 <label><input type="radio" name="gxCat" value="roleplay"> Role Play</label>
+                <label title="Everyone's XP for showing up: 5 + INT"><input type="radio" name="gxCat" value="session"> Start Session</label>
                 <span class="gx-note">Combat XP is granted automatically when you end combat.</span></div>
         </div>
         <div class="gx-sec">Players</div>
@@ -3433,6 +3596,21 @@ window.openGrantXpModal = function() {
             el.textContent = amt ? `+${amt + b.bonus} XP` + (b.bonus ? ` (${amt} + ${b.parts.map(x => x.label + ' ' + x.amount).join(' + ')})` : '') : '';
         });
     };
+    // Start Session: 5 XP (each sheet adds INT), named for the session, so it reads cleanly in the log
+    back.querySelectorAll('input[name="gxCat"]').forEach(rb => rb.addEventListener('change', () => {
+        let nm = back.querySelector('#gxName');
+        if (cat() === 'session') {
+            back.querySelector('#gxAmt').value = 5;
+            if (!nm.value.trim() || nm.dataset.auto) { nm.value = `Session ${back.querySelector('#gxSession').value || sessions || 1}`; nm.dataset.auto = '1'; }
+            let d = back.querySelector('#gxDesc'); if (!d.value.trim()) { d.value = 'Start of session XP (5 + INT).'; d.dataset.auto = '1'; }
+        } else {
+            if (nm.dataset.auto) { nm.value = ''; delete nm.dataset.auto; }
+            let d = back.querySelector('#gxDesc'); if (d.dataset.auto) { d.value = ''; delete d.dataset.auto; }
+        }
+        preview();
+    }));
+    back.querySelector('#gxSession').addEventListener('input', () => { let nm = back.querySelector('#gxName'); if (nm.dataset.auto) nm.value = `Session ${back.querySelector('#gxSession').value || 1}`; });
+    back.querySelector('#gxName').addEventListener('input', e => { delete e.target.dataset.auto; });
     back.addEventListener('input', preview); back.addEventListener('change', preview); preview();
     back.querySelector('[data-x]').onclick = () => back.remove();
     back.addEventListener('mousedown', e => { if (e.target === back) back.remove(); });

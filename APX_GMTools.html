@@ -450,8 +450,8 @@
                 }
         
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20261032200">
-    <link rel="stylesheet" href="css/tailwind.css?v=20261032200">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20261021530">
+    <link rel="stylesheet" href="css/tailwind.css?v=20261021530">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
@@ -1519,36 +1519,36 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20261032200"></script>
-    <script src="js/apx-patch-notes.js?v=20261032200"></script>
-    <script src="js/apx-dice.js?v=20261032200"></script>
-    <script src="js/apx-data.js?v=20261032200"></script>
-    <script src="js/apx-item-effects.js?v=20261032200"></script>
-    <script src="js/apx-perks-db.js?v=20261032200"></script>
-    <script src="js/apx-migrations.js?v=20261032200"></script>
-    <script src="js/apx-state.js?v=20261032200"></script>
-    <script src="js/apx-craft-shared.js?v=20261032200"></script>
-    <script src="js/apx-armor-forge.js?v=20261032200"></script>
-    <script src="js/apx-weapon-forge.js?v=20261032200"></script>
-    <script src="js/apx-consumable-crafter.js?v=20261032200"></script>
-    <script src="js/apx-perks-ui.js?v=20261032200"></script>
-    <script src="js/apx-power-crafter.js?v=20261032200"></script>
-    <script src="js/apx-npc-crafter.js?v=20261032200"></script>
-    <script src="js/apx-inventory-ui.js?v=20261032200"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20261032200"></script>
-    <script src="js/apx-gm-screen.js?v=20261032200"></script>
-    <script src="js/apx-loot-maker.js?v=20261032200"></script>
-    <script src="js/apx-library.js?v=20261032200"></script>
-    <script src="js/apx-gmtools-main.js?v=20261032200"></script>
+    <script src="js/apx-dialogs.js?v=20261021530"></script>
+    <script src="js/apx-patch-notes.js?v=20261021530"></script>
+    <script src="js/apx-dice.js?v=20261021530"></script>
+    <script src="js/apx-data.js?v=20261021530"></script>
+    <script src="js/apx-item-effects.js?v=20261021530"></script>
+    <script src="js/apx-perks-db.js?v=20261021530"></script>
+    <script src="js/apx-migrations.js?v=20261021530"></script>
+    <script src="js/apx-state.js?v=20261021530"></script>
+    <script src="js/apx-craft-shared.js?v=20261021530"></script>
+    <script src="js/apx-armor-forge.js?v=20261021530"></script>
+    <script src="js/apx-weapon-forge.js?v=20261021530"></script>
+    <script src="js/apx-consumable-crafter.js?v=20261021530"></script>
+    <script src="js/apx-perks-ui.js?v=20261021530"></script>
+    <script src="js/apx-power-crafter.js?v=20261021530"></script>
+    <script src="js/apx-npc-crafter.js?v=20261021530"></script>
+    <script src="js/apx-inventory-ui.js?v=20261021530"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20261021530"></script>
+    <script src="js/apx-gm-screen.js?v=20261021530"></script>
+    <script src="js/apx-loot-maker.js?v=20261021530"></script>
+    <script src="js/apx-library.js?v=20261021530"></script>
+    <script src="js/apx-gmtools-main.js?v=20261021530"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20261032200"></script>
-    <script src="js/apx-firebase.js?v=20261032200"></script>
-    <script src="js/apx-battlemap.js?v=20261032200"></script>
-    <script src="js/apx-map-tiles.js?v=20261032200"></script>
+    <script src="js/firebase-config.js?v=20261021530"></script>
+    <script src="js/apx-firebase.js?v=20261021530"></script>
+    <script src="js/apx-battlemap.js?v=20261021530"></script>
+    <script src="js/apx-map-tiles.js?v=20261021530"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -1877,6 +1877,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         revealed:     t.revealed      !== false,
                                         _dead:        isDead,
                                         _bleedingOut: isBO,
+                                        _ko:          !isDead && !!((entry || (t.type === 'player' && t.playerUid ? (window.gmInitiative||[]).find(e=>e.playerUid===t.playerUid && !e.companionOf && !e.summonOf) : null))?.ko),
                                         _bleedTurns:  (isBO && entry?.bleedOutTurns != null) ? entry.bleedOutTurns : null,
                                         _faction:     t.faction || entry?.faction  || null,
                                         layer:        t.layer == null ? 1 : t.layer,
@@ -3791,6 +3792,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!entry) return { isBleedingOut:false, isDead:false };
         let atZero = entry.currentHp !== null && entry.currentHp !== undefined && entry.currentHp <= 0;
         if (!atZero) return { isBleedingOut:false, isDead:false };
+        if (entry.ko) return { isBleedingOut:false, isDead:false };   // knocked out (non-lethal), not dying
+        if (entry.undeadDown) return { isBleedingOut:false, isDead:false };
         if (entry.faction === 'player') return { isBleedingOut: !entry.stabilized, isDead:false };
         return { isBleedingOut:false, isDead:true };
     };
@@ -3893,7 +3896,10 @@ document.addEventListener('DOMContentLoaded', () => {
             let isActive = !!(t.initiativeId && curInitId && t.initiativeId === curInitId);
             let linkedEntry = t.initiativeId ? (window.gmInitiative||[]).find(e=>e.id===t.initiativeId) : null;
             let {isBleedingOut, isDead} = window._btLifeState(t, linkedEntry);
-            let isHidden = t.revealed === false;
+            // Knocked out by non-lethal damage: grey, with snoring Z's
+            let koEntry = linkedEntry || (t.type === 'player' && t.playerUid ? (window.gmInitiative||[]).find(e=>e.playerUid===t.playerUid && !e.companionOf && !e.summonOf) : null);
+            let isKo = !isDead && !!(koEntry ? koEntry.ko : t.ko);
+            if (isKo) isBleedingOut = false;
             let faction = linkedEntry?.faction || t.faction || (t.type === 'player' ? 'player' : 'enemy');
             let factionBorder = {player:'#3b82f6', ally:'#22c55e', neutral:'#e2e8f0', enemy:'#ef4444'}[faction] || '#e2e8f0';
             let defColor = t.type==='player' ? '#1d4ed8' : t.type==='companion' ? '#16a34a' : '#d97706';
@@ -3920,13 +3926,14 @@ document.addEventListener('DOMContentLoaded', () => {
             return {
                 id: t.id, gridX: pos.gridX, gridY: pos.gridY, size: t.size || 'medium',
                 label: (t.name||'?')[0].toUpperCase(),
-                bg: isDead ? '#1a0000' : isBleedingOut ? '#450a0a' : (t.color||defColor),
+                ko: isKo,
+                bg: isDead ? '#1a0000' : isKo ? '#52525b' : isBleedingOut ? '#450a0a' : (t.color||defColor),
                 borderColor: isActive?'#fbbf24' : isDead?'rgba(80,80,80,0.8)' : isBleedingOut?'#f97316' : isHidden?'rgba(255,255,255,0.25)' : factionBorder,
                 borderW: isActive ? 3 : 2,
                 glow: isActive ? 'rgba(251,191,36,.8)' : isBleedingOut ? 'rgba(249,115,22,.7)' : null,
                 tint: isBleedingOut ? 'rgba(220,38,38,0.45)' : isDead ? 'rgba(0,0,0,0.55)' : null,
                 opacity: isHidden ? 0.45 : isDead ? 0.7 : 1,
-                filter: isDead ? 'grayscale(1)' : isBleedingOut ? 'saturate(0.4)' : 'none',
+                filter: isDead || isKo ? 'grayscale(1)' : isBleedingOut ? 'saturate(0.4)' : 'none',
                 badge: (isBleedingOut && linkedEntry?.bleedOutTurns != null) ? linkedEntry.bleedOutTurns : null,
                 num: t.type === 'player' ? null : window.APXBattle.numberOf(linkedEntry?.name || t.name),
                 layer: t.layer == null ? 1 : t.layer,
@@ -4304,6 +4311,7 @@ document.addEventListener('DOMContentLoaded', () => {
             window.apxEffectiveConditions(list).map(c => c.id).filter(id => !before.includes(id))
                 .forEach(id => (CONDITION_ON_START[id] || []).forEach(x => { if (!list.includes(x)) list.push(x); }));
         }
+        if (entryId && window._gmOnCondChange) window._gmOnCondChange(entryId, condId, on);   // grapples follow Grappled / Pinned / Incapacitated
     }
     // Names of every condition in effect, including ones brought by another ("Unconscious (from Bleeding Out)")
     window._gmEffCondNames = function(stored) {
@@ -4740,53 +4748,105 @@ document.addEventListener('DOMContentLoaded', () => {
         _btRenderTokens(target.id, 'omWin_'+target.id);
     };
 
+    // The battle token(s) of an initiative entry: { map, tok }
+    window._btEntryTokens = function(entry) {
+        let out = [];
+        if (!entry) return out;
+        (_wNotes.otherMaps||[]).forEach(m => { if (!m.battleMapEnabled) return; (m.battleTokens||[]).forEach(t => {
+            if (t.initiativeId === entry.id
+                || (t.type === 'player' && entry.playerUid && !entry.companionOf && t.playerUid === entry.playerUid)
+                || (t.type === 'companion' && entry.companionOf && t.playerUid === entry.companionOf)) out.push({ map: m, tok: t });
+        }); });
+        return out;
+    };
+    // Initiative entries whose tokens touch this entry's token (within 1 square), nearest first
+    window._btAdjacentEntries = function(entry) {
+        let mine = window._btEntryTokens(entry); if (!mine.length) return [];
+        let open = mine.find(x => document.getElementById('omWin_' + x.map.id)) || mine[0];
+        let m = open.map, a = _btPos(m.id, open.tok), sa = window.APXBattle.span(open.tok.size || 'medium');
+        let res = [];
+        (window.gmInitiative||[]).forEach(e => {
+            if (e === entry) return;
+            let theirs = window._btEntryTokens(e).filter(x => x.map === m);
+            theirs.forEach(x => {
+                let b = _btPos(m.id, x.tok), sb = window.APXBattle.span(x.tok.size || 'medium');
+                let gapX = Math.max(0, Math.max(a.gridX, b.gridX) - Math.min(a.gridX + sa, b.gridX + sb));
+                let gapY = Math.max(0, Math.max(a.gridY, b.gridY) - Math.min(a.gridY + sa, b.gridY + sb));
+                if (gapX <= 0 && gapY <= 0 && !res.includes(e)) res.push(e);   // (touching: no square between)
+            });
+        });
+        return res;
+    };
+
     // Summon a Creature (a player's power): the creature is saved to the GM's NPCs and, when the
     // caster's token is on an open Battle Map, placed next to them (and into initiative, after them)
-    window._gmSpawnSummon = function(uid, ev) {
-        let sm = ev.summon; if (!sm || !sm.npc) return;
-        let pm = (window.gmParty||[]).find(p=>p.fileName===uid);
-        let caster = pm?.summary?.name || ev.who || 'A player';
-        let id = 'sum_' + uid + '_' + String(sm.power||'').replace(/[^a-z0-9]/gi,'').slice(0,24);
-        let npc = JSON.parse(JSON.stringify(sm.npc));
+    // Summon a Creature: the creature is saved to the GM's NPCs and placed next to its summoner on the
+    // battle map the summoner's token is on (an open one first), and joins initiative right after it.
+    // Summoned creatures have a hard 3 AP: they gain 3 at the start of each turn and can't bank any.
+    // o = { ownerEntry (initiative entry, optional), ownerName, ownerTok(m) -> token on map m, summonOf (player uid),
+    //       faction, npc, count, power, key, logId }
+    window._gmSpawnSummonCore = function(o) {
+        let npc = JSON.parse(JSON.stringify(o.npc)); npc.isSummon = true;
+        let id = 'sum_' + o.key + '_' + String(o.power||'').replace(/[^a-z0-9]/gi,'').slice(0,24);
         let ge = (window.gmNpcs||[]).find(n=>n.id===id);
-        if (ge) ge.npc = npc; else { window.gmNpcs.push({ id, npc, summonOf: uid }); }
+        if (ge) ge.npc = npc; else window.gmNpcs.push({ id, npc, summonOf: o.summonOf || o.key });
         if (typeof window.renderGmNpcList === 'function') window.renderGmNpcList();
         let idx = window.gmNpcs.findIndex(n=>n.id===id);
-        let count = Math.max(1, parseInt(sm.count)||1);
-        // The caster's Battle Map: an enabled battle map with their token, preferring one that's open
-        let maps = (_wNotes.otherMaps||[]).filter(m => m.battleMapEnabled && (m.battleTokens||[]).some(t=>t.type==='player'&&t.playerUid===uid));
+        let count = Math.max(1, parseInt(o.count)||1);
+        let maps = (_wNotes.otherMaps||[]).filter(m => m.battleMapEnabled && o.ownerTok(m));
         let map = maps.find(m=>document.getElementById('omWin_'+m.id)) || null;
-        let inFight = (window.gmInitiative||[]).some(e=>e.playerUid===uid);
-        let made = [];
+        let owner = o.ownerEntry || null;
         for (let k = 0; k < count; k++) {
             let tok = null;
             if (map) {
-                let me = map.battleTokens.find(t=>t.type==='player'&&t.playerUid===uid);
-                let at = _btPos(map.id, me);
+                let me = o.ownerTok(map), at = _btPos(map.id, me), mspan = window.APXBattle.span(me.size || 'medium');
                 let size = String(npc.size||'medium').toLowerCase();
-                let free = window.APXBattle.findFreeCell(map.battleTokens, {id:null,size}, at.gridX+1, at.gridY, t=>_btPos(map.id,t)) || {gridX:at.gridX+1,gridY:at.gridY};
+                let free = window.APXBattle.findFreeCell(map.battleTokens, {id:null,size}, at.gridX + mspan, at.gridY, t=>_btPos(map.id,t)) || {gridX:at.gridX+mspan,gridY:at.gridY};
                 tok = {id:'bt_'+Date.now()+'_'+Math.random().toString(36).slice(2,6), type:'npc', name:npc.name||'Summoned Creature', baseName:npc.name||'Summoned Creature',
-                    color:'#16a34a', size, gridX:free.gridX, gridY:free.gridY, worldNpcId:null, playerUid:null, initiativeId:null, revealed:true, faction:'ally', summonOf: uid, portrait: npc.portrait || ''};
+                    color: o.faction === 'enemy' ? '#d97706' : '#16a34a', size, gridX:free.gridX, gridY:free.gridY, worldNpcId:null, playerUid:null, initiativeId:null,
+                    revealed: o.faction === 'enemy' ? (me.revealed !== false) : true, faction: o.faction || 'ally', summonOf: o.summonOf || null, portrait: npc.portrait || ''};
                 map.battleTokens.push(tok);
             }
-            if (inFight && typeof window.addToInitiative === 'function') {
+            if (owner && typeof window.addToInitiative === 'function') {
                 if (tok) window._pendingTokenInitLink = { mapId: map.id, tokenId: tok.id };
-                let en = window.addToInitiative(idx, 'npc', 'ally', npc.name);
-                if (en) { en.summonOf = uid; en.tpValue = 0; let o = (window.gmInitiative||[]).find(e=>e.playerUid===uid&&!e.companionOf&&!e.summonOf); if (o) en.baseInitiative = o.baseInitiative; }
+                let en = window.addToInitiative(idx, 'npc', o.faction || 'ally', npc.name);
+                if (en) {
+                    if (o.summonOf) en.summonOf = o.summonOf; else en.summonOfEntry = owner.id;
+                    en.summoned = true; en.ap = 3; en.apCur = window.gmCombatStarted ? 0 : 3; en.tpValue = 0;
+                    en.baseInitiative = owner.baseInitiative;
+                }
                 window._pendingTokenInitLink = null;
             }
-            made.push(tok);
         }
-        if (inFight && typeof window.gmCombatStarted !== 'undefined' && !window.gmCombatStarted) {
-            window.gmInitiative.sort((a,b)=>initiativeCompare(a,b));
-        }
+        if (owner && typeof window.gmCombatStarted !== 'undefined' && !window.gmCombatStarted) window.gmInitiative.sort((a,b)=>initiativeCompare(a,b));
         window._gmRenumber && window._gmRenumber();
         window.renderInitiativeTracker && window.renderInitiativeTracker();
         saveWorldNotes();
         if (map) _btRenderTokens(map.id, 'omWin_'+map.id);
-        let where = map ? ` next to them on ${map.name||'the battle map'}` : ' (their token isn\'t on an open Battle Map, so place it from the Saved NPCs)';
-        if (typeof gmLog === 'function') gmLog({ id: 'sum_' + ev.id, text: `${caster} summons ${count > 1 ? count + '× ' : ''}${npc.name||'a creature'}${where}.`, kind: 'info', force: true });
-        if (window.APXDice && APXDice.notify) APXDice.notify(`${caster} summoned ${count > 1 ? count + '× ' : ''}${npc.name||'a creature'}${where}.`, { kind: 'note', open: true });
+        let where = map ? ` next to ${o.ownerName === 'You' ? 'it' : 'them'} on ${map.name||'the battle map'}` : ' (no battle map has its token, so place it from the Saved NPCs)';
+        let what = `${count > 1 ? count + '× ' : ''}${npc.name||'a creature'}`;
+        if (typeof gmLog === 'function') gmLog({ id: o.logId, text: `${o.ownerName} summons ${what}${where}.`, kind: 'info', force: true, gmOnly: o.faction === 'enemy' && !map });
+        if (window.APXDice && APXDice.notify && o.summonOf) APXDice.notify(`${o.ownerName} summoned ${what}${where}.`, { kind: 'note', open: true });
+    };
+    // A player's (or their Loyal Companion's) Summon a Creature power
+    window._gmSpawnSummon = function(uid, ev) {
+        let sm = ev.summon; if (!sm || !sm.npc) return;
+        let pm = (window.gmParty||[]).find(p=>p.fileName===uid);
+        let comp = !!ev.companion;
+        let ownerEntry = comp ? (window.gmInitiative||[]).find(e=>e.companionOf===uid) : (window.gmInitiative||[]).find(e=>e.playerUid===uid&&!e.companionOf&&!e.summonOf);
+        let ownerName = comp ? (ownerEntry?.name || pm?.state?.companion?.name || 'A companion') : (pm?.summary?.name || ev.who || 'A player');
+        window._gmSpawnSummonCore({ ownerEntry, ownerName, summonOf: comp ? null : uid, key: (comp ? 'c_' : '') + uid, faction: 'ally', npc: sm.npc, count: sm.count, power: sm.power, logId: 'sum_' + ev.id,
+            ownerTok: m => (m.battleTokens||[]).find(t => t.type === (comp ? 'companion' : 'player') && t.playerUid === uid) });
+    };
+    // An NPC in the tracker uses its Summon a Creature power: same faction, next to it
+    window._gmSpawnNpcSummon = function(ownerEntry, power) {
+        let d = power && power.draft, n = d && d.utility && d.utility.major && d.utility.major.summonCreature;
+        if (!n) return false;
+        if (!d.summonNpc) { if (window.APXDice && APXDice.notify) APXDice.notify(`${power.name}: its summoned creature hasn't been built yet (edit the power in the NPC Crafter).`, { kind: 'warn', open: true }); return true; }
+        window._gmSpawnSummonCore({ ownerEntry, ownerName: ownerEntry ? ownerEntry.name : 'An NPC', key: 'n_' + (ownerEntry ? ownerEntry.sourceNpcId || ownerEntry.id : 'npc'), faction: ownerEntry ? ownerEntry.faction : 'enemy',
+            npc: d.summonNpc, count: n, power: power.name, logId: 'sumn_' + Date.now().toString(36),
+            ownerTok: m => ownerEntry ? (m.battleTokens||[]).find(t => t.initiativeId === ownerEntry.id) : null });
+        return true;
     };
 
     // Full player stat block popup — opened by double-clicking a player's battle token
@@ -6247,8 +6307,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </script>
     <div id="floatingWindowContainer"></div>
 
-    <script src="js/apx-chat.js?v=20261032200"></script>
-    <script src="js/apx-extras.js?v=20261032200"></script>
-    <script src="js/apx-theme-light.js?v=20261032200"></script>
+    <script src="js/apx-chat.js?v=20261021530"></script>
+    <script src="js/apx-extras.js?v=20261021530"></script>
+    <script src="js/apx-theme-light.js?v=20261021530"></script>
 </body>
 </html>

@@ -501,8 +501,18 @@ window.pcToggleSecondType = function(checked) { pcDraft.addSecondType = checked;
 window.pcToggleFlatDmg = function(checked) { pcDraft.addFlatDmgPerDie = checked; pcRenderAll(); };
 window.pcToggleAttrToDmg = function(checked) { pcDraft.addAttrToDmg = checked; pcRenderAll(); };
 
+// Summon rules: a summoned creature can't summon; a companion's or NPC's summons can't be of a higher
+// Tier than itself (so it needs Tier 1 to summon at all)
+function pcSummonOwnerTier() { return (pcTarget === 'companion' || pcTarget === 'gm') && typeof npcTierForTP === 'function' ? npcTierForTP(window.companionTotalTp()).tier : null; }
+function pcSummonBlock() {
+    if (pcTarget === 'summon') return 'A summoned creature can\'t summon creatures of its own.';
+    let t = pcSummonOwnerTier();
+    if (t !== null && t < 1) return 'This creature needs to be at least Tier 1 to summon (its summons can\'t be a higher Tier than it).';
+    return '';
+}
+function pcSummonMaxTier() { let t = pcSummonOwnerTier(); return t === null ? 10 : Math.max(1, t); }
 window.pcSetSummonTier = function(d) {
-    pcDraft.summonTier = Math.max(1, Math.min(10, (parseInt(pcDraft.summonTier) || 1) + d));
+    pcDraft.summonTier = Math.max(1, Math.min(pcSummonMaxTier(), (parseInt(pcDraft.summonTier) || 1) + d));
     pcRenderAll();
 };
 // Opens the NPC Crafter on the draft's summoned creature (at the chosen Tier); cb runs after it closes
@@ -531,6 +541,7 @@ function pcAfterSummonSave(power) {
     setTimeout(() => window.openSummonCrafter && window.openSummonCrafter({ npc: power.draft.summonNpc || null, tier, done: npc => {
         power.draft.summonNpc = JSON.parse(JSON.stringify(npc)); power.draft.summonNpcTier = tier;
         window.recalculateMath();
+        if (typeof ncRenderAll === 'function' && document.getElementById('npcCrafterModal')?.classList.contains('active')) ncRenderAll();
     } }), 50);
 }
 window.pcSetUtilityCount = function(tier, key, delta) {
@@ -540,6 +551,7 @@ window.pcSetUtilityCount = function(tier, key, delta) {
     let max = entry.rep ? 20 : 1;
     if (delta > 0 && tier !== 'mythic' && pcMythic(pcDraft)) return;   // a Mythic power can't have other utilities
     let next = Math.max(0, Math.min(max, cur + delta));
+    if (delta > 0 && key === 'summonCreature' && pcSummonBlock()) { window.showConfirm(pcSummonBlock(), null, true); return; }
     if (tier === 'mythic' && next > 0) {
         // Taking a Mythic Utility replaces everything else in Step 5
         Object.keys(pcDraft.utility).forEach(t => { pcDraft.utility[t] = {}; });
@@ -710,19 +722,21 @@ function pcRenderUtilityTier(tier, label, colorClass) {
     let mythicOn = !!pcMythic(pcDraft);
     let rows = POWER_UTILITY[tier].map(u => {
         let count = pcDraft.utility[tier][u.key] || 0;
-        let blocked = mythicOn && tier !== 'mythic';
+        let sumBlock = u.key === 'summonCreature' ? pcSummonBlock() : '';
+        if (u.key === 'summonCreature' && count > 0 && (parseInt(pcDraft.summonTier) || 1) > pcSummonMaxTier()) pcDraft.summonTier = pcSummonMaxTier();
+        let blocked = (mythicOn && tier !== 'mythic') || !!sumBlock;
         return `
             <div class="flex items-center justify-between bg-slate-900 border ${count && tier === 'mythic' ? 'border-amber-400' : 'border-slate-700'} rounded px-2 py-1.5 gap-2 ${blocked ? 'opacity-40' : ''}">
-                <div class="flex-1 text-[10px] text-slate-300 leading-tight">${u.label}${u.rep ? ' <span class="text-slate-600">(repeatable)</span>' : ''}${pcIsNpc() && (u.rep || count < 1) ? ` <span class="text-yellow-500 font-bold">[${pcCost(0, d => { d.utility[tier][u.key] = (d.utility[tier][u.key] || 0) + 1; })}]</span>` : ''}</div>
+                <div class="flex-1 text-[10px] text-slate-300 leading-tight">${u.label}${u.rep ? ' <span class="text-slate-600">(repeatable)</span>' : ''}${sumBlock ? `<div class="text-red-400">${sumBlock}</div>` : ''}${pcIsNpc() && (u.rep || count < 1) ? ` <span class="text-yellow-500 font-bold">[${pcCost(0, d => { d.utility[tier][u.key] = (d.utility[tier][u.key] || 0) + 1; })}]</span>` : ''}</div>
                 <div class="flex items-center gap-1 shrink-0">
                     <button onclick="window.pcSetUtilityCount('${tier}','${u.key}', -1)" ${count<=0?'disabled':''} class="w-5 h-5 rounded ${count<=0?'bg-slate-800 text-slate-600':'bg-slate-700 hover:bg-slate-600 text-white'} text-xs font-bold">-</button>
                     <span class="w-5 text-center text-xs font-bold text-white">${count}</span>
-                    <button onclick="window.pcSetUtilityCount('${tier}','${u.key}', 1)" ${((!u.rep && count>=1) || blocked)?'disabled':''} class="w-5 h-5 rounded ${((!u.rep && count>=1) || blocked)?'bg-slate-800 text-slate-600':'bg-amber-700 hover:bg-amber-600 text-white'} text-xs font-bold" ${blocked ? 'title="A power with a Mythic Utility can\'t contain any other utilities"' : tier === 'mythic' && !count ? 'title="Replaces any other utilities in this power"' : ''}>+</button>
+                    <button onclick="window.pcSetUtilityCount('${tier}','${u.key}', 1)" ${((!u.rep && count>=1) || blocked)?'disabled':''} class="w-5 h-5 rounded ${((!u.rep && count>=1) || blocked)?'bg-slate-800 text-slate-600':'bg-amber-700 hover:bg-amber-600 text-white'} text-xs font-bold" ${sumBlock ? `title="${sumBlock.replace(/"/g, '&quot;')}"` : blocked ? 'title="A power with a Mythic Utility can\'t contain any other utilities"' : tier === 'mythic' && !count ? 'title="Replaces any other utilities in this power"' : ''}>+</button>
                 </div>
             </div>
         ` + (u.key === 'summonCreature' && count > 0 ? `
             <div class="flex items-center justify-between bg-slate-950 border border-purple-700/60 rounded px-2 py-1.5 gap-2 ml-3">
-                <div class="flex-1 text-[10px] text-purple-200 leading-tight">Creature Tier <span class="text-slate-500">(+15 XP per Tier above 1, per creature)</span>${pcDraft.summonNpc ? `<div class="text-emerald-400">Built: ${String(pcDraft.summonNpc.name || 'Creature').replace(/</g, '&lt;')} <button onclick="window.pcEditSummon()" class="underline text-purple-300 hover:text-white">Edit creature</button></div>` : '<div class="text-slate-500">You build the creature in the NPC Crafter when you save this power.</div>'}</div>
+                <div class="flex-1 text-[10px] text-purple-200 leading-tight">Creature Tier <span class="text-slate-500">(+15 XP per Tier above 1, per creature${pcSummonOwnerTier() !== null ? `; up to this creature's own Tier, ${pcSummonMaxTier()}` : ''})</span>${pcDraft.summonNpc ? `<div class="text-emerald-400">Built: ${String(pcDraft.summonNpc.name || 'Creature').replace(/</g, '&lt;')} <button onclick="window.pcEditSummon()" class="underline text-purple-300 hover:text-white">Edit creature</button></div>` : '<div class="text-slate-500">You build the creature in the NPC Crafter when you save this power.</div>'}</div>
                 <div class="flex items-center gap-1 shrink-0">
                     <button onclick="window.pcSetSummonTier(-1)" class="w-5 h-5 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold">-</button>
                     <span class="w-5 text-center text-xs font-bold text-white">${pcDraft.summonTier || 1}</span>
@@ -1083,10 +1097,12 @@ function pcApplyXpDelta(delta) {
 }
 
 // After an NPC / companion / item power is saved
-function pcAfterNpcSave() {
+function pcAfterNpcSave(power) {
     if (pcTarget === 'item') { if (typeof window._pcItemOnChange === 'function') window._pcItemOnChange(); return; }
     window.recalculateMath();
     if (typeof ncRenderAll === 'function') ncRenderAll();
+    // A companion's (or GM NPC's) Summon a Creature power: build its creature next, in the NPC Crafter
+    if ((pcTarget === 'companion' || pcTarget === 'gm') && power) pcAfterSummonSave(power);
 }
 
 window.finishPowerCrafter = function() {
@@ -1113,7 +1129,7 @@ window.finishPowerCrafter = function() {
         // A GM NPC's power is kept in the Library too, to give to other NPCs (or put on items)
         if (pcTarget === 'gm' && window.apxLibAdd) { let made = getTargetPowers()[getTargetPowers().length - 1]; try { window.apxLibAdd('power', made, { quiet: true }); } catch (e) { } }
         window.closeModal('powerCrafterModal');
-        pcAfterNpcSave();
+        pcAfterNpcSave(getTargetPowers()[getTargetPowers().length - 1]);
         return;
     }
 
@@ -1196,7 +1212,7 @@ window.savePowerChanges = function() {
         power.rulesRev = window.APX_POWER_RULES_REV || 1;
         power.usageType = pcDraft.usageType; power.maxCharges = pcDraft.maxCharges; power.rechargeOn = pcDraft.rechargeOn;
         window.closeModal('powerCrafterModal');
-        pcAfterNpcSave();
+        pcAfterNpcSave(power);
         return;
     }
 
@@ -1263,7 +1279,7 @@ window.savePowerAsNew = function() {
             usageType: pcDraft.usageType, maxCharges: pcDraft.maxCharges, rechargeOn: pcDraft.rechargeOn
         });
         window.closeModal('powerCrafterModal');
-        pcAfterNpcSave();
+        pcAfterNpcSave(getTargetPowers()[getTargetPowers().length - 1]);
         return;
     }
 

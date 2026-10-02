@@ -33,7 +33,7 @@
             ], effect: (c, r) => { c.skills.Craft = (c.skills.Craft||0)+r; } },
             { id: "str_brute", name: "Brute", attr: "STR", max: 5, baseDesc: "+1 bonus to STR (Athletics) per rank.", ranks: [
                 "Rank 1. Considered 1 Size larger for carrying/pushing. Deal double damage to objects.",
-                "Rank 2. No movement penalty when grappling. 2 AP to end grapple by throwing target.",
+                "Rank 2. Not Staggered while you grapple a creature. 2 AP to end a grapple by throwing the target.",
                 "Rank 3. Range of thrown/improvised weapons doubled.",
                 "Rank 4. Moving in straight line can auto-break doors/windows, knock enemies Prone.",
                 "Rank 5. 3 AP: Strike ground with Heavy weapon. 2-sq radius AGI save or take STR damage and fall Prone."

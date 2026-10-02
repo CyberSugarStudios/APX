@@ -174,7 +174,8 @@
     //   marquee: bool    Shift+drag on empty map draws a selection box
     // }
     // tokenVM = { id, gridX, gridY, size, layer, label, bg, borderColor, borderW, glow, tint,
-    //   opacity, filter, portrait, title, draggable, interactive, badge, num, numColor, conds, attrs:{} }
+    //   opacity, filter, portrait, title, draggable, interactive, badge, num, numColor, conds, attrs:{},
+    //   ko (knocked out: snoring Z's) }
     // propVM  = { id, src, x, y, w, h, layer, opacity, title, draggable, locked, resizable }
     // Stacking: layer first; within a layer, images keep their list order (so every
     // screen stacks overlapping images the same way) and tokens sit above images.
@@ -248,6 +249,7 @@
         el.style.cursor = vm.draggable ? 'grab' : 'default';
         el.style.pointerEvents = vm.interactive === false ? 'none' : 'auto';
         el._tint.style.background = vm.tint || 'transparent';
+        if (el._zzz) el._zzz.style.display = vm.ko ? 'block' : 'none';
         let hasBadge = vm.badge !== null && vm.badge !== undefined && vm.badge !== '';
         el._badge.textContent = hasBadge ? String(vm.badge) : '';
         el._badge.style.display = hasBadge ? 'flex' : 'none';
@@ -722,8 +724,14 @@
         num.style.cssText = chip + 'right:-12%;bottom:-12%;background:rgba(10,10,15,.92);';
         let cond = document.createElement('div');
         cond.style.cssText = chip + 'left:-12%;top:-12%;background:#7c2d12;color:#fed7aa;border-color:#fb923c;';
-        el.appendChild(inner); el.appendChild(tint); el.appendChild(badge); el.appendChild(num); el.appendChild(cond);
-        el._inner = inner; el._tint = tint; el._badge = badge; el._num = num; el._cond = cond;
+        // Knocked out (non-lethal damage): three snoring Z's rising diagonally from the token's centre, each larger
+        let zzz = document.createElement('div');
+        zzz.style.cssText = 'position:absolute;left:46%;bottom:46%;width:120%;height:120%;display:none;pointer-events:none;';
+        zzz.innerHTML = '<svg viewBox="0 0 100 100" width="100%" height="100%" style="overflow:visible">'
+            + [[4, 96, 26], [26, 70, 38], [54, 38, 54]].map(([x, y, f], i) => `<text x="${x}" y="${y}" font-size="${f}" font-weight="900" font-family="Arial Black,Arial,sans-serif" fill="#f8fafc" stroke="#0f172a" stroke-width="${f / 6}" paint-order="stroke" transform="rotate(-14 ${x} ${y})">Z<animate attributeName="opacity" values="1;.55;1" dur="2.4s" begin="${i * 0.4}s" repeatCount="indefinite"/></text>`).join('')
+            + '</svg>';
+        el.appendChild(inner); el.appendChild(tint); el.appendChild(badge); el.appendChild(num); el.appendChild(cond); el.appendChild(zzz);
+        el._inner = inner; el._tint = tint; el._badge = badge; el._num = num; el._cond = cond; el._zzz = zzz;
         _attach(layer, el);
         return el;
     }
