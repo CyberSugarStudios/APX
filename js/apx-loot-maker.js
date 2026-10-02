@@ -333,8 +333,8 @@
             let row = document.createElement('div');
             row.setAttribute('data-ci-row', '');
             row.style.cssText = 'display:flex;gap:.35rem;align-items:center;margin-bottom:.3rem';
-            row.innerHTML = `<select data-ci-key style="${inCss};flex:1;min-width:0">${window.apxItemBonusOptions ? window.apxItemBonusOptions(key) : ''}</select>
-                <input data-ci-amt type="number" value="${amount}" style="${inCss};width:4rem;text-align:center" title="Negative for a penalty">
+            row.innerHTML = `<select data-ci-key style="${inCss};flex:1 1 auto;width:auto;min-width:0">${window.apxItemBonusOptions ? window.apxItemBonusOptions(key) : ''}</select>
+                <input data-ci-amt type="number" value="${amount}" style="${inCss};flex:0 0 4rem;width:4rem;text-align:center" title="Negative for a penalty">
                 <button type="button" title="Remove" style="background:#334155;border:none;color:#cbd5e1;border-radius:.25rem;width:1.5rem;height:1.5rem;cursor:pointer;font-weight:900">✕</button>`;
             row.querySelector('button').onclick = () => row.remove();
             rows.appendChild(row);

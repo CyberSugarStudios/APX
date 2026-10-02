@@ -122,7 +122,7 @@ window.setArmorModQty = function(key, delta) {
 window.renderArmorForge = function() {
     let totals = window.armorForgeCalcTotals(armorForgeDraft);
     let delta = Math.max(0, totals.cost - armorForgeBasePaid);
-    let reqStr = Math.floor(totals.wt / 10);
+    let reqStr = Math.floor(totals.wt / 10);   // (recomputed below with shields and helmet)
     let speedBaseline = armorForgeSpeedBaseline();
 
     let rows = ARMOR_MODS.map(m => {
@@ -158,15 +158,22 @@ window.renderArmorForge = function() {
         `;
     }).join('');
 
-    // Include equipped shield and helmet only if they are genuinely equipped (have a name)
+    // Everything worn counts, the same as the sheet: the armor, every shield (one per Off Hand with
+    // four arms) and an intact helmet. The STR requirement is worked out from that total.
     let totalWt = totals.wt;
-    let eqShield = (armorForgeTarget === 'loot') ? null : (armorForgeTarget === 'gm') ? window._ncGetCompanion?.()?.equippedShield : (armorForgeTarget === 'companion' ? window.state?.companion?.equippedShield : window.state?.equippedShield);
-    let eqHelmet = (armorForgeTarget === 'loot') ? null : (armorForgeTarget === 'gm') ? window._ncGetCompanion?.()?.equippedHelmet : (armorForgeTarget === 'companion' ? window.state?.companion?.equippedHelmet : window.state?.equippedHelmet);
-    // Only count shield/helmet if the equipped flag is true (set when player purchases them)
+    let wearer = (armorForgeTarget === 'loot') ? null : (armorForgeTarget === 'gm') ? window._ncGetCompanion?.() : (armorForgeTarget === 'companion' ? window.state?.companion : window.state);
+    let eqShield = wearer?.equippedShield, eqHelmet = wearer?.equippedHelmet;
     if (eqShield?.equipped && eqShield.wt) totalWt += eqShield.wt;
     else eqShield = null;
-    if (eqHelmet?.equipped && eqHelmet.wt) totalWt += eqHelmet.wt;
+    let extraShields = (wearer && Array.isArray(wearer.extraShields)) ? wearer.extraShields.filter(x => x && x.wt) : [];
+    extraShields.forEach(x => { totalWt += x.wt || 0; });
+    if (eqHelmet?.equipped && !eqHelmet.broken && eqHelmet.wt) totalWt += eqHelmet.wt;
     else eqHelmet = null;
+    reqStr = Math.floor(totalWt / 10);
+    let shieldWt = (eqShield ? eqShield.wt : 0) + extraShields.reduce((t, x) => t + (x.wt || 0), 0);
+    let shieldCount = (eqShield ? 1 : 0) + extraShields.length;
+    let strNow = null;
+    if (armorForgeTarget === 'player' && typeof calc !== 'undefined' && calc.scores) strNow = calc.scores.STR;
 
     // Correct thresholds (match engine): Light ≤30, Medium 31-70, Heavy >70
     let armorWtClass = totalWt === 0 ? 'Unarmored' : totalWt <= 30 ? 'Lightly Armored' : totalWt <= 70 ? 'Moderately Armored' : 'Heavily Armored';
@@ -178,24 +185,25 @@ window.renderArmorForge = function() {
             : totalWt <= 70
                 ? '! Moderately Armored (31-70 lbs) — AGI bonus to AC capped at +2'
                 : 'X Heavily Armored (>70 lbs) — No AGI bonus to AC';
-    let shieldNote = eqShield ? `<span style="font-size:0.6rem;color:#64748b;margin-left:0.5rem;">(incl. ${eqShield.name} +${eqShield.wt}lb${eqHelmet?', '+eqHelmet.name+' +'+eqHelmet.wt+'lb':''})</span>` : (eqHelmet ? `<span style="font-size:0.6rem;color:#64748b;margin-left:0.5rem;">(incl. ${eqHelmet.name} +${eqHelmet.wt}lb)</span>` : '');
+    let incl = [shieldCount ? `${shieldCount > 1 ? shieldCount + ' shields' : (eqShield ? eqShield.name : 'Shield')} +${shieldWt} lb` : '', eqHelmet ? `${eqHelmet.name || 'Helmet'} +${eqHelmet.wt} lb` : ''].filter(Boolean);
+    let shieldNote = incl.length ? `<span style="font-size:0.6rem;color:#64748b;margin-left:0.5rem;">(armor ${totals.wt} lb, incl. ${incl.join(', ')})</span>` : '';
 
     let html = `
         <div class="text-[10px] text-slate-500 mb-2">Base Armor is always included: 10 lbs, +1 AC / +1 DR / +1 ER, 50 Currency.</div>
         <div class="flex items-center gap-2 mb-3 bg-slate-900 border border-slate-700 rounded px-3 py-2">
-            <span style="font-size:0.75rem;font-weight:900;color:${armorWtColor};">${armorWtClass} (${totalWt} lbs${eqShield||eqHelmet?' total':''})</span>
+            <span style="font-size:0.75rem;font-weight:900;color:${armorWtColor};">${armorWtClass} (${totalWt} lbs${incl.length?' worn in total':''})</span>
             ${shieldNote}
             <span style="font-size:0.65rem;color:#94a3b8;margin-left:auto;">${agiRuleText}</span>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 sm:grid-flow-col sm:grid-rows-5 gap-1.5 max-h-[40vh] overflow-y-auto pr-1">${rows}</div>
 
         <div class="grid grid-cols-4 gap-2 mt-4 bg-slate-900 border border-slate-700 rounded-lg p-3">
-            <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">Weight</div><div class="text-lg font-black text-white">${totals.wt}</div></div>
+            <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">Weight</div><div class="text-lg font-black text-white">${totals.wt} lb</div>${incl.length ? `<div class="text-[9px] text-slate-400">${totalWt} lb worn</div>` : ''}</div>
             <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">AC / DR / ER</div><div class="text-lg font-black text-white">+${totals.ac}/+${totals.dr}/+${totals.er}</div></div>
             <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">Stealth / Athl.</div><div class="text-lg font-black text-white">${totals.stealth >= 0 ? '+' : ''}${totals.stealth} / ${totals.athletics >= 0 ? '+' : ''}${totals.athletics}</div></div>
             <div class="text-center"><div class="text-[9px] text-slate-500 uppercase font-bold">Speed Mod</div><div class="text-lg font-black text-white">${totals.speed} <span class="text-[9px] text-slate-500">(→ ${Math.max(0, speedBaseline + totals.speed)})</span></div></div>
         </div>
-        <div class="text-[10px] text-slate-500 mt-2 text-center">STR requirement to avoid penalties: <span class="font-bold text-slate-300">${reqStr}</span> (based on total weight)</div>
+        <div class="text-[10px] text-slate-500 mt-2 text-center">STR requirement to avoid penalties: <span class="font-bold ${strNow !== null && totalWt > 0 ? (strNow >= reqStr ? 'text-emerald-400' : 'text-red-400') : 'text-slate-300'}">${reqStr}</span> (${totalWt} lb worn ÷ 10${incl.length ? ': armor, ' + incl.map(x => x.replace(/ \+\d+ lb$/, '')).join(' and ') : ''})${strNow !== null && totalWt > 0 ? (strNow >= reqStr ? ` · your STR ${strNow} is enough` : ` · your STR is ${strNow}: the STR penalties apply while worn`) : ''}</div>
 
         <div class="flex justify-between items-center mt-4 bg-slate-900 border border-amber-800/50 rounded-lg p-3">
             <div>

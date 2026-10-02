@@ -165,11 +165,11 @@
                 let from = ec.from ? (CONDITIONS.find(x => x.id === ec.from) || {}).name : '';
                 let legLock = ec.id === 'prone' && bothLegsWounded();
                 let removable = !from && stored.includes(ec.id) && !legLock;
-                let x = removable ? xBtn(`window.toggleCondition(decodeURIComponent('${encodeURIComponent(ec.id)}'), false)`, 'Remove ' + c.name) : '';
+                let x = removable ? xBtn(`window.toggleCondition(decodeURIComponent('${encodeURIComponent(ec.id).replace(/'/g, '%27')}'), false)`, 'Remove ' + c.name) : '';
                 return `<span class="inline-flex items-center text-[9px] ${from ? 'bg-red-900/20 text-red-300/80 border-dashed' : 'bg-red-900/40 text-red-300'} border border-red-800/50 px-1.5 py-0.5 rounded font-bold" title="${String(c.desc).replace(/"/g, '&quot;')}${from ? ' (from ' + from + ' — remove ' + from + ' to clear)' : ''}${legLock ? ' (both legs are Wounded: you can\'t stand until one heals)' : ''}">${c.name}${x}</span>`;
             });
             let limbTags = window.state.woundedLimbs.map(limb =>
-                `<span class="inline-flex items-center text-[9px] bg-red-900/40 text-red-300 border border-red-800/50 px-1.5 py-0.5 rounded font-bold">Wounded: ${limb}<button type="button" class="apx-perm-btn ml-1 px-1 rounded border border-fuchsia-700/70 text-fuchsia-300 hover:text-white hover:bg-fuchsia-900/60 leading-none" title="Wounded again before it healed? Record a Permanent Injury (−1 to an attribute)" onclick="event.stopPropagation();window.apxPermanentInjury(decodeURIComponent('${encodeURIComponent(limb)}'))">Re-wounded</button>${xBtn(`window.toggleWoundedLimb(decodeURIComponent('${encodeURIComponent(limb)}'), false)`, 'Remove Wounded: ' + limb)}</span>`
+                `<span class="inline-flex items-center text-[9px] bg-red-900/40 text-red-300 border border-red-800/50 px-1.5 py-0.5 rounded font-bold">Wounded: ${limb}<button type="button" class="apx-perm-btn ml-1 px-1 rounded border border-fuchsia-700/70 text-fuchsia-300 hover:text-white hover:bg-fuchsia-900/60 leading-none" title="Wounded again before it healed? Record a Permanent Injury (−1 to an attribute)" onclick="event.stopPropagation();window.apxPermanentInjury(decodeURIComponent('${encodeURIComponent(limb).replace(/'/g, '%27')}'))">Re-wounded</button>${xBtn(`window.toggleWoundedLimb(decodeURIComponent('${encodeURIComponent(limb).replace(/'/g, '%27')}'), false)`, 'Remove Wounded: ' + limb)}</span>`
             );
             let permTags = (window.state.permanentInjuries || []).map(pi =>
                 `<span class="inline-flex items-center text-[9px] bg-fuchsia-900/40 text-fuchsia-200 border border-fuchsia-700/60 px-1.5 py-0.5 rounded font-bold" title="Permanent Injury${pi.limb ? ' (' + pi.limb + ')' : ''}: ${pi.attr} reduced by 1. Heal it with Relaxation downtime, a Medical plot or a Power, or raise ${pi.attr} again with XP.">Permanent Injury${pi.limb ? ': ' + pi.limb : ''} (−1 ${pi.attr})<button type="button" class="apx-cond-x ml-1 -mr-0.5 text-fuchsia-300/70 hover:text-white leading-none" title="Remove this Permanent Injury" onclick="event.stopPropagation();window.apxRemovePermanentInjury('${pi.id}')">&times;</button></span>`
@@ -1032,8 +1032,8 @@
         function newItemRenderRows() {
             let box = document.getElementById('newItemRows'); if (!box) return;
             box.innerHTML = window._newItemDraft.rows.map((r, i) => `<div data-ni-row class="flex items-center gap-1">
-                <select onchange="window.apxNewItemSync()" class="bg-slate-800 text-xs flex-1 min-w-0">${window.apxItemBonusOptions ? window.apxItemBonusOptions(r.key) : ''}</select>
-                <input type="number" value="${r.amount}" onchange="window.apxNewItemSync()" title="Negative for a penalty" class="bg-slate-800 text-xs w-14 text-center">
+                <select onchange="window.apxNewItemSync()" class="bg-slate-800 text-xs" style="flex:1 1 auto;width:auto;min-width:0;height:1.9rem;padding:0 .35rem">${window.apxItemBonusOptions ? window.apxItemBonusOptions(r.key) : ''}</select>
+                <input type="number" value="${r.amount}" onchange="window.apxNewItemSync()" title="Amount (negative for a penalty)" class="bg-slate-800 text-xs text-center" style="flex:0 0 4rem;width:4rem;height:1.9rem;padding:0 .25rem">
                 <button type="button" onclick="window.apxNewItemDelRow(${i})" class="text-red-400 hover:text-red-300 font-bold text-sm px-1" title="Remove">&times;</button></div>`).join('');
         }
         function newItemRenderPowers() {

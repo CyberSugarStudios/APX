@@ -900,7 +900,8 @@
                 locations: data.publicNotes?.locations || [],
                 npcs:      data.publicNotes?.npcs      || [],
                 notes:     data.publicNotes?.notes     || data.publicNotes?.revealedSecrets || [],
-                otherMaps: data.publicNotes?.otherMaps || []
+                otherMaps: data.publicNotes?.otherMaps || [],
+                looseNotes: data.publicNotes?.looseNotes || []
             }
         };
     }

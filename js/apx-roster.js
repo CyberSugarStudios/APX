@@ -43,7 +43,7 @@
                 html += `
                     <div class="char-list-item ${activeClass}" onclick="window.loadCharacter('${c.id}')">
                         <span class="font-bold text-slate-200 truncate pr-2">${c.name || 'Unnamed Hero'}</span>
-                        <button onclick="event.stopPropagation(); window.promptDeleteCharacter('${c.id}', '${c.name || 'Unnamed Hero'}')" class="text-slate-500 hover:text-red-500 transition px-1">&times;</button>
+                        <button onclick="event.stopPropagation(); window.promptDeleteCharacter('${c.id}', '${String(c.name || 'Unnamed Hero').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" class="text-slate-500 hover:text-red-500 transition px-1">&times;</button>
                     </div>
                 `;
             });

@@ -450,8 +450,8 @@
                 }
         
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20261011800">
-    <link rel="stylesheet" href="css/tailwind.css?v=20261011800">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20261021200">
+    <link rel="stylesheet" href="css/tailwind.css?v=20261021200">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
@@ -1249,6 +1249,7 @@
                 <option value="cyberpunk">Cyberpunk</option>
                 <option value="futuristic">Futuristic</option>
                 <option value="kawaii">Kawaii</option>
+                    <option value="cybersigil">Cyber Sigil</option>
             </select>
         </div>
         <div class="mb-4 border-t border-slate-700 pt-3 flex flex-wrap gap-2">
@@ -1514,36 +1515,36 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20261011800"></script>
-    <script src="js/apx-patch-notes.js?v=20261011800"></script>
-    <script src="js/apx-dice.js?v=20261011800"></script>
-    <script src="js/apx-data.js?v=20261011800"></script>
-    <script src="js/apx-item-effects.js?v=20261011800"></script>
-    <script src="js/apx-perks-db.js?v=20261011800"></script>
-    <script src="js/apx-migrations.js?v=20261011800"></script>
-    <script src="js/apx-state.js?v=20261011800"></script>
-    <script src="js/apx-craft-shared.js?v=20261011800"></script>
-    <script src="js/apx-armor-forge.js?v=20261011800"></script>
-    <script src="js/apx-weapon-forge.js?v=20261011800"></script>
-    <script src="js/apx-consumable-crafter.js?v=20261011800"></script>
-    <script src="js/apx-perks-ui.js?v=20261011800"></script>
-    <script src="js/apx-power-crafter.js?v=20261011800"></script>
-    <script src="js/apx-npc-crafter.js?v=20261011800"></script>
-    <script src="js/apx-inventory-ui.js?v=20261011800"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20261011800"></script>
-    <script src="js/apx-gm-screen.js?v=20261011800"></script>
-    <script src="js/apx-loot-maker.js?v=20261011800"></script>
-    <script src="js/apx-library.js?v=20261011800"></script>
-    <script src="js/apx-gmtools-main.js?v=20261011800"></script>
+    <script src="js/apx-dialogs.js?v=20261021200"></script>
+    <script src="js/apx-patch-notes.js?v=20261021200"></script>
+    <script src="js/apx-dice.js?v=20261021200"></script>
+    <script src="js/apx-data.js?v=20261021200"></script>
+    <script src="js/apx-item-effects.js?v=20261021200"></script>
+    <script src="js/apx-perks-db.js?v=20261021200"></script>
+    <script src="js/apx-migrations.js?v=20261021200"></script>
+    <script src="js/apx-state.js?v=20261021200"></script>
+    <script src="js/apx-craft-shared.js?v=20261021200"></script>
+    <script src="js/apx-armor-forge.js?v=20261021200"></script>
+    <script src="js/apx-weapon-forge.js?v=20261021200"></script>
+    <script src="js/apx-consumable-crafter.js?v=20261021200"></script>
+    <script src="js/apx-perks-ui.js?v=20261021200"></script>
+    <script src="js/apx-power-crafter.js?v=20261021200"></script>
+    <script src="js/apx-npc-crafter.js?v=20261021200"></script>
+    <script src="js/apx-inventory-ui.js?v=20261021200"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20261021200"></script>
+    <script src="js/apx-gm-screen.js?v=20261021200"></script>
+    <script src="js/apx-loot-maker.js?v=20261021200"></script>
+    <script src="js/apx-library.js?v=20261021200"></script>
+    <script src="js/apx-gmtools-main.js?v=20261021200"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20261011800"></script>
-    <script src="js/apx-firebase.js?v=20261011800"></script>
-    <script src="js/apx-battlemap.js?v=20261011800"></script>
-    <script src="js/apx-map-tiles.js?v=20261011800"></script>
+    <script src="js/firebase-config.js?v=20261021200"></script>
+    <script src="js/apx-firebase.js?v=20261021200"></script>
+    <script src="js/apx-battlemap.js?v=20261021200"></script>
+    <script src="js/apx-map-tiles.js?v=20261021200"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -1559,6 +1560,12 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch(e) { console.warn('Cloud GM NPC load failed:', e.message); }
         // The GM's Library (everything made with the Loot Maker and Power Crafter, per world)
         try { if (window.apxLibLoad) await window.apxLibLoad(); } catch(e) { console.warn('Library load failed:', e.message); }
+        // Everything made before the Library existed goes into it (once worlds and NPCs have loaded)
+        (function backfill(tries) {
+            let ready = (typeof _gmWorlds !== 'undefined' && _gmWorlds && _gmWorlds.length) && Array.isArray(window.gmNpcs);
+            if (!ready && tries < 30) { setTimeout(() => backfill(tries + 1), 1000); return; }
+            try { let n = window.apxLibBackfill ? window.apxLibBackfill() : 0; if (n) window.APXDice?.notify(`${n} thing${n === 1 ? '' : 's'} you made before now ${n === 1 ? 'is' : 'are'} in your Library.`, { kind: 'loot' }); } catch (e) { console.warn('Library backfill:', e); }
+        })(0);
     };
     // GM races are saved to Firestore whenever finishAncestry saves a race
     document.addEventListener('apxGmRacesSaved', async () => {
@@ -1744,6 +1751,19 @@ document.addEventListener('DOMContentLoaded', () => {
         clearTimeout(_saveNotesTimer);
         _saveNotesTimer = setTimeout(_doSaveWorldNotes, 400);
     }
+    // Revealed sub-notes whose parent players can't see (a hidden location or NPC, an area marker that's
+    // hidden or on a map that isn't shared): nothing nests them, so they go to the players' Discoveries on
+    // their own (without the hidden parent's name).
+    function _looseRevealedSubnotes() {
+        let out = [], pick = sn => ({ id: sn.id, title: sn.title || '', content: sn.content || '' });
+        (_wNotes.locations||[]).forEach(l => { if (!l.revealed) (l.notes||[]).filter(sn => sn.revealed && (sn.title || sn.content)).forEach(sn => out.push(pick(sn))); });
+        (_wNotes.npcs||[]).forEach(n => { if (!n.revealed) (n.notes||[]).filter(sn => sn.revealed && (sn.title || sn.content)).forEach(sn => out.push(pick(sn))); });
+        (_wNotes.otherMaps||[]).forEach(m => (m.tokens||[]).forEach(t => {
+            if (m.revealed && t.revealed) return;   // shown with its area on the map (and under "From the maps")
+            (t.subnotes||[]).filter(sn => sn.revealed && (sn.title || sn.content)).forEach(sn => out.push(pick(sn)));
+        }));
+        return out;
+    }
     // The actual save — also called directly (no debounce) after a token move
     async function _doSaveWorldNotes() {
         clearTimeout(_saveNotesTimer);
@@ -1770,6 +1790,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     .filter(n => n.revealed)
                     .map(n => { let {portrait, portraitFull, ...nRest} = n; return {...nRest, notes:(n.notes||[]).filter(sn=>sn.revealed)}; }),
                 notes: (_wNotes.notes||[]).filter(n => n.revealed),
+                looseNotes: _looseRevealedSubnotes(),
             };
 
             if (window.apxAuth?.enabled && _activeWorldId) {
@@ -1827,6 +1848,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         locations: w.publicNotes.locations,
                         npcs:      w.publicNotes.npcs,
                         notes:     w.publicNotes.notes,
+                        looseNotes: w.publicNotes.looseNotes || [],
                         otherMaps: (_wNotes.otherMaps||[])
                             .filter(m=>m.revealed)
                             .map(m=>{
@@ -2873,10 +2895,20 @@ document.addEventListener('DOMContentLoaded', () => {
     window.toggleReveal = function(type, id, val) {
         if (type === 'othermap') {
             let m = (_wNotes.otherMaps||[]).find(x=>x.id===id);
-            if (m) { m.revealed = val; saveWorldNotes(); window.renderOtherMapsList(); }
+            if (m) {
+                m.revealed = val; saveWorldNotes(); window.renderOtherMapsList();
+                let b = document.getElementById('omWin_'+id+'_revealBtn');
+                if (b) { b.textContent = val ? 'Revealed' : 'Hidden'; b.style.background = val ? '#065f46' : '#7f1d1d'; b.style.border = '1px solid ' + (val ? '#10b981' : '#dc2626'); b.style.color = val ? '#6ee7b7' : '#fecaca'; }
+            }
             return;
         }
         _origToggleReveal(type, id, val);
+    };
+    function _omRevealStyle(on) { return on ? 'background:#065f46;border:1px solid #10b981;color:#6ee7b7;' : 'background:#7f1d1d;border:1px solid #dc2626;color:#fecaca;'; }
+    window._omToggleReveal = function(mapId) {
+        let m = (_wNotes.otherMaps||[]).find(x=>x.id===mapId); if (!m) return;
+        window.toggleReveal('othermap', mapId, !m.revealed);
+        window.APXDice?.notify(`${m.name || 'Map'} is now ${m.revealed ? 'shown to' : 'hidden from'} your players.`, { kind: 'note' });
     };
 
     // Clear fog for an Other Map
@@ -2990,6 +3022,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 border-bottom:1px solid #334155;border-radius:0.75rem 0.75rem 0 0;
                 display:flex;align-items:center;gap:0.35rem;flex-shrink:0;flex-wrap:wrap;">
                 <span style="font-size:0.75rem;font-weight:700;color:#e2e8f0;flex:1;min-width:80px;">${map.name}</span>
+                <!-- Shown to players or not, switchable while it's open -->
+                <button id="${winId}_revealBtn" onclick="window._omToggleReveal('${mapId}')" title="Show or hide this map for your players" style="font-size:0.7rem;font-weight:700;padding:0.15rem 0.45rem;border-radius:0.2rem;cursor:pointer;${_omRevealStyle(map.revealed)}">${map.revealed ? 'Revealed' : 'Hidden'}</button>
                 <!-- Pan/Zoom controls -->
                 <button onclick="window.omZoom('${winId}',1.25)" style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;">+</button>
                 <button onclick="window.omZoom('${winId}',0.8)"  style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;">−</button>
@@ -3208,7 +3242,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Special Map Marker: just the character, bright and outlined so it reads on any map (yellow once revealed, magenta while hidden).
                 // Never smaller than a 14px letter on screen, so it stays readable zoomed out.
                 let pss = Math.max(ps, 14 / (20 * (win._scale > 0 ? win._scale : 1)));
-                return `<div data-om-token="${t.id}" onmouseenter="window.apxMapTip(event, decodeURIComponent('${encodeURIComponent(t.name || 'Marker ' + t.letter)}'))" onmousemove="window.apxMapTip(event)" onmouseleave="window.apxMapTipHide()" style="position:absolute;left:${t.x*iw}px;top:${t.y*ih}px;
+                return `<div data-om-token="${t.id}" onmouseenter="window.apxMapTip(event, decodeURIComponent('${encodeURIComponent(t.name || 'Marker ' + t.letter).replace(/'/g, '%27')}'))" onmousemove="window.apxMapTip(event)" onmouseleave="window.apxMapTipHide()" style="position:absolute;left:${t.x*iw}px;top:${t.y*ih}px;
                     transform:translate(-50%,-50%) scale(${pss});transform-origin:50% 50%;
                     pointer-events:${tokPE};cursor:${fogActive?'default':'pointer'};will-change:transform;"
                     onclick="event.stopPropagation();window.openTokenInfoWin('${mapId}','${t.id}','${winId}',true)">
@@ -3219,7 +3253,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>`;
             }
             // Standard area circle
-            return `<div data-om-token="${t.id}" onmouseenter="window.apxMapTip(event, decodeURIComponent('${encodeURIComponent(t.name || 'Area ' + t.letter)}'))" onmousemove="window.apxMapTip(event)" onmouseleave="window.apxMapTipHide()" style="position:absolute;left:${t.x*iw}px;top:${t.y*ih}px;
+            return `<div data-om-token="${t.id}" onmouseenter="window.apxMapTip(event, decodeURIComponent('${encodeURIComponent(t.name || 'Area ' + t.letter).replace(/'/g, '%27')}'))" onmousemove="window.apxMapTip(event)" onmouseleave="window.apxMapTipHide()" style="position:absolute;left:${t.x*iw}px;top:${t.y*ih}px;
                 transform:translate(-50%,-50%) scale(${ps});transform-origin:50% 50%;
                 pointer-events:${tokPE};cursor:${fogActive?'default':'pointer'};will-change:transform;"
                 onclick="event.stopPropagation();window.openTokenInfoWin('${mapId}','${t.id}','${winId}',true)">
@@ -4657,7 +4691,8 @@ document.addEventListener('DOMContentLoaded', () => {
         let fo = document.createElement('div');
         fo.id = 'btFactionPick2';
         fo.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;';
-        let b = (f, col, bg, bd, label) => `<button onclick="window._btAddToken('${mapId}','${winId}','${name}','${type}','${col}','${worldNpcId}','${playerUid||''}','${f}');document.getElementById('btFactionPick2').remove()" style="flex:1;background:${bg};border:1px solid ${bd};color:#f8fafc;font-size:0.75rem;font-weight:700;padding:0.5rem;border-radius:0.375rem;cursor:pointer;">${label}</button>`;
+        let qName = String(name ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');   // (names like "Bob's Guard")
+        let b = (f, col, bg, bd, label) => `<button onclick="window._btAddToken('${mapId}','${winId}','${qName}','${type}','${col}','${worldNpcId}','${playerUid||''}','${f}');document.getElementById('btFactionPick2').remove()" style="flex:1;background:${bg};border:1px solid ${bd};color:#f8fafc;font-size:0.75rem;font-weight:700;padding:0.5rem;border-radius:0.375rem;cursor:pointer;">${label}</button>`;
         fo.innerHTML = `<div style="background:#1e293b;border:1px solid #334155;border-radius:0.75rem;padding:1.25rem;min-width:220px;text-align:center;">
             <div style="font-size:0.8rem;font-weight:700;color:#f8fafc;margin-bottom:0.75rem;">Faction for ${name}</div>
             <div style="display:flex;gap:0.5rem;">
@@ -4908,8 +4943,8 @@ document.addEventListener('DOMContentLoaded', () => {
         let winId='omTok_'+tokenId;
         let existing=document.getElementById(winId);
         // Area popups open in front of everything (the dice tray too), beside the map window
-        let popZ = () => (window._apxPopZ = Math.max((window._apxPopZ||2147483100)+1, 2147483100));
-        if(existing){ existing.style.zIndex=popZ(); return; }
+        let popZ = () => window.apxFront(null);
+        if(existing){ window.apxFront(existing); return; }
         let pWin=document.getElementById(parentWinId);
         let pr=pWin?pWin.getBoundingClientRect():{left:200,top:100,width:730,right:930};
         let lx=pr.left+pr.width+8;
@@ -4975,7 +5010,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>`;
 
         document.getElementById('floatingWindowContainer').appendChild(win);
-        win.addEventListener('mousedown', ()=>{ win.style.zIndex=popZ(); });
+        win.setAttribute('data-apx-front',''); win.addEventListener('mousedown', ()=>window.apxFront(win));
         let hdr=document.getElementById(winId+'_hdr'), wDrag=false, wOX=0, wOY=0;
         hdr.addEventListener('mousedown', e=>{ if(e.target.tagName==='BUTTON'||e.target.tagName==='INPUT')return; wDrag=true; let r=win.getBoundingClientRect(); wOX=e.clientX-r.left; wOY=e.clientY-r.top; e.preventDefault(); });
         let mm=e=>{ if(!wDrag)return; win.style.left=Math.max(0,Math.min(window.innerWidth-60,e.clientX-wOX))+'px'; win.style.top=Math.max(0,Math.min(window.innerHeight-40,e.clientY-wOY))+'px'; };
@@ -6138,7 +6173,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </script>
     <div id="floatingWindowContainer"></div>
 
-    <script src="js/apx-chat.js?v=20261011800"></script>
-    <script src="js/apx-extras.js?v=20261011800"></script>
+    <script src="js/apx-chat.js?v=20261021200"></script>
+    <script src="js/apx-extras.js?v=20261021200"></script>
+    <script src="js/apx-theme-light.js?v=20261021200"></script>
 </body>
 </html>

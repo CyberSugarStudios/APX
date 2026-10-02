@@ -47,19 +47,34 @@
         (list || []).forEach(e => { if (e && e.id && !have.has(e.id)) window.gmLibrary.push(e); });
     };
 
-    // Add something the GM just made. Already there: it's also tagged with this world.
+    // Removed by hand: remembered, so the backfill below never brings it back
+    function meta() {
+        let m = window.gmLibrary.find(x => x.kind === 'meta');
+        if (!m) { m = { id: '__meta', kind: 'meta', name: '', removed: [] }; window.gmLibrary.push(m); }
+        if (!Array.isArray(m.removed)) m.removed = [];
+        return m;
+    }
+    // Add something the GM made. Already there: it's also tagged with this world.
+    // opts: { quiet, worlds: [worldIds] (default: the open world; [] = every world), backfill }
     window.apxLibAdd = function (kind, data, opts) {
+        opts = opts || {};
         if (!data || !data.name) return null;
         let s = sig(kind, data), w = activeId();
-        let e = window.gmLibrary.find(x => x.kind === kind && x._sig === s) || window.gmLibrary.find(x => x.kind === kind && sig(x.kind, x.data) === s);
+        let tags = Array.isArray(opts.worlds) ? opts.worlds.filter(Boolean) : (w ? [w] : []);
+        if (opts.backfill && meta().removed.includes(s)) return null;
+        let e = window.gmLibrary.find(x => x.kind === kind && x._sig === s) || window.gmLibrary.find(x => x.kind === kind && x.kind !== 'meta' && sig(x.kind, x.data) === s);
         if (e) {
             e._sig = s;
-            if (w && !(e.worldTags || []).includes(w)) { e.worldTags = (e.worldTags || []).concat([w]); save(); }
+            // (an entry for every world stays that way)
+            if ((e.worldTags || []).length && tags.length) {
+                let add = tags.filter(t => !e.worldTags.includes(t));
+                if (add.length) { e.worldTags = e.worldTags.concat(add); save(); }
+            } else if ((e.worldTags || []).length && !tags.length && opts.worlds) { e.worldTags = []; save(); }
             return e;
         }
         let copy = JSON.parse(JSON.stringify(data));
         if (kind === 'item') { copy.ct = 1; if (copy.isCustomEquippable) copy.equipped = false; }
-        e = { id: uid(), kind, name: data.name, data: copy, worldTags: w ? [w] : [], createdIn: w, t: Date.now(), _sig: s };
+        e = { id: uid(), kind, name: data.name, data: copy, worldTags: tags, createdIn: tags[0] || w, t: Date.now(), _sig: s };
         window.gmLibrary.push(e);
         save();
         if (!(opts && opts.quiet)) window.APXDice?.notify(`${data.name} is in your Library${w ? ' for ' + worldName(w) : ''}.`, { kind: 'loot' });
@@ -68,13 +83,15 @@
     // This world's entries (or every world's)
     window.apxLibList = function (kind, all) {
         let w = activeId();
-        return window.gmLibrary.filter(e => e.kind === kind && (all || !w || !(e.worldTags || []).length || e.worldTags.includes(w)));
+        return window.gmLibrary.filter(e => e.kind === kind && e.kind !== 'meta' && (all || !w || !(e.worldTags || []).length || e.worldTags.includes(w)));
     };
     window.apxLibGet = id => window.gmLibrary.find(e => e.id === id) || null;
     window.apxLibRemove = async function (id) {
         let e = window.apxLibGet(id); if (!e) return;
         let ok = window.apxConfirm ? await window.apxConfirm(`Remove "${e.name}" from your Library? Copies already given out or placed stay where they are.`, { title: 'Remove from Library', okLabel: 'Remove', danger: true }) : true;
         if (!ok) return;
+        let m = meta(), es = e._sig || sig(e.kind, e.data);
+        if (!m.removed.includes(es)) m.removed.push(es);
         window.gmLibrary = window.gmLibrary.filter(x => x.id !== id);
         save();
         window.apxLibRefresh && window.apxLibRefresh();
@@ -128,6 +145,47 @@
             <button data-lib-worlds="${esc(e.id)}" title="Which worlds it shows up in" style="${btn};background:#1e293b;border:1px solid #475569;color:#93c5fd">Worlds</button>
             <button data-lib-del="${esc(e.id)}" title="Remove from the Library" style="${btn};background:#1e293b;border:1px solid #475569;color:#cbd5e1">✕</button></div>`).join('');
     };
+    // ── Backfill: everything made before the Library existed ─────────────
+    // Custom items, forged and custom weapons, forged armor and consumables wherever they are (each
+    // world's Loot list, Area Circles and Special Map Markers; NPCs' gear and carried loot) and NPC
+    // powers. Each is tagged with the world it was found in (an NPC's own world tags, or every world).
+    // Runs each time the GM Tools open; anything already in the Library is skipped, and anything
+    // removed from the Library by hand stays removed.
+    function isMadeItem(it) {
+        if (!it || !it.name || it.isShield || it.isHelmet) return false;
+        return !!(it.isCustomEquippable || it.isConsumable || it.isWeapon || it.isArmor);
+    }
+    function weaponAsItem(w) {
+        let wd = JSON.parse(JSON.stringify(w)); delete wd.aimed; delete wd.twoHanded; delete wd.hands; delete wd.hand; delete wd.equipped;
+        return { name: w.name, wt: w.weight || 0, ct: 1, val: w.paidCost || 0, isWeapon: true, isLocked: true, weaponData: wd, desc: `Weapon: ${w.dmg} damage, ${w.ap} AP` };
+    }
+    function armorAsItem(a) {
+        return { name: a.name || 'Armor', wt: a.wt || 0, ct: 1, val: a.paidCost || 0, isArmor: true, isLocked: true, armorData: JSON.parse(JSON.stringify(a)), desc: `Armor: +${a.ac} AC, +${a.dr} DR, +${a.er} ER` };
+    }
+    window.apxLibBackfill = function () {
+        let before = window.gmLibrary.filter(e => e.kind !== 'meta').length;
+        let add = (kind, data, worlds) => { try { window.apxLibAdd(kind, data, { quiet: true, worlds, backfill: true }); } catch (e) { } };
+        let itemsIn = list => (list || []).map(l => l && (l.item || l)).filter(isMadeItem);
+        // Each world's own content
+        worlds().forEach(w => {
+            let id = worldIdOf(w), n = (id === activeId() && typeof _wNotes !== 'undefined' && _wNotes) ? _wNotes : (w.notesV2 || {});
+            itemsIn(n.loot).forEach(it => add('item', it, [id]));
+            (n.otherMaps || []).forEach(m => (m.tokens || []).forEach(t => itemsIn(t.loot && t.loot.items).forEach(it => add('item', it, [id]))));
+        });
+        // NPCs (their world tags, or every world)
+        (window.gmNpcs || []).forEach(npc => {
+            let tags = Array.isArray(npc.worldTags) ? npc.worldTags.filter(Boolean) : [];
+            itemsIn(npc.carriedItems).forEach(it => add('item', it, tags));
+            (npc.weapons || []).forEach(wp => { if (wp && wp.name && !wp.isUnarmed && (wp.forged || wp.isCustom)) add('item', weaponAsItem(wp), tags); });
+            let a = npc.equippedArmor;
+            if (a && a.name && (a.paidCost > 0 || a.mods)) add('item', armorAsItem(a), tags);
+            (npc.powers || []).forEach(p => { if (p && p.name) add('power', p, tags); });
+        });
+        let added = window.gmLibrary.filter(e => e.kind !== 'meta').length - before;
+        if (added > 0) { save(); window.apxLibRefresh && window.apxLibRefresh(); }
+        return added;
+    };
+
     // Wire a rendered list (buttons) inside `root`
     window.apxLibWire = function (root, onPick) {
         if (!root) return;

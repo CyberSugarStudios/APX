@@ -943,27 +943,29 @@
         return null;
     }
 
-    // "What kind of damage was it?" (when no attack says): one button per type, each showing what
-    // this target's defences do to it, and an "Ignore resistances" box for damage nothing reduces.
-    // Returns the type(s) (with .ignoreRes when the box was ticked), or null (cancelled).
+    // "What kind of damage was it?" (whenever nothing says): one button per damage type, each showing
+    // what this target's defences do to it, and a "Bypass resistances" button for damage nothing reduces.
+    // Returns the type(s) (['True'] with .ignoreRes for a bypass), or null (cancelled).
     async function askType(title, text, def) {
         let ask = window.APXDice && window.APXDice.ask;
         if (!ask) return ['Physical'];
         def = def || {};
+        // What this target's defences do to a type (each physical type has its own button, so a
+        // Slashing resistance or immunity counts)
         let note = t => {
-            if ((def.immune || []).some(x => x === t || (t === 'Physical' && PHYS.includes(x)))) return 'Immune';
-            let pool = t === 'Physical' ? (def.dr || 0) : (def.er || 0), r = (def.res || {})[t] || 0, bits = [];
-            if (pool) bits.push(`${t === 'Physical' ? 'DR' : 'ER'} ${pool}`);
+            let phys = !isEnergy(t);
+            if ((def.immune || []).some(x => x === t || (phys && x === 'Physical'))) return 'Immune';
+            let pool = phys ? (def.dr || 0) : (def.er || 0), r = (def.res || {})[t] || 0, bits = [`${phys ? 'DR' : 'ER'} ${pool}`];
             if (r > 0) bits.push(`+${r} res`); if (r < 0) bits.push(`vuln ${-r}`);
             return bits.join(' · ');
         };
-        let btn = (t, cls) => [t, t, cls || '', '', note(t) || (t === 'Physical' ? 'DR 0' : 'ER 0')];
-        let choices = [btn('Physical', 'pri')].concat(ENERGY().map(t => btn(t)));
-        let r = await ask(title, text, choices, { grid: true, check: { label: 'Ignore resistances', hint: 'No DR, ER, resistance or immunity reduces this damage.' } });
+        let btn = (t, cls) => [t, t, cls || '', '', note(t)];
+        let choices = PHYS.map(t => btn(t, 'pri')).concat(ENERGY().map(t => btn(t)))
+            .concat([['__bypass', 'Bypass resistances', 'ok', 'Full damage: no DR, ER, resistance or immunity reduces it', 'Full damage']]);
+        let r = await ask(title, text, choices, { grid: true });
         if (!r) return null;
-        let out = [r.v];
-        if (r.checked) out.ignoreRes = true;
-        return out;
+        if (r === '__bypass') { let out = ['True']; out.ignoreRes = true; return out; }
+        return [r];
     }
 
     // What was typed in an HP box, as damage: "-7", "-7 fire", or "70-7" typed after the HP that was

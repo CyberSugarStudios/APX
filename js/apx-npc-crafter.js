@@ -1406,7 +1406,7 @@ window.ncSetPortrait = async function(input) {
 window.ncAdjustPortrait = function() {
     let c = ncActiveCompanion(); if (!c || !c.portraitFull || typeof window._cpfShowCropUI !== 'function') return;
     window._cpfShowCropUI(c.portraitFull, {
-        title: 'Adjust Companion Token', saveLabel: 'Save Token',
+        title: 'Adjust Companion Token', saveLabel: 'Save Token', keepFull: true,
         onSave: (circle, full) => { let cc = ncActiveCompanion(); if (!cc) return; cc.portrait = circle; cc.portraitFull = full; ncRenderAll(); window.recalculateMath?.(); }
     });
 };
@@ -1449,7 +1449,7 @@ window.setCompanionHp = function(val) {
             window.APXDice?.notify(`${now.name || 'Companion'} takes damage${fresh && !pe.typed ? ` from ${atk.by}'s ${atk.label}` : ''}: ${res.text}.`, { kind: res.dmg ? 'warn' : 'note' });
         };
         if (types.length) finish(types);
-        else D.askType(`${pe.raw} damage to ${sb.name || 'your companion'}`, `No attack was rolled for this, so what kind of damage is it? ${sb.name || 'Your companion'} has DR ${def.dr} (physical) and ER ${def.er} (energy), plus any resistance or immunity. Tip: type "-${pe.raw} fire" to skip this.`, def).then(finish);
+        else D.askType(`${pe.raw} damage to ${sb.name || 'your companion'}`, `Nothing says what kind of damage this is. ${sb.name || 'Your companion'} has DR ${def.dr} (physical) and ER ${def.er} (energy), plus any resistance or immunity. Tip: type "-${pe.raw} fire" to skip this.`, def).then(finish);
         return;
     }
     let n;
@@ -1876,7 +1876,7 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
 };
 function powerCardHtml(p, compUse, sb, list, idx) {
     let key = npcPowerKey(sb);
-    let useAttr = key ? ` onclick="window.apxNpcUsePower(decodeURIComponent('${encodeURIComponent(key)}'), '${list}', ${idx}, ${sb._initId ? `'${sb._initId}'` : 'null'})" title="Use this power: roll it${window.apxPowerIsReaction(p) ? ' (Reaction)' : ', spending ' + p.ap + ' AP'}" style="cursor:pointer"` : '';
+    let useAttr = key ? ` onclick="window.apxNpcUsePower(decodeURIComponent('${encodeURIComponent(key).replace(/'/g, '%27')}'), '${list}', ${idx}, ${sb._initId ? `'${sb._initId}'` : 'null'})" title="Use this power: roll it${window.apxPowerIsReaction(p) ? ' (Reaction)' : ', spending ' + p.ap + ' AP'}" style="cursor:pointer"` : '';
     let usageLabel = '';
     if (p.usageType === 'slot') usageLabel = `Power Slot (Level ${p.lvl} or higher)`;
     else if (p.usageType === 'charges') usageLabel = `Charges: ${p.maxCharges}/day`;

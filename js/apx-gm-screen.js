@@ -894,6 +894,7 @@ window.removeFromInitiative = function(id, opts) {
         try { _gmCaptureLoot(window.gmInitiative[idx]); } catch (e) { console.warn('Loot capture:', e); }
     }
     else if (typeof window._gmUnlinkEntry === 'function') window._gmUnlinkEntry(id);
+    let gone = window.gmInitiative[idx];
     window.gmInitiative.splice(idx, 1);
     if (typeof window._gmRenumber === 'function') window._gmRenumber();
     if (idx < window.gmCurrentTurnIdx) window.gmCurrentTurnIdx--;
@@ -901,7 +902,17 @@ window.removeFromInitiative = function(id, opts) {
         window.gmCurrentTurnIdx = window.gmInitiative.length
             ? window.gmCurrentTurnIdx % window.gmInitiative.length : 0;
     }
-    window.closeFloatingStatBlock(id);
+    // Its stat block window stays open while another creature in the order uses the same stat block
+    let sbWin = window.gmFloatingWindows[id];
+    let heir = sbWin && gone && gone.sourceNpcId
+        ? window.gmInitiative.find(x => x.sourceNpcId === gone.sourceNpcId && x.faction !== 'player' && !window.gmFloatingWindows[x.id]) : null;
+    if (heir) {
+        let pos = { left: sbWin.style.left, top: sbWin.style.top, width: sbWin.style.width, height: sbWin.style.height, z: sbWin.style.zIndex };
+        window.closeFloatingStatBlock(id);
+        window.openFloatingStatBlock(heir.id);
+        let nw = window.gmFloatingWindows[heir.id];
+        if (nw) { nw.style.left = pos.left; nw.style.top = pos.top; if (pos.width) nw.style.width = pos.width; if (pos.height) nw.style.height = pos.height; nw.style.zIndex = pos.z; }
+    } else window.closeFloatingStatBlock(id);
     window.renderInitiativeTracker();
     if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
     if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
@@ -2288,8 +2299,7 @@ function _gmDamageTypes(parsed, hit) {
     if (parsed.typed) return parsed.types;
     if (!window.APXDamage) return ['True'];
     if (hit && hit.dmgType) { let t = window.APXDamage.parts(hit.dmgType); if (t.length) return t; }
-    if (hit && !hit.noRoll) return ['Physical'];
-    return null;   // no attack at all: ask
+    return null;   // nothing says what kind of damage it was (no attack, or one with no damage type): ask
 }
 
 // The core. opts:
@@ -2354,7 +2364,7 @@ window.updateInitiativeHp = function(id, value, pre) {
             // Nothing says what kind of damage it was: one click picks it
             window.renderInitiativeTracker();
             let def = _gmDefenseOf(entry);
-            window.APXDamage.askType(`${parsed.raw} damage to ${_gmGmName(entry)}`, `No attack was rolled for this, so what kind of damage is it? ${entry.name}: ${_gmDefText(def)}. Tip: type "-${parsed.raw} fire" (or slashing, true…) to skip this.`, def)
+            window.APXDamage.askType(`${parsed.raw} damage to ${_gmGmName(entry)}`, `Nothing says what kind of damage this is. ${entry.name}: ${_gmDefText(def)}. Tip: type "-${parsed.raw} fire" (or slashing, true…) to skip this.`, def)
                 .then(t => { if (t) window.updateInitiativeHp(id, '-' + parsed.raw, { types: t }); else window.renderInitiativeTracker(); });
             return;
         }
@@ -2884,17 +2894,53 @@ window.gmClickApPip = function(id, i) {
     window.renderInitiativeTracker();
 };
 
-// Conditions on a player from the tracker (any time, like an NPC's): their sheet picks it up
-window._gmTogglePlayerCond = function(entryId, condId, on) {
-    let e = (window.gmInitiative || []).find(x => x.id === entryId); if (!e || !e.playerUid) return;
+// Conditions on a player from the tracker (any time, like an NPC's): their sheet picks it up.
+// What the GM just changed is shown at once and held until the player's sheet reports the same
+// (a save the sheet made before it heard about the change mustn't flip it back), or for 20 seconds.
+window._gmCondPending = window._gmCondPending || {};   // uid -> { condId: { on, t } }
+function _gmPlayerCondList(e) {
     let pm = (window.gmParty || []).find(p => p.fileName === e.playerUid);
-    if (pm && pm.state) {   // show it at once; the player's sheet confirms it on its next save
-        let list = (pm.state.conditions || []).filter(c => c !== condId);
-        if (on) list.push(condId);
-        pm.state = Object.assign({}, pm.state, { conditions: list });
+    let list = (pm?.state?.conditions || []).slice();
+    let pend = window._gmCondPending[e.playerUid] || {};
+    Object.keys(pend).forEach(cid => {
+        let p = pend[cid], has = list.includes(cid);
+        if (has === p.on || Date.now() - p.t > 20000) { delete pend[cid]; return; }   // the sheet caught up (or gave up)
+        if (p.on) list.push(cid); else list = list.filter(c => c !== cid);
+    });
+    return list;
+}
+window._gmPlayerCondList = _gmPlayerCondList;
+window._gmTogglePlayerCond = async function(entryId, condId, on) {
+    let e = (window.gmInitiative || []).find(x => x.id === entryId); if (!e || !e.playerUid) return;
+    let name = window._gmCondName ? window._gmCondName(condId) : condId;
+    if (condId === 'bleedingout') {
+        if (on) {
+            // Bleeding Out is what happens at 0 HP: drop them there and start it properly
+            if (e.bleedOutTurns != null) return;
+            let ok = (e.currentHp || 0) <= 0 || !window.apxConfirm ? true
+                : await window.apxConfirm(`Bleeding Out happens at 0 HP. Drop ${e.name} to 0 HP and start their Bleed Out? Their sheet asks them for the CON (Survive) check that sets how many rounds they have.`, { title: 'Bleeding Out', okLabel: 'Drop to 0 HP' });
+            if (!ok) return;
+            let wasUp = e.currentHp === null || e.currentHp > 0;
+            e.currentHp = 0; e.tempHp = 0; e._gmHpSetAt = Date.now();
+            (window._gmCondPending[e.playerUid] = window._gmCondPending[e.playerUid] || {})[condId] = { on: true, t: Date.now() };
+            _gmSetPlayerCondition(e, 'bleedingout', true);
+            _syncHpToPlayer(e);
+            gmLog({ text: `${e.name} is down and Bleeding Out.`, kind: 'bleed', force: true });
+            if (wasUp || e.bleedOutTurns == null) _gmQueueBleed(e);
+        } else {
+            // Taken off by hand: they're stable
+            e.bleedOutTurns = null; e.stabilized = true;
+            (window._gmPendingSaves[e.id] || []).splice(0);
+            (window._gmCondPending[e.playerUid] = window._gmCondPending[e.playerUid] || {})[condId] = { on: false, t: Date.now() };
+            _gmSetPlayerCondition(e, 'bleedingout', false);
+            gmLog({ text: `${e.name} is stable and no longer Bleeding Out.`, kind: 'heal', force: true });
+        }
+        window.renderInitiativeTracker();
+        return;
     }
+    (window._gmCondPending[e.playerUid] = window._gmCondPending[e.playerUid] || {})[condId] = { on: !!on, t: Date.now() };
     _gmSetPlayerCondition(e, condId, on);
-    gmLog({ text: `${e.name} ${on ? 'is now' : 'is no longer'} ${window._gmCondName ? window._gmCondName(condId) : condId}.`, kind: 'info', force: true });
+    gmLog({ text: `${e.name} ${on ? 'is now' : 'is no longer'} ${name}.`, kind: 'info', force: true });
     window.renderInitiativeTracker();
     if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
 };
@@ -2902,7 +2948,7 @@ window._gmPlayerCondPicker = function(entryId, ev) {
     let e = (window.gmInitiative || []).find(x => x.id === entryId); if (!e || typeof window._apxCondPicker !== 'function') return;
     let r = ev?.target?.getBoundingClientRect?.() || { left: 200, bottom: 200 };
     let pmOf = () => (window.gmParty || []).find(p => p.fileName === e.playerUid);
-    window._apxCondPicker(r.left, r.bottom + 4, () => (pmOf()?.state?.conditions || []).slice(), (id, on) => window._gmTogglePlayerCond(entryId, id, on), 'Conditions: ' + (e.name || ''));
+    window._apxCondPicker(r.left, r.bottom + 4, () => _gmPlayerCondList(e).filter(c => c !== 'bleedingout' || e.bleedOutTurns != null), (id, on) => window._gmTogglePlayerCond(entryId, id, on), 'Conditions: ' + (e.name || ''));
 };
 // A player's Power Slots (live from their sheet) and powers, for the GM's stat block window
 window._gmPlayerPowersHtml = function(st, hdr) {
@@ -3018,7 +3064,7 @@ window.renderInitiativeTracker = function() {
                 ${e.faction === 'player' && e.playerUid ? (() => {
                     // Players' conditions: shown and changed here like an NPC's (synced to their sheet)
                     let pm = (window.gmParty || []).find(p => p.fileName === e.playerUid);
-                    let conds = (pm?.state?.conditions || []).filter(c => c !== 'bleedingout' || e.bleedOutTurns != null);
+                    let conds = _gmPlayerCondList(e).filter(c => c !== 'bleedingout' || e.bleedOutTurns != null || (window._gmCondPending[e.playerUid] || {}).bleedingout);
                     let nm = id => window._gmCondName ? window._gmCondName(id) : id;
                     let eff = window.apxEffectiveConditions ? window.apxEffectiveConditions(conds) : conds.map(id => ({ id }));
                     return `<div class="flex items-center gap-1 flex-wrap">

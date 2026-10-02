@@ -199,4 +199,50 @@
 
     // Any leftover alert() becomes a themed, non-blocking box
     window.alert = (msg) => { window.apxAlert(msg); };
+
+    // ── One stacking order for every floating window ─────────────────────
+    // Map windows, stat blocks, area / NPC popups and the dice tray all share it: whichever you last
+    // opened, clicked or dragged is on top. (Dialogs that need an answer, the tutorial and the sign-in
+    // notice always stay above all of them.) apxFront(el) puts el on top; apxFront(null) just hands
+    // out the next layer.
+    const FRONT_BASE = 2147483010, FRONT_MAX = 2147483250;
+    window.apxFront = function (el) {
+        let z = Math.max((window._apxPopZ || FRONT_BASE) + 1, FRONT_BASE);
+        if (z > FRONT_MAX) {
+            // Out of room: renumber everything in its current order, from the bottom
+            let els = [...document.querySelectorAll('[data-apx-front]')].filter(e => e !== el)
+                .sort((a, b) => (parseInt(a.style.zIndex) || 0) - (parseInt(b.style.zIndex) || 0));
+            z = FRONT_BASE;
+            els.forEach(e => { e.style.zIndex = ++z; });
+            z++;
+        }
+        window._apxPopZ = z;
+        if (el) { el.setAttribute('data-apx-front', ''); el.style.zIndex = z; }
+        return z;
+    };
+    // Which element is "the window" a click landed in: a fixed panel that isn't a full-screen
+    // backdrop or a must-answer dialog
+    function floatingOf(t) {
+        for (let n = t; n && n !== document.body; n = n.parentElement) {
+            if (n.parentElement !== document.body && !(n.parentElement && n.parentElement.id === 'floatingWindowContainer')) continue;
+            if (n.classList.contains('apxd-fab') || n.classList.contains('modal-overlay')) return null;
+            let cs = getComputedStyle(n);
+            if (cs.position !== 'fixed') return null;
+            let z = parseInt(cs.zIndex) || 0;
+            if (z < 1500 || z > 2147483300) return null;
+            let r = n.getBoundingClientRect();
+            if (r.width >= innerWidth - 2 && r.height >= innerHeight - 2) return null;   // a backdrop
+            return n;
+        }
+        return null;
+    }
+    // (after the window's own handlers, which may set a z-index of their own)
+    document.addEventListener('mousedown', e => { let w = floatingOf(e.target); if (w) setTimeout(() => window.apxFront(w), 0); }, true);
+    document.addEventListener('touchstart', e => { let w = floatingOf(e.target); if (w) setTimeout(() => window.apxFront(w), 0); }, { capture: true, passive: true });
+    // A window that just opened goes on top too
+    let watchNew = () => new MutationObserver(list => list.forEach(m => m.addedNodes.forEach(n => {
+        if (n.nodeType !== 1) return;
+        setTimeout(() => { if (n.isConnected && floatingOf(n) === n && !n.classList.contains('apxd-tray')) window.apxFront(n); }, 0);
+    }))).observe(document.body, { childList: true });
+    if (document.body) watchNew(); else document.addEventListener('DOMContentLoaded', watchNew);
 })();

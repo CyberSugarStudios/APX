@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.1.1800',
-        released: '2026-10-01T18:00:00',
-        releasedText: 'October 1, 2026 · 6:00 PM',
+        version: 'v2026.10.2.1200',
+        released: '2026-10-02T12:00:00',
+        releasedText: 'October 2, 2026 · 12:00 PM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs that wear, carry and use their gear, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -21,7 +21,8 @@
                 'APX has moved to playapx.com. Old links and bookmarks to cybersugarstudios.com open the same page here, and cybersugarstudios.com is now the CyberSugar Studios homepage, with a link to APX.',
                 'Characters and worlds belong to your account, not to the address: sign in at playapx.com and it\'s all waiting. Browsers remember sign-ins for each address separately, so you\'ll sign in here once.',
                 'Played APX in this browser before? "Bring my browser data" on the playapx.com front page copies over what the browser stored at the old address: theme and settings, character folders, joined worlds, and worlds saved without an account.',
-                'The tools now need a free APX account: sign in on the front page to open the Player and GM Tools. New players and GMs get a short tutorial the first time (Settings → Show Tutorial reopens it), and patch notes, the tutorial and your saved colours follow your account to every device.'
+                'The tools now need a free APX account: sign in on the front page to open the Player and GM Tools. New players and GMs get a short tutorial the first time (Settings → Show Tutorial reopens it), and patch notes, the tutorial and your saved colours follow your account to every device.',
+                'Two new looks: Kawaii is now a true light theme on every screen, and Cyber Sigil is its dark twin.'
             ]],
             ['For GMs', [
                 'World Settings fix Starting XP, Max GP, starting Cu, and Point Buy or Standard Array for everyone in your world.',
@@ -29,11 +30,12 @@
                 'Give hands over one item from a stack ("Black Cloak ×3" becomes ×2) and keeps your chosen player selected; All hands over the lot.',
                 'Magic items can change nearly anything on a sheet and grant powers, and NPCs can wear them.',
                 'The party list keeps itself current: a player who deletes their character, moves it out of your world or leaves the world drops off it at once, and each world lists only its own players.',
-                'Type damage in full. The tracker takes off DR or ER by damage type, plus resistances and immunities, shows its working, and counts a hit that deals 0. With no attack to go by, pick the type from buttons that show the target\'s defences, or tick Ignore resistances.',
+                'Type damage in full. The tracker takes off DR or ER by damage type, plus resistances and immunities, shows its working, and counts a hit that deals 0. Whenever nothing says what kind of damage it was, a chooser lists every damage type with the target\'s defences against it, plus a Bypass resistances button.',
                 'NPC stat blocks roll their powers with a click, have a SAVE button under each Core Attribute, and suffer conditions just as players do. A stat block tagged with a world appears only in that world.',
                 'A Library keeps every item, weapon, armor, consumable and power you make, tagged by world, ready to reuse.',
                 'NPCs have a Wound Threshold and take Wounds, casters have Power Slots in the tracker, and auras like Damaging Aura show as a ring on the map and deal their damage each turn.',
-                'Fall damage, conditions on players straight from the tracker, grid colour, thickness and opacity, token sizes, and loot you can hand out without the rest of the party seeing.'
+                'Fall damage, conditions on players straight from the tracker, grid colour, thickness and opacity, token sizes, and loot you can hand out without the rest of the party seeing.',
+                'Map windows have a Revealed / Hidden button, and everything you made before the Library existed is gathered into it too.'
             ]],
             ['For Players', [
                 'Identical items stack: three Leather Armors from three bandits make one "Leather Armor ×3" row. Equipping takes one from the stack, taking it off puts it back, and older inventories are joined up the first time you open the character.',
@@ -44,13 +46,14 @@
                 'Luck Points have − and + buttons, clicking your Rest Dice spends one to heal, and four-armed characters get extra arms, hands and a shield in every Off Hand.',
                 'Powers are reworked: each has its own Core Attribute, chosen when you craft it, and Full Rest Powers (formerly INT) and Short Rest Powers (formerly CHA) are two pools you can mix.',
                 'You have one character in each world, your GM\'s Race Templates update your Race Builder live, and your Currency shows wherever you spend it.',
-                'The Weapon and Armor Forges roll their Craft check in the dice tray, so Luck Points and Omens work on it, and spell out what buying or crafting costs.'
+                'The Weapon and Armor Forges roll their Craft check in the dice tray, so Luck Points and Omens work on it, and spell out what buying or crafting costs.',
+                'Edit Token re-crops the circle your portrait and token show, without uploading the picture again.'
             ]],
             ['At the Table', [
                 'One tray holds every roll, the combat log and your messages, and every die has a shape of its own.',
                 'The log asks for each save in turn (Wound Threshold, then the hit\'s own saves, then Bleed Out) with a button that rolls it. Players never see the numbers on hits against enemies, so DR and ER stay secret.',
                 'Weapon properties apply themselves on a hit, and every weapon has a damage type (unarmed strikes are Bludgeoning).',
-                'Damage typed into any HP or Temp HP box, a character\'s, an NPC\'s or a companion\'s, is reduced by its type. When no attack says what it was, a chooser asks, and Ignore resistances lets it through in full. "-5-3" counts as 8.',
+                'Damage typed into any HP or Temp HP box, a character\'s, an NPC\'s or a companion\'s, is reduced by its type. Whenever nothing says what it was, a chooser lists every damage type, and Bypass resistances lets it through in full. "-5-3" counts as 8.',
                 'Everyone\'s AP is tracked, refills on their turn and carries over.',
                 'The dice tray has a chat: message everyone, just the GM, or the players you pick.',
                 'Your checks and saves reach your GM in or out of combat, your token\'s path shows its AP cost as you drag it, and Measure has Line, Cone and Burst modes.'
@@ -84,7 +87,8 @@
             ['Your Account and the Tutorial', [
                 'The Character Sheet needs a free APX account. Signed out, it sends you to sign in.',
                 'A short tutorial covers the basics the first time you open the sheet: character creation is Race Builder, then Origin, then Spend XP. It also covers rolling, shortcuts and worlds. Settings → Show Tutorial reopens it, and Settings → Patch Notes shows these notes.',
-                'Patch notes, the tutorial and your saved colours remember you on your account, not in the browser, and only pop up while you\'re signed in.'
+                'Patch notes, the tutorial and your saved colours remember you on your account, not in the browser, and only pop up while you\'re signed in.',
+                'Kawaii is a true light theme everywhere: windows that used to stay dark now turn pastel, and no text is left white on pale. Cyber Sigil is Kawaii\'s dark twin: midnight plum with neon sakura, lavender and mint (Settings → Theme).'
             ]],
             ['Inventory Stacks', [
                 'Identical items share one row with a count: armor, shields, helmets, weapons, magic items, consumables and everyday gear. Loot from your GM, gifts from other players and gear you take off all join a matching stack.',
@@ -108,7 +112,8 @@
                 'Save & Apply in the Race Builder sends you to Step 4 when training is still missing, and asks first when Genetic Points are left unspent.',
                 'Attributes bought with XP (and injuries) are kept apart from your base attributes, so rebuilding your race never loses them. Existing characters are converted the first time you open them.',
                 'One character per world: joining, or moving a character into a world that already has one, asks whether to archive or delete the other.',
-                'If your GM deletes a world, your characters in it are archived, not lost. Rejoining a world after being kicked brings its folder back.'
+                'If your GM deletes a world, your characters in it are archived, not lost. Rejoining a world after being kicked brings its folder back.',
+                'Click your portrait and press Edit Token to change which part of the picture fills your circle and battle-map token, without uploading it again.'
             ]],
             ['Origin Builder', [
                 'It all fits on one screen: Origin Name, Starting Wealth and Origin Feature on the left, the common language and four competencies on the right.',
@@ -129,7 +134,7 @@
                 'Equippable items can carry any number of bonuses, or penalties if cursed: Core Attributes, skills, AC, DR, ER, one energy resistance, Max HP, Max AP, Speed, Initiative, Wound Threshold, Max Rest Dice, Max Luck Points, Carry Capacity, attack and damage rolls, power attack and DC, saves, checks and extra Power Slots.',
                 'Make your own with Add Item (tick Equippable), and edit them later from their details. Items from your GM keep the bonuses and powers they came with: the details list both, and the inventory row shows "Powers: …".',
                 'Bonuses and powers work only while the item is equipped, and an item handed to you always arrives unequipped.',
-                'Add Item\'s custom item maker matches your GM\'s: any number of bonus rows, and + Craft Power for item powers.'
+                'Add Item\'s custom item maker matches your GM\'s: any number of bonus rows (each shows what it boosts beside a small amount box), and + Craft Power for item powers.'
             ]],
             ['Weapons and Shields', [
                 'Weapon properties take effect when you hit: Crushing (STR save or Prone, or an extra die against a Prone target), Stunning (CON save or Stunned), Concealed (an extra die against a Surprised target), and Flurry\'s AP discount on your next attack with that weapon this turn.',
@@ -143,11 +148,12 @@
             ['Weapon and Armor Forges', [
                 'Crafting is rebuilt. Pick where you\'re working (your Workbench, a rented one at 100 Cu an hour, or a Toolkit with Disadvantage), see the value, materials, time, rent and what each result costs, then roll the Craft check in the dice tray. A Luck Point or Omen spent on that roll updates the result before you apply it.',
                 'Under Cost Now, each forge shows what you\'d have left after buying, or what crafting it would take instead.',
-                'Your Currency shows at the top of every screen that spends it: the forges, crafters, Adventuring Gear, Shields and Helmets.'
+                'Your Currency shows at the top of every screen that spends it: the forges, crafters, Adventuring Gear, Shields and Helmets.',
+                'The Armor Forge counts everything you wear: its weight shows the armor alone and your total with every shield (one per Off Hand with four arms) and an intact helmet, and the STR requirement comes from that total, with a note when your STR falls short.'
             ]],
             ['Damage and Defense', [
                 'Type the whole damage into your HP box: "-9", "35-9" after the 35 already there, several hits at once ("-5-3" is 8), or with a phone\'s minus sign. Your DR (physical) or ER (energy), resistances, vulnerabilities and immunities come off, by the type of the attack your GM just rolled, or the type you add ("-9 fire"). The tray shows the working.',
-                'When nothing says what kind of damage it was, a chooser asks. Each type\'s button shows what your defences do against it (DR 3, ER 2, +5 res, Immune), and ticking "Ignore resistances" takes the damage in full, with no DR, ER, resistance or immunity reducing it.',
+                'Whenever you type "-X" and nothing says what kind of damage it was, a chooser asks: a button for every damage type (Bludgeoning, Piercing and Slashing each have their own) showing what your defences do against it (DR 3, ER 2, +5 res, Immune), and a Bypass resistances button that takes the damage in full, with no DR, ER, resistance or immunity reducing it.',
                 'The Temp HP box works the same way: "-6" is damage (Temp HP takes it first), and a plain number still sets your Temp HP.',
                 'A hit that comes to 0 still counts, so its effects (a Stunning save, for example) still happen, and your sheet sends the damage and its working to your GM.',
                 'Your GM sees the same AC, DR, ER, Wound Threshold and resistances your sheet shows, with shields, helmet, perks and magic items included.',
@@ -187,7 +193,7 @@
             ]],
             ['Loyal Companions', [
                 'Your companion has AP pips of its own, which empty when a fight begins and refill on its turn. Attacks from its stat block and its powers\' Use buttons spend them.',
-                'Its HP box takes damage just like yours: "-6", "-6 fire", or the quick chooser with Ignore resistances, reduced by its DR, ER, resistances and immunities. "+3" heals and a plain number sets its HP.',
+                'Its HP box takes damage just like yours: "-6", "-6 fire", or the quick chooser with its Bypass resistances button, reduced by its DR, ER, resistances and immunities. "+3" heals and a plain number sets its HP.',
                 'Its stat block has a SAVE button under each Core Attribute, and Saving Throw Training (2 TP each) adds its Training Bonus to one save.',
                 'Its HP matches everywhere, each Rest Die you use heals it too, it can have its own token art, it can carry a Shield and Helmet, and your Omen dice work on its rolls.'
             ]],
@@ -210,7 +216,10 @@
                 'Your GM\'s maps stay sharp as you zoom, loading full-resolution detail for the part you\'re looking at. Press M to measure.',
                 'Click a token to see its picture (never its stats), and NPCs your GM has revealed show their pictures in the World viewer.',
                 'Discoveries include the map notes your GM reveals, Area Circles under fog stay hidden, and a map closes on your screen when your GM stops sharing it.',
-                'Measure has Line, Cone and Burst modes, and right-click drops a waypoint. Pictures keep their shape when you resize their windows.'
+                'Measure has Line, Cone and Burst modes, and right-click drops a waypoint. Pictures keep their shape when you resize their windows.',
+                'Discoveries also hold revealed sub-notes whose place, NPC or area you haven\'t been shown.',
+                'When your GM hides something you have open (a map, an area, a place, an NPC or their picture), its window closes. Open popups update as notes are revealed or hidden.',
+                'Map windows, popups and the dice tray share one stacking order: whichever you opened or clicked last is on top.'
             ]],
             ['Rules', [
                 'High Roller, Fortunate Fighter (Rank 1 uses LUC for AC when that\'s higher), Mobile and Regenerative are rewritten or updated.',
@@ -236,7 +245,9 @@
             ['Your Account, the Tutorial and the Library', [
                 'The GM Tools need a free APX account.',
                 'A tutorial walks through worlds, NPCs, combat, maps, loot and notes, plus what the tools can and can\'t do. Settings → Show Tutorial reopens it.',
-                'Everything you make (Loot Maker items, forged weapons and armor, consumables and NPC powers) goes into your Library, tagged with the world you made it in. Reuse it from the Loot Maker\'s Library view and the NPC power picker, tick "All worlds" to see what you made elsewhere, or tag an entry with more worlds.'
+                'Everything you make (Loot Maker items, forged weapons and armor, consumables and NPC powers) goes into your Library, tagged with the world you made it in. Reuse it from the Loot Maker\'s Library view and the NPC power picker, tick "All worlds" to see what you made elsewhere, or tag an entry with more worlds.',
+                'Everything you made before the Library existed is gathered into it when the GM Tools open: custom items, forged and custom weapons, forged armor and consumables from each world\'s Loot list, Area Circles and Special Map Markers, plus your NPCs\' gear, loot and powers. Each is tagged with the world it was found in, and anything you remove from the Library stays removed.',
+                'Kawaii is a true light theme on every window, and Cyber Sigil is its dark twin (Settings → Theme).'
             ]],
             ['Your Party List', [
                 'The party list follows your world\'s players as they come and go. A player who deletes their character in your world, moves it out of the world folder, or leaves the world (× on its folder) drops off the list straight away, and so does anyone you kick.',
@@ -246,7 +257,7 @@
             ['Damage and the Tracker', [
                 'All damage runs through one system: the HP box, the Temp HP box, and damage players type on their sheets. It works out the attack that hit, its damage type, extra dice, the target\'s defences, HP and the log, then Reactions, the Wound Threshold save, the weapon\'s own saves and Bleed Out. It works before Start Combat and without a battle map.',
                 'Type the whole damage ("-8"). The target\'s DR (physical) or ER (energy) comes off, along with Damage Resistances, Vulnerabilities, Immunities and weapons that ignore DR/ER. The type comes from the last attack roll, or from what you add ("-8 fire"). "70-7" in a box showing 70 means 7 damage, "-5-3" adds up to 8, phone minus signs work, and clicking a box selects its number.',
-                'When nothing says what kind of damage it was, a chooser opens with a button for each type showing the target\'s defence against it (DR 5, ER 3, +5 res, Immune). Tick "Ignore resistances" for damage nothing reduces; typing "-8 true" does the same without the chooser.',
+                'Whenever nothing says what kind of damage a "-X" is (no attack, or an attack with no damage type), a chooser opens with a button for every damage type showing the target\'s defence against it (DR 5, ER 3, +5 res, Immune), and a Bypass resistances button for damage nothing reduces. Typing "-8 fire" or "-8 true" skips it.',
                 'Each row shows the DR and ER in use, live from the NPC\'s stat block or the player\'s own sheet, plus a "Last hit" line with the working. NPCs without a stat block get DR and ER boxes, and a Loyal Companion\'s resistances, vulnerabilities and immunities count as well as its DR and ER.',
                 'A hit that deals 0 is still a hit. Players read "Ari hit Goblin."; you read the damage, or "…but Goblin took no damage."',
                 'A Torso Wound adds the attack\'s largest die, Incapacitated targets take every hit as a Critical Hit, Crushing, Stunning and Concealed apply to the target, and a Stunning weapon\'s stun ends at the end of the attacker\'s next turn.',
@@ -256,7 +267,9 @@
                 'Damage types come from the current turn\'s attack only, so a save-half power never takes an earlier attack\'s type, and the chooser also asks for damage on a creature\'s own turn.',
                 'Fall damage (⤓ Fall in the tracker, or the token menu): 1d10 per square after the first, with the Acrobatics Reaction, Soft Landing and Defensive taken off, and Prone on any damage.',
                 'Click a player\'s conditions in the tracker to add or remove them; they reach the player\'s sheet. Players\' Power Slots show on their stat blocks, and their checks and saves show in your notifications.',
-                'Turn-start AP is never given twice, and "No map" combat never uses a map that was closed.'
+                'Turn-start AP is never given twice, and "No map" combat never uses a map that was closed.',
+                'Changing a player\'s conditions from the tracker holds steady until their sheet catches up. Adding Bleeding Out drops them to 0 HP and starts their Bleed Out (they roll the CON (Survive) check); taking it off stabilizes them.',
+                'A stat block window stays open while any creature in the order still uses that stat block: when one dies, its window passes to the next.'
             ]],
             ['Map Marker Popups', [
                 'In an Area Circle or Special Map Marker you\'re editing, "+ Add Sub-note" sits right under the sub-notes and above the Loot section, one click away.',
@@ -286,7 +299,8 @@
                 'Every NPC window has a Stat Block button whenever a stat block is linked.',
                 'Tag a stat block with worlds (NPC Roster → World) and it appears only in those worlds: in the NPC Roster, the Saved NPC list for initiative, and Link Stat Block. Untagged stat blocks appear everywhere. Each list says how many it\'s hiding, and the Roster\'s "Show all" brings them back for re-tagging.',
                 'Revealed NPCs show their pictures in your players\' World viewer, and revealed map notes appear in their Discoveries.',
-                'Session Notes support bullets and bold, and open in a read view with an Edit button.'
+                'Session Notes support bullets and bold, and open in a read view with an Edit button.',
+                'Revealed sub-notes whose location, NPC or area is still hidden appear in your players\' Discoveries on their own, without the hidden name.'
             ]],
             ['Special Map Markers', [
                 'Special Map Markers (the single-letter markers from * Special) are larger and far brighter: bright yellow once revealed and bright magenta while hidden, each with a crisp dark outline that reads on parchment, stone or night maps. Zoomed out, they never shrink below a readable size.',
@@ -347,7 +361,9 @@
                 'Resize player and NPC tokens ("Sheet size" puts a player\'s back). The current NPC\'s path shows its AP cost as you drag and pays it on drop (Alt moves freely).',
                 'Measure has Line, Cone and Burst modes that list every token inside, and right-click drops a waypoint.',
                 'Area Circles under fog are hidden from players, and stopping sharing a map closes it on their screens.',
-                'The map window\'s X stays in its corner, popups open beside the map in front of the dice tray, and pictures keep their shape when resized.'
+                'The map window\'s X stays in its corner, popups open beside the map in front of the dice tray, and pictures keep their shape when resized.',
+                'Each map window has a Revealed / Hidden button to show or hide it for your players on the spot.',
+                'Map windows, stat blocks, area popups and the dice tray share one stacking order: whichever you opened, clicked or dragged last is on top.'
             ]],
             ['Worlds and Accounts', [
                 'Deleting a world removes its maps, fog, portraits, images, invite code and player list, and deleting your account does that for every world you run, plus your characters, races, NPCs and profile.',
@@ -360,7 +376,8 @@
                 'Hovering over an Area Circle on your own maps shows its name as intended.',
                 'Pages load faster, and an open page that finds a newer release reloads onto it.',
                 'Closed windows no longer blur the page behind them on Android phones, and auto-save holds up through long sessions.',
-                'Deleting a sub-note no longer wipes another one you were still typing.'
+                'Deleting a sub-note no longer wipes another one you were still typing.',
+                'A map marker whose name has an apostrophe ("Bob\'s Shop") no longer stops the map from drawing its markers.'
             ]]
         ]
     }];
