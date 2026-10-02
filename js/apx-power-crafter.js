@@ -18,12 +18,13 @@ let pcEditIndex = null; // reserved for future "edit an existing crafted power" 
 let pcTarget = 'player'; // 'player', 'companion', 'gm', or 'item' -- whose powers list this session edits
 // 'item': a power carried by a custom item (GM Loot Maker). The caller hands over the list in
 // window._pcItemPowers and gets told about changes through window._pcItemOnChange(). No TP or XP is spent.
-function pcTargetOf(target) { return (target === 'companion' || target === 'gm' || target === 'item') ? target : 'player'; }
+// ('summon' = the creature a Summon a Creature power calls: paid in TP from its Tier's budget, like a companion)
+function pcTargetOf(target) { return (target === 'companion' || target === 'gm' || target === 'item' || target === 'summon') ? target : 'player'; }
 const PC_LAST_STEP = 9;
 
 function getTargetPowers() {
     if (pcTarget === 'item') return (window._pcItemPowers = window._pcItemPowers || []);
-    if (pcTarget === 'gm') return ncActiveCompanion().powers;
+    if (pcTarget === 'gm' || pcTarget === 'summon') return ncActiveCompanion().powers;
     return pcTarget !== 'player' ? window.state.companion.powers : window.state.powers;
 }
 
@@ -256,7 +257,7 @@ function pcOpenCommon() {
 // shows for companion/GM targets.
 function pcCurrentNpcTier() {
     if (pcTarget === 'item') return 5;
-    if (pcTarget === 'gm') return npcTierForTP(window.companionTotalTp()).tier;
+    if (pcTarget === 'gm' || pcTarget === 'summon') return npcTierForTP(window.companionTotalTp()).tier;
     if (pcTarget === 'companion') return typeof lcRank === 'function' ? lcRank() : 0;
     return 0;
 }
@@ -508,10 +509,18 @@ window.pcSetSummonTier = function(d) {
 window.pcEditSummon = function(cb) {
     if (typeof window.openSummonCrafter !== 'function') { if (cb) cb(); return; }
     let modal = document.getElementById('powerCrafterModal');
-    let wasOpen = modal && !modal.classList.contains('hidden') && getComputedStyle(modal).display !== 'none';
-    window.openSummonCrafter({ npc: pcDraft.summonNpc || null, tier: pcDraft.summonTier || 1, done: npc => {
+    let wasOpen = modal && modal.classList.contains('active');
+    // The creature can have powers of its own, crafted in this same Power Crafter: put this power's
+    // session aside while it's built, and pick it back up afterward
+    let saved = { draft: pcDraft, step: pcStep, free: pcFreeMode, edit: pcEditIndex, target: pcTarget, lair: pcIsLairAction,
+        name: (document.getElementById('pcName') || {}).value, cha: pcChaFreeCredit, chaDecl: pcChaFreeCreditDeclined };
+    if (wasOpen) window.closeModal('powerCrafterModal');
+    window.openSummonCrafter({ npc: saved.draft.summonNpc || null, tier: saved.draft.summonTier || 1, done: npc => {
+        pcDraft = saved.draft; pcStep = saved.step; pcFreeMode = saved.free; pcEditIndex = saved.edit; pcTarget = saved.target; pcIsLairAction = saved.lair;
+        pcChaFreeCredit = saved.cha; pcChaFreeCreditDeclined = saved.chaDecl;
         pcDraft.summonNpc = JSON.parse(JSON.stringify(npc)); pcDraft.summonNpcTier = pcDraft.summonTier || 1;
-        if (cb) cb(npc); else if (wasOpen) pcRenderAll();
+        if (cb) cb(npc);
+        else if (wasOpen) { window.openModal('powerCrafterModal'); let nm = document.getElementById('pcName'); if (nm && saved.name != null) nm.value = saved.name; pcRenderAll(); }
     } });
 };
 // After a player power with Summon a Creature is saved: build (or rebuild) its creature

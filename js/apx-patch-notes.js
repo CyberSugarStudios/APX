@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.3.1800',
-        released: '2026-10-03T18:00:00',
-        releasedText: 'October 3, 2026 · 6:00 PM',
+        version: 'v2026.10.3.2200',
+        released: '2026-10-03T22:00:00',
+        releasedText: 'October 3, 2026 · 10:00 PM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs that wear, carry and use their gear, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -138,7 +138,8 @@
                 'Full Rest Powers (formerly INT Powers) give Power Slots that come back after a Full Rest, and a power can use a slot of its Level or higher. Short Rest Powers (formerly CHA Powers) give uses that come back after a Short Rest. Each power belongs to one pool, and when that pool is empty you\'re offered the other.',
                 'Existing powers keep the attribute and pool they used before.',
                 'Summon a Creature has a Tier (+15 XP per Tier above 1, per creature). Saving the power opens the NPC Crafter to build the creature at that Tier, and using it places the creatures next to your token on the battle map your GM has open.',
-                'A power that summons a creature has an Edit Summoned Creature button, so the creature can be changed without reopening the Power Crafter.'
+                'A power that summons a creature has an Edit Summoned Creature button, so the creature can be changed without reopening the Power Crafter.',
+                'Powers for your Loyal Companion and for a summoned creature are priced in Threat Points from their own budget, never your XP. Building a summoned creature\'s powers from inside the Power Crafter picks your own power back up afterward.'
             ]],
             ['Magic and Custom Items', [
                 'Equippable items can carry any number of bonuses, or penalties if cursed: Core Attributes, skills, AC, DR, ER, one energy resistance, Max HP, Max AP, Speed, Initiative, Wound Threshold, Max Rest Dice, Max Luck Points, Carry Capacity, attack and damage rolls, power attack and DC, saves, checks and extra Power Slots.',
@@ -205,7 +206,7 @@
                 'Loot / Scavenge, next to + Add Item, rolls Currency (LUC × enemies defeated ÷ 2), Ammunition (LUC − 3d6 rounds) or an hour of scavenging for Crafting Materials.',
                 'When your GM calls for a Loot roll, it opens with the enemy count already filled in, and your result goes back to the GM.',
                 'The Scavenge list shows your bonus for each roll, and whether it has Advantage or Disadvantage.',
-                'INT (Encyclopedia) for scavenging lists the untrained roll first, then every Encyclopedia you\'re trained in.'
+                'INT (Encyclopedia) for scavenging has two choices: Untrained (your INT check) and Encyclopedia - Trained, with the bonus of your trained Encyclopedia skill and its perks.'
             ]],
             ['Loyal Companions', [
                 'Your companion has AP pips of its own, which empty when a fight begins and refill on its turn. Attacks from its stat block and its powers\' Use buttons spend them.',
@@ -250,7 +251,8 @@
                 'The Measure toolbar wraps onto more lines in small windows instead of being cut off.',
                 'Double-click any popup window\'s title bar to minimize it to a tab in the bottom-left corner.',
                 'The Measure buttons and tip sit below a map window\'s own controls instead of behind them.',
-                'A minimized map comes back with its map, tokens and pins intact.'
+                'A minimized map comes back with its map, tokens and pins intact.',
+                'Cones mark every square at least a quarter inside the cone as drawn, so the highlighted squares match the outline at every length and angle.'
             ]],
             ['Rules', [
                 'High Roller, Fortunate Fighter (Rank 1 uses LUC for AC when that\'s higher), Mobile and Regenerative are rewritten or updated.',
@@ -410,7 +412,8 @@
                 'Resizing a token next to a wall or another token shifts it to fit, player tokens included.',
                 'Movement paths follow diagonals without zig-zagging, and Large and bigger creatures measure from their center.',
                 'The Measure toolbar wraps in small windows, and double-clicking a window\'s title bar minimizes it to a tab.',
-                'A token\'s menu says Shrink and Grow for its size.'
+                'A token\'s menu says Shrink and Grow for its size.',
+                'Cones mark every square at least a quarter inside the cone as drawn, so the highlighted squares match the outline at every length and angle.'
             ]],
             ['Worlds and Accounts', [
                 'Deleting a world removes its maps, fog, portraits, images, invite code and player list, and deleting your account does that for every world you run, plus your characters, races, NPCs and profile.',

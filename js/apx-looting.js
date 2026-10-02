@@ -51,8 +51,12 @@
     function skillSpec(id) { return specs().find(o => o.type === 'check' && o.skill === id && o.kind !== 'save') || null; }
     function encyclopediaSpecs() {
         let seen = new Set();
-        return specs().filter(o => o.type === 'check' && /^Encyclopedia/.test(o.label || '') && !seen.has(o.label) && seen.add(o.label));
+        // Trained Encyclopedia entries are custom INT skills named "Encyclopedia (Topic)" (the sheet labels them by topic)
+        let ids = new Set(((st() || {}).customSkills || []).filter(k => k && /^Encyclopedia \(/.test(k.name || '')).map(k => k.id));
+        return specs().filter(o => o.type === 'check' && o.kind !== 'save' && ids.has(o.skill) && !seen.has(o.skill) && seen.add(o.skill));
     }
+    // The sheet's own untrained Encyclopedia roll (its header), or a plain INT check
+    function encyGenericSpec() { return specs().find(o => o.type === 'check' && /^Encyclopedia - Generic/i.test(o.label || '')) || attrSpec('INT'); }
     function attrSpec(attr) { return specs().find(o => o.type === 'check' && o.label === attr + ' check') || null; }
     function rollCheck(spec, extra) {
         if (!window.APXDice) return;
@@ -177,8 +181,11 @@
         let lootB = bon(skillSpec('Loot') || attrSpec('LUC')), noticeB = bon(skillSpec('Notice') || attrSpec('PER')), surviveB = bon(skillSpec('Survive') || attrSpec('CON'));
         let scavOpts = [['Loot', `LUC (Loot)${lootB}: lucky finds in unexpected places`], ['Notice', `PER (Notice)${noticeB}: hidden caches or overlooked items`], ['Survive', `CON (Survive)${surviveB}: dig through toxic trash or harsh terrain`]];
         // The generic (untrained) INT (Encyclopedia) first, then each Encyclopedia you're trained in
-        scavOpts.push(['ency:int', `INT (Encyclopedia, untrained)${bon(attrSpec('INT'))}: edible plants or salvageable tech`]);
-        ency.forEach((o, i) => scavOpts.push(['ency:' + i, `INT (${o.label.replace(/\s*\(INT\)\s*$/, '')})${bon(o)}: edible plants or salvageable tech`]));
+        // Two choices: the generic untrained INT (Encyclopedia), and Encyclopedia - Trained with the bonus of
+        // your trained Encyclopedia skill (every Encyclopedia you know rolls the same bonus; the best is used)
+        scavOpts.push(['ency:int', `INT (Encyclopedia, Untrained)${bon(encyGenericSpec())}: edible plants or salvageable tech`]);
+        let encyBest = ency.reduce((best, o, i) => best < 0 || (parseInt(o.bonus) || 0) > (parseInt(ency[best].bonus) || 0) ? i : best, -1);
+        if (encyBest >= 0) scavOpts.push(['ency:' + encyBest, `INT (Encyclopedia - Trained)${bon(ency[encyBest])}: edible plants or salvageable tech`]);
         let back = panel('Luck and Looting', `
             <div class="apxdlg-msg" style="margin-bottom:.6rem">Looting happens right after a fight and relies on sheer luck. Scavenging is slower: about an hour of searching per attempt.</div>
             <div style="${box}${opts.focus === 'cu' ? ';border-color:#f59e0b' : ''}">
@@ -226,7 +233,7 @@
                 back.remove(); window.apxLootAmmo(a);
             } else {
                 let v = back.querySelector('[data-scav]').value, mats = back.querySelector('[data-mats]').checked;
-                let spec = v.startsWith('ency:') ? (v === 'ency:int' ? Object.assign({}, attrSpec('INT') || { type: 'check', attr: 'INT', bonus: 0 }, { label: 'INT (Encyclopedia) check' }) : ency[+v.slice(5)])
+                let spec = v.startsWith('ency:') ? (v === 'ency:int' ? Object.assign({}, encyGenericSpec() || { type: 'check', attr: 'INT', bonus: 0 }, { label: 'INT (Encyclopedia, Untrained) check' }) : Object.assign({}, ency[+v.slice(5)], { label: 'INT (Encyclopedia - Trained) check' }))
                     : Object.assign({}, skillSpec(v) || {}, { skill: v });
                 back.remove(); window.apxScavenge(spec, mats);
             }

@@ -1026,16 +1026,23 @@
         let cx = (fa.x0 + fa.x1 + 1) / 2, cy = (fa.y0 + fa.y1 + 1) / 2;
         let dx = target.gx + 0.5 - cx, dy = target.gy + 0.5 - cy, dl = Math.hypot(dx, dy) || 1;
         let cells = [];
-        for (let gx = fa.x0 - L; gx <= fa.x1 + L; gx++) for (let gy = fa.y0 - L; gy <= fa.y1 + L; gy++) {
+        for (let gx = fa.x0 - L - 1; gx <= fa.x1 + L + 1; gx++) for (let gy = fa.y0 - L - 1; gy <= fa.y1 + L + 1; gy++) {
             let inside = gx >= fa.x0 && gx <= fa.x1 && gy >= fa.y0 && gy <= fa.y1;
             if (inside) { if (mode === 'burst') cells.push({ gx, gy }); continue; }
+            if (mode === 'cone') {
+                // A square is in the cone when at least a quarter of it lies inside the cone as drawn
+                // (the apex at the creature's center, the arc L squares past its edge)
+                let R = L + (fa.x1 - fa.x0 + 1) / 2, cosH = Math.cos(CONE_HALF), inN = 0, N = 12;
+                for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+                    let vx = gx + (i + 0.5) / N - cx, vy = gy + (j + 0.5) / N - cy, vl = Math.hypot(vx, vy);
+                    if (vl <= R && vl > 0 && (vx * dx + vy * dy) / (vl * dl) >= cosH - 1e-9) inN++;
+                }
+                if (inN * 4 < N * N) continue;
+                cells.push({ gx, gy });
+                continue;
+            }
             let nn = _nearest(fa, { x0: gx, x1: gx, y0: gy, y1: gy });
             if (squaresBetween(gx - nn.gx, gy - nn.gy) > L) continue;
-            if (mode === 'cone') {
-                let vx = gx + 0.5 - cx, vy = gy + 0.5 - cy;
-                let cos = (vx * dx + vy * dy) / ((Math.hypot(vx, vy) || 1) * dl);
-                if (cos < Math.cos(CONE_HALF) - 1e-9) continue;
-            }
             cells.push({ gx, gy });
         }
         return { cells, L, cx, cy, ang: Math.atan2(dy, dx) };

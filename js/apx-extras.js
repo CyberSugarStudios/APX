@@ -103,7 +103,7 @@
             <li>Combat Maneuvers are on the left, Standard Actions on the right. Greyed-out ones need something you don't have (Block needs a shield or a Sturdy weapon, Shield Bash a shield). Block with a Sturdy weapon rolls its die for you.</li>
             <li>The 📌 beside an action pins it to <b>Weapons &amp; Attacks</b>, so the ones you build around are one click away. Click ✕ on a pinned action to unpin it.</li>
             <li>Active effects show under <b>Armor &amp; Defenses</b> with a red <b>✕</b> to end them early. Most end on their own at your next turn or when you attack.</li>
-            <li>Powers with <b>Summon a Creature</b> have you build the creature in the NPC Crafter when you save the power; <b>Edit Summoned Creature</b> on the power changes it later. Using it puts the creatures next to your token on your GM's battle map.</li>
+            <li>Powers with <b>Summon a Creature</b> have you build the creature in the NPC Crafter when you save the power; <b>Edit Summoned Creature</b> on the power changes it later. The creature's own powers cost TP from its Tier's budget, never your XP. Using it puts the creatures next to your token on your GM's battle map.</li>
             <li>Your Loyal Companion's forged armor and weapons cost only Threat Points, and follow the same armor rules as yours (weight class, STR requirement).</li></ul>`],
         ['Shortcuts', 'Shortcuts worth knowing', `
             <ul><li>Number boxes do math: type <kbd>+5</kbd> or <kbd>-3</kbd> to add or subtract, or <kbd>35-9</kbd> after what's there.</li>
@@ -142,7 +142,7 @@
         ['Maps', 'Maps and battle maps', `
             <ul><li><b>Upload Map</b> for world maps, dungeons and buildings. Pin locations with notes and subnotes; what you reveal becomes your players' Discoveries.</li>
             <li>Turn on the <b>Grid</b> (size, offset, colour, thickness, opacity), place tokens, resize them, and paint <b>Fog</b> of war.</li>
-            <li><b>Measure</b> (<kbd>M</kbd>) has Line, Cone and Burst modes and lists who's inside an area. Right-click drops waypoints.</li>
+            <li><b>Measure</b> (<kbd>M</kbd>) has Line, Cone and Burst modes and lists who's inside an area. A Cone covers every square at least a quarter inside the cone as drawn. Right-click drops waypoints.</li>
             <li>Share a map with your players, and stop sharing to close it on their screens.</li>
             <li>Tokens added with <b>+ Token</b> from the tracker start hidden; reveal them from the token's menu. <b>Shrink</b> and <b>Grow</b> in a token's menu change its size. Double-click a window's title bar to minimize it to a tab.</li></ul>`],
         ['Loot and notes', 'Loot, crafting and notes', `
