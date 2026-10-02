@@ -44,6 +44,9 @@
         if (!window.APXDice) return;
         let o = Object.assign({ attr, skill, bonus: 0, who: st().name || '' }, spec || {}, { label });
         delete o.type;
+        // Large: Advantage on STR (Athletics) to push or grapple (Grapple, Pin, Escape, Shove)
+        if (skill === 'Athletics' && typeof calc !== 'undefined' && calc.sizeKey === 'large' && /Grapple|Pin|Escape|Shove/.test(label || ''))
+            o.advSources = (o.advSources || []).concat(['Large size']);
         window.APXDice.check(o);
     }
 

@@ -450,8 +450,8 @@
                 }
         
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20261021530">
-    <link rel="stylesheet" href="css/tailwind.css?v=20261021530">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20261021545">
+    <link rel="stylesheet" href="css/tailwind.css?v=20261021545">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
@@ -1519,36 +1519,36 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20261021530"></script>
-    <script src="js/apx-patch-notes.js?v=20261021530"></script>
-    <script src="js/apx-dice.js?v=20261021530"></script>
-    <script src="js/apx-data.js?v=20261021530"></script>
-    <script src="js/apx-item-effects.js?v=20261021530"></script>
-    <script src="js/apx-perks-db.js?v=20261021530"></script>
-    <script src="js/apx-migrations.js?v=20261021530"></script>
-    <script src="js/apx-state.js?v=20261021530"></script>
-    <script src="js/apx-craft-shared.js?v=20261021530"></script>
-    <script src="js/apx-armor-forge.js?v=20261021530"></script>
-    <script src="js/apx-weapon-forge.js?v=20261021530"></script>
-    <script src="js/apx-consumable-crafter.js?v=20261021530"></script>
-    <script src="js/apx-perks-ui.js?v=20261021530"></script>
-    <script src="js/apx-power-crafter.js?v=20261021530"></script>
-    <script src="js/apx-npc-crafter.js?v=20261021530"></script>
-    <script src="js/apx-inventory-ui.js?v=20261021530"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20261021530"></script>
-    <script src="js/apx-gm-screen.js?v=20261021530"></script>
-    <script src="js/apx-loot-maker.js?v=20261021530"></script>
-    <script src="js/apx-library.js?v=20261021530"></script>
-    <script src="js/apx-gmtools-main.js?v=20261021530"></script>
+    <script src="js/apx-dialogs.js?v=20261021545"></script>
+    <script src="js/apx-patch-notes.js?v=20261021545"></script>
+    <script src="js/apx-dice.js?v=20261021545"></script>
+    <script src="js/apx-data.js?v=20261021545"></script>
+    <script src="js/apx-item-effects.js?v=20261021545"></script>
+    <script src="js/apx-perks-db.js?v=20261021545"></script>
+    <script src="js/apx-migrations.js?v=20261021545"></script>
+    <script src="js/apx-state.js?v=20261021545"></script>
+    <script src="js/apx-craft-shared.js?v=20261021545"></script>
+    <script src="js/apx-armor-forge.js?v=20261021545"></script>
+    <script src="js/apx-weapon-forge.js?v=20261021545"></script>
+    <script src="js/apx-consumable-crafter.js?v=20261021545"></script>
+    <script src="js/apx-perks-ui.js?v=20261021545"></script>
+    <script src="js/apx-power-crafter.js?v=20261021545"></script>
+    <script src="js/apx-npc-crafter.js?v=20261021545"></script>
+    <script src="js/apx-inventory-ui.js?v=20261021545"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20261021545"></script>
+    <script src="js/apx-gm-screen.js?v=20261021545"></script>
+    <script src="js/apx-loot-maker.js?v=20261021545"></script>
+    <script src="js/apx-library.js?v=20261021545"></script>
+    <script src="js/apx-gmtools-main.js?v=20261021545"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20261021530"></script>
-    <script src="js/apx-firebase.js?v=20261021530"></script>
-    <script src="js/apx-battlemap.js?v=20261021530"></script>
-    <script src="js/apx-map-tiles.js?v=20261021530"></script>
+    <script src="js/firebase-config.js?v=20261021545"></script>
+    <script src="js/apx-firebase.js?v=20261021545"></script>
+    <script src="js/apx-battlemap.js?v=20261021545"></script>
+    <script src="js/apx-map-tiles.js?v=20261021545"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -1875,6 +1875,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         playerUid:    t.playerUid     || null,
                                         initiativeId: t.initiativeId  || null,
                                         revealed:     t.revealed      !== false,
+                                        swarm:        !!t.swarm,
                                         _dead:        isDead,
                                         _bleedingOut: isBO,
                                         _ko:          !isDead && !!((entry || (t.type === 'player' && t.playerUid ? (window.gmInitiative||[]).find(e=>e.playerUid===t.playerUid && !e.companionOf && !e.summonOf) : null))?.ko),
@@ -3889,6 +3890,23 @@ document.addEventListener('DOMContentLoaded', () => {
             let sz = window.APXBattle.sizeFromCharState(pm?.state);
             if (sz && sz !== (t.size || 'medium')) { t.size = sz; sizeChanged = true; }
         });
+        // NPC and companion tokens follow their stat block's size (Tiny … Gargantuan) the same way, and
+        // carry whether the creature is a Swarm (it shares squares, and tucks under other tokens)
+        (map.battleTokens||[]).forEach(t => {
+            let npc = null;
+            if (t.type === 'companion' && t.playerUid) { let pm = (window.gmParty||[]).find(p=>p.fileName===t.playerUid); npc = pm?.state?.companion || null; }
+            else if (t.type === 'npc') {
+                let en = t.initiativeId ? (window.gmInitiative||[]).find(e=>e.id===t.initiativeId) : null;
+                let sid = en?.sourceNpcId || (t.worldNpcId ? (_wNotes.npcs||[]).find(n=>n.id===t.worldNpcId)?.statBlockId : null);
+                npc = sid ? (window.gmNpcs||[]).find(g=>g.id===sid)?.npc || null : null;
+            }
+            if (!npc) return;
+            let sw = !!npc.swarm;
+            if (!!t.swarm !== sw) { t.swarm = sw; sizeChanged = true; }
+            if (t.sizeOverride) return;
+            let sz = String(npc.size || 'medium').toLowerCase();
+            if (window.APXBattle.SIZES[sz] && sz !== (t.size || 'medium')) { t.size = sz; sizeChanged = true; }
+        });
         if (sizeChanged) saveWorldNotes();
 
         let vms = (map.battleTokens||[]).map(t => {
@@ -3926,7 +3944,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return {
                 id: t.id, gridX: pos.gridX, gridY: pos.gridY, size: t.size || 'medium',
                 label: (t.name||'?')[0].toUpperCase(),
-                ko: isKo,
+                ko: isKo, swarm: !!t.swarm,
                 bg: isDead ? '#1a0000' : isKo ? '#52525b' : isBleedingOut ? '#450a0a' : (t.color||defColor),
                 borderColor: isActive?'#fbbf24' : isDead?'rgba(80,80,80,0.8)' : isBleedingOut?'#f97316' : isHidden?'rgba(255,255,255,0.25)' : factionBorder,
                 borderW: isActive ? 3 : 2,
@@ -3941,7 +3959,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 aura: isDead ? null : (() => { let a = window._btTokenAura(t); return a ? { type: a.type, radius: a.radius, title: `Damage Aura: ${a.dice} ${a.type}` } : null; })(),
                 numColor: factionBorder,
                 portrait,
-                title: `${t.name} (${t.size||'medium'})${isHidden?' [Hidden]':''} — dbl-click for stat block, right-click for options`,
+                title: `${t.name} (${t.size||'medium'}${t.swarm?', Swarm':''})${linkedEntry && linkedEntry.currentHp != null ? ` · HP ${linkedEntry.currentHp}/${linkedEntry.maxHp ?? '?'}${linkedEntry.ac != null ? ` · AC ${linkedEntry.ac}` : ''}` : ''}${isHidden?' [Hidden]':''} — dbl-click for stat block, right-click for options`,
                 draggable: interactive, interactive,
                 type: t.type, worldNpcId: t.worldNpcId, playerUid: t.playerUid, name: t.name
             };
@@ -4508,7 +4526,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ${isPlayer ? '' : `<div style="${row}"><span style="${lbl}">Side</span>${btn('Enemy', `window._btSetFaction(${a},'enemy')${close}`, '#fca5a5', curFaction==='enemy')}${btn('Neutral', `window._btSetFaction(${a},'neutral')${close}`, '#fde68a', curFaction==='neutral')}${btn('Ally', `window._btSetFaction(${a},'ally')${close}`, '#6ee7b7', curFaction==='ally')}</div>`}
             ${initRow}
             ${isPlayer ? '' : `<div style="${row}"><span style="${lbl}">Cond</span><span style="flex:1;font-size:0.56rem;color:#fdba74;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px;" title="${esc(window._gmEffCondNames(tok.conditions).join(', '))}">${(tok.conditions||[]).length ? esc(window._gmEffCondNames(tok.conditions).join(', ')) : '<span style=\'color:#475569\'>none</span>'}</span><button onclick="window._btTokenCondPicker(${a}, event.clientX, event.clientY)" style="background:none;border:none;color:#fdba74;font-size:0.6rem;font-weight:800;cursor:pointer;padding:0 4px;">Edit</button></div>`}
-            <div style="${row}"><span style="${lbl}">Size</span>${btn('Shrink', `window._btResizeToken(${a},-1)${close}`, '#c4b5fd', false, sizeIdx<=0)}${btn('Grow', `window._btResizeToken(${a},1)${close}`, '#c4b5fd', false, sizeIdx>=BT_SIZE_LIST.length-1)}${tok.sizeOverride ? btn('Sheet size', `window._btResetTokenSize(${a})${close}`, '#a5b4fc', false, false, 'Go back to the size on their character sheet') : ''}</div>
+            <div style="${row}"><span style="${lbl}">Size</span>${btn('Shrink', `window._btResizeToken(${a},-1)${close}`, '#c4b5fd', false, sizeIdx<=0)}${btn('Grow', `window._btResizeToken(${a},1)${close}`, '#c4b5fd', false, sizeIdx>=BT_SIZE_LIST.length-1)}${tok.sizeOverride ? btn(tok.type === 'npc' ? 'Stat block size' : 'Sheet size', `window._btResetTokenSize(${a})${close}`, '#a5b4fc', false, false, tok.type === 'npc' ? 'Go back to the size on its stat block' : 'Go back to the size on their character sheet') : ''}</div>
             ${tok.initiativeId && initEntry && initEntry.maxHp !== null ? `<div style="${row}">${btn('⤓ Fall damage…', `window.gmFallDamage('${tok.initiativeId}')${close}`, '#7dd3fc', false, false, 'Fall damage: 1d10 per square after the first, softened by an Acrobatics Reaction')}</div>` : ''}
             <div style="${row}"><span style="${lbl}">Layer ${tok.layer==null?1:tok.layer}</span>${btn('Down', `window._btTokLayer('${mapId}','${winId}','${tokenId}','down')${close}`, '#c4b5fd', false, false, 'Move under images on higher layers')}${btn('Up', `window._btTokLayer('${mapId}','${winId}','${tokenId}','up')${close}`, '#c4b5fd', false, false, 'Move above images on lower layers')}</div>
             <div style="${row}">${btn('Remove Token', `window.removeBattleToken(${a})${close}`, '#f87171')}</div>`;
@@ -4540,7 +4558,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if ((tok.type === 'player' || tok.type === 'companion') && tok.playerUid) window.APXBattle.move(getActiveWorld()?.inviteCode, tok.playerUid, mapId, tok.id, fit.gx, fit.gy);
         }
         tok.size = newSize;
-        if (tok.type === 'player' || tok.type === 'companion') tok.sizeOverride = true;   // keep it (powers, squeezing…)
+        tok.sizeOverride = true;   // keep it (powers, squeezing…) instead of following the sheet / stat block
         saveWorldNotes();
         _btRenderTokens(mapId, winId);
     };
@@ -4550,8 +4568,8 @@ document.addEventListener('DOMContentLoaded', () => {
         let tok = (map?.battleTokens||[]).find(t=>t.id===tokenId); if(!tok) return;
         delete tok.sizeOverride;
         let pm = (window.gmParty||[]).find(p=>p.fileName===tok.playerUid||p.summary?.playerUid===tok.playerUid);
-        let sz = tok.type === 'player' ? window.APXBattle.sizeFromCharState(pm?.state) : String(pm?.state?.companion?.size || 'medium').toLowerCase();
-        if (sz) tok.size = sz;
+        let sz = tok.type === 'player' ? window.APXBattle.sizeFromCharState(pm?.state) : tok.type === 'companion' ? String(pm?.state?.companion?.size || 'medium').toLowerCase() : null;
+        if (sz) tok.size = sz;   // (an NPC's comes back from its stat block on the next draw)
         saveWorldNotes();
         _btRenderTokens(mapId, winId);
     };
@@ -4901,8 +4919,8 @@ document.addEventListener('DOMContentLoaded', () => {
             <tr>${ATTRS.map(a=>{let v=s.saves?.[a]??0;return`<td style="text-align:center;font-weight:900;color:${v>=0?'#a3e635':'#f87171'};padding:0.15rem 0.05rem;"${R({type:'check',kind:'save',label:a+' Save',bonus:v})}>${v>=0?'+':''}${v}</td>`}).join('')}</tr>
         </table>`;
         skillsList = (s.trainedSkills||[]).length
-            ? (s.trainedSkills||[]).map(sk=>`<span${R({type:'check',label:sk.name,bonus:sk.total})}>${sk.name} (${sk.total>=0?'+':''}${sk.total})</span>`).join(', ')
-            : 'None';
+            ? (s.trainedSkills||[]).map(sk=>`<span${R({type:'check',label:sk.name,bonus:sk.total,advSources:(sk.adv||[]).length?sk.adv:undefined,disSources:(sk.dis||[]).length?sk.dis:undefined})}>${sk.name} (${sk.total>=0?'+':''}${sk.total}${(sk.adv||[]).length?', Adv':''}${(sk.dis||[]).length?', Disadv':''})</span>`).join(', ')
+            : 'None beyond attribute checks';
         return { portrait, subtitle, name: s.name || playerName,
             body: `        <div style="padding:0.5rem 0.75rem;">
             <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.3rem;margin-bottom:0.3rem;">
@@ -4925,7 +4943,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ${hdr('Core Attributes')}${attrGrid}
             ${hdr('Saving Throws')}${savesTable}
             ${envSection}
-            ${hdr('Trained Skills')}<div style="font-size:0.62rem;color:#a3e635;padding:0.15rem 0;">${skillsList}</div>
+            ${hdr('Skills')}<div style="font-size:0.62rem;color:#a3e635;padding:0.15rem 0;">${skillsList}</div>
             ${hdr('Languages')}<div style="font-size:0.62rem;color:#c4b5fd;padding:0.15rem 0;">${languages}</div>
             ${window._gmPlayerPowersHtml ? window._gmPlayerPowersHtml(st, hdr) : ''}
         </div>` };
@@ -6307,8 +6325,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </script>
     <div id="floatingWindowContainer"></div>
 
-    <script src="js/apx-chat.js?v=20261021530"></script>
-    <script src="js/apx-extras.js?v=20261021530"></script>
-    <script src="js/apx-theme-light.js?v=20261021530"></script>
+    <script src="js/apx-chat.js?v=20261021545"></script>
+    <script src="js/apx-extras.js?v=20261021545"></script>
+    <script src="js/apx-theme-light.js?v=20261021545"></script>
 </body>
 </html>

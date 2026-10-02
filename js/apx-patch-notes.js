@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.2.1530',
-        released: '2026-10-02T15:30:00',
-        releasedText: 'October 2, 2026 · 3:30 PM',
+        version: 'v2026.10.2.1545',
+        released: '2026-10-02T15:45:00',
+        releasedText: 'October 2, 2026 · 3:45 PM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs that wear, carry and use their gear, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -41,7 +41,7 @@
                 'New NPC traits run themselves in the tracker: Undead (falls Prone and Incapacitated at 0 HP and may rise again) and Unalive Structure (repair-only healing, Stunned by Electric damage). Condition immunities are enforced.',
                 'Tokens added with + Token from the tracker start hidden, and companions and summoned creatures act right after their owner.',
                 'Grapples, knockouts and summons run themselves in the tracker: whoever\'s next to a Grappled creature is linked as its grappler and Staggered, non-lethal 0 HP leaves a creature knocked out with snoring Z\'s, and NPCs can summon creatures next to themselves.',
-                'NPCs can be Tiny (+2 AC, reach 0, no Heavy weapons), Huge adds its STR modifier to melee damage at -2 AC, and Grant XP has a Start Session type (5 + INT).'
+                'NPC sizes apply themselves: Tiny or Smaller (+2 AC, Advantage on Stealth, reach 0, no Heavy weapons) through Gargantuan (-2 AC, Advantage on Athletics, Disadvantage on Stealth). Swarms share squares and take half damage from single-target attacks, double from areas. Grant XP has a Start Session type (5 + INT).'
             ]],
             ['For Players', [
                 'Identical items stack: three Leather Armors from three bandits make one "Leather Armor ×3" row. Equipping takes one from the stack, taking it off puts it back, and older inventories are joined up the first time you open the character.',
@@ -261,14 +261,16 @@
                 'The Measure buttons and tip sit below a map window\'s own controls instead of behind them.',
                 'A minimized map comes back with its map, tokens and pins intact.',
                 'Cones mark every square at least a quarter inside the cone as drawn, so the highlighted squares match the outline at every length and angle.',
-                'Knocked-out creatures turn grey with three snoring Z\'s rising from them.'
+                'Knocked-out creatures turn grey with three snoring Z\'s rising from them.',
+                'Swarms can share your square; one under another creature shows as a small handle beside it (hover for its name and conditions). Token borders scale with size, so small tokens stay readable on their turn.'
             ]],
             ['Rules', [
                 'High Roller, Fortunate Fighter (Rank 1 uses LUC for AC when that\'s higher), Mobile and Regenerative are rewritten or updated.',
                 'Power Crafting allows at most 8 dice per die step, Sacrifice keeps the caster from regaining HP until their next turn, and Mythic Utilities cost a flat 130 XP. Powers this affects show "Recraft (Free)".',
                 'Brute\'s carry capacity stacks with your race\'s size: each step doubles it again.',
                 'Armor Master: each Rank makes your worn armor (with Shield and Helmet) count as 5 lbs lighter for its weight class and STR requirement.',
-                'Brute Rank 2: you aren\'t Staggered while you grapple a creature (the grapple rework\'s cost for holding on).'
+                'Brute Rank 2: you aren\'t Staggered while you grapple a creature (the grapple rework\'s cost for holding on).',
+                'Your size applies itself: Small gives Advantage on AGI (Stealth); Large gives Disadvantage on AGI (Stealth) and Advantage on STR (Athletics) when you Grapple, Pin or Escape.'
             ]],
             ['Layout and Account', [
                 'Settings sits beside World, and Undo and Redo are at the bottom of the Roster menu (Ctrl+Z and Ctrl+Y still work).',
@@ -390,8 +392,10 @@
                 'Unalive Structure (5 TP): immune to Poison, Psychic and ten conditions, vulnerable to Electric. Electric damage asks for its CON save (DC 10 + half the damage) or it\'s Stunned, and healing it asks whether it\'s a mechanical repair.',
                 'NPCs wear armor by the players\' rules: the weight class (armor, Shield and Helmet) caps their AGI bonus to AC, and below the STR requirement they lose AGI to AC and 2 Speed and attack with Disadvantage. Their stat blocks show the weight class and STR needed.',
                 'The Armor and Weapon Forges show no Cu for NPCs: their gear costs TP.',
-                'Tiny size: a 1x1 square, +2 AC, Advantage on AGI (Stealth), melee reach 0 and no Heavy weapons. Huge now gives Advantage on STR (Athletics), its STR modifier on melee damage, Disadvantage on AGI (Stealth) and -2 AC. The stat block applies the AC, reach and damage and lists the rest.',
-                'An NPC or companion can\'t summon creatures above its own Tier, and a summoned creature can\'t summon at all. Saving an NPC\'s summon power opens the crafter for its creature, then returns to the NPC.'
+                'Sizes: Tiny or Smaller (3 TP: +2 AC, Advantage on AGI (Stealth), melee reach 0, no Heavy weapons), Small (+2 Stealth), Large (+15 HP, +2 Athletics, -2 Stealth), Huge (+20 HP, +4 Athletics, -4 Stealth) and Gargantuan (+30 HP, -2 AC, Advantage on Athletics, Disadvantage on Stealth). Every effect applies on its own: AC, reach, skill bonuses and Advantage or Disadvantage on the rolls. Carrying capacity is gone from the NPC Crafter.',
+                'A Loyal Companion can\'t summon creatures above its own Tier (other NPCs can), and a summoned creature can\'t summon at all. Saving an NPC\'s summon power opens the crafter for its creature, then returns to the NPC.',
+                'Stat blocks (NPCs, companions, and players\' summaries) have Skills instead of Trained Skills: every skill whose roll isn\'t the plain attribute check (trained, a bonus of its own, or Advantage or Disadvantage), rolling with those.',
+                'Swarms run themselves: half damage from single-target attacks and double from area effects (powers know which; for typed damage you\'re asked), half their damage dice when below half HP, and no size bonuses or penalties.'
             ]],
             ['Initiative and Combat', [
                 'The tracker stands on its own and uses a battle map only when one is open or chosen as the fight\'s Battle map.',
@@ -429,7 +433,9 @@
                 'Movement paths follow diagonals without zig-zagging, and Large and bigger creatures measure from their center.',
                 'The Measure toolbar wraps in small windows, and double-clicking a window\'s title bar minimizes it to a tab.',
                 'A token\'s menu says Shrink and Grow for its size.',
-                'Cones mark every square at least a quarter inside the cone as drawn, so the highlighted squares match the outline at every length and angle.'
+                'Cones mark every square at least a quarter inside the cone as drawn, so the highlighted squares match the outline at every length and angle.',
+                'Swarms share squares with any creature. A swarm under another creature is drawn beneath it, with a small handle beside that creature: hover it for the swarm\'s details (players see less), drag it to move the swarm, right-click or double-click it as you would the token.',
+                'NPC and companion tokens take their stat block\'s size (Tiny through Gargantuan), and Shrink / Grow keep their size until "Stat block size". Token borders and glows scale with the token, so a Tiny or Small creature\'s turn ring no longer swallows its picture. Hovering a token shows its HP and AC.'
             ]],
             ['Worlds and Accounts', [
                 'Deleting a world removes its maps, fog, portraits, images, invite code and player list, and deleting your account does that for every world you run, plus your characters, races, NPCs and profile.',

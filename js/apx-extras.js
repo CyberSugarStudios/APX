@@ -131,7 +131,9 @@
         ['NPCs', 'NPCs, races and the Library', `
             <ul><li>The <b>NPC Crafter</b> builds stat blocks from a Tier and a TP budget: attributes, weapons, armor, perks, traits and powers. Stat blocks roll straight from their dice.</li>
             <li><b>Race Templates</b> are the races your players can pick in their Race Builder; changes reach them live.</li>
-            <li>NPC sizes run from Tiny (+2 AC, reach 0, no Heavy weapons) to Gargantuan; Huge adds its STR modifier to melee damage and takes −2 AC.</li>
+            <li>NPC sizes run from Tiny or Smaller (3 TP: +2 AC, Advantage on Stealth, reach 0, no Heavy weapons) to Gargantuan (−2 AC, Advantage on Athletics, Disadvantage on Stealth). A size's effects apply on their own, and stat blocks list every <b>Skill</b> that isn't a plain attribute check (trained, its own bonus, Advantage or Disadvantage).</li>
+            <li><b>Swarms</b> share squares with other creatures and tuck under them; a small handle beside the creature shows the swarm (hover for details, drag to move it). They take half damage from single-target attacks and double from area effects (you're asked when it's unclear), and roll half their damage dice below half HP.</li>
+            <li>NPC and companion tokens follow their stat block's size (Tiny … Gargantuan) unless you Shrink or Grow them; "Stat block size" puts it back.</li>
             <li>Items, forged weapons and armor, consumables and powers you make go into your <b>Library</b>, tagged with the world you made them in, so you can reuse them anywhere.</li></ul>`],
         ['Combat', 'Running combat', `
             <ul><li>Add NPCs and players to the <b>initiative tracker</b>, then <b>Start Combat</b> and use <b>Next Turn</b>. AP, reactions, condition timers and auras are handled turn by turn.</li>

@@ -148,11 +148,18 @@ function computeCharSummary(state) {
         saves[a] = calc.mods[a] + (trained ? (state.trainingBonus || 2) : 0) + (window.apxItemSaveBonus ? window.apxItemSaveBonus(itemFx, a) : 0);
     });
 
-    let trainedSkills = SKILLS.filter(s => state.skillsTrained && state.skillsTrained[s.id]).map(s => {
+    // Skills: every skill whose roll isn't just the plain attribute check (trained, its own bonus,
+    // or Advantage / Disadvantage from size), the same rule as NPC stat blocks
+    let szv = parseInt(state.ancestry && state.ancestry.size) || 30, szKey = szv <= 15 ? 'small' : szv >= 60 ? 'large' : 'medium';
+    let trainedSkills = SKILLS.map(s => {
+        let tr = !!(state.skillsTrained && state.skillsTrained[s.id]);
         let perkBonus = calc.skills[s.id] || 0;
         if (s.name === 'Notice' && calc.skills['Notice']) perkBonus = calc.skills['Notice'];
-        return { name: s.name, total: calc.mods[s.attr] + (state.trainingBonus || 2) + perkBonus + (window.apxItemCheckBonus ? window.apxItemCheckBonus(itemFx, s.attr) : 0) };
-    });
+        let adv = szKey === 'small' && s.id === 'Stealth' ? ['Small size'] : [];
+        let dis = szKey === 'large' && s.id === 'Stealth' ? ['Large size'] : [];
+        if (!tr && !perkBonus && !adv.length && !dis.length) return null;
+        return { name: s.name, trained: tr, adv, dis, total: calc.mods[s.attr] + (tr ? (state.trainingBonus || 2) : 0) + perkBonus + (window.apxItemCheckBonus ? window.apxItemCheckBonus(itemFx, s.attr) : 0) };
+    }).filter(Boolean);
     (state.customSkills || []).filter(s => state.skillsTrained && state.skillsTrained[s.id]).forEach(s => {
         let perkBonus = s.name.startsWith('Encyclopedia') ? ((state.perks || {})['int_scholar'] || 0) : 0;
         trainedSkills.push({ name: s.name, total: calc.mods[s.attr] + (state.trainingBonus || 2) + perkBonus });
@@ -541,12 +548,12 @@ window.renderGmScreen = function() {
                     ${ATTRIBUTES.map(a => `<div class="text-center bg-slate-800 rounded py-0.5"><div class="text-[7px] text-slate-500 font-bold">${a}</div><div class="text-[10px] font-black text-white">${s.mods[a] >= 0 ? '+' : ''}${s.mods[a]}</div></div>`).join('')}
                 </div>
                 <details class="text-[10px]">
-                    <summary class="cursor-pointer text-slate-400 font-bold select-none">Saving Throws &amp; Trained Skills</summary>
+                    <summary class="cursor-pointer text-slate-400 font-bold select-none">Saving Throws &amp; Skills</summary>
                     <div class="grid grid-cols-7 gap-1 mt-1 mb-1">
                         ${ATTRIBUTES.map(a => `<div class="text-center bg-slate-800 rounded py-0.5"><div class="text-[7px] text-slate-500 font-bold">${a} Save</div><div class="text-[10px] font-black text-blue-300">${s.saves[a] >= 0 ? '+' : ''}${s.saves[a]}</div></div>`).join('')}
                     </div>
                     <div class="flex flex-wrap gap-1">
-                        ${s.trainedSkills.length ? s.trainedSkills.map(sk => `<span class="bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-slate-300">${sk.name} <span class="text-emerald-400 font-bold">${sk.total >= 0 ? '+' : ''}${sk.total}</span></span>`).join('') : '<span class="text-slate-600">None trained</span>'}
+                        ${s.trainedSkills.length ? s.trainedSkills.map(sk => `<span class="bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 ${sk.trained === false ? 'text-slate-400' : 'text-slate-300'}">${sk.name} <span class="text-emerald-400 font-bold">${sk.total >= 0 ? '+' : ''}${sk.total}</span>${(sk.adv || []).length ? ' <span class="text-emerald-400">Adv</span>' : ''}${(sk.dis || []).length ? ' <span class="text-red-400">Disadv</span>' : ''}</span>`).join('') : '<span class="text-slate-600">None beyond attribute checks</span>'}
                     </div>
                 </details>
             </div>
@@ -1435,7 +1442,7 @@ window.apxOnNpcPowerUse = function(o, info) {
     if (!_gmFightOn()) return e;
     let id = info.id || ('pw' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5));
     _gmRecordAttack({ id, attacker: e, label: info.label || o.label || 'a power', hit: { weapon: info.label || 'Power', props: [], dmgType: info.dmgType || '' }, crit: false, fumble: false, total: 0,
-        dice: info.dice || '', critMult: 2, reroll12: false, critExtra: 0, dmgType: info.dmgType || '', power: true, save: info.save || null });
+        dice: info.dice || '', critMult: 2, reroll12: false, critExtra: 0, dmgType: info.dmgType || '', power: true, save: info.save || null, aoe: !!info.aoe });
     if (e.faction !== 'player' && !e.companionOf) {
         window._gmLastNpcAtk = { id, t: Date.now(), turnNo: window.gmCombatStarted ? window.gmTurnNumber : null, round: window.gmCombatStarted ? window.gmRoundNumber : null, by: _gmPublicName(e), label: info.label || 'a power', dmgType: info.dmgType || '', props: [], tier: 0, crit: false, save: info.save || null };
         _gmPublishLogSoon();
@@ -1983,7 +1990,7 @@ function _gmHandleRollEvent(uid, ev) {
         // A save / damage power (no attack roll): the next damage entered is this power, with its type
         let pwEntry = ev.companion ? (window.gmInitiative || []).find(e => e.companionOf === uid) : entry;
         if (firstSeen && pwEntry && !ev.attackRoll && (ev.dmgType || ev.save)) _gmRecordAttack({ id: ev.id, attacker: pwEntry, label: ev.label || 'a power', hit: { weapon: ev.label || 'Power', props: [], dmgType: ev.dmgType || '' },
-            crit: false, fumble: false, total: 0, dice: ev.dice || '', critMult: 2, reroll12: false, dmgType: ev.dmgType || '', power: true, save: ev.save || null });
+            crit: false, fumble: false, total: 0, dice: ev.dice || '', critMult: 2, reroll12: false, dmgType: ev.dmgType || '', power: true, save: ev.save || null, aoe: !!ev.aoe });
         return;
     }
     // Burning ticked at the start of their turn: say why they lost HP (instead of a plain damage line)
@@ -2500,6 +2507,16 @@ function _gmDamage(entry, opts) {
     let mopt = { ignore: hit && hit.hit && window.APXDamage ? window.APXDamage.ignoreOf(hit.hit) : null, bypassRes: incap, halfBypass: def.halfBypass };
     let M = (raw) => window.APXDamage ? window.APXDamage.mitigate(raw, opts.types, def, mopt) : { dmg: raw, raw, reduced: 0, text: `${raw} damage` };
     let res = M(opts.raw + extraSum);
+    // Swarm: half damage from attacks that target a single creature, double from area effects
+    let swarmSb = _gmTraitSb(entry);
+    if (swarmSb && swarmSb.swarm) {
+        let mode = opts.swarmMode || (hit ? (hit.aoe ? 'area' : 'single') : null);
+        if (mode === 'single' || mode === 'area') {
+            let was = res.dmg;
+            res = Object.assign({}, res, { dmg: mode === 'single' ? Math.floor(was / 2) : was * 2 });
+            res.text = `${res.text}, ${mode === 'single' ? 'halved' : 'doubled'} (Swarm, ${mode === 'single' ? 'single target' : 'area'}) = ${res.dmg}`;
+        }
+    }
     let before = (entry.currentHp || 0) + (entry.tempHp || 0);
     let dmg = res.dmg;
     if (opts.sheet) {
@@ -2613,8 +2630,18 @@ window.updateInitiativeHp = function(id, value, pre) {
                 .then(t => { if (t) window.updateInitiativeHp(id, '-' + parsed.raw, { types: t, nonlethal: !!t.nonlethal }); else window.renderInitiativeTracker(); });
             return;
         }
+        // A Swarm with no attack behind the damage: was it one target, or an area?
+        let swsb = !(pre && pre.swarmMode) && !_gmPeekHit(entry) && !_gmTurnHit(entry) ? _gmTraitSb(entry) : null;
+        if (swsb && swsb.swarm && window.APXDice && APXDice.ask) {
+            window.renderInitiativeTracker();
+            APXDice.ask(`${parsed.raw} damage to ${_gmGmName(entry)} (Swarm)`, 'A swarm takes half damage from attacks that target a single creature and double damage from area effects.',
+                [['single', 'Single target: half', 'pri'], ['area', 'Area effect: double'], ['none', 'Neither (full)']]).then(m => {
+                    if (m) window.updateInitiativeHp(id, value, Object.assign({}, pre || {}, { types, swarmMode: m, nonlethal: !!((pre && pre.nonlethal) || parsed.nonlethal || types.nonlethal) }));
+                });
+            return;
+        }
         let hit = _gmTakeHit(entry) || _gmTurnHit(entry);
-        _gmDamage(entry, { raw: parsed.raw, types, hit, nonlethal: !!((pre && pre.nonlethal) || parsed.nonlethal || types.nonlethal) });
+        _gmDamage(entry, { raw: parsed.raw, types, hit, nonlethal: !!((pre && pre.nonlethal) || parsed.nonlethal || types.nonlethal), swarmMode: pre && pre.swarmMode });
         return;
     }
     let wasAboveZero = entry.currentHp === null || entry.currentHp > 0;
@@ -3114,7 +3141,27 @@ function gmApPipsHtml(e) {
 // initiative entries share the stat block, the one whose turn it is pays
 // (or the one whose stat block window was opened from its initiative card).
 // Not enough AP: the attack still rolls, with a note for the GM.
+// Swarm below half HP: its attacks roll half their damage dice (rounded down, at least 1 die)
+function _gmSwarmDice(o) {
+    if (!o || !o.dice || o.companion) return null;
+    let init = window.gmInitiative || [];
+    let list = o.npcId ? init.filter(x => x.sourceNpcId === o.npcId) : [];
+    let cur = init[window.gmCurrentTurnIdx];
+    let e = (o.initId && init.find(x => x.id === o.initId)) || (cur && list.includes(cur) ? cur : null) || (list.length === 1 ? list[0] : null);
+    if (!e || e.currentHp == null || !e.maxHp || e.currentHp >= e.maxHp / 2) return null;
+    let sb = _gmTraitSb(e); if (!sb || !sb.swarm) return null;
+    let was = String(o.dice);
+    o.dice = was.replace(/(\d*)d(\d+)/gi, (m, n, d) => Math.max(1, Math.floor((parseInt(n) || 1) / 2)) + 'd' + d);
+    return o.dice !== was ? `Swarm below half HP: half its damage dice (${was} → ${o.dice})` : null;
+}
+window._gmSwarmDice = _gmSwarmDice;
 window.apxBeforeAttack = function(o) {
+    let sw = _gmSwarmDice(o);
+    let r = _gmBeforeAttackAp(o);
+    if (sw) { r = r || {}; r.note = [r.note, sw].filter(Boolean).join(' · '); }
+    return r;
+};
+function _gmBeforeAttackAp(o) {
     // A player's Loyal Companion (stat block opened from the Party panel): its initiative entry pays
     if (o && o.companion && o.compOwner && window.gmCombatStarted) {
         let e = (window.gmInitiative || []).find(x => x.companionOf === o.compOwner);

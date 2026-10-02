@@ -1203,10 +1203,12 @@ window.companionStatBlock = function() {
     if (helmetOn) er += NPC_HELMET.er;
     ac += ist('ac'); dr += ist('dr'); er += ist('er');
     // Size: Tiny +2 AC (reach 0, no Heavy weapons); Huge -2 AC (+STR modifier to melee damage)
-    let isTiny = c.size === 'tiny', isHuge = c.size === 'huge';
-    if (isTiny) ac += 2;
-    if (isHuge) ac -= 2;
-    let hugeMelee = isHuge ? (mods.STR || 0) : 0;
+    // Size: its effects apply on their own (AC, skills, Advantage/Disadvantage, reach). A Swarm
+    // uses the swarm rules instead of its size's bonuses and penalties.
+    let sizeFx = (!c.swarm && sizeDef && sizeDef.fx) || {};
+    let isTiny = !c.swarm && c.size === 'tiny';
+    ac += sizeFx.ac || 0;
+    let hugeMelee = 0;
     let speed = 3 + c.speedBonus + (armor.speedMod || 0) + ist('speed') - (armorStrShort ? 2 : 0);
     speed = Math.max(0, speed);
     let ap = c.isSummon ? 3 : 6 + c.apBonus * 1 + ist('maxAp');   // summoned by a power: a hard 3 AP // AP purchases add flat +1 each (not tied to AGI for NPCs, per Ch.15 baseline "6 AP")
@@ -1228,7 +1230,7 @@ window.companionStatBlock = function() {
         let typeText = w.dmgBonus === 'energy' ? `${w.dmgType} + ${w.energyType} (split)` : w.dmgType;
         let props = (w.properties || []).map(k => NPC_WEAPON_PROPERTIES.find(p => p.key === k)).filter(Boolean)
             .map(p => p.tierCalc ? `${p.label} — ${p.tierCalc(tier)}` : p.label);
-        return { id: w.id, name: w.name || 'Innate Weapon', attackBonus, dmgText, typeText, range: Math.max(0, 1 + (w.rangeBonus || 0) - (isTiny ? 1 : 0)), propNames: props, props: (w.properties || []).slice(),
+        return { id: w.id, name: w.name || 'Innate Weapon', attackBonus, dmgText, typeText, range: Math.max(0, 1 + (w.rangeBonus || 0) + (sizeFx.reach || 0)), propNames: props, props: (w.properties || []).slice(),
             elemental: w.dmgBonus === 'energy' ? w.energyType : null, tp: ncInnateWeaponTp(w) };
     });
     // Back-compat fields (first innate weapon) for older views
@@ -1264,16 +1266,23 @@ window.companionStatBlock = function() {
     let powerList = powerCards.map(p => `${p.name} (Level ${p.lvl})`);
     // otherTrainings mixes weapon-type strings and skill names together;
     // split them out here so skills can get their own computed bonus line.
-    let trainedSkills = c.otherTrainings
-        .filter(name => !WEAPON_TYPE_TRAININGS.includes(name))
-        .map(name => {
+    // Skills: every skill whose roll isn't just the plain Core Attribute check -- trained, a bonus of its
+    // own (size, items), or Advantage / Disadvantage (size)
+    let trainedNames = c.otherTrainings.filter(name => !WEAPON_TYPE_TRAININGS.includes(name));
+    let skillNames = [...new Set(trainedNames.concat(SKILLS.map(s => s.name)))];
+    let trainedSkills = skillNames.map(name => {
             let base = name.startsWith('Encyclopedia') ? 'Encyclopedia' : name;
             let skillDef = SKILLS.find(s => s.name === base);
             let attr = skillDef ? skillDef.attr : (base === 'Encyclopedia' ? 'INT' : null);
             let attrMod = attr ? (mods[attr] || 0) : 0;
-            let total = attrMod + c.trainingBonus + (ifx ? (ifx.skill[base] || 0) + (attr ? window.apxItemCheckBonus(ifx, attr) : 0) : 0);
-            return { name, attr, attrMod, trainingBonus: c.trainingBonus, total };
-        });
+            let trained = trainedNames.includes(name);
+            let own = ((sizeFx.skill || {})[base] || 0) + (ifx ? (ifx.skill[base] || 0) : 0);
+            let adv = (sizeFx.adv || []).includes(base) ? [sizeDef.label.replace(/\s*\(.*\)$/, '')] : [];
+            let dis = (sizeFx.dis || []).includes(base) ? [sizeDef.label.replace(/\s*\(.*\)$/, '')] : [];
+            if (!trained && !own && !adv.length && !dis.length) return null;
+            let total = attrMod + (trained ? c.trainingBonus : 0) + own + (ifx && attr ? window.apxItemCheckBonus(ifx, attr) : 0);
+            return { name, attr, attrMod, trained, trainingBonus: trained ? c.trainingBonus : 0, total, adv, dis };
+        }).filter(Boolean);
     // Saving throws: attribute modifier, plus the Training Bonus for trained saves
     let saveTrained = (c.saveTraining || []).filter(a => ATTRIBUTES.includes(a));
     let saves = {}; ATTRIBUTES.forEach(a => { saves[a] = (mods[a] || 0) + (saveTrained.includes(a) ? c.trainingBonus : 0) + (ifx ? window.apxItemSaveBonus(ifx, a) : 0); });
@@ -1303,7 +1312,7 @@ window.companionStatBlock = function() {
             range: w.range || (w.properties && w.properties.thrown ? `${5 + (mods.STR || 0)}/${2 * (5 + (mods.STR || 0))}` : null),
             hand, handLabel: hand === 'both' ? 'Both Hands' : hand === 'main' ? 'Main Hand' : hand === 'off' ? 'Off Hand' : 'No free hand',
             hands: w.weightClass === 'heavy' ? 2 : 1,
-            tooBig: isTiny && w.weightClass === 'heavy'
+            tooBig: !!sizeFx.noHeavy && w.weightClass === 'heavy'
         });
         // Medium melee weapons can also be wielded 2-handed: STR only,
         // +1 AP, +1 die step -- shown as a second linked row, same as the
@@ -1355,7 +1364,8 @@ window.companionStatBlock = function() {
         mythicAwakening: !!c.mythicAwakening,
         mythicAwakeningText: c.mythicAwakeningText || '',
         size: sizeDef ? sizeDef.label : 'Medium', swarm: c.swarm, sizeKey: c.size || 'medium',
-        sizeNote: isTiny ? 'Tiny: Advantage on AGI (Stealth), +2 AC (included), melee reach 0, can\'t wield Heavy weapons.' : isHuge ? 'Huge: Advantage on STR (Athletics), +STR modifier to melee damage (included), Disadvantage on AGI (Stealth), -2 AC (included).' : '',
+        sizeNote: c.swarm ? 'Swarm: shares squares with other creatures; takes half damage from single-target attacks and double from area effects; below half HP it rolls half its damage dice.'
+            : sizeDef && sizeDef.fx && Object.keys(sizeDef.fx).length ? `${sizeDef.label.replace(/\s*\(.*\)$/, '')}: ${sizeDef.desc} (applied)` : '',
         altLocomotion: c.altLocomotion, hover: c.hover,
         mods, dmgText, attackBonus, range, propNames, innateAttacks, trainingBonus: c.trainingBonus,
         armorWt: wornWt, armorReqStr, armorStrShort, armorClass,
@@ -1803,8 +1813,8 @@ function buildStatBlockHtml(sb, editable) {
         </div>` : ''}
         ${npcCarriedBox(sb, esc)}
         <div class="bg-slate-900 border border-emerald-800/50 rounded p-2 mb-2">
-            <div class="text-[10px] font-black text-emerald-400 uppercase mb-1">Trained Skills <span class="text-slate-500 normal-case font-bold">(Training +${sb.trainingBonus})</span></div>
-            <div class="grid grid-cols-2 gap-x-3">${sb.trainedSkills.length ? sb.trainedSkills.map(s => `<div class="text-xs text-slate-200"${R({ type: 'check', attr: s.attr || undefined, label: s.name, bonus: s.total })}>${esc(s.name)} (${s.total >= 0 ? '+' : ''}${s.total})</div>`).join('') : '<div class="text-[10px] text-slate-600 col-span-2">No skills trained</div>'}</div>
+            <div class="text-[10px] font-black text-emerald-400 uppercase mb-1">Skills <span class="text-slate-500 normal-case font-bold">(Training +${sb.trainingBonus}; others roll the plain attribute check)</span></div>
+            <div class="grid grid-cols-2 gap-x-3">${sb.trainedSkills.length ? sb.trainedSkills.map(s => `<div class="text-xs ${s.trained === false ? 'text-slate-400' : 'text-slate-200'}" title="${s.trained === false ? 'Not trained: its own bonus, Advantage or Disadvantage' : 'Trained'}"${R({ type: 'check', attr: s.attr || undefined, label: s.name, bonus: s.total, advSources: (s.adv || []).length ? s.adv : undefined, disSources: (s.dis || []).length ? s.dis : undefined })}>${esc(s.name)} (${s.total >= 0 ? '+' : ''}${s.total})${(s.adv || []).length ? ' <span class="text-emerald-400 text-[9px] font-bold">Adv</span>' : ''}${(s.dis || []).length ? ' <span class="text-red-400 text-[9px] font-bold">Disadv</span>' : ''}</div>`).join('') : '<div class="text-[10px] text-slate-600 col-span-2">No skills beyond the attribute checks</div>'}</div>
         </div>
         <div class="grid grid-cols-2 gap-2 mb-2">
             ${defBox('Size / Movement', 'text-blue-400', `<div class="text-[10px] text-slate-300">${sb.size}${sb.swarm ? ' (Swarm)' : ''} · Speed ${sb.speed}</div>${sb.sizeNote ? `<div class="text-[9px] text-slate-400 leading-tight">${esc(sb.sizeNote)}</div>` : ''}
@@ -1930,7 +1940,7 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
     let dc = sb.powerSaveDc;
     let bits = [isReact ? 'Reaction' : `${cost} AP`].concat(saveKind ? [`Targets save against DC ${dc}: success ${saveKind === 'halves' ? 'halves it' : 'negates it'}`] : []).concat(pre && pre.note ? [pre.note] : []).concat(o.useNote ? [o.useNote] : []);
     // The tracker learns this power (and its damage type) is what hits next, not an earlier attack
-    if (dmg && !dmg.heal && typeof window.apxOnNpcPowerUse === 'function') { try { window.apxOnNpcPowerUse(o, { label: p.name || 'Power', dmgType: dmg.type, dice: dmg.formula, save: saveKind ? { dc, kind: saveKind } : null }); } catch (e) { console.warn('Power hook:', e); } }
+    if (dmg && !dmg.heal && typeof window.apxOnNpcPowerUse === 'function') { try { window.apxOnNpcPowerUse(o, { label: p.name || 'Power', dmgType: dmg.type, dice: dmg.formula, save: saveKind ? { dc, kind: saveKind } : null, aoe: !!(d.aoe && !['single', 'split'].includes(d.aoe)) }); } catch (e) { console.warn('Power hook:', e); } }
     if (dmg) APXDice.damage({ label: (p.name || 'Power') + (dmg.heal ? ' healing' : ' damage'), who: whoGm, formula: dmg.formula, dmgType: dmg.heal ? '' : dmg.type, heal: dmg.heal || undefined, perks: false, note: bits.join(' · ') });
     else APXDice.info({ label: p.name || 'Power', who: whoGm, text: p.desc || '', badges: bits });
     let saveTxt = saveKind ? `: targets make a DC ${dc} save (success ${saveKind === 'halves' ? 'halves it' : 'negates it'})` : '';
@@ -2103,7 +2113,7 @@ function ncRenderStep2() {
     let locOptions = ['Fly', 'Climb', 'Burrow', 'Swim'];
     document.getElementById('ncStep2Loc').innerHTML = `
         <label class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded p-2 cursor-pointer">
-            <input type="checkbox" ${c.swarm ? 'checked' : ''} onchange="window.ncToggleSwarm(this.checked)"> Swarm [+3 TP]
+            <input type="checkbox" ${c.swarm ? 'checked' : ''} onchange="window.ncToggleSwarm(this.checked)"> <span>Swarm [+3 TP]<span class="block text-[10px] text-slate-500 font-normal leading-tight">A mass of Small or smaller creatures acting as one of its size. Instead of its size's bonuses and penalties: it shares squares with other creatures, takes half damage from single-target attacks and double from area effects, and rolls half its damage dice below half HP. Applied automatically.</span></span>
         </label>
         <div class="flex items-center justify-between bg-slate-900 border border-slate-700 rounded px-2 py-1.5">
             <span class="text-xs font-bold text-white">Speed +1 sq (1 TP each)</span>

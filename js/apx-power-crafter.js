@@ -501,9 +501,10 @@ window.pcToggleSecondType = function(checked) { pcDraft.addSecondType = checked;
 window.pcToggleFlatDmg = function(checked) { pcDraft.addFlatDmgPerDie = checked; pcRenderAll(); };
 window.pcToggleAttrToDmg = function(checked) { pcDraft.addAttrToDmg = checked; pcRenderAll(); };
 
-// Summon rules: a summoned creature can't summon; a companion's or NPC's summons can't be of a higher
+// Summon rules: a summoned creature can't summon; a Loyal Companion's summons can't be of a higher
 // Tier than itself (so it needs Tier 1 to summon at all)
-function pcSummonOwnerTier() { return (pcTarget === 'companion' || pcTarget === 'gm') && typeof npcTierForTP === 'function' ? npcTierForTP(window.companionTotalTp()).tier : null; }
+// (only a Loyal Companion is capped at its own Tier; other NPCs can summon higher-Tier creatures)
+function pcSummonOwnerTier() { return pcTarget === 'companion' && typeof npcTierForTP === 'function' ? npcTierForTP(window.companionTotalTp()).tier : null; }
 function pcSummonBlock() {
     if (pcTarget === 'summon') return 'A summoned creature can\'t summon creatures of its own.';
     let t = pcSummonOwnerTier();

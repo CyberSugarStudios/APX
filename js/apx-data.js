@@ -136,13 +136,16 @@
         }
         window.npcXpForTier = npcXpForTier;
 
+        // fx: what the size does, applied automatically to the stat block (a Swarm ignores its size's fx)
+        //   ac, skill: { Name: bonus }, adv / dis: [skill names], reach (melee reach change), noHeavy
         const NPC_SIZES = [
-            { key: "tiny", label: "Tiny (1x1)", tp: 0, hp: 0, desc: "One-quarter the size of a Medium creature (occupies a 1x1 square). Carrying capacity is one-quarter normal (STR × 8 lbs). Advantage on AGI (Stealth) checks and +2 AC, but it can't wield Heavy weapons and its melee reach is 0 squares." },
-            { key: "small", label: "Small (1x1)", tp: 0, hp: 0, desc: "Halves carrying capacity. +2 AGI (Stealth)." },
-            { key: "medium", label: "Medium (1x1)", tp: 0, hp: 0, desc: "No bonuses or penalties." },
-            { key: "large", label: "Large (2x2)", tp: 3, hp: 15, desc: "Doubles carrying capacity. +2 STR (Athletics), -2 AGI (Stealth)." },
-            { key: "huge", label: "Huge (3x3)", tp: 6, hp: 20, desc: "Three times the size of a Medium creature (occupies a 3x3 square). Carrying capacity is quadrupled (STR × 120 lbs). Advantage on STR (Athletics) checks and extra damage with melee weapons equal to its STR modifier, but Disadvantage on AGI (Stealth) checks and -2 AC." },
-            { key: "gargantuan", label: "Gargantuan (4x4+)", tp: 10, hp: 30, desc: "x8 carrying capacity. +6 STR (Athletics), -6 AGI (Stealth)." }
+            { key: "tiny", label: "Tiny or Smaller (1x1)", tp: 3, hp: 0, desc: "Advantage on AGI (Stealth) checks, +2 AC, can't wield Heavy weapons, and its melee reach is 0 squares.",
+              fx: { ac: 2, adv: ['Stealth'], reach: -1, noHeavy: true } },
+            { key: "small", label: "Small (1x1)", tp: 0, hp: 0, desc: "+2 to AGI (Stealth).", fx: { skill: { Stealth: 2 } } },
+            { key: "medium", label: "Medium (1x1)", tp: 0, hp: 0, desc: "No bonuses or penalties.", fx: {} },
+            { key: "large", label: "Large (2x2)", tp: 3, hp: 15, desc: "+15 HP, +2 STR (Athletics), -2 AGI (Stealth).", fx: { skill: { Athletics: 2, Stealth: -2 } } },
+            { key: "huge", label: "Huge (3x3)", tp: 6, hp: 20, desc: "+20 HP, +4 STR (Athletics), -4 AGI (Stealth).", fx: { skill: { Athletics: 4, Stealth: -4 } } },
+            { key: "gargantuan", label: "Gargantuan (4x4+)", tp: 10, hp: 30, desc: "+30 HP, -2 AC, Advantage on STR (Athletics), Disadvantage on AGI (Stealth).", fx: { ac: -2, adv: ['Athletics'], dis: ['Stealth'] } }
         ];
 
         const NPC_SENSES = [

@@ -71,9 +71,12 @@
         return ax < bx + s && bx < ax + s && ay < by + s && by < ay + s;
     }
     // tokens: array of token objects; moving: {id, size}; posOf(tok) -> {gridX, gridY}
+    // A Swarm shares squares with any creature, so it never blocks or is blocked
     function findBlocker(tokens, moving, gx, gy, posOf) {
+        let me = moving.swarm ? moving : (tokens || []).find(t => t && t.id === moving.id);
+        if (me && me.swarm) return null;
         for (let o of (tokens || [])) {
-            if (!o || o.id === moving.id) continue;
+            if (!o || o.id === moving.id || o.swarm) continue;
             let p = posOf(o);
             if (collides(moving.size, gx, gy, o.size, p.gridX, p.gridY)) return o;
         }
@@ -175,7 +178,7 @@
     // }
     // tokenVM = { id, gridX, gridY, size, layer, label, bg, borderColor, borderW, glow, tint,
     //   opacity, filter, portrait, title, draggable, interactive, badge, num, numColor, conds, attrs:{},
-    //   ko (knocked out: snoring Z's) }
+    //   ko (knocked out: snoring Z's), swarm (shares squares; drawn under others with a handle) }
     // propVM  = { id, src, x, y, w, h, layer, opacity, title, draggable, locked, resizable }
     // Stacking: layer first; within a layer, images keep their list order (so every
     // screen stacks overlapping images the same way) and tokens sit above images.
@@ -308,21 +311,23 @@
         if (el._drag) return Z_DRAG;
         let o = el._layerRef && el._layerRef._opts;
         if (o && o.aboveFog && o.aboveFog.has(vm.id)) return Z_ABOVE_FOG + SIZE_LIST.length - SIZE_LIST.indexOf(vm.size || 'medium');
-        // Smaller tokens sit above larger ones on the same layer
-        return zFor(vm.layer == null ? 1 : vm.layer, 900 + SIZE_LIST.length - SIZE_LIST.indexOf(vm.size || 'medium'));
+        // Smaller tokens sit above larger ones on the same layer; a Swarm sits under every other token
+        return zFor(vm.layer == null ? 1 : vm.layer, (vm.swarm ? 100 : 900) + SIZE_LIST.length - SIZE_LIST.indexOf(vm.size || 'medium'));
     }
 
     function _place(el, g, s, offX, offY, gx, gy) {
         let vm = el._vm;
         let c = center(g, gx, gy, vm.size);
         let d = diameter(g, vm.size) * s;
-        let bw = Math.max(1, (vm.borderW || 2) * s);
+        // Borders scale with the token, so a Tiny or Small token's turn ring doesn't swallow its picture
+        let bw = Math.max(1, Math.min((vm.borderW || 2) * s, d * ((vm.borderW || 2) >= 3 ? 0.075 : 0.05)));
         el.style.left = (offX + c.px * s) + 'px';
         el.style.top  = (offY + c.py * s) + 'px';
         el.style.width = d + 'px';
         el.style.height = d + 'px';
         el.style.borderWidth = bw + 'px';
-        let glow = vm.glow ? `0 0 ${Math.max(4, 20 * s)}px ${Math.max(1, 5 * s)}px ${vm.glow},` : '';
+        let gs = Math.min(1, d / Math.max(1, g.cellSize * 0.85 * s));   // glow shrinks with smaller tokens too
+        let glow = vm.glow ? `0 0 ${Math.max(3, 20 * s * gs)}px ${Math.max(1, 5 * s * gs)}px ${vm.glow},` : '';
         el.style.boxShadow = `${glow}0 ${Math.max(1, 2 * s)}px ${Math.max(2, 8 * s)}px rgba(0,0,0,0.8)`;
         if (el._label) el._label.style.fontSize = Math.max(6, Math.round(d * 0.42)) + 'px';
         if (el._badge) el._badge.style.fontSize = Math.max(8, Math.round(d * 0.55)) + 'px';
@@ -402,9 +407,69 @@
         if (layer._fog) {
             layer._fog.style.transform = `translate(${ox}px,${oy}px) scale(${s})`;
         }
+        _layoutSwarmHandles(layer, o, s, ox, oy);
         _drawGrid(layer);
         _layoutMeasure(layer);
         layer.querySelectorAll('[data-bt]').forEach(el => { if (el._drag && el._drag.path) _drawPath(layer, el); });
+    }
+
+    // ── Swarms under other creatures ─────────────────────────────
+    // A Swarm sharing a square with another creature is drawn under it; a small handle beside that
+    // creature stands in for it: hover for its details (what this viewer may see), drag it to move
+    // the swarm, right-click for its menu, double-click to open it.
+    function _layoutSwarmHandles(layer, o, s, offX, offY) {
+        let els = [...layer.querySelectorAll('[data-bt]')].filter(el => el._vm);
+        let live = new Set();
+        let at = el => ({ gx: el._drag ? el._drag.gx : el._vm.gridX, gy: el._drag ? el._drag.gy : el._vm.gridY, sp: span(el._vm.size) });
+        let used = new Map();   // covering token id -> handles already beside it
+        els.forEach(sw => {
+            if (!sw._vm.swarm || sw._drag) return;
+            let a = at(sw);
+            let cover = els.find(c => c !== sw && !c._vm.swarm && (() => { let b = at(c); return a.gx < b.gx + b.sp && b.gx < a.gx + a.sp && a.gy < b.gy + b.sp && b.gy < a.gy + a.sp; })());
+            if (!cover) return;
+            live.add(sw._vm.id);
+            let h = layer.querySelector(`[data-bt-handle="${CSS.escape(sw._vm.id)}"]`);
+            if (!h) {
+                h = document.createElement('div');
+                h.setAttribute('data-bt-handle', sw._vm.id);
+                h.setAttribute('data-bt-ui', 'swarm');
+                h.style.cssText = 'position:absolute;transform:translate(-50%,-50%);border-radius:50%;border:2px dashed #e2e8f0;box-sizing:border-box;overflow:hidden;display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;cursor:grab;pointer-events:auto;box-shadow:0 1px 4px rgba(0,0,0,.8);touch-action:none;';
+                ['mousedown', 'mouseup', 'click'].forEach(t => h.addEventListener(t, e => e.stopPropagation()));
+                h.addEventListener('dblclick', e => { e.stopPropagation(); e.preventDefault(); });
+                h.addEventListener('pointerdown', e => {
+                    e.stopPropagation(); e.preventDefault();
+                    let tok = layer.querySelector(`[data-bt="${CSS.escape(h.getAttribute('data-bt-handle'))}"]`); if (!tok) return;
+                    // the swarm's own token takes it from here (drag, select, double-click)
+                    tok.dispatchEvent(new PointerEvent('pointerdown', { bubbles: false, cancelable: true, pointerId: e.pointerId, pointerType: e.pointerType, isPrimary: e.isPrimary,
+                        button: e.button, buttons: e.buttons, clientX: e.clientX, clientY: e.clientY, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, altKey: e.altKey }));
+                });
+                h.addEventListener('contextmenu', e => {
+                    e.preventDefault(); e.stopPropagation();
+                    let tok = layer.querySelector(`[data-bt="${CSS.escape(h.getAttribute('data-bt-handle'))}"]`);
+                    if (tok && layer._opts && layer._opts.onContextMenu) layer._opts.onContextMenu(tok._vm, e);
+                });
+                layer.appendChild(h);
+            }
+            let vm = sw._vm, b = at(cover);
+            let c = center(o.grid, b.gx, b.gy, cover._vm.size), d = diameter(o.grid, cover._vm.size) * s;
+            let n = used.get(cover) || 0; used.set(cover, n + 1);
+            let hd = Math.max(16, Math.min(30, d * 0.5));
+            let ang = (135 + n * 40) * Math.PI / 180, rr = d / 2 + hd * 0.15;   // lower-left of the creature, then around it
+            h.style.left = (offX + c.px * s + Math.cos(ang) * rr) + 'px';
+            h.style.top = (offY + c.py * s + Math.sin(ang) * rr) + 'px';
+            h.style.width = h.style.height = hd + 'px';
+            h.style.fontSize = Math.max(7, Math.round(hd * 0.5)) + 'px';
+            h.style.background = vm.portrait ? `center/cover no-repeat url("${String(vm.portrait).replace(/"/g, '%22')}")` : (vm.bg || '#475569');
+            h.style.borderColor = vm.borderColor || '#e2e8f0';
+            h.style.opacity = vm.opacity == null ? 1 : vm.opacity;
+            h.style.filter = vm.filter || 'none';
+            h.textContent = vm.portrait ? '' : (vm.label || 'S');
+            h.title = 'Swarm under ' + (cover._vm.name || 'a creature') + ' — drag to move it\n' + (sw.title || '');
+            h.style.pointerEvents = vm.interactive === false ? 'none' : 'auto';
+            h.style.cursor = vm.draggable ? 'grab' : 'default';
+            h.style.zIndex = String(_tokenZ(cover) + 1);
+        });
+        layer.querySelectorAll('[data-bt-handle]').forEach(h => { if (!live.has(h.getAttribute('data-bt-handle'))) h.remove(); });
     }
 
     // Grid: a canvas the size of the visible map area (not the whole map), redrawn only

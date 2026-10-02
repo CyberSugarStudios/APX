@@ -157,7 +157,7 @@
                 scores: {}, mods: {}, skills: {},
                 ac: 10, dr: 0, er: 0, speed: (window.state.ancestry.speed || 3),
                 maxRestDice: 5, restDieStep: "d6", carryCap: 150, maxAp: 6, init: 10,
-                sizeMultBoost: 0, wtBoost: 0, lucAc: false, useIntInit: false,
+                sizeMultBoost: 0, wtBoost: 0, lucAc: false, useIntInit: false, skillAdv: {}, skillDis: {}, sizeKey: 'medium',
                 bonusMeleeAtk: 0, bonusMeleeDmg: 0, bonusRangedAtk: 0, bonusRangedDmg: 0,
                 hasArmorDisadvantage: false, maxHpPenalty: 0,
                 speedForcedZero: false, apForcedZero: false,
@@ -255,6 +255,14 @@
             window.state.lastKnownMaxHp = maxHp;
             document.getElementById('dispMaxHp').innerText = maxHp;
 
+            // Your size's own effects, applied to your rolls: Small → Advantage on AGI (Stealth);
+            // Large → Disadvantage on AGI (Stealth), Advantage on STR (Athletics) to push or grapple
+            {
+                let sz = parseInt(window.state.ancestry.size) || 30;
+                calc.sizeKey = sz <= 15 ? 'small' : sz >= 60 ? 'large' : 'medium';
+                if (calc.sizeKey === 'small') (calc.skillAdv.Stealth = calc.skillAdv.Stealth || []).push('Small size');
+                if (calc.sizeKey === 'large') (calc.skillDis.Stealth = calc.skillDis.Stealth || []).push('Large size');
+            }
             let sizeMult = (parseInt(window.state.ancestry.size) || 30);
             if (calc.sizeMultBoost > 0) sizeMult *= Math.pow(2, calc.sizeMultBoost);   // each step (Brute R1, Load-Bearing) is one size larger: stacks with the ancestry size
             calc.carryCap = calc.scores.STR * sizeMult + (calc.carryCap - 150) + fxStat('carryCap');
@@ -683,10 +691,12 @@
                         else pasText = 10 + total;
                     }
 
-                    let checkDisadvSources = calc.disadv.checkByAttr[attr] || [];
+                    let checkDisadvSources = (calc.disadv.checkByAttr[attr] || []).concat(calc.skillDis[skill.id] || []);
+                    let checkAdvSources = calc.skillAdv[skill.id] || [];
                     let checkAutoFail = (calc.disadv.autoFailCheckByAttr[attr] || []).join(', ') || undefined;
                     let disadvHtml = checkAutoFail ? `<span class="text-[8px] text-red-500 font-black ml-1" title="${checkAutoFail}">(Auto-Fail)</span>`
                         : checkDisadvSources.length ? `<span class="text-[8px] text-red-400 ml-1" title="${checkDisadvSources.join(', ')}">(Disadv)</span>` : '';
+                    if (checkAdvSources.length && !checkAutoFail) disadvHtml += `<span class="text-[8px] text-emerald-400 ml-1" title="${checkAdvSources.join(', ')}">(Adv)</span>`;
                     let displayName = skill.name.startsWith('Encyclopedia (') ? skill.name.replace('Encyclopedia (', '').replace(')', '') : skill.name;
 
                     return `
@@ -694,9 +704,9 @@
                             ${skill.isCustom && !skill.name.startsWith('Encyclopedia') ? `<button onclick="window.deleteCustomSkill('${skill.id}')" class="absolute -left-1 text-red-500 hover:text-red-400 opacity-0 group-hover:opacity-100">&times;</button>` : ''}
                             <div class="flex items-center gap-2 flex-1 ${indent ? 'pl-5' : (skill.isCustom ? 'pl-3' : '')}">
                                 <input type="checkbox" ${isTr ? 'checked' : ''} disabled title="Trained via Origin, Ancestry, or Spend XP -- not manually toggled here" class="w-3 h-3 cursor-not-allowed opacity-70">
-                                <span class="${isTr ? 'text-blue-300 font-bold' : 'text-slate-300'} apx-rollable" ${isTr && window.state.skillSource[skill.id] ? `data-tip="Trained via: ${window.state.skillSource[skill.id]}"` : ''}${apxRollAttr({ type: 'check', label: displayName + ' (' + attr + ')', bonus: total, attr, skill: skill.id, disSources: checkDisadvSources, autoFail: checkAutoFail })}>${displayName}</span>
+                                <span class="${isTr ? 'text-blue-300 font-bold' : 'text-slate-300'} apx-rollable" ${isTr && window.state.skillSource[skill.id] ? `data-tip="Trained via: ${window.state.skillSource[skill.id]}"` : ''}${apxRollAttr({ type: 'check', label: displayName + ' (' + attr + ')', bonus: total, attr, skill: skill.id, disSources: checkDisadvSources, advSources: checkAdvSources.length ? checkAdvSources : undefined, autoFail: checkAutoFail })}>${displayName}</span>
                             </div>
-                            <div class="w-auto text-center font-bold ${total < 0 ? 'skill-mod-negative' : (isTr ? 'text-blue-400' : 'text-slate-500')} text-xs apx-rollable"${apxRollAttr({ type: 'check', label: displayName + ' (' + attr + ')', bonus: total, attr, skill: skill.id, disSources: checkDisadvSources, autoFail: checkAutoFail })}>${total >= 0 ? '+'+total : total}${disadvHtml}</div>
+                            <div class="w-auto text-center font-bold ${total < 0 ? 'skill-mod-negative' : (isTr ? 'text-blue-400' : 'text-slate-500')} text-xs apx-rollable"${apxRollAttr({ type: 'check', label: displayName + ' (' + attr + ')', bonus: total, attr, skill: skill.id, disSources: checkDisadvSources, advSources: checkAdvSources.length ? checkAdvSources : undefined, autoFail: checkAutoFail })}>${total >= 0 ? '+'+total : total}${disadvHtml}</div>
                             <div class="w-10 text-right ${pasText === '--' ? 'text-slate-600' : 'text-slate-500 font-bold'}">${pasText}</div>
                         </div>
                     `;
@@ -1719,11 +1729,13 @@
             let saveKind0 = info.kind === 'save' ? (/halves/i.test(info.text) ? 'halves' : 'negates') : null;
             // The GM's tracker learns what this power is (its damage type, its save), so the damage
             // entered next is this power, not an earlier attack
+            // An area power (Small to Massive AoE): a Swarm takes double from it, half from single-target ones
+            let isAoe = !!(p.draft && p.draft.aoe && !['single', 'split'].includes(p.draft.aoe));
             // Summon a Creature: the GM's map gets the creature(s), next to you
             let sumN = (p.draft && p.draft.utility && p.draft.utility.major && p.draft.utility.major.summonCreature) || 0;
             let summon = sumN && p.draft.summonNpc ? { npc: (n => { delete n.portraitFull; return n; })(JSON.parse(JSON.stringify(p.draft.summonNpc))), count: sumN, tier: p.draft.summonTier || 1, power: name } : null;
             if (sumN && !summon) APXDice.notify(`${name} summons a creature, but it hasn't been built yet: edit the power and build it in the NPC Crafter.`, { kind: 'warn', open: true });
-            let tell = (text, extra) => { if (typeof window.apxOnRollEvent === 'function') window.apxOnRollEvent(Object.assign({ id: 'pw' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), kind: 'power', label: name, text }, extra || {}, summon ? { summon } : {})); };
+            let tell = (text, extra) => { if (typeof window.apxOnRollEvent === 'function') window.apxOnRollEvent(Object.assign({ id: 'pw' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), kind: 'power', label: name, text }, extra || {}, summon ? { summon } : {}, isAoe ? { aoe: true } : {})); };
             if (info.kind === 'power' || info.kind === 'martial') {
                 let bonus = info.kind === 'power' ? pnums.atk : (info.w ? info.w.bonus : pnums.atk);
                 let via = info.kind === 'martial' && info.w ? ` (${info.w.label})` : '';
