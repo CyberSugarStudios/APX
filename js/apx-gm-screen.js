@@ -67,6 +67,7 @@ function computeCharSummary(state) {
     let customAc = fxStat('ac'), customDr = fxStat('dr'), customEr = fxStat('er');
     calc.speed += fxStat('speed');
     ATTRIBUTES.forEach(a => { if (itemFx.attr[a]) calc.scores[a] += itemFx.attr[a]; });
+    if (window.apxApplyItemAttrSets) window.apxApplyItemAttrSets(calc.scores, itemFx);
     Object.keys(itemFx.skill).forEach(t => {
         let sk = [...SKILLS, ...(state.customSkills || [])].find(x => x.name === t || x.id === t);
         let key = sk ? sk.id : t;
@@ -1288,6 +1289,11 @@ function gmLog(e) {
     else window.gmCombatLog.push(e);
     window.gmCombatLog = window.gmCombatLog.slice(-80);
     let shown = window.gmCombatLog.find(x => x.id === e.id);
+    // Before Start Combat (the GM trying things out, or a fight the players only watch), players get
+    // just the outline: who took damage or went down, plus anything that asks them to roll, loot or XP.
+    if (!e.gmOnly && !window.gmCombatStarted && !e.ask && !/^(loot|xp)$/.test(e.kind || '')) {
+        if (e.pubSummary) shown.pubText = e.pubSummary; else shown._noPub = true;
+    }
     // gmText: what the GM sees (players get text)
     if (window.APXDice && window.APXDice.logEntry) window.APXDice.logEntry(shown.gmText ? Object.assign({}, shown, { text: shown.gmText }) : shown);
     if (!e.gmOnly) _gmPublishLogSoon();
@@ -1299,7 +1305,7 @@ function _gmPublishLogSoon() {
     _gmLogPubT = setTimeout(() => {
         let code = _gmInviteCode();
         if (!code || !window.apxAuth?.enabled || typeof window.apxAuth.publishCombatLog !== 'function') return;
-        let pub = window.gmCombatLog.filter(x => !x.gmOnly).slice(-40).map(x => ({ id: x.id, t: x.t, text: x.text, kind: x.kind || 'info', ask: x.ask || null }));
+        let pub = window.gmCombatLog.filter(x => !x.gmOnly && !x._noPub).slice(-40).map(x => ({ id: x.id, t: x.t, text: x.pubText || x.text, kind: x.kind || 'info', ask: x.ask || null }));
         window.apxAuth.publishCombatLog(code, pub, _gmLogSession, window._gmLastNpcAtk || null).catch(err => console.warn('Combat log:', err.message));
     }, 400);
 }
@@ -1324,8 +1330,9 @@ function _gmLogHpChange(entry, before, after, wasAboveZero, rawDmg, hit, why) {
             text = entry.faction !== 'player' && byPlayer ? `${_gmPublicName(a)} hit ${tgt}.` : `${_gmPublicName(a)} hit ${tgt}, but ${tgt} took no damage.`;
             gmText = `${_gmGmName(a)} hit ${gTgt}, but ${gTgt} took no damage.`;
         }
-        if (d > 0 && wasAboveZero && entry.currentHp !== null && entry.currentHp <= 0) { text += ` ${tgt} is down!`; gmText += ` ${gTgt} is down!`; }
-        gmLog({ text, gmText: gmText === text ? null : gmText, kind: 'dmg' });
+        let down = d > 0 && wasAboveZero && entry.currentHp !== null && entry.currentHp <= 0;
+        if (down) { text += ` ${tgt} is down!`; gmText += ` ${gTgt} is down!`; }
+        gmLog({ text, gmText: gmText === text ? null : gmText, kind: 'dmg', pubSummary: d > 0 ? `${tgt} took damage${down ? ' and went down!' : '.'}` : null });
         return;
     }
     if (!d) return;
@@ -1341,8 +1348,9 @@ function _gmLogHpChange(entry, before, after, wasAboveZero, rawDmg, hit, why) {
     let gTgt = _gmGmName(entry);
     let gmText = d > 0 ? `${srcWhy ? gTgt + ' took ' + d + ' damage (' + srcWhy + ')' : cur && cur !== entry ? _gmGmName(cur) + ' dealt ' + d + ' damage to ' + gTgt : gTgt + ' took ' + d + ' damage'}.` : `${gTgt} regained ${-d} HP${why ? ` (${why})` : ''}.`;
     if (gmText === text) gmText = null;
-    if (d > 0 && wasAboveZero && entry.currentHp !== null && entry.currentHp <= 0) { text += ` ${tgt} is down!`; if (gmText) gmText += ` ${gTgt} is down!`; }
-    gmLog({ text, gmText, kind: d > 0 ? 'dmg' : 'heal' });
+    let down = d > 0 && wasAboveZero && entry.currentHp !== null && entry.currentHp <= 0;
+    if (down) { text += ` ${tgt} is down!`; if (gmText) gmText += ` ${gTgt} is down!`; }
+    gmLog({ text, gmText, kind: d > 0 ? 'dmg' : 'heal', pubSummary: d > 0 ? `${tgt} took damage${down ? ' and went down!' : '.'}` : null });
 }
 window._gmLogHpChange = _gmLogHpChange;
 

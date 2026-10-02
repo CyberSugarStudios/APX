@@ -946,7 +946,9 @@
     // "What kind of damage was it?" (whenever nothing says): one button per damage type, each showing
     // what this target's defences do to it, and a "Bypass resistances" button for damage nothing reduces.
     // Returns the type(s) (['True'] with .ignoreRes for a bypass), or null (cancelled).
-    async function askType(title, text, def) {
+    // opts.suggest = { types, label }: the attack that probably did it, offered first as one click
+    async function askType(title, text, def, opts) {
+        opts = opts || {};
         let ask = window.APXDice && window.APXDice.ask;
         if (!ask) return ['Physical'];
         def = def || {};
@@ -960,11 +962,14 @@
             return bits.join(' · ');
         };
         let btn = (t, cls) => [t, t, cls || '', '', note(t)];
-        let choices = PHYS.map(t => btn(t, 'pri')).concat(ENERGY().map(t => btn(t)))
+        let sug = opts.suggest && opts.suggest.types && opts.suggest.types.length ? opts.suggest : null;
+        let choices = (sug ? [['__suggest', sug.label, 'ok', 'Use the damage type of the attack that just hit', sug.types.join(' + ') + ' · ' + sug.types.map(note).join(' / ')]] : [])
+            .concat(PHYS.map(t => btn(t, sug ? '' : 'pri'))).concat(ENERGY().map(t => btn(t)))
             .concat([['__bypass', 'Bypass resistances', 'ok', 'Full damage: no DR, ER, resistance or immunity reduces it', 'Full damage']]);
         let r = await ask(title, text, choices, { grid: true });
         if (!r) return null;
         if (r === '__bypass') { let out = ['True']; out.ignoreRes = true; return out; }
+        if (r === '__suggest') { let out = sug.types.slice(); out.fromSuggest = true; return out; }
         return [r];
     }
 

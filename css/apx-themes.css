@@ -196,27 +196,27 @@
   --c-heading-font: 'Baloo 2', 'Comic Sans MS', sans-serif;
 }
 [data-theme="cybersigil"] {
-  /* Cyber Sigil: Kawaii's dark side. Midnight plum surfaces with
-     neon sakura pink, lavender, mint and baby-blue accents, in the
-     same rounded Quicksand / Baloo 2 type. Accents are kept deep
-     enough that white button text passes contrast. */
-  --c-surface2: #140a1f;
-  --c-surface: #1f1030;
-  --c-border: #3d2357;
-  --c-border2: #573373;
-  --c-border3: #7a4f99;
-  --c-text: #fdf2fb;
-  --c-text-muted: #e9a8d8;
-  --c-text-dim: #b98bd6;
-  --c-text-dimmer: #f6d7ef;
+  /* Cyber Sigil: Kawaii's dark side. Midnight magenta surfaces with
+     neon sakura pink as the lead colour, lavender, mint and baby-blue
+     accents, in the same rounded Quicksand / Baloo 2 type. Accents are
+     kept deep enough that white button text passes contrast. */
+  --c-surface2: #16081a;
+  --c-surface: #241029;
+  --c-border: #4a1c4f;
+  --c-border2: #6e2a6c;
+  --c-border3: #9c3f8e;
+  --c-text: #fff0f8;
+  --c-text-muted: #ff9fd2;
+  --c-text-dim: #e48cc6;
+  --c-text-dimmer: #ffd6ec;
   --c-emerald-dark: #0d2e26;
   --c-emerald: #12866a;
   --c-emerald-lt: #5ee6c0;
   --c-red-dark: #3d0f24;
   --c-red: #d1336e;
-  --c-purple-dark: #2a1245;
-  --c-purple: #8b4fd6;
-  --c-purple-lt: #c9a3ff;
+  --c-purple-dark: #331040;
+  --c-purple: #a23fc4;
+  --c-purple-lt: #e3a3ff;
   --c-amber-dark: #3d2a12;
   --c-amber: #b8641c;
   --c-amber-dk: #9a5216;
@@ -225,23 +225,23 @@
   --c-orange-dark: #3d1c12;
   --c-orange: #c2512c;
   --c-orange-lt: #ffb08f;
-  --c-indigo-dark: #24164d;
-  --c-indigo: #7247d6;
-  --c-indigo-lt: #b7a2ff;
+  --c-indigo-dark: #3a0f33;
+  --c-indigo: #c2307e;
+  --c-indigo-lt: #ff8cc6;
   --c-yellow: #ffe38a;
   --c-yellow-dk: #f2c94c;
   --c-cyan: #7ef0ff;
-  --c-pink: #ff6fb5;
+  --c-pink: #ff5fae;
   --c-pink-lt: #ffb3d9;
-  --c-page-bg: #0c0614;
+  --c-page-bg: #0e050f;
   --c-font: 'Quicksand', 'Comic Sans MS', sans-serif;
   --c-heading-font: 'Baloo 2', 'Comic Sans MS', sans-serif;
 }
 [data-theme="cybersigil"] [class*="text-slate-500"],
 [data-theme="cybersigil"] [class*="text-slate-600"],
 [data-theme="cybersigil"] [class*="text-slate-700"] {
-    /* As text these border shades are too dark on midnight plum */
-    color: #c49ad9 !important;
+    /* As text these border shades are too dark on midnight magenta */
+    color: #e29acb !important;
 }
  /* Kawaii-specific: text-white is correct on the theme's own dark,
    saturated accent-color buttons (bg-emerald-600 text-white etc --

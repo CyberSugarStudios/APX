@@ -223,6 +223,8 @@
                 }
             });
 
+            // Items that set a score to a total ("STR 15 unless higher"), after every bonus and perk
+            if (window.apxApplyItemAttrSets) window.apxApplyItemAttrSets(calc.scores, itemFx);
             ATTRIBUTES.forEach(a => {
                 calc.mods[a] = calc.scores[a] - 5;
             });

@@ -411,7 +411,15 @@
         let cv = layer.querySelector('[data-bt-grid]'), o = layer._opts;
         if (!cv || !o || !o.imgSize || !o.imgSize.w) return;
         let area = o.area || layer.parentNode, win = o.win;
-        let W = area.clientWidth, H = area.clientHeight;
+        // The area's size comes from a ResizeObserver: reading it here, right after the tokens moved,
+        // forced a full layout every frame while zooming
+        if (!area._btSize) {
+            area._btSize = { w: area.clientWidth, h: area.clientHeight };
+            if (window.ResizeObserver) {
+                try { new ResizeObserver(en => { let c = en[0] && en[0].contentRect; if (c) { area._btSize = { w: Math.round(c.width), h: Math.round(c.height) }; requestAnimationFrame(() => _drawGrid(layer)); } }).observe(area); } catch (e) { }
+            } else area._btSize = null;
+        }
+        let W = area._btSize ? area._btSize.w : area.clientWidth, H = area._btSize ? area._btSize.h : area.clientHeight;
         let dpr = Math.min(3, window.devicePixelRatio || 1);
         let pw = Math.max(1, Math.round(W * dpr)), ph = Math.max(1, Math.round(H * dpr));
         let s = win?._scale || 1, ox = win?._offX || 0, oy = win?._offY || 0;

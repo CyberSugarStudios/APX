@@ -133,7 +133,8 @@
         if (!v('name') || !form || form.dataset.ciTok !== maker.ci.tok) return;   // the form on screen belongs to an older draft
         let ci = maker.ci;
         ci.name = v('name').value; ci.wt = v('wt').value; ci.val = v('val').value; ci.ct = v('ct').value; ci.desc = v('desc').value; ci.eq = v('eq').checked;
-        ci.rows = [...body.querySelectorAll('[data-ci-row]')].map(r => ({ key: r.querySelector('[data-ci-key]').value, amount: r.querySelector('[data-ci-amt]').value }));
+        ci.rows = [...body.querySelectorAll('[data-ci-row]')].map(r => ({ key: r.querySelector('[data-ci-key]').value, amount: r.querySelector('[data-ci-amt]').value,
+            mode: /^attr:/.test(r.querySelector('[data-ci-key]').value) && r.querySelector('[data-ci-mode]')?.value === 'set' ? 'set' : 'add', unlessHigher: !!r.querySelector('[data-ci-higher]')?.checked }));
     }
     // Raise a crafter modal above the Loot Maker while it's open, then put it back
     function raiseModal(id) {
@@ -328,18 +329,28 @@
             addTo(maker.target, weaponItem(w), true);
         };
         let ci = body.querySelector('[data-ci="eq"]');
-        let addBonusRow = (key, amount) => {
+        // Core Attributes can also be SET to a total, optionally "unless higher" (an Exo Suit's STR 15)
+        let addBonusRow = (key, amount, mode, unlessHigher) => {
             let rows = body.querySelector('[data-ci-rows]'); if (!rows) return;
             let row = document.createElement('div');
             row.setAttribute('data-ci-row', '');
-            row.style.cssText = 'display:flex;gap:.35rem;align-items:center;margin-bottom:.3rem';
-            row.innerHTML = `<select data-ci-key style="${inCss};flex:1 1 auto;width:auto;min-width:0">${window.apxItemBonusOptions ? window.apxItemBonusOptions(key) : ''}</select>
+            row.style.cssText = 'display:flex;gap:.35rem;align-items:center;margin-bottom:.3rem;flex-wrap:wrap';
+            row.innerHTML = `<select data-ci-key style="${inCss};flex:1 1 9rem;width:auto;min-width:0">${window.apxItemBonusOptions ? window.apxItemBonusOptions(key) : ''}</select>
+                <select data-ci-mode title="Add to the score, or set the score to a total" style="${inCss};flex:0 0 4.6rem;width:4.6rem"><option value="add">Add</option><option value="set" ${mode === 'set' ? 'selected' : ''}>Set to</option></select>
                 <input data-ci-amt type="number" value="${amount}" style="${inCss};flex:0 0 4rem;width:4rem;text-align:center" title="Negative for a penalty">
+                <label data-ci-hwrap title="Leave the score alone when it's already higher" style="display:flex;align-items:center;gap:.25rem;font-size:.65rem;color:#cbd5e1;white-space:nowrap;cursor:pointer"><input data-ci-higher type="checkbox" ${unlessHigher ? 'checked' : ''}> unless higher</label>
                 <button type="button" title="Remove" style="background:#334155;border:none;color:#cbd5e1;border-radius:.25rem;width:1.5rem;height:1.5rem;cursor:pointer;font-weight:900">✕</button>`;
+            let sync = () => {
+                let isAttr = /^attr:/.test(row.querySelector('[data-ci-key]').value), set = isAttr && row.querySelector('[data-ci-mode]').value === 'set';
+                row.querySelector('[data-ci-mode]').style.display = isAttr ? '' : 'none';
+                row.querySelector('[data-ci-hwrap]').style.display = set ? 'flex' : 'none';
+                row.querySelector('[data-ci-amt]').title = set ? 'The score it becomes' : 'Negative for a penalty';
+            };
+            row.querySelector('[data-ci-key]').onchange = sync; row.querySelector('[data-ci-mode]').onchange = sync; sync();
             row.querySelector('button').onclick = () => row.remove();
             rows.appendChild(row);
         };
-        if (ci && maker.ci) (maker.ci.rows || []).forEach(r => addBonusRow(r.key, r.amount));
+        if (ci && maker.ci) (maker.ci.rows || []).forEach(r => addBonusRow(r.key, r.amount, r.mode, r.unlessHigher));
         if (ci) ci.onchange = () => {
             body.querySelector('[data-ci-bonus]').style.display = ci.checked ? 'block' : 'none';
             if (ci.checked && !body.querySelector('[data-ci-row]') && !(maker.ci.powers || []).length) addBonusRow('attr:STR', 1);

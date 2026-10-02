@@ -94,7 +94,7 @@
         if (!m.removed.includes(es)) m.removed.push(es);
         window.gmLibrary = window.gmLibrary.filter(x => x.id !== id);
         save();
-        window.apxLibRefresh && window.apxLibRefresh();
+        (window.apxLibRefresh && window.apxLibRefresh(), tabRefresh());
     };
 
     // Which worlds an entry belongs to
@@ -112,7 +112,7 @@
             </div><div class="apxdlg-row"><button class="apxdlg-btn apxdlg-ok" data-ok>Done</button></div></div>`;
         back.querySelector('[data-ok]').onclick = () => {
             e.worldTags = [...back.querySelectorAll('[data-w]')].filter(c => c.checked).map(c => c.dataset.w);
-            save(); back.remove(); window.apxLibRefresh && window.apxLibRefresh();
+            save(); back.remove(); (window.apxLibRefresh && window.apxLibRefresh(), tabRefresh());
         };
         back.addEventListener('mousedown', ev => { if (ev.target === back) back.querySelector('[data-ok]').click(); });
         document.body.appendChild(back);
@@ -182,9 +182,54 @@
             (npc.powers || []).forEach(p => { if (p && p.name) add('power', p, tags); });
         });
         let added = window.gmLibrary.filter(e => e.kind !== 'meta').length - before;
-        if (added > 0) { save(); window.apxLibRefresh && window.apxLibRefresh(); }
+        if (added > 0) { save(); (window.apxLibRefresh && window.apxLibRefresh(), tabRefresh()); }
         return added;
     };
+
+    // ── World screen tabs (GM Tools → World → Items / Powers) ─────────────
+    // This world's Library, searchable, with a type filter for items and an "All worlds" switch.
+    const tabState = { item: { q: '', all: false, sub: '' }, power: { q: '', all: false, sub: '' } };
+    window.apxLibRenderTab = function (kind) {
+        let box = document.getElementById(kind === 'power' ? 'wPanelLibPowers' : 'wPanelLibItems'); if (!box) return;
+        let st = tabState[kind];
+        let subs = kind === 'item' ? ['Weapon', 'Armor', 'Consumable', 'Magic Item'] : ['1', '2', '3', '4', '5'];
+        let inSub = e => {
+            if (!st.sub) return true;
+            if (kind === 'power') return String(e.data && e.data.lvl) === st.sub;
+            let k = window.apxLootKind ? window.apxLootKind(e.data || {}) : '';
+            return st.sub === 'Magic Item' ? /magic|item|equip/i.test(k) && !/weapon|armor|consumable/i.test(k) : k.toLowerCase().includes(st.sub.toLowerCase());
+        };
+        let total = window.apxLibList(kind, st.all).length;
+        let html = window.apxLibListHtml({ kind, all: st.all, q: st.q, onPick: kind === 'item' ? true : null, pickLabel: 'Add to Loot' });
+        // (the type filter runs on the rendered rows' entries)
+        let shown = window.apxLibList(kind, st.all).filter(e => !st.q || String(e.name || '').toLowerCase().includes(st.q.toLowerCase())).filter(inSub);
+        if (st.sub) {
+            let keep = new Set(shown.map(e => e.id));
+            let tmp = document.createElement('div'); tmp.innerHTML = html;
+            [...tmp.children].forEach(row => { let id = row.querySelector('[data-lib-worlds]')?.dataset.libWorlds; if (id && !keep.has(id)) row.remove(); });
+            html = tmp.innerHTML || '<div style="font-size:.7rem;color:#64748b;padding:.4rem">Nothing of that type.</div>';
+        }
+        box.innerHTML = `<div class="flex flex-wrap items-center gap-2 mb-2 flex-shrink-0">
+                <input type="text" data-lt-q value="${esc(st.q)}" placeholder="Search ${kind === 'power' ? 'powers' : 'items'}…" class="bg-slate-900 text-xs flex-1" style="min-width:10rem">
+                <select data-lt-sub class="bg-slate-900 text-xs" style="width:auto">${[['', kind === 'power' ? 'Every Level' : 'Every type']].concat(subs.map(x => [x, kind === 'power' ? 'Level ' + x : x])).map(([v, l]) => `<option value="${v}" ${st.sub === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
+                <label class="flex items-center gap-1 text-[11px] text-slate-300 cursor-pointer"><input type="checkbox" data-lt-all ${st.all ? 'checked' : ''}> All worlds</label>
+                <span class="text-[10px] text-slate-500">${shown.length} of ${total}</span>
+            </div>
+            <div class="text-[10px] text-slate-500 mb-2 flex-shrink-0">${kind === 'power'
+                ? 'Every power you\'ve made for NPCs or items. Add one to an NPC from the NPC Crafter\'s power picker.'
+                : 'Every custom item, forged weapon and armor, and consumable you\'ve made. Add to Loot puts a copy on this world\'s Loot list.'}</div>
+            <div data-lt-list class="flex-1 overflow-y-auto min-h-0 pr-1">${html}</div>`;
+        let q = box.querySelector('[data-lt-q]');
+        q.oninput = () => { st.q = q.value; let pos = q.selectionStart; window.apxLibRenderTab(kind); let q2 = box.querySelector('[data-lt-q]'); q2.focus(); try { q2.setSelectionRange(pos, pos); } catch (e) { } };
+        box.querySelector('[data-lt-sub]').onchange = e => { st.sub = e.target.value; window.apxLibRenderTab(kind); };
+        box.querySelector('[data-lt-all]').onchange = e => { st.all = e.target.checked; window.apxLibRenderTab(kind); };
+        window.apxLibWire(box.querySelector('[data-lt-list]'), kind === 'item' ? (data) => {
+            if (window.apxAddLoot) window.apxAddLoot(null, data);
+        } : null);
+    };
+    function tabRefresh() {
+        ['item', 'power'].forEach(k => { let el = document.getElementById(k === 'power' ? 'wPanelLibPowers' : 'wPanelLibItems'); if (el && !el.classList.contains('hidden')) window.apxLibRenderTab(k); });
+    }
 
     // Wire a rendered list (buttons) inside `root`
     window.apxLibWire = function (root, onPick) {

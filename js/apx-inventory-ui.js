@@ -1027,14 +1027,20 @@
         window._newItemDraft = { rows: [], powers: [] };
         function newItemSyncRows() {
             let box = document.getElementById('newItemRows'); if (!box) return;
-            window._newItemDraft.rows = [...box.querySelectorAll('[data-ni-row]')].map(r => ({ key: r.querySelector('select').value, amount: r.querySelector('input').value }));
+            window._newItemDraft.rows = [...box.querySelectorAll('[data-ni-row]')].map(r => ({ key: r.querySelector('[data-ni-key]').value, amount: r.querySelector('[data-ni-amt]').value,
+                mode: r.querySelector('[data-ni-mode]')?.value === 'set' && /^attr:/.test(r.querySelector('[data-ni-key]').value) ? 'set' : 'add',
+                unlessHigher: !!r.querySelector('[data-ni-higher]')?.checked }));
         }
         function newItemRenderRows() {
             let box = document.getElementById('newItemRows'); if (!box) return;
-            box.innerHTML = window._newItemDraft.rows.map((r, i) => `<div data-ni-row class="flex items-center gap-1">
-                <select onchange="window.apxNewItemSync()" class="bg-slate-800 text-xs" style="flex:1 1 auto;width:auto;min-width:0;height:1.9rem;padding:0 .35rem">${window.apxItemBonusOptions ? window.apxItemBonusOptions(r.key) : ''}</select>
-                <input type="number" value="${r.amount}" onchange="window.apxNewItemSync()" title="Amount (negative for a penalty)" class="bg-slate-800 text-xs text-center" style="flex:0 0 4rem;width:4rem;height:1.9rem;padding:0 .25rem">
-                <button type="button" onclick="window.apxNewItemDelRow(${i})" class="text-red-400 hover:text-red-300 font-bold text-sm px-1" title="Remove">&times;</button></div>`).join('');
+            let h = 'height:1.9rem;padding:0 .3rem';
+            // Core Attributes can also be SET to a total ("STR 15, unless it's already higher")
+            box.innerHTML = window._newItemDraft.rows.map((r, i) => { let isAttr = /^attr:/.test(r.key || ''), set = isAttr && r.mode === 'set'; return `<div data-ni-row class="flex items-center gap-1 flex-wrap">
+                <select data-ni-key onchange="window.apxNewItemSync(true)" class="bg-slate-800 text-xs" style="flex:1 1 9rem;width:auto;min-width:0;${h}">${window.apxItemBonusOptions ? window.apxItemBonusOptions(r.key) : ''}</select>
+                ${isAttr ? `<select data-ni-mode onchange="window.apxNewItemSync(true)" title="Add to the score, or set the score to a total" class="bg-slate-800 text-xs" style="flex:0 0 4.6rem;width:4.6rem;${h}"><option value="add" ${set ? '' : 'selected'}>Add</option><option value="set" ${set ? 'selected' : ''}>Set to</option></select>` : ''}
+                <input data-ni-amt type="number" value="${r.amount}" onchange="window.apxNewItemSync()" title="${set ? 'The score it becomes' : 'Amount (negative for a penalty)'}" class="bg-slate-800 text-xs text-center" style="flex:0 0 4rem;width:4rem;${h}">
+                ${set ? `<label class="flex items-center gap-1 text-[10px] text-slate-300 cursor-pointer whitespace-nowrap" title="Leave the score alone when it's already higher (an Exo Suit's STR 15)"><input data-ni-higher type="checkbox" ${r.unlessHigher ? 'checked' : ''} onchange="window.apxNewItemSync()"> unless higher</label>` : ''}
+                <button type="button" onclick="window.apxNewItemDelRow(${i})" class="text-red-400 hover:text-red-300 font-bold text-sm px-1" title="Remove">&times;</button></div>`; }).join('');
         }
         function newItemRenderPowers() {
             let box = document.getElementById('newItemPowers'); if (!box) return;
@@ -1045,7 +1051,7 @@
                 ${p.draft ? `<button type="button" onclick="window.apxNewItemCraftPower(${i})" class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-800 border border-slate-600 text-slate-200">Edit</button>` : ''}
                 <button type="button" onclick="window.apxNewItemDelPower(${i})" class="text-red-400 hover:text-red-300 font-bold text-sm px-1" title="Remove">&times;</button></div>`).join('');
         }
-        window.apxNewItemSync = newItemSyncRows;
+        window.apxNewItemSync = function(rerender) { newItemSyncRows(); if (rerender) newItemRenderRows(); };
         window.apxNewItemAddRow = function(key, amount) { newItemSyncRows(); window._newItemDraft.rows.push({ key: key || 'stat:maxHp', amount: amount == null ? 1 : amount }); newItemRenderRows(); };
         window.apxNewItemDelRow = function(i) { newItemSyncRows(); window._newItemDraft.rows.splice(i, 1); newItemRenderRows(); };
         window.apxNewItemDelPower = function(i) { window._newItemDraft.powers.splice(i, 1); newItemRenderPowers(); };

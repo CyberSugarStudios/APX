@@ -4,6 +4,8 @@
 // Custom equippable items (rings, circlets, charms...) carry `bonuses`:
 //   ac, dr, er, speedBonus          flat values (the original fields)
 //   attrBonuses  [{ target: 'STR', amount }]      Core Attribute scores
+//   attrSets     [{ target: 'STR', value, unlessHigher }]  sets a score to a total (an Exo Suit: STR 15
+//                unless it's already higher)
 //   skillBonuses [{ target: 'Notice', amount }]   skill checks
 //   erBonuses    [{ target: 'Fire', amount }]     resistance to one energy type
 //   statBonuses  [{ target: <key below>, amount }] everything else on the sheet
@@ -35,7 +37,7 @@
 
     // Everything the equipped custom items add up to, for one character state
     window.apxItemEffects = function (state) {
-        let fx = { attr: {}, skill: {}, er: [], stat: {}, sources: [] };
+        let fx = { attr: {}, attrSet: {}, skill: {}, er: [], stat: {}, sources: [] };
         ATTRS.forEach(a => { fx.attr[a] = 0; });
         let addStat = (k, v) => { if (v) fx.stat[k] = (fx.stat[k] || 0) + v; };
         ((state && state.items) || []).forEach(item => {
@@ -44,6 +46,13 @@
             fx.sources.push(item.name);
             addStat('ac', num(b.ac)); addStat('dr', num(b.dr)); addStat('er', num(b.er)); addStat('speed', num(b.speedBonus));
             (b.attrBonuses || []).forEach(r => { if (r && fx.attr[r.target] !== undefined) fx.attr[r.target] += num(r.amount); });
+            // Set to a total: several items setting the same score → the highest of each kind counts
+            (b.attrSets || []).forEach(r => {
+                if (!r || fx.attr[r.target] === undefined || !num(r.value)) return;
+                let cur = fx.attrSet[r.target] || (fx.attrSet[r.target] = { force: null, floor: null });
+                if (r.unlessHigher) cur.floor = Math.max(cur.floor ?? -Infinity, num(r.value));
+                else cur.force = Math.max(cur.force ?? -Infinity, num(r.value));
+            });
             if (b.attrTarget && fx.attr[b.attrTarget] !== undefined) fx.attr[b.attrTarget] += num(b.attrBonus);   // older single-slot items
             (b.skillBonuses || []).forEach(r => { if (r && r.target && num(r.amount)) fx.skill[r.target] = (fx.skill[r.target] || 0) + num(r.amount); });
             if (b.skillTarget && num(b.skillBonus)) fx.skill[b.skillTarget] = (fx.skill[b.skillTarget] || 0) + num(b.skillBonus);
@@ -53,6 +62,16 @@
         return fx;
     };
     window.apxItemStat = (fx, k) => (fx && fx.stat && fx.stat[k]) || 0;
+    // After the bonuses: scores set to a total. scores = { STR: 7, ... } (changed in place)
+    window.apxApplyItemAttrSets = function (scores, fx) {
+        if (!scores || !fx || !fx.attrSet) return scores;
+        Object.keys(fx.attrSet).forEach(a => {
+            let r = fx.attrSet[a]; if (scores[a] === undefined) return;
+            if (r.force != null && isFinite(r.force)) scores[a] = r.force;
+            if (r.floor != null && isFinite(r.floor)) scores[a] = Math.max(scores[a], r.floor);
+        });
+        return scores;
+    };
     // Save / check bonus for one attribute (its own + "all")
     window.apxItemSaveBonus = (fx, a) => window.apxItemStat(fx, 'saveAll') + window.apxItemStat(fx, 'save_' + a);
     window.apxItemCheckBonus = (fx, a) => window.apxItemStat(fx, 'checkAll') + window.apxItemStat(fx, 'check_' + a);
@@ -67,6 +86,7 @@
         if (num(b.er)) out.push(`${sg(num(b.er))} ER`);
         if (num(b.speedBonus)) out.push(`${sg(num(b.speedBonus))} Speed`);
         (b.attrBonuses || []).forEach(r => { if (num(r.amount)) out.push(`${sg(num(r.amount))} ${r.target}`); });
+        (b.attrSets || []).forEach(r => { if (num(r.value)) out.push(`${r.target} ${num(r.value)}${r.unlessHigher ? ' (unless higher)' : ''}`); });
         if (b.attrTarget && num(b.attrBonus)) out.push(`${sg(num(b.attrBonus))} ${b.attrTarget}`);
         (b.skillBonuses || []).forEach(r => { if (num(r.amount)) out.push(`${sg(num(r.amount))} ${r.target}`); });
         if (b.skillTarget && num(b.skillBonus)) out.push(`${sg(num(b.skillBonus))} ${b.skillTarget}`);
@@ -89,11 +109,12 @@
     };
     // [{ key: 'attr:STR', amount }] → the item's bonuses object
     window.apxItemBonusesFromRows = function (rows) {
-        let b = { ac: 0, dr: 0, er: 0, speedBonus: 0, attrBonuses: [], skillBonuses: [], erBonuses: [], statBonuses: [] };
+        let b = { ac: 0, dr: 0, er: 0, speedBonus: 0, attrBonuses: [], attrSets: [], skillBonuses: [], erBonuses: [], statBonuses: [] };
         (rows || []).forEach(r => {
             let amt = num(r.amount); if (!amt || !r.key) return;
             let i = r.key.indexOf(':'), kind = r.key.slice(0, i), target = r.key.slice(i + 1);
-            if (kind === 'attr') b.attrBonuses.push({ target, amount: amt });
+            if (kind === 'attr' && r.mode === 'set') b.attrSets.push({ target, value: amt, unlessHigher: !!r.unlessHigher });
+            else if (kind === 'attr') b.attrBonuses.push({ target, amount: amt });
             else if (kind === 'skill') b.skillBonuses.push({ target, amount: amt });
             else if (kind === 'er') b.erBonuses.push({ target, amount: amt });
             else if (kind === 'stat') b.statBonuses.push({ target, amount: amt });
@@ -106,6 +127,7 @@
         if (!b) return rows;
         [['ac', 'ac'], ['dr', 'dr'], ['er', 'er'], ['speedBonus', 'speed']].forEach(([f, k]) => { if (num(b[f])) rows.push({ key: 'stat:' + k, amount: num(b[f]) }); });
         (b.attrBonuses || []).forEach(r => { if (r && num(r.amount)) rows.push({ key: 'attr:' + r.target, amount: num(r.amount) }); });
+        (b.attrSets || []).forEach(r => { if (r && num(r.value)) rows.push({ key: 'attr:' + r.target, amount: num(r.value), mode: 'set', unlessHigher: !!r.unlessHigher }); });
         if (b.attrTarget && num(b.attrBonus)) rows.push({ key: 'attr:' + b.attrTarget, amount: num(b.attrBonus) });
         (b.skillBonuses || []).forEach(r => { if (r && num(r.amount)) rows.push({ key: 'skill:' + r.target, amount: num(r.amount) }); });
         if (b.skillTarget && num(b.skillBonus)) rows.push({ key: 'skill:' + b.skillTarget, amount: num(b.skillBonus) });

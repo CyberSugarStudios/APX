@@ -1143,6 +1143,11 @@ window.companionStatBlock = function() {
     let ifx = wornItems.length && window.apxItemEffects ? window.apxItemEffects({ items: wornItems }) : null;
     let ist = k => ifx ? window.apxItemStat(ifx, k) : 0;
     if (ifx) ATTRIBUTES.forEach(a => { mods[a] = (mods[a] || 0) + (ifx.attr[a] || 0); });
+    if (ifx && window.apxApplyItemAttrSets) {   // scores set to a total (score = 5 + mod)
+        let sc = {}; ATTRIBUTES.forEach(a => { sc[a] = 5 + (mods[a] || 0); });
+        window.apxApplyItemAttrSets(sc, ifx);
+        ATTRIBUTES.forEach(a => { mods[a] = sc[a] - 5; });
+    }
 
     let maxHp = tierInfo.hp + (c.hpTierBonus * 5 * Math.max(1, tier));
     let sizeDef = NPC_SIZES.find(s => s.key === c.size);
@@ -1436,20 +1441,22 @@ window.setCompanionHp = function(val) {
     if (pe) {
         let atk = window._pwLastNpcAtk;
         let fresh = window.apxPwAtkFresh ? window.apxPwAtkFresh(atk) : false;
-        let types = pe.typed ? pe.types : (fresh && atk.dmgType ? D.parts(atk.dmgType) : []);
+        let types = pe.typed ? pe.types : [];   // only a typed type skips the question (the last attack is offered first)
         let def = D.fromStatBlock ? D.fromStatBlock(sb) : { dr: sb.dr || 0, er: sb.er || 0, res: {}, immune: [] };
+        let useAtk = false;
         let finish = t => {
             if (!t) { redraw(); return; }
-            let res = D.mitigate(pe.raw, t, def, { ignore: fresh && !pe.typed ? D.ignoreOf(atk) : null });
-            if (fresh && !pe.typed) (window._pwUsedAtk = window._pwUsedAtk || {})[atk.id] = true;
+            useAtk = !!(t.fromSuggest && fresh);
+            let res = D.mitigate(pe.raw, t, def, { ignore: useAtk ? D.ignoreOf(atk) : null });
+            if (useAtk) (window._pwUsedAtk = window._pwUsedAtk || {})[atk.id] = true;
             let cc = ncActiveCompanion(), now = window.companionStatBlock();
             if (!cc || !now) return;
             cc.currentHp = Math.max(0, Math.min(now.maxHp, now.currentHp - res.dmg));
             redraw();
-            window.APXDice?.notify(`${now.name || 'Companion'} takes damage${fresh && !pe.typed ? ` from ${atk.by}'s ${atk.label}` : ''}: ${res.text}.`, { kind: res.dmg ? 'warn' : 'note' });
+            window.APXDice?.notify(`${now.name || 'Companion'} takes damage${useAtk ? ` from ${atk.by}'s ${atk.label}` : ''}: ${res.text}.`, { kind: res.dmg ? 'warn' : 'note' });
         };
         if (types.length) finish(types);
-        else D.askType(`${pe.raw} damage to ${sb.name || 'your companion'}`, `Nothing says what kind of damage this is. ${sb.name || 'Your companion'} has DR ${def.dr} (physical) and ER ${def.er} (energy), plus any resistance or immunity. Tip: type "-${pe.raw} fire" to skip this.`, def).then(finish);
+        else D.askType(`${pe.raw} damage to ${sb.name || 'your companion'}`, `Nothing says what kind of damage this is. ${sb.name || 'Your companion'} has DR ${def.dr} (physical) and ER ${def.er} (energy), plus any resistance or immunity. Tip: type "-${pe.raw} fire" to skip this.`, def, { suggest: fresh && atk.dmgType ? { types: D.parts(atk.dmgType), label: `${atk.by}'s ${atk.label}` } : null }).then(finish);
         return;
     }
     let n;

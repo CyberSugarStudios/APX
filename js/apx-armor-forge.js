@@ -37,7 +37,7 @@ window.armorForgeCalcTotals = function(draft) {
         else if (m.field === 'athletics') athletics += qty * m.amt;
         else if (m.field === 'speed') speed += qty * m.amt;
     });
-    return { wt: Math.max(0, wt), ac, dr, er, stealth, athletics, speed, cost: Math.max(0, cost), rawCost: cost };
+    return { wt: Math.max(0, wt), rawWt: wt, ac, dr, er, stealth, athletics, speed, cost: Math.max(0, cost), rawCost: cost };
 };
 
 // ------------------------------------------------------------------
@@ -108,6 +108,11 @@ window.setArmorModQty = function(key, delta) {
             let projectedTotals = window.armorForgeCalcTotals({ mods: { ...armorForgeDraft.mods, [key]: next } });
             if (projectedTotals.rawCost < 0) next = cur;
         }
+        // Weight can't be reduced below 0 lb
+        if (modDef.wt < 0) {
+            let projectedTotals = window.armorForgeCalcTotals({ mods: { ...armorForgeDraft.mods, [key]: next } });
+            if (projectedTotals.rawWt < 0) next = cur;
+        }
         // Speed can never be reduced to 0 or below by armor alone.
         if (modDef.field === 'speed') {
             let projectedTotals = window.armorForgeCalcTotals({ mods: { ...armorForgeDraft.mods, [key]: next } });
@@ -130,7 +135,7 @@ window.renderArmorForge = function() {
         let effMax = armorForgeEffectiveMax(m);
         let hitsMax = (effMax !== null && qty >= effMax);
 
-        let wouldGoNegative = (m.cost < 0) && (totals.rawCost + m.cost < 0);
+        let wouldGoNegative = ((m.cost < 0) && (totals.rawCost + m.cost < 0)) || ((m.wt || 0) < 0 && (totals.rawWt + m.wt) < 0);
 
         let wouldZeroSpeed = false;
         if (m.field === 'speed') {
@@ -185,15 +190,19 @@ window.renderArmorForge = function() {
             : totalWt <= 70
                 ? '! Moderately Armored (31-70 lbs) — AGI bonus to AC capped at +2'
                 : 'X Heavily Armored (>70 lbs) — No AGI bonus to AC';
+    let agiShort = totalWt === 0 ? 'Full AGI bonus to AC' : totalWt <= 30 ? 'Full AGI bonus to AC (≤30 lb)' : totalWt <= 70 ? 'AGI bonus to AC capped at +2 (31–70 lb)' : 'No AGI bonus to AC (>70 lb)';
     let incl = [shieldCount ? `${shieldCount > 1 ? shieldCount + ' shields' : (eqShield ? eqShield.name : 'Shield')} +${shieldWt} lb` : '', eqHelmet ? `${eqHelmet.name || 'Helmet'} +${eqHelmet.wt} lb` : ''].filter(Boolean);
     let shieldNote = incl.length ? `<span style="font-size:0.6rem;color:#64748b;margin-left:0.5rem;">(armor ${totals.wt} lb, incl. ${incl.join(', ')})</span>` : '';
 
     let html = `
         <div class="text-[10px] text-slate-500 mb-2">Base Armor is always included: 10 lbs, +1 AC / +1 DR / +1 ER, 50 Currency.</div>
-        <div class="flex items-center gap-2 mb-3 bg-slate-900 border border-slate-700 rounded px-3 py-2">
-            <span style="font-size:0.75rem;font-weight:900;color:${armorWtColor};">${armorWtClass} (${totalWt} lbs${incl.length?' worn in total':''})</span>
-            ${shieldNote}
-            <span style="font-size:0.65rem;color:#94a3b8;margin-left:auto;">${agiRuleText}</span>
+        <!-- Two fixed single lines (never wraps, so the buttons below never jump as the numbers change) -->
+        <div class="mb-3 bg-slate-900 border border-slate-700 rounded px-3 py-1.5" style="height:3.1rem;overflow:hidden;display:flex;flex-direction:column;justify-content:center;gap:.1rem" title="${agiRuleText.replace(/^\S+\s/, '')}">
+            <div style="display:flex;align-items:baseline;gap:.5rem;white-space:nowrap;min-width:0">
+                <span style="font-size:0.75rem;font-weight:900;color:${armorWtColor};flex-shrink:0">${armorWtClass}: ${totalWt} lb${incl.length ? ' worn' : ''}</span>
+                <span style="font-size:0.65rem;color:#94a3b8;margin-left:auto;overflow:hidden;text-overflow:ellipsis">${agiShort}</span>
+            </div>
+            <div style="font-size:0.6rem;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${incl.length ? `Armor ${totals.wt} lb + ${incl.join(' + ')}` : 'Armor only (no shield or helmet worn)'}</div>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 sm:grid-flow-col sm:grid-rows-5 gap-1.5 max-h-[40vh] overflow-y-auto pr-1">${rows}</div>
 

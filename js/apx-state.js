@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.10.2.1200';
+window.APX_VERSION = 'v2026.10.2.1800';
 
         window.state = getInitialState();
 
@@ -348,27 +348,34 @@ window.APX_VERSION = 'v2026.10.2.1200';
                         let raw = parseInt(dm[1], 10);
                         let atk = window._pwLastNpcAtk;
                         let fresh = window.apxPwAtkFresh ? window.apxPwAtkFresh(atk) : false;
-                        let types = dm[2] ? window.APXDamage.parts(dm[2]) : (fresh && atk.dmgType ? window.APXDamage.parts(atk.dmgType) : []);
+                        // Only a type you typed ("-9 fire") skips the question. The attack the GM just rolled
+                        // (if any) is offered first, but it might not be what hit you, so you're always asked.
+                        let types = dm[2] ? window.APXDamage.parts(dm[2]) : [];
                         let def = window.apxMyDefense();
+                        let useAtk = false;
                         let finish = (t) => {
                             if (!t) { window.apxRefreshHpInputs?.(); return; }
+                            useAtk = !!(t.fromSuggest && fresh);
                             let eff = window.apxEffectiveConditions ? window.apxEffectiveConditions(window.state.conditions || [], window.state).map(c => c.id) : [];
-                            let res = window.APXDamage.mitigate(raw, t, def, { ignore: fresh && !dm[2] ? window.APXDamage.ignoreOf(atk) : null, bypassRes: eff.includes('incapacitated'), halfBypass: def.halfBypass });
-                            if (fresh && !dm[2]) (window._pwUsedAtk = window._pwUsedAtk || {})[atk.id] = true;
+                            let res = window.APXDamage.mitigate(raw, t, def, { ignore: useAtk ? window.APXDamage.ignoreOf(atk) : null, bypassRes: eff.includes('incapacitated'), halfBypass: def.halfBypass });
+                            if (useAtk) (window._pwUsedAtk = window._pwUsedAtk || {})[atk.id] = true;
                             let r2 = window.apxApplyHpInput('-' + res.dmg, window.state.currentHp, window.state.tempHp, maxHp);
                             if (!r2) return;
                             // Tell the GM first (their tracker turns it into a hit: extra dice, reactions, saves),
                             // even when it comes to 0
                             window.apxOnRollEvent?.({ id: 'dmg' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), kind: 'damage', label: 'Damage',
-                                raw, types: t.slice(), ignoreRes: !!t.ignoreRes, dmg: res.dmg, text: res.text, atkId: fresh && !dm[2] ? atk.id : null, hpAfter: r2.currentHp, tempAfter: r2.tempHp });
+                                raw, types: t.slice(), ignoreRes: !!t.ignoreRes, dmg: res.dmg, text: res.text, atkId: useAtk ? atk.id : null, hpAfter: r2.currentHp, tempAfter: r2.tempHp });
                             window.state.tempHp = r2.tempHp;
                             window.updateState('currentHp', r2.currentHp);
                             window.apxRefreshHpInputs?.();
                             window.scheduleAutoSave?.();
-                            window.APXDice?.notify(`Damage${fresh && !dm[2] ? ` from ${atk.by}'s ${atk.label}` : ''}: ${res.text}.`, { kind: res.dmg ? 'warn' : 'note' });
+                            window.APXDice?.notify(`Damage${useAtk ? ` from ${atk.by}'s ${atk.label}` : ''}: ${res.text}.`, { kind: res.dmg ? 'warn' : 'note' });
                         };
                         if (types.length) finish(types);
-                        else window.APXDamage.askType(`${raw} damage`, `What kind of damage? It's reduced by your DR ${def.dr} (physical) or ER ${def.er} (energy), plus any resistance or immunity. Tip: type "-${raw} fire" to skip this.`, def).then(finish);
+                        else {
+                            let suggest = fresh && atk.dmgType ? { types: window.APXDamage.parts(atk.dmgType), label: `${atk.by}'s ${atk.label}` } : null;
+                            window.APXDamage.askType(`${raw} damage`, `What kind of damage is it? It's reduced by your DR ${def.dr} (physical) or ER ${def.er} (energy), plus any resistance or immunity.${suggest ? ` The first button is the attack your GM just rolled (${suggest.label}).` : ''} Tip: type "-${raw} fire" to skip this.`, def, { suggest }).then(finish);
+                        }
                         return;
                     }
                     let r = window.apxApplyHpInput(val, window.state.currentHp, window.state.tempHp, maxHp);

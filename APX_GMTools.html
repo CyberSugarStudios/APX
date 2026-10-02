@@ -450,8 +450,8 @@
                 }
         
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20261021200">
-    <link rel="stylesheet" href="css/tailwind.css?v=20261021200">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20261021800">
+    <link rel="stylesheet" href="css/tailwind.css?v=20261021800">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
@@ -1343,6 +1343,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button onclick="window.showWorldTab('notes')"     id="wTabNotes"     class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Notes</button>
                     <button onclick="window.showWorldTab('map')"       id="wTabMap"       class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">World Map</button>
                     <button onclick="window.showWorldTab('othermaps')" id="wTabOthermaps" class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Other Maps</button>
+                    <button onclick="window.showWorldTab('libItems')"  id="wTabLibItems"  class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300" title="Custom items, weapons, armor and consumables you've made (your Library)">Loot &amp; Items</button>
+                    <button onclick="window.showWorldTab('libPowers')" id="wTabLibPowers" class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300" title="Powers you've made for NPCs and items (your Library)">Powers</button>
                     <button onclick="window.showWorldTab('players')"   id="wTabPlayers"   class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Players</button>
                     <button onclick="window.showWorldTab('settings')"  id="wTabSettings"  class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">World Settings</button>
                 </div>
@@ -1425,6 +1427,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div id="playersList" class="flex-1 overflow-y-auto space-y-2 min-h-0 pr-1"></div>
                 </div>
                 <div id="wPanelSettings" class="hidden flex-1 flex flex-col overflow-y-auto min-h-0 pr-1"></div>
+                <div id="wPanelLibItems" class="hidden flex-1 flex flex-col overflow-hidden min-h-0"></div>
+                <div id="wPanelLibPowers" class="hidden flex-1 flex flex-col overflow-hidden min-h-0"></div>
             </div>
             <div id="gmWorldEmpty" class="flex-1 flex items-center justify-center text-slate-500 text-sm">Create a world to start organizing your campaign.</div>
         </div>
@@ -1515,36 +1519,36 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20261021200"></script>
-    <script src="js/apx-patch-notes.js?v=20261021200"></script>
-    <script src="js/apx-dice.js?v=20261021200"></script>
-    <script src="js/apx-data.js?v=20261021200"></script>
-    <script src="js/apx-item-effects.js?v=20261021200"></script>
-    <script src="js/apx-perks-db.js?v=20261021200"></script>
-    <script src="js/apx-migrations.js?v=20261021200"></script>
-    <script src="js/apx-state.js?v=20261021200"></script>
-    <script src="js/apx-craft-shared.js?v=20261021200"></script>
-    <script src="js/apx-armor-forge.js?v=20261021200"></script>
-    <script src="js/apx-weapon-forge.js?v=20261021200"></script>
-    <script src="js/apx-consumable-crafter.js?v=20261021200"></script>
-    <script src="js/apx-perks-ui.js?v=20261021200"></script>
-    <script src="js/apx-power-crafter.js?v=20261021200"></script>
-    <script src="js/apx-npc-crafter.js?v=20261021200"></script>
-    <script src="js/apx-inventory-ui.js?v=20261021200"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20261021200"></script>
-    <script src="js/apx-gm-screen.js?v=20261021200"></script>
-    <script src="js/apx-loot-maker.js?v=20261021200"></script>
-    <script src="js/apx-library.js?v=20261021200"></script>
-    <script src="js/apx-gmtools-main.js?v=20261021200"></script>
+    <script src="js/apx-dialogs.js?v=20261021800"></script>
+    <script src="js/apx-patch-notes.js?v=20261021800"></script>
+    <script src="js/apx-dice.js?v=20261021800"></script>
+    <script src="js/apx-data.js?v=20261021800"></script>
+    <script src="js/apx-item-effects.js?v=20261021800"></script>
+    <script src="js/apx-perks-db.js?v=20261021800"></script>
+    <script src="js/apx-migrations.js?v=20261021800"></script>
+    <script src="js/apx-state.js?v=20261021800"></script>
+    <script src="js/apx-craft-shared.js?v=20261021800"></script>
+    <script src="js/apx-armor-forge.js?v=20261021800"></script>
+    <script src="js/apx-weapon-forge.js?v=20261021800"></script>
+    <script src="js/apx-consumable-crafter.js?v=20261021800"></script>
+    <script src="js/apx-perks-ui.js?v=20261021800"></script>
+    <script src="js/apx-power-crafter.js?v=20261021800"></script>
+    <script src="js/apx-npc-crafter.js?v=20261021800"></script>
+    <script src="js/apx-inventory-ui.js?v=20261021800"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20261021800"></script>
+    <script src="js/apx-gm-screen.js?v=20261021800"></script>
+    <script src="js/apx-loot-maker.js?v=20261021800"></script>
+    <script src="js/apx-library.js?v=20261021800"></script>
+    <script src="js/apx-gmtools-main.js?v=20261021800"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20261021200"></script>
-    <script src="js/apx-firebase.js?v=20261021200"></script>
-    <script src="js/apx-battlemap.js?v=20261021200"></script>
-    <script src="js/apx-map-tiles.js?v=20261021200"></script>
+    <script src="js/firebase-config.js?v=20261021800"></script>
+    <script src="js/apx-firebase.js?v=20261021800"></script>
+    <script src="js/apx-battlemap.js?v=20261021800"></script>
+    <script src="js/apx-map-tiles.js?v=20261021800"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -1976,7 +1980,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── Tab switching ────────────────────────────────────────────
     window.showWorldTab = function(tab) {
-        ['session','map','npcs','locations','notes','othermaps','players','settings'].forEach(t => {
+        ['session','map','npcs','locations','notes','othermaps','libItems','libPowers','players','settings'].forEach(t => {
             let panel = document.getElementById(`wPanel${t.charAt(0).toUpperCase()}${t.slice(1)}`);
             if (panel) { panel.classList.toggle('hidden', t!==tab); panel.classList.toggle('flex', t===tab && panel.style.display!=='block'); }
             let btn = document.getElementById(`wTab${t.charAt(0).toUpperCase()}${t.slice(1)}`);
@@ -1995,6 +1999,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (tab==='othermaps')  { window.renderOtherMapsList(); }
         if (tab==='players')    { window.renderPlayersList(); }
         if (tab==='settings')   { window.renderWorldSettings(); }
+        if (tab==='libItems')   { window.apxLibRenderTab && window.apxLibRenderTab('item'); }
+        if (tab==='libPowers')  { window.apxLibRenderTab && window.apxLibRenderTab('power'); }
     };
     window.showCampaignTab = window.showWorldTab; // alias for old refs
 
@@ -5966,7 +5972,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ? document.getElementById('mapContainer')
             : document.getElementById('omWin_'+mapId+'_area');
         if (!container) return;
-        let r    = container.getBoundingClientRect();
+        let r    = _fogFrameRect(container);   // measured before the cursor moves, and reused by the painter
         let size = (_fogBrushSize||40) * 2;
         cursor.style.left   = (e.clientX - r.left) + 'px';
         cursor.style.top    = (e.clientY - r.top)  + 'px';
@@ -5976,6 +5982,12 @@ document.addEventListener('DOMContentLoaded', () => {
         cursor.style.borderColor = _fogErase ? 'rgba(255,100,100,0.9)' : 'rgba(255,255,255,0.85)';
     }
 
+    // One measurement of the map area per frame: measuring right after the brush cursor moved
+    // made the browser redo the page layout on every mouse move ("Forced reflow" in the console)
+    function _fogFrameRect(el) {
+        if (!el._fogRect) { el._fogRect = el.getBoundingClientRect(); requestAnimationFrame(() => { el._fogRect = null; }); }
+        return el._fogRect;
+    }
     function _fogPaint(e, mapId) {
         _fogBrushSize = window._fogBrushSize || _fogBrushSize; // keep in sync with slider
         let fc = _fogCanvas(mapId); if (!fc || !fc.width) return;
@@ -5987,7 +5999,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let scale  = mapId==='worldmap' ? _mapScale  : (document.getElementById('omWin_'+mapId)?._scale||1);
         let offX   = mapId==='worldmap' ? _mapOffX   : (document.getElementById('omWin_'+mapId)?._offX||0);
         let offY   = mapId==='worldmap' ? _mapOffY   : (document.getElementById('omWin_'+mapId)?._offY||0);
-        let rect   = container.getBoundingClientRect();
+        let rect   = _fogFrameRect(container);
         // Convert from screen coordinates to image canvas coordinates
         // (the fog canvas may be lower resolution than the map: fc._k = canvas px per map px)
         let k = fc._k || 1;
@@ -6173,8 +6185,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </script>
     <div id="floatingWindowContainer"></div>
 
-    <script src="js/apx-chat.js?v=20261021200"></script>
-    <script src="js/apx-extras.js?v=20261021200"></script>
-    <script src="js/apx-theme-light.js?v=20261021200"></script>
+    <script src="js/apx-chat.js?v=20261021800"></script>
+    <script src="js/apx-extras.js?v=20261021800"></script>
+    <script src="js/apx-theme-light.js?v=20261021800"></script>
 </body>
 </html>
