@@ -1746,6 +1746,15 @@
                 dmg && !dmg.heal ? { dmgType: dmg.type, dice: dmg.formula, save: saveKind ? { dc, kind: saveKind } : null } : (saveKind ? { save: { dc, kind: saveKind } } : null));
         };
 
+        // Summon a Creature: edit the creature on its own, without reopening the Power Crafter
+        window.apxEditSummonCreature = function(idx) {
+            let p = (window.state.powers || [])[idx]; if (!p || !p.draft || typeof window.openSummonCrafter !== 'function') return;
+            let tier = p.draft.summonTier || 1;
+            window.openSummonCrafter({ npc: p.draft.summonNpc || null, tier, done: npc => {
+                p.draft.summonNpc = JSON.parse(JSON.stringify(npc)); p.draft.summonNpcTier = tier;
+                window.recalculateMath();
+            } });
+        };
         function renderPowers() {
             let html = window.state.powers.map((p, idx) => `
                 <div class="bg-slate-900 p-2 rounded border border-slate-700 relative group shadow-inner" data-roll-label="${String(p.name||'Power').replace(/"/g,'&quot;')}">
@@ -1763,6 +1772,7 @@
                     </div>
                     <div class="text-[10px] text-slate-500 leading-tight font-medium">${p.desc}</div>
                     ${p.draft ? `<button onclick="window.openPowerEditor(${idx})" class="text-[9px] text-purple-400 hover:text-purple-300 font-bold mt-1">Edit in Power Crafter${p.wasFree ? ' (Free)' : ''}</button>` : ''}
+                    ${p.draft && ((p.draft.utility || {}).major || {}).summonCreature ? `<button onclick="window.apxEditSummonCreature(${idx})" class="text-[9px] text-emerald-400 hover:text-emerald-300 font-bold mt-1 ml-2" title="Build or change the creature this power summons (Tier ${p.draft.summonTier || 1})">${p.draft.summonNpc ? 'Edit Summoned Creature' : 'Build Summoned Creature'}</button>` : ''}
                     ${window.apxRecraftBadge ? window.apxRecraftBadge(p, `window.openPowerEditor(${idx})`) : ''}
                 </div>
             `).join('');

@@ -66,7 +66,8 @@ window.openArmorForge = function(target) {
     document.getElementById('armorBtnPurchase').classList.toggle('hidden', gmMade);
     document.getElementById('armorBtnCraft').classList.toggle('hidden', gmMade || armorForgeTarget === 'companion');   // companions pay TP, nothing to craft
     document.getElementById('armorBtnGmAdd').classList.toggle('hidden', !gmMade);
-    document.getElementById('armorBtnGmAdd').textContent = armorForgeTarget === 'loot' ? 'Add to Loot' : 'Equip on NPC (Free)';
+    document.getElementById('armorBtnGmAdd').textContent = armorForgeTarget === 'loot' ? 'Add to Loot' : 'Equip on NPC (TP)';
+    document.getElementById('armorBtnPurchase').textContent = armorForgeTarget === 'companion' ? 'Equip (TP)' : 'Purchase & Equip';
     window.renderArmorForge();
     window.openModal('armorForgeModal');
 };
@@ -89,6 +90,9 @@ window.setArmorForgeName = function(val) {
 // Baseline Speed the character would have WITHOUT the currently-equipped
 // armor's Speed penalty -- used to preview what a draft change would do.
 function armorForgeSpeedBaseline() {
+    if ((armorForgeTarget === 'companion' || armorForgeTarget === 'gm') && typeof ncActiveCompanion === 'function') {
+        let c = ncActiveCompanion(); return 3 + ((c && c.speedBonus) || 0);
+    }
     return (calc.speed || 0) - (getTargetArmor().speedMod || 0);
 }
 
@@ -127,6 +131,7 @@ window.setArmorModQty = function(key, delta) {
 window.renderArmorForge = function() {
     let totals = window.armorForgeCalcTotals(armorForgeDraft);
     let delta = Math.max(0, totals.cost - armorForgeBasePaid);
+    let noCu = armorForgeTarget === 'companion' || armorForgeTarget === 'gm';   // companions and NPCs pay TP, never Cu
     let reqStr = Math.floor(totals.wt / 10);   // (recomputed below with shields and helmet)
     let speedBaseline = armorForgeSpeedBaseline();
 
@@ -150,14 +155,14 @@ window.renderArmorForge = function() {
             <div class="flex items-center justify-between bg-slate-900 border border-slate-700 rounded px-3 py-2">
                 <div class="flex-1 min-w-0">
                     <div class="text-xs font-bold text-slate-200">${m.label}</div>
-                    <div class="text-[10px] text-slate-500">${m.cost >= 0 ? m.cost + ' Cu' : 'Refunds ' + Math.abs(m.cost) + ' Cu'} each${capLabel}</div>
+                    <div class="text-[10px] text-slate-500">${noCu ? (capLabel ? capLabel.replace(/^ &middot; /, '') : '') : (m.cost >= 0 ? m.cost + ' Cu' : 'Refunds ' + Math.abs(m.cost) + ' Cu') + ' each' + capLabel}</div>
                     ${wouldZeroSpeed ? '<div class="text-[9px] text-red-400 font-bold">Would reduce Speed to 0</div>' : ''}
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
                     <button onclick="window.setArmorModQty('${m.key}', -1)" ${qty <= 0 ? 'disabled' : ''} class="w-6 h-6 shrink-0 rounded ${qty <= 0 ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-slate-700 hover:bg-slate-600 text-white'} font-bold">-</button>
                     <span class="w-7 text-center font-bold text-sm text-white">${qty}</span>
                     <button onclick="window.setArmorModQty('${m.key}', 1)" ${atMax ? 'disabled' : ''} class="w-6 h-6 shrink-0 rounded ${atMax ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-amber-700 hover:bg-amber-600 text-white'} font-bold">+</button>
-                    <span class="w-16 text-right text-[10px] ${subtotal !== 0 ? 'text-yellow-400' : 'text-slate-600'} font-bold">${subtotal} Cu</span>
+                    ${noCu ? '' : `<span class="w-16 text-right text-[10px] ${subtotal !== 0 ? 'text-yellow-400' : 'text-slate-600'} font-bold">${subtotal} Cu</span>`}
                 </div>
             </div>
         `;
@@ -166,8 +171,14 @@ window.renderArmorForge = function() {
     // Everything worn counts, the same as the sheet: the armor, every shield (one per Off Hand with
     // four arms) and an intact helmet. The STR requirement is worked out from that total.
     let totalWt = totals.wt;
-    let wearer = (armorForgeTarget === 'loot') ? null : (armorForgeTarget === 'gm') ? window._ncGetCompanion?.() : (armorForgeTarget === 'companion' ? window.state?.companion : window.state);
+    let npcWearer = (armorForgeTarget === 'gm' || armorForgeTarget === 'companion') ? (typeof ncActiveCompanion === 'function' ? ncActiveCompanion() : window.state?.companion) : null;
+    let wearer = (armorForgeTarget === 'loot') ? null : npcWearer ? npcWearer : window.state;
     let eqShield = wearer?.equippedShield, eqHelmet = wearer?.equippedHelmet;
+    if (npcWearer) {   // NPCs and companions carry the standard Shield / Helmet
+        let base = getInitialState();
+        eqShield = npcWearer.shield && npcWearer.shield.owned && npcWearer.shield.equipped !== false ? Object.assign({}, base.equippedShield, { equipped: true }) : null;
+        eqHelmet = npcWearer.helmet && npcWearer.helmet.owned ? Object.assign({}, base.equippedHelmet, { equipped: true }) : null;
+    }
     if (eqShield?.equipped && eqShield.wt) totalWt += eqShield.wt;
     else eqShield = null;
     let extraShields = (wearer && Array.isArray(wearer.extraShields)) ? wearer.extraShields.filter(x => x && x.wt) : [];
@@ -183,6 +194,7 @@ window.renderArmorForge = function() {
     let shieldCount = (eqShield ? 1 : 0) + extraShields.length;
     let strNow = null;
     if (armorForgeTarget === 'player' && typeof calc !== 'undefined' && calc.scores) strNow = calc.scores.STR;
+    else if (npcWearer) strNow = 5 + ((npcWearer.attrBonuses && npcWearer.attrBonuses.STR) || 0);
 
     // Correct thresholds (match engine): Light ≤30, Medium 31-70, Heavy >70
     let armorWtClass = realWt === 0 ? 'Unarmored' : totalWt <= 30 ? 'Lightly Armored' : totalWt <= 70 ? 'Moderately Armored' : 'Heavily Armored';
@@ -199,7 +211,7 @@ window.renderArmorForge = function() {
     let shieldNote = incl.length ? `<span style="font-size:0.6rem;color:#64748b;margin-left:0.5rem;">(armor ${totals.wt} lb, incl. ${incl.join(', ')})</span>` : '';
 
     let html = `
-        <div class="text-[10px] text-slate-500 mb-2">Base Armor is always included: 10 lbs, +1 AC / +1 DR / +1 ER, 50 Currency.</div>
+        <div class="text-[10px] text-slate-500 mb-2">Base Armor is always included: 10 lbs, +1 AC / +1 DR / +1 ER${noCu ? '' : ', 50 Currency'}.</div>
         <!-- Two fixed single lines (never wraps, so the buttons below never jump as the numbers change) -->
         <div class="mb-3 bg-slate-900 border border-slate-700 rounded px-3 py-1.5" style="height:3.1rem;overflow:hidden;display:flex;flex-direction:column;justify-content:center;gap:.1rem" title="${agiRuleText.replace(/^\S+\s/, '')}">
             <div style="display:flex;align-items:baseline;gap:.5rem;white-space:nowrap;min-width:0">
@@ -218,7 +230,7 @@ window.renderArmorForge = function() {
         </div>
         <div class="text-[10px] text-slate-500 mt-2 text-center">STR requirement to avoid penalties: <span class="font-bold ${strNow !== null && totalWt > 0 ? (strNow >= reqStr ? 'text-emerald-400' : 'text-red-400') : 'text-slate-300'}">${reqStr}</span> (${totalWt} lb worn ÷ 10${incl.length ? ': armor, ' + incl.map(x => x.replace(/ \+\d+ lb$/, '')).join(' and ') : ''})${strNow !== null && totalWt > 0 ? (strNow >= reqStr ? ` · your STR ${strNow} is enough` : ` · your STR is ${strNow}: the STR penalties apply while worn`) : ''}</div>
 
-        <div class="flex justify-between items-center mt-4 bg-slate-900 border border-amber-800/50 rounded-lg p-3">
+        ${noCu ? '' : `<div class="flex justify-between items-center mt-4 bg-slate-900 border border-amber-800/50 rounded-lg p-3">
             <div>
                 <div class="text-[10px] text-slate-500 uppercase font-bold">Total Item Cost</div>
                 <div class="text-xl font-black text-yellow-400">${totals.cost} Cu</div>
@@ -231,7 +243,7 @@ window.renderArmorForge = function() {
                 <div class="text-[10px] text-slate-500 uppercase font-bold">Cost Now</div>
                 <div class="text-xl font-black ${delta > 0 ? 'text-emerald-400' : 'text-slate-500'}">${delta} Cu</div>
             </div>
-        </div>
+        </div>`}
         ${armorForgeTarget === 'player' ? craftBuyOrCraftHtml(delta, armorForgeCraftMath()) : ''}
     `;
     if (armorForgeTarget !== 'player' && armorForgeTarget !== 'loot' && window.npcArmorTp) {

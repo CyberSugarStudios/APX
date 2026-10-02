@@ -474,8 +474,8 @@
         }
 
     </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20261031200">
-    <link rel="stylesheet" href="css/tailwind.css?v=20261031200">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20261031800">
+    <link rel="stylesheet" href="css/tailwind.css?v=20261031800">
 </head>
 <body class="p-2 md:p-6 flex justify-center text-sm ml-0 lg:ml-8 transition-all" style="padding-top:4.25rem"><!-- (room for the floating Roster / Settings buttons) -->
     <!-- Auth bar removed — account controls are in the sidebar -->
@@ -2285,7 +2285,7 @@
                 <button onclick="window.pwHideJoinAnother()" class="px-2 py-1.5 rounded text-xs text-slate-400 bg-slate-800">X</button>
             </div>
             <div id="pwJoinAnotherError" class="hidden text-xs mb-2 flex-shrink-0" style="color:var(--c-red,#ef4444);min-height:1rem;"></div>
-            <div class="flex gap-2 mb-3 flex-shrink-0">
+            <div id="pwTabBar" class="flex gap-2 mb-3 flex-shrink-0">
                 <button onclick="window.showPlayerWorldTab('locations')" id="pwTabLocations" class="px-3 py-1.5 rounded text-xs font-bold bg-emerald-700 text-white">Locations</button>
                 <button onclick="window.showPlayerWorldTab('npcs')"      id="pwTabNpcs"      class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">NPCs</button>
                 <button onclick="window.showPlayerWorldTab('notes')"     id="pwTabNotes"     class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Discoveries</button>
@@ -2358,38 +2358,38 @@
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20261031200"></script>
-    <script src="js/apx-patch-notes.js?v=20261031200"></script>
-    <script src="js/apx-dice.js?v=20261031200"></script>
-    <script src="js/apx-data.js?v=20261031200"></script>
-    <script src="js/apx-item-effects.js?v=20261031200"></script>
-    <script src="js/apx-perks-db.js?v=20261031200"></script>
-    <script src="js/apx-migrations.js?v=20261031200"></script>
-    <script src="js/apx-roster.js?v=20261031200"></script>
-    <script src="js/apx-state.js?v=20261031200"></script>
-    <script src="js/apx-origin-wizard.js?v=20261031200"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20261031200"></script>
-    <script src="js/apx-inventory-ui.js?v=20261031200"></script>
-    <script src="js/apx-craft-shared.js?v=20261031200"></script>
-    <script src="js/apx-armor-forge.js?v=20261031200"></script>
-    <script src="js/apx-weapon-forge.js?v=20261031200"></script>
-    <script src="js/apx-power-crafter.js?v=20261031200"></script>
-    <script src="js/apx-consumable-crafter.js?v=20261031200"></script>
-    <script src="js/apx-npc-crafter.js?v=20261031200"></script>
-    <script src="js/apx-engine.js?v=20261031200"></script>
-    <script src="js/apx-perks-ui.js?v=20261031200"></script>
-    <script src="js/apx-rest.js?v=20261031200"></script>
-    <script src="js/apx-looting.js?v=20261031200"></script>
-    <script src="js/apx-main.js?v=20261031200"></script>
+    <script src="js/apx-dialogs.js?v=20261031800"></script>
+    <script src="js/apx-patch-notes.js?v=20261031800"></script>
+    <script src="js/apx-dice.js?v=20261031800"></script>
+    <script src="js/apx-data.js?v=20261031800"></script>
+    <script src="js/apx-item-effects.js?v=20261031800"></script>
+    <script src="js/apx-perks-db.js?v=20261031800"></script>
+    <script src="js/apx-migrations.js?v=20261031800"></script>
+    <script src="js/apx-roster.js?v=20261031800"></script>
+    <script src="js/apx-state.js?v=20261031800"></script>
+    <script src="js/apx-origin-wizard.js?v=20261031800"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20261031800"></script>
+    <script src="js/apx-inventory-ui.js?v=20261031800"></script>
+    <script src="js/apx-craft-shared.js?v=20261031800"></script>
+    <script src="js/apx-armor-forge.js?v=20261031800"></script>
+    <script src="js/apx-weapon-forge.js?v=20261031800"></script>
+    <script src="js/apx-power-crafter.js?v=20261031800"></script>
+    <script src="js/apx-consumable-crafter.js?v=20261031800"></script>
+    <script src="js/apx-npc-crafter.js?v=20261031800"></script>
+    <script src="js/apx-engine.js?v=20261031800"></script>
+    <script src="js/apx-perks-ui.js?v=20261031800"></script>
+    <script src="js/apx-rest.js?v=20261031800"></script>
+    <script src="js/apx-looting.js?v=20261031800"></script>
+    <script src="js/apx-main.js?v=20261031800"></script>
 
     <!-- Firebase (cloud sync — requires firebase-config.js to be configured) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20261031200"></script>
-    <script src="js/apx-firebase.js?v=20261031200"></script>
-    <script src="js/apx-battlemap.js?v=20261031200"></script>
-    <script src="js/apx-map-tiles.js?v=20261031200"></script>
+    <script src="js/firebase-config.js?v=20261031800"></script>
+    <script src="js/apx-firebase.js?v=20261031800"></script>
+    <script src="js/apx-battlemap.js?v=20261031800"></script>
+    <script src="js/apx-map-tiles.js?v=20261031800"></script>
     <script>
     // ── Sidebar: folders, worlds, meatball menus ─────────────
     window._sidebarChars = [];
@@ -3313,7 +3313,7 @@
     // The window has an "Upload Image" button for changing it.
     window.openCharPortraitWindow = function() {
         let existing = document.getElementById('charPortraitFloatWin');
-        if (existing) { window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; existing.style.zIndex=window.apxFloatingZTop; return; }
+        if (existing) { if (existing.dataset && existing.dataset.apxMin && window.apxFront) window.apxFront(existing); window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; existing.style.zIndex=window.apxFloatingZTop; return; }
         window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1;
 
         let cs  = getComputedStyle(document.documentElement);
@@ -3874,6 +3874,7 @@
     window._playerWorldsData = {};
 
     window.showPlayerWorldTab = function(tab) {
+        if (!_pwActiveWorld()) { renderPlayerWorld(); return; }   // no world: nothing but the join screen
         ['locations','npcs','notes','othermaps','map','party'].forEach(t => {
             let p = document.getElementById(`pwPanel${t.charAt(0).toUpperCase()}${t.slice(1)}`);
             if (p) p.classList.toggle('hidden', t !== tab);
@@ -3894,6 +3895,7 @@
 
     // ── Party inspector: who's in this world (portrait, name, basics — no stats) ──
     function renderPlayerParty() {
+        if (!_pwActiveWorld()) { let el = document.getElementById('pwPanelParty'); if (el) el.innerHTML = ''; return; }
         let el = document.getElementById('pwPanelParty'); if (!el) return;
         let world = window._playerWorldData || {};
         let myUid = window.apxAuth?.user?.uid || 'me';
@@ -4291,7 +4293,7 @@
 
         let title  = document.getElementById('playerWorldTitle');
         let codeEl = document.getElementById('playerWorldCode');
-        let tabBar = document.querySelector('#playerWorldModal .flex.gap-2.mb-3');
+        let tabBar = document.getElementById('pwTabBar');   // (by id: the Join Another bar has the same classes)
         let panels = ['pwPanelLocations','pwPanelNpcs','pwPanelNotes','pwPanelMap','pwPanelOthermaps','pwPanelParty'];
         function showOnly(id, hideBar) {
             if (tabBar) tabBar.style.display = hideBar ? 'none' : '';
@@ -4487,7 +4489,7 @@
 
         let winId = 'pwOmWin_'+mapId;
         let existing = document.getElementById(winId);
-        if (existing) { window.apxFloatingZTop = (window.apxFloatingZTop||2000)+1; existing.style.zIndex=window.apxFloatingZTop; return; }
+        if (existing) { if (window.apxFront) window.apxFront(existing); else { window.apxFloatingZTop = (window.apxFloatingZTop||2000)+1; existing.style.zIndex=window.apxFloatingZTop; } return; }   // (also brings back a minimized one)
         window.apxFloatingZTop = (window.apxFloatingZTop||2000)+1;
 
         let spot = window.apxWindowSpot(680, 520, document.querySelectorAll('[data-pwom-win]').length);
@@ -5596,9 +5598,9 @@
         });
     }
     </script>
-    <script src="js/apx-chat.js?v=20261031200"></script>
-    <script src="js/apx-actions.js?v=20261031200"></script>
-    <script src="js/apx-extras.js?v=20261031200"></script>
-    <script src="js/apx-theme-light.js?v=20261031200"></script>
+    <script src="js/apx-chat.js?v=20261031800"></script>
+    <script src="js/apx-actions.js?v=20261031800"></script>
+    <script src="js/apx-extras.js?v=20261031800"></script>
+    <script src="js/apx-theme-light.js?v=20261031800"></script>
 </body>
 </html>

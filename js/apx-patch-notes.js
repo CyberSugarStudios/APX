@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.3.1200',
-        released: '2026-10-03T12:00:00',
-        releasedText: 'October 3, 2026 · 12:00 PM',
+        version: 'v2026.10.3.1800',
+        released: '2026-10-03T18:00:00',
+        releasedText: 'October 3, 2026 · 6:00 PM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs that wear, carry and use their gear, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -53,7 +53,7 @@
                 'The Weapon and Armor Forges roll their Craft check in the dice tray, so Luck Points and Omens work on it, and spell out what buying or crafting costs.',
                 'Edit Token re-crops the circle your portrait and token show, without uploading the picture again.',
                 'Custom items can set a Core Attribute to a total, "unless higher" if you like: an Exo Suit that makes your STR 15 unless it\'s already more.',
-                'Click the Action Points title for every Combat Maneuver and Standard Action: one click spends the AP and applies the effect (Fight Defensively\'s AC, Power Attack\'s damage and more), shown under Armor & Defenses with a ✕ to end it.',
+                'Click the Action Points title for every Combat Maneuver and Standard Action, side by side: one click spends the AP and applies the effect (Fight Defensively\'s AC, Block\'s Sturdy-weapon roll, Power Attack\'s damage and more), shown under Armor & Defenses with a ✕ to end it. Pin the ones you use most to Weapons & Attacks.',
                 'Summon a Creature powers are built in the NPC Crafter at the Tier you choose (+15 XP per Tier above 1), and their creatures appear next to you on your GM\'s battle map.'
             ]],
             ['At the Table', [
@@ -120,7 +120,8 @@
                 'Attributes bought with XP (and injuries) are kept apart from your base attributes, so rebuilding your race never loses them. Existing characters are converted the first time you open them.',
                 'One character per world: joining, or moving a character into a world that already has one, asks whether to archive or delete the other.',
                 'If your GM deletes a world, your characters in it are archived, not lost. Rejoining a world after being kicked brings its folder back.',
-                'Click your portrait and press Edit Token to change which part of the picture fills your circle and battle-map token, without uploading it again.'
+                'Click your portrait and press Edit Token to change which part of the picture fills your circle and battle-map token, without uploading it again.',
+                'A character with no world sees only the Join World screen: no Party, maps or notes from another character\'s world.'
             ]],
             ['Origin Builder', [
                 'It all fits on one screen: Origin Name, Starting Wealth and Origin Feature on the left, the common language and four competencies on the right.',
@@ -136,7 +137,8 @@
                 'Every power has its own Core Attribute, picked in the Power Crafter, and its card shows its attack bonus and DC.',
                 'Full Rest Powers (formerly INT Powers) give Power Slots that come back after a Full Rest, and a power can use a slot of its Level or higher. Short Rest Powers (formerly CHA Powers) give uses that come back after a Short Rest. Each power belongs to one pool, and when that pool is empty you\'re offered the other.',
                 'Existing powers keep the attribute and pool they used before.',
-                'Summon a Creature has a Tier (+15 XP per Tier above 1, per creature). Saving the power opens the NPC Crafter to build the creature at that Tier, and using it places the creatures next to your token on the battle map your GM has open.'
+                'Summon a Creature has a Tier (+15 XP per Tier above 1, per creature). Saving the power opens the NPC Crafter to build the creature at that Tier, and using it places the creatures next to your token on the battle map your GM has open.',
+                'A power that summons a creature has an Edit Summoned Creature button, so the creature can be changed without reopening the Power Crafter.'
             ]],
             ['Magic and Custom Items', [
                 'Equippable items can carry any number of bonuses, or penalties if cursed: Core Attributes, skills, AC, DR, ER, one energy resistance, Max HP, Max AP, Speed, Initiative, Wound Threshold, Max Rest Dice, Max Luck Points, Carry Capacity, attack and damage rolls, power attack and DC, saves, checks and extra Power Slots.',
@@ -168,7 +170,8 @@
                 'Your GM sees the same AC, DR, ER, Wound Threshold and resistances your sheet shows, with shields, helmet, perks and magic items included.',
                 'Defensive Rank 4: while you\'re unarmored, the line under DR and ER gives your DR and ER against traps, hazards and falling.',
                 'The damage type chooser also asks for damage taken on your own turn, and a power that deals half damage on a save uses its own damage type, never an earlier attack\'s.',
-                'When your GM has you fall, your tray asks for the AGI (Acrobatics) Reaction: every 5 you roll takes off 1d10.'
+                'When your GM has you fall, your tray asks for the AGI (Acrobatics) Reaction: every 5 you roll takes off 1d10.',
+                'Typing "-5" in an HP box and pressing Enter asks for the damage type, the same as clicking away does (Enter no longer answers the question for you).'
             ]],
             ['Conditions and Injuries', [
                 'Wound Threshold and Bleed Out: your next CON save decides the Wound, then CON (Survive) sets your Bleed Out rounds. If a Luck reroll or an Omen die turns the Wound save into a success, the GM\'s limb choice disappears and any limb already chosen heals.',
@@ -201,7 +204,8 @@
             ['Luck and Looting', [
                 'Loot / Scavenge, next to + Add Item, rolls Currency (LUC × enemies defeated ÷ 2), Ammunition (LUC − 3d6 rounds) or an hour of scavenging for Crafting Materials.',
                 'When your GM calls for a Loot roll, it opens with the enemy count already filled in, and your result goes back to the GM.',
-                'The Scavenge list shows your bonus for each roll, and whether it has Advantage or Disadvantage.'
+                'The Scavenge list shows your bonus for each roll, and whether it has Advantage or Disadvantage.',
+                'INT (Encyclopedia) for scavenging lists the untrained roll first, then every Encyclopedia you\'re trained in.'
             ]],
             ['Loyal Companions', [
                 'Your companion has AP pips of its own, which empty when a fight begins and refill on its turn. Attacks from its stat block and its powers\' Use buttons spend them.',
@@ -209,7 +213,9 @@
                 'Its stat block has a SAVE button under each Core Attribute, and Saving Throw Training (2 TP each) adds its Training Bonus to one save.',
                 'Its HP matches everywhere, each Rest Die you use heals it too, it can have its own token art, it can carry a Shield and Helmet, and your Omen dice work on its rolls.',
                 'Your companion acts on your initiative, right after you.',
-                'Forged armor and weapons for your companion cost only TP, never Cu.'
+                'Forged armor and weapons for your companion cost only TP, never Cu.',
+                'The forges show no Cu at all for your companion: its armor and weapons cost only TP, and Purchase reads Equip (TP).',
+                'Companions wear armor by the same rules as you: the weight class caps its AGI bonus to AC, and below the STR requirement it loses AGI to AC and 2 Speed and attacks with Disadvantage.'
             ]],
             ['Party and Trading', [
                 'The Party tab lists everyone in your world, with each companion beside its owner.',
@@ -221,10 +227,12 @@
                 'Attacks and powers spend their own AP, and you\'re asked first when you\'re short or a perk might change the cost.',
                 'AP perks (Adrenaline, Relentless) add their AP when combat starts, and New Turn never gives AP twice.',
                 'Drag your token in combat to see its path and AP cost (1, then 2, then 3… per Move); it\'s paid when you drop it. Hold Alt to move without paying.',
-                'Click the Action Points title in Vitals for every Combat Maneuver and Standard Action. A click spends the AP (asking first if you\'re short) and applies what it can: Fight Defensively and Block add AC until your next turn, Fight Offensively gives Advantage, Power and Precision Attack add STR or AGI to your next melee hit, Charge adds a die, and Feint, Vault, Grapple and Pin roll their checks.',
+                'Click the Action Points title in Vitals for every Combat Maneuver (left) and Standard Action (right). A click spends the AP (asking first if you\'re short) and applies what it can: Fight Defensively adds +4 AC (+2 on a turn you attack), Block doubles your shield or rolls your Sturdy weapon\'s die for AC, Fight Offensively gives Advantage, Power and Precision Attack add STR or AGI to your next melee hit, Charge adds a die, and Feint, Vault, Grapple and Pin roll their checks.',
                 'Active effects show under Armor & Defenses with a red ✕ to end them early; they end on their own at your next turn or when you attack.',
                 'Repair (Unalive): 3 AP to restore Xd6 HP (X = your INT modifier, min 1) to an adjacent machine or animated object.',
-                'A character can be open in one browser tab at a time. Opening it in another tab saves and sends the first one back to the lobby, so AP is never spent twice.'
+                'A character can be open in one browser tab at a time. Opening it in another tab saves and sends the first one back to the lobby, so AP is never spent twice.',
+                'Block needs a shield or a Sturdy weapon (unarmed strikes count from Martial Arts Rank 2) and Shield Bash needs a shield; without one they\'re greyed out. Martial Arts Rank 1 takes 1 AP off every maneuver (minimum 1).',
+                'The 📌 beside any action pins it to Weapons & Attacks for one-click use; ✕ unpins it. Recover keeps its own button.'
             ]],
             ['Maps', [
                 'Special Map Markers (the single letters your GM places) are larger and bright yellow with a dark outline, easy to spot on light and dark maps alike, and never too small to read when zoomed out.',
@@ -240,7 +248,9 @@
                 'Map windows, popups and the dice tray share one stacking order: whichever you opened or clicked last is on top.',
                 'Movement paths go straight along diagonals instead of zig-zagging, so moves cost what they should, and big creatures measure from their center.',
                 'The Measure toolbar wraps onto more lines in small windows instead of being cut off.',
-                'Double-click any popup window\'s title bar to minimize it to a tab in the bottom-left corner.'
+                'Double-click any popup window\'s title bar to minimize it to a tab in the bottom-left corner.',
+                'The Measure buttons and tip sit below a map window\'s own controls instead of behind them.',
+                'A minimized map comes back with its map, tokens and pins intact.'
             ]],
             ['Rules', [
                 'High Roller, Fortunate Fighter (Rank 1 uses LUC for AC when that\'s higher), Mobile and Regenerative are rewritten or updated.',
@@ -365,7 +375,9 @@
                 'The Power Crafter allows at most 8 dice per die step and adds Mythic Utilities (a flat 130 XP).',
                 '+1 AP for an NPC costs 6 TP, at most +1 per Tier (Tier 0 counts as 1), and ranged weapons show their range on the stat block.',
                 'Undead (4 TP): immune to Poison and seven conditions, vulnerable to Fire. At 0 HP from non-critical Physical or non-Fire Energy damage it falls Prone and Incapacitated, and at the start of its turn the tracker rolls its CON save (DC = the final blow) to rise with 1 HP or be destroyed.',
-                'Unalive Structure (5 TP): immune to Poison, Psychic and ten conditions, vulnerable to Electric. Electric damage asks for its CON save (DC 10 + half the damage) or it\'s Stunned, and healing it asks whether it\'s a mechanical repair.'
+                'Unalive Structure (5 TP): immune to Poison, Psychic and ten conditions, vulnerable to Electric. Electric damage asks for its CON save (DC 10 + half the damage) or it\'s Stunned, and healing it asks whether it\'s a mechanical repair.',
+                'NPCs wear armor by the players\' rules: the weight class (armor, Shield and Helmet) caps their AGI bonus to AC, and below the STR requirement they lose AGI to AC and 2 Speed and attack with Disadvantage. Their stat blocks show the weight class and STR needed.',
+                'The Armor and Weapon Forges show no Cu for NPCs: their gear costs TP.'
             ]],
             ['Initiative and Combat', [
                 'The tracker stands on its own and uses a battle map only when one is open or chosen as the fight\'s Battle map.',
@@ -397,7 +409,8 @@
                 'Painting fog and zooming no longer make the browser redo the page layout on every mouse move (the "Forced reflow" console messages), so both feel smoother.',
                 'Resizing a token next to a wall or another token shifts it to fit, player tokens included.',
                 'Movement paths follow diagonals without zig-zagging, and Large and bigger creatures measure from their center.',
-                'The Measure toolbar wraps in small windows, and double-clicking a window\'s title bar minimizes it to a tab.'
+                'The Measure toolbar wraps in small windows, and double-clicking a window\'s title bar minimizes it to a tab.',
+                'A token\'s menu says Shrink and Grow for its size.'
             ]],
             ['Worlds and Accounts', [
                 'Deleting a world removes its maps, fog, portraits, images, invite code and player list, and deleting your account does that for every world you run, plus your characters, races, NPCs and profile.',

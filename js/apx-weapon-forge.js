@@ -113,7 +113,9 @@ window.openWeaponForge = function(idx, target) {
     weaponForgeTarget = (target === 'companion' || target === 'gm' || target === 'loot') ? target : 'player';
     if (weaponForgeTarget === 'loot') window._lootForgeWeapons = [];
     let gmBtn = document.getElementById('wpnBtnGmAdd');
-    if (gmBtn) gmBtn.textContent = weaponForgeTarget === 'loot' ? 'Add to Loot' : 'Add to NPC (Free)';
+    if (gmBtn) gmBtn.textContent = weaponForgeTarget === 'loot' ? 'Add to Loot' : 'Add to NPC (TP)';
+    let buyBtn = document.getElementById('wpnBtnPurchase');
+    if (buyBtn) { if (!buyBtn.dataset.lbl) buyBtn.dataset.lbl = buyBtn.textContent; buyBtn.textContent = weaponForgeTarget === 'companion' ? 'Equip (TP)' : buyBtn.dataset.lbl; }
     weaponForgeEditIndex = (typeof idx === 'number') ? idx : null;
 
     if (weaponForgeEditIndex !== null) {
@@ -399,6 +401,26 @@ function renderWeaponForgeSummary() {
         tpEl.style.display = '';
         tpEl.textContent = `Threat Point cost for this ${weaponForgeTarget === 'gm' ? 'NPC' : 'companion'}: ${r.tp} TP` + (r.parts.length ? ` (${r.parts.map(p => p.label + ' ' + p.tp).join(', ')})` : '');
     } else if (tpEl) tpEl.style.display = 'none';
+    setTimeout(wpnStripCu, 0);
+}
+// Companions and NPCs pay Threat Points for forged weapons, never Cu: no Cu shown anywhere
+function wpnStripCu() {
+    let modal = document.getElementById('weaponForgeModal'); if (!modal) return;
+    let noCu = weaponForgeTarget === 'companion' || weaponForgeTarget === 'gm';
+    let cost = document.getElementById('wpnSumCost'), paid = document.getElementById('wpnSumPaid');
+    if (cost) cost.parentElement.style.display = noCu ? 'none' : '';
+    if (paid) paid.parentElement.parentElement.style.display = noCu ? 'none' : '';
+    let el = document.getElementById('wpnElementalCheck');
+    let lbl = el && el.nextElementSibling;
+    if (lbl) lbl.textContent = noCu ? 'Elemental' : 'Elemental (300 Cu)';
+    if (!noCu) return;
+    modal.querySelectorAll('span,div').forEach(n => {
+        if (n.children.length) return;
+        let t = (n.textContent || '').trim();
+        if (/^\[?\+?-?\d+ Cu( each)?\]?$/.test(t) || (t === 'Free' && /yellow/.test(n.className))) n.style.display = 'none';
+        else if (/\[\d+ Cu each, max (\d+)\]/.test(t)) n.textContent = t.replace(/\[\d+ Cu each, (max \d+)\]/, '[$1]');
+        else if (/\(\s*\d+ Cu\s*\)/.test(t)) n.textContent = t.replace(/\s*\(\s*\d+ Cu\s*\)/g, '');
+    });
 }
 
 // A weapon object from the current draft, for TP pricing before it's made

@@ -217,7 +217,7 @@
             z++;
         }
         window._apxPopZ = z;
-        if (el && el.dataset && el.dataset.apxMin) { el.style.display = ''; delete el.dataset.apxMin; if (el._apxTab) el._apxTab.remove(); }   // minimized: bring it back
+        if (el && el.dataset && el.dataset.apxMin) { restoreMin(el); if (el._apxTab) el._apxTab.remove(); }   // minimized: bring it back
         if (el) { el.setAttribute('data-apx-front', ''); el.style.zIndex = z; }
         return z;
     };
@@ -252,17 +252,25 @@
         }
         return b;
     }
+    // Minimized windows stay laid out (hidden, not display:none), so maps and canvases inside keep
+    // their size and live updates; bringing one back nudges anything that sizes itself to redraw
+    function restoreMin(w) {
+        w.style.visibility = w.dataset.apxMinVis || ''; w.style.pointerEvents = w.dataset.apxMinPe || '';
+        delete w.dataset.apxMin; delete w.dataset.apxMinVis; delete w.dataset.apxMinPe;
+        setTimeout(() => { try { window.dispatchEvent(new Event('resize')); } catch (e) { } }, 0);
+    }
     function minimize(w) {
-        if (!w || w.style.display === 'none') return;
+        if (!w || w.style.display === 'none' || w.dataset.apxMin) return;
         let hdr = w.firstElementChild;
         let title = ((hdr && hdr.textContent) || w.id || 'Window').replace(/\s+/g, ' ').replace(/[✕×X]\s*$/, '').trim().slice(0, 32) || 'Window';
         w.dataset.apxMin = '1';
-        w.style.display = 'none';
+        w.dataset.apxMinVis = w.style.visibility || ''; w.dataset.apxMinPe = w.style.pointerEvents || '';
+        w.style.visibility = 'hidden'; w.style.pointerEvents = 'none';
         let t = document.createElement('button');
         t.textContent = title;
         t.title = 'Bring it back';
         t.style.cssText = 'pointer-events:auto;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.7rem;font-weight:800;padding:.3rem .6rem;border-radius:.4rem .4rem 0 0;border:1px solid var(--c-border2,#475569);background:var(--c-surface,#1e293b);color:var(--c-text,#fff);box-shadow:0 4px 14px rgba(0,0,0,.5);cursor:pointer';
-        t.onclick = () => { t.remove(); w.style.display = ''; delete w.dataset.apxMin; window.apxFront(w); };
+        t.onclick = () => { t.remove(); restoreMin(w); window.apxFront(w); };
         // the window closing for good takes its tab with it
         let mo = new MutationObserver(() => { if (!w.isConnected) { t.remove(); mo.disconnect(); } });
         mo.observe(w.parentNode || document.body, { childList: true });

@@ -23,6 +23,18 @@
         (s.extraShields || []).forEach(x => { ac += parseInt(x.ac) || 0; });
         return ac;
     }
+    // Weapons with the Sturdy property (and unarmed strikes at Martial Arts Rank 2): they can Block
+    const UNARMED = ['1d4', '1d6', '1d8', '1d10', '1d12', '2d6'];
+    function sturdyWeapons() {
+        let s = st(), out = (s.weapons || []).filter(w => w && w.properties && w.properties.sturdy).map(w => ({ name: w.name || 'Weapon', dmg: String(w.dmg || w.dice || '1d6') }));
+        let ma = (s.perks || {}).str_martialarts || 0;
+        if (ma >= 2) out.push({ name: 'Unarmed (Martial Arts)', dmg: UNARMED[Math.min(5, ma)] });
+        return out;
+    }
+    function oneDie(formula) { let m = String(formula).match(/d(\d+)/); return m ? +m[1] : 6; }
+    function rollDie(sides) { return window.APXDice && window.APXDice.rnd ? window.APXDice.rnd(sides) : 1 + Math.floor(Math.random() * sides); }
+    // Martial Arts Rank 1: combat maneuvers cost 1 AP less (minimum 1)
+    function maneuverCost(a, c) { if (a.g !== 'Combat Maneuvers' || !c) return c; return ((st().perks || {}).str_martialarts || 0) >= 1 ? Math.max(1, c - 1) : c; }
     function refresh() { window.recalculateMath && window.recalculateMath(); window.scheduleAutoSave && window.scheduleAutoSave(); }
     function addFx(e) { let list = fx().filter(x => x.key !== e.key); list.push(Object.assign({ id: uid() }, e)); st().turnFx = list; refresh(); }
     function rollSkill(skill, attr, label) {
@@ -37,7 +49,7 @@
 
     // ── What the effects do (called by the engine on every recalculation) ──
     window.apxTurnFxAc = function () {
-        return fx().reduce((t, e) => t + (e.key === 'defensive' ? (e.attacked ? 2 : 4) : e.key === 'block' ? (e.ac || 0) : (e.ac || 0)), 0);
+        return fx().reduce((t, e) => t + (e.key === 'defensive' ? (e.attacked || st().apxAttackedTurn ? 2 : 4) : (e.ac || 0)), 0);
     };
     window.apxTurnFxApply = function (calc) {
         fx().forEach(e => {
@@ -46,11 +58,32 @@
             if (e.next && e.next.dis) (e.next.melee ? calc.disadv.atkMelee : calc.disadv.atkGeneral).push(e.label);
         });
         render();
+        try { renderPinned(); } catch (e) { }
     };
     function render() {
         let box = document.getElementById('dispTurnFx'); if (!box) return;
         let list = fx();
-        box.innerHTML = list.map(e => `<span class="apx-cond-chip" style="border-color:#38bdf8;color:#bae6fd;display:inline-flex;align-items:center;gap:.2rem" title="${esc(e.desc || '')}">${esc(e.short || e.label)}<button onclick="window.apxEndTurnFx('${e.id}')" title="End it now" style="color:#ef4444;font-weight:900;background:none;border:none;cursor:pointer;padding:0 .1rem">✕</button></span>`).join('');
+        box.innerHTML = list.map(e => `<span class="apx-cond-chip" style="border-color:#38bdf8;color:#bae6fd;display:inline-flex;align-items:center;gap:.2rem" title="${esc(e.desc || '')}">${esc(e.key === 'defensive' ? `Fight Defensively: +${e.attacked || st().apxAttackedTurn ? 2 : 4} AC` : (e.short || e.label))}<button onclick="window.apxEndTurnFx('${e.id}')" title="End it now" style="color:#ef4444;font-weight:900;background:none;border:none;cursor:pointer;padding:0 .1rem">✕</button></span>`).join('');
+    }
+    // Actions pinned to Weapons & Attacks
+    function renderPinned() {
+        let body = document.getElementById('weaponsBody'); if (!body) return;
+        let host = document.getElementById('apxPinnedActions');
+        if (!host) { host = document.createElement('div'); host.id = 'apxPinnedActions'; host.style.cssText = 'display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.5rem'; let wrap = body.closest('.overflow-x-auto') || body.parentElement; wrap.parentElement.insertBefore(host, wrap.nextSibling); }
+        let pins = (st().pinnedActions || []).map(n => A.find(a => a.name === n)).filter(Boolean);
+        host.style.display = pins.length ? 'flex' : 'none';
+        host.innerHTML = pins.map(a => { let why = a.requires ? a.requires() : ''; let c = costOf(a);
+            return `<span style="display:inline-flex;align-items:center;border:1px solid var(--c-border2,#475569);border-radius:.4rem;background:var(--c-surface2,#0f172a);${why ? 'opacity:.45' : ''}">
+                <button data-pin-do="${esc(a.name)}" title="${esc(why || a.tip)}" style="background:none;border:none;color:inherit;font-size:.72rem;font-weight:800;padding:.25rem .5rem;cursor:pointer">${esc(a.name)} <span style="color:#60a5fa;font-weight:900">${esc(a.costLabel || (c == null ? 'X' : String(c)))} AP</span></button>
+                <button data-pin-off="${esc(a.name)}" title="Unpin" style="background:none;border:none;border-left:1px solid var(--c-border,#334155);color:var(--c-text-muted,#94a3b8);font-size:.7rem;padding:.25rem .35rem;cursor:pointer">✕</button></span>`; }).join('');
+        host.querySelectorAll('[data-pin-do]').forEach(b => b.onclick = () => { let a = A.find(x => x.name === b.dataset.pinDo); if (a) doAction(a); });
+        host.querySelectorAll('[data-pin-off]').forEach(b => b.onclick = () => togglePin(b.dataset.pinOff));
+    }
+    function togglePin(name) {
+        let s = st(), list = (s.pinnedActions || []).slice(), i = list.indexOf(name);
+        if (i >= 0) list.splice(i, 1); else list.push(name);
+        s.pinnedActions = list; renderPinned(); window.scheduleAutoSave && window.scheduleAutoSave();
+        return i < 0;
     }
     window.apxEndTurnFx = function (id) { st().turnFx = fx().filter(e => e.id !== id); refresh(); };
 
@@ -61,7 +94,7 @@
         let w = function () {
             let r = orig.apply(this, arguments);
             let s = st();
-            if (s) { let had = fx().length; s.turnFx = []; s.apxMoves = 0; if (had) refresh(); }
+            if (s) { let had = fx().length; s.turnFx = []; s.apxMoves = 0; s.apxAttackedTurn = false; if (had) refresh(); }
             return r;
         };
         w._apxFx = true; window.apxResetAp = w;
@@ -73,6 +106,7 @@
             let r = await orig.apply(this, arguments);
             if (r === false || !o || !o.pcAttack) return r;
             let list = fx(), changed = false, melee = o.wcat !== 'ranged';
+            if (!st().apxAttackedTurn) { st().apxAttackedTurn = true; changed = true; }   // Fight Defensively: +2, not +4, on a turn you attack
             list.forEach(e => {
                 if (e.key === 'defensive' && !e.attacked) { e.attacked = true; changed = true; }   // +4 AC drops to +2 once you attack
                 if (!e.next) return;
@@ -96,19 +130,30 @@
     // cost: AP (null = varies), auto(): applies it; requires(): a reason it can't be done (or '')
     const A = [
         // Combat Maneuvers
-        { g: 'Combat Maneuvers', name: 'Fight Defensively', cost: 1, tip: '+4 AC until the start of your next turn (+2 once you attack), and Disadvantage on your attack rolls.',
-            auto: () => addFx({ key: 'defensive', label: 'Fight Defensively', short: 'Fight Defensively: +4 AC', until: 'turn', atkDis: true, desc: '+4 AC until your next turn (+2 once you attack); Disadvantage on your attacks.' }) },
+        { g: 'Combat Maneuvers', name: 'Fight Defensively', cost: 1, tip: '+2 AC and Disadvantage on your attack rolls until the start of your next turn. If you make no attacks this turn, the bonus is +4.',
+            auto: () => addFx({ key: 'defensive', label: 'Fight Defensively', attacked: !!st().apxAttackedTurn, until: 'turn', atkDis: true, desc: '+4 AC until your next turn, or +2 on a turn you attack (before or after); Disadvantage on your attacks.' }) },
         { g: 'Combat Maneuvers', name: 'Fight Offensively', cost: 1, tip: 'Advantage on your attack rolls until the start of your next turn; attacks against you have Advantage too.',
             auto: () => addFx({ key: 'offensive', label: 'Fight Offensively', short: 'Fight Offensively: Adv on attacks', until: 'turn', atkAdv: true, desc: 'Advantage on your attacks; attacks against you have Advantage. Until your next turn.' }) },
         { g: 'Combat Maneuvers', name: 'Block', cost: 2, tip: 'Double your shield\'s AC bonus until the start of your next turn or until you attack. With a Sturdy weapon instead: roll one of its damage dice and add it to your AC.',
+            requires: () => shieldAc() || sturdyWeapons().length ? '' : 'You need a shield or a Sturdy weapon equipped.',
             auto: async () => {
-                let sac = shieldAc(), ac = sac;
-                if (!sac) {
-                    let v = window.apxPrompt ? await window.apxPrompt('No shield equipped. Blocking with a Sturdy weapon: roll one of its damage dice and enter the result (your AC bonus).', '', { title: 'Block' }) : null;
-                    ac = parseInt(v) || 0; if (!ac) return false;
+                let sac = shieldAc(), sw = sturdyWeapons(), pick = sac ? 'shield' : '0';
+                if (sw.length && (sac || sw.length > 1) && window.APXDice && APXDice.ask) {
+                    let ch = (sac ? [['shield', `Shield (+${sac} AC)`, 'pri']] : []).concat(sw.map((w, i) => [String(i), `${w.name} (1d${oneDie(w.dmg)})`, sac || i ? '' : 'pri']));
+                    pick = await APXDice.ask('Block with…', 'A shield doubles its AC bonus; a Sturdy weapon rolls one of its damage dice as your AC bonus.', ch);
+                    if (!pick) return false;
                 }
-                addFx({ key: 'block', label: 'Block', short: `Block: +${ac} AC`, ac, until: 'attack', desc: `+${ac} AC until your next turn or until you attack.` });
+                let ac, src;
+                if (pick === 'shield') { ac = sac; src = 'shield'; }
+                else {
+                    let w = sw[+pick] || sw[0], sides = oneDie(w.dmg); ac = rollDie(sides); src = w.name;
+                    if (window.APXDice && APXDice.info) APXDice.info({ label: 'Block', who: st().name || '', text: `${w.name}: rolled 1d${sides} = ${ac}. +${ac} AC until your next turn or until you attack with it.` });
+                }
+                addFx({ key: 'block', label: 'Block', short: `Block (${src}): +${ac} AC`, ac, until: 'attack', desc: `+${ac} AC until your next turn or until you attack.` });
             } },
+        { g: 'Combat Maneuvers', name: 'Shield Bash', cost: 3, tip: 'With a shield: a STR melee attack; on a hit, Bludgeoning damage equal to your STR score and the target is Staggered until your next turn.',
+            requires: () => shieldAc() ? '' : 'You need a shield equipped.',
+            auto: () => { let s = (typeof calc !== 'undefined' && calc.scores && calc.scores.STR) || 0; window.APXDice?.check({ kind: 'attack', attr: 'STR', label: 'Shield Bash', bonus: mod('STR') + (st().trainingBonus || 0), who: st().name || '', note: `Hit: ${s} Bludgeoning damage and the target is Staggered` }); } },
         { g: 'Combat Maneuvers', name: 'Disengage', cost: 2, tip: 'Your movement doesn\'t provoke attacks of opportunity until the end of your turn.',
             auto: () => addFx({ key: 'disengage', label: 'Disengage', short: 'Disengaged', until: 'turn', desc: 'Your movement doesn\'t provoke attacks of opportunity this turn.' }) },
         { g: 'Combat Maneuvers', name: 'Power Attack', cost: 2, extra: '+ attack', tip: 'Declare before your next melee attack (it also costs its own AP): on a hit, add your STR modifier to the damage.',
@@ -127,9 +172,6 @@
             auto: () => addFx({ key: 'disarm', label: 'Disarming Attack', short: 'Disarm: next melee attack', until: 'turn', next: { melee: true, dis: true }, desc: 'Next melee attack: Disadvantage; on a hit the target drops an item.' }) },
         { g: 'Combat Maneuvers', name: 'Shove', cost: 3, tip: 'A melee attack that deals no damage (Disadvantage against larger creatures): on a hit, push 2 squares or knock Prone.',
             auto: () => note('Shove: make your melee attack (no damage). On a hit, push the target 2 squares or knock it Prone. Disadvantage if it\'s larger than you.') },
-        { g: 'Combat Maneuvers', name: 'Shield Bash', cost: 3, tip: 'With a shield: a STR melee attack; on a hit, Bludgeoning damage equal to your STR score and the target is Staggered until your next turn.',
-            requires: () => shieldAc() ? '' : 'You need a shield equipped.',
-            auto: () => { let s = (typeof calc !== 'undefined' && calc.scores && calc.scores.STR) || 0; window.APXDice?.check({ kind: 'attack', attr: 'STR', label: 'Shield Bash', bonus: mod('STR') + (st().trainingBonus || 0), who: st().name || '', note: `Hit: ${s} Bludgeoning damage and the target is Staggered` }); } },
         { g: 'Combat Maneuvers', name: 'Feint', cost: 2, tip: 'CHA (Deceive) against the target\'s PER (Insight). If you win, your next attack against it this turn has Advantage.',
             auto: () => { rollSkill('Deceive', 'CHA', 'Feint: CHA (Deceive)'); addFx({ key: 'feint', label: 'Feint', short: 'Feint: Adv on next attack', until: 'turn', next: { adv: true }, desc: 'If your Deceive beat their Insight, your next attack against them has Advantage. ✕ it if you lost.' }); } },
         { g: 'Combat Maneuvers', name: 'Vault', cost: 2, tip: 'AGI (Acrobatics) against the creature\'s STR (Athletics): leap over it, and your first melee attack against it this turn has Advantage.',
@@ -158,9 +200,9 @@
             auto: () => { let x = Math.max(1, mod('INT')); if (window.APXDice && APXDice.damage) APXDice.damage({ label: 'Mechanical repairs', who: st().name || '', formula: x + 'd6', heal: true, note: 'An adjacent Unalive Structure regains this much HP.' }); else note(`Repair: the Unalive creature regains ${x}d6 HP.`); } },
         { g: 'Standard Actions', name: 'Skill Check', cost: 3, tip: 'Any skill check mid-combat (pick a lock, hide, search a body). Click the skill on your sheet to roll it.', auto: () => { } },
         { g: 'Standard Actions', name: 'Ready', cost: null, tip: 'Spend the AP of an action and set a trigger. If it happens before your next turn, do it as your Reaction; if not, you get the AP back.',
-            auto: async () => { let v = window.apxPrompt ? await window.apxPrompt('Ready an action: how many AP does it cost?', '3', { title: 'Ready' }) : null; let n = parseInt(v); if (!(n >= 0)) return false; return { spend: n }; } },
-        { g: 'Standard Actions', name: 'Recover', cost: null, costLabel: '1 / 3', tip: 'Shake It Off (1 AP) or Shrug It Off (3 AP), once each per Short or Full Rest.', auto: () => { window.apxRecoverMenu && window.apxRecoverMenu(); return false; }, own: true }
+            auto: async () => { let v = window.apxPrompt ? await window.apxPrompt('Ready an action: how many AP does it cost?', '3', { title: 'Ready' }) : null; let n = parseInt(v); if (!(n >= 0)) return false; return { spend: n }; } }
     ];
+    function costOf(a) { return maneuverCost(a, a.costNow ? a.costNow() : a.cost); }
 
     window.apxOpenActions = function (ev) {
         if (ev) ev.stopPropagation();
@@ -168,17 +210,21 @@
         let have = window.apxApCurrent ? window.apxApCurrent() : 0;
         let pop = document.createElement('div');
         pop.id = 'apxActionsPop';
-        pop.style.cssText = 'position:fixed;width:min(380px,calc(100vw - 16px));max-height:min(78vh,640px);overflow:auto;background:var(--c-surface,#1e293b);border:1px solid var(--c-border2,#475569);border-radius:.6rem;box-shadow:0 18px 50px rgba(0,0,0,.7);padding:.5rem;color:var(--c-text,#fff);font-family:var(--c-font,inherit)';
+        pop.style.cssText = 'position:fixed;width:min(780px,calc(100vw - 16px));max-height:min(78vh,640px);overflow:auto;background:var(--c-surface,#1e293b);border:1px solid var(--c-border2,#475569);border-radius:.6rem;box-shadow:0 18px 50px rgba(0,0,0,.7);padding:.5rem;color:var(--c-text,#fff);font-family:var(--c-font,inherit)';
         let groups = [...new Set(A.map(a => a.g))];
         pop.innerHTML = `<div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.35rem"><b style="flex:1;font-size:.85rem">Actions</b><span style="font-size:.7rem;color:var(--c-text-muted,#94a3b8)">You have <b style="color:#60a5fa">${have}</b> AP</span><button data-x style="background:none;border:none;color:var(--c-text-muted,#94a3b8);font-weight:900;cursor:pointer">✕</button></div>`
-            + groups.map(g => `<div style="font-size:.62rem;font-weight:900;text-transform:uppercase;letter-spacing:.05em;color:var(--c-indigo-lt,#a5b4fc);margin:.45rem 0 .2rem">${g}</div>`
+            + `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:.6rem;align-items:start">`
+            + groups.map(g => `<div><div style="font-size:.62rem;font-weight:900;text-transform:uppercase;letter-spacing:.05em;color:var(--c-indigo-lt,#a5b4fc);margin:.2rem 0 .2rem">${g}</div>`
                 + A.filter(a => a.g === g).map((a, i) => {
-                    let c = a.costNow ? a.costNow() : a.cost;
+                    let c = costOf(a);
                     let lbl = a.costLabel || (c == null ? 'X' : String(c)) + (a.extra ? ' ' + a.extra : '');
-                    return `<button data-a="${A.indexOf(a)}" title="${esc(a.tip)}" style="display:flex;width:100%;text-align:left;gap:.5rem;align-items:baseline;background:var(--c-surface2,#0f172a);border:1px solid var(--c-border,#334155);border-radius:.4rem;padding:.3rem .45rem;margin-bottom:.2rem;cursor:pointer;color:inherit">
-                        <span style="font-size:.74rem;font-weight:800;flex:1">${esc(a.name)}<span style="display:block;font-size:.62rem;font-weight:500;color:var(--c-text-muted,#94a3b8);line-height:1.3">${esc(a.tip)}</span></span>
-                        <span style="font-size:.66rem;font-weight:900;color:#60a5fa;white-space:nowrap">${esc(lbl)} AP</span></button>`;
-                }).join('')).join('');
+                    let why = a.requires ? a.requires() : '';
+                    let pinned = (st().pinnedActions || []).includes(a.name);
+                    return `<div style="display:flex;gap:.2rem;margin-bottom:.2rem;align-items:stretch"><button data-a="${A.indexOf(a)}" ${why ? 'data-why="1"' : ''} title="${esc(why ? why + ' ' + a.tip : a.tip)}" style="display:flex;flex:1;min-width:0;text-align:left;gap:.5rem;align-items:baseline;background:var(--c-surface2,#0f172a);border:1px solid var(--c-border,#334155);border-radius:.4rem;padding:.3rem .45rem;cursor:${why ? 'not-allowed' : 'pointer'};color:inherit;${why ? 'opacity:.4' : ''}">
+                        <span style="font-size:.74rem;font-weight:800;flex:1">${esc(a.name)}<span style="display:block;font-size:.62rem;font-weight:500;color:var(--c-text-muted,#94a3b8);line-height:1.3">${esc(why || a.tip)}</span></span>
+                        <span style="font-size:.66rem;font-weight:900;color:#60a5fa;white-space:nowrap">${esc(lbl)} AP</span></button>
+                        <button data-pin="${esc(a.name)}" title="${pinned ? 'Unpin from Weapons & Attacks' : 'Pin to Weapons & Attacks'}" style="flex-shrink:0;width:1.7rem;background:${pinned ? 'rgba(249,115,22,.25)' : 'var(--c-surface2,#0f172a)'};border:1px solid ${pinned ? '#f97316' : 'var(--c-border,#334155)'};border-radius:.4rem;cursor:pointer;color:${pinned ? '#fdba74' : 'var(--c-text-muted,#94a3b8)'};font-size:.75rem">📌</button></div>`;
+                }).join('') + '</div>').join('') + '</div>';
         document.body.appendChild(pop);
         let r = (ev && ev.target && ev.target.getBoundingClientRect) ? ev.target.getBoundingClientRect() : { left: 20, bottom: 120 };
         pop.style.left = Math.max(8, Math.min(innerWidth - pop.offsetWidth - 8, r.left)) + 'px';
@@ -188,7 +234,9 @@
         let outside = e => { if (!pop.contains(e.target)) close(); };
         setTimeout(() => document.addEventListener('mousedown', outside, true), 0);
         pop.querySelector('[data-x]').onclick = close;
-        pop.querySelectorAll('[data-a]').forEach(b => b.onclick = () => { close(); doAction(A[+b.dataset.a]); });
+        pop.querySelectorAll('[data-a]').forEach(b => b.onclick = () => { let a = A[+b.dataset.a]; if (b.dataset.why) { note(`${a.name}: ${a.requires()}`, 'warn'); return; } close(); doAction(a); });
+        pop.querySelectorAll('[data-pin]').forEach(b => b.onclick = e => { e.stopPropagation(); let on = togglePin(b.dataset.pin);
+            b.style.background = on ? 'rgba(249,115,22,.25)' : 'var(--c-surface2,#0f172a)'; b.style.borderColor = on ? '#f97316' : 'var(--c-border,#334155)'; b.style.color = on ? '#fdba74' : 'var(--c-text-muted,#94a3b8)'; b.title = on ? 'Unpin from Weapons & Attacks' : 'Pin to Weapons & Attacks'; });
     };
 
     async function doAction(a) {
@@ -196,7 +244,7 @@
         let why = a.requires ? a.requires() : '';
         if (why) { note(`${a.name}: ${why}`, 'warn'); return; }
         if (a.own) { await a.auto(); return; }
-        let cost = a.costNow ? a.costNow() : (a.cost || 0);
+        let cost = costOf(a) || 0;
         let have = window.apxApCurrent ? window.apxApCurrent() : 0;
         if (cost > have) {
             let ok = window.apxConfirm ? await window.apxConfirm(`${a.name} costs ${cost} AP and you have ${have}. Do it anyway?`, { title: 'Not enough AP', okLabel: 'Do it anyway', cancelLabel: 'Cancel' }) : false;
@@ -212,5 +260,5 @@
 
     // The engine and AP code load before this file; hook once they exist
     let tries = 0;
-    (function hook() { hookTurnStart(); hookAttacks(); if ((!window.apxResetAp || !window.apxBeforeAttack) && tries++ < 50) setTimeout(hook, 200); else render(); })();
+    (function hook() { hookTurnStart(); hookAttacks(); if ((!window.apxResetAp || !window.apxBeforeAttack) && tries++ < 50) setTimeout(hook, 200); else { render(); renderPinned(); } })();
 })();

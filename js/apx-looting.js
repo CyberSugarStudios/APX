@@ -176,8 +176,9 @@
         let bon = sp => { let b = parseInt(sp && sp.bonus) || 0; return ` (${b >= 0 ? '+' : ''}${b}${sp && (sp.disSources || []).length ? ', Disadv' : ''})`; };
         let lootB = bon(skillSpec('Loot') || attrSpec('LUC')), noticeB = bon(skillSpec('Notice') || attrSpec('PER')), surviveB = bon(skillSpec('Survive') || attrSpec('CON'));
         let scavOpts = [['Loot', `LUC (Loot)${lootB}: lucky finds in unexpected places`], ['Notice', `PER (Notice)${noticeB}: hidden caches or overlooked items`], ['Survive', `CON (Survive)${surviveB}: dig through toxic trash or harsh terrain`]];
+        // The generic (untrained) INT (Encyclopedia) first, then each Encyclopedia you're trained in
+        scavOpts.push(['ency:int', `INT (Encyclopedia, untrained)${bon(attrSpec('INT'))}: edible plants or salvageable tech`]);
         ency.forEach((o, i) => scavOpts.push(['ency:' + i, `INT (${o.label.replace(/\s*\(INT\)\s*$/, '')})${bon(o)}: edible plants or salvageable tech`]));
-        if (!ency.length) scavOpts.push(['ency:int', `INT (Encyclopedia)${bon(attrSpec('INT'))}: edible plants or salvageable tech`]);
         let back = panel('Luck and Looting', `
             <div class="apxdlg-msg" style="margin-bottom:.6rem">Looting happens right after a fight and relies on sheer luck. Scavenging is slower: about an hour of searching per attempt.</div>
             <div style="${box}${opts.focus === 'cu' ? ';border-color:#f59e0b' : ''}">

@@ -100,8 +100,11 @@
             <li>The <b>Chat</b> at the bottom of the tray messages everyone, just the GM, or any players you pick.</li></ul>`],
         ['Actions', 'Actions and AP', `
             <ul><li>Click the <b>Action Points</b> title in Vitals for every Combat Maneuver and Standard Action. Clicking one spends its AP (short on AP? you're asked first) and applies what it can: Fight Defensively's AC, Power Attack's damage on your next melee attack, Feint's Advantage, and so on.</li>
+            <li>Combat Maneuvers are on the left, Standard Actions on the right. Greyed-out ones need something you don't have (Block needs a shield or a Sturdy weapon, Shield Bash a shield). Block with a Sturdy weapon rolls its die for you.</li>
+            <li>The 📌 beside an action pins it to <b>Weapons &amp; Attacks</b>, so the ones you build around are one click away. Click ✕ on a pinned action to unpin it.</li>
             <li>Active effects show under <b>Armor &amp; Defenses</b> with a red <b>✕</b> to end them early. Most end on their own at your next turn or when you attack.</li>
-            <li>Powers with <b>Summon a Creature</b> have you build the creature in the NPC Crafter when you save the power. Using it puts the creatures next to your token on your GM's battle map.</li></ul>`],
+            <li>Powers with <b>Summon a Creature</b> have you build the creature in the NPC Crafter when you save the power; <b>Edit Summoned Creature</b> on the power changes it later. Using it puts the creatures next to your token on your GM's battle map.</li>
+            <li>Your Loyal Companion's forged armor and weapons cost only Threat Points, and follow the same armor rules as yours (weight class, STR requirement).</li></ul>`],
         ['Shortcuts', 'Shortcuts worth knowing', `
             <ul><li>Number boxes do math: type <kbd>+5</kbd> or <kbd>-3</kbd> to add or subtract, or <kbd>35-9</kbd> after what's there.</li>
             <li>Hit Points: <kbd>-9</kbd> takes 9 damage, through Temp HP first. <kbd>-9 fire</kbd> uses that damage type, so your DR/ER, resistances and immunities apply. Hit by the GM's creature? Its damage type is used for you.</li>
@@ -133,6 +136,7 @@
             <li>Damage is entered as a number (or <kbd>-12 fire</kbd>): DR/ER, resistances, wounds and Wound Thresholds are applied for you, and saves and wound checks are asked of the right player.</li>
             <li>Click a creature's conditions to change them, players included (Grabbed, Grappled and Pinned are there too). Condition immunities are enforced. <b>⤓ Fall</b> rolls fall damage with the Acrobatics reaction.</li>
             <li>Loyal Companions and summoned creatures act on their owner's initiative, right after them. A player's Summon a Creature power places its creatures next to them on the battle map they're on.</li>
+            <li>NPCs follow the armor rules too: weight class caps their AGI bonus to AC, and an unmet STR requirement costs them their AGI to AC, 2 Speed, and gives Disadvantage on attacks. Their forged gear costs TP, never Cu.</li>
             <li><b>Undead</b> and <b>Unalive Structure</b> NPC traits run themselves: immunities, vulnerabilities, the Undead revival save at the start of its turn, the Electric Stun save, and repair-only healing.</li>
             <li>The combat log and your players' rolls show up in your dice tray.</li></ul>`],
         ['Maps', 'Maps and battle maps', `
@@ -140,7 +144,7 @@
             <li>Turn on the <b>Grid</b> (size, offset, colour, thickness, opacity), place tokens, resize them, and paint <b>Fog</b> of war.</li>
             <li><b>Measure</b> (<kbd>M</kbd>) has Line, Cone and Burst modes and lists who's inside an area. Right-click drops waypoints.</li>
             <li>Share a map with your players, and stop sharing to close it on their screens.</li>
-            <li>Tokens added with <b>+ Token</b> from the tracker start hidden; reveal them from the token's menu. Double-click a window's title bar to minimize it to a tab.</li></ul>`],
+            <li>Tokens added with <b>+ Token</b> from the tracker start hidden; reveal them from the token's menu. <b>Shrink</b> and <b>Grow</b> in a token's menu change its size. Double-click a window's title bar to minimize it to a tab.</li></ul>`],
         ['Loot and notes', 'Loot, crafting and notes', `
             <ul><li>The <b>Loot Maker</b> builds loot boxes and gives items or Currency to players; a hidden grant isn't shown to the rest of the party.</li>
             <li>The Weapon and Armor Forges and the Consumable Crafter make custom gear for shops and loot.</li>

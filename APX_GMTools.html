@@ -450,8 +450,8 @@
                 }
         
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20261031200">
-    <link rel="stylesheet" href="css/tailwind.css?v=20261031200">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20261031800">
+    <link rel="stylesheet" href="css/tailwind.css?v=20261031800">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
@@ -1519,36 +1519,36 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20261031200"></script>
-    <script src="js/apx-patch-notes.js?v=20261031200"></script>
-    <script src="js/apx-dice.js?v=20261031200"></script>
-    <script src="js/apx-data.js?v=20261031200"></script>
-    <script src="js/apx-item-effects.js?v=20261031200"></script>
-    <script src="js/apx-perks-db.js?v=20261031200"></script>
-    <script src="js/apx-migrations.js?v=20261031200"></script>
-    <script src="js/apx-state.js?v=20261031200"></script>
-    <script src="js/apx-craft-shared.js?v=20261031200"></script>
-    <script src="js/apx-armor-forge.js?v=20261031200"></script>
-    <script src="js/apx-weapon-forge.js?v=20261031200"></script>
-    <script src="js/apx-consumable-crafter.js?v=20261031200"></script>
-    <script src="js/apx-perks-ui.js?v=20261031200"></script>
-    <script src="js/apx-power-crafter.js?v=20261031200"></script>
-    <script src="js/apx-npc-crafter.js?v=20261031200"></script>
-    <script src="js/apx-inventory-ui.js?v=20261031200"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20261031200"></script>
-    <script src="js/apx-gm-screen.js?v=20261031200"></script>
-    <script src="js/apx-loot-maker.js?v=20261031200"></script>
-    <script src="js/apx-library.js?v=20261031200"></script>
-    <script src="js/apx-gmtools-main.js?v=20261031200"></script>
+    <script src="js/apx-dialogs.js?v=20261031800"></script>
+    <script src="js/apx-patch-notes.js?v=20261031800"></script>
+    <script src="js/apx-dice.js?v=20261031800"></script>
+    <script src="js/apx-data.js?v=20261031800"></script>
+    <script src="js/apx-item-effects.js?v=20261031800"></script>
+    <script src="js/apx-perks-db.js?v=20261031800"></script>
+    <script src="js/apx-migrations.js?v=20261031800"></script>
+    <script src="js/apx-state.js?v=20261031800"></script>
+    <script src="js/apx-craft-shared.js?v=20261031800"></script>
+    <script src="js/apx-armor-forge.js?v=20261031800"></script>
+    <script src="js/apx-weapon-forge.js?v=20261031800"></script>
+    <script src="js/apx-consumable-crafter.js?v=20261031800"></script>
+    <script src="js/apx-perks-ui.js?v=20261031800"></script>
+    <script src="js/apx-power-crafter.js?v=20261031800"></script>
+    <script src="js/apx-npc-crafter.js?v=20261031800"></script>
+    <script src="js/apx-inventory-ui.js?v=20261031800"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20261031800"></script>
+    <script src="js/apx-gm-screen.js?v=20261031800"></script>
+    <script src="js/apx-loot-maker.js?v=20261031800"></script>
+    <script src="js/apx-library.js?v=20261031800"></script>
+    <script src="js/apx-gmtools-main.js?v=20261031800"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20261031200"></script>
-    <script src="js/apx-firebase.js?v=20261031200"></script>
-    <script src="js/apx-battlemap.js?v=20261031200"></script>
-    <script src="js/apx-map-tiles.js?v=20261031200"></script>
+    <script src="js/firebase-config.js?v=20261031800"></script>
+    <script src="js/apx-firebase.js?v=20261031800"></script>
+    <script src="js/apx-battlemap.js?v=20261031800"></script>
+    <script src="js/apx-map-tiles.js?v=20261031800"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -2109,7 +2109,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let n = (_wNotes.npcs||[]).find(x=>x.id===npcId); if(!n) return;
         let winId = 'npcInfo_'+npcId;
         let existing = document.getElementById(winId);
-        if (existing) { window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; existing.style.zIndex=window.apxFloatingZTop; return; }
+        if (existing) { if (existing.dataset && existing.dataset.apxMin && window.apxFront) window.apxFront(existing); window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; existing.style.zIndex=window.apxFloatingZTop; return; }
         window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1;
         let snHtml = (n.notes||[]).map(sn=>`<div style="background:#0f172a;border:1px solid #1e293b;border-radius:0.3rem;padding:0.35rem;margin-top:0.2rem;">
             ${_snPopupHtml('npc', n.id, sn)}</div>`).join('');
@@ -2150,7 +2150,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let n = (_wNotes.npcs||[]).find(x=>x.id===npcId); if(!n) return;
         let winId = 'npcPortrait_'+npcId;
         let existing = document.getElementById(winId);
-        if (existing) { window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; existing.style.zIndex=window.apxFloatingZTop; return; }
+        if (existing) { if (existing.dataset && existing.dataset.apxMin && window.apxFront) window.apxFront(existing); window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; existing.style.zIndex=window.apxFloatingZTop; return; }
         window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1;
 
         // Position near trigger element if available
@@ -2814,7 +2814,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!loc) return;
         let winId = 'locInfo_'+locationId;
         let existing = document.getElementById(winId);
-        if (existing) { window.apxFloatingZTop++; existing.style.zIndex=window.apxFloatingZTop; return; }
+        if (existing) { if (existing.dataset && existing.dataset.apxMin && window.apxFront) window.apxFront(existing); window.apxFloatingZTop++; existing.style.zIndex=window.apxFloatingZTop; return; }
         window.apxFloatingZTop++;
         let linkedMapIds = loc.linkedOtherMapIds||[];
         if (!linkedMapIds.length && loc.linkedOtherMapId) linkedMapIds = [loc.linkedOtherMapId];
@@ -4500,7 +4500,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ${isPlayer ? '' : `<div style="${row}"><span style="${lbl}">Side</span>${btn('Enemy', `window._btSetFaction(${a},'enemy')${close}`, '#fca5a5', curFaction==='enemy')}${btn('Neutral', `window._btSetFaction(${a},'neutral')${close}`, '#fde68a', curFaction==='neutral')}${btn('Ally', `window._btSetFaction(${a},'ally')${close}`, '#6ee7b7', curFaction==='ally')}</div>`}
             ${initRow}
             ${isPlayer ? '' : `<div style="${row}"><span style="${lbl}">Cond</span><span style="flex:1;font-size:0.56rem;color:#fdba74;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px;" title="${esc(window._gmEffCondNames(tok.conditions).join(', '))}">${(tok.conditions||[]).length ? esc(window._gmEffCondNames(tok.conditions).join(', ')) : '<span style=\'color:#475569\'>none</span>'}</span><button onclick="window._btTokenCondPicker(${a}, event.clientX, event.clientY)" style="background:none;border:none;color:#fdba74;font-size:0.6rem;font-weight:800;cursor:pointer;padding:0 4px;">Edit</button></div>`}
-            <div style="${row}"><span style="${lbl}">Size</span>${btn('−', `window._btResizeToken(${a},-1)${close}`, '#c4b5fd', false, sizeIdx<=0)}${btn('+', `window._btResizeToken(${a},1)${close}`, '#c4b5fd', false, sizeIdx>=BT_SIZE_LIST.length-1)}${tok.sizeOverride ? btn('Sheet size', `window._btResetTokenSize(${a})${close}`, '#a5b4fc', false, false, 'Go back to the size on their character sheet') : ''}</div>
+            <div style="${row}"><span style="${lbl}">Size</span>${btn('Shrink', `window._btResizeToken(${a},-1)${close}`, '#c4b5fd', false, sizeIdx<=0)}${btn('Grow', `window._btResizeToken(${a},1)${close}`, '#c4b5fd', false, sizeIdx>=BT_SIZE_LIST.length-1)}${tok.sizeOverride ? btn('Sheet size', `window._btResetTokenSize(${a})${close}`, '#a5b4fc', false, false, 'Go back to the size on their character sheet') : ''}</div>
             ${tok.initiativeId && initEntry && initEntry.maxHp !== null ? `<div style="${row}">${btn('⤓ Fall damage…', `window.gmFallDamage('${tok.initiativeId}')${close}`, '#7dd3fc', false, false, 'Fall damage: 1d10 per square after the first, softened by an Acrobatics Reaction')}</div>` : ''}
             <div style="${row}"><span style="${lbl}">Layer ${tok.layer==null?1:tok.layer}</span>${btn('Down', `window._btTokLayer('${mapId}','${winId}','${tokenId}','down')${close}`, '#c4b5fd', false, false, 'Move under images on higher layers')}${btn('Up', `window._btTokLayer('${mapId}','${winId}','${tokenId}','up')${close}`, '#c4b5fd', false, false, 'Move above images on lower layers')}</div>
             <div style="${row}">${btn('Remove Token', `window.removeBattleToken(${a})${close}`, '#f87171')}</div>`;
@@ -4874,7 +4874,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window._btOpenPlayerSummary = function(playerName, playerUid) {
         let winId = 'playerSummary_'+playerUid;
         let existing = document.getElementById(winId);
-        if (existing) {
+        if (existing) { if (existing.dataset && existing.dataset.apxMin && window.apxFront) window.apxFront(existing);
             window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1;
             existing.style.zIndex=window.apxFloatingZTop;
             return;
@@ -6247,8 +6247,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </script>
     <div id="floatingWindowContainer"></div>
 
-    <script src="js/apx-chat.js?v=20261031200"></script>
-    <script src="js/apx-extras.js?v=20261031200"></script>
-    <script src="js/apx-theme-light.js?v=20261031200"></script>
+    <script src="js/apx-chat.js?v=20261031800"></script>
+    <script src="js/apx-extras.js?v=20261031800"></script>
+    <script src="js/apx-theme-light.js?v=20261031800"></script>
 </body>
 </html>

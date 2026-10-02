@@ -1171,11 +1171,21 @@ window.companionStatBlock = function() {
     maxHp = Math.max(1, maxHp);
 
     let armor = c.equippedArmor || {};
-    let ac = 10 + mods.AGI + c.acBonus + (armor.ac || 0);
-    let dr = mods.CON + c.drBonus * 2 + (armor.dr || 0);   // each +2 DR purchase (1 TP) adds 2
     // Shield (when held) and helmet
     let shieldOn = !!(c.shield && c.shield.owned && c.shield.equipped !== false);
     let helmetOn = !!(c.helmet && c.helmet.owned);
+    // Armor rules, as for players: everything worn counts toward the weight class and the STR
+    // requirement (weight / 10). Light (≤30 lb): full AGI to AC; Moderate (31-70): AGI capped at +2;
+    // Heavy (>70): no AGI to AC. STR short: no AGI to AC, -2 Speed, Disadvantage on attacks.
+    let wornWt = (armor.name || armor.ac ? (armor.wt || 0) : 0) + (shieldOn ? (getInitialState().equippedShield.wt || 6) : 0) + (helmetOn ? (getInitialState().equippedHelmet.wt || 3) : 0);
+    let armorReqStr = Math.floor(wornWt / 10);
+    let armorStrShort = wornWt > 0 && (5 + (mods.STR || 0)) < armorReqStr;
+    let armorClass = wornWt === 0 ? 'Unarmored' : wornWt <= 30 ? 'Lightly Armored' : wornWt <= 70 ? 'Moderately Armored' : 'Heavily Armored';
+    let agiCap = wornWt > 70 ? 0 : wornWt > 30 ? 2 : 99;
+    if (armorStrShort) agiCap = 0;
+    let acAgi = wornWt > 70 ? 0 : (mods.AGI < 0 ? mods.AGI : Math.min(mods.AGI, agiCap));
+    let ac = 10 + acAgi + c.acBonus + (armor.ac || 0);
+    let dr = mods.CON + c.drBonus * 2 + (armor.dr || 0);   // each +2 DR purchase (1 TP) adds 2
     if (shieldOn) { ac += NPC_SHIELD.ac; dr += NPC_SHIELD.dr; }
     if (helmetOn) { ac += NPC_HELMET.ac; dr += NPC_HELMET.dr; }
     let hands = 2, freeHands = hands - (shieldOn ? NPC_SHIELD.hands : 0);
@@ -1184,7 +1194,8 @@ window.companionStatBlock = function() {
     if (shieldOn) er += NPC_SHIELD.er;
     if (helmetOn) er += NPC_HELMET.er;
     ac += ist('ac'); dr += ist('dr'); er += ist('er');
-    let speed = 3 + c.speedBonus + (armor.speedMod || 0) + ist('speed');
+    let speed = 3 + c.speedBonus + (armor.speedMod || 0) + ist('speed') - (armorStrShort ? 2 : 0);
+    speed = Math.max(0, speed);
     let ap = 6 + c.apBonus * 1 + ist('maxAp'); // AP purchases add flat +1 each (not tied to AGI for NPCs, per Ch.15 baseline "6 AP")
     // NPCs don't get a chosen initStat like players (AGI or PER) --
     // AGI is the standard default for Passive Initiative.
@@ -1332,6 +1343,7 @@ window.companionStatBlock = function() {
         size: sizeDef ? sizeDef.label : 'Medium', swarm: c.swarm,
         altLocomotion: c.altLocomotion, hover: c.hover,
         mods, dmgText, attackBonus, range, propNames, innateAttacks, trainingBonus: c.trainingBonus,
+        armorWt: wornWt, armorReqStr, armorStrShort, armorClass,
         otherTrainings: c.otherTrainings, equippedWeapons, equippedArmorName: armor.name || null, trainedSkills, saves, saveTrained,
         hasShield: !!(c.shield && c.shield.owned), shieldOn, hasHelmet: helmetOn, hands, freeHands,
         senseList, traitList, powerList, powerCards, lairActionPowerCards, casterSlots: c.casterSlots,
@@ -1752,7 +1764,7 @@ function buildStatBlockHtml(sb, editable) {
         <div class="bg-slate-900 border border-slate-700 rounded p-2 mb-2">
             <div class="text-[10px] font-black text-amber-400 uppercase mb-1">Innate Attacks <span class="text-slate-500 normal-case font-bold">(always trained, 3 AP each)</span></div>
             ${innate.length ? innate.map(w => `
-                <div class="text-xs text-slate-200 ${innate.length > 1 ? 'mb-1' : ''}" data-roll-label="${esc(w.name)} damage"><span class="font-bold text-slate-200">${esc(w.name)}:</span> <span class="apxd-atk"${R({ type: 'attack', label: w.name, bonus: w.attackBonus, dice: w.dmgText, dmgType: w.typeText, npcId: sb._npcId || null, initId: sb._initId || null, apCost: 3, flurry: (w.propNames || []).some(p => /flurry/i.test(p)) || undefined, hit: hitOf(w) })}>+${w.attackBonus} to hit</span>, ${w.dmgText} ${esc(w.typeText)}, Range ${w.range} sq</div>
+                <div class="text-xs text-slate-200 ${innate.length > 1 ? 'mb-1' : ''}" data-roll-label="${esc(w.name)} damage"><span class="font-bold text-slate-200">${esc(w.name)}:</span> <span class="apxd-atk"${R({ type: 'attack', label: w.name, bonus: w.attackBonus, dice: w.dmgText, dmgType: w.typeText, npcId: sb._npcId || null, initId: sb._initId || null, apCost: 3, disSources: sb.armorStrShort ? ['Armor (STR requirement not met)'] : undefined, flurry: (w.propNames || []).some(p => /flurry/i.test(p)) || undefined, hit: hitOf(w) })}>+${w.attackBonus} to hit</span>, ${w.dmgText} ${esc(w.typeText)}, Range ${w.range} sq</div>
                 ${w.propNames.length ? `<div class="text-[10px] text-slate-500 -mt-0.5 mb-1">${w.propNames.map(esc).join(', ')}</div>` : ''}`).join('')
               : '<div class="text-[10px] text-slate-600">No innate weapons</div>'}
         </div>
@@ -1764,9 +1776,9 @@ function buildStatBlockHtml(sb, editable) {
                 let handTag = w.handLabel ? ` <span class="text-[9px] font-bold text-cyan-300/80">(${w.handLabel}${!w.isTwoHanded && (w.hand === 'main' || w.hand === 'off') ? `<button type="button" title="Switch hands" onclick="window.npcSwapWeaponHand(${sb._npcId ? `'${sb._npcId}'` : 'null'}, ${w.weaponIdx})" class="ml-0.5 text-cyan-400 hover:text-white">⇄</button>` : ''})</span>` : '';
                 return `<div class="text-xs ${blocked ? 'text-slate-500' : 'text-slate-200'}" data-roll-label="${esc(w.name)} damage">${esc(w.name)}${handTag}: ${blocked
                     ? `<span data-no-roll title="Needs ${w.hands} free hands. Stow the shield to use it.">+${w.atk} to hit, ${w.dmg} damage</span>, ${w.ap} AP${w.range ? `, Range ${esc(String(w.range))} sq` : ''} <span class="text-[10px] text-amber-500/80">(needs ${w.hands} free hands)</span>`
-                    : `<span class="apxd-atk"${R({ type: 'attack', label: w.name, bonus: w.atk, dice: String(w.dmg), critMult: w.critMult || 2, npcId: sb._npcId || null, initId: sb._initId || null, apCost: parseInt(w.ap) || 3, flurry: w.flurry || undefined, ranged: w.category === 'ranged' || undefined, dmgType: w.dmgType || undefined, hit: hitOf(w) })}>+${w.atk} to hit</span>, ${w.dmg} damage, ${w.ap} AP${w.range ? `, Range ${esc(String(w.range))} sq` : ''} <span class="text-[10px] text-slate-500">(${w.typeLabel})</span>`}</div>`;
+                    : `<span class="apxd-atk"${R({ type: 'attack', label: w.name, bonus: w.atk, dice: String(w.dmg), critMult: w.critMult || 2, disSources: sb.armorStrShort ? ['Armor (STR requirement not met)'] : undefined, npcId: sb._npcId || null, initId: sb._initId || null, apCost: parseInt(w.ap) || 3, flurry: w.flurry || undefined, ranged: w.category === 'ranged' || undefined, dmgType: w.dmgType || undefined, hit: hitOf(w) })}>+${w.atk} to hit</span>, ${w.dmg} damage, ${w.ap} AP${w.range ? `, Range ${esc(String(w.range))} sq` : ''} <span class="text-[10px] text-slate-500">(${w.typeLabel})</span>`}</div>`;
             }).join('') : ''}
-            ${sb.equippedArmorName ? `<div class="text-xs text-slate-200 mt-1">Armor: ${esc(sb.equippedArmorName)}</div>` : ''}
+            ${sb.equippedArmorName ? `<div class="text-xs text-slate-200 mt-1">Armor: ${esc(sb.equippedArmorName)} <span class="text-[10px] text-slate-400">(${sb.armorClass}, ${sb.armorWt} lb worn, STR ${sb.armorReqStr} needed)</span>${sb.armorStrShort ? ' <span class="text-[10px] text-red-400 font-bold">STR not met: no AGI to AC, -2 Speed, Disadvantage on attacks</span>' : ''}</div>` : ''}
             ${sb.hasShield ? `<div class="text-xs text-slate-200 mt-1 flex items-center gap-2">Shield (+2 AC/DR/ER, 1 hand): <b class="${sb.shieldOn ? 'text-emerald-400' : 'text-slate-500'}">${sb.shieldOn ? 'held' : 'stowed'}</b>
                 <button type="button" onclick="window.npcToggleShieldEquipped(${sb._npcId ? `'${sb._npcId}'` : 'null'})" class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-white">${sb.shieldOn ? 'Stow' : 'Equip'}</button></div>` : ''}
             ${sb.hasHelmet ? `<div class="text-xs text-slate-200 mt-1">Helmet (+1 AC/DR/ER)</div>` : ''}

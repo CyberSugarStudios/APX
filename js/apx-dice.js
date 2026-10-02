@@ -1037,11 +1037,14 @@
                 res(opts.check ? (v ? { v, checked } : null) : (v || null));
             };
             let key = e => { if (e.key === 'Escape') { e.stopPropagation(); done(null); } };
-            back.querySelectorAll('[data-v]').forEach(b => b.onclick = () => done(b.dataset.v));
+            // The Enter that opened this (e.g. "-5" + Enter in an HP box) must not also answer it:
+            // keyboard clicks in the first moments are ignored, and the default button is focused after that
+            let t0 = Date.now();
+            back.querySelectorAll('[data-v]').forEach(b => b.onclick = e => { if (e && e.detail === 0 && Date.now() - t0 < 400) return; done(b.dataset.v); });
             back.addEventListener('mousedown', e => { if (e.target === back) done(null); });
             document.addEventListener('keydown', key, true);
             document.body.appendChild(back);
-            back.querySelector('.pri,.ok')?.focus();
+            setTimeout(() => { if (back.isConnected) back.querySelector('.pri,.ok')?.focus(); }, 400);
         });
     }
     APXDice.ask = ask;

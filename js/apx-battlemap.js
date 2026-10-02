@@ -1086,6 +1086,22 @@
             + `<span data-mtip style="background:rgba(15,23,42,.92);border:1px solid #facc15;color:#fde68a;font-size:11px;font-weight:700;padding:3px 8px;border-radius:5px;white-space:normal;max-width:100%;text-align:center;pointer-events:none"></span>`;
         ov.appendChild(svg); ov.appendChild(bar);
         layer.appendChild(ov);
+        // Keep the bar clear of the map window's own controls (zoom, Reset, Measure…): drop it below any it would sit under
+        let placeBar = () => {
+            if (!bar.isConnected) return;
+            bar.style.top = '8px';
+            let lr = layer.getBoundingClientRect();
+            let win = document.getElementById(winId) || layer.parentElement;   // the map window (its own zoom / Reset / Measure controls)
+            let ctrls = [...(win || document).querySelectorAll('button, input, select, [data-bt-ctrl]')].filter(el => !ov.contains(el) && el.offsetParent !== null);
+            for (let pass = 0; pass < 3; pass++) {
+                let br = bar.getBoundingClientRect(), push = 0;
+                ctrls.forEach(el => { let r = el.getBoundingClientRect(); if (r.width && r.bottom > br.top && r.top < br.bottom && r.right > br.left && r.left < br.right && r.top >= lr.top - 2 && r.top < lr.top + lr.height / 2) push = Math.max(push, r.bottom - lr.top + 6); });
+                if (!push) break;
+                bar.style.top = push + 'px';
+            }
+        };
+        requestAnimationFrame(placeBar);
+        if (window.ResizeObserver) { let ro = new ResizeObserver(() => placeBar()); ro.observe(layer); ov._ro = ro; }
         let m = layer._measure = { ov, svg, bar, a: null, b: null, down: false, follow: false, way: [], mode: mode || _measureMode };
         let setTip = () => { let t = bar.querySelector('[data-mtip]'); if (t) t.textContent = tipTxt[m.mode] + ' · M or Esc to exit'; };
         setTip();
@@ -1123,6 +1139,7 @@
     function exitMeasure(winId) {
         let layer = document.getElementById(winId + '_btScreen');
         if (!layer || !layer._measure) return false;
+        try { layer._measure.ov._ro && layer._measure.ov._ro.disconnect(); } catch (e) { }
         layer._measure.ov.remove();
         layer._measure = null;
         if (layer._opts?.onMeasureChange) layer._opts.onMeasureChange(false);
