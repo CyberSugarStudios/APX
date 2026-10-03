@@ -259,10 +259,24 @@
         delete w.dataset.apxMin; delete w.dataset.apxMinVis; delete w.dataset.apxMinPe;
         setTimeout(() => { try { window.dispatchEvent(new Event('resize')); } catch (e) { } }, 0);
     }
+    // A tab's name: what the window calls itself (a map's or Area Circle's name), else its title,
+    // never the buttons and boxes that share the title bar ("Revealed + − Reset Fog…", "Edit")
+    function titleOf(w) {
+        let clean = t => String(t || '').replace(/\s+/g, ' ').trim();
+        try { if (typeof w._apxTitle === 'function') { let t = clean(w._apxTitle()); if (t) return t; } } catch (e) { }
+        if (clean(w.dataset.apxTitle)) return clean(w.dataset.apxTitle);
+        let hdr = w.firstElementChild; if (!hdr) return w.id || 'Window';
+        let marked = hdr.querySelector('[data-win-title], .apx-pw-pop-title');
+        if (marked && clean(marked.textContent)) return clean(marked.textContent);
+        let c = hdr.cloneNode(true);
+        c.querySelectorAll('button, input, select, textarea, img, svg, canvas, label, [data-tab-skip]').forEach(n => n.remove());
+        let walk = document.createTreeWalker(c, NodeFilter.SHOW_TEXT), n;
+        while ((n = walk.nextNode())) { let t = clean(n.textContent); if (t.length > 1) return t; }
+        return clean(c.textContent) || w.id || 'Window';
+    }
     function minimize(w) {
         if (!w || w.style.display === 'none' || w.dataset.apxMin) return;
-        let hdr = w.firstElementChild;
-        let title = ((hdr && hdr.textContent) || w.id || 'Window').replace(/\s+/g, ' ').replace(/[✕×X]\s*$/, '').trim().slice(0, 32) || 'Window';
+        let title = titleOf(w).slice(0, 40) || 'Window';
         w.dataset.apxMin = '1';
         w.dataset.apxMinVis = w.style.visibility || ''; w.dataset.apxMinPe = w.style.pointerEvents || '';
         w.style.visibility = 'hidden'; w.style.pointerEvents = 'none';

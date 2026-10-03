@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.3.1500',
-        released: '2026-10-03T15:00:00',
-        releasedText: 'October 3, 2026 · 3:00 PM',
+        version: 'v2026.10.3.1510',
+        released: '2026-10-03T15:10:00',
+        releasedText: 'October 3, 2026 · 3:10 PM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs with loot of their own, apart from their stat blocks, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -271,7 +271,7 @@
                 'Map windows, popups and the dice tray share one stacking order: whichever you opened or clicked last is on top.',
                 'Movement paths go straight along diagonals instead of zig-zagging, so moves cost what they should, and big creatures measure from their center.',
                 'The Measure toolbar wraps onto more lines in small windows instead of being cut off.',
-                'Double-click any popup window\'s title bar to minimize it to a tab in the bottom-left corner.',
+                'Double-click any popup window\'s title bar to minimize it to a tab in the bottom-left corner. The tab is named after what\'s in the window: the map\'s name, the Area Circle\'s or marker\'s name ("Area B" until it has one), the NPC, place or session, never the title bar\'s buttons.',
                 'The Measure buttons and tip sit below a map window\'s own controls instead of behind them.',
                 'A minimized map comes back with its map, tokens and pins intact.',
                 'Cones mark every square at least a quarter inside the cone as drawn, so the highlighted squares match the outline at every length and angle.',
@@ -455,7 +455,7 @@
                 'Painting fog and zooming no longer make the browser redo the page layout on every mouse move (the "Forced reflow" console messages), so both feel smoother.',
                 'Resizing a token next to a wall or another token shifts it to fit, player tokens included.',
                 'Movement paths follow diagonals without zig-zagging, and Large and bigger creatures measure from their center.',
-                'The Measure toolbar wraps in small windows, and double-clicking a window\'s title bar minimizes it to a tab.',
+                'The Measure toolbar wraps in small windows, and double-clicking a window\'s title bar minimizes it to a tab named after the map, Area Circle, NPC or note it shows.',
                 'A token\'s menu says Shrink and Grow for its size.',
                 'Cones mark every square at least a quarter inside the cone as drawn, so the highlighted squares match the outline at every length and angle.',
                 'Swarms share squares with any creature. A swarm under another creature is drawn beneath it, with a small handle beside that creature: hover it for the swarm\'s details (players see less), drag it to move the swarm, right-click or double-click it as you would the token.',

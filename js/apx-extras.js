@@ -114,7 +114,7 @@
             <ul><li>Number boxes do math: type <kbd>+5</kbd> or <kbd>-3</kbd> to add or subtract, or <kbd>35-9</kbd> after what's there.</li>
             <li>Hit Points: <kbd>-9</kbd> takes 9 damage, through Temp HP first. <kbd>-9 fire</kbd> uses that damage type, so your DR/ER, resistances and immunities apply. Hit by the GM's creature? Its damage type is used for you. Add <kbd>nl</kbd> (or tick Non-lethal) for non-lethal damage: 0 HP knocks you out instead of Bleeding Out.</li>
             <li><kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes and <kbd>Ctrl</kbd>+<kbd>Y</kbd> redoes changes on the sheet. <kbd>Enter</kbd> confirms a box.</li>
-            <li>Double-click a popup window's title bar to minimize it to a tab in the bottom-left corner; click the tab to bring it back.</li>
+            <li>Double-click a popup window's title bar to minimize it to a tab in the bottom-left corner, named after the map, area or NPC in it; click the tab to bring it back.</li>
             <li>A character can be open in one browser tab at a time: opening it in a second tab sends the first one back to the lobby, so AP and HP never get spent twice.</li>
             <li>On battle maps: <kbd>M</kbd> measures (right-click drops a waypoint, the toolbar switches to Cone or Burst, <kbd>Esc</kbd> stops). In combat, dragging your token shows the path and its AP cost; hold <kbd>Alt</kbd> to move without paying AP. Wheel zooms; <kbd>Ctrl</kbd>-drag or middle-drag pans.</li></ul>`],
         ['Worlds', 'Playing in your GM\'s world', `
@@ -157,7 +157,7 @@
             <li>Turn on the <b>Grid</b> (size, offset, colour, thickness, opacity), place tokens, resize them, and paint <b>Fog</b> of war.</li>
             <li><b>Measure</b> (<kbd>M</kbd>) has Line, Cone and Burst modes and lists who's inside an area. A Cone covers every square at least a quarter inside the cone as drawn. Right-click drops waypoints.</li>
             <li>Share a map with your players, and stop sharing to close it on their screens.</li>
-            <li>Tokens added with <b>+ Token</b> from the tracker start hidden; reveal them from the token's menu. <b>Shrink</b> and <b>Grow</b> in a token's menu change its size. Double-click a window's title bar to minimize it to a tab.</li></ul>`],
+            <li>Tokens added with <b>+ Token</b> from the tracker start hidden; reveal them from the token's menu. <b>Shrink</b> and <b>Grow</b> in a token's menu change its size. Double-click a window's title bar to minimize it to a tab, named after its map, Area Circle (its name, or "Area B" without one), NPC or note.</li></ul>`],
         ['Loot and notes', 'Loot, crafting and notes', `
             <ul><li>The <b>Loot Maker</b> builds loot boxes and gives items or Currency to players; a hidden grant isn't shown to the rest of the party. Its <b>Crafting Materials</b> button adds Common, Uncommon and Rare materials in any amounts, and they join a player's own Crafting Materials when given.</li>
             <li>Each named NPC keeps its <b>own loot</b> in its NPC window (+ Loot Maker), dropped when it's defeated. Stat blocks never show loot: only what the creature always carries or wields. A stat block's <b>Generic Drops</b> (NPC Crafter) drop from every creature built from it.</li>
