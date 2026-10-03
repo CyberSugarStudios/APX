@@ -97,6 +97,7 @@
             <p>Click any skill, attribute, save, weapon or power on the sheet to roll it. Results show up in the <b>Dice and Notifications tray</b> (the d20 button in the bottom-right corner).</p>
             <ul><li>The tray has Advantage and Disadvantage for the next d20, a dice pool for any other roll, and buttons to spend <b>Luck Points</b> or <b>Omen dice</b> on a roll you just made.</li>
             <li>Conditions, wounds and your perks are added to rolls for you, and the badges on a roll show what changed it.</li>
+            <li>A power or consumable with a <b>second damage type</b> splits its dice (you choose how many go to the second type when you craft it), and each type is rolled on its own with the total underneath.</li>
             <li>The <b>Chat</b> at the bottom of the tray messages everyone, just the GM, or any players you pick.</li></ul>`],
         ['Actions', 'Actions and AP', `
             <ul><li>Click the <b>Action Points</b> title in Vitals for every Combat Maneuver and Standard Action. Clicking one spends its AP (short on AP? you're asked first) and applies what it can: Fight Defensively's AC, Power Attack's damage on your next melee attack, Feint's Advantage, and so on.</li>
@@ -129,7 +130,7 @@
             <li>Every world has an <b>invite code</b> (in the <b>World</b> screen; click it to copy). Players join with it from their Character Sheet; <b>Load Party</b> brings their characters into your tracker.</li>
             <li>The World screen's player list is also where you kick a player (with or without a ban).</li></ul>`],
         ['NPCs', 'NPCs, races and the Library', `
-            <ul><li>The <b>NPC Crafter</b> builds stat blocks from a Tier and a TP budget: attributes, weapons, armor, perks, traits and powers. Stat blocks roll straight from their dice.</li>
+            <ul><li>The <b>NPC Crafter</b> builds stat blocks from a Tier and a TP budget: attributes, weapons, armor, perks, traits and powers. Stat blocks roll straight from their dice, and a power with two damage types rolls each separately; the tracker splits the damage you enter the same way.</li>
             <li><b>Race Templates</b> are the races your players can pick in their Race Builder; changes reach them live.</li>
             <li>NPC sizes run from Tiny or Smaller (3 TP: +2 AC, Advantage on Stealth, reach 0, no Heavy weapons) to Gargantuan (−2 AC, Advantage on Athletics, Disadvantage on Stealth). A size's effects apply on their own, and stat blocks list every <b>Skill</b> that isn't a plain attribute check (trained, its own bonus, Advantage or Disadvantage).</li>
             <li><b>Swarms</b> share squares with other creatures and tuck under them; a small handle beside the creature shows the swarm (hover for details, drag to move it). They take half damage from single-target attacks and double from area effects (you're asked when it's unclear), and roll half their damage dice below half HP.</li>

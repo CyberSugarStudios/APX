@@ -1898,6 +1898,13 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
         if (/\+\s*Attr/i.test(m[2])) { let am = (sb.mods || {})[sb.powerAttrChoice] || 0; if (am) formula += (am > 0 ? '+' : '') + am; }
         dmg = { formula, heal, type: m[2].replace(/\+\s*Attr/i, '').replace(/\(Heal\)/i, '').trim() };
     }
+    // Two damage types (a split power): each part rolled on its own, the attribute bonus on the first
+    let split = window.apxDmgSplit ? window.apxDmgSplit(d) : null;
+    if (split) {
+        let am = d.addAttrToDmg ? ((sb.mods || {})[sb.powerAttrChoice] || 0) : 0;
+        if (am) split[0].formula += (am > 0 ? '+' : '') + am;
+        dmg = { formula: split.map(x => x.formula).join('+'), heal: false, type: split.map(x => x.type).join(' + '), split };
+    }
     let flags = sb._isCompanion ? { companion: true, compOwner: sb._compOwner || null, omen: true } : { npcId: sb._npcId || key, initId: initId || sb._initId || undefined };
     // The creature acting: when several share this stat block, the one taking its turn
     let actor = !sb._isCompanion && typeof window._gmAttackerFor === 'function' ? window._gmAttackerFor(flags) : null;
@@ -1928,7 +1935,7 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
     if (step === 'atkSave' && d.atkMode !== 'save' && d.atkKind !== 'martial') {
         o.bonus = sb.powerAttackBonus || 0;
         o.hit = { weapon: p.name || 'Power', props: [], die: dmg ? '1d' + ((dmg.formula.match(/d(\d+)/) || [0, 6])[1]) : '1d6', dmgType: dmg && !dmg.heal ? dmg.type : '' };
-        if (dmg && !dmg.heal) { o.dice = dmg.formula; o.dmgType = dmg.type; APXDice.attack(o); }
+        if (dmg && !dmg.heal) { o.dice = dmg.formula; o.dmgType = dmg.type; if (dmg.split) o.split = dmg.split; APXDice.attack(o); }
         else APXDice.check(Object.assign(o, { kind: 'attack', label: (p.name || 'Power') + ': Power Attack' }));
         tell(`${whoPub} uses ${p.name || 'a power'}${isReact ? ' (Reaction)' : ''}: attack roll.`, `${whoGm} uses ${p.name || 'a power'}${isReact ? ' (Reaction)' : ''}: attack roll.`);
         return;
@@ -1941,7 +1948,7 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
     let bits = [isReact ? 'Reaction' : `${cost} AP`].concat(saveKind ? [`Targets save against DC ${dc}: success ${saveKind === 'halves' ? 'halves it' : 'negates it'}`] : []).concat(pre && pre.note ? [pre.note] : []).concat(o.useNote ? [o.useNote] : []);
     // The tracker learns this power (and its damage type) is what hits next, not an earlier attack
     if (dmg && !dmg.heal && typeof window.apxOnNpcPowerUse === 'function') { try { window.apxOnNpcPowerUse(o, { label: p.name || 'Power', dmgType: dmg.type, dice: dmg.formula, save: saveKind ? { dc, kind: saveKind } : null, aoe: !!(d.aoe && !['single', 'split'].includes(d.aoe)) }); } catch (e) { console.warn('Power hook:', e); } }
-    if (dmg) APXDice.damage({ label: (p.name || 'Power') + (dmg.heal ? ' healing' : ' damage'), who: whoGm, formula: dmg.formula, dmgType: dmg.heal ? '' : dmg.type, heal: dmg.heal || undefined, perks: false, note: bits.join(' · ') });
+    if (dmg) APXDice.damage({ label: (p.name || 'Power') + (dmg.heal ? ' healing' : ' damage'), who: whoGm, formula: dmg.formula, dmgType: dmg.heal ? '' : dmg.type, heal: dmg.heal || undefined, perks: false, note: bits.join(' · '), split: dmg.split || undefined });
     else APXDice.info({ label: p.name || 'Power', who: whoGm, text: p.desc || '', badges: bits });
     let saveTxt = saveKind ? `: targets make a DC ${dc} save (success ${saveKind === 'halves' ? 'halves it' : 'negates it'})` : '';
     tell(`${whoPub} uses ${p.name || 'a power'}${isReact ? ' (Reaction)' : ''}${saveTxt}.`, `${whoGm} uses ${p.name || 'a power'}${isReact ? ' (Reaction)' : ''}${saveTxt}.`);

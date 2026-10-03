@@ -832,6 +832,23 @@
             let perks = st.perks || {};
             return Math.max(perks.pwr_int || 0, perks.pwr_cha || 0);
         };
+        // "Add a second damage type, splitting the dice": the last N dice (the largest) deal the second type.
+        // → [{ formula, type, count }, { formula, type, count }] or null. flat: +1 per die goes with each part.
+        window.apxDmgSplit = function(draft) {
+            if (!draft || draft.isHealing || !draft.addSecondType || !draft.dmg) return null;
+            let dice = [];
+            POWER_DIE_STEPS.forEach(st => { for (let i = 0; i < (parseInt(draft.dmg[st]) || 0); i++) dice.push(st); });
+            if (dice.length < 2) return null;
+            let n = Math.max(1, Math.min(dice.length - 1, parseInt(draft.secondDice) || Math.floor(dice.length / 2)));
+            let fmt = arr => {
+                let parts = [];
+                POWER_DIE_STEPS.forEach(st => { let c = arr.filter(x => x === st).length; if (c) parts.push(c + st); });
+                return parts.join('+') + (draft.addFlatDmgPerDie ? '+' + arr.length : '');
+            };
+            let a = dice.slice(0, dice.length - n), b = dice.slice(dice.length - n);
+            return [{ formula: fmt(a), type: draft.dmgType || 'Fire', count: a.length }, { formula: fmt(b), type: draft.secondDmgType || 'Cold', count: b.length }];
+        };
+        window.apxDmgSplitText = parts => (parts || []).map(p => `${p.formula} ${p.type}`).join(' + ');
         window.apxPowerIsReaction = p => !!(p && p.draft && p.draft.apMod === 'ap1' && p.draft.apReaction);
         window.apxPowerApLabel = p => window.apxPowerIsReaction(p) ? 'Reaction' : `${p && p.ap != null ? p.ap : 0} AP`;
         // Instant tooltip for map markers (an area's name as soon as the cursor is over it)
@@ -916,8 +933,17 @@
             return { dmg: total, raw, reduced: raw - total, text: bits.join('; ') };
         }
         let n = types.length, base = Math.floor(raw / n), extra = raw - base * n, total = 0, bits = [];
+        // How the damage divides between its types: as rolled (opts.shares, e.g. 7 Fire + 4 Cold from a split
+        // power, scaled to what was entered), otherwise evenly
+        let shares = Array.isArray(opts.shares) && opts.shares.length === n && opts.shares.reduce((a, b) => a + (b || 0), 0) > 0 ? opts.shares : null;
+        let shareOf = i => {
+            if (!shares) return base + (i < extra ? 1 : 0);
+            let sum = shares.reduce((a, b) => a + (b || 0), 0);
+            let flo = shares.map(x => Math.floor((x || 0) * raw / sum)), left = raw - flo.reduce((a, b) => a + b, 0);
+            return flo[i] + (i === 0 ? left : 0);
+        };
         types.forEach((t, i) => {
-            let part = base + (i < extra ? 1 : 0);
+            let part = shareOf(i);
             if (!part && raw) { bits.push(`0 ${label(t)}`); return; }
             let immune = (def.immune || []).some(x => x === t || (t === 'Physical' && PHYS.includes(x)));
             if (immune) { bits.push(`${part} ${label(t)} → 0 (Immune)`); return; }

@@ -147,7 +147,27 @@ window.ccSetDie = function(step, delta) {
 };
 window.ccSetHealing = function(checked) { ccDraft.isHealing = checked; ccRenderAll(); };
 window.ccSetDmgType = function(val) { ccDraft.dmgType = val; };
-window.ccToggleSecondType = function(checked) { ccDraft.addSecondType = checked; ccRenderAll(); };
+// A second damage type splits the dice: pick how many of them deal it (the largest dice go first)
+function ccDiceTotal(d) { return POWER_DIE_STEPS.reduce((t, st) => t + (parseInt(d.dmg[st]) || 0), 0); }
+window.ccToggleSecondType = async function(checked) {
+    if (checked) {
+        let total = ccDiceTotal(ccDraft);
+        if (total < 2) { window.showConfirm('Splitting needs at least 2 damage dice: add dice in this step first.', null, true); ccRenderAll(); return; }
+        let def = Math.max(1, Math.min(total - 1, parseInt(ccDraft.secondDice) || Math.floor(total / 2)));
+        let v = window.apxPrompt ? await window.apxPrompt(`How many of the ${total} damage dice deal the second damage type? (1 to ${total - 1})`, String(def), { title: 'Split the damage dice', okLabel: 'Split' }) : String(def);
+        let n = parseInt(v);
+        if (!(n >= 1)) { ccRenderAll(); return; }
+        ccDraft.secondDice = Math.max(1, Math.min(total - 1, n));
+        if (!ccDraft.secondDmgType) ccDraft.secondDmgType = 'Cold';
+    }
+    ccDraft.addSecondType = checked; ccRenderAll();
+};
+window.ccSetSecondDmgType = function(v) { ccDraft.secondDmgType = v; ccRenderAll(); };
+window.ccSetSecondDice = function(delta) {
+    let total = ccDiceTotal(ccDraft);
+    ccDraft.secondDice = Math.max(1, Math.min(Math.max(1, total - 1), (parseInt(ccDraft.secondDice) || 1) + delta));
+    ccRenderAll();
+};
 window.ccToggleFlatDmg = function(checked) { ccDraft.addFlatDmgPerDie = checked; ccRenderAll(); };
 window.ccToggleAttrToDmg = function(checked) { ccDraft.addAttrToDmg = checked; ccRenderAll(); };
 
@@ -252,7 +272,22 @@ function ccRenderStep4() {
         </div>
         <label class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white cursor-pointer">
             <input type="checkbox" ${ccDraft.addSecondType ? 'checked' : ''} onchange="window.ccToggleSecondType(this.checked)"> Add a second damage type, splitting the dice [+5 XP]
-        </label>` : ''}
+        </label>
+        ${ccDraft.addSecondType ? (() => {
+            let total = ccDiceTotal(ccDraft), split = window.apxDmgSplit ? window.apxDmgSplit(ccDraft) : null;
+            if (total >= 2) ccDraft.secondDice = Math.max(1, Math.min(total - 1, parseInt(ccDraft.secondDice) || Math.floor(total / 2)));
+            return `<div class="flex flex-wrap items-center gap-2 bg-slate-900 border border-slate-700 rounded p-2">
+            <span class="text-xs text-white font-bold">Second Damage Type:</span>
+            <select onchange="window.ccSetSecondDmgType(this.value)" class="bg-slate-800 text-xs">
+                ${["Bludgeoning","Piercing","Slashing","Fire","Cold","Electric","Acid","Poison","Sonic","Radiation","Force","Psychic"].map(t => `<option value="${t}" ${(ccDraft.secondDmgType || 'Cold')===t?'selected':''}>${t}</option>`).join('')}
+            </select>
+            <span class="text-xs text-slate-300">on</span>
+            <button onclick="window.ccSetSecondDice(-1)" class="w-5 h-5 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold">-</button>
+            <span class="w-5 text-center text-xs font-bold text-white">${total >= 2 ? ccDraft.secondDice : '–'}</span>
+            <button onclick="window.ccSetSecondDice(1)" class="w-5 h-5 rounded bg-amber-700 hover:bg-amber-600 text-white text-xs font-bold">+</button>
+            <span class="text-xs text-slate-300">of ${total} dice</span>
+            <div class="w-full text-[10px] ${split ? 'text-emerald-300' : 'text-red-400'}">${split ? 'Rolls as ' + window.apxDmgSplitText(split) + ' (each type rolled separately)' : 'Add at least 2 damage dice to split them.'}</div>
+        </div>`; })() : ''}` : ''}
         <label class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white cursor-pointer">
             <input type="checkbox" ${ccDraft.addFlatDmgPerDie ? 'checked' : ''} onchange="window.ccToggleFlatDmg(this.checked)"> +1 ${verb} per die [1 XP/die -- ${t.totalDiceCount} XP]
         </label>
@@ -379,6 +414,8 @@ function ccBuildTextSummary(draftOverride) {
         let diceStr = POWER_DIE_STEPS.filter(s => d.dmg[s] > 0).map(s => `${d.dmg[s]}${s}`).join('+');
         let flat = d.addFlatDmgPerDie ? `+${t.totalDiceCount}` : '';
         dmg = `${diceStr}${flat} ${d.isHealing ? '(Heal)' : d.dmgType}`;
+        let split = window.apxDmgSplit ? window.apxDmgSplit(d) : null;
+        if (split) dmg = window.apxDmgSplitText(split);   // "1d6 Fire + 1d6 Cold": each part rolls on its own
     }
 
     let utilityBits = [];
@@ -414,7 +451,9 @@ window.ccDetailLines = function(draft) {
         let diceStr = POWER_DIE_STEPS.filter(s => draft.dmg[s] > 0).map(s => `${draft.dmg[s]}${s}`).join('+');
         let flat = draft.addFlatDmgPerDie ? ` +${t.totalDiceCount}` : '';
         dmgLine = `${diceStr}${flat} ${draft.isHealing ? '(Heal)' : draft.dmgType}`;
-        if (draft.addSecondType) dmgLine += ' (split w/ 2nd type)';
+        let split = window.apxDmgSplit ? window.apxDmgSplit(draft) : null;
+        if (split) dmgLine = window.apxDmgSplitText(split);
+        else if (draft.addSecondType) dmgLine += ' (split w/ 2nd type)';
         if (draft.addAttrToDmg) dmgLine += ' +Attribute Mod';
     }
 

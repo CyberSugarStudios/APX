@@ -1444,7 +1444,8 @@ window.apxOnAttackRoll = function(o, r) {
     if (!o || !_gmFightOn()) return;
     let e = _gmAttackerFor(o); if (!e) return;
     _gmRecordAttack({ id: r.id, attacker: e, label: o.label || 'an attack', hit: o.hit || null, crit: !!r.crit, fumble: !!r.fumble, total: r.total,
-        dice: o.dice || '', critMult: o.critMult || 2, reroll12: false, critExtra: r.critExtra || 0, dmgType: o.dmgType || (o.hit && o.hit.dmgType) || '' });   // (NPC stat blocks don't use perks)
+        dice: o.dice || '', critMult: o.critMult || 2, reroll12: false, critExtra: r.critExtra || 0, dmgType: o.dmgType || (o.hit && o.hit.dmgType) || '',
+        dmgShares: r.dmgParts ? r.dmgParts.map(x => x.dmg) : null });   // (NPC stat blocks don't use perks)
     // Players' sheets learn what just attacked (and its damage type), so they can reduce damage typed there
     if (e.faction !== 'player' && !e.companionOf) {
         window._gmLastNpcAtk = { id: r.id, t: Date.now(), turnNo: window.gmCombatStarted ? window.gmTurnNumber : null, round: window.gmCombatStarted ? window.gmRoundNumber : null, by: _gmPublicName(e), label: o.label || 'an attack', dmgType: o.dmgType || (o.hit && o.hit.dmgType) || '', props: (o.hit && o.hit.props) || [], tier: (o.hit && o.hit.tier) || 0, crit: !!r.crit };
@@ -1997,7 +1998,8 @@ function _gmHandleRollEvent(uid, ev) {
     if (ev.kind === 'attack') {
         let atkEntry = ev.companion ? (window.gmInitiative || []).find(e => e.companionOf === uid) : entry;
         if (atkEntry) _gmRecordAttack({ id: ev.id, attacker: atkEntry, label: ev.label || 'an attack', hit: ev.hit || null, crit: !!ev.crit, fumble: !!ev.fumble, total: ev.total,
-            dice: ev.dice || '', critMult: ev.critMult || 2, reroll12: !!ev.reroll12, dmgType: ev.dmgType || (ev.hit && ev.hit.dmgType) || '' });
+            dice: ev.dice || '', critMult: ev.critMult || 2, reroll12: !!ev.reroll12, dmgType: ev.dmgType || (ev.hit && ev.hit.dmgType) || '',
+            dmgShares: Array.isArray(ev.dmgParts) ? ev.dmgParts.map(x => x.dmg) : null });
         gmLog({ id: 'ev_' + ev.id, gmOnly: true, kind: 'roll',
             text: `${atkEntry ? atkEntry.name : name} attacked with ${ev.label || 'a weapon'}: ${ev.total} (d20 ${ev.nat}${ev.bonus ? (ev.bonus > 0 ? ' +' : ' −') + Math.abs(ev.bonus) : ''})${ev.crit ? ' · critical hit' : ev.fumble ? ' · natural 1' : ''}${ev.dmg != null ? ` · ${ev.dmg} damage before DR/ER` : ''}` });
         return;
@@ -2008,7 +2010,8 @@ function _gmHandleRollEvent(uid, ev) {
         // A save / damage power (no attack roll): the next damage entered is this power, with its type
         let pwEntry = ev.companion ? (window.gmInitiative || []).find(e => e.companionOf === uid) : entry;
         if (firstSeen && pwEntry && !ev.attackRoll && (ev.dmgType || ev.save)) _gmRecordAttack({ id: ev.id, attacker: pwEntry, label: ev.label || 'a power', hit: { weapon: ev.label || 'Power', props: [], dmgType: ev.dmgType || '' },
-            crit: false, fumble: false, total: 0, dice: ev.dice || '', critMult: 2, reroll12: false, dmgType: ev.dmgType || '', power: true, save: ev.save || null, aoe: !!ev.aoe });
+            crit: false, fumble: false, total: 0, dice: ev.dice || '', critMult: 2, reroll12: false, dmgType: ev.dmgType || '', power: true, save: ev.save || null, aoe: !!ev.aoe,
+            dmgShares: Array.isArray(ev.dmgParts) ? ev.dmgParts.map(x => x.dmg) : null });
         return;
     }
     // Burning ticked at the start of their turn: say why they lost HP (instead of a plain damage line)
@@ -2522,7 +2525,8 @@ function _gmDamage(entry, opts) {
     let def = _gmDefenseOf(entry);
     if (opts.defAdd) { def.dr += opts.defAdd.dr || 0; def.er += opts.defAdd.er || 0; if (opts.defAdd.why) def.src = (def.src || 'tracker') + ', ' + opts.defAdd.why; }
     let incap = _gmEffConds(entry).includes('incapacitated');
-    let mopt = { ignore: hit && hit.hit && window.APXDamage ? window.APXDamage.ignoreOf(hit.hit) : null, bypassRes: incap, halfBypass: def.halfBypass };
+    let mopt = { ignore: hit && hit.hit && window.APXDamage ? window.APXDamage.ignoreOf(hit.hit) : null, bypassRes: incap, halfBypass: def.halfBypass,
+        shares: hit && Array.isArray(hit.dmgShares) && opts.types && hit.dmgShares.length === opts.types.length ? hit.dmgShares : null };   // a split roll: each type its own amount
     let M = (raw) => window.APXDamage ? window.APXDamage.mitigate(raw, opts.types, def, mopt) : { dmg: raw, raw, reduced: 0, text: `${raw} damage` };
     let res = M(opts.raw + extraSum);
     // Swarm: half damage from attacks that target a single creature, double from area effects

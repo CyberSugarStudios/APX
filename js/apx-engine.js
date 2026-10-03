@@ -1667,6 +1667,13 @@
         // Guaranteed powers roll their damage or healing, and anything that needs a saving throw tells
         // the GM (with your Power DC). A power with no roll shows its description.
         function apxPowerDamage(p) {
+            // Two damage types (a split power): each part is rolled on its own, the attribute bonus on the first
+            let split = p && p.draft && window.apxDmgSplit ? window.apxDmgSplit(p.draft) : null;
+            if (split) {
+                let am = p.draft.addAttrToDmg ? (calc.mods[window.apxPowerAttr ? window.apxPowerAttr(p) : window.state.powerAttr] || 0) : 0;
+                if (am) split[0].formula += (am > 0 ? '+' : '') + am;
+                return { formula: split.map(x => x.formula).join('+'), heal: false, type: split.map(x => x.type).join(' + '), split };
+            }
             let m = String(p.dmg || '').match(/^\s*((?:\d*d\d+)(?:\s*[+-]\s*(?:\d*d\d+|\d+))*)\s*(.*)$/i);
             if (!m) return null;
             let heal = /heal/i.test(m[2]);
@@ -1746,7 +1753,13 @@
                 // A martial improvement rides a normal weapon attack: the weapon's damage plus the power's
                 let wpn = info.kind === 'martial' && info.w && info.w.dice ? info.w : null;
                 let wf = wpn ? String(wpn.dice) + (wpn.dmgMod ? (wpn.dmgMod > 0 ? '+' : '') + wpn.dmgMod : '') : '';
-                if (dmg && !dmg.heal) { o.dice = wf ? wf + '+' + dmg.formula : dmg.formula; o.dmgType = [wpn && wpn.dmgType, dmg.type].filter(Boolean).join(' + '); o.critMult = wpn ? (wpn.critMult || 2) : 2; o.wcat = wpn && wpn.wcat ? wpn.wcat : 'power'; APXDice.attack(o); }
+                if (dmg && !dmg.heal) {
+                    o.dice = wf ? wf + '+' + dmg.formula : dmg.formula; o.dmgType = [wpn && wpn.dmgType, dmg.type].filter(Boolean).join(' + '); o.critMult = wpn ? (wpn.critMult || 2) : 2; o.wcat = wpn && wpn.wcat ? wpn.wcat : 'power';
+                    // Damage of more than one type: each type rolled separately (a martial power's weapon damage is its own part)
+                    if (dmg.split) o.split = (wf ? [{ formula: wf, type: wpn.dmgType || 'Weapon' }] : []).concat(dmg.split);
+                    else if (wf && dmg.type) o.split = [{ formula: wf, type: wpn.dmgType || 'Weapon' }, { formula: dmg.formula, type: dmg.type }];
+                    APXDice.attack(o);
+                }
                 else if (wpn) { o.dice = wf; o.dmgType = wpn.dmgType; o.critMult = wpn.critMult || 2; o.wcat = wpn.wcat || ''; APXDice.attack(o); }
                 else { o.kind = 'attack'; o.note = useNote; APXDice.check(o); }
                 tell(`${who || 'A player'} uses ${name}${via}: attack roll.`, { attackRoll: true });
@@ -1755,13 +1768,15 @@
             let saveKind = saveKind0;
             let saveText = saveKind ? `Targets make a saving throw against DC ${dc}: a success ${saveKind === 'halves' ? 'halves it' : 'negates it'}.` : '';
             if (dmg) {
-                APXDice.damage({ label: name + (dmg.heal ? ' healing' : ' damage'), who, formula: dmg.formula, dmgType: dmg.heal ? '' : dmg.type, heal: dmg.heal || undefined, wcat: 'power',
-                    apNote: useNote, apWarn: !pay, note: saveText || null, flavor });
+                let dcard = APXDice.damage({ label: name + (dmg.heal ? ' healing' : ' damage'), who, formula: dmg.formula, dmgType: dmg.heal ? '' : dmg.type, heal: dmg.heal || undefined, wcat: 'power',
+                    apNote: useNote, apWarn: !pay, note: saveText || null, flavor, split: dmg.split || undefined });
+                // a split roll: the GM's tracker divides the damage between the types as rolled
+                if (dmg.split && dcard && Array.isArray(dcard.parts)) dmg.parts = dcard.parts.filter(x => x.kind === 'dmg').map((x, i) => ({ type: (dmg.split[i] || {}).type, dmg: x.total }));
             } else {
                 APXDice.info({ label: name, who, text: flavor || 'Power used.', badges: [[pay ? 'info' : 'fum', useNote]].concat(saveText ? [['info', saveText]] : []) });
             }
             tell(saveText ? `${who || 'A player'} uses ${name}. ${saveText}` : `${who || 'A player'} uses ${name}.`,
-                dmg && !dmg.heal ? { dmgType: dmg.type, dice: dmg.formula, save: saveKind ? { dc, kind: saveKind } : null } : (saveKind ? { save: { dc, kind: saveKind } } : null));
+                dmg && !dmg.heal ? { dmgType: dmg.type, dice: dmg.formula, save: saveKind ? { dc, kind: saveKind } : null, dmgParts: dmg.parts || undefined } : (saveKind ? { save: { dc, kind: saveKind } } : null));
         };
 
         // Summon a Creature: edit the creature on its own, without reopening the Power Crafter

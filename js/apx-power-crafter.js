@@ -497,7 +497,25 @@ window.pcSetDie = function(step, delta) {
 window.pcSetHealing = function(checked) { pcDraft.isHealing = checked; pcRenderAll(); };
 window.pcSetDmgType = function(val) { pcDraft.dmgType = val; };
 window.pcSetSecondDmgType = function(val) { pcDraft.secondDmgType = val; };
-window.pcToggleSecondType = function(checked) { pcDraft.addSecondType = checked; pcRenderAll(); };
+// A second damage type splits the dice: you pick how many of them deal it (the largest dice go first)
+function pcDiceTotal(d) { return POWER_DIE_STEPS.reduce((t, st) => t + (parseInt(d.dmg[st]) || 0), 0); }
+window.pcToggleSecondType = async function(checked) {
+    if (checked) {
+        let total = pcDiceTotal(pcDraft);
+        if (total < 2) { window.showConfirm('Splitting needs at least 2 damage dice: add dice in this step first.', null, true); pcRenderAll(); return; }
+        let def = Math.max(1, Math.min(total - 1, parseInt(pcDraft.secondDice) || Math.floor(total / 2)));
+        let v = window.apxPrompt ? await window.apxPrompt(`How many of the ${total} damage dice deal the second damage type? (1 to ${total - 1})`, String(def), { title: 'Split the damage dice', okLabel: 'Split' }) : String(def);
+        let n = parseInt(v);
+        if (!(n >= 1)) { pcRenderAll(); return; }
+        pcDraft.secondDice = Math.max(1, Math.min(total - 1, n));
+    }
+    pcDraft.addSecondType = checked; pcRenderAll();
+};
+window.pcSetSecondDice = function(delta) {
+    let total = pcDiceTotal(pcDraft);
+    pcDraft.secondDice = Math.max(1, Math.min(Math.max(1, total - 1), (parseInt(pcDraft.secondDice) || 1) + delta));
+    pcRenderAll();
+};
 window.pcToggleFlatDmg = function(checked) { pcDraft.addFlatDmgPerDie = checked; pcRenderAll(); };
 window.pcToggleAttrToDmg = function(checked) { pcDraft.addAttrToDmg = checked; pcRenderAll(); };
 
@@ -701,13 +719,22 @@ function pcRenderStep4() {
         <label class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white cursor-pointer">
             <input type="checkbox" ${pcDraft.addSecondType ? 'checked' : ''} ${pcDraft.step1 === 'hpPool' ? 'disabled' : ''} onchange="window.pcToggleSecondType(this.checked)"> Add a second damage type, splitting the dice [${pcDraft.addSecondType ? pcCostOn('+5', d => { d.addSecondType = false; }) : pcCost('+5', d => { d.addSecondType = true; })}]
         </label>
-        ${pcDraft.addSecondType ? `
-        <div class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded p-2">
+        ${pcDraft.addSecondType ? (() => {
+            let total = pcDiceTotal(pcDraft), split = window.apxDmgSplit ? window.apxDmgSplit(pcDraft) : null;
+            if (total >= 2) pcDraft.secondDice = Math.max(1, Math.min(total - 1, parseInt(pcDraft.secondDice) || Math.floor(total / 2)));
+            return `
+        <div class="flex flex-wrap items-center gap-2 bg-slate-900 border border-slate-700 rounded p-2">
             <span class="text-xs text-white font-bold">Second Damage Type:</span>
             <select onchange="window.pcSetSecondDmgType(this.value)" class="bg-slate-800 text-xs">
                 ${DMG_TYPES.map(t => `<option value="${t}" ${pcDraft.secondDmgType===t?'selected':''}>${t}</option>`).join('')}
             </select>
-        </div>` : ''}` : ''}
+            <span class="text-xs text-slate-300">on</span>
+            <button onclick="window.pcSetSecondDice(-1)" class="w-5 h-5 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold">-</button>
+            <span class="w-5 text-center text-xs font-bold text-white">${total >= 2 ? pcDraft.secondDice : '–'}</span>
+            <button onclick="window.pcSetSecondDice(1)" class="w-5 h-5 rounded bg-amber-700 hover:bg-amber-600 text-white text-xs font-bold">+</button>
+            <span class="text-xs text-slate-300">of ${total} dice</span>
+            <div class="w-full text-[10px] ${split ? 'text-emerald-300' : 'text-red-400'}">${split ? 'Rolls as ' + window.apxDmgSplitText(split) + ' (each type rolled separately)' : 'Add at least 2 damage dice to split them.'}</div>
+        </div>`; })() : ''}` : ''}
         <label class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white cursor-pointer">
             <input type="checkbox" ${pcDraft.addFlatDmgPerDie ? 'checked' : ''} onchange="window.pcToggleFlatDmg(this.checked)"> +1 ${verb} per die [${pcIsNpc() ? (pcDraft.addFlatDmgPerDie ? pcCostOn(0, d => { d.addFlatDmgPerDie = false; }) : pcCost(0, d => { d.addFlatDmgPerDie = true; })) : `1 XP/die -- ${t.totalDiceCount} XP`}]
         </label>
@@ -1038,7 +1065,9 @@ function pcBuildTextSummary() {
         let diceStr = POWER_DIE_STEPS.filter(s => pcDraft.dmg[s] > 0).map(s => `${pcDraft.dmg[s]}${s}`).join('+');
         let flat = pcDraft.addFlatDmgPerDie ? `+${t.totalDiceCount}` : '';
         dmg = `${diceStr}${flat} ${pcDraft.isHealing ? '(Heal)' : pcDraft.dmgType}`;
-        if (pcDraft.addSecondType) dmg += ` + ${pcDraft.secondDmgType}`;
+        let split = window.apxDmgSplit ? window.apxDmgSplit(pcDraft) : null;
+        if (split) dmg = window.apxDmgSplitText(split);
+        else if (pcDraft.addSecondType) dmg += ` + ${pcDraft.secondDmgType}`;
         if (pcDraft.addAttrToDmg) dmg += ' +Attr';
     }
 

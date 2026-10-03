@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.3.1000',
-        released: '2026-10-03T10:00:00',
-        releasedText: 'October 3, 2026 · 10:00 AM',
+        version: 'v2026.10.2.2240',
+        released: '2026-10-02T22:40:00',
+        releasedText: 'October 2, 2026 · 10:40 PM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs with loot of their own, apart from their stat blocks, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -145,13 +145,15 @@
                 'A power that summons a creature has an Edit Summoned Creature button, so the creature can be changed without reopening the Power Crafter.',
                 'Powers for your Loyal Companion and for a summoned creature are priced in Threat Points from their own budget, never your XP. Building a summoned creature\'s powers from inside the Power Crafter picks your own power back up afterward.',
                 'Summoned creatures can\'t summon creatures of their own (the utility is locked when crafting their powers), and have a hard 3 AP each turn with nothing banked.',
-                'Your Loyal Companion can have a Summon a Creature power, up to its own Tier. Saving it opens the NPC Crafter for the creature and then returns to your companion; using it puts the creatures next to your companion on the battle map.'
+                'Your Loyal Companion can have a Summon a Creature power, up to its own Tier. Saving it opens the NPC Crafter for the creature and then returns to your companion; using it puts the creatures next to your companion on the battle map.',
+                '"Add a second damage type, splitting the dice" asks how many of the dice deal the second type (change it with − and + next to the type). The power shows as "2d6 Fire + 1d8 Cold", and using it rolls each type separately with the total underneath. A martial power rolls its weapon\'s damage and its own damage as separate types too.'
             ]],
             ['Magic and Custom Items', [
                 'Equippable items can carry any number of bonuses, or penalties if cursed: Core Attributes, skills, AC, DR, ER, one energy resistance, Max HP, Max AP, Speed, Initiative, Wound Threshold, Max Rest Dice, Max Luck Points, Carry Capacity, attack and damage rolls, power attack and DC, saves, checks and extra Power Slots.',
                 'Make your own with Add Item (tick Equippable), and edit them later from their details. Items from your GM keep the bonuses and powers they came with: the details list both, and the inventory row shows "Powers: …".',
                 'Bonuses and powers work only while the item is equipped, and an item handed to you always arrives unequipped.',
-                'Add Item\'s custom item maker matches your GM\'s: any number of bonus rows (each shows what it boosts beside a small amount box), and + Craft Power for item powers. A Core Attribute row can Add to the score or Set it to a total, with an "unless higher" box (an Exo Suit: STR 15 unless yours is higher).'
+                'Add Item\'s custom item maker matches your GM\'s: any number of bonus rows (each shows what it boosts beside a small amount box), and + Craft Power for item powers. A Core Attribute row can Add to the score or Set it to a total, with an "unless higher" box (an Exo Suit: STR 15 unless yours is higher).',
+                'Consumables can split their dice between two damage types the same way, chosen in the Consumable Crafter.'
             ]],
             ['Weapons and Shields', [
                 'Weapon properties take effect when you hit: Crushing (STR save or Prone, or an extra die against a Prone target), Stunning (CON save or Stunned), Concealed (an extra die against a Surprised target), and Flurry\'s AP discount on your next attack with that weapon this turn.',
@@ -317,7 +319,8 @@
                 'Turn-start AP is never given twice, and "No map" combat never uses a map that was closed.',
                 'Changing a player\'s conditions from the tracker holds steady until their sheet catches up. Adding Bleeding Out drops them to 0 HP and starts their Bleed Out (they roll the CON (Survive) check); taking it off stabilizes them.',
                 'A stat block window stays open while any creature in the order still uses that stat block: when one dies, its window passes to the next.',
-                'Before Start Combat (testing a build, or a fight the players only watch), players only see that a creature took damage or went down, plus anything that asks them to roll. The full combat log reaches them once combat starts.'
+                'Before Start Combat (testing a build, or a fight the players only watch), players only see that a creature took damage or went down, plus anything that asks them to roll. The full combat log reaches them once combat starts.',
+                'Damage from a split roll (two damage types) is divided between its types as it was rolled, not evenly, so each type meets the right DR, ER, resistance or immunity.'
             ]],
             ['Map Marker Popups', [
                 'In an Area Circle or Special Map Marker you\'re editing, "+ Add Sub-note" sits right under the sub-notes and above the Loot section, one click away.',
@@ -381,7 +384,8 @@
                 'Remove Power asks for confirmation in front of the NPC Crafter, where you can see it.',
                 'NPC Wound Thresholds, (5 + CON mod) × 2: a hit that big asks for a CON save, and a failure rolls a Wound. Wounds show on the tracker and can be healed. Leg Wounds stagger, and a Torso Wound adds a die to hits.',
                 'NPC casters have Power Slots in the tracker and on the stat block, and a power can use a new "Power Slot" usage that spends a slot of its Level or higher.',
-                'Damaging Aura (and other auras) show as a coloured ring on the map and deal their damage to everyone inside at the end of the NPC\'s turn. Traits like Death Burst let you pick the energy type.'
+                'Damaging Aura (and other auras) show as a coloured ring on the map and deal their damage to everyone inside at the end of the NPC\'s turn. Traits like Death Burst let you pick the energy type.',
+                'NPC powers with a second damage type roll each type separately, like players\' powers.'
             ]],
             ['NPC Crafter and Weapon Forge', [
                 'NPC weapons stay fully editable: reopen one in the Weapon Forge to change melee or ranged, Light, Medium or Heavy, and its damage type at any time.',

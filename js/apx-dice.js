@@ -757,16 +757,18 @@
             let dp = damagePerks(o, usePerks);
             // The crit dice are rolled now and only shown if the attack turns out to crit
             // (it can become a crit later, e.g. by using a stored Omen 20).
-            let dm = makeDamage(o.dice, { reroll12: usePerks && hr >= 2, explode, critMult, keepBest: dp.keepBest, instig: dp.instig });
+            let dm = makeDamage(o.split && o.split.length > 1 ? o.split[0].formula : o.dice, { reroll12: usePerks && hr >= 2, explode, critMult, keepBest: dp.keepBest, instig: dp.instig });
             let flat = (dm.parsed.flat || 0) + (o.dmgMod || 0);
+            // More than one damage type (a split power, a martial power on a weapon): each type is its own roll
+            let extra = o.split && o.split.length > 1 ? o.split.slice(1).map(sp => ({ sp, dm: makeDamage(sp.formula, { reroll12: usePerks && hr >= 2, critMult }), p: { kind: 'dmg', title: (sp.type || 'Damage') + ' damage', mult: critMult } })) : [];
             let gambleBonus = gamble ? (hr >= 4 ? 10 : 5) : 0;   // High Roller: +5 on a Gamble that hits (+10 from Rank 4)
             let dst = { crit: false, inst: false, maxed: false };
-            let dmg = { kind: 'dmg', title: 'Damage', gamble: gambleBonus, mult: critMult };
-            let c = { label: o.label || 'Attack', who: o.who, parts: [atk, dmg].concat(o.flavor ? [{ kind: 'text', html: '<i style="font-weight:500;line-height:1.35">' + esc(o.flavor) + '</i>' }] : []), perks: usePerks, omenOk: !!o.omen && !!(window.state?.perks), gamble };
+            let dmg = { kind: 'dmg', title: extra.length ? (o.split[0].type || 'Damage') + ' damage' : 'Damage', gamble: gambleBonus, mult: critMult };
+            let c = { label: o.label || 'Attack', who: o.who, parts: [atk, dmg].concat(extra.map(x => x.p)).concat(o.flavor ? [{ kind: 'text', html: '<i style="font-weight:500;line-height:1.35">' + esc(o.flavor) + '</i>' }] : []), perks: usePerks, omenOk: !!o.omen && !!(window.state?.perks), gamble };
             c.id = 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
             // The page hears about every attack (and every change to it): the GM Tools use it to know
             // who just attacked with what, so a hit applies the weapon's properties to the right target.
-            let tell = () => { if (typeof window.apxOnAttackRoll === 'function') { try { window.apxOnAttackRoll(o, { id: c.id, nat: atk.nat, total: atk.total, crit: !!atk.crit, fumble: !!atk.fumble, dmg: dmg.total, bonus: atk.bonus || 0,
+            let tell = () => { if (typeof window.apxOnAttackRoll === 'function') { try { window.apxOnAttackRoll(o, { id: c.id, nat: atk.nat, total: atk.total, crit: !!atk.crit, fumble: !!atk.fumble, dmg: dmg.total + extra.reduce((t, x) => t + (x.p.total || 0), 0), dmgParts: extra.length ? [{ type: o.split[0].type, dmg: dmg.total }].concat(extra.map(x => ({ type: x.sp.type, dmg: x.p.total }))) : undefined, bonus: atk.bonus || 0,
                 critExtra: atk.crit && dmg.roll ? dmg.roll.groups.filter(g => g.crit).reduce((t, g) => t + g.sign * g.dice.reduce((a, d) => a + dieSum(d), 0), 0) : 0 }); } catch (e) { console.warn('Attack hook:', e); } } };
             let settleDmg = () => {
                 dmg.crit = atk.crit; dmg.none = atk.fumble;
@@ -777,8 +779,16 @@
                 let total = dmg.roll.diceTotal + dmg.roll.flat;
                 if (gamble) total += gambleBonus;
                 dmg.total = Math.max(0, total);
+                extra.forEach(x => {
+                    x.p.crit = atk.crit; x.p.none = atk.fumble;
+                    let r2 = x.dm.settle(dst);
+                    x.p.roll = { groups: r2.roll.groups, flat: x.dm.parsed.flat || 0, diceTotal: r2.roll.diceTotal };
+                    x.p.mult = r2.roll.mult;
+                    x.p.total = Math.max(0, r2.roll.diceTotal + (x.dm.parsed.flat || 0));
+                });
                 c.badges = modeBadges(atk.badgeMode || mode, o.advSources, o.disSources, gamble);
                 if (o.dmgType) c.badges.push(['info', o.dmgType]);
+                if (extra.length && !atk.fumble) c.badges.push(['info', 'Total: ' + [dmg.total].concat(extra.map(x => x.p.total)).reduce((a, b) => a + b, 0) + ' (' + [`${dmg.total} ${o.split[0].type}`].concat(extra.map(x => `${x.p.total} ${x.sp.type}`)).join(' + ') + ')']);
                 // Ammo (Ch.8): what a hit (and a critical hit) does
                 let ammo = o.ammo || (o.hit && o.hit.ammo);
                 if (ammo && AMMO_FX[ammo] && !atk.fumble) {
@@ -839,16 +849,25 @@
             if (explode) { S().hrExplodeUsed = true; tray.explodeNext = false; refreshPerkBar(); }
             let dp = o.heal ? {} : damagePerks(o, usePerks);
             let mult = (o.mult && o.mult > 1) ? o.mult : 2;
-            let dm = makeDamage(o.formula, { reroll12: !o.heal && usePerks && hr >= 2, explode, critMult: mult, keepBest: dp.keepBest, instig: dp.instig });
+            let splitOn = !o.heal && o.split && o.split.length > 1;
+            let dm = makeDamage(splitOn ? o.split[0].formula : o.formula, { reroll12: !o.heal && usePerks && hr >= 2, explode, critMult: mult, keepBest: dp.keepBest, instig: dp.instig });
             let dst = { crit: !!(o.mult && o.mult > 1), inst: false, maxed: false };
-            let p = { kind: 'dmg', title: o.heal ? 'Heal' : 'Damage' };
-            let c = { label: o.label || 'Damage', who: o.who, parts: [p].concat(o.flavor ? [{ kind: 'text', html: '<i style="font-weight:500;line-height:1.35">' + esc(o.flavor) + '</i>' }] : []), badges: [] };
+            let p = { kind: 'dmg', title: o.heal ? 'Heal' : splitOn ? (o.split[0].type || 'Damage') + ' damage' : 'Damage' };
+            // More than one damage type: each type is its own roll
+            let extra = splitOn ? o.split.slice(1).map(sp => ({ sp, dm: makeDamage(sp.formula, { reroll12: usePerks && hr >= 2, critMult: mult }), p: { kind: 'dmg', title: (sp.type || 'Damage') + ' damage' } })) : [];
+            let c = { label: o.label || 'Damage', who: o.who, parts: [p].concat(extra.map(x => x.p)).concat(o.flavor ? [{ kind: 'text', html: '<i style="font-weight:500;line-height:1.35">' + esc(o.flavor) + '</i>' }] : []), badges: [] };
             let settle = () => {
                 let res = dm.settle(dst);
                 p.roll = { groups: res.roll.groups, flat: dm.parsed.flat, diceTotal: res.roll.diceTotal };
                 p.total = Math.max(0, res.roll.diceTotal + dm.parsed.flat); p.crit = dst.crit; p.mult = res.roll.mult;
+                extra.forEach(x => {
+                    let r2 = x.dm.settle(dst);
+                    x.p.roll = { groups: r2.roll.groups, flat: x.dm.parsed.flat, diceTotal: r2.roll.diceTotal };
+                    x.p.total = Math.max(0, r2.roll.diceTotal + x.dm.parsed.flat); x.p.crit = dst.crit; x.p.mult = r2.roll.mult;
+                });
                 c.badges = [];
                 if (o.dmgType) c.badges.push(['info', o.dmgType]);
+                if (extra.length) c.badges.push(['info', 'Total: ' + [p.total].concat(extra.map(x => x.p.total)).reduce((a, b) => a + b, 0) + ' (' + [`${p.total} ${o.split[0].type}`].concat(extra.map(x => `${x.p.total} ${x.sp.type}`)).join(' + ') + ')']);
                 // Ammo (Ch.8): what a hit (and a critical hit) does
                 let ammo = o.ammo || (o.hit && o.hit.ammo);
                 if (ammo && AMMO_FX[ammo] && !atk.fumble) {
