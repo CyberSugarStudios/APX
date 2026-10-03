@@ -11,6 +11,8 @@
         window.recalculateMath = function() {
             // Bring older saves up to the current rules (non-destructive, runs once per character)
             if (typeof window.apxMigrateCharacter === 'function') window.apxMigrateCharacter(window.state);
+            // Powers built under older Power Crafting rules: a list to rebuild them (once per launch)
+            if (typeof window.apxMaybeShowPowerRebuild === 'function') setTimeout(() => { try { window.apxMaybeShowPowerRebuild(); } catch (e) { console.warn('Rebuild list:', e); } }, 800);
             window.syncDOM();
             
             if (!window.state.pwrIntRanks) {
@@ -1734,6 +1736,12 @@
             let flavor = String(p.desc || '').trim();
             let pnums = apxPowerNums(p), dc = pnums.dc;
             let saveKind0 = info.kind === 'save' ? (/halves/i.test(info.text) ? 'halves' : 'negates') : null;
+            // Its saving throw's Core Attribute, and the Escape Save a lasting effect gives its target
+            let sInfo = p.draft && window.apxPowerSaveInfo ? window.apxPowerSaveInfo(p.draft) : null;
+            let escLine = p.draft && window.apxPowerSaveLines ? window.apxPowerSaveLines(p.draft, dc).escape : '';
+            let fxInfo = sInfo && (sInfo.inflicts.length || sInfo.lasting) ? { conds: sInfo.inflicts.filter(c => c !== 'wounded'), lasting: sInfo.lasting, escapeAttr: sInfo.escapeAttr,
+                dur: sInfo.dur, dmgInt: sInfo.dmgInt, actInt: sInfo.actInt, saveAttr: sInfo.saveAttr, saveKind: sInfo.saveKind, dc } : null;
+            if (escLine) flavor = flavor ? flavor + ' · ' + escLine + '.' : escLine + '.';
             // The GM's tracker learns what this power is (its damage type, its save), so the damage
             // entered next is this power, not an earlier attack
             // An area power (Small to Massive AoE): a Swarm takes double from it, half from single-target ones
@@ -1742,7 +1750,7 @@
             let sumN = (p.draft && p.draft.utility && p.draft.utility.major && p.draft.utility.major.summonCreature) || 0;
             let summon = sumN && p.draft.summonNpc ? { npc: (n => { delete n.portraitFull; return n; })(JSON.parse(JSON.stringify(p.draft.summonNpc))), count: sumN, tier: p.draft.summonTier || 1, power: name } : null;
             if (sumN && !summon) APXDice.notify(`${name} summons a creature, but it hasn't been built yet: edit the power and build it in the NPC Crafter.`, { kind: 'warn', open: true });
-            let tell = (text, extra) => { if (typeof window.apxOnRollEvent === 'function') window.apxOnRollEvent(Object.assign({ id: 'pw' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), kind: 'power', label: name, text }, extra || {}, summon ? { summon } : {}, isAoe ? { aoe: true } : {})); };
+            let tell = (text, extra) => { if (typeof window.apxOnRollEvent === 'function') window.apxOnRollEvent(Object.assign({ id: 'pw' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), kind: 'power', label: name, text }, extra || {}, summon ? { summon } : {}, isAoe ? { aoe: true } : {}, fxInfo ? { fx: fxInfo } : {})); };
             if (info.kind === 'power' || info.kind === 'martial') {
                 let bonus = info.kind === 'power' ? pnums.atk : (info.w ? info.w.bonus : pnums.atk);
                 let via = info.kind === 'martial' && info.w ? ` (${info.w.label})` : '';
@@ -1762,11 +1770,12 @@
                 }
                 else if (wpn) { o.dice = wf; o.dmgType = wpn.dmgType; o.critMult = wpn.critMult || 2; o.wcat = wpn.wcat || ''; APXDice.attack(o); }
                 else { o.kind = 'attack'; o.note = useNote; APXDice.check(o); }
-                tell(`${who || 'A player'} uses ${name}${via}: attack roll.`, { attackRoll: true });
+                tell(`${who || 'A player'} uses ${name}${via}: attack roll.` + (escLine ? ` ${escLine}.` : ''), { attackRoll: true });
                 return;
             }
             let saveKind = saveKind0;
-            let saveText = saveKind ? `Targets make a saving throw against DC ${dc}: a success ${saveKind === 'halves' ? 'halves it' : 'negates it'}.` : '';
+            let sAttr = sInfo && sInfo.saveAttr ? sInfo.saveAttr + ' ' : '';
+            let saveText = saveKind ? `Targets make a${/^[AEIOU]/.test(sAttr) ? 'n' : ''} ${sAttr}saving throw against DC ${dc}: a success ${saveKind === 'halves' ? 'halves it' : 'negates it'}.` : '';
             if (dmg) {
                 let dcard = APXDice.damage({ label: name + (dmg.heal ? ' healing' : ' damage'), who, formula: dmg.formula, dmgType: dmg.heal ? '' : dmg.type, heal: dmg.heal || undefined, wcat: 'power',
                     apNote: useNote, apWarn: !pay, note: saveText || null, flavor, split: dmg.split || undefined });
@@ -1775,8 +1784,9 @@
             } else {
                 APXDice.info({ label: name, who, text: flavor || 'Power used.', badges: [[pay ? 'info' : 'fum', useNote]].concat(saveText ? [['info', saveText]] : []) });
             }
-            tell(saveText ? `${who || 'A player'} uses ${name}. ${saveText}` : `${who || 'A player'} uses ${name}.`,
-                dmg && !dmg.heal ? { dmgType: dmg.type, dice: dmg.formula, save: saveKind ? { dc, kind: saveKind } : null, dmgParts: dmg.parts || undefined } : (saveKind ? { save: { dc, kind: saveKind } } : null));
+            let saveEv = saveKind ? { dc, kind: saveKind, attr: sInfo && sInfo.saveAttr || null } : null;
+            tell((saveText ? `${who || 'A player'} uses ${name}. ${saveText}` : `${who || 'A player'} uses ${name}.`) + (escLine ? ` ${escLine}.` : ''),
+                dmg && !dmg.heal ? { dmgType: dmg.type, dice: dmg.formula, save: saveEv, dmgParts: dmg.parts || undefined } : (saveEv ? { save: saveEv } : null));
         };
 
         // Summon a Creature: edit the creature on its own, without reopening the Power Crafter
@@ -1798,6 +1808,9 @@
                     </div>
                     ${(() => { let pn = apxPowerNums(p), pool = window.apxPowerPool ? window.apxPowerPool(p) : 'full';
                         return `<div class="text-[9px] font-bold mb-1 ${pool === 'short' ? 'text-amber-300/90' : 'text-sky-300/90'}" title="Each power uses the Core Attribute chosen for it in the Power Crafter">${pool === 'short' ? 'Short Rest Power' : 'Full Rest Power'} · ${pn.attr} · Atk ${pn.atk >= 0 ? '+' : ''}${pn.atk} · DC ${pn.dc}</div>`; })()}
+                    ${(() => { if (!p.draft || !window.apxPowerSaveInfo) return ''; let si = window.apxPowerSaveInfo(p.draft), dc = apxPowerNums(p).dc;
+                        let bits = [si.saveKind && si.saveAttr ? `Targets: ${si.saveAttr} save (DC ${dc})` : '', si.lasting && si.escapeAttr ? `Escape Save: ${si.escapeAttr}` : ''].filter(Boolean);
+                        return bits.length ? `<div class="text-[9px] font-bold mb-1 text-purple-300/90" title="${si.lasting ? 'A target under its lasting effect makes this save at the end of each of its turns, ending it on a success' : 'The saving throw targets make against it'}">${bits.join(' · ')}</div>` : ''; })()}
                     <div class="grid grid-cols-3 gap-1 mb-1 text-[10px] text-slate-400">
                         <div><span class="text-slate-500">A/S:</span> ${apxPowerAtkHtml(p, idx)}</div>
                         <div><span class="text-slate-500">R/A:</span> ${p.rng}</div>

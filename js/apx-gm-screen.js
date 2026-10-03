@@ -1357,6 +1357,7 @@ function _gmPublishLogSoon() {
 }
 // HP change on a tracker entry → "<active creature> dealt X damage to <target>."
 function _gmLogHpChange(entry, before, after, wasAboveZero, rawDmg, hit, why) {
+    if (entry && after < before) { try { _gmPfxOnDamage(entry); } catch (e) { console.warn('Damage Interrupt:', e); } }
     let d = before - after;
     if (d > 0 && rawDmg > d) d = rawDmg;   // the whole hit, even past 0 HP
     if (!_gmFightOn()) return;
@@ -1415,6 +1416,7 @@ function _gmRecordAttack(a) {
     if (!a || !a.attacker) return;
     let prev = window._gmLastAttack;
     if (prev && prev.id === a.id) { Object.assign(prev, a, { used: prev.used }); return; }   // a reroll of the same attack
+    try { _gmPfxOnAction(a.attacker); } catch (e) { console.warn('Action Interrupt:', e); }
     window._gmLastAttack = Object.assign({ t: Date.now(), used: new Set(), turn: window.gmCombatStarted ? window.gmTurnNumber : null, round: window.gmCombatStarted ? window.gmRoundNumber : null }, a);
 }
 // Which creature in initiative a GM-side attack roll belongs to. When several creatures share a
@@ -1706,18 +1708,201 @@ function _gmAskSave(target, item) {
         (window._gmCondSaves[target.id] = window._gmCondSaves[target.id] || []).push(item);
         gmLog({ text, kind: 'wt', ask: { uid: target.playerUid, roll: 'save', attr: item.attr, dc: item.dc, label: `Roll ${item.attr} save (DC ${item.dc})` } });
     } else {
+        let itemKey = (item.pfx || item.escape) ? 'si' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6) : null;
+        if (itemKey) window._gmPfxItems[itemKey] = item;
         gmLog({ text, gmText: `${_gmGmName(target)} must make a DC ${item.dc} ${item.attr} save or ${item.failInf || item.fail} (${item.why}).`, kind: 'wt',
-            ask: { gm: true, entryId: target.id, roll: 'save', attr: item.attr, dc: item.dc, cond: item.cond, fail: item.fail, byId: item.byId || null, turn: item.turn || null, label: `Roll ${_gmGmName(target)}'s ${item.attr} save (DC ${item.dc})` } });
+            ask: { gm: true, entryId: target.id, roll: 'save', attr: item.attr, dc: item.dc, cond: item.cond, fail: item.fail, byId: item.byId || null, turn: item.turn || null, itemKey, label: `Roll ${_gmGmName(target)}'s ${item.attr} save (DC ${item.dc})` } });
     }
 }
 function _gmCondResult(entry, item, ev, again) {
     let pass = !ev.autoFail && ev.total >= item.dc;
     let name = _gmPublicName(entry);
+    if (item.escape) return _gmEscapeResult(entry, item, pass, ev);
+    if (item.pfx) {
+        // A power's saving throw: on a failure its Conditions go on (and a lasting one is tracked)
+        if (!pass && !item.applied && item.pfx.conds.length) _gmApplyPfx(entry, item.pfx);
+        else if (pass && again && item.applied) _gmEndPfx(entry, item.pfx.key, null);
+        item.applied = !pass && item.pfx.conds.length > 0;
+        let tail = item.saveKind === 'halves' ? ': half damage' + (item.pfx.conds.length ? ' and no other effects' : '') : ': unaffected';
+        return pass ? `${name} succeeds on the ${item.attr} save against ${item.why} (${ev.total} vs DC ${item.dc})${tail}.`
+                    : `${name} fails the ${item.attr} save against ${item.why} (${ev.total} vs DC ${item.dc}) and ${item.fail}.`;
+    }
     if (!pass) { _gmAddCondition(entry, item.cond); if (item.byId) _gmSetCondTimer(entry, item); }
     else if (again && item.applied) { _gmClearCondTimer(entry, item); if (entry.faction === 'player') _gmSetPlayerCondition(entry, item.cond, false); else if (window._gmRemoveEntryCondition) window._gmRemoveEntryCondition(entry.id, item.cond); }
     item.applied = !pass;
     return pass ? `${name} succeeds on the ${item.attr} save (${ev.total} vs DC ${item.dc}).`
                 : `${name} fails the ${item.attr} save (${ev.total} vs DC ${item.dc}) and ${item.fail}.`;
+}
+
+// ── Power effects: saving throws, Conditions and Escape Saves ─────────────
+// A power that calls for a save or inflicts Conditions puts a button in the GM's dice tray: pick its
+// targets, and NPCs' saves are rolled (players are asked to roll theirs). On a failed save (or
+// straight away, for a power with no save) its Conditions go on. A lasting effect is tracked on the
+// creature: it makes its Escape Save at the end of each of its turns (and whenever it takes damage,
+// with Damage Interrupt), and Action Interrupt ends it when the creature attacks. An effect that lasts
+// until the end of the target's next turn wears off then.
+window._gmPfx = window._gmPfx || {};            // offer id -> { casterId, label, fx }
+window._gmPfxItems = window._gmPfxItems || {};  // NPC save button -> its save item
+function _gmCondNames(conds) {
+    let n = (conds || []).map(c => window._gmCondName ? window._gmCondName(c) : c);
+    return n.length > 1 ? n.slice(0, -1).join(', ') + ' and ' + n[n.length - 1] : (n[0] || '');
+}
+window._gmPowerFxOffer = function(caster, label, fx) {
+    if (!caster || !fx || !_gmFightOn()) return null;
+    let conds = (fx.conds || []).filter(c => c && c !== 'wounded');
+    let save = !!(fx.saveKind && fx.saveAttr);
+    if (!conds.length && !save) return null;
+    let id = 'pfx_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    window._gmPfx[id] = { casterId: caster.id, label: label || 'a power', fx: Object.assign({}, fx, { conds }) };
+    let what = _gmCondNames(conds);
+    let text = `${_gmGmName(caster)} used ${label || 'a power'}` + (save ? `: targets make a DC ${fx.dc} ${fx.saveAttr} save${what ? ' or are ' + what : ''}` : what ? `, which inflicts ${what}` : '')
+        + (fx.lasting && fx.escapeAttr ? ` (Escape Save: ${fx.escapeAttr})` : what ? ' (until the end of the target\'s next turn)' : '') + '.';
+    return gmLog({ id, gmOnly: true, kind: 'info', text,
+        ask: { gm: true, free: true, entryId: caster.id, kind: 'pfx', pfx: id, label: save ? `Roll targets' ${fx.saveAttr} saves` : `Apply ${what} to the targets it hit`, doneLabel: save ? 'Saves rolled' : 'Applied' } });
+};
+// Choose the targets (everyone in initiative but the user)
+function _gmPfxPick(id) {
+    let o = window._gmPfx[id]; if (!o) return;
+    let fx = o.fx, save = !!(fx.saveKind && fx.saveAttr);
+    let list = (window.gmInitiative || []).filter(e => e.id !== o.casterId);
+    if (!list.length) { window.APXDice?.notify('No one else is in the initiative order.', { kind: 'warn' }); return; }
+    if (window.apxInjectDialogStyles) window.apxInjectDialogStyles();
+    document.getElementById('apxPfxPick')?.remove();
+    let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    let col = { player: '#60a5fa', ally: '#4ade80', neutral: '#e2e8f0', enemy: '#f87171' };
+    let back = document.createElement('div');
+    back.id = 'apxPfxPick'; back.className = 'apxdlg-back'; back.style.zIndex = 2147483300;
+    back.innerHTML = `<div class="apxdlg" style="width:min(380px,100%)"><div class="apxdlg-title">${esc(o.label)}</div>
+        <div class="apxdlg-msg">${save ? `Who has to make the DC ${fx.dc} ${fx.saveAttr} save? NPCs' saves are rolled now; players are asked to roll theirs.` : `Who did it hit? They are ${esc(_gmCondNames(fx.conds))}.`}</div>
+        <div style="display:flex;flex-direction:column;gap:.3rem;max-height:50vh;overflow-y:auto;margin-bottom:.8rem">
+        ${list.map(e => `<label style="display:flex;align-items:center;gap:.45rem;font-size:.78rem;cursor:pointer"><input type="checkbox" data-t="${esc(e.id)}"> <span style="color:${col[e.faction] || '#e2e8f0'};font-weight:700">${esc(_gmGmName(e))}</span></label>`).join('')}
+        </div><div class="apxdlg-row"><button class="apxdlg-btn" data-x>Cancel</button><button class="apxdlg-btn apxdlg-ok" data-ok>${save ? 'Roll Saves' : 'Apply'}</button></div></div>`;
+    back.querySelector('[data-x]').onclick = () => back.remove();
+    back.querySelector('[data-ok]').onclick = () => {
+        let ids = [...back.querySelectorAll('[data-t]')].filter(c => c.checked).map(c => c.dataset.t);
+        back.remove();
+        ids.forEach(tid => { let t = (window.gmInitiative || []).find(e => e.id === tid); if (t) _gmPfxResolve(o, t); });
+        window.renderInitiativeTracker();
+    };
+    document.body.appendChild(back);
+}
+window._gmPfxPick = _gmPfxPick;
+function _gmPfxRecord(o) {
+    let fx = o.fx;
+    return { key: o.casterId + '|' + o.label, label: o.label, conds: fx.conds.slice(), attr: fx.lasting ? fx.escapeAttr || null : null, dc: fx.dc,
+        byId: o.casterId, lasting: !!fx.lasting, dur: fx.dur || 'instant', dmgInt: !!fx.dmgInt, actInt: !!fx.actInt };
+}
+function _gmPfxResolve(o, t) {
+    let fx = o.fx, rec = _gmPfxRecord(o), what = _gmCondNames(fx.conds);
+    if (fx.saveKind && fx.saveAttr) {
+        let item = { attr: fx.saveAttr, dc: fx.dc, cond: fx.conds[0] || null, why: o.label, saveKind: fx.saveKind, pfx: rec,
+            fail: fx.conds.length ? `is ${what}` : (fx.saveKind === 'halves' ? 'takes the full damage' : 'is affected'),
+            failInf: fx.conds.length ? `be ${what}` : (fx.saveKind === 'halves' ? 'take the full damage' : 'be affected') };
+        if (t.faction === 'player' && t.playerUid) _gmAskSave(t, item);
+        else _gmRollNpcSave(t, item);
+        return;
+    }
+    if (!fx.conds.length) return;
+    _gmApplyPfx(t, rec);
+    gmLog({ text: `${_gmPublicName(t)} is ${what} (${o.label}).`, gmText: `${_gmGmName(t)} is ${what} (${o.label}).`, kind: 'info' });
+}
+// An NPC's (or companion's) save, rolled from its stat block (its conditions count: auto-fails, Disadvantage)
+function _gmRollNpcSave(t, item) {
+    if (!window.APXDice) return;
+    let sb = t.sourceNpcId && typeof ncStatBlockFor === 'function' ? ncStatBlockFor(t.sourceNpcId) : null;
+    let bonus = sb ? ((sb.saves || {})[item.attr] ?? (sb.mods ? (sb.mods[item.attr] || 0) : 0)) : 0;
+    let first = true, logId = 'pfs_' + t.id + '_' + Date.now().toString(36);
+    APXDice.check({ kind: 'save', attr: item.attr, label: `${item.attr} Save (DC ${item.dc})${item.escape ? ': Escape' : ''}`, who: t.name, bonus, perks: false, initId: t.id,
+        note: sb ? null : 'No stat block: add their save bonus yourself',
+        onResult: r => {
+            let txt = _gmCondResult(t, item, { total: r.total, autoFail: r.autoFail }, !first);
+            gmLog({ id: logId, text: txt, kind: 'wt' });
+            first = false;
+            window.renderInitiativeTracker();
+            return txt;
+        } });
+}
+window._gmRollNpcSave = _gmRollNpcSave;
+function _gmApplyPfx(entry, rec) {
+    let r = Object.assign({}, rec, { id: 'fx' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), turn: window.gmTurnNumber || 0 });
+    entry._powerFx = (entry._powerFx || []).filter(f => f.key !== r.key).concat(r);
+    r.conds.forEach(c => _gmAddCondition(entry, c));
+    // Instant / End of Next Turn: gone at the end of the target's next turn
+    if (!r.lasting) r.conds.forEach(c => _gmSetCondTimer(entry, { cond: c, byId: entry.id, turn: r.turn }));
+    return r;
+}
+window._gmApplyPfx = _gmApplyPfx;
+function _gmEndPfx(entry, keyOrId, why) {
+    let list = entry._powerFx || [];
+    let f = list.find(x => x.id === keyOrId || x.key === keyOrId); if (!f) return;
+    entry._powerFx = list.filter(x => x !== f);
+    let still = new Set(entry._powerFx.reduce((a, x) => a.concat(x.conds), []));
+    f.conds.forEach(c => {
+        if (still.has(c)) return;
+        if (entry.faction === 'player') _gmSetPlayerCondition(entry, c, false);
+        else if (window._gmRemoveEntryCondition) window._gmRemoveEntryCondition(entry.id, c);
+    });
+    if (entry._condTimers) entry._condTimers = entry._condTimers.filter(t => !(f.conds.includes(t.cond) && !still.has(t.cond)));
+    if (why) gmLog({ text: `${_gmPublicName(entry)} is no longer ${_gmCondNames(f.conds)} (${f.label}: ${why}).`, gmText: `${_gmGmName(entry)} is no longer ${_gmCondNames(f.conds)} (${f.label}: ${why}).`, kind: 'info' });
+    window.renderInitiativeTracker();
+}
+window._gmEndPfx = _gmEndPfx;
+function _gmPfxAskEscape(entry, f, why) {
+    let what = _gmCondNames(f.conds);
+    let item = { attr: f.attr, dc: f.dc, cond: f.conds[0] || null, escape: f.id, label: f.label, why: `Escape Save against ${f.label}${why ? ', ' + why : ''}`,
+        fail: `stays ${what}`, failInf: `stay ${what}` };
+    _gmAskSave(entry, item);   // players roll it from their dice tray; NPCs get a button in the GM's
+}
+function _gmEscapeResult(entry, item, pass, ev) {
+    let name = _gmPublicName(entry);
+    let f = (entry._powerFx || []).find(x => x.id === item.escape);
+    let what = f ? _gmCondNames(f.conds) : 'affected';
+    if (pass) {
+        if (f) _gmEndPfx(entry, f.id, null);
+        return `${name} makes the ${item.attr} Escape Save (${ev.total} vs DC ${item.dc}) and breaks free of ${item.label || 'the power'}${f ? `: no longer ${what}` : ''}.`;
+    }
+    return `${name} fails the ${item.attr} Escape Save (${ev.total} vs DC ${item.dc}) and stays ${what}.`;
+}
+// End of a creature's turn: Escape Saves against lasting effects; end-of-next-turn effects are done
+function _gmPfxTurnEnd(ending) {
+    if (!ending || !window.gmCombatStarted || !(ending._powerFx || []).length) return;
+    ending._powerFx = ending._powerFx.filter(f => f.lasting || !(window.gmTurnNumber > f.turn));
+    ending._powerFx.filter(f => f.lasting && f.attr).forEach(f => _gmPfxAskEscape(ending, f, null));
+}
+// Damage Interrupt: taking damage calls for the Escape Save (or ends an effect that has none)
+function _gmPfxOnDamage(entry) {
+    (entry && entry._powerFx || []).filter(f => f.dmgInt).forEach(f => {
+        if (f.lasting && f.attr) _gmPfxAskEscape(entry, f, 'it took damage (Damage Interrupt)');
+        else _gmEndPfx(entry, f.id, 'it took damage (Damage Interrupt)');
+    });
+}
+// Action Interrupt: attacking (or using a harmful power) ends the effect
+function _gmPfxOnAction(entry) {
+    (entry && entry._powerFx || []).filter(f => f.actInt).forEach(f => _gmEndPfx(entry, f.id, 'it attacked (Action Interrupt)'));
+}
+// The tracker row: each lasting effect, its Escape Save, and buttons to roll it now or end it
+window._gmPfxEscapeNow = function(entryId, fxId, pay) {
+    let e = (window.gmInitiative || []).find(x => x.id === entryId); if (!e) return;
+    let f = (e._powerFx || []).find(x => x.id === fxId); if (!f || !f.attr) return;
+    if (pay && e.faction !== 'player') e.apCur = Math.max(0, (parseInt(e.apCur) || 0) - 3);
+    _gmPfxAskEscape(e, f, pay ? 'spending 3 AP (Action Interrupt)' : null);
+    window.renderInitiativeTracker();
+};
+window._gmPfxEnd = function(entryId, fxId) {
+    let e = (window.gmInitiative || []).find(x => x.id === entryId); if (!e) return;
+    _gmEndPfx(e, fxId, 'ended by the GM');
+};
+function _gmPowerFxHtml(e) {
+    let l = e._powerFx || []; if (!l.length) return '';
+    let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    let b = 'font-size:8px;font-weight:800;padding:0 .3rem;border-radius:.2rem;background:#4c1d95;color:#ede9fe;border:1px solid #7c3aed;cursor:pointer;margin-left:.2rem';
+    return `<div class="flex items-center gap-1 flex-wrap">${l.map(f => {
+        let tip = f.lasting && f.attr ? `Escape Save ${f.attr} (DC ${f.dc}) at the end of each of its turns${f.dmgInt ? ' and when it takes damage' : ''}${f.actInt ? '; attacking ends it, or 3 AP repeats the Escape Save' : ''}` : 'Ends at the end of its next turn';
+        return `<span class="apx-cond-chip" style="border-color:#a78bfa;color:#ddd6fe" title="${esc(tip)}">${esc(f.label)}: ${esc(_gmCondNames(f.conds))}${f.lasting && f.attr ? ` · Escape ${f.attr} ${f.dc}` : ''}`
+            + (f.lasting && f.attr ? `<button style="${b}" onclick="window._gmPfxEscapeNow('${e.id}','${f.id}',false)" title="Roll its Escape Save now">Save</button>` : '')
+            + (f.lasting && f.attr && f.actInt ? `<button style="${b}" onclick="window._gmPfxEscapeNow('${e.id}','${f.id}',true)" title="Spend 3 AP to repeat the Escape Save (Action Interrupt)">3 AP</button>` : '')
+            + `<button onclick="window._gmPfxEnd('${e.id}','${f.id}')" title="End it">&times;</button></span>`;
+    }).join('')}</div>`;
 }
 // Conditions that last "until the end of X's next turn" (Stunning). A new one from the same
 // source replaces the old timer, so being Stunned again keeps the creature Stunned.
@@ -1773,7 +1958,7 @@ window.apxRollConditions = function(o, kind) {
     return m;
 };
 // NPC saves from the GM's dice tray button (the log message asks for them)
-window.apxLogAsk = function(ask) { return !!(ask && ask.gm && (window.gmInitiative || []).some(e => e.id === ask.entryId)); };
+window.apxLogAsk = function(ask) { return !!(ask && ask.gm && (ask.kind === 'pfx' ? !!window._gmPfx[ask.pfx] : true) && (window.gmInitiative || []).some(e => e.id === ask.entryId)); };
 window.apxRollFromAsk = function(ask, choice) {
     let e = (window.gmInitiative || []).find(x => x.id === ask.entryId); if (!e || !window.APXDice) return;
     if (ask.kind === 'limb') { if (choice) _gmApplyWound(e, choice, ask.logId); return; }
@@ -1781,7 +1966,9 @@ window.apxRollFromAsk = function(ask, choice) {
     if (ask.kind === 'npcwound') { _gmNpcWoundSave(e, ask); return; }
     let sb = e.sourceNpcId && typeof ncStatBlockFor === 'function' ? ncStatBlockFor(e.sourceNpcId) : null;
     let bonus = sb ? ((sb.saves || {})[ask.attr] ?? (sb.mods ? (sb.mods[ask.attr] || 0) : 0)) : 0;   // trained saves add the Training Bonus
-    let item = { attr: ask.attr, dc: ask.dc, cond: ask.cond, fail: ask.fail, byId: ask.byId || null, turn: ask.turn || null };
+    if (ask.kind === 'pfx') { _gmPfxPick(ask.pfx); return; }
+    let item = (ask.itemKey && window._gmPfxItems[ask.itemKey]) || { attr: ask.attr, dc: ask.dc, cond: ask.cond, fail: ask.fail, byId: ask.byId || null, turn: ask.turn || null };
+    if (item.pfx || item.escape) { _gmRollNpcSave(e, item); return; }
     let first = true;
     APXDice.check({ kind: 'save', attr: ask.attr, label: `${ask.attr} Save (DC ${ask.dc})`, who: e.name, bonus, perks: false, initId: e.id,
         note: sb ? null : 'No stat block: add their save bonus yourself',
@@ -2012,6 +2199,7 @@ function _gmHandleRollEvent(uid, ev) {
         if (firstSeen && pwEntry && !ev.attackRoll && (ev.dmgType || ev.save)) _gmRecordAttack({ id: ev.id, attacker: pwEntry, label: ev.label || 'a power', hit: { weapon: ev.label || 'Power', props: [], dmgType: ev.dmgType || '' },
             crit: false, fumble: false, total: 0, dice: ev.dice || '', critMult: 2, reroll12: false, dmgType: ev.dmgType || '', power: true, save: ev.save || null, aoe: !!ev.aoe,
             dmgShares: Array.isArray(ev.dmgParts) ? ev.dmgParts.map(x => x.dmg) : null });
+        if (firstSeen && pwEntry && ev.fx) { try { window._gmPowerFxOffer(pwEntry, ev.label || 'a power', ev.fx); } catch (e) { console.warn('Power effects:', e); } }
         return;
     }
     // Burning ticked at the start of their turn: say why they lost HP (instead of a plain damage line)
@@ -2963,7 +3151,7 @@ window.nextInitiativeTurn = function() {
     if (ending && !window.gmInitiative.includes(ending)) {
         if (!window.gmInitiative.length) { window.renderInitiativeTracker(); return; }
         window.gmCurrentTurnIdx = endIdx - 1;   // it was removed: the turn goes to whoever came after it
-    } else _gmExpireCondTimers(ending);
+    } else { _gmExpireCondTimers(ending); try { _gmPfxTurnEnd(ending); } catch (e) { console.warn('Escape Saves:', e); } }
     window.gmCurrentTurnIdx++;
     if (window.gmCurrentTurnIdx >= window.gmInitiative.length) {
         window.gmCurrentTurnIdx = 0;
@@ -3401,6 +3589,7 @@ window.renderInitiativeTracker = function() {
                     </div>`;
                 })() : ''}
                 ${(e.wounds || []).length ? `<div class="flex items-center gap-1 flex-wrap">${e.wounds.map(l => `<span class="apx-cond-chip" style="border-color:#f87171;color:#fecaca" title="${String(_gmWoundEffect(l)).replace(/"/g, '&quot;')} Click × when it heals.">${l} Wound<button onclick="window._gmHealNpcWound('${e.id}','${l.replace(/'/g, '')}')">&times;</button></span>`).join('')}</div>` : ''}
+                ${_gmPowerFxHtml(e)}
                 ${e.sourceNpcId ? renderInitiativePowerBubbles(e) : ''}
                 ${isCurrent ? '<div class="text-[9px] text-amber-300 font-bold">Current Turn</div>' : ''}
                 <div class="flex items-center gap-3">

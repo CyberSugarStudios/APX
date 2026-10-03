@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.2.2320',
-        released: '2026-10-02T23:20:00',
-        releasedText: 'October 2, 2026 · 11:20 PM',
+        version: 'v2026.10.3.1500',
+        released: '2026-10-03T15:00:00',
+        releasedText: 'October 3, 2026 · 3:00 PM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs with loot of their own, apart from their stat blocks, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -42,7 +42,8 @@
                 'Tokens added with + Token from the tracker start hidden, and companions and summoned creatures act right after their owner.',
                 'Grapples, knockouts and summons run themselves in the tracker: whoever\'s next to a Grappled creature is linked as its grappler and Staggered, non-lethal 0 HP leaves a creature knocked out with snoring Z\'s, and NPCs can summon creatures next to themselves.',
                 'NPC sizes apply themselves: Tiny or Smaller (+2 AC, Advantage on Stealth, reach 0, no Heavy weapons) through Gargantuan (-2 AC, Advantage on Athletics, Disadvantage on Stealth). Swarms share squares and take half damage from single-target attacks, double from areas. Grant XP has a Start Session type (5 + INT).',
-                'The Loot Maker adds Crafting Materials too: any amount of Common, Uncommon or Rare, which land in the player\'s own Crafting Materials when given.'
+                'The Loot Maker adds Crafting Materials too: any amount of Common, Uncommon or Rare, which land in the player\'s own Crafting Materials when given.',
+                'Power saves and Escape Saves run in the tracker: pick a power\'s targets, NPC saves roll themselves, the Conditions go on whoever fails, and lasting effects ask for their Escape Save each turn. An NPCs to rebuild list walks you through stat blocks with powers built before these rules.'
             ]],
             ['For Players', [
                 'Identical items stack: three Leather Armors from three bandits make one "Leather Armor ×3" row. Equipping takes one from the stack, taking it off puts it back, and older inventories are joined up the first time you open the character.',
@@ -59,7 +60,8 @@
                 'Click the Action Points title for every Combat Maneuver and Standard Action, side by side: one click spends the AP and applies the effect (Fight Defensively\'s AC, Block\'s Sturdy-weapon roll, Power Attack\'s damage and more), shown under Armor & Defenses with a ✕ to end it. Pin the ones you use most to Weapons & Attacks.',
                 'Summon a Creature powers are built in the NPC Crafter at the Tier you choose (+15 XP per Tier above 1), and their creatures appear next to you on your GM\'s battle map.',
                 'Grappling is reworked: Grapple (3 AP) and Pin (2 AP) are contested checks, the grappler is Staggered while holding on, Choke (2 AP) deals unarmed damage to a Pinned creature with no attack roll, and Escape (4 AP) ends it all. The Actions list runs each step and tells your GM\'s tracker.',
-                'Non-lethal damage: type "-6 nl" or tick Non-lethal, and 0 HP knocks the creature out (Unconscious, snoring on the battle map) instead of Bleeding Out or dying.'
+                'Non-lethal damage: type "-6 nl" or tick Non-lethal, and 0 HP knocks the creature out (Unconscious, snoring on the battle map) instead of Bleeding Out or dying.',
+                'Power saving throws name their Core Attribute, and a power with a lasting effect gives its target an Escape Save at the end of each of its turns, never one the effect makes it automatically fail. Powers built before this show a Powers to rebuild list (free) when your sheet opens.'
             ]],
             ['At the Table', [
                 'One tray holds every roll, the combat log and your messages, and every die has a shape of its own.',
@@ -81,7 +83,10 @@
                 'NPCs and Loyal Companions can train saving throws for 2 TP each. NPC gear costs Threat Points, and a defeated NPC is worth 1 / 5 / 10 / 15 / 25 / 35 XP at Tiers 0–5, then 10 more for each Tier above.',
                 'High Roller, Fortunate Fighter, Regenerative and Mobile are updated, and Power Crafting caps each die step at 8 dice and adds Mythic Utilities.',
                 'NPCs: +1 AP costs 6 TP, at most +1 per Tier (Tier 0 counts as 1).',
-                'A Medium weapon used two-handed steps its die size up (2d8 becomes 2d10), Brute\'s carry capacity stacks with your race\'s size, and attributes bought with XP stay separate from your base attributes.'
+                'A Medium weapon used two-handed steps its die size up (2d8 becomes 2d10), Brute\'s carry capacity stacks with your race\'s size, and attributes bought with XP stay separate from your base attributes.',
+                'Escape Saves: a power that leaves a lasting negative effect on an unwilling creature (anything longer than Instant / End of Next Turn) names an Escape Save the creature makes at the end of each of its turns. It can\'t be a save the power\'s own Conditions make it automatically fail (not STR or AGI against Paralyzed, Stunned or Unconscious; not PER against Blinded). The save to avoid the power can still be any attribute.',
+                'Damage Interrupt: taking damage calls for the Escape Save (an effect with none just ends). Action Interrupt: the power ends when the target attacks or uses a harmful power or ability, and a target that can spend AP can spend 3 AP to repeat its Escape Save; it can\'t be taken with Stunned, Paralyzed or Unconscious. Guaranteed Hit still allows Escape Saves.',
+                'Teleportation does not provoke Attacks of Opportunity.'
             ]],
             ['Also', [
                 'Switching from one character to another and back keeps every change you made to each.',
@@ -134,6 +139,11 @@
                 'Starting Wealth goes into your Currency when you save and can only be chosen once, and Save Origin writes your languages into a Languages note.'
             ]],
             ['Powers', [
+                'Saving throws name a Core Attribute: Save Negates and Save Halves powers choose which one targets roll (Power Crafter Step 1), and the card and your GM\'s log say "Targets make an AGI saving throw against DC 13".',
+                '"Inflict or end" utilities choose which Condition, and whether the power inflicts or ends it (Step 5).',
+                'Escape Saves (Step 6): a power that leaves a lasting effect on its target (a Condition for 1 Minute or more, a command, a polymorph, a banishment) names the save the target makes at the end of each of its turns to break free. Saves the effect makes it automatically fail are greyed out: an AGI save can dodge a paralysis, but it can\'t end one. The Escape Save shows on the power, its card and your GM\'s tracker.',
+                'Action Interrupt can\'t be taken on a power that inflicts Stunned, Paralyzed or Unconscious, and the Teleport utilities say they don\'t provoke Attacks of Opportunity.',
+                'Powers built before these rules show a Powers to rebuild list when your sheet opens. Rebuild opens each one in the Power Crafter for free; the list updates as you go and goes away once they\'re all done.',
                 'Click a power\'s name or its "Lvl X | Y AP" tag to use it. It spends its AP and a use from its pool, and asks first if you\'re short; "Use anyway" spends what you have.',
                 'Attack powers roll the d20 and their damage together, doubling the damage dice on a crit. Save powers roll their effect, show your DC and let your GM know. Powers without a roll show their description.',
                 'In the Power Crafter, Attack Roll / Save Negates powers choose one or the other. An Attack Roll power is a Power Attack or a Martial Improvement riding on one of your weapons, and you can switch weapons on the power\'s card.',
@@ -389,7 +399,11 @@
                 'NPC Wound Thresholds, (5 + CON mod) × 2: a hit that big asks for a CON save, and a failure rolls a Wound. Wounds show on the tracker and can be healed. Leg Wounds stagger, and a Torso Wound adds a die to hits.',
                 'NPC casters have Power Slots in the tracker and on the stat block, and a power can use a new "Power Slot" usage that spends a slot of its Level or higher.',
                 'Damaging Aura (and other auras) show as a coloured ring on the map and deal their damage to everyone inside at the end of the NPC\'s turn. Traits like Death Burst let you pick the energy type.',
-                'NPC powers with a second damage type roll each type separately, like players\' powers.'
+                'NPC powers with a second damage type roll each type separately, like players\' powers.',
+                'NPC powers name the Core Attribute of their saving throw and, for a lasting effect, an Escape Save, like players\' powers.',
+                'Using a power that calls for a save (or inflicts Conditions), yours or a player\'s, puts a Roll targets\' saves (or Apply) button in your dice tray. Pick the targets: NPCs\' saves are rolled from their stat blocks, with their own Conditions counting, players are asked to roll theirs, and whoever fails gets the Conditions.',
+                'Lasting effects show on the creature\'s tracker row with their Escape Save. It\'s asked for at the end of each of the creature\'s turns, and whenever it takes damage with Damage Interrupt; attacking ends the effect with Action Interrupt. Save rolls it now, 3 AP spends the AP to repeat it, and ✕ ends the effect. An effect lasting until the end of the target\'s next turn wears off then.',
+                'When a world opens, an NPCs to rebuild list shows stat blocks in that world with powers built before the new save rules. Rebuild opens the NPC and walks you through each of its powers; finished NPCs drop off the list, and it goes away when none are left.'
             ]],
             ['NPC Crafter and Weapon Forge', [
                 'NPC weapons stay fully editable: reopen one in the Weapon Forge to change melee or ranged, Light, Medium or Heavy, and its damage type at any time.',

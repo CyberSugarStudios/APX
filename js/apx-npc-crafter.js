@@ -1923,6 +1923,13 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
         } else o.useNote = `Uses a Level ${lvl}+ Power Slot (track it in the initiative tracker)`;
     }
     let tell = (text, gmText) => { if (typeof window.gmLog === 'function') window.gmLog({ text, gmText: gmText || text, kind: 'info' }); };
+    // Its saving throw's Core Attribute, the Conditions it inflicts, and the Escape Save a lasting one gives
+    let sInfo = p.draft && window.apxPowerSaveInfo ? window.apxPowerSaveInfo(d) : null;
+    let escLine = p.draft && window.apxPowerSaveLines ? window.apxPowerSaveLines(d, sb.powerSaveDc).escape : '';
+    let fxInfo = sInfo && (sInfo.inflicts.length || sInfo.lasting || (sInfo.saveKind && sInfo.saveAttr)) ? { conds: sInfo.inflicts.filter(c => c !== 'wounded'), lasting: sInfo.lasting, escapeAttr: sInfo.escapeAttr,
+        dur: sInfo.dur, dmgInt: sInfo.dmgInt, actInt: sInfo.actInt, saveAttr: sInfo.saveAttr, saveKind: sInfo.saveKind, dc: sb.powerSaveDc } : null;
+    let offerFx = () => { if (fxInfo && actor && !sb._isCompanion && typeof window._gmPowerFxOffer === 'function') { try { window._gmPowerFxOffer(actor, p.name || 'Power', fxInfo); } catch (e) { console.warn('Power effects:', e); } } };
+    if (escLine) o.flavor = o.flavor ? o.flavor + ' · ' + escLine + '.' : escLine + '.';
     // Summon a Creature: the creatures appear next to this creature (a companion's: via the GM's tracker)
     let sumN = ((d.utility || {}).major || {}).summonCreature || 0;
     if (sumN) {
@@ -1938,6 +1945,7 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
         if (dmg && !dmg.heal) { o.dice = dmg.formula; o.dmgType = dmg.type; if (dmg.split) o.split = dmg.split; APXDice.attack(o); }
         else APXDice.check(Object.assign(o, { kind: 'attack', label: (p.name || 'Power') + ': Power Attack' }));
         tell(`${whoPub} uses ${p.name || 'a power'}${isReact ? ' (Reaction)' : ''}: attack roll.`, `${whoGm} uses ${p.name || 'a power'}${isReact ? ' (Reaction)' : ''}: attack roll.`);
+        if (fxInfo && fxInfo.conds.length) offerFx();
         return;
     }
     // Not an attack: spend its AP (the tracker's creature), then show the DC and roll the effect
@@ -1945,13 +1953,15 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
     if (typeof window.apxBeforeAttack === 'function' && cost > 0) { try { pre = await window.apxBeforeAttack(Object.assign({}, o)); } catch (e) { } if (pre === false) return; }
     let saveKind = step === 'saveHalves' ? 'halves' : (step === 'atkSave' && d.atkMode === 'save') ? 'negates' : null;
     let dc = sb.powerSaveDc;
-    let bits = [isReact ? 'Reaction' : `${cost} AP`].concat(saveKind ? [`Targets save against DC ${dc}: success ${saveKind === 'halves' ? 'halves it' : 'negates it'}`] : []).concat(pre && pre.note ? [pre.note] : []).concat(o.useNote ? [o.useNote] : []);
+    let sAttr = sInfo && sInfo.saveAttr ? sInfo.saveAttr + ' ' : '';
+    let bits = [isReact ? 'Reaction' : `${cost} AP`].concat(saveKind ? [`Targets make a DC ${dc} ${sAttr}save: success ${saveKind === 'halves' ? 'halves it' : 'negates it'}`] : []).concat(escLine ? [escLine] : []).concat(pre && pre.note ? [pre.note] : []).concat(o.useNote ? [o.useNote] : []);
     // The tracker learns this power (and its damage type) is what hits next, not an earlier attack
-    if (dmg && !dmg.heal && typeof window.apxOnNpcPowerUse === 'function') { try { window.apxOnNpcPowerUse(o, { label: p.name || 'Power', dmgType: dmg.type, dice: dmg.formula, save: saveKind ? { dc, kind: saveKind } : null, aoe: !!(d.aoe && !['single', 'split'].includes(d.aoe)) }); } catch (e) { console.warn('Power hook:', e); } }
+    if (dmg && !dmg.heal && typeof window.apxOnNpcPowerUse === 'function') { try { window.apxOnNpcPowerUse(o, { label: p.name || 'Power', dmgType: dmg.type, dice: dmg.formula, save: saveKind ? { dc, kind: saveKind, attr: sInfo && sInfo.saveAttr || null } : null, aoe: !!(d.aoe && !['single', 'split'].includes(d.aoe)) }); } catch (e) { console.warn('Power hook:', e); } }
     if (dmg) APXDice.damage({ label: (p.name || 'Power') + (dmg.heal ? ' healing' : ' damage'), who: whoGm, formula: dmg.formula, dmgType: dmg.heal ? '' : dmg.type, heal: dmg.heal || undefined, perks: false, note: bits.join(' · '), split: dmg.split || undefined });
     else APXDice.info({ label: p.name || 'Power', who: whoGm, text: p.desc || '', badges: bits });
-    let saveTxt = saveKind ? `: targets make a DC ${dc} save (success ${saveKind === 'halves' ? 'halves it' : 'negates it'})` : '';
+    let saveTxt = saveKind ? `: targets make a DC ${dc} ${sAttr}save (success ${saveKind === 'halves' ? 'halves it' : 'negates it'})` : '';
     tell(`${whoPub} uses ${p.name || 'a power'}${isReact ? ' (Reaction)' : ''}${saveTxt}.`, `${whoGm} uses ${p.name || 'a power'}${isReact ? ' (Reaction)' : ''}${saveTxt}.`);
+    offerFx();
 };
 function powerCardHtml(p, compUse, sb, list, idx) {
     let key = npcPowerKey(sb);
@@ -1973,6 +1983,7 @@ function powerCardHtml(p, compUse, sb, list, idx) {
                 <div><span class="text-slate-500">R/A:</span> ${p.rng}</div>
                 <div><span class="text-slate-500">D/H:</span> ${p.dmg}</div>
             </div>
+            ${(() => { let l = p.draft && window.apxPowerSaveLines ? window.apxPowerSaveLines(p.draft, sb && sb.powerSaveDc) : null; return l && l.escape && !/Escape Save/.test(p.desc || '') ? `<div class="text-[9px] text-purple-300 font-bold mb-0.5">${l.escape}</div>` : ''; })()}
             <div class="text-[9px] text-slate-500 leading-tight" style="white-space:pre-wrap;">${p.desc}</div>
         </div>
     `;

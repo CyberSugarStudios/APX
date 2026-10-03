@@ -455,6 +455,10 @@
         if (e.ask.roll === 'react' && !Array.isArray(e.ask.choices)) {
             return `<div style="margin-top:.3rem"><button data-logask ${done ? 'disabled' : ''} style="font-size:.66rem;font-weight:800;padding:.18rem .5rem;border-radius:.3rem;cursor:${done ? 'default' : 'pointer'};border:1px solid ${done ? 'var(--c-border2,#475569)' : '#0891b2'};background:${done ? 'none' : '#0e7490'};color:${done ? 'var(--c-text-muted,#94a3b8)' : '#fff'}">${done ? 'Reaction used' : esc(e.ask.label || 'React')}</button></div>`;
         }
+        // A free-standing button (a power's targets): doesn't wait for saves, and saves don't wait for it
+        if (e.ask.free) {
+            return `<div style="margin-top:.3rem"><button data-logask ${done ? 'disabled' : ''} style="font-size:.66rem;font-weight:800;padding:.18rem .5rem;border-radius:.3rem;cursor:${done ? 'default' : 'pointer'};border:1px solid ${done ? 'var(--c-border2,#475569)' : '#7c3aed'};background:${done ? 'none' : '#5b21b6'};color:${done ? 'var(--c-text-muted,#94a3b8)' : '#fff'}">${esc(done ? (e.ask.doneLabel || 'Done') : (e.ask.label || 'Go'))}</button></div>`;
+        }
         // A choice (the GM picking which limb is Wounded): one button per option
         if (Array.isArray(e.ask.choices)) {
             let st = 'font-size:.66rem;font-weight:800;padding:.18rem .45rem;border-radius:.3rem;border:1px solid #f59e0b;';
@@ -464,7 +468,7 @@
         }
         // Saves are settled in the order they were asked for (the Wound Threshold save first,
         // then a hit's own saves, then Bleed Out), so a later button waits for the earlier ones
-        let waitWt = !done && cards.some(x => x.log && x.log.id !== e.id && x.log.ask && x.log.ask.roll !== 'react' && !Array.isArray(x.log.ask.choices) && askIsMine(x.log) && !tray.askDone[x.log.id] && (x.log.t || 0) < (e.t || 0));
+        let waitWt = !done && cards.some(x => x.log && x.log.id !== e.id && x.log.ask && x.log.ask.roll !== 'react' && !x.log.ask.free && !Array.isArray(x.log.ask.choices) && askIsMine(x.log) && !tray.askDone[x.log.id] && (x.log.t || 0) < (e.t || 0));
         let label = done ? 'Rolled' : waitWt ? 'Roll the earlier save first' : e.ask.label ? e.ask.label
             : e.ask.roll === 'save' ? `Roll ${e.ask.attr || 'CON'} save${e.ask.dc ? ' (DC ' + e.ask.dc + ')' : ''}` : 'Roll CON (Survive)';
         return `<div style="margin-top:.3rem"><button data-logask ${done || waitWt ? 'disabled' : ''} style="font-size:.66rem;font-weight:800;padding:.18rem .5rem;border-radius:.3rem;cursor:${done || waitWt ? 'default' : 'pointer'};border:1px solid ${done ? 'var(--c-border2,#475569)' : '#f59e0b'};background:${done || waitWt ? 'none' : '#b45309'};color:${done ? 'var(--c-text-muted,#94a3b8)' : '#fff'};opacity:${waitWt ? '.6' : '1'}">${label}</button></div>`;

@@ -598,6 +598,7 @@ function pcDurationAllowsInterrupts(durationKey) {
 }
 window.pcToggleDurationMod = function(key, checked) {
     if (checked && !pcDurationAllowsInterrupts(pcDraft.duration)) return; // guard, mirrors disabled UI state
+    if (checked && key === 'actionInterrupt' && pcSaveInfo().incap.length) return;
     pcDraft.durationMods[key] = checked;
     pcRenderAll();
 };
@@ -643,6 +644,7 @@ function pcStep1Extra() {
         <div class="flex flex-wrap items-center gap-1"><span class="text-[10px] text-slate-400 font-bold mr-1 w-20 shrink-0">Resolved by</span>
             ${seg(mode === 'attack', "window.pcSetAtkOpt('atkMode','attack')", 'Attack Roll', 'You roll a d20 attack against the target')}
             ${seg(mode === 'save', "window.pcSetAtkOpt('atkMode','save')", 'Save Negates', 'The target rolls a save against your Power DC; success negates it')}</div>`;
+    if (mode === 'save') html += pcSaveAttrRow();
     if (mode === 'attack' && !pcIsNpc()) {
         html += `<div class="flex flex-wrap items-center gap-1"><span class="text-[10px] text-slate-400 font-bold mr-1 w-20 shrink-0">Attack</span>
             ${seg(kind === 'power', "window.pcSetAtkOpt('atkKind','power')", 'Power Attack', 'd20 + your Power Atk bonus')}
@@ -663,6 +665,74 @@ window.pcSetAtkOpt = function(key, val) {
     pcDraft[key] = val;
     pcRenderAll();
 };
+// ── Saving throws and Escape Saves ──────────────────────────────
+function pcSaveInfo() { return window.apxPowerSaveInfo ? window.apxPowerSaveInfo(pcDraft) : { problems: [], forbid: [], why: {}, inflicts: [], incap: [] }; }
+// A row of Core Attribute buttons. forbid: attributes that can't be picked (with why[attr] = reasons)
+function pcAttrButtons(cur, onclickFn, forbid, why) {
+    let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    return (window.APX_SAVE_ATTRS || []).map(a => {
+        let no = (forbid || []).includes(a), on = cur === a;
+        let names = (why && why[a]) || [];
+        let tip = no ? `${names.join(' and ')} automatically ${names.length > 1 ? 'make' : 'makes'} a creature fail ${a} saves, so it can't escape with one` : ((window.APX_SAVE_ATTR_TIPS || {})[a] || a);
+        return `<button type="button" ${no ? 'disabled' : `onclick="${onclickFn}('${a}')"`} title="${esc(tip)}" data-attr="${a}" class="px-2 py-1 text-[10px] font-bold rounded border transition ${no ? 'bg-slate-900 border-slate-800 text-slate-600 line-through cursor-not-allowed' : on ? 'bg-purple-700 border-purple-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}">${a}</button>`;
+    }).join('');
+}
+// Step 1: which Core Attribute targets save with
+function pcSaveAttrRow() {
+    let ok = (window.APX_SAVE_ATTRS || []).includes(pcDraft.saveAttr);
+    return `<div class="flex flex-wrap items-center gap-1" data-pc-saveattr><span class="text-[10px] ${ok ? 'text-slate-400' : 'text-red-400'} font-bold mr-1 w-20 shrink-0">Save</span>
+        ${pcAttrButtons(pcDraft.saveAttr, 'window.pcSetSaveAttr')}</div>
+        <div class="text-[9px] ${ok ? 'text-slate-500' : 'text-red-400'}">${ok ? 'Targets make a' + (/^[AEIOU]/.test(pcDraft.saveAttr) ? 'n ' : ' ') + pcDraft.saveAttr + ' saving throw against your Power DC.' : 'Choose which Core Attribute targets use to resist this power.'}</div>`;
+}
+window.pcSetSaveAttr = function(a) { pcDraft.saveAttr = a; pcRenderAll(); };
+window.pcSetEscapeAttr = function(a) { pcDraft.escapeAttr = a; pcRenderAll(); };
+// Step 5: an "Inflict or end …" utility says which Condition, and whether it inflicts or ends it
+window.pcSetCondPick = function(key, field, val) {
+    pcDraft.condPicks = pcDraft.condPicks || {};
+    let p = pcDraft.condPicks[key] = Object.assign({}, pcDraft.condPicks[key] || {});
+    p[field] = val;
+    // Action Interrupt can't go with a Condition that leaves its target unable to spend AP
+    if (pcSaveInfo().incap.length && pcDraft.durationMods && pcDraft.durationMods.actionInterrupt) pcDraft.durationMods.actionInterrupt = false;
+    pcRenderAll();
+};
+function pcCondPickRow(key) {
+    let conds = (window.APX_POWER_COND_UTILS || {})[key];
+    let p = (pcDraft.condPicks || {})[key] || {};
+    let seg = (on, onclick, label) => `<button type="button" onclick="${onclick}" class="px-2 py-0.5 text-[10px] font-bold rounded border transition ${on ? 'bg-purple-700 border-purple-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}">${label}</button>`;
+    let name = id => ((typeof CONDITIONS !== 'undefined' ? CONDITIONS : []).find(c => c.id === id) || {}).name || id;
+    let done = p.mode && (!conds || conds.includes(p.cond));
+    return `<div class="flex flex-wrap items-center gap-1 bg-slate-950 border ${done ? 'border-purple-700/60' : 'border-red-500/70'} rounded px-2 py-1.5 ml-3" data-pc-condpick="${key}">
+        ${seg(p.mode === 'inflict', `window.pcSetCondPick('${key}','mode','inflict')`, 'Inflict')}
+        ${seg(p.mode === 'end', `window.pcSetCondPick('${key}','mode','end')`, 'End')}
+        ${conds ? `<select onchange="window.pcSetCondPick('${key}','cond',this.value)" class="bg-slate-800 border-slate-600 text-[10px] py-0.5">
+            <option value="" ${conds.includes(p.cond) ? '' : 'selected'}>Which Condition?</option>
+            ${conds.map(c => `<option value="${c}" ${p.cond === c ? 'selected' : ''}>${name(c)}</option>`).join('')}</select>` : '<span class="text-[10px] text-slate-400">the Wounded condition on one limb</span>'}
+        ${done ? '' : '<span class="text-[10px] text-red-400 w-full">Choose whether it inflicts or ends a Condition, and which one.</span>'}</div>`;
+}
+// Step 6: the Escape Save a lasting effect needs (shown even when a Mythic Utility replaces Step 6)
+function pcRenderEscapeSave() {
+    let box = document.getElementById('pcStep6Escape');
+    if (!box) { let o = document.getElementById('pcStep6Options'); if (!o) return; box = document.createElement('div'); box.id = 'pcStep6Escape'; o.parentNode.insertBefore(box, o); }
+    let info = pcSaveInfo();
+    if (!info.lasting) { box.innerHTML = ''; return; }
+    let ok = (window.APX_SAVE_ATTRS || []).includes(pcDraft.escapeAttr) && !info.forbid.includes(pcDraft.escapeAttr);
+    let cname = c => ((typeof CONDITIONS !== 'undefined' ? CONDITIONS : []).find(x => x.id === c) || { name: c === 'wounded' ? 'Wounded' : c }).name;
+    let what = info.inflicts.length ? info.inflicts.map(cname).join(', ') : 'its effect';
+    let byCond = {};
+    Object.keys(info.why).forEach(a => info.why[a].forEach(c => (byCond[c] = byCond[c] || []).push(a)));
+    let forbidTxt = info.forbid.length ? ` It can't be ${info.forbid.join(' or ')}: ${Object.keys(byCond).map(c => `a ${c} creature automatically fails ${byCond[c].join(' and ')} saves`).join(', and ')}.` : '';
+    let step1Note = info.saveKind && pcDraft.saveAttr && info.forbid.includes(pcDraft.saveAttr) ? ` (The ${pcDraft.saveAttr} save to avoid it in Step 1 is fine.)` : '';
+    box.innerHTML = `<div class="bg-slate-900/70 border ${ok ? 'border-purple-700/60' : 'border-red-500/70'} rounded p-2 mb-2" data-pc-escape>
+        <div class="text-xs font-black ${ok ? 'text-purple-300' : 'text-red-300'} mb-1">Escape Save</div>
+        <div class="text-[10px] text-slate-400 leading-tight mb-1.5">This power leaves a lasting effect (${what}) on an unwilling target, so the target gets to break free: at the end of each of its turns it makes this saving throw against your Power DC, ending the effect on a success.${forbidTxt}${step1Note}</div>
+        <div class="flex flex-wrap items-center gap-1">${pcAttrButtons(pcDraft.escapeAttr, 'window.pcSetEscapeAttr', info.forbid, info.why)}</div>
+        ${ok ? '' : '<div class="text-[10px] text-red-400 mt-1">Choose an Escape Save.</div>'}</div>`;
+}
+// Problems that stop this power being saved (the rules for saves and Escape Saves)
+function pcRulesProblems() {
+    let info = pcSaveInfo();
+    return info.problems.map(k => window.apxPowerSaveProblemText ? window.apxPowerSaveProblemText(info, k) : k);
+}
 
 function pcRenderStep1() {
     document.getElementById('pcStep1Options').innerHTML = POWER_STEP1.map(s => `
@@ -671,6 +741,7 @@ function pcRenderStep1() {
             <div><div class="text-xs font-bold text-slate-200">${s.label} <span class="text-yellow-500">[${pcCost(s.cost, d => { d.step1 = s.key; if (s.key === 'hpPool') d.addSecondType = false; }, pcDraft.step1 === s.key)}]</span></div><div class="text-[10px] text-slate-500 leading-tight">${pcIsNpc() ? String(s.desc).replace(/ XP\b/g, '') : s.desc}</div></div>
         </label>
         ${s.key === 'atkSave' ? pcStep1Extra() : ''}
+        ${s.key === 'saveHalves' && pcDraft.step1 === 'saveHalves' ? `<div class="bg-slate-900/60 border border-purple-800/60 rounded p-2 mt-1 space-y-1.5">${pcSaveAttrRow()}</div>` : ''}
     `).join('');
 }
 
@@ -765,7 +836,7 @@ function pcRenderUtilityTier(tier, label, colorClass) {
                     <button onclick="window.pcSetUtilityCount('${tier}','${u.key}', 1)" ${((!u.rep && count>=1) || blocked)?'disabled':''} class="w-5 h-5 rounded ${((!u.rep && count>=1) || blocked)?'bg-slate-800 text-slate-600':'bg-amber-700 hover:bg-amber-600 text-white'} text-xs font-bold" ${sumBlock ? `title="${sumBlock.replace(/"/g, '&quot;')}"` : blocked ? 'title="A power with a Mythic Utility can\'t contain any other utilities"' : tier === 'mythic' && !count ? 'title="Replaces any other utilities in this power"' : ''}>+</button>
                 </div>
             </div>
-        ` + (u.key === 'summonCreature' && count > 0 ? `
+        ` + (count > 0 && ((window.APX_POWER_COND_UTILS || {})[u.key] || u.key === 'woundOneLimb') ? pcCondPickRow(u.key) : '') + (u.key === 'summonCreature' && count > 0 ? `
             <div class="flex items-center justify-between bg-slate-950 border border-purple-700/60 rounded px-2 py-1.5 gap-2 ml-3">
                 <div class="flex-1 text-[10px] text-purple-200 leading-tight">Creature Tier <span class="text-slate-500">(+15 XP per Tier above 1, per creature${pcSummonOwnerTier() !== null ? `; up to this creature's own Tier, ${pcSummonMaxTier()}` : ''})</span>${pcDraft.summonNpc ? `<div class="text-emerald-400">Built: ${String(pcDraft.summonNpc.name || 'Creature').replace(/</g, '&lt;')} <button onclick="window.pcEditSummon()" class="underline text-purple-300 hover:text-white">Edit creature</button></div>` : '<div class="text-slate-500">You build the creature in the NPC Crafter when you save this power.</div>'}</div>
                 <div class="flex items-center gap-1 shrink-0">
@@ -812,6 +883,7 @@ function pcRenderStep6() {
     let banner = document.getElementById('pcStep6Mythic');
     if (!banner) { banner = document.createElement('div'); banner.id = 'pcStep6Mythic'; let o = document.getElementById('pcStep6Options'); o.parentNode.insertBefore(banner, o); }
     banner.innerHTML = pcMythicBanner(6);
+    pcRenderEscapeSave();
     let skip6 = pcStepSkipped(6);
     document.getElementById('pcStep6Options').style.display = skip6 ? 'none' : '';
     document.getElementById('pcStep6Mods').style.display = skip6 ? 'none' : '';
@@ -822,12 +894,16 @@ function pcRenderStep6() {
         </label>
     `).join('');
     let interruptsAllowed = pcDurationAllowsInterrupts(pcDraft.duration);
-    document.getElementById('pcStep6Mods').innerHTML = POWER_DURATION_MODS.map(m => `
-        <label class="flex items-start gap-2 bg-slate-900 border border-slate-700 rounded p-2 ${interruptsAllowed ? 'cursor-pointer' : 'opacity-40'}">
-            <input type="checkbox" class="mt-1" ${pcDraft.durationMods[m.key] ? 'checked' : ''} ${interruptsAllowed ? '' : 'disabled'} onchange="window.pcToggleDurationMod('${m.key}', this.checked)">
-            <div><div class="text-xs font-bold text-slate-200">${m.label} <span class="text-emerald-400">[${pcDraft.durationMods[m.key] ? pcCostOn(pcMythicPrice(m.cost), x => { x.durationMods[m.key] = false; }) : pcCost(pcMythicPrice(m.cost), x => { x.durationMods[m.key] = true; })}]</span></div><div class="text-[10px] text-slate-500 leading-tight">${m.desc}</div></div>
-        </label>
-    `).join('');
+    let incap = pcSaveInfo().incap;
+    document.getElementById('pcStep6Mods').innerHTML = POWER_DURATION_MODS.map(m => {
+        let ok = interruptsAllowed && !(m.key === 'actionInterrupt' && incap.length);
+        let why = m.key === 'actionInterrupt' && incap.length ? `<div class="text-[10px] text-amber-400 leading-tight">Not with ${incap.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(' or ')}: an Incapacitated creature can't spend AP.</div>` : '';
+        return `
+        <label class="flex items-start gap-2 bg-slate-900 border border-slate-700 rounded p-2 ${ok ? 'cursor-pointer' : 'opacity-40'}">
+            <input type="checkbox" class="mt-1" ${pcDraft.durationMods[m.key] ? 'checked' : ''} ${ok ? '' : 'disabled'} onchange="window.pcToggleDurationMod('${m.key}', this.checked)">
+            <div><div class="text-xs font-bold text-slate-200">${m.label} <span class="text-emerald-400">[${pcDraft.durationMods[m.key] ? pcCostOn(pcMythicPrice(m.cost), x => { x.durationMods[m.key] = false; }) : pcCost(pcMythicPrice(m.cost), x => { x.durationMods[m.key] = true; })}]</span></div><div class="text-[10px] text-slate-500 leading-tight">${m.desc}</div>${why}</div>
+        </label>`;
+    }).join('');
     if (!interruptsAllowed) {
         document.getElementById('pcStep6Mods').innerHTML += '<div class="text-[10px] text-amber-400 mt-1">Interrupts require a Duration of 1 Minute or longer.</div>';
     }
@@ -901,6 +977,21 @@ function pcStyleBtn(btn) {
 }
 
 function pcRenderSummary() {
+    pcRenderSummaryCore();
+    // The saving throw rules: a power missing its save attribute, Condition choice or a passable
+    // Escape Save can't be saved until that's fixed
+    let probs = pcRulesProblems();
+    let host = document.getElementById('pcCapNote');
+    let box = document.getElementById('pcRulesNote');
+    if (!box && host) {
+        box = document.createElement('div'); box.id = 'pcRulesNote';
+        box.style.cssText = 'border:1px solid #ef4444;background:rgba(239,68,68,.12);color:#fecaca;border-radius:.4rem;padding:.4rem .6rem;font-size:11px;font-weight:700;margin-top:.4rem;line-height:1.35';
+        host.parentNode.insertBefore(box, host.nextSibling);
+    }
+    if (box) { box.style.display = probs.length ? '' : 'none'; box.innerHTML = probs.map(x => '• ' + String(x).replace(/</g, '&lt;')).join('<br>'); }
+    if (probs.length) ['pcBtnFinish', 'pcBtnSaveChanges', 'pcBtnSaveAsNew'].forEach(id => { let b = document.getElementById(id); if (b) { b.disabled = true; pcStyleBtn(b); } });
+}
+function pcRenderSummaryCore() {
     let t = window.pcCalcXP(pcDraft);
     let maxLevel = pcTarget !== 'player' ? 5 : pcMaxUnlockedLevel();
     let diceOver = POWER_DIE_STEPS.filter(st => (pcDraft.dmg[st] || 0) > POWER_MAX_DICE_PER_STEP);
@@ -1052,8 +1143,10 @@ function pcBuildTextSummary() {
     let aoeDef = POWER_STEP3_AOE.find(s => s.key === pcDraft.aoe);
 
     let atk = step1Def.label;
+    let sAttr = (window.APX_SAVE_ATTRS || []).includes(pcDraft.saveAttr) ? pcDraft.saveAttr + ' ' : '';
+    if (pcDraft.step1 === 'saveHalves') atk = sAttr + 'Save Halves';
     if (pcDraft.step1 === 'atkSave') {
-        if (pcDraft.atkMode === 'save') atk = 'Save Negates';
+        if (pcDraft.atkMode === 'save') atk = sAttr + 'Save Negates';
         else if (pcDraft.atkKind === 'martial' && !pcIsNpc()) {
             let w = (typeof window.apxWeaponAttackOptions === 'function' ? window.apxWeaponAttackOptions() : []).find(o => o.key === pcDraft.atkWeapon);
             atk = 'Attack Roll (Martial' + (w ? ': ' + w.label : '') + ')';
@@ -1080,6 +1173,13 @@ function pcBuildTextSummary() {
             let entry = (POWER_UTILITY[tier] || []).find(u => u.key === key);
             if (!entry) return;
             let count = pcDraft.utility[tier][key];
+            if (!count) return;
+            let pick = (pcDraft.condPicks || {})[key];
+            if (pick && pick.mode && ((window.APX_POWER_COND_UTILS || {})[key] || key === 'woundOneLimb')) {
+                let cn = key === 'woundOneLimb' ? 'Wounded (one limb)' : (((typeof CONDITIONS !== 'undefined' ? CONDITIONS : []).find(c => c.id === pick.cond) || {}).name || pick.cond);
+                utilityBits.push((pick.mode === 'end' ? 'Ends ' : 'Inflicts ') + cn);
+                return;
+            }
             utilityBits.push(count > 1 ? `${entry.label} (x${count})` : entry.label);
         });
     });
@@ -1090,6 +1190,8 @@ function pcBuildTextSummary() {
     if (pcDraft.durationMods.actionInterrupt) durationBits.push('Action Interrupt');
     let mythic = pcMythic(pcDraft);
     if (mythic && (mythic.skip || []).includes(6)) durationBits = [mythic.durationText];
+    let sInfo = pcSaveInfo();
+    if (sInfo.lasting && sInfo.escapeAttr) durationBits.push('Escape Save: ' + sInfo.escapeAttr);
     if (mythic && mythic.castText) utilityBits.push('Casting time: ' + mythic.castText);
 
     let refundBits = [];
@@ -1133,6 +1235,7 @@ function pcApplyXpDelta(delta) {
 function pcAfterNpcSave(power) {
     if (pcTarget === 'item') { if (typeof window._pcItemOnChange === 'function') window._pcItemOnChange(); return; }
     if (pcTarget === 'lib') { if (typeof window._pcLibOnChange === 'function') window._pcLibOnChange(power); return; }
+    if (pcTarget === 'gm' && window.apxAuth?.enabled && window.apxAuth.saveGmNpcs) window.apxAuth.saveGmNpcs(window.gmNpcs || []).catch(e => console.warn('NPC save failed:', e.message));
     window.recalculateMath();
     if (typeof ncRenderAll === 'function') ncRenderAll();
     // A companion's (or GM NPC's) Summon a Creature power: build its creature next, in the NPC Crafter
@@ -1140,6 +1243,7 @@ function pcAfterNpcSave(power) {
 }
 
 window.finishPowerCrafter = function() {
+    if (pcRulesProblems().length) { pcRenderAll(); return; }
     let t = window.pcCalcXP(pcDraft);
     if (pcTarget === 'player') {
         let maxLevel = pcMaxUnlockedLevel();
@@ -1228,6 +1332,7 @@ window.pcSelectChaFreeUpgradeTarget = function(idx) {
 // difference between its old and new cost.
 window.savePowerChanges = function() {
     if (pcEditIndex === null) return;
+    if (pcRulesProblems().length) { pcRenderAll(); return; }
     let t = window.pcCalcXP(pcDraft);
     let targetPowers = getTargetPowers();
     let power = targetPowers[pcEditIndex];
@@ -1299,6 +1404,7 @@ window.savePowerChanges = function() {
 // the current (possibly edited) draft. Can spend a banked free credit for
 // the copy if the player opts in via the free-mode toggle.
 window.savePowerAsNew = function() {
+    if (pcRulesProblems().length) { pcRenderAll(); return; }
     let t = window.pcCalcXP(pcDraft);
     let name = document.getElementById('pcName').value || `Crafted Power (Lvl ${t.level})`;
     let summary = pcBuildTextSummary();

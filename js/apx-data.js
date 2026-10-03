@@ -479,9 +479,9 @@
         const POWER_STEP1 = [
             { key: "friendly", label: "Friendly/Self", cost: 0, desc: "Targets a willing creature or yourself. Automatically succeeds." },
             { key: "hpPool", label: "HP Capacity Pool", cost: 0, desc: "No damage dealt -- damage dice become an HP pool instead. Affects creatures in the area starting with the lowest current HP; each utility effect costs 10 XP less (min 0) in Step 5." },
-            { key: "atkSave", label: "Attack Roll / Save Negates", cost: 0, desc: "You make an attack roll, or the target makes a saving throw to negate the power entirely on a success." },
-            { key: "saveHalves", label: "Save Halves", cost: 10, desc: "The target's saving throw halves damage/effects on a success instead of negating them entirely." },
-            { key: "guaranteed", label: "Guaranteed Hit", cost: 10, desc: "The power always hits -- no attack roll, no saving throw, and it can never critically hit. The base XP cost per damage die (Step 4) is doubled." }
+            { key: "atkSave", label: "Attack Roll / Save Negates", cost: 0, desc: "You make an attack roll, or the target makes a saving throw (of the Core Attribute you choose) to negate the power entirely on a success." },
+            { key: "saveHalves", label: "Save Halves", cost: 10, desc: "The target's saving throw (of the Core Attribute you choose) halves damage/effects on a success instead of negating them entirely." },
+            { key: "guaranteed", label: "Guaranteed Hit", cost: 10, desc: "The power always hits -- no attack roll, no saving throw to avoid it, and it can never critically hit (the target still gets Escape Saves against lasting effects). The base XP cost per damage die (Step 4) is doubled." }
         ];
 
         const POWER_STEP2_RANGE = [
@@ -510,7 +510,7 @@
         const POWER_UTILITY = {
             minor: [
                 { key: "move2", label: "Move the target (creature/object) up to 2 squares.", cost: 5 },
-                { key: "teleport3", label: "Teleport yourself or a willing target up to 3 squares.", cost: 5, rep: true },
+                { key: "teleport3", label: "Teleport yourself or a willing target up to 3 squares (teleporting doesn't provoke Attacks of Opportunity).", cost: 5, rep: true },
                 { key: "featherFall", label: "Target falls slowly, immune to fall damage for the duration.", cost: 5 },
                 { key: "hover", label: "Target can float horiz./vert., 1 sq per AP spent.", cost: 5 },
                 { key: "swimClimb", label: "Grant swim or climb speed equal to walking speed.", cost: 5 },
@@ -532,7 +532,7 @@
                 { key: "distributeDmg", label: "Distribute damage evenly between targets (can't be Single Target).", cost: 5 }
             ],
             moderate: [
-                { key: "teleport10", label: "Teleport yourself or a willing target up to 10 squares.", cost: 15, rep: true },
+                { key: "teleport10", label: "Teleport yourself or a willing target up to 10 squares (teleporting doesn't provoke Attacks of Opportunity).", cost: 15, rep: true },
                 { key: "flySpeed", label: "Target gains a Fly Speed equal to their base walking speed.", cost: 15 },
                 { key: "summonWeapon", label: "Summon a magical/hard-light/psychic weapon; use Power Attribute for atk/dmg (max 1 die per Power Level).", cost: 15, rep: true },
                 { key: "weaponDmgAdd", label: "Target's weapons/fists deal Step 4 damage as bonus damage instead.", cost: 15 },
@@ -593,8 +593,8 @@
             { key: "permanent", label: "Permanent", cost: 50, desc: "Lasts until dispelled, cured, countered, or destroyed. Ending it is a Free Action." }
         ];
         const POWER_DURATION_MODS = [
-            { key: "dmgInterrupt", label: "Damage Interrupt", cost: -5, desc: "Effect ends if the target takes damage (or gets a new save on a failed one)." },
-            { key: "actionInterrupt", label: "Action Interrupt", cost: -10, desc: "Effect ends immediately if the target spends AP on a Combat Maneuver or Attack." }
+            { key: "dmgInterrupt", label: "Damage Interrupt", cost: -5, desc: "Whenever the target takes damage, it immediately makes its Escape Save, ending the effect on a success. (An effect with no Escape Save ends outright when the target takes damage.)" },
+            { key: "actionInterrupt", label: "Action Interrupt", cost: -10, desc: "The power ends the moment the target spends AP to attack or use a harmful power or ability. A target that can spend AP can also spend 3 AP on its turn to repeat an Escape Save, potentially ending the power. Can't be taken on a power that inflicts Stunned, Paralyzed, or Unconscious." }
         ];
 
         const POWER_AP_MODS = [
@@ -782,6 +782,90 @@
             return out;
         }
         window.apxConditionRollMods = apxConditionRollMods;
+
+        // ── Power saving throws and Escape Saves ───────────────────────────
+        // A power that calls for a saving throw names the Core Attribute targets roll (draft.saveAttr).
+        // A power that leaves a lasting negative effect on an unwilling creature names an Escape Save
+        // (draft.escapeAttr): the target rolls it at the end of each of its turns, ending the effect on a
+        // success. The Escape Save can't be an attribute the power's own Conditions make it auto-fail.
+        const APX_SAVE_ATTRS = ['STR', 'AGI', 'CON', 'PER', 'INT', 'CHA', 'LUC'];
+        const APX_SAVE_ATTR_TIPS = {
+            STR: 'Resisting being forcefully moved or held in place', AGI: 'Dodging traps, explosions and falls',
+            CON: 'Resisting poisons, diseases, radiation and toxins', PER: 'Resisting visual and auditory illusions, spotting what\'s coming',
+            INT: 'Resisting mind control, memory manipulation and truth serums', CHA: 'Keeping composure against intimidation, resisting possession',
+            LUC: 'When only blind luck can help'
+        };
+        // "Inflict or end …" utilities: which Conditions each one can inflict or end
+        const APX_POWER_COND_UTILS = {
+            condInflictMinor: ['staggered', 'burning', 'deafened', 'poisoned', 'prone'],
+            condInflictMod: ['restrained', 'blinded', 'freezing', 'provoked', 'frightened'],
+            condInflictMajor: ['stunned', 'paralyzed', 'unconscious']
+        };
+        // Other utilities that leave a lasting negative effect on a creature (when it isn't willing)
+        const APX_POWER_LASTING_NEG = ['complexCommand', 'influenceOpinion', 'polymorph', 'banish', 'dominate'];
+        // Escape Saves a Condition rules out beyond its automatic save failures (a Blinded creature
+        // fails saves that rely on sight)
+        const APX_ESCAPE_FORBID = { blinded: ['PER'] };
+        const APX_INCAP_CONDS = ['stunned', 'paralyzed', 'unconscious'];
+        function apxPowerSaveInfo(d) {
+            d = d || {};
+            let all = {};
+            ['minor', 'moderate', 'major', 'master', 'mythic'].forEach(t => Object.assign(all, (d.utility || {})[t] || {}));
+            let picks = d.condPicks || {};
+            let saveKind = d.step1 === 'saveHalves' ? 'halves' : (d.step1 === 'atkSave' && d.atkMode === 'save') ? 'negates' : null;
+            let inflicts = [], ends = [], unpicked = [];
+            Object.keys(APX_POWER_COND_UTILS).forEach(k => {
+                if (!(all[k] > 0)) return;
+                let p = picks[k];
+                if (!p || !p.mode || !APX_POWER_COND_UTILS[k].includes(p.cond)) { unpicked.push(k); return; }
+                (p.mode === 'end' ? ends : inflicts).push(p.cond);
+            });
+            if (all.woundOneLimb > 0) {
+                let p = picks.woundOneLimb;
+                if (!p || !p.mode) unpicked.push('woundOneLimb');
+                else if (p.mode === 'inflict') inflicts.push('wounded');
+            }
+            let negOther = APX_POWER_LASTING_NEG.filter(k => all[k] > 0);
+            let mythic = (POWER_UTILITY.mythic || []).find(m => all[m.key] > 0);
+            let dur = mythic && (mythic.skip || []).includes(6) ? 'mythic' : (d.duration || 'instant');
+            let lasting = d.step1 !== 'friendly' && dur !== 'instant' && (inflicts.length > 0 || negOther.length > 0);
+            let forbid = [], why = {};
+            inflicts.forEach(c => {
+                let def = CONDITIONS.find(x => x.id === c);
+                [].concat((def && def.autoFailSaves) || [], APX_ESCAPE_FORBID[c] || []).forEach(a => {
+                    if (!forbid.includes(a)) forbid.push(a);
+                    (why[a] = why[a] || []).push(def ? def.name : c);
+                });
+            });
+            let incap = inflicts.filter(c => APX_INCAP_CONDS.includes(c));
+            let dm = d.durationMods || {};
+            let problems = [];
+            if (saveKind && !APX_SAVE_ATTRS.includes(d.saveAttr)) problems.push('save');
+            if (unpicked.length) problems.push('cond');
+            if (lasting && (!APX_SAVE_ATTRS.includes(d.escapeAttr) || forbid.includes(d.escapeAttr))) problems.push('escape');
+            if (incap.length && dm.actionInterrupt) problems.push('actionInt');
+            return { saveKind, saveAttr: saveKind ? d.saveAttr || null : null, inflicts, ends, unpicked, negOther, lasting,
+                escapeAttr: lasting ? d.escapeAttr || null : null, forbid, why, incap, dur,
+                dmgInt: !!dm.dmgInterrupt, actInt: !!dm.actionInterrupt, problems };
+        }
+        // What each problem asks of the power's maker
+        function apxPowerSaveProblemText(info, k) {
+            if (k === 'save') return 'Choose which Core Attribute targets use for this power\'s saving throw (Step 1).';
+            if (k === 'cond') return 'Choose which Condition this power inflicts or ends (Step 5).';
+            if (k === 'escape') return 'This power leaves a lasting effect on its target, so it needs an Escape Save the target can actually pass (Step 6).';
+            if (k === 'actionInt') return 'Action Interrupt can\'t be taken on a power that inflicts Stunned, Paralyzed, or Unconscious (an Incapacitated creature can\'t spend AP).';
+            return '';
+        }
+        // One line for cards and stat blocks: "AGI save" / "Escape Save: CON at the end of each of its turns"
+        function apxPowerSaveLines(d, dc) {
+            let i = apxPowerSaveInfo(d), out = { save: '', escape: '' };
+            if (i.saveKind) out.save = `${i.saveAttr ? i.saveAttr + ' ' : ''}save${dc != null ? ' (DC ' + dc + ')' : ''}: a success ${i.saveKind === 'halves' ? 'halves it' : 'negates it'}`;
+            if (i.lasting && i.escapeAttr) out.escape = `Escape Save: ${i.escapeAttr}${dc != null ? ' (DC ' + dc + ')' : ''} at the end of each of its turns${i.dmgInt ? ', and whenever it takes damage' : ''}${i.actInt ? '; ends if it attacks or uses a harmful power, or it can spend 3 AP to repeat the Escape Save' : ''}`;
+            return out;
+        }
+        window.APX_SAVE_ATTRS = APX_SAVE_ATTRS; window.APX_SAVE_ATTR_TIPS = APX_SAVE_ATTR_TIPS;
+        window.APX_POWER_COND_UTILS = APX_POWER_COND_UTILS; window.APX_INCAP_CONDS = APX_INCAP_CONDS;
+        window.apxPowerSaveInfo = apxPowerSaveInfo; window.apxPowerSaveProblemText = apxPowerSaveProblemText; window.apxPowerSaveLines = apxPowerSaveLines;
         // How big an area marker is drawn on a map (GM and players alike), as a scale for its 26px circle.
         // It stays about the same size on screen however far you zoom: zoomed in it covers less of the
         // map (so it can sit on one building), zoomed out it covers more, but never more than 3% of the

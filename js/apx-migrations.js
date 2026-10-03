@@ -33,7 +33,18 @@
                 test: d => !!(d.refunds && d.refunds.sacrifice),
                 text: 'Sacrifice now also stops you regaining HP from any source (including this power) until the start of your next turn.'
             }
-        ]
+        ],
+        // Saving throws name their Core Attribute; lasting effects get an Escape Save the target can pass
+        3: ['save', 'cond', 'escape', 'actionInt'].map(k => ({
+            id: 'powerSaves_' + k,
+            test: d => !!window.apxPowerSaveInfo && window.apxPowerSaveInfo(d).problems.includes(k),
+            text: ({
+                save: 'Saving throws now name a Core Attribute: choose which one targets use to resist this power (Step 1).',
+                cond: 'Choose which Condition this power inflicts or ends (Step 5), so its Escape Save can be checked.',
+                escape: 'A power that leaves a lasting effect on its target now gives it an Escape Save at the end of each of its turns, using an attribute the effect doesn\'t make it auto-fail. Choose one (Step 6).',
+                actionInt: 'Action Interrupt can\'t be taken on a power that inflicts Stunned, Paralyzed, or Unconscious (an Incapacitated creature can\'t spend AP). Remove it (Step 6).'
+            })[k]
+        }))
     };
     window.APX_POWER_RULES_REV = Math.max(...Object.keys(POWER_RULE_CHANGES).map(Number));
 
@@ -297,6 +308,129 @@
             if (typeof window.openPowerEditor === 'function') window.openPowerEditor(idx, 'player');
         });
         document.body.appendChild(back);
+    };
+
+    // ── "Powers to rebuild" list ────────────────────────────────────
+    // Shown when a character sheet or a GM's world opens while powers built under older rules still
+    // need rebuilding (a free Recraft). Each row opens the crafter; when it closes, the list updates,
+    // and it goes away once nothing is left. "Later" hides it until the next launch.
+    //   opts: { id, title, intro, rows: () => [{ key, name, sub, open() }], busy: [modal ids], doneText }
+    let rbState = {};
+    window.apxRebuildList = function (opts) {
+        let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        if (window.apxInjectDialogStyles) window.apxInjectDialogStyles();
+        let domId = 'apxRebuild_' + opts.id;
+        let st = rbState[opts.id] || (rbState[opts.id] = {});
+        let busy = () => (opts.busy || []).some(m => document.getElementById(m)?.classList.contains('active'));
+        let render = () => {
+            let rows = opts.rows();
+            let back = document.getElementById(domId);
+            if (!rows.length) {
+                if (back) { back.remove(); if (st.started && window.APXDice) window.APXDice.notify(opts.doneText || 'Everything is rebuilt.', { kind: 'loot' }); }
+                return;
+            }
+            if (!back) {
+                back = document.createElement('div');
+                back.id = domId; back.className = 'apxdlg-back'; back.setAttribute('data-apx-rebuild', opts.id);
+                document.body.appendChild(back);
+            }
+            back.style.display = '';
+            back.innerHTML = `<div class="apxdlg" style="width:min(520px,100%);max-height:85vh;overflow:auto">
+                <div class="apxdlg-title">${esc(opts.title)}</div>
+                <div class="apxdlg-msg" style="margin-bottom:.6rem">${esc(opts.intro)}</div>
+                ${rows.map(r => `<div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;border:1px solid var(--c-border,#334155);border-radius:.5rem;padding:.4rem .6rem;margin-bottom:.35rem;background:var(--c-surface2,#0f172a)">
+                    <div style="min-width:0"><div style="font-weight:800;font-size:.78rem;color:var(--c-text,#e2e8f0)">${esc(r.name)}</div>
+                        ${r.sub ? `<div style="font-size:.68rem;color:var(--c-text-dimmer,#94a3b8);line-height:1.35">${esc(r.sub)}</div>` : ''}</div>
+                    <button class="apxdlg-btn apxdlg-ok" data-rb="${esc(r.key)}" style="flex-shrink:0">Rebuild</button></div>`).join('')}
+                <div class="apxdlg-row" style="margin-top:.7rem"><button class="apxdlg-btn" data-rb-later>Later</button></div></div>`;
+            back.querySelector('[data-rb-later]').onclick = () => { back.remove(); st.later = true; };
+            back.querySelectorAll('[data-rb]').forEach(b => b.onclick = () => {
+                let r = rows.find(x => x.key === b.dataset.rb); if (!r) return;
+                st.started = true;
+                back.style.display = 'none';
+                try { r.open(); } catch (e) { console.warn('Rebuild:', e); }
+                // Back to the list once the crafter closes
+                clearInterval(st.watch);
+                let seen = false;
+                st.watch = setInterval(() => {
+                    if (busy()) { seen = true; return; }
+                    if (!seen && Date.now() - (st.t0 || 0) < 1500) return;
+                    clearInterval(st.watch);
+                    if (document.getElementById(domId)) render();
+                }, 400);
+                st.t0 = Date.now();
+            });
+        };
+        if (document.getElementById(domId)) { if (document.getElementById(domId).style.display !== 'none') render(); return; }
+        render();
+    };
+
+    // The character sheet: the player's (and their companion's) powers
+    let rbShownFor = null, rbWaiting = false;
+    window.apxMaybeShowPowerRebuild = function () {
+        let s = window.state;
+        if (!s || typeof window.openPowerEditor !== 'function') return;
+        let list = () => [].concat(
+            (s.powers || []).map((p, i) => ({ p, i, who: 'player' })),
+            ((s.companion && s.companion.powers) || []).map((p, i) => ({ p, i, who: 'companion' })))
+            .filter(x => x.p && window.apxPowerNeedsRecraft(x.p));
+        let key = (s.id || s.name || '') + ':' + (s.rulesVersion || 0);
+        if (rbShownFor === key || rbWaiting) return;
+        if (!list().length) return;
+        // after the "Rules updated" popup or the tutorial, if one is up
+        if (document.querySelector('[data-apx-rules-popup]') || document.querySelector('.apxtut-back')) { rbWaiting = true; setTimeout(() => { rbWaiting = false; window.apxMaybeShowPowerRebuild(); }, 1500); return; }
+        rbShownFor = key;
+        window.apxRebuildList({
+            id: 'sheet', title: 'Powers to rebuild',
+            intro: `The Power Crafting rules changed in ways that affect ${s.name || 'this character'}'s powers. Rebuild each one in the Power Crafter: it's free, and nothing is lost in the meantime.`,
+            busy: ['powerCrafterModal', 'npcCrafterModal'],
+            doneText: 'All your powers are rebuilt.',
+            rows: () => {
+                let cur = window.state; if (cur !== s) return [];
+                return list().map(x => ({ key: x.who + ':' + x.i, name: `${x.p.name || 'Power'}${x.who === 'companion' ? ' (' + ((s.companion && s.companion.name) || 'companion') + ')' : ''} · Lvl ${x.p.lvl}`,
+                    sub: window.apxPowerRecraftReasons(x.p).join(' '), open: () => window.openPowerEditor(x.i, x.who) }));
+            }
+        });
+    };
+
+    // GM Tools: stat blocks in the open world whose powers need rebuilding (one row per NPC)
+    let rbGmShown = {};
+    window.apxGmRebuildCheck = function (force) {
+        if (!Array.isArray(window.gmNpcs) || typeof window.openGmNpcBuilder !== 'function') return;
+        let w = window.apxGmActiveWorld ? window.apxGmActiveWorld() : null;
+        let wk = w ? (w.worldId || w.id || w.name) : '_';
+        let inWorld = e => typeof window.apxNpcInActiveWorld !== 'function' || window.apxNpcInActiveWorld(e);
+        let flaggedIdx = e => ((e.npc && e.npc.powers) || []).map((p, i) => window.apxPowerNeedsRecraft(p) ? i : -1).filter(i => i >= 0);
+        let rows = () => window.gmNpcs.filter(e => e && e.npc && inWorld(e) && flaggedIdx(e).length).map(e => ({
+            key: e.id, name: e.npc.name || 'Unnamed NPC',
+            sub: flaggedIdx(e).map(i => e.npc.powers[i].name || 'Power').join(', '),
+            open: () => {
+                window.openGmNpcBuilder(e.id);
+                // Each of its powers in turn, as long as the last one was rebuilt
+                let walk = n => {
+                    let idx = flaggedIdx(e); if (!idx.length) return;
+                    window.openPowerEditor(idx[0], 'gm');
+                    let wt = setInterval(() => {
+                        if (document.getElementById('powerCrafterModal')?.classList.contains('active')) return;
+                        clearInterval(wt);
+                        let left = flaggedIdx(e).length;
+                        if (left && left < n && document.getElementById('npcCrafterModal')?.classList.contains('active')) walk(left);
+                    }, 400);
+                };
+                setTimeout(() => walk(flaggedIdx(e).length), 150);
+            }
+        }));
+        if (rbGmShown[wk] && !force) return;
+        if (!rows().length) return;
+        if (document.querySelector('.apxtut-back')) { setTimeout(() => window.apxGmRebuildCheck(force), 1500); return; }
+        rbGmShown[wk] = true;
+        window.apxRebuildList({
+            id: 'gm', title: 'NPCs to rebuild',
+            intro: `The Power Crafting rules changed (saving throws now name a Core Attribute, and lasting effects give their target an Escape Save). These NPCs${w && w.name ? ' in ' + w.name : ''} have powers to rebuild. Rebuild opens each NPC and walks you through its powers; finished NPCs drop off this list.`,
+            busy: ['powerCrafterModal', 'npcCrafterModal'],
+            doneText: 'Every NPC is rebuilt.',
+            rows
+        });
     };
 
     // Shared badge styling (themed)
