@@ -78,6 +78,14 @@
             let loot = areaLoot(tok);
             return { items: loot.items, tok, label: areaLabel(tok), cu: () => loot.cu, setCu: v => { loot.cu = v; }, save };
         }
+        // A world NPC's own loot (unique to it; never on its stat block): wn.loot = { items, cu }
+        if (t && t.kind === 'wnpc') {
+            let wn = typeof _wNotes !== 'undefined' && _wNotes ? (_wNotes.npcs || []).find(n => n.id === t.npcId) : null; if (!wn) return null;
+            if (!wn.loot || typeof wn.loot !== 'object') wn.loot = { items: [], cu: 0 };
+            if (!Array.isArray(wn.loot.items)) wn.loot.items = [];
+            wn.loot.cu = Math.max(0, parseInt(wn.loot.cu) || 0);
+            return { items: wn.loot.items, wnpc: wn, label: `${wn.name || 'this NPC'}'s loot`, cu: () => wn.loot.cu, setCu: v => { wn.loot.cu = v; }, save };
+        }
         if (t && t.kind === 'npc') {
             let c = npcOf(t.npcId); if (!c) return null;
             npcLoot(c);
@@ -89,6 +97,7 @@
         window.renderGmLoot && window.renderGmLoot();
         if (t && t.kind === 'area') window.apxRefreshAreaLoot(t.mapId, t.tokId);
         if (t && t.kind === 'npc') refreshNpcViews(t.npcId);
+        if (t && t.kind === 'wnpc') document.querySelectorAll(`[data-wnpc-loot="${t.npcId}"]`).forEach(el => { el.innerHTML = sectionHtml(t); });
         renderMaker();
     }
     function refreshNpcViews(npcId) {
@@ -102,9 +111,9 @@
         let r = resolve(t); if (!r) return;
         if (lib && window.apxLibAdd) { try { window.apxLibAdd('item', item, { quiet: true }); } catch (e) { console.warn('Library:', e); } }
         // The same item added again joins its stack ("Black Cloak ×3", "3× Healing Draught")
-        let same = window.apxItemsStack && r.items.find(l => (r.tok || r.npc || l.from === 'Loot Maker') && window.apxItemsStack(l.item, item));
+        let same = window.apxItemsStack && r.items.find(l => (r.tok || r.npc || r.wnpc || l.from === 'Loot Maker') && window.apxItemsStack(l.item, item));
         if (same) same.item.ct = (parseInt(same.item.ct) || 1) + Math.max(1, parseInt(item.ct) || 1);
-        else r.items.push(r.tok || r.npc ? { id: uid(), item } : { id: uid(), from: 'Loot Maker', item });
+        else r.items.push(r.tok || r.npc || r.wnpc ? { id: uid(), item } : { id: uid(), from: 'Loot Maker', item });
         r.save(); refreshAll(t);
         window.APXDice?.notify(`${item.ct > 1 ? item.ct + '× ' : ''}${item.name} added to ${r.label}.`, { kind: 'loot' });
     }
@@ -269,8 +278,8 @@
             <div style="${lbl};margin-bottom:.35rem">In ${esc(r.label)} (${items.length})</div>
             ${listHtml}
             ${r.cu ? `<div style="display:flex;align-items:center;gap:.5rem;margin-top:.6rem;font-size:.72rem;color:#cbd5e1">
-                <label style="display:flex;align-items:center;gap:.35rem">${r.npc ? 'Currency carried' : 'Currency here'} <input data-lm-cu type="number" min="0" value="${r.cu()}" style="${inCss};width:5rem;text-align:center"> Cu</label>
-                <span style="color:#64748b;font-size:.65rem">${r.npc ? 'Dropped with its gear when it dies.' : 'Hand it out from the area\'s popup.'}</span></div>` : ''}`;
+                <label style="display:flex;align-items:center;gap:.35rem">${r.npc || r.wnpc ? 'Currency carried' : 'Currency here'} <input data-lm-cu type="number" min="0" value="${r.cu()}" style="${inCss};width:5rem;text-align:center"> Cu</label>
+                <span style="color:#64748b;font-size:.65rem">${r.npc || r.wnpc ? 'Dropped with its loot when it\'s defeated.' : 'Hand it out from the area\'s popup.'}</span></div>` : ''}`;
         // Wire up
         let libBox = body.querySelector('[data-lm-lib]');
         if (libBox && window.apxLibWire) window.apxLibWire(libBox, item => addTo(maker.target, item));
@@ -423,7 +432,7 @@
         else if (which === 'armor') window.openArmorForge('loot');
         else {
             let t = maker.target;
-            window.openConsumableCrafter({ label: t.kind === 'npc' ? 'Give to NPC' : 'Add to Loot', onMade: item => addTo(t, item, true) });
+            window.openConsumableCrafter({ label: t.kind === 'npc' || t.kind === 'wnpc' ? 'Give to NPC' : 'Add to Loot', onMade: item => addTo(t, item, true) });
         }
         // Put the z-order back once the forge closes (made something or cancelled)
         let el = document.getElementById(id);
@@ -442,8 +451,8 @@
     // ── Loot section (Area Circle popups, world NPC windows) ──────
     // Targets are named by a key so the inline handlers stay simple:
     //   'area|<mapId>|<tokId>'  or  'npc|<gmNpcId>'
-    function keyOf(t) { return t.kind === 'area' ? `area|${t.mapId}|${t.tokId}` : `npc|${t.npcId}`; }
-    function fromKey(k) { let p = String(k).split('|'); return p[0] === 'area' ? { kind: 'area', mapId: p[1], tokId: p[2] } : p[0] === 'pool' ? { kind: 'pool' } : { kind: 'npc', npcId: p[1] }; }
+    function keyOf(t) { return t.kind === 'area' ? `area|${t.mapId}|${t.tokId}` : t.kind === 'wnpc' ? `wnpc|${t.npcId}` : `npc|${t.npcId}`; }
+    function fromKey(k) { let p = String(k).split('|'); return p[0] === 'area' ? { kind: 'area', mapId: p[1], tokId: p[2] } : p[0] === 'pool' ? { kind: 'pool' } : p[0] === 'wnpc' ? { kind: 'wnpc', npcId: p[1] } : { kind: 'npc', npcId: p[1] }; }
     function sectionHtml(t) {
         let r = resolve(t); if (!r) return '';
         let key = keyOf(t);
@@ -455,10 +464,10 @@
         let cuKey = 'cu_' + key;
         let cuTo = sel[cuKey] === '__split' || ids.has(sel[cuKey]) ? sel[cuKey] : '';
         let k = esc(key), cu = r.cu();
-        let targetJs = t.kind === 'area' ? `{kind:'area',mapId:'${esc(t.mapId)}',tokId:'${esc(t.tokId)}'}` : `{kind:'npc',npcId:'${esc(t.npcId)}'}`;
+        let targetJs = t.kind === 'area' ? `{kind:'area',mapId:'${esc(t.mapId)}',tokId:'${esc(t.tokId)}'}` : `{kind:'${t.kind === 'wnpc' ? 'wnpc' : 'npc'}',npcId:'${esc(t.npcId)}'}`;
         return `
             <div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.3rem">
-                <span style="font-size:.65rem;color:#fcd34d;font-weight:800;text-transform:uppercase;flex:1">${t.kind === 'npc' ? 'Carried Loot' : 'Loot'}${r.items.length ? ` (${r.items.length})` : ''}</span>
+                <span style="font-size:.65rem;color:#fcd34d;font-weight:800;text-transform:uppercase;flex:1">${t.kind === 'npc' ? 'Generic Drops' : t.kind === 'wnpc' ? 'Loot (this NPC only)' : 'Loot'}${r.items.length ? ` (${r.items.length})` : ''}</span>
                 <button onclick="window.openLootMaker(${targetJs})" style="${btn('#312e81', '#4f46e5', '#c7d2fe')}">+ Loot Maker</button>
             </div>
             ${r.items.map(l => {
@@ -468,7 +477,6 @@
                 return `<div style="border:1px solid #334155;background:#0f172a;border-radius:.3rem;padding:.3rem .4rem;margin-bottom:.25rem">
                     <div style="display:flex;align-items:center;gap:.3rem">
                         <div style="flex:1;min-width:0;font-size:.7rem;font-weight:800;color:#fde68a;line-height:1.2">${esc(l.item.name)}${l.item.ct > 1 ? ` ×${l.item.ct}` : ''}</div>
-                        ${t.kind === 'npc' && l.item.isCustomEquippable ? `<button onclick="window.apxToggleNpcItemEquip('${esc(t.npcId)}','${esc(l.id)}')" title="${eqOn ? 'Equipped: its bonuses and powers are on the stat block. Click to take it off.' : 'Carried, not worn. Click to equip it.'}" style="${eqOn ? btn('#155e75', '#0891b2', '#cffafe') : btn('#1e293b', '#475569', '#94a3b8')}">${eqOn ? 'Equipped' : 'Equip'}</button>` : ''}
                         ${isEditable(l.item) ? `<button onclick="window.apxEditSectionLoot('${k}','${esc(l.id)}')" title="Edit this item" style="${btn('#1e293b', '#475569', '#fde68a')}">Edit</button>` : ''}
                         <span style="display:inline-flex;align-items:center;gap:.15rem" title="How many">
                             <button onclick="window.apxSectionLootCount('${k}','${esc(l.id)}',-1)" ${(l.item.ct || 1) > 1 ? '' : 'disabled'} style="${btn('#1e293b', '#475569', '#cbd5e1')};padding:.1rem .35rem;${(l.item.ct || 1) > 1 ? '' : 'opacity:.4;cursor:default'}">−</button>
@@ -483,11 +491,11 @@
                         ${l.item.ct > 1 ? `<button onclick="window.apxGiveSectionLoot('${k}','${esc(l.id)}',this,true)" title="Give all ${l.item.ct}" style="${btn('#064e3b', '#047857', '#a7f3d0')}">All</button>` : ''}
                         <button onclick="window.apxRemoveSectionLoot('${k}','${esc(l.id)}')" title="Remove" style="${btn('#1e293b', '#475569', '#cbd5e1')}">✕</button>
                     </div></div>`;
-            }).join('') || `<div style="font-size:.62rem;color:#64748b;margin-bottom:.25rem">${t.kind === 'npc' ? 'Nothing carried. Items added here drop as loot when this NPC dies.' : `No items. Use Loot Maker to stock this ${r.tok && r.tok.type === 'special' ? 'marker' : 'area'}.`}</div>`}
+            }).join('') || `<div style="font-size:.62rem;color:#64748b;margin-bottom:.25rem">${t.kind === 'npc' ? 'None. Items here drop from every creature built from this stat block when it\'s defeated (they aren\'t on its stat block).' : t.kind === 'wnpc' ? 'Nothing yet. Loot added here belongs to this NPC alone and drops when it\'s defeated; it never appears on its stat block.' : `No items. Use Loot Maker to stock this ${r.tok && r.tok.type === 'special' ? 'marker' : 'area'}.`}</div>`}
             ${pool.length ? `<select onchange="if(this.value){window.apxMoveLootToArea('${esc(t.mapId)}','${esc(t.tokId)}',this.value)}" style="${s};width:100%;margin-bottom:.3rem;color:#94a3b8">
                 <option value="">Move an item here from the Loot list…</option>${pool.map(l => `<option value="${esc(l.id)}">${esc(l.item.name)}${l.from ? ' (' + esc(l.from) + ')' : ''}</option>`).join('')}</select>` : ''}
             <div style="display:flex;align-items:center;gap:.25rem;margin-top:.15rem">
-                <input type="number" min="0" value="${cu || ''}" placeholder="0" title="${t.kind === 'npc' ? 'Currency carried' : 'Currency found here'}"
+                <input type="number" min="0" value="${cu || ''}" placeholder="0" title="${t.kind === 'npc' || t.kind === 'wnpc' ? 'Currency carried' : 'Currency found here'}"
                     onchange="window.apxSetSectionCu('${k}',this.value)" style="${s};width:3.6rem;text-align:center">
                 <span style="font-size:.62rem;color:#fcd34d;font-weight:800">Cu</span>
                 <select onchange="window._gmLootSel['${esc(cuKey)}']=this.value" style="${s};flex:1;min-width:0" ${pl.length ? '' : 'disabled'}>
@@ -505,6 +513,7 @@
             <div id="${esc(winId)}_loot" data-area-loot="${esc(mapId)}|${esc(tokId)}">${sectionHtml({ kind: 'area', mapId, tokId })}</div></div>`;
     };
     window.apxNpcLootHtml = npcId => sectionHtml({ kind: 'npc', npcId });
+    window.apxWorldNpcLootHtml = npcId => sectionHtml({ kind: 'wnpc', npcId });
     window.apxRefreshAreaLoot = function (mapId, tokId) {
         let el = document.getElementById(`omTok_${tokId}_loot`);
         if (el) el.innerHTML = window.apxAreaLootHtml(mapId, tokId);
@@ -525,7 +534,7 @@
         if (ct - n > 0) { l.item.ct = ct - n; window._gmLootSel[id] = to; }
         else { r.items.splice(i, 1); delete window._gmLootSel[id]; }
         let who = party().find(p => p.uid === to)?.name || 'A player';
-        let from = t.kind === 'npc' ? (r.npc.name || 'an NPC') : areaLabel(r.tok);
+        let from = t.kind === 'npc' ? (r.npc.name || 'an NPC') : t.kind === 'wnpc' ? (r.wnpc.name || 'an NPC') : areaLabel(r.tok);
         if (typeof window.gmLog === 'function') window.gmLog({ text: `${who} took ${n > 1 ? n + '× ' : ''}${l.item.name} from ${from}.`, kind: 'loot', force: true, gmOnly: !!window._gmLootSecret });
         r.save(); refreshAll(t);
     };
@@ -566,7 +575,7 @@
         let amt = r.cu(); if (!amt) return;
         let to = btn?.parentElement?.querySelector('select')?.value || window._gmLootSel['cu_' + key];
         if (!to) { window.apxAlert && window.apxAlert('Pick who gets the Cu, or split it among the party.'); return; }
-        let where = t.kind === 'npc' ? `from ${r.npc.name || 'an NPC'}` : `in ${areaLabel(r.tok)}`;
+        let where = t.kind === 'npc' ? `from ${r.npc.name || 'an NPC'}` : t.kind === 'wnpc' ? `from ${r.wnpc.name || 'an NPC'}` : `in ${areaLabel(r.tok)}`;
         if (!window._gmGiveCu || !window._gmGiveCu(amt, to, where)) return;
         r.setCu(0); r.save(); refreshAll(t);
     };

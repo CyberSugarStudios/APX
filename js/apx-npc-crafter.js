@@ -468,7 +468,7 @@ const NPC_CONDITION_TYPES = [
     'Blinded','Burning','Deafened','Diseased','Frightened','Incapacitated',
     'Paralyzed','Poisoned','Prone','Provoked','Restrained','Staggered',
     'Stunned','Unconscious','Bleeding Out','Dehydrated','Freezing',
-    'Infected','Starving','Suffocating'
+    'Infected','Starving','Suffocating','Grappled','Pinned'
 ];
 const NPC_PHYS_DMG_TYPES = ['Bludgeoning','Slashing','Piercing'];
 function ncAllDamageTypes() { return NPC_PHYS_DMG_TYPES.concat(window.NPC_ENERGY_TYPES || NPC_ENERGY_TYPES); }
@@ -1161,8 +1161,9 @@ window.companionStatBlock = function() {
 
     let mods = {}; // base score is always 5, so mod == the TP-purchased bonus directly
     ATTRIBUTES.forEach(a => { mods[a] = c.attrBonuses[a]; });
-    // Equipped custom items it carries (Loot Maker): their bonuses count, like a player's
-    let wornItems = (Array.isArray(c.carriedItems) ? c.carriedItems : []).map(l => l && l.item).filter(it => it && it.isCustomEquippable && it.equipped);
+    // Loot (Loot Maker items) is never part of a stat block: a stat block is only what the creature always
+    // carries or wields (its forged weapons, armor, shield and helmet), so loot adds no bonuses here
+    let wornItems = [];
     let ifx = wornItems.length && window.apxItemEffects ? window.apxItemEffects({ items: wornItems }) : null;
     let ist = k => ifx ? window.apxItemStat(ifx, k) : 0;
     if (ifx) ATTRIBUTES.forEach(a => { mods[a] = (mods[a] || 0) + (ifx.attr[a] || 0); });
@@ -1811,7 +1812,6 @@ function buildStatBlockHtml(sb, editable) {
                 <button type="button" onclick="window.npcToggleShieldEquipped(${sb._npcId ? `'${sb._npcId}'` : 'null'})" class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-white">${sb.shieldOn ? 'Stow' : 'Equip'}</button></div>` : ''}
             ${sb.hasHelmet ? `<div class="text-xs text-slate-200 mt-1">Helmet (+1 AC/DR/ER)</div>` : ''}
         </div>` : ''}
-        ${npcCarriedBox(sb, esc)}
         <div class="bg-slate-900 border border-emerald-800/50 rounded p-2 mb-2">
             <div class="text-[10px] font-black text-emerald-400 uppercase mb-1">Skills <span class="text-slate-500 normal-case font-bold">(Training +${sb.trainingBonus}; others roll the plain attribute check)</span></div>
             <div class="grid grid-cols-2 gap-x-3">${sb.trainedSkills.length ? sb.trainedSkills.map(s => `<div class="text-xs ${s.trained === false ? 'text-slate-400' : 'text-slate-200'}" title="${s.trained === false ? 'Not trained: its own bonus, Advantage or Disadvantage' : 'Trained'}"${R({ type: 'check', attr: s.attr || undefined, label: s.name, bonus: s.total, advSources: (s.adv || []).length ? s.adv : undefined, disSources: (s.dis || []).length ? s.dis : undefined })}>${esc(s.name)} (${s.total >= 0 ? '+' : ''}${s.total})${(s.adv || []).length ? ' <span class="text-emerald-400 text-[9px] font-bold">Adv</span>' : ''}${(s.dis || []).length ? ' <span class="text-red-400 text-[9px] font-bold">Disadv</span>' : ''}</div>`).join('') : '<div class="text-[10px] text-slate-600 col-span-2">No skills beyond the attribute checks</div>'}</div>
@@ -2317,7 +2317,7 @@ function ncRenderStep5() {
                 </div>`).join('') : '<div class="text-[10px] text-slate-600">None equipped. Add the matching Weapon Type training above so it gets the Training Bonus.</div>'}
         </div>
         ${ncTarget === 'gm' && window.apxNpcLootHtml && ncActiveGmNpcId ? `
-        ${heading('Carried Items and Loot <span class="normal-case">(consumables it can use, plus anything it drops when defeated; no TP)</span>')}
+        ${heading('Generic Drops <span class="normal-case">(dropped by every creature built from this stat block when defeated; not part of its stat block, no TP. A named NPC\'s own loot goes on it, in its NPC window.)</span>')}
         <div class="bg-slate-900 border border-fuchsia-800/50 rounded p-2" data-npc-loot="${ncActiveGmNpcId}">${window.apxNpcLootHtml(ncActiveGmNpcId)}</div>` : ''}
     `;
 }

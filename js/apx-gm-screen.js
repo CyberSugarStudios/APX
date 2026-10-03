@@ -1009,14 +1009,32 @@ function _gmSetLootDefeated(n) {
     if (typeof _wNotes !== 'undefined' && _wNotes) _wNotes.lootDefeated = n; else window._gmLootDefeatedFb = n;
 }
 window.gmSetLootDefeated = function(n) { _gmSetLootDefeated(n); window.renderGmLoot(); if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes(); };
+// The world NPC an initiative creature is (its battle token's world NPC, or the one world NPC with its
+// name and stat block): its own loot drops with it
+function _gmEntryWorldNpc(entry) {
+    if (typeof _wNotes === 'undefined' || !_wNotes) return null;
+    let wid = entry.worldNpcId || null;
+    if (!wid) (_wNotes.otherMaps || []).some(m => (m.battleTokens || []).some(t => { if (t.initiativeId === entry.id && t.worldNpcId) { wid = t.worldNpcId; return true; } return false; }));
+    if (wid) return (_wNotes.npcs || []).find(n => n.id === wid) || null;
+    let base = String(entry.baseName || entry.name || '').trim();
+    let m = (_wNotes.npcs || []).filter(n => n.name && n.name.trim() === base && (!entry.sourceNpcId || n.statBlockId === entry.sourceNpcId));
+    return m.length === 1 ? m[0] : null;
+}
+window._gmEntryWorldNpc = _gmEntryWorldNpc;
 function _gmCaptureLoot(entry) {
     if (!entry || entry.faction === 'player' || entry.companionOf) return;
     if (entry.faction === 'enemy') { _gmSetLootDefeated(_gmLootDefeated() + 1); window.renderGmLoot(); }
-    if (!entry.sourceNpcId) return;
-    let n = (window.gmNpcs || []).find(x => x.id === entry.sourceNpcId);
-    if (!n || !n.npc) return;
-    let items = _gmNpcLootItems(n.npc, entry);
-    let cu = Math.max(0, parseInt(n.npc.carriedCu) || 0);
+    let n = entry.sourceNpcId ? (window.gmNpcs || []).find(x => x.id === entry.sourceNpcId) : null;
+    // Generic Drops (the stat block's, for every creature built from it) + this NPC's own loot
+    let items = n && n.npc ? _gmNpcLootItems(n.npc, entry) : [];
+    let cu = n && n.npc ? Math.max(0, parseInt(n.npc.carriedCu) || 0) : 0;
+    let wn = _gmEntryWorldNpc(entry);
+    if (wn && wn.loot && ((wn.loot.items || []).length || wn.loot.cu)) {
+        (wn.loot.items || []).forEach(l => { if (l && l.item) { let it = JSON.parse(JSON.stringify(l.item)); if (it.isCustomEquippable) it.equipped = false; items.push(it); } });
+        cu += Math.max(0, parseInt(wn.loot.cu) || 0);
+        wn.loot = { items: [], cu: 0 };   // it's dropped: now in the Loot list
+        if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
+    }
     if (!items.length && !cu) return;
     let list = _gmLootList();
     items.forEach(it => {

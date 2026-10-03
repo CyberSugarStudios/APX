@@ -11,11 +11,11 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.2.1545',
-        released: '2026-10-02T15:45:00',
-        releasedText: 'October 2, 2026 · 3:45 PM',
+        version: 'v2026.10.3.1000',
+        released: '2026-10-03T10:00:00',
+        releasedText: 'October 3, 2026 · 10:00 AM',
         title: 'Playtest Update',
-        intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs that wear, carry and use their gear, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
+        intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs with loot of their own, apart from their stat blocks, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
             ['A New Home', [
                 'APX has moved to playapx.com. Old links and bookmarks to cybersugarstudios.com open the same page here, and cybersugarstudios.com is now the CyberSugar Studios homepage, with a link to APX.',
@@ -28,7 +28,7 @@
                 'World Settings fix Starting XP, Max GP, starting Cu, and Point Buy or Standard Array for everyone in your world.',
                 'The Loot Maker builds loot with the players\' own forges and crafters, or as custom items you can edit later, for an NPC, an Area Circle, a Special Map Marker or the Loot list. Make several at once, and change any row\'s count with − and +.',
                 'Give hands over one item from a stack ("Black Cloak ×3" becomes ×2) and keeps your chosen player selected; All hands over the lot.',
-                'Magic items can change nearly anything on a sheet and grant powers, and NPCs can wear them.',
+                'Magic items can change nearly anything on a sheet and grant powers.',
                 'The party list keeps itself current: a player who deletes their character, moves it out of your world or leaves the world drops off it at once, and each world lists only its own players.',
                 'Type damage in full. The tracker takes off DR or ER by damage type, plus resistances and immunities, shows its working, and counts a hit that deals 0. Whenever nothing says what kind of damage it was, a chooser lists every damage type with the target\'s defences against it, plus a Bypass resistances button.',
                 'NPC stat blocks roll their powers with a click, have a SAVE button under each Core Attribute, and suffer conditions just as players do. A stat block tagged with a world appears only in that world.',
@@ -322,7 +322,7 @@
             ['Map Marker Popups', [
                 'In an Area Circle or Special Map Marker you\'re editing, "+ Add Sub-note" sits right under the sub-notes and above the Loot section, one click away.',
                 'Click a linked NPC\'s name and that NPC\'s full window opens, the same one the World NPC list opens: portrait, role, description, sub-notes, carried loot, Edit, and a Stat Block button when one is linked.',
-                'Each popup keeps its own loot (a chest, a hidden cache, a shop counter), stocked with + Loot Maker, no NPC needed. NPCs keep their carried loot on their stat blocks and windows.'
+                'Each popup keeps its own loot (a chest, a hidden cache, a shop counter), stocked with + Loot Maker, no NPC needed. Each named NPC keeps its own loot in its window.'
             ]],
             ['Several of an Item', [
                 'Making a consumable for loot? The Consumable Crafter\'s last step has a "How many" box beside Give to NPC / Add to Loot, so five Healing Draughts take one trip through the crafter, not five.',
@@ -361,12 +361,13 @@
                 'Item powers: under "Powers while equipped", + Craft Power opens the Power Crafter above the Loot Maker (nothing is charged, and it finishes with "Add Power to Item"), or copy a power from any of your NPCs. Whoever equips the item gets its powers: players in their Powers list, NPCs on their stat block.',
                 'Every custom item has an Edit button wherever it is: an NPC\'s gear, an Area Circle, a Special Map Marker, the Loot list or the Loot Maker\'s own list. The form reopens filled in, bonuses and powers included, and Save Changes updates the item in place.',
                 'Open the Loot Maker from the Loot panel, an NPC, an Area Circle or a Special Map Marker.',
-                'A custom item\'s Core Attribute row can Add to the score or Set it to a total, with an "unless higher" box. NPCs wearing it get the same.'
+                'A custom item\'s Core Attribute row can Add to the score or Set it to a total, with an "unless higher" box.'
             ]],
             ['NPC Gear', [
-                'NPCs carry items and Currency, added in the NPC Crafter or from the NPC\'s window, at no Threat Point cost.',
-                'Equippable items an NPC carries have an Equip / Equipped button in its loot list and Equip / Unequip on its stat block. While worn, their bonuses count on the stat block (attributes, AC, DR, ER, HP, AP, Speed, Initiative, saves, skills, attack and damage, power attack and DC), their energy resistances reduce damage in the tracker, and their powers join the stat block\'s Powers marked "From <item>".',
-                'A slain NPC drops its equipment, whatever it still carries and its Currency into the Loot panel, with worn items taken off.'
+                'A stat block holds only what the creature always carries or wields: its forged weapons, armor, Shield and Helmet. Loot never appears on it or changes it.',
+                'Each world NPC has its own loot and Currency, added from its window with + Loot Maker, so NPCs sharing a stat block never share loot. It drops into the Loot panel when that NPC is defeated.',
+                'A stat block can also have Generic Drops (NPC Crafter, no TP): what every creature built from it drops, such as a few Cu per goblin.',
+                'A slain NPC drops its equipment, its loot and its Currency into the Loot panel, with worn items taken off.'
             ]],
             ['Loot After a Fight', [
                 'Fallen enemies\' gear lands in the Loot panel, grouped by who dropped it. Choose a player beside an item and press Give (or All for a stack), or ✕ anything that didn\'t survive.',
@@ -409,7 +410,8 @@
                 'Grapples: marking a creature Grappled or Pinned links it to the creature next to it (you choose when there are several) and makes that grappler Staggered. Unmarking it, an Escape, the grappler letting go, being Incapacitated or leaving the fight ends the grapple and its Staggered. A Grappling weapon hit grapples on its own, and players\' Grapple, Pin, Choke and Escape from their sheets apply here, Choke damage included.',
                 'Non-lethal damage ("-12 nl", or the Non-lethal box): at 0 HP a creature is knocked out: Unconscious, still in the fight, grey with snoring Z\'s on the map (players don\'t Bleed Out). Healing wakes it; lethal damage while it\'s down kills an NPC or starts a player Bleeding Out.',
                 'Summoned creatures have a hard 3 AP: 3 at the start of each turn (1 if Surprised), none banked. An NPC\'s Summon a Creature power places its creatures next to it, on its side, acting right after it.',
-                'Grant XP has a Start Session type: 5 XP, named for the session (each sheet adds INT), so attendance XP reads cleanly in the log.'
+                'Grant XP has a Start Session type: 5 XP, named for the session (each sheet adds INT), so attendance XP reads cleanly in the log.',
+                'NPCs can be immune to Grappled and Pinned (NPC Crafter, Condition Immunity), and the tracker keeps those conditions off them.'
             ]],
             ['Party and Companions', [
                 'Party stat blocks show each player\'s AC, DR, ER, Max HP, AP, Initiative and Wound Threshold exactly as their sheet does.',

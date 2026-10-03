@@ -450,8 +450,8 @@
                 }
         
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20261021545">
-    <link rel="stylesheet" href="css/tailwind.css?v=20261021545">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20261031000">
+    <link rel="stylesheet" href="css/tailwind.css?v=20261031000">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
@@ -1519,36 +1519,36 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20261021545"></script>
-    <script src="js/apx-patch-notes.js?v=20261021545"></script>
-    <script src="js/apx-dice.js?v=20261021545"></script>
-    <script src="js/apx-data.js?v=20261021545"></script>
-    <script src="js/apx-item-effects.js?v=20261021545"></script>
-    <script src="js/apx-perks-db.js?v=20261021545"></script>
-    <script src="js/apx-migrations.js?v=20261021545"></script>
-    <script src="js/apx-state.js?v=20261021545"></script>
-    <script src="js/apx-craft-shared.js?v=20261021545"></script>
-    <script src="js/apx-armor-forge.js?v=20261021545"></script>
-    <script src="js/apx-weapon-forge.js?v=20261021545"></script>
-    <script src="js/apx-consumable-crafter.js?v=20261021545"></script>
-    <script src="js/apx-perks-ui.js?v=20261021545"></script>
-    <script src="js/apx-power-crafter.js?v=20261021545"></script>
-    <script src="js/apx-npc-crafter.js?v=20261021545"></script>
-    <script src="js/apx-inventory-ui.js?v=20261021545"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20261021545"></script>
-    <script src="js/apx-gm-screen.js?v=20261021545"></script>
-    <script src="js/apx-loot-maker.js?v=20261021545"></script>
-    <script src="js/apx-library.js?v=20261021545"></script>
-    <script src="js/apx-gmtools-main.js?v=20261021545"></script>
+    <script src="js/apx-dialogs.js?v=20261031000"></script>
+    <script src="js/apx-patch-notes.js?v=20261031000"></script>
+    <script src="js/apx-dice.js?v=20261031000"></script>
+    <script src="js/apx-data.js?v=20261031000"></script>
+    <script src="js/apx-item-effects.js?v=20261031000"></script>
+    <script src="js/apx-perks-db.js?v=20261031000"></script>
+    <script src="js/apx-migrations.js?v=20261031000"></script>
+    <script src="js/apx-state.js?v=20261031000"></script>
+    <script src="js/apx-craft-shared.js?v=20261031000"></script>
+    <script src="js/apx-armor-forge.js?v=20261031000"></script>
+    <script src="js/apx-weapon-forge.js?v=20261031000"></script>
+    <script src="js/apx-consumable-crafter.js?v=20261031000"></script>
+    <script src="js/apx-perks-ui.js?v=20261031000"></script>
+    <script src="js/apx-power-crafter.js?v=20261031000"></script>
+    <script src="js/apx-npc-crafter.js?v=20261031000"></script>
+    <script src="js/apx-inventory-ui.js?v=20261031000"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20261031000"></script>
+    <script src="js/apx-gm-screen.js?v=20261031000"></script>
+    <script src="js/apx-loot-maker.js?v=20261031000"></script>
+    <script src="js/apx-library.js?v=20261031000"></script>
+    <script src="js/apx-gmtools-main.js?v=20261031000"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20261021545"></script>
-    <script src="js/apx-firebase.js?v=20261021545"></script>
-    <script src="js/apx-battlemap.js?v=20261021545"></script>
-    <script src="js/apx-map-tiles.js?v=20261021545"></script>
+    <script src="js/firebase-config.js?v=20261031000"></script>
+    <script src="js/apx-firebase.js?v=20261031000"></script>
+    <script src="js/apx-battlemap.js?v=20261031000"></script>
+    <script src="js/apx-map-tiles.js?v=20261031000"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -2099,12 +2099,13 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // NPC floating info window — shows portrait, description, sub-notes, with Edit button
-    // A world NPC's carried loot lives on its linked stat block (NPC Crafter). GM-only.
+    // A world NPC's loot is its own (stored on the world NPC, never on its stat block, which other
+    // creatures can share). GM-only.
     function _npcLootBox(n) {
-        if (!n || !window.apxNpcLootHtml) return '';
-        let linked = n.statBlockId && (window.gmNpcs||[]).some(x=>x.id===n.statBlockId);
-        if (!linked) return `<div style="font-size:0.62rem;color:#64748b;margin-top:0.5rem;">Link a stat block to this NPC to give it carried loot.</div>`;
-        return `<div data-npc-loot="${n.statBlockId}" style="border:1px solid #701a75;background:rgba(112,26,117,.12);border-radius:0.35rem;padding:0.4rem;margin-top:0.5rem;">${window.apxNpcLootHtml(n.statBlockId)}</div>`;
+        if (!n || !window.apxWorldNpcLootHtml) return '';
+        let sb = n.statBlockId ? (window.gmNpcs||[]).find(x=>x.id===n.statBlockId) : null;
+        let generic = sb && sb.npc && ((sb.npc.carriedItems||[]).length || sb.npc.carriedCu) ? `<div style="font-size:0.58rem;color:#94a3b8;margin-top:0.25rem;">Its stat block also has Generic Drops (${(sb.npc.carriedItems||[]).length} item${(sb.npc.carriedItems||[]).length===1?'':'s'}${sb.npc.carriedCu?`, ${sb.npc.carriedCu} Cu`:''}), dropped too.</div>` : '';
+        return `<div data-wnpc-loot="${n.id}" style="border:1px solid #701a75;background:rgba(112,26,117,.12);border-radius:0.35rem;padding:0.4rem;margin-top:0.5rem;">${window.apxWorldNpcLootHtml(n.id)}</div>${generic}`;
     }
     window._npcLootBox = _npcLootBox;
     window.openNpcInfoWin = function(npcId) {
@@ -6325,8 +6326,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </script>
     <div id="floatingWindowContainer"></div>
 
-    <script src="js/apx-chat.js?v=20261021545"></script>
-    <script src="js/apx-extras.js?v=20261021545"></script>
-    <script src="js/apx-theme-light.js?v=20261021545"></script>
+    <script src="js/apx-chat.js?v=20261031000"></script>
+    <script src="js/apx-extras.js?v=20261031000"></script>
+    <script src="js/apx-theme-light.js?v=20261031000"></script>
 </body>
 </html>
