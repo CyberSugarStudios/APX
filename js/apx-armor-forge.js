@@ -54,9 +54,13 @@ function armorForgeEffectiveMax(m) {
 // ------------------------------------------------------------------
 // Open / reset / edit
 // ------------------------------------------------------------------
-window.openArmorForge = function(target) {
+// opts (loot only): { armor, onMade(armor) } reopens armor kept elsewhere (the GM's Library) and
+// hands the result to onMade instead of the Loot Maker.
+let armorForgeLootDone = null;
+window.openArmorForge = function(target, opts) {
     armorForgeTarget = (target === 'companion' || target === 'gm' || target === 'loot') ? target : 'player';
-    if (armorForgeTarget === 'loot') window._lootForgeArmor = null;   // every loot armor starts blank
+    armorForgeLootDone = armorForgeTarget === 'loot' && opts && typeof opts.onMade === 'function' ? opts.onMade : null;
+    if (armorForgeTarget === 'loot') window._lootForgeArmor = opts && opts.armor ? Object.assign(JSON.parse(JSON.stringify(getInitialState().equippedArmor)), JSON.parse(JSON.stringify(opts.armor))) : null;   // every new loot armor starts blank
     armorForgeDraft = JSON.parse(JSON.stringify(getTargetArmor()));
     armorForgeOriginalMods = { ...armorForgeDraft.mods };
     armorForgeBasePaid = armorForgeDraft.paidCost || 0;
@@ -66,7 +70,7 @@ window.openArmorForge = function(target) {
     document.getElementById('armorBtnPurchase').classList.toggle('hidden', gmMade);
     document.getElementById('armorBtnCraft').classList.toggle('hidden', gmMade || armorForgeTarget === 'companion');   // companions pay TP, nothing to craft
     document.getElementById('armorBtnGmAdd').classList.toggle('hidden', !gmMade);
-    document.getElementById('armorBtnGmAdd').textContent = armorForgeTarget === 'loot' ? 'Add to Loot' : 'Equip on NPC (TP)';
+    document.getElementById('armorBtnGmAdd').textContent = armorForgeLootDone ? 'Save to Library' : armorForgeTarget === 'loot' ? 'Add to Loot' : 'Equip on NPC (TP)';
     document.getElementById('armorBtnPurchase').textContent = armorForgeTarget === 'companion' ? 'Equip (TP)' : 'Purchase & Equip';
     window.renderArmorForge();
     window.openModal('armorForgeModal');
@@ -288,6 +292,8 @@ function applyArmorForgeFinal(finalMods) {
     if (armorForgeTarget === 'loot') {
         let made = JSON.parse(JSON.stringify(getTargetArmor()));
         window._lootForgeArmor = null;
+        let done = armorForgeLootDone; armorForgeLootDone = null;
+        if (done) { done(made); return; }
         if (typeof window._lootMakerReceive === 'function') window._lootMakerReceive({ armor: made });
         return;
     }

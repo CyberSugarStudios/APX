@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.2.2310',
-        released: '2026-10-02T23:10:00',
-        releasedText: 'October 2, 2026 · 11:10 PM',
+        version: 'v2026.10.2.2320',
+        released: '2026-10-02T23:20:00',
+        releasedText: 'October 2, 2026 · 11:20 PM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs with loot of their own, apart from their stat blocks, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -36,7 +36,7 @@
                 'NPCs have a Wound Threshold and take Wounds, casters have Power Slots in the tracker, and auras like Damaging Aura show as a ring on the map and deal their damage each turn.',
                 'Fall damage, conditions on players straight from the tracker, grid colour, thickness and opacity, token sizes, and loot you can hand out without the rest of the party seeing.',
                 'Map windows have a Revealed / Hidden button, and everything you made before the Library existed is gathered into it too.',
-                'The World screen has Loot & Items and Powers tabs listing everything in your Library for that world.',
+                'The World screen has Loot & Items and Powers tabs listing everything in your Library for that world, each with an Edit button.',
                 'Before you press Start Combat, players only hear that a creature took damage or went down; the full combat log reaches them once the fight starts.',
                 'New NPC traits run themselves in the tracker: Undead (falls Prone and Incapacitated at 0 HP and may rise again) and Unalive Structure (repair-only healing, Stunned by Electric damage). Condition immunities are enforced.',
                 'Tokens added with + Token from the tracker start hidden, and companions and summoned creatures act right after their owner.',
@@ -296,9 +296,10 @@
                 'The GM Tools need a free APX account.',
                 'A tutorial walks through worlds, NPCs, combat, maps, loot and notes, plus what the tools can and can\'t do. Settings → Show Tutorial reopens it.',
                 'Everything you make (Loot Maker items, forged weapons and armor, consumables and NPC powers) goes into your Library, tagged with the world you made it in. Reuse it from the Loot Maker\'s Library view and the NPC power picker, tick "All worlds" to see what you made elsewhere, or tag an entry with more worlds.',
-                'Everything you made before the Library existed is gathered into it when the GM Tools open: custom items, forged and custom weapons, forged armor and consumables from each world\'s Loot list, Area Circles and Special Map Markers, plus your NPCs\' gear, loot and powers. Each is tagged with the world it was found in, and anything you remove from the Library stays removed.',
+                'Everything you made before the Library existed is gathered into it when the GM Tools open: custom items, forged and custom weapons, forged armor and consumables from each world\'s Loot list, Area Circles and Special Map Markers, plus your NPCs\' gear, loot and powers and the powers on equippable items. Each is tagged with the world it was found in, and anything you remove from the Library stays removed.',
                 'Kawaii is a true light theme on every window, and Cyber Sigil is its dark twin (Settings → Theme).',
-                'The World screen has Loot & Items and Powers tabs: this world\'s Library, searchable, filtered by type or Level, with All worlds, and Add to Loot for items.'
+                'The World screen has Loot & Items and Powers tabs: this world\'s Library, searchable, filtered by type or Level, with All worlds, and Add to Loot for items.',
+                'Every Library entry has an Edit button. Powers reopen in the Power Crafter (Save to Library, or Save as New to keep both), forged weapons and armor in their forge, consumables in the Consumable Crafter, custom items in the Loot Maker\'s form, and anything else (gear, shields, helmets, quick custom weapons, Crafting Materials) in a short form. Only the Library\'s copy changes; anything already handed out, placed or on an NPC stays as it was.'
             ]],
             ['Your Party List', [
                 'The party list follows your world\'s players as they come and go. A player who deletes their character in your world, moves it out of the world folder, or leaves the world (× on its folder) drops off the list straight away, and so does anyone you kick.',

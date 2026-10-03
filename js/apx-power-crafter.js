@@ -19,11 +19,14 @@ let pcTarget = 'player'; // 'player', 'companion', 'gm', or 'item' -- whose powe
 // 'item': a power carried by a custom item (GM Loot Maker). The caller hands over the list in
 // window._pcItemPowers and gets told about changes through window._pcItemOnChange(). No TP or XP is spent.
 // ('summon' = the creature a Summon a Creature power calls: paid in TP from its Tier's budget, like a companion)
-function pcTargetOf(target) { return (target === 'companion' || target === 'gm' || target === 'item' || target === 'summon') ? target : 'player'; }
+// ('lib' = a power kept in the GM's Library: edited in place, nothing is spent. The caller hands over the
+//  list in window._pcLibPowers and is told about changes through window._pcLibOnChange().)
+function pcTargetOf(target) { return (target === 'companion' || target === 'gm' || target === 'item' || target === 'summon' || target === 'lib') ? target : 'player'; }
 const PC_LAST_STEP = 9;
 
 function getTargetPowers() {
     if (pcTarget === 'item') return (window._pcItemPowers = window._pcItemPowers || []);
+    if (pcTarget === 'lib') return (window._pcLibPowers = window._pcLibPowers || []);
     if (pcTarget === 'gm' || pcTarget === 'summon') return ncActiveCompanion().powers;
     return pcTarget !== 'player' ? window.state.companion.powers : window.state.powers;
 }
@@ -35,7 +38,7 @@ function getTargetPowers() {
 // Returns false (and applies nothing) if the delta can't be afforded.
 function pcApplyCompanionTpDelta(newLevel, oldTp, usageType, maxCharges) {
     let newTp = window.npcPowerTotalTp(newLevel, usageType, maxCharges);
-    if (pcTarget === 'item') return newTp;   // item powers come with the item: nothing is spent
+    if (pcTarget === 'item' || pcTarget === 'lib') return newTp;   // item and Library powers: nothing is spent
     let delta = newTp - (oldTp || 0);
     if (delta > 0) {
         if (pcTarget === 'gm') {
@@ -256,7 +259,7 @@ function pcOpenCommon() {
 // their own power usage informally during play, so this section only
 // shows for companion/GM targets.
 function pcCurrentNpcTier() {
-    if (pcTarget === 'item') return 5;
+    if (pcTarget === 'item' || pcTarget === 'lib') return 5;
     if (pcTarget === 'gm' || pcTarget === 'summon') return npcTierForTP(window.companionTotalTp()).tier;
     if (pcTarget === 'companion') return typeof lcRank === 'function' ? lcRank() : 0;
     return 0;
@@ -274,7 +277,7 @@ function pcRenderUsageSection() {
     let level = window.pcCalcXP(pcDraft).level;
     let tier = pcCurrentNpcTier();
     // GM NPCs: Unlimited Uses is always available. (Loyal Companions keep the book's Level/Tier limit.)
-    let eligible = (pcTarget === 'gm' || pcTarget === 'item') ? true : window.npcUnlimitedUsesAllowed(level, tier);
+    let eligible = (pcTarget === 'gm' || pcTarget === 'item' || pcTarget === 'lib') ? true : window.npcUnlimitedUsesAllowed(level, tier);
     if (pcDraft.usageType === 'unlimitedPaid' && !eligible) pcDraft.usageType = 'unlimited'; // no longer eligible (level/tier changed) -- fall back rather than silently keep an illegal selection
 
     document.querySelector(`input[name="pcUsageType"][value="${pcDraft.usageType}"]`).checked = true;
@@ -906,7 +909,7 @@ function pcRenderSummary() {
     let sumXpLbl = sumXpEl.previousElementSibling;
     if (pcIsNpc()) {
         sumXpEl.innerText = pcTpFor(pcDraft) + ' TP';
-        if (sumXpLbl) sumXpLbl.innerText = pcTarget === 'item' ? 'TP Value (free on an item)' : 'TP Cost';
+        if (sumXpLbl) sumXpLbl.innerText = pcTarget === 'item' ? 'TP Value (free on an item)' : pcTarget === 'lib' ? 'TP Cost (on an NPC)' : 'TP Cost';
     } else {
         sumXpEl.innerText = t.total + ' XP';
         if (sumXpLbl) sumXpLbl.innerText = 'Total XP Cost';
@@ -960,11 +963,11 @@ function pcRenderSummary() {
     saveAsNewBtn.style.display = showEditPair ? 'block' : 'none';
 
     if (pcTarget !== 'player') {
-        if (pcTarget === 'item') {
-            // Item powers: nothing to pay, just save it onto the item
-            if (showFinish) { finishBtn.innerText = 'Add Power to Item'; finishBtn.disabled = diceOver.length > 0; pcStyleBtn(finishBtn); }
+        if (pcTarget === 'item' || pcTarget === 'lib') {
+            // Item and Library powers: nothing to pay, just save it onto the item (or into the Library)
+            if (showFinish) { finishBtn.innerText = pcTarget === 'lib' ? 'Add to Library' : 'Add Power to Item'; finishBtn.disabled = diceOver.length > 0; pcStyleBtn(finishBtn); }
             if (showEditPair) {
-                saveChangesBtn.innerText = 'Save Changes'; saveChangesBtn.disabled = diceOver.length > 0; pcStyleBtn(saveChangesBtn);
+                saveChangesBtn.innerText = pcTarget === 'lib' ? 'Save to Library' : 'Save Changes'; saveChangesBtn.disabled = diceOver.length > 0; pcStyleBtn(saveChangesBtn);
                 saveAsNewBtn.innerText = 'Save as New'; saveAsNewBtn.disabled = diceOver.length > 0; pcStyleBtn(saveAsNewBtn);
             }
             return;
@@ -1129,6 +1132,7 @@ function pcApplyXpDelta(delta) {
 // After an NPC / companion / item power is saved
 function pcAfterNpcSave(power) {
     if (pcTarget === 'item') { if (typeof window._pcItemOnChange === 'function') window._pcItemOnChange(); return; }
+    if (pcTarget === 'lib') { if (typeof window._pcLibOnChange === 'function') window._pcLibOnChange(power); return; }
     window.recalculateMath();
     if (typeof ncRenderAll === 'function') ncRenderAll();
     // A companion's (or GM NPC's) Summon a Creature power: build its creature next, in the NPC Crafter
@@ -1308,6 +1312,7 @@ window.savePowerAsNew = function() {
             draft: JSON.parse(JSON.stringify(pcDraft)), rulesRev: window.APX_POWER_RULES_REV || 1, tp, isLairAction: pcIsLairAction,
             usageType: pcDraft.usageType, maxCharges: pcDraft.maxCharges, rechargeOn: pcDraft.rechargeOn
         });
+        if (pcTarget === 'gm' && window.apxLibAdd) { try { window.apxLibAdd('power', getTargetPowers()[getTargetPowers().length - 1], { quiet: true }); } catch (e) { } }
         window.closeModal('powerCrafterModal');
         pcAfterNpcSave(getTargetPowers()[getTargetPowers().length - 1]);
         return;

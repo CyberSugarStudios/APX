@@ -109,11 +109,15 @@ function draftFromWeapon(w) {
 // to Forge" on an existing one: Step 1 (category/weight/damage type) locks,
 // since those define the item's identity; only tiers/properties/elemental
 // can be added to or removed from an already-crafted weapon.
-window.openWeaponForge = function(idx, target) {
+// opts (loot only): { weapon, onMade(weapon) } reopens a weapon kept elsewhere (the GM's Library)
+// at idx 0, and hands the result to onMade instead of the Loot Maker.
+let weaponForgeLootDone = null;
+window.openWeaponForge = function(idx, target, opts) {
     weaponForgeTarget = (target === 'companion' || target === 'gm' || target === 'loot') ? target : 'player';
-    if (weaponForgeTarget === 'loot') window._lootForgeWeapons = [];
+    weaponForgeLootDone = weaponForgeTarget === 'loot' && opts && typeof opts.onMade === 'function' ? opts.onMade : null;
+    if (weaponForgeTarget === 'loot') window._lootForgeWeapons = opts && opts.weapon ? [JSON.parse(JSON.stringify(opts.weapon))] : [];
     let gmBtn = document.getElementById('wpnBtnGmAdd');
-    if (gmBtn) gmBtn.textContent = weaponForgeTarget === 'loot' ? 'Add to Loot' : 'Add to NPC (TP)';
+    if (gmBtn) gmBtn.textContent = weaponForgeLootDone ? 'Save to Library' : weaponForgeTarget === 'loot' ? 'Add to Loot' : 'Add to NPC (TP)';
     let buyBtn = document.getElementById('wpnBtnPurchase');
     if (buyBtn) { if (!buyBtn.dataset.lbl) buyBtn.dataset.lbl = buyBtn.textContent; buyBtn.textContent = weaponForgeTarget === 'companion' ? 'Equip (TP)' : buyBtn.dataset.lbl; }
     weaponForgeEditIndex = (typeof idx === 'number') ? idx : null;
@@ -152,7 +156,7 @@ window.openWeaponForge = function(idx, target) {
     document.querySelector(`input[name="wpnCategory"][value="${weaponForgeDraft.category}"]`).checked = true;
     document.querySelector(`input[name="wpnDmgType"][value="${weaponForgeDraft.dmgType}"]`).checked = true;
 
-    let locked = weaponForgeEditIndex !== null && weaponForgeTarget !== 'gm';   // (a GM's NPC weapons can be reshaped any time)
+    let locked = weaponForgeEditIndex !== null && weaponForgeTarget !== 'gm' && weaponForgeTarget !== 'loot';   // (a GM's NPC and Library weapons can be reshaped any time)
     document.querySelectorAll('input[name="wpnCategory"], input[name="wpnDmgType"]').forEach(el => el.disabled = locked);
     document.getElementById('wpnLockedNote').classList.toggle('hidden', !locked);
 
@@ -265,7 +269,7 @@ window.setWeaponForgeRangeTier = function(idx) {
 };
 
 function renderWeaponForgeWeightClassOptions() {
-    let locked = weaponForgeEditIndex !== null && weaponForgeTarget !== 'gm';   // (a GM's NPC weapons can be reshaped any time)
+    let locked = weaponForgeEditIndex !== null && weaponForgeTarget !== 'gm' && weaponForgeTarget !== 'loot';   // (a GM's NPC and Library weapons can be reshaped any time)
     let html = Object.keys(WEAPON_WEIGHT_CLASSES).map(key => {
         let wc = WEAPON_WEIGHT_CLASSES[key];
         let checked = weaponForgeDraft.weightClass === key ? 'checked' : '';
@@ -569,6 +573,8 @@ function applyWeaponForgeFinal(finalDraft, batches) {
     if (weaponForgeTarget === 'loot') {
         let made = (window._lootForgeWeapons || []).pop();
         window._lootForgeWeapons = [];
+        let done = weaponForgeLootDone; weaponForgeLootDone = null;
+        if (made && done) { done(made); return; }
         if (made && typeof window._lootMakerReceive === 'function') window._lootMakerReceive({ weapon: made });
         return;
     }

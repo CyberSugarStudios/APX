@@ -82,6 +82,7 @@ window.ccCalcXP = function(draft) {
 
 // target: omitted = the player's own inventory (pay or GM-grant).
 // { onMade(item), label } = GM Tools (Loot Maker, NPC gear): free, the finished item goes to onMade.
+// { …, edit: item } reopens an existing consumable (the GM's Library) with its build.
 let ccTarget = null;
 window.openConsumableCrafter = function(target) {
     ccTarget = (target && typeof target.onMade === 'function') ? target : null;
@@ -102,6 +103,13 @@ window.openConsumableCrafter = function(target) {
     ccDraft = getBlankConsumableDraft();
     ccStep = 1;
     document.getElementById('ccName').value = '';
+    let ed = ccTarget && ccTarget.edit;
+    if (ed && ed.draft) {
+        let base = getBlankConsumableDraft(), d = JSON.parse(JSON.stringify(ed.draft));
+        Object.keys(base).forEach(k => { if (base[k] && typeof base[k] === 'object' && !Array.isArray(base[k]) && d[k] && typeof d[k] === 'object') d[k] = Object.assign({}, base[k], d[k]); });
+        ccDraft = Object.assign(base, d);
+        document.getElementById('ccName').value = ed.name || '';
+    }
 
     for (let i = 1; i <= CC_LAST_STEP; i++) {
         document.getElementById(`ccStep${i}`).classList.toggle('active', i === 1);
@@ -128,7 +136,7 @@ window.jumpToCcStep = function(n) {
     document.getElementById('ccBtnNext').style.display = ccStep < CC_LAST_STEP ? 'block' : 'none';
     document.getElementById('ccBtnFinish').style.display = ccStep === CC_LAST_STEP ? 'block' : 'none';
     let qtyWrap = document.getElementById('ccLootQtyWrap');
-    if (qtyWrap) qtyWrap.style.display = ccTarget && ccStep === CC_LAST_STEP ? 'inline-flex' : 'none';
+    if (qtyWrap) qtyWrap.style.display = ccTarget && !ccTarget.edit && ccStep === CC_LAST_STEP ? 'inline-flex' : 'none';
     if (ccStep === CC_LAST_STEP) ccRenderStep7();
     window.updateWizardTabs('ccTab', ccStep, CC_LAST_STEP);
 };

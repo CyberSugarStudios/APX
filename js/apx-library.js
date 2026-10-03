@@ -86,6 +86,26 @@
         return window.gmLibrary.filter(e => e.kind === kind && e.kind !== 'meta' && (all || !w || !(e.worldTags || []).length || e.worldTags.includes(w)));
     };
     window.apxLibGet = id => window.gmLibrary.find(e => e.id === id) || null;
+    // Edited (the Edit button): the Library's own copy changes. Copies already handed out,
+    // placed in loot or on NPCs stay as they were.
+    window.apxLibUpdate = function (id, data, opts) {
+        let e = window.apxLibGet(id); if (!e || !data) return null;
+        let copy = JSON.parse(JSON.stringify(data));
+        // The version it replaces (still on an NPC, say) isn't brought back by the backfill
+        let old = e._sig || sig(e.kind, e.data), m = meta();
+        if (!m.removed.includes(old)) m.removed.push(old);
+        if (e.kind === 'item') { copy.ct = 1; if (copy.isCustomEquippable) copy.equipped = false; delete copy.chargesRemaining; if (copy.charges) copy.chargesRemaining = copy.charges; }
+        e.data = copy; e.name = copy.name || e.name; e._sig = sig(e.kind, copy); e.t = Date.now();
+        save();
+        (window.apxLibRefresh && window.apxLibRefresh(), tabRefresh());
+        if (!(opts && opts.quiet)) window.APXDice?.notify(`${e.name} updated in your Library.`, { kind: 'loot' });
+        return e;
+    };
+    // NPC stat blocks are tagged with world names; the Library tags with world ids
+    function worldIdsFromNames(names) {
+        let ws = worlds();
+        return (names || []).map(n => { let w = ws.find(x => x.name === n || worldIdOf(x) === n); return w ? worldIdOf(w) : null; }).filter(Boolean);
+    }
     window.apxLibRemove = async function (id) {
         let e = window.apxLibGet(id); if (!e) return;
         let ok = window.apxConfirm ? await window.apxConfirm(`Remove "${e.name}" from your Library? Copies already given out or placed stay where they are.`, { title: 'Remove from Library', okLabel: 'Remove', danger: true }) : true;
@@ -141,6 +161,7 @@
                 <div style="font-size:.6rem;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(statsOf(e))}</div>
                 <div style="font-size:.56rem;color:#64748b">${(e.worldTags || []).length ? (e.worldTags || []).map(worldName).map(esc).join(', ') : 'Every world'}</div>
             </div>
+            ${opts.edit ? `<button data-lib-edit="${esc(e.id)}" title="${e.kind === 'power' ? 'Edit this power in the Power Crafter' : 'Edit this item'} (copies already given out or placed don't change)" style="${btn};background:#1e293b;border:1px solid #a16207;color:#fde68a">Edit</button>` : ''}
             ${opts.onPick ? `<button data-lib-pick="${esc(e.id)}" style="${btn};background:#047857;border:1px solid #059669;color:#fff">${esc(opts.pickLabel || 'Add')}</button>` : ''}
             <button data-lib-worlds="${esc(e.id)}" title="Which worlds it shows up in" style="${btn};background:#1e293b;border:1px solid #475569;color:#93c5fd">Worlds</button>
             <button data-lib-del="${esc(e.id)}" title="Remove from the Library" style="${btn};background:#1e293b;border:1px solid #475569;color:#cbd5e1">✕</button></div>`).join('');
@@ -162,6 +183,8 @@
     function armorAsItem(a) {
         return { name: a.name || 'Armor', wt: a.wt || 0, ct: 1, val: a.paidCost || 0, isArmor: true, isLocked: true, armorData: JSON.parse(JSON.stringify(a)), desc: `Armor: +${a.ac} AC, +${a.dr} DR, +${a.er} ER` };
     }
+    // A power as kept in the Library: no use-tracking or Lair Action placement
+    function cleanPower(p) { let c = JSON.parse(JSON.stringify(p)); ['usesLeft', 'chargesLeft', 'isLairAction', 'used'].forEach(k => delete c[k]); return c; }
     window.apxLibBackfill = function () {
         let before = window.gmLibrary.filter(e => e.kind !== 'meta').length;
         let add = (kind, data, worlds) => { try { window.apxLibAdd(kind, data, { quiet: true, worlds, backfill: true }); } catch (e) { } };
@@ -172,15 +195,22 @@
             itemsIn(n.loot).forEach(it => add('item', it, [id]));
             (n.otherMaps || []).forEach(m => (m.tokens || []).forEach(t => itemsIn(t.loot && t.loot.items).forEach(it => add('item', it, [id]))));
         });
-        // NPCs (their world tags, or every world)
-        (window.gmNpcs || []).forEach(npc => {
-            let tags = Array.isArray(npc.worldTags) ? npc.worldTags.filter(Boolean) : [];
+        // NPCs (their world tags, or every world). Saved NPCs are { id, npc, worldTags: [world names] }.
+        (window.gmNpcs || []).forEach(entry => {
+            let npc = entry && entry.npc ? entry.npc : entry; if (!npc) return;
+            let named = Array.isArray(entry.worldTags) ? entry.worldTags.filter(Boolean) : [];
+            let tags = worldIdsFromNames(named);
             itemsIn(npc.carriedItems).forEach(it => add('item', it, tags));
             (npc.weapons || []).forEach(wp => { if (wp && wp.name && !wp.isUnarmed && (wp.forged || wp.isCustom)) add('item', weaponAsItem(wp), tags); });
             let a = npc.equippedArmor;
             if (a && a.name && (a.paidCost > 0 || a.mods)) add('item', armorAsItem(a), tags);
-            (npc.powers || []).forEach(p => { if (p && p.name) add('power', p, tags); });
+            (npc.powers || []).forEach(p => { if (p && p.name) add('power', cleanPower(p), tags); });
+            // and the powers of the items it carries
+            itemsIn(npc.carriedItems).forEach(it => (Array.isArray(it.powers) ? it.powers : []).forEach(p => { if (p && p.name) add('power', cleanPower(p), tags); }));
         });
+        // Powers on items already in the Library (an equippable item's powers)
+        window.gmLibrary.filter(e => e.kind === 'item' && Array.isArray(e.data && e.data.powers)).forEach(e =>
+            e.data.powers.forEach(p => { if (p && p.name) add('power', cleanPower(p), e.worldTags || []); }));
         let added = window.gmLibrary.filter(e => e.kind !== 'meta').length - before;
         if (added > 0) { save(); (window.apxLibRefresh && window.apxLibRefresh(), tabRefresh()); }
         return added;
@@ -189,8 +219,12 @@
     // ── World screen tabs (GM Tools → World → Items / Powers) ─────────────
     // This world's Library, searchable, with a type filter for items and an "All worlds" switch.
     const tabState = { item: { q: '', all: false, sub: '' }, power: { q: '', all: false, sub: '' } };
+    let tabFilled = null;   // (filled again when more saved NPCs have loaded)
     window.apxLibRenderTab = function (kind) {
         let box = document.getElementById(kind === 'power' ? 'wPanelLibPowers' : 'wPanelLibItems'); if (!box) return;
+        // Anything made before the Library existed (NPC powers, item powers…) shows up here too
+        let nNpcs = (window.gmNpcs || []).length;
+        if (tabFilled !== nNpcs) { tabFilled = nNpcs; try { window.apxLibBackfill(); } catch (e) { console.warn('Library backfill:', e); } }
         let st = tabState[kind];
         let subs = kind === 'item' ? ['Weapon', 'Armor', 'Consumable', 'Magic Item'] : ['1', '2', '3', '4', '5'];
         let inSub = e => {
@@ -200,7 +234,7 @@
             return st.sub === 'Magic Item' ? /magic|item|equip/i.test(k) && !/weapon|armor|consumable/i.test(k) : k.toLowerCase().includes(st.sub.toLowerCase());
         };
         let total = window.apxLibList(kind, st.all).length;
-        let html = window.apxLibListHtml({ kind, all: st.all, q: st.q, onPick: kind === 'item' ? true : null, pickLabel: 'Add to Loot' });
+        let html = window.apxLibListHtml({ kind, all: st.all, q: st.q, onPick: kind === 'item' ? true : null, pickLabel: 'Add to Loot', edit: true });
         // (the type filter runs on the rendered rows' entries)
         let shown = window.apxLibList(kind, st.all).filter(e => !st.q || String(e.name || '').toLowerCase().includes(st.q.toLowerCase())).filter(inSub);
         if (st.sub) {
@@ -216,8 +250,8 @@
                 <span class="text-[10px] text-slate-500">${shown.length} of ${total}</span>
             </div>
             <div class="text-[10px] text-slate-500 mb-2 flex-shrink-0">${kind === 'power'
-                ? 'Every power you\'ve made for NPCs or items. Add one to an NPC from the NPC Crafter\'s power picker.'
-                : 'Every custom item, forged weapon and armor, and consumable you\'ve made. Add to Loot puts a copy on this world\'s Loot list.'}</div>
+                ? 'Every power you\'ve made for NPCs or items. Add one to an NPC from the NPC Crafter\'s power picker. Edit reopens it in the Power Crafter.'
+                : 'Every custom item, forged weapon and armor, and consumable you\'ve made. Add to Loot puts a copy on this world\'s Loot list. Edit changes the Library\'s copy (reopening its forge or crafter).'}</div>
             <div data-lt-list class="flex-1 overflow-y-auto min-h-0 pr-1">${html}</div>`;
         let q = box.querySelector('[data-lt-q]');
         q.oninput = () => { st.q = q.value; let pos = q.selectionStart; window.apxLibRenderTab(kind); let q2 = box.querySelector('[data-lt-q]'); q2.focus(); try { q2.setSelectionRange(pos, pos); } catch (e) { } };
@@ -237,5 +271,58 @@
         root.querySelectorAll('[data-lib-pick]').forEach(b => b.onclick = () => { let e = window.apxLibGet(b.dataset.libPick); if (e && onPick) onPick(JSON.parse(JSON.stringify(e.data)), e); });
         root.querySelectorAll('[data-lib-worlds]').forEach(b => b.onclick = () => window.apxLibWorlds(b.dataset.libWorlds));
         root.querySelectorAll('[data-lib-del]').forEach(b => b.onclick = () => window.apxLibRemove(b.dataset.libDel));
+        root.querySelectorAll('[data-lib-edit]').forEach(b => b.onclick = () => {
+            let e = window.apxLibGet(b.dataset.libEdit); if (!e) return;
+            if (e.kind === 'power') window.apxLibEditPower(e.id);
+            else if (window.apxEditLibItem) window.apxEditLibItem(e.id);
+        });
+    };
+
+    // ── Editing a Library power: the Power Crafter, on the Library's copy ──
+    // Save to Library changes it; Save as New keeps the original and adds the copy to the Library.
+    window.apxLibEditPower = function (id) {
+        let e = window.apxLibGet(id); if (!e || e.kind !== 'power') return;
+        let p = e.data || {};
+        if (!p.draft || typeof window.openPowerEditor !== 'function') { basicPowerEdit(e); return; }
+        let list = window._pcLibPowers = [JSON.parse(JSON.stringify(p))];
+        window._pcLibOnChange = power => {
+            if (!power) return;
+            if (power === list[0]) window.apxLibUpdate(id, power);
+            else window.apxLibAdd('power', power, { worlds: (e.worldTags || []).slice() });
+            tabRefresh();
+        };
+        window.openPowerEditor(0, 'lib');
+    };
+    // Powers that weren't built with the Power Crafter (typed in by hand): their fields, directly
+    function basicPowerEdit(e) {
+        let p = e.data || {};
+        window.apxLibFieldsDialog(`Edit ${p.name || 'power'}`, 'This power wasn\'t built with the Power Crafter, so its fields are edited directly.', [
+            ['name', 'Name', p.name || ''], ['lvl', 'Level', p.lvl ?? '', 'number'], ['ap', 'AP', p.ap ?? ''], ['atk', 'Attack / Save', p.atk || ''],
+            ['rng', 'Range', p.rng || ''], ['dmg', 'Damage', p.dmg || ''], ['desc', 'Description', p.desc || '', 'textarea']
+        ], v => {
+            let d = Object.assign({}, p, { name: v.name.trim() || p.name, lvl: parseInt(v.lvl) || p.lvl, ap: /^\d+$/.test(v.ap.trim()) ? parseInt(v.ap) : v.ap.trim(), atk: v.atk.trim(), rng: v.rng.trim(), dmg: v.dmg.trim(), desc: v.desc.trim() });
+            window.apxLibUpdate(e.id, d);
+        });
+    }
+    // A small form dialog. fields: [[key, label, value, type?]] (type: 'number' | 'textarea')
+    window.apxLibFieldsDialog = function (title, note, fields, onSave) {
+        document.getElementById('apxLibEdit')?.remove();
+        if (window.apxInjectDialogStyles) window.apxInjectDialogStyles();
+        let back = document.createElement('div');
+        back.id = 'apxLibEdit'; back.className = 'apxdlg-back'; back.style.zIndex = 2147483300;
+        let inCss = 'background:#0f172a;border:1px solid #334155;color:#e2e8f0;font-size:.78rem;border-radius:.3rem;padding:.3rem .45rem;width:100%;box-sizing:border-box';
+        back.innerHTML = `<div class="apxdlg" style="width:min(420px,100%)"><div class="apxdlg-title">${esc(title)}</div>
+            ${note ? `<div class="apxdlg-msg">${esc(note)}</div>` : ''}
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:.45rem;margin-bottom:.8rem">
+            ${fields.map(([k, l, v, type]) => `<label style="display:block;${type === 'textarea' || k === 'name' ? 'grid-column:1/-1' : ''}"><span style="display:block;font-size:.62rem;color:#94a3b8;font-weight:800;text-transform:uppercase;margin-bottom:.15rem">${esc(l)}</span>
+                ${type === 'textarea' ? `<textarea data-f="${k}" rows="3" style="${inCss};resize:vertical">${esc(v)}</textarea>` : `<input data-f="${k}" ${type === 'number' ? 'type="number" step="any"' : ''} value="${esc(v)}" style="${inCss}">`}</label>`).join('')}
+            </div><div class="apxdlg-row"><button class="apxdlg-btn" data-x>Cancel</button><button class="apxdlg-btn apxdlg-ok" data-ok>Save to Library</button></div></div>`;
+        back.querySelector('[data-x]').onclick = () => back.remove();
+        back.querySelector('[data-ok]').onclick = () => {
+            let v = {}; back.querySelectorAll('[data-f]').forEach(el => { v[el.dataset.f] = el.value; });
+            back.remove(); onSave(v);
+        };
+        document.body.appendChild(back);
+        setTimeout(() => back.querySelector('[data-f]')?.focus(), 30);
     };
 })();

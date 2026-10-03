@@ -86,6 +86,12 @@
             wn.loot.cu = Math.max(0, parseInt(wn.loot.cu) || 0);
             return { items: wn.loot.items, wnpc: wn, label: `${wn.name || 'this NPC'}'s loot`, cu: () => wn.loot.cu, setCu: v => { wn.loot.cu = v; }, save };
         }
+        // An item kept in the GM's Library, being edited (the World screen's Loot & Items tab)
+        if (t && t.kind === 'lib') {
+            let e = window.apxLibGet ? window.apxLibGet(t.libId) : null; if (!e) return null;
+            let items = [{ id: e.id, item: JSON.parse(JSON.stringify(e.data || {})) }];
+            return { items, lib: e, label: 'your Library', cu: null, save: () => window.apxLibUpdate && window.apxLibUpdate(e.id, items[0].item) };
+        }
         if (t && t.kind === 'npc') {
             let c = npcOf(t.npcId); if (!c) return null;
             npcLoot(c);
@@ -193,7 +199,8 @@
         let back = document.getElementById('apxLootMaker'); if (!back || !maker) return;
         let r = resolve(maker.target);
         if (!r) { window.closeLootMaker(); return; }
-        back.querySelector('[data-lm-where]').textContent = `Adding to ${r.label}`;
+        let libEdit = maker.target && maker.target.kind === 'lib';
+        back.querySelector('[data-lm-where]').textContent = libEdit ? 'Editing in your Library (copies already given out or placed don\'t change)' : `Adding to ${r.label}`;
         let body = back.querySelector('[data-lm-body]');
         syncCi(body);
         let view = maker.view;
@@ -275,7 +282,7 @@
                 ${isEditable(l.item) ? `<button data-lm-edit="${esc(l.id)}" title="Edit" style="background:#334155;border:none;color:#fde68a;border-radius:.25rem;padding:0 .4rem;height:1.3rem;cursor:pointer;font-weight:800;font-size:.62rem">Edit</button>` : ''}
                 <button data-lm-del="${esc(l.id)}" title="Remove" style="background:#334155;border:none;color:#cbd5e1;border-radius:.25rem;width:1.3rem;height:1.3rem;cursor:pointer;font-weight:900">✕</button></div>`).join('')
             : `<div style="font-size:.7rem;color:#64748b">Nothing here yet.</div>`;
-        body.innerHTML = `
+        body.innerHTML = libEdit ? `<div style="border:1px solid #334155;border-radius:.5rem;padding:.6rem;background:rgba(15,23,42,.6)">${form}</div>` : `
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.4rem;margin-bottom:.7rem">
                 ${sourceBtn('wforge', 'Weapon Forge', 'Build a weapon step by step', '#fca5a5')}
                 ${sourceBtn('aforge', 'Armor Forge', 'Build armor from mods', '#93c5fd')}
@@ -413,7 +420,7 @@
             maker.ci.powers.push(copy); renderMaker();
         };
         let cic = body.querySelector('[data-lm-cicancel]');
-        if (cic) cic.onclick = () => { maker.ci = blankCi(); maker.view = 'home'; renderMaker(); };
+        if (cic) cic.onclick = () => { if (libEdit) return window.closeLootMaker(); maker.ci = blankCi(); maker.view = 'home'; renderMaker(); };
         let cib = body.querySelector('[data-lm-ciadd]');
         if (cib) cib.onclick = () => {
             syncCi(body);
@@ -435,6 +442,8 @@
                 let r2 = resolve(maker.target); let l = r2 && r2.items.find(x => x.id === d.editId);
                 if (!l) { window.apxAlert('That item is gone (it was given away or removed).'); maker.ci = blankCi(); renderMaker(); return; }
                 l.item = applyEq(Object.assign({}, l.item, fields));
+                libPowers(l.item, r2.lib);
+                if (libEdit) { r2.save(); window.closeLootMaker(); return; }   // (the Library says it's updated)
                 maker.ci = blankCi(); maker.view = 'home';
                 r2.save(); refreshAll(maker.target);
                 window.APXDice?.notify(`${name} updated.`, { kind: 'loot' });
@@ -442,9 +451,75 @@
             }
             let item = applyEq(Object.assign({}, fields));
             maker.ci = blankCi();
+            libPowers(item);
             addTo(maker.target, item, true);
         };
     }
+
+    // An item's powers are kept in the Library too (Powers tab), tagged like the item
+    function libPowers(item, libEntry) {
+        if (!window.apxLibAdd || !item || !Array.isArray(item.powers)) return;
+        let worlds = libEntry ? (libEntry.worldTags || []).slice() : undefined;
+        item.powers.forEach(p => { if (p && p.name) { try { window.apxLibAdd('power', p, { quiet: true, worlds }); } catch (e) { } } });
+    }
+
+    // ── Editing a Library item (World screen → Loot & Items → Edit) ──────
+    // Forged weapons and armor reopen in their forge, consumables in the Consumable Crafter, custom
+    // items in the Loot Maker's form; anything else (gear, shields, helmets, quick custom weapons,
+    // Crafting Materials) gets its name, weight, value and description (and a custom weapon's damage
+    // and AP). Only the Library's copy changes.
+    function raiseAbove(ids) {
+        ids.forEach(m => { let el = document.getElementById(m); if (el) { el.dataset.lmZ = el.dataset.lmZ !== undefined ? el.dataset.lmZ : el.style.zIndex; el.style.zIndex = 2147482500; } });
+        let watch = setInterval(() => {
+            if (ids.some(m => document.getElementById(m)?.classList.contains('active'))) return;
+            clearInterval(watch);
+            ids.forEach(m => { let e = document.getElementById(m); if (e && e.dataset.lmZ !== undefined) { e.style.zIndex = e.dataset.lmZ; delete e.dataset.lmZ; } });
+        }, 300);
+    }
+    window.apxEditLibItem = function (libId) {
+        let e = window.apxLibGet ? window.apxLibGet(libId) : null; if (!e || e.kind !== 'item') return;
+        let it = e.data || {};
+        let done = item => window.apxLibUpdate(libId, item);
+        if (it.isConsumable && it.draft && window.openConsumableCrafter) {
+            window.openConsumableCrafter({ label: 'Save to Library', edit: it, onMade: item => { item.ct = 1; done(item); } });
+            raiseAbove(['consumableCrafterModal']);
+            return;
+        }
+        if (it.isWeapon && it.weaponData && it.weaponData.forged && window.openWeaponForge) {
+            window.openWeaponForge(0, 'loot', { weapon: it.weaponData, onMade: w => done(weaponItem(w)) });
+            raiseAbove(['weaponForgeModal', 'weaponCraftModal']);
+            return;
+        }
+        if (it.isArmor && it.armorData && it.armorData.mods && window.openArmorForge) {
+            window.openArmorForge('loot', { armor: it.armorData, onMade: a => done(armorItem(a)) });
+            raiseAbove(['armorForgeModal', 'armorCraftModal']);
+            return;
+        }
+        if (isEditable(it)) {
+            window.openLootMaker({ kind: 'lib', libId });
+            maker.ci = ciFromItem(it, libId); maker.view = 'citem';
+            renderMaker();
+            return;
+        }
+        let w = it.isWeapon ? (it.weaponData || {}) : null;
+        let fields = [['name', 'Name', it.name || ''], ['wt', 'Weight', it.wt ?? 0, 'number'], ['val', 'Value (Cu)', it.val ?? 0, 'number']];
+        if (w) fields.push(['dmg', 'Damage', w.dmg || '1d6'], ['ap', 'AP', w.ap ?? 2, 'number'], ['notes', 'Notes', w.notes || '']);
+        if (!w) fields.push(['desc', 'Description', it.desc || '', 'textarea']);
+        let note = it.isArmor ? 'This armor wasn\'t built with the Armor Forge, so its details are edited directly.'
+            : it.isConsumable ? 'This consumable wasn\'t built with the Consumable Crafter, so its details are edited directly.' : '';
+        window.apxLibFieldsDialog(`Edit ${it.name || 'item'}`, note, fields, v => {
+            let item = JSON.parse(JSON.stringify(it));
+            item.name = String(v.name || '').trim() || it.name;
+            item.wt = Math.max(0, parseFloat(v.wt) || 0); item.val = Math.max(0, parseInt(v.val) || 0);
+            if (w) {
+                let dmg = String(v.dmg || '').replace(/\s+/g, '');
+                if (!/^\d+d\d+([+-]\d+)?$/i.test(dmg)) { window.apxAlert && window.apxAlert('Damage should look like 1d6 or 2d8+1.'); return; }
+                let wd = Object.assign({}, w, { name: item.name, dmg, ap: Math.max(0, parseInt(v.ap) || 0), notes: String(v.notes || '').trim(), weight: item.wt, paidCost: item.val });
+                item = Object.assign(weaponItem(wd), { val: item.val });
+            } else item.desc = String(v.desc || '').trim();
+            done(item);
+        });
+    };
 
     // Weapon / Armor Forge in "loot" mode: the forge sits above the Loot Maker, then hands the result back
     function openForge(which) {
