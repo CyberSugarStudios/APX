@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.2.2240',
-        released: '2026-10-02T22:40:00',
-        releasedText: 'October 2, 2026 · 10:40 PM',
+        version: 'v2026.10.2.2300',
+        released: '2026-10-02T23:00:00',
+        releasedText: 'October 2, 2026 · 11:00 PM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs with loot of their own, apart from their stat blocks, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -41,7 +41,8 @@
                 'New NPC traits run themselves in the tracker: Undead (falls Prone and Incapacitated at 0 HP and may rise again) and Unalive Structure (repair-only healing, Stunned by Electric damage). Condition immunities are enforced.',
                 'Tokens added with + Token from the tracker start hidden, and companions and summoned creatures act right after their owner.',
                 'Grapples, knockouts and summons run themselves in the tracker: whoever\'s next to a Grappled creature is linked as its grappler and Staggered, non-lethal 0 HP leaves a creature knocked out with snoring Z\'s, and NPCs can summon creatures next to themselves.',
-                'NPC sizes apply themselves: Tiny or Smaller (+2 AC, Advantage on Stealth, reach 0, no Heavy weapons) through Gargantuan (-2 AC, Advantage on Athletics, Disadvantage on Stealth). Swarms share squares and take half damage from single-target attacks, double from areas. Grant XP has a Start Session type (5 + INT).'
+                'NPC sizes apply themselves: Tiny or Smaller (+2 AC, Advantage on Stealth, reach 0, no Heavy weapons) through Gargantuan (-2 AC, Advantage on Athletics, Disadvantage on Stealth). Swarms share squares and take half damage from single-target attacks, double from areas. Grant XP has a Start Session type (5 + INT).',
+                'The Loot Maker adds Crafting Materials too: any amount of Common, Uncommon or Rare, which land in the player\'s own Crafting Materials when given.'
             ]],
             ['For Players', [
                 'Identical items stack: three Leather Armors from three bandits make one "Leather Armor ×3" row. Equipping takes one from the stack, taking it off puts it back, and older inventories are joined up the first time you open the character.',
@@ -229,7 +230,8 @@
             ]],
             ['Party and Trading', [
                 'The Party tab lists everyone in your world, with each companion beside its owner.',
-                'Give moves an item, or several from a stack, to a party member, where it joins their matching stack. Gear, magic items and Cu from your GM arrive with a notice.'
+                'Give moves an item, or several from a stack, to a party member, where it joins their matching stack. Gear, magic items and Cu from your GM arrive with a notice.',
+                'Crafting Materials your GM gives you join your Common, Uncommon and Rare Crafting Materials rows.'
             ]],
             ['Action Points', [
                 'AP is 6 plus half your AGI modifier (at least 6), minus Fatigue, plus item bonuses, and unspent AP carries over.',
@@ -364,7 +366,8 @@
                 'Item powers: under "Powers while equipped", + Craft Power opens the Power Crafter above the Loot Maker (nothing is charged, and it finishes with "Add Power to Item"), or copy a power from any of your NPCs. Whoever equips the item gets its powers: players in their Powers list, NPCs on their stat block.',
                 'Every custom item has an Edit button wherever it is: an NPC\'s gear, an Area Circle, a Special Map Marker, the Loot list or the Loot Maker\'s own list. The form reopens filled in, bonuses and powers included, and Save Changes updates the item in place.',
                 'Open the Loot Maker from the Loot panel, an NPC, an Area Circle or a Special Map Marker.',
-                'A custom item\'s Core Attribute row can Add to the score or Set it to a total, with an "unless higher" box.'
+                'A custom item\'s Core Attribute row can Add to the score or Set it to a total, with an "unless higher" box.',
+                'Crafting Materials: set how many Common, Uncommon and Rare materials to add. They stack like any loot, and when given they join the player\'s own Crafting Materials rows (weight and value included).'
             ]],
             ['NPC Gear', [
                 'A stat block holds only what the creature always carries or wields: its forged weapons, armor, Shield and Helmet. Loot never appears on it or changes it.',

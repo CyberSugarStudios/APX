@@ -22,7 +22,7 @@
 
     // ── Item helpers ─────────────────────────────────────────────
     function kindOf(it) {
-        return it.isWeapon ? 'Weapon' : it.isArmor ? 'Armor' : it.isShield ? 'Shield' : it.isHelmet ? 'Helmet' : it.isConsumable ? 'Consumable' : it.isCustomEquippable ? 'Equippable' : 'Item';
+        return it.isWeapon ? 'Weapon' : it.isArmor ? 'Armor' : it.isShield ? 'Shield' : it.isHelmet ? 'Helmet' : it.isConsumable ? 'Consumable' : it.isCustomEquippable ? 'Equippable' : it.isLocked && /Crafting Materials/.test(it.name || '') ? 'Crafting Materials' : 'Item';
     }
     function statsOf(it) {
         if (it.isWeapon) { let w = it.weaponData || {}; return `${w.dmg || '?'}${w.dmgType ? ' ' + w.dmgType : ''}, ${w.ap || '?'} AP`; }
@@ -133,7 +133,14 @@
             powers: JSON.parse(JSON.stringify(Array.isArray(it.powers) ? it.powers : [])), editId: id, tok: uid() };
     }
     // Custom items (anything that isn't forged gear or a consumable) can be edited after they're made
-    function isEditable(it) { return !!it && !it.isWeapon && !it.isArmor && !it.isShield && !it.isHelmet && !it.isConsumable; }
+    function isEditable(it) { return !!it && !it.isWeapon && !it.isArmor && !it.isShield && !it.isHelmet && !it.isConsumable && !it.isLocked; }
+    // Crafting Materials: the same rows a character sheet keeps (so they join its Common / Uncommon / Rare stacks)
+    const MAT_KINDS = [['common', 'Common'], ['uncommon', 'Uncommon'], ['rare', 'Rare']];
+    function matItem(kind, ct) {
+        let info = (typeof CRAFTING_MATERIAL_INFO !== 'undefined' && CRAFTING_MATERIAL_INFO[kind]) || { wt: 1, val: 1 };
+        let label = (MAT_KINDS.find(k => k[0] === kind) || [kind, kind])[1];
+        return { name: `${label} Crafting Materials`, wt: info.wt, ct, val: info.val, isLocked: true };
+    }
     window.apxLootIsEditable = isEditable;
     function syncCi(body) {
         if (!maker || !maker.ci || !body) return;
@@ -209,6 +216,12 @@
                     <label style="display:flex;align-items:center;gap:.3rem;font-size:.68rem;color:#cbd5e1;white-space:nowrap;cursor:pointer"><input type="checkbox" data-lm-liball ${maker.libAll ? 'checked' : ''}> All worlds</label></div>
                 <div style="font-size:.62rem;color:#94a3b8;margin-bottom:.35rem">Everything you've made (custom items, forged gear, consumables) is kept here, tagged with the world it was made in. Add a copy here, or tag it with other worlds.</div>
                 <div data-lm-lib style="max-height:260px;overflow-y:auto">${window.apxLibListHtml ? window.apxLibListHtml({ kind: 'item', all: maker.libAll, q: maker.libQ, onPick: true, pickLabel: 'Add' }) : ''}</div>`;
+        } else if (view === 'mats') {
+            let info = k => (typeof CRAFTING_MATERIAL_INFO !== 'undefined' && CRAFTING_MATERIAL_INFO[k]) || { wt: 1, val: 1 };
+            form = `<div style="font-size:.62rem;color:#94a3b8;margin-bottom:.45rem">How many of each kind. They join the Crafting Materials rows on a player's sheet when given.</div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem">
+                ${MAT_KINDS.map(([k, label]) => field(`${label} <span style="text-transform:none;font-weight:600;color:#64748b">(${info(k).wt} wt, ${info(k).val} Cu each)</span>`, `<input data-lm-mat="${k}" type="number" min="0" value="${esc((maker.mats || {})[k] || '')}" placeholder="0" style="${inCss};text-align:center">`)).join('')}
+                </div><div style="text-align:right;margin-top:.6rem"><button data-lm-matsadd class="apxdlg-btn apxdlg-ok">Add Materials</button></div>`;
         } else if (view === 'cweapon') {
             form = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
                 ${field('Name', `<input data-cw="name" placeholder="Rusty Cleaver" style="${inCss}">`)}
@@ -268,6 +281,7 @@
                 ${sourceBtn('aforge', 'Armor Forge', 'Build armor from mods', '#93c5fd')}
                 ${sourceBtn('consumable', 'Consumable', 'Potions, grenades, scrolls…', '#f0abfc')}
                 ${sourceBtn('gear', 'Adventuring Gear', 'Pick from the gear list', '#fde68a')}
+                ${sourceBtn('mats', 'Crafting Materials', 'Common, Uncommon and Rare', '#6ee7b7')}
                 ${sourceBtn('library', 'Library', 'Reuse anything you made before', '#5eead4')}
                 ${sourceBtn('cweapon', 'Custom Weapon', 'Quick weapon: damage, AP, weight', '#fdba74')}
                 ${sourceBtn('citem', 'Custom Item', 'Anything else, equippable or not', '#c4b5fd')}
@@ -326,6 +340,17 @@
                 addTo(maker.target, { name, wt: g.wt / 20, ct: 20 * qty, val: g.cost / 20, desc: g.desc });
             } else addTo(maker.target, { name: g.name, wt: g.wt, ct: qty, val: g.cost, desc: g.desc });
         });
+        body.querySelectorAll('[data-lm-mat]').forEach(inp => inp.oninput = () => { (maker.mats = maker.mats || {})[inp.dataset.lmMat] = inp.value; });
+        let mb = body.querySelector('[data-lm-matsadd]');
+        if (mb) mb.onclick = () => {
+            let any = false;
+            MAT_KINDS.forEach(([k]) => {
+                let n = Math.max(0, parseInt(body.querySelector(`[data-lm-mat="${k}"]`)?.value) || 0);
+                if (n) { any = true; addTo(maker.target, matItem(k, n)); }
+            });
+            if (!any) { window.apxAlert && window.apxAlert('Enter how many of at least one kind.', { title: 'Crafting Materials' }); return; }
+            maker.mats = {}; renderMaker();
+        };
         let cwb = body.querySelector('[data-lm-cwadd]');
         if (cwb) cwb.onclick = () => {
             let v = k => body.querySelector(`[data-cw="${k}"]`).value;

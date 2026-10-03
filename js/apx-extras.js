@@ -153,7 +153,7 @@
             <li>Share a map with your players, and stop sharing to close it on their screens.</li>
             <li>Tokens added with <b>+ Token</b> from the tracker start hidden; reveal them from the token's menu. <b>Shrink</b> and <b>Grow</b> in a token's menu change its size. Double-click a window's title bar to minimize it to a tab.</li></ul>`],
         ['Loot and notes', 'Loot, crafting and notes', `
-            <ul><li>The <b>Loot Maker</b> builds loot boxes and gives items or Currency to players; a hidden grant isn't shown to the rest of the party.</li>
+            <ul><li>The <b>Loot Maker</b> builds loot boxes and gives items or Currency to players; a hidden grant isn't shown to the rest of the party. Its <b>Crafting Materials</b> button adds Common, Uncommon and Rare materials in any amounts, and they join a player's own Crafting Materials when given.</li>
             <li>Each named NPC keeps its <b>own loot</b> in its NPC window (+ Loot Maker), dropped when it's defeated. Stat blocks never show loot: only what the creature always carries or wields. A stat block's <b>Generic Drops</b> (NPC Crafter) drop from every creature built from it.</li>
             <li>The Weapon and Armor Forges and the Consumable Crafter make custom gear for shops and loot.</li>
             <li><b>Session Notes</b> keep a log of each session, with bullets and bold, and a read view.</li>
