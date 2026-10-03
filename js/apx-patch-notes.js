@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.2.2300',
-        released: '2026-10-02T23:00:00',
-        releasedText: 'October 2, 2026 · 11:00 PM',
+        version: 'v2026.10.2.2310',
+        released: '2026-10-02T23:10:00',
+        releasedText: 'October 2, 2026 · 11:10 PM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs with loot of their own, apart from their stat blocks, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -458,7 +458,8 @@
                 'Pages load faster, and an open page that finds a newer release reloads onto it.',
                 'Closed windows no longer blur the page behind them on Android phones, and auto-save holds up through long sessions.',
                 'Deleting a sub-note no longer wipes another one you were still typing.',
-                'A map marker whose name has an apostrophe ("Bob\'s Shop") no longer stops the map from drawing its markers.'
+                'A map marker whose name has an apostrophe ("Bob\'s Shop") no longer stops the map from drawing its markers.',
+                'Battle Maps in GM Tools draw their tokens again, so Measure and the other map tools work.'
             ]]
         ]
     }];
