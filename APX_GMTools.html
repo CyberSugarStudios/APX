@@ -450,8 +450,8 @@
                 }
         
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20261031510">
-    <link rel="stylesheet" href="css/tailwind.css?v=20261031510">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20261041020">
+    <link rel="stylesheet" href="css/tailwind.css?v=20261041020">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
@@ -1156,7 +1156,7 @@
 
             <div id="pcStep7" class="wizard-step">
                 <h4 class="text-sm font-bold text-purple-400 mb-2">Step 7: AP Modifications</h4>
-                <p class="text-[10px] text-slate-400 mb-3">Powers cost 4 AP by default. Spend XP to lower it, or take more AP to refund some.</p>
+                <p class="text-[10px] text-slate-400 mb-3">Powers cost 4 AP by default. Each AP less costs 10 XP, and each AP over 4 refunds 5 XP. Or make it a Reaction, or give it a Lengthy Cast Time.</p>
                 <div id="pcStep7Options" class="space-y-1.5"><!-- JS injected --></div>
             </div>
 
@@ -1519,36 +1519,36 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20261031510"></script>
-    <script src="js/apx-patch-notes.js?v=20261031510"></script>
-    <script src="js/apx-dice.js?v=20261031510"></script>
-    <script src="js/apx-data.js?v=20261031510"></script>
-    <script src="js/apx-item-effects.js?v=20261031510"></script>
-    <script src="js/apx-perks-db.js?v=20261031510"></script>
-    <script src="js/apx-migrations.js?v=20261031510"></script>
-    <script src="js/apx-state.js?v=20261031510"></script>
-    <script src="js/apx-craft-shared.js?v=20261031510"></script>
-    <script src="js/apx-armor-forge.js?v=20261031510"></script>
-    <script src="js/apx-weapon-forge.js?v=20261031510"></script>
-    <script src="js/apx-consumable-crafter.js?v=20261031510"></script>
-    <script src="js/apx-perks-ui.js?v=20261031510"></script>
-    <script src="js/apx-power-crafter.js?v=20261031510"></script>
-    <script src="js/apx-npc-crafter.js?v=20261031510"></script>
-    <script src="js/apx-inventory-ui.js?v=20261031510"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20261031510"></script>
-    <script src="js/apx-gm-screen.js?v=20261031510"></script>
-    <script src="js/apx-loot-maker.js?v=20261031510"></script>
-    <script src="js/apx-library.js?v=20261031510"></script>
-    <script src="js/apx-gmtools-main.js?v=20261031510"></script>
+    <script src="js/apx-dialogs.js?v=20261041020"></script>
+    <script src="js/apx-patch-notes.js?v=20261041020"></script>
+    <script src="js/apx-dice.js?v=20261041020"></script>
+    <script src="js/apx-data.js?v=20261041020"></script>
+    <script src="js/apx-item-effects.js?v=20261041020"></script>
+    <script src="js/apx-perks-db.js?v=20261041020"></script>
+    <script src="js/apx-migrations.js?v=20261041020"></script>
+    <script src="js/apx-state.js?v=20261041020"></script>
+    <script src="js/apx-craft-shared.js?v=20261041020"></script>
+    <script src="js/apx-armor-forge.js?v=20261041020"></script>
+    <script src="js/apx-weapon-forge.js?v=20261041020"></script>
+    <script src="js/apx-consumable-crafter.js?v=20261041020"></script>
+    <script src="js/apx-perks-ui.js?v=20261041020"></script>
+    <script src="js/apx-power-crafter.js?v=20261041020"></script>
+    <script src="js/apx-npc-crafter.js?v=20261041020"></script>
+    <script src="js/apx-inventory-ui.js?v=20261041020"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20261041020"></script>
+    <script src="js/apx-gm-screen.js?v=20261041020"></script>
+    <script src="js/apx-loot-maker.js?v=20261041020"></script>
+    <script src="js/apx-library.js?v=20261041020"></script>
+    <script src="js/apx-gmtools-main.js?v=20261041020"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20261031510"></script>
-    <script src="js/apx-firebase.js?v=20261031510"></script>
-    <script src="js/apx-battlemap.js?v=20261031510"></script>
-    <script src="js/apx-map-tiles.js?v=20261031510"></script>
+    <script src="js/firebase-config.js?v=20261041020"></script>
+    <script src="js/apx-firebase.js?v=20261041020"></script>
+    <script src="js/apx-battlemap.js?v=20261041020"></script>
+    <script src="js/apx-map-tiles.js?v=20261041020"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -2586,7 +2586,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <input type="text" id="nfTitle" value="${n.title||''}" placeholder="Session 1 — The Forgotten Tomb" class="bg-slate-900 text-sm font-bold w-full"></div>
             <div class="grid grid-cols-2 gap-2">
                 <div><label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Date</label>
-                <input type="date" id="nfDate" value="${n.date||new Date().toISOString().slice(0,10)}" class="bg-slate-900 text-xs w-full"></div>
+                <input type="date" id="nfDate" value="${n.date||window.apxToday()}" class="bg-slate-900 text-xs w-full"></div>
             </div>
             <div><label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Notes</label>
             <textarea id="nfContent" class="bg-slate-900 text-xs w-full resize-none" rows="8" placeholder="What happened this session...">${n.content||''}</textarea></div>`,
@@ -4951,7 +4951,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ${envSection}
             ${hdr('Skills')}<div style="font-size:0.62rem;color:#a3e635;padding:0.15rem 0;">${skillsList}</div>
             ${hdr('Languages')}<div style="font-size:0.62rem;color:#c4b5fd;padding:0.15rem 0;">${languages}</div>
-            ${window._gmPlayerPowersHtml ? window._gmPlayerPowersHtml(st, hdr) : ''}
+            ${window._gmPlayerPowersHtml ? window._gmPlayerPowersHtml(st, hdr, p && (p.fileName || p.summary?.playerUid), s.mods) : ''}
         </div>` };
     };
 
@@ -6333,8 +6333,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </script>
     <div id="floatingWindowContainer"></div>
 
-    <script src="js/apx-chat.js?v=20261031510"></script>
-    <script src="js/apx-extras.js?v=20261031510"></script>
-    <script src="js/apx-theme-light.js?v=20261031510"></script>
+    <script src="js/apx-chat.js?v=20261041020"></script>
+    <script src="js/apx-extras.js?v=20261041020"></script>
+    <script src="js/apx-theme-light.js?v=20261041020"></script>
 </body>
 </html>

@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.3.1510',
-        released: '2026-10-03T15:10:00',
-        releasedText: 'October 3, 2026 · 3:10 PM',
+        version: 'v2026.10.4.1020',
+        released: '2026-10-04T10:20:00',
+        releasedText: 'October 4, 2026 · 10:20 AM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs with loot of their own, apart from their stat blocks, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -43,13 +43,17 @@
                 'Grapples, knockouts and summons run themselves in the tracker: whoever\'s next to a Grappled creature is linked as its grappler and Staggered, non-lethal 0 HP leaves a creature knocked out with snoring Z\'s, and NPCs can summon creatures next to themselves.',
                 'NPC sizes apply themselves: Tiny or Smaller (+2 AC, Advantage on Stealth, reach 0, no Heavy weapons) through Gargantuan (-2 AC, Advantage on Athletics, Disadvantage on Stealth). Swarms share squares and take half damage from single-target attacks, double from areas. Grant XP has a Start Session type (5 + INT).',
                 'The Loot Maker adds Crafting Materials too: any amount of Common, Uncommon or Rare, which land in the player\'s own Crafting Materials when given.',
-                'Power saves and Escape Saves run in the tracker: pick a power\'s targets, NPC saves roll themselves, the Conditions go on whoever fails, and lasting effects ask for their Escape Save each turn. An NPCs to rebuild list walks you through stat blocks with powers built before these rules.'
+                'Power saves and Escape Saves run in the tracker: pick a power\'s targets, NPC saves roll themselves, the Conditions go on whoever fails, and lasting effects ask for their Escape Save each turn. An NPCs to rebuild list walks you through stat blocks with powers built before these rules.',
+                'Mythic Awakening runs itself: at its first 0 HP the creature Awakens (full HP, conditions cleared, full AP, its turn now), its Awakened powers unlock, and its XP reward doubles. Recharge powers roll for themselves at the start of the creature\'s turn, have a Recharge button that spends half their AP, and using one marks it used.',
+                'Reorder an NPC\'s or Loyal Companion\'s powers with ▲ ▼, right-click a chat message to delete it, and the Party panel shows two players side by side, each with their powers in full (click a power\'s name for its own window).'
             ]],
             ['For Players', [
                 'Identical items stack: three Leather Armors from three bandits make one "Leather Armor ×3" row. Equipping takes one from the stack, taking it off puts it back, and older inventories are joined up the first time you open the character.',
                 'A new character starts in the world you choose, or in none, and a character with no world sees only Join World, never another world\'s maps, notes or fog.',
                 'Leaving a world takes one step: delete the character, move it out of the world folder, or press × on the world folder. You come off the GM\'s player list, and your character stays yours.',
-                'Powers roll like weapons, powers from equipped magic items join your list without using a Power Slot, and a 1 AP power can be built as a Reaction.',
+                'Powers roll like weapons, powers from equipped magic items join your list without using a Power Slot, and a power can be built as a Reaction with a trigger of its own.',
+                'Power Crafter Step 7 is reworked: each AP below 4 costs 10 XP and each AP over 4 refunds 5 XP, or make it a Reaction (15 XP, with a set trigger) or give it a Lengthy Cast Time from 1 Minute (-15 XP) to 24 Hours (-60 XP). Step 4 can let you choose the damage type each time you use the power (+10 XP; both types with a second one).',
+                'Powers show the real number from their Core Attribute instead of "+Attr", and the Consumable Crafter follows the Power Crafter\'s save rules, with Artisan raising its XP limit by 5 per rank.',
                 'Luck and Looting, trading, Omen dice you can pass on, and Loyal Companions with their own AP, turns and an HP box that takes damage just like yours.',
                 'Luck Points have − and + buttons, clicking your Rest Dice spends one to heal, and four-armed characters get extra arms, hands and a shield in every Off Hand.',
                 'Powers are reworked: each has its own Core Attribute, chosen when you craft it, and Full Rest Powers (formerly INT) and Short Rest Powers (formerly CHA) are two pools you can mix.',
@@ -86,7 +90,10 @@
                 'A Medium weapon used two-handed steps its die size up (2d8 becomes 2d10), Brute\'s carry capacity stacks with your race\'s size, and attributes bought with XP stay separate from your base attributes.',
                 'Escape Saves: a power that leaves a lasting negative effect on an unwilling creature (anything longer than Instant / End of Next Turn) names an Escape Save the creature makes at the end of each of its turns. It can\'t be a save the power\'s own Conditions make it automatically fail (not STR or AGI against Paralyzed, Stunned or Unconscious; not PER against Blinded). The save to avoid the power can still be any attribute.',
                 'Damage Interrupt: taking damage calls for the Escape Save (an effect with none just ends). Action Interrupt: the power ends when the target attacks or uses a harmful power or ability, and a target that can spend AP can spend 3 AP to repeat its Escape Save; it can\'t be taken with Stunned, Paralyzed or Unconscious. Guaranteed Hit still allows Escape Saves.',
-                'Teleportation does not provoke Attacks of Opportunity.'
+                'Teleportation does not provoke Attacks of Opportunity.',
+                'Step 4: for 10 more XP, a power\'s damage type is chosen each time it\'s used (with a second damage type, both are).',
+                'Step 7: each AP below 4 costs 10 XP (1 AP is 30 XP), each AP over 4 refunds 5 XP, or choose Reaction (15 XP, with a specific trigger that can\'t change without making a new power) or a Lengthy Cast Time: 1 Minute (-15 XP), 10 Minutes (-20), 1 Hour (-30), 8 Hours (-40), 12 Hours (-50) or 24 Hours (-60). A distraction while casting calls for a CON save (DC 10 or more) as if Concentrating, or the power must start over.',
+                'Artisan raises the most XP you can spend crafting a Consumable by 5 for each rank.'
             ]],
             ['Also', [
                 'Switching from one character to another and back keeps every change you made to each.',
@@ -147,7 +154,11 @@
                 'Click a power\'s name or its "Lvl X | Y AP" tag to use it. It spends its AP and a use from its pool, and asks first if you\'re short; "Use anyway" spends what you have.',
                 'Attack powers roll the d20 and their damage together, doubling the damage dice on a crit. Save powers roll their effect, show your DC and let your GM know. Powers without a roll show their description.',
                 'In the Power Crafter, Attack Roll / Save Negates powers choose one or the other. An Attack Roll power is a Power Attack or a Martial Improvement riding on one of your weapons, and you can switch weapons on the power\'s card.',
-                '1 AP or Reaction: a power built at 1 AP (Power Crafter Step 7) can use your Reaction instead. It then reads "Reaction" and costs no AP.',
+                'Reaction (Power Crafter Step 7, 15 XP): the power is used as your Reaction instead of AP, with a trigger you write when you craft it ("When an ally within 3 squares is hit"). The trigger shows on the power.',
+                'Step 7 costs: 3 AP 10 XP, 2 AP 20 XP, 1 AP 30 XP; 5 AP refunds 5 XP, 6 AP 10 XP, up to 8 AP. Lengthy Cast Time comes in six lengths, from 1 Minute (-15 XP) to 24 Hours (-60 XP), and shows its casting time on the power.',
+                'Choose the damage type when you use it (Step 4, +10 XP): using the power asks which type (both types, for a power with a second one), and that\'s the type it deals. Your companion\'s powers ask whoever uses them.',
+                'Powers built with 1 AP, the old 1 AP / Reaction option or a Lengthy Cast Time show in the Powers to rebuild list. Rebuilding is optional: it refunds any XP the power now costs less (a Reaction gets 20 back), and anything else keeps its cost.',
+                'Damage that adds your Power Attribute shows the number ("2d6 Fire +3") instead of "+Attr", and rolls it too.',
                 'Powers from magic items: equip an item that grants powers and they join your Powers, labelled with the item and how often they can be used ("Once per Full Rest", "3 charges per Full Rest"…). They cost AP but no Power Slot, and they leave your list when you unequip the item.',
                 'Every power has its own Core Attribute, picked in the Power Crafter, and its card shows its attack bonus and DC.',
                 'Full Rest Powers (formerly INT Powers) give Power Slots that come back after a Full Rest, and a power can use a slot of its Level or higher. Short Rest Powers (formerly CHA Powers) give uses that come back after a Short Rest. Each power belongs to one pool, and when that pool is empty you\'re offered the other.',
@@ -208,7 +219,7 @@
                 'Every die has its own shape: triangles for the d4 and d8 (the d8 points down), a square d6, a kite d10, a pentagon d12, a hexagon d20 and a round d100. Omen dice are purple hexagons.',
                 'Click skills, saves, attributes, weapons, damage and powers to roll them, with perks, Advantage, Disadvantage, crits and Luck rerolls built in. The d4–d100 buttons build a dice pool.',
                 'Fortunate Fighter Rank 5 turns a hit into a Critical Hit for a Luck Point, once per turn. High Roller, Melee Prowess and Sharpshooter apply themselves, and a Dice Explosion shows every die it adds.',
-                'Chat sits at the bottom of the tray: send to All (GM included), just the GM, or any players you pick.',
+                'Chat sits at the bottom of the tray: send to All (GM included), just the GM, or any players you pick. Your GM can delete a message.',
                 'Your checks and saves reach your GM\'s notifications, in combat or out, and popups always open in front of the tray.',
                 'Before your GM presses Start Combat, the log only says who took damage or went down; the full combat log arrives when the fight starts.'
             ]],
@@ -392,7 +403,12 @@
             ]],
             ['NPC Powers, Saves and Conditions', [
                 'On any NPC or Loyal Companion stat block, click a power\'s name or its "Lvl X | Y AP" tag to use it, as players do. Attack powers roll d20 + Power Attack Bonus with their damage, save powers show the DC and roll their effect, and the rest show their description. The AP comes off the creature taking its turn, and a Reaction power costs none.',
-                '1 AP or Reaction: a 1 AP power (Power Crafter Step 7) can be marked as a Reaction, and its tag then reads "Reaction".',
+                'Reaction powers (Power Crafter Step 7, 15 XP) carry their trigger, and their tag reads "Reaction". Step 7\'s new AP costs and Lengthy Cast Times apply to NPC powers too.',
+                'A power whose damage type is chosen on use asks you which type when you use it from the stat block.',
+                'Reorder powers: ▲ and ▼ beside each power in the NPC Crafter (Loyal Companions too) set the order its stat block lists them in.',
+                'Damage that adds the Power Attribute shows the number ("1d8 Fire +2") instead of "+Attr".',
+                'Recharge powers: using one from the stat block marks it used (and asks before using it again before it recharges). At the start of the creature\'s turn each used one rolls a d6 and recharges on its number (5-6, or 6), and a Recharge button in the tracker spends half the power\'s AP (rounded down, minimum 1) to roll for it now. Charges come off the same way.',
+                'Mythic Awakening: build Awakened Powers under it in the NPC Crafter (TP like any power). They show on the stat block, locked until the creature Awakens. At its first 0 HP in the tracker it Awakens on its own: full HP, every condition cleared, full AP, and initiative skips to its turn. The Awakened box on its tracker row does it by hand (or locks its Awakened powers again). Its XP reward is doubled, in the NPC Crafter and when it\'s defeated.',
                 'Every stat block has a SAVE button under each Core Attribute, and Saving Throw Training (Step 5, 2 TP each) adds the Training Bonus to one save.',
                 'Conditions affect NPCs the way they affect players: Stunned, Incapacitated, Paralyzed, Unconscious and Bleeding Out leave no AP at the start of their turn, Burning rolls 1d10 Fire, Poisoned, Frightened, Blinded, Prone and the rest add Disadvantage or Advantage, and Paralyzed automatically fails STR and AGI.',
                 'Remove Power asks for confirmation in front of the NPC Crafter, where you can see it.',
@@ -465,7 +481,8 @@
                 'Deleting a world removes its maps, fog, portraits, images, invite code and player list, and deleting your account does that for every world you run, plus your characters, races, NPCs and profile.',
                 'Update your Firestore rules to FIREBASE_RULES.txt v2026.10.1: it adds the dice tray chat. Nothing else in them changed.',
                 'Deleting a world archives your players\' characters in it, a kicked player who rejoins gets their world folder back, and Race Template changes reach players\' Race Builders at once.',
-                'Chat at the bottom of the dice tray: you see the world\'s whole chat, and Clear chat deletes it. Messages older than a week are tidied up.'
+                'Chat at the bottom of the dice tray: you see the world\'s whole chat, Clear chat deletes it, and right-clicking a message deletes just that one, for everyone. Messages older than a week are tidied up.',
+                'The Party panel shows two players side by side. Each player\'s stat block (there and in its own window) lists their powers in full: Level, AP, attack or save, range, damage with the real attribute number, and description. Click a power\'s name to open it in its own window.'
             ]],
             ['Fixes', [
                 'Players who deleted their character or left your world no longer linger in the party list.',
@@ -474,7 +491,8 @@
                 'Closed windows no longer blur the page behind them on Android phones, and auto-save holds up through long sessions.',
                 'Deleting a sub-note no longer wipes another one you were still typing.',
                 'A map marker whose name has an apostrophe ("Bob\'s Shop") no longer stops the map from drawing its markers.',
-                'Battle Maps in GM Tools draw their tokens again, so Measure and the other map tools work.'
+                'Battle Maps in GM Tools draw their tokens again, so Measure and the other map tools work.',
+                'Dates filled in for you (the Languages note, XP log entries, session and character notes, XP your GM grants) use your own time zone, so something made on an evening in the Americas is no longer dated the next day. Languages notes already dated a day ahead are corrected.'
             ]]
         ]
     }];

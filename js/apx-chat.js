@@ -113,6 +113,10 @@
         let input = el.querySelector('[data-text]');
         input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
         el.querySelector('[data-send]').onclick = send;
+        if (isGmPage()) el.querySelector('[data-list]').addEventListener('contextmenu', e => {
+            let m = e.target.closest('[data-mid]'); if (!m || !m.dataset.mid) return;
+            e.preventDefault(); deleteOne(m.dataset.mid);
+        });
         render();
         return true;
     }
@@ -166,7 +170,7 @@
             let shown = chat.msgs.slice(-150);
             list.innerHTML = shown.length ? shown.map(m => {
                 let mine = m.from === me, priv = m.to && !m.to.includes('all'), tl = toLabel(m);
-                return `<div class="apxc-m${mine ? ' mine' : ''}${priv ? ' priv' : ''}"><span class="who">${esc(mine ? 'You' : (m.gm ? 'GM' : m.fromName || 'Player'))}</span>${tl ? `<span class="to">${esc(tl)}</span>` : ''}<span class="tm">${esc(time(m.t))}</span><div>${esc(m.text)}</div></div>`;
+                return `<div class="apxc-m${mine ? ' mine' : ''}${priv ? ' priv' : ''}" data-mid="${esc(m.id || '')}"${isGmPage() ? ' title="Right-click to delete"' : ''}><span class="who">${esc(mine ? 'You' : (m.gm ? 'GM' : m.fromName || 'Player'))}</span>${tl ? `<span class="to">${esc(tl)}</span>` : ''}<span class="tm">${esc(time(m.t))}</span><div>${esc(m.text)}</div></div>`;
             }).join('') : '<div class="apxc-empty">No messages yet.</div>';
             list.scrollTop = list.scrollHeight;
             renderTo();
@@ -199,6 +203,16 @@
         catch (e) { input.value = text; chat.err = e.message || String(e); render(); }
     }
 
+    // The GM can delete any one message (right-click it): it's gone for everyone
+    async function deleteOne(id) {
+        if (!id || !chat.code || !isGmPage() || typeof window.apxAuth?.deleteChat !== 'function') return;
+        let m = chat.msgs.find(x => x.id === id); if (!m) return;
+        let preview = String(m.text || '').slice(0, 80) + (String(m.text || '').length > 80 ? '…' : '');
+        let ok = window.apxConfirm ? await window.apxConfirm(`Delete this message for everyone?\n\n"${preview}"`, { title: 'Delete Message', okLabel: 'Delete', danger: true }) : confirm('Delete this message?');
+        if (!ok) return;
+        try { await window.apxAuth.deleteChat(chat.code, [id]); chat.msgs = chat.msgs.filter(x => x.id !== id); render(); }
+        catch (e) { window.APXDice?.notify('Could not delete the message: ' + e.message, { kind: 'warn' }); }
+    }
     async function clearAll() {
         if (!chat.code || !chat.msgs.length) return;
         let ok = window.apxConfirm ? await window.apxConfirm('Delete every message in this world\'s chat, for everyone?', { title: 'Clear Chat', okLabel: 'Delete', danger: true }) : confirm('Delete every chat message?');

@@ -1,3 +1,10 @@
+// Today's date in the person's own time zone, as YYYY-MM-DD. (toISOString() gives the UTC date,
+// which is already tomorrow on an evening in the Americas.)
+window.apxToday = function (d) {
+    d = d != null ? new Date(d) : new Date();
+    let p = n => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+};
 // ----------------------------------------------------------------
 // APX Dialogs — themed replacements for the browser's alert / confirm / prompt
 // ----------------------------------------------------------------

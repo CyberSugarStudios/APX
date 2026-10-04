@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.10.3.1510';
+window.APX_VERSION = 'v2026.10.4.1020';
 
         window.state = getInitialState();
 
@@ -494,7 +494,7 @@ window.APX_VERSION = 'v2026.10.3.1510';
             if (!window.state || !amount) return;
             let refund = amount < 0;
             (window.state.xpLog = window.state.xpLog || []).unshift({ id: 'sp' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
-                type: refund ? 'refund' : 'spent', amount: Math.abs(amount), what: what || '', date: new Date().toISOString().slice(0, 10), t: Date.now() });
+                type: refund ? 'refund' : 'spent', amount: Math.abs(amount), what: what || '', date: window.apxToday(), t: Date.now() });
             window.apxRenderXpLog?.();
         };
         // Same look as the combat log: one line per entry with a coloured edge
@@ -631,7 +631,7 @@ window.APX_VERSION = 'v2026.10.3.1510';
                         id: 'cn_lang_' + Date.now(),
                         title: 'Languages',
                         session: 0,
-                        date: new Date().toISOString().slice(0,10),
+                        date: window.apxToday(),
                         content: window.state.languages.trim()
                     });
                 }

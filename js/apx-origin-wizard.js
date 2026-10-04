@@ -166,7 +166,7 @@
                         id: 'cn_lang_' + Date.now(),
                         title: 'Languages',
                         session: 0,
-                        date: new Date().toISOString().slice(0,10),
+                        date: window.apxToday(),
                         content: langStr
                     });
                 } else {

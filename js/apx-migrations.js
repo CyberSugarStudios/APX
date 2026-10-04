@@ -34,6 +34,13 @@
                 text: 'Sacrifice now also stops you regaining HP from any source (including this power) until the start of your next turn.'
             }
         ],
+        // Step 7 AP Modifications reworked: 1 AP is 30 XP (was 35), Reaction is its own 15 XP option
+        // with a set trigger, and Lengthy Cast Time comes in lengths (1 Minute is the old one)
+        4: [
+            { id: 'ap1', test: d => d.apMod === 'ap1' && !d.apReaction, text: 'Step 7 changed: 1 AP now costs 30 XP (was 35). Rebuild it to get the difference back, or keep it as it is.' },
+            { id: 'reaction', test: d => d.apMod === 'ap1' && !!d.apReaction, text: 'Step 7 changed: Reaction is now its own AP option for 15 XP (was 35), with a set condition for when it\'s used. Rebuild it to name its trigger and get the difference back, or keep it as it is.' },
+            { id: 'lengthy', test: d => d.apMod === 'lengthy', text: 'Step 7 changed: Lengthy Cast Time now comes in lengths from 1 Minute (-15 XP, the same as before) to 24 Hours (-60 XP). Rebuild it to choose a length, or keep it as it is.' }
+        ],
         // Saving throws name their Core Attribute; lasting effects get an Escape Save the target can pass
         3: ['save', 'cond', 'escape', 'actionInt'].map(k => ({
             id: 'powerSaves_' + k,
@@ -194,6 +201,20 @@
                     s.conditions = s.conditions.map(c => c === 'grabbed' ? 'grappled' : c).filter((c, i, a) => a.indexOf(c) === i);
                 }
                 if (Array.isArray(s.pinnedActions)) s.pinnedActions = s.pinnedActions.filter(n => n !== 'Grab');
+                return [];
+            }
+        },
+        {
+            v: 11, label: 'Local dates',
+            run(s) {
+                // Notes made automatically (the Languages note) were dated in UTC, a day ahead on an evening
+                // in the Americas. Their id holds when they were made: date them in local time instead.
+                (s.charNotes || []).forEach(n => {
+                    let m = n && /^cn_lang_(\d{12,})$/.exec(String(n.id || ''));
+                    if (!m) return;
+                    let t = parseInt(m[1], 10), utc = new Date(t).toISOString().slice(0, 10);
+                    if (n.date === utc && window.apxToday) n.date = window.apxToday(t);
+                });
                 return [];
             }
         }
@@ -378,11 +399,11 @@
         if (rbShownFor === key || rbWaiting) return;
         if (!list().length) return;
         // after the "Rules updated" popup or the tutorial, if one is up
-        if (document.querySelector('[data-apx-rules-popup]') || document.querySelector('.apxtut-back')) { rbWaiting = true; setTimeout(() => { rbWaiting = false; window.apxMaybeShowPowerRebuild(); }, 1500); return; }
+        if (document.querySelector('[data-apx-rules-popup]') || document.querySelector('.apxtut-back') || ['powerCrafterModal', 'npcCrafterModal', 'consumableCrafterModal'].some(m => document.getElementById(m)?.classList.contains('active'))) { rbWaiting = true; setTimeout(() => { rbWaiting = false; window.apxMaybeShowPowerRebuild(); }, 1500); return; }
         rbShownFor = key;
         window.apxRebuildList({
             id: 'sheet', title: 'Powers to rebuild',
-            intro: `The Power Crafting rules changed in ways that affect ${s.name || 'this character'}'s powers. Rebuild each one in the Power Crafter: it's free, and nothing is lost in the meantime.`,
+            intro: `The Power Crafting rules changed in ways that affect ${s.name || 'this character'}'s powers. Rebuild each one in the Power Crafter: it's free, and nothing is lost in the meantime. A power listed only for the Step 7 AP changes (1 AP, Reaction, Lengthy Cast Time) is yours to rebuild or keep: rebuilding refunds any XP it now costs less.`,
             busy: ['powerCrafterModal', 'npcCrafterModal'],
             doneText: 'All your powers are rebuilt.',
             rows: () => {
@@ -426,7 +447,7 @@
         rbGmShown[wk] = true;
         window.apxRebuildList({
             id: 'gm', title: 'NPCs to rebuild',
-            intro: `The Power Crafting rules changed (saving throws now name a Core Attribute, and lasting effects give their target an Escape Save). These NPCs${w && w.name ? ' in ' + w.name : ''} have powers to rebuild. Rebuild opens each NPC and walks you through its powers; finished NPCs drop off this list.`,
+            intro: `The Power Crafting rules changed (saving throws name a Core Attribute, lasting effects give their target an Escape Save, and Step 7's AP options were reworked). These NPCs${w && w.name ? ' in ' + w.name : ''} have powers to rebuild. Rebuild opens each NPC and walks you through its powers; finished NPCs drop off this list. Powers listed only for the Step 7 changes can be kept as they are.`,
             busy: ['powerCrafterModal', 'npcCrafterModal'],
             doneText: 'Every NPC is rebuilt.',
             rows

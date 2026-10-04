@@ -156,6 +156,8 @@ window.pcCalcXP = function(draft) {
     if (draft.step1 === 'guaranteed') perDieCost *= 2;
     let dieCostMultiplied = perDieCost * aoeDef.mult;
     let secondTypeCost = (draft.addSecondType && totalDiceCount > 0) ? 5 : 0;
+    // Choose the damage type (both, with a second type) each time it's used: +10 XP
+    if (draft.dmgTypeOnUse && totalDiceCount > 0 && !draft.isHealing) secondTypeCost += 10;
     let flatDmgCost = draft.addFlatDmgPerDie ? totalDiceCount : 0;
     let attrToDmgCost = draft.addAttrToDmg ? 10 : 0;
     let step4Cost = dieCostMultiplied + secondTypeCost + flatDmgCost + attrToDmgCost;
@@ -187,7 +189,7 @@ window.pcCalcXP = function(draft) {
     if (draft.durationMods.dmgInterrupt) step6Cost -= 5;
     if (draft.durationMods.actionInterrupt) step6Cost -= 10;
 
-    let apDef = POWER_AP_MODS.find(a => a.key === draft.apMod);
+    let apDef = POWER_AP_MODS.find(a => a.key === (window.apxPowerApKey ? window.apxPowerApKey(draft) : draft.apMod)) || POWER_AP_MODS[0];
     let step7Cost = apDef.cost;
     let ap = apDef.ap;
 
@@ -310,6 +312,12 @@ window.pcSetRechargeOn = function(val) {
 };
 
 let pcIsLairAction = false; // set by the "Build a Power for This Lair Action" button; tags the finished power so it displays under Lair Actions instead of the general Powers list
+// Mythic Awakening: a power the creature has only once it Awakens (locked until then)
+let pcIsAwakened = false;
+window.openAwakenedPowerCrafter = function() {
+    window.openPowerCrafter(false, ncTarget);   // resets pcIsAwakened…
+    pcIsAwakened = true;                        // …so this comes after
+};
 window.openLairActionPowerCrafter = function() {
     window.openPowerCrafter(false, ncTarget); // resets pcIsLairAction to false as part of its own normal setup...
     pcIsLairAction = true; // ...so this has to happen after, not before
@@ -318,6 +326,7 @@ window.openLairActionPowerCrafter = function() {
 window.openPowerCrafter = function(freeMode, target) {
     pcTarget = pcTargetOf(target);
     pcIsLairAction = false; // only ever true when explicitly set by openLairActionPowerCrafter, right after this call
+    pcIsAwakened = false;   // (likewise openAwakenedPowerCrafter)
     if (pcTarget === 'player' && pcMaxUnlockedLevel() < 1) {
         window.showConfirm("You need at least Rank 1 of Full Rest Powers or Short Rest Powers before you can craft a Power.", null, true);
         return;
@@ -351,7 +360,10 @@ window.openPowerEditor = function(idx, target) {
     pcRecraftReasons = window.apxPowerRecraftReasons ? window.apxPowerRecraftReasons(power) : [];
     pcFreeMode = false; // only relevant to the "Save as New" path; "Save Changes" follows the power's own wasFree flag
     pcIsLairAction = !!power.isLairAction; // preserve whichever section this power already belongs to
+    pcIsAwakened = !!power.isAwakened;
     pcDraft = JSON.parse(JSON.stringify(power.draft));
+    // older Step 7 choices in the current terms ("1 AP or Reaction" set to Reaction, the one-length Lengthy Cast)
+    if (window.apxPowerApKey) { let k = window.apxPowerApKey(pcDraft); if (k !== pcDraft.apMod) pcDraft.apMod = k; delete pcDraft.apReaction; }
     // older powers: the attribute and power type they used before each power chose its own
     if (pcTarget === 'player' || pcTarget === 'item') {
         if (!ATTRIBUTES.includes(pcDraft.coreAttr)) pcDraft.coreAttr = power.attr || pcDefaultAttr();
@@ -519,6 +531,8 @@ window.pcSetSecondDice = function(delta) {
     pcDraft.secondDice = Math.max(1, Math.min(Math.max(1, total - 1), (parseInt(pcDraft.secondDice) || 1) + delta));
     pcRenderAll();
 };
+window.pcToggleTypeOnUse = function(checked) { pcDraft.dmgTypeOnUse = !!checked; pcRenderAll(); };
+window.pcSetReactionTrigger = function(val) { pcDraft.reactionTrigger = val; pcRenderSummary(); };
 window.pcToggleFlatDmg = function(checked) { pcDraft.addFlatDmgPerDie = checked; pcRenderAll(); };
 window.pcToggleAttrToDmg = function(checked) { pcDraft.addAttrToDmg = checked; pcRenderAll(); };
 
@@ -544,11 +558,11 @@ window.pcEditSummon = function(cb) {
     let wasOpen = modal && modal.classList.contains('active');
     // The creature can have powers of its own, crafted in this same Power Crafter: put this power's
     // session aside while it's built, and pick it back up afterward
-    let saved = { draft: pcDraft, step: pcStep, free: pcFreeMode, edit: pcEditIndex, target: pcTarget, lair: pcIsLairAction,
+    let saved = { draft: pcDraft, step: pcStep, free: pcFreeMode, edit: pcEditIndex, target: pcTarget, lair: pcIsLairAction, awake: pcIsAwakened,
         name: (document.getElementById('pcName') || {}).value, cha: pcChaFreeCredit, chaDecl: pcChaFreeCreditDeclined };
     if (wasOpen) window.closeModal('powerCrafterModal');
     window.openSummonCrafter({ npc: saved.draft.summonNpc || null, tier: saved.draft.summonTier || 1, done: npc => {
-        pcDraft = saved.draft; pcStep = saved.step; pcFreeMode = saved.free; pcEditIndex = saved.edit; pcTarget = saved.target; pcIsLairAction = saved.lair;
+        pcDraft = saved.draft; pcStep = saved.step; pcFreeMode = saved.free; pcEditIndex = saved.edit; pcTarget = saved.target; pcIsLairAction = saved.lair; pcIsAwakened = !!saved.awake;
         pcChaFreeCredit = saved.cha; pcChaFreeCreditDeclined = saved.chaDecl;
         pcDraft.summonNpc = JSON.parse(JSON.stringify(npc)); pcDraft.summonNpcTier = pcDraft.summonTier || 1;
         if (cb) cb(npc);
@@ -602,7 +616,7 @@ window.pcToggleDurationMod = function(key, checked) {
     pcDraft.durationMods[key] = checked;
     pcRenderAll();
 };
-window.pcSetApMod = function(val) { pcDraft.apMod = val; pcRenderAll(); };
+window.pcSetApMod = function(val) { pcDraft.apMod = val; delete pcDraft.apReaction; pcRenderAll(); };
 // "1 AP or Reaction": which one this power uses (like Attack Roll / Save Negates)
 window.pcSetApReaction = function(on) { pcDraft.apReaction = !!on; pcRenderAll(); };
 window.pcToggleRefund = function(key, checked) { pcDraft.refunds[key] = checked; pcRenderAll(); };
@@ -731,7 +745,10 @@ function pcRenderEscapeSave() {
 // Problems that stop this power being saved (the rules for saves and Escape Saves)
 function pcRulesProblems() {
     let info = pcSaveInfo();
-    return info.problems.map(k => window.apxPowerSaveProblemText ? window.apxPowerSaveProblemText(info, k) : k);
+    let out = info.problems.map(k => window.apxPowerSaveProblemText ? window.apxPowerSaveProblemText(info, k) : k);
+    if ((window.apxPowerApKey ? window.apxPowerApKey(pcDraft) : pcDraft.apMod) === 'reaction' && !pcStepSkipped(7) && !String(pcDraft.reactionTrigger || '').trim())
+        out.push('A Reaction power needs its trigger: the specific condition for using it (Step 7).');
+    return out;
 }
 
 function pcRenderStep1() {
@@ -788,8 +805,11 @@ function pcRenderStep4() {
             <select onchange="window.pcSetDmgType(this.value)" ${pcDraft.step1 === 'hpPool' ? 'disabled' : ''} class="bg-slate-800 text-xs ${pcDraft.step1 === 'hpPool' ? 'opacity-50 cursor-not-allowed' : ''}">
                 ${DMG_TYPES.map(t => `<option value="${t}" ${pcDraft.dmgType===t?'selected':''}>${t}</option>`).join('')}
             </select>
-            ${pcDraft.step1 === 'hpPool' ? '<span class="text-[9px] text-slate-500">(HP Capacity Pool doesn\'t deal typed damage)</span>' : ''}
+            ${pcDraft.step1 === 'hpPool' ? '<span class="text-[9px] text-slate-500">(HP Capacity Pool doesn\'t deal typed damage)</span>' : pcDraft.dmgTypeOnUse ? '<span class="text-[9px] text-slate-500">(the type offered first)</span>' : ''}
         </div>
+        <label class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white cursor-pointer" ${pcDraft.step1 === 'hpPool' ? 'style="opacity:.4"' : ''}>
+            <input type="checkbox" data-pc-typeonuse ${pcDraft.dmgTypeOnUse ? 'checked' : ''} ${pcDraft.step1 === 'hpPool' ? 'disabled' : ''} onchange="window.pcToggleTypeOnUse(this.checked)"> Choose the damage type each time it's used${pcDraft.addSecondType ? ' (both types)' : ''} [${pcDraft.dmgTypeOnUse ? pcCostOn('+10', d => { d.dmgTypeOnUse = false; }) : pcCost('+10', d => { d.dmgTypeOnUse = true; })}]
+        </label>
         <label class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white cursor-pointer">
             <input type="checkbox" ${pcDraft.addSecondType ? 'checked' : ''} ${pcDraft.step1 === 'hpPool' ? 'disabled' : ''} onchange="window.pcToggleSecondType(this.checked)"> Add a second damage type, splitting the dice [${pcDraft.addSecondType ? pcCostOn('+5', d => { d.addSecondType = false; }) : pcCost('+5', d => { d.addSecondType = true; })}]
         </label>
@@ -914,19 +934,26 @@ function pcRenderStep7() {
     if (!banner) { banner = document.createElement('div'); banner.id = 'pcStep7Mythic'; let o = document.getElementById('pcStep7Options'); o.parentNode.insertBefore(banner, o); }
     banner.innerHTML = pcMythicBanner(7);
     document.getElementById('pcStep7Options').style.display = pcStepSkipped(7) ? 'none' : '';
-    document.getElementById('pcStep7Options').innerHTML = POWER_AP_MODS.map(a => `
-        <label class="flex items-center gap-2 bg-slate-900 border ${pcDraft.apMod === a.key ? 'border-purple-500' : 'border-slate-700'} rounded p-2 cursor-pointer">
-            <input type="radio" name="pcApMod" ${pcDraft.apMod === a.key ? 'checked' : ''} onchange="window.pcSetApMod('${a.key}')">
-            <span class="text-xs font-bold text-slate-200">${a.label}</span>
-            <span class="text-[10px] ${a.cost < 0 ? 'text-slate-500' : 'text-yellow-500'} ml-auto">${pcCost(pcMythicPrice(a.cost), x => { x.apMod = a.key; }, pcDraft.apMod === a.key)}</span>
+    let cur = window.apxPowerApKey ? window.apxPowerApKey(pcDraft) : pcDraft.apMod;
+    let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    let row = a => `
+        <label class="flex items-start gap-2 bg-slate-900 border ${cur === a.key ? 'border-purple-500' : 'border-slate-700'} rounded p-2 cursor-pointer" data-apmod="${a.key}">
+            <input type="radio" name="pcApMod" class="mt-0.5" ${cur === a.key ? 'checked' : ''} onchange="window.pcSetApMod('${a.key}')">
+            <div class="flex-1 min-w-0"><span class="text-xs font-bold text-slate-200">${a.label}</span>${a.desc ? `<div class="text-[10px] text-slate-500 leading-tight">${a.desc}</div>` : ''}</div>
+            <span class="text-[10px] ${a.cost < 0 ? 'text-slate-500' : 'text-yellow-500'} ml-auto shrink-0">${pcCost(pcMythicPrice(a.cost), x => { x.apMod = a.key; delete x.apReaction; }, cur === a.key)}</span>
         </label>
-        ${a.key === 'ap1' && pcDraft.apMod === 'ap1' ? (() => {
-            let seg = (on, onclick, label, tip) => `<button type="button" onclick="${onclick}" title="${tip}" class="px-2 py-1 text-[10px] font-bold rounded border transition ${on ? 'bg-purple-700 border-purple-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}">${label}</button>`;
-            return `<div class="bg-slate-900/60 border border-purple-800/60 rounded p-2 -mt-1 flex flex-wrap items-center gap-1"><span class="text-[10px] text-slate-400 font-bold mr-1 w-20 shrink-0">Used as</span>
-                ${seg(!pcDraft.apReaction, "window.pcSetApReaction(false)", '1 AP', 'Costs 1 AP on your turn')}
-                ${seg(!!pcDraft.apReaction, "window.pcSetApReaction(true)", 'Reaction', 'Used as your Reaction (no AP)')}</div>`;
-        })() : ''}
-    `).join('');
+        ${a.reaction && cur === a.key ? `<div class="bg-slate-900/60 border ${String(pcDraft.reactionTrigger || '').trim() ? 'border-purple-800/60' : 'border-red-500/70'} rounded p-2 -mt-1">
+            <div class="text-[10px] ${String(pcDraft.reactionTrigger || '').trim() ? 'text-slate-400' : 'text-red-400'} font-bold mb-1">Trigger: when can it be used?</div>
+            <input type="text" data-pc-trigger value="${esc(pcDraft.reactionTrigger || '')}" oninput="window.pcSetReactionTrigger(this.value)" placeholder="When a creature within 3 squares attacks me…" class="w-full bg-slate-800 border-slate-600 text-xs">
+            <div class="text-[9px] text-slate-500 mt-1">It can't be changed without making a new power.</div></div>` : ''}`;
+    document.getElementById('pcStep7Options').innerHTML =
+        `<div class="text-[10px] text-slate-400 font-bold mb-1">AP cost <span class="font-normal text-slate-500">(10 XP per AP below 4; 5 XP back per AP above 4)</span></div>`
+        + POWER_AP_MODS.filter(a => !a.alt).map(row).join('')
+        + `<div class="text-[10px] text-slate-400 font-bold mt-3 mb-1">Or one of these instead</div>`
+        + POWER_AP_MODS.filter(a => a.alt && a.reaction).map(row).join('')
+        + `<div class="text-[10px] text-slate-400 font-bold mt-2 mb-1">Lengthy Cast Time <span class="font-normal text-slate-500">(the power's AP cost is unchanged)</span></div>`
+        + `<div class="text-[10px] text-slate-500 leading-tight mb-1">${POWER_LENGTHY_DESC}</div>`
+        + POWER_AP_MODS.filter(a => a.alt && a.cast).map(row).join('');
 }
 
 function pcRenderStep8() {
@@ -1006,7 +1033,7 @@ function pcRenderSummaryCore() {
         if (sumXpLbl) sumXpLbl.innerText = 'Total XP Cost';
     }
     // Step intro text: no XP wording for NPC powers
-    [['pcStep7', 'Powers cost 4 AP by default. Spend XP to lower it, or take more AP to refund some.', 'Powers cost 4 AP by default. Lower it (raises the TP cost) or take more AP (can lower it).'],
+    [['pcStep7', 'Powers cost 4 AP by default. Spend XP to lower it, or take more AP to refund some.', 'Powers cost 4 AP by default. Lower it (raises the TP cost), take more AP (can lower it), or make it a Reaction or give it a Lengthy Cast Time.'],
      ['pcStep8', 'Add restrictions and hindrances to refund XP and increase potency elsewhere.', 'Add restrictions and hindrances to lower the power\'s Level and TP cost.']]
         .forEach(([id, playerTxt, npcTxt]) => {
             let p = document.querySelector('#' + id + ' p'); if (!p) return;
@@ -1015,7 +1042,9 @@ function pcRenderSummaryCore() {
         });
     document.getElementById('pcSumLevel').innerText = 'Level ' + t.level;
     document.getElementById('pcSumLevel').className = t.level > maxLevel ? 'text-lg font-black text-red-400' : 'text-lg font-black text-white';
-    document.getElementById('pcSumAp').innerText = pcStepSkipped(7) ? '1 min cast' : t.ap + ' AP';
+    let apK = window.apxPowerApKey ? window.apxPowerApKey(pcDraft) : pcDraft.apMod;
+    let apM = POWER_AP_MODS.find(a => a.key === apK) || {};
+    document.getElementById('pcSumAp').innerText = pcStepSkipped(7) ? '1 min cast' : apM.reaction ? 'Reaction' : apM.cast ? `${t.ap} AP · ${apM.cast} cast` : t.ap + ' AP';
 
     // Sacrifice + healing: legal, but the caster can't be healed by it
     let warn = document.getElementById('pcWarnNote');
@@ -1165,6 +1194,7 @@ function pcBuildTextSummary() {
         if (split) dmg = window.apxDmgSplitText(split);
         else if (pcDraft.addSecondType) dmg += ` + ${pcDraft.secondDmgType}`;
         if (pcDraft.addAttrToDmg) dmg += ' +Attr';
+        if (pcDraft.dmgTypeOnUse && !pcDraft.isHealing) dmg += ' (type chosen on use)';
     }
 
     let utilityBits = [];
@@ -1193,6 +1223,11 @@ function pcBuildTextSummary() {
     let sInfo = pcSaveInfo();
     if (sInfo.lasting && sInfo.escapeAttr) durationBits.push('Escape Save: ' + sInfo.escapeAttr);
     if (mythic && mythic.castText) utilityBits.push('Casting time: ' + mythic.castText);
+    if (!pcStepSkipped(7)) {
+        let am = POWER_AP_MODS.find(a => a.key === (window.apxPowerApKey ? window.apxPowerApKey(pcDraft) : pcDraft.apMod)) || {};
+        if (am.reaction && String(pcDraft.reactionTrigger || '').trim()) utilityBits.push('Reaction: ' + String(pcDraft.reactionTrigger).trim());
+        if (am.cast) utilityBits.push('Lengthy Cast Time: ' + am.cast);
+    }
 
     let refundBits = [];
     let mrCount = pcDraft.refunds.minorRestriction || 0;
@@ -1259,11 +1294,11 @@ window.finishPowerCrafter = function() {
         if (tp === null) return;
         getTargetPowers().push({
             name, lvl: t.level, ap: t.ap, atk: summary.atk, rng: summary.rng, dmg: summary.dmg, desc: finalDesc,
-            draft: JSON.parse(JSON.stringify(pcDraft)), rulesRev: window.APX_POWER_RULES_REV || 1, tp, isLairAction: pcIsLairAction,
+            draft: JSON.parse(JSON.stringify(pcDraft)), rulesRev: window.APX_POWER_RULES_REV || 1, tp, isLairAction: pcIsLairAction, isAwakened: pcIsAwakened || undefined,
             usageType: pcDraft.usageType, maxCharges: pcDraft.maxCharges, rechargeOn: pcDraft.rechargeOn,
             attr: pcTarget === 'item' ? (pcDraft.coreAttr || undefined) : undefined
         });
-        pcIsLairAction = false;
+        pcIsLairAction = false; pcIsAwakened = false;
         // A GM NPC's power is kept in the Library too, to give to other NPCs (or put on items)
         if (pcTarget === 'gm' && window.apxLibAdd) { let made = getTargetPowers()[getTargetPowers().length - 1]; try { window.apxLibAdd('power', made, { quiet: true }); } catch (e) { } }
         window.closeModal('powerCrafterModal');
@@ -1415,7 +1450,7 @@ window.savePowerAsNew = function() {
         if (tp === null) return;
         getTargetPowers().push({
             name, lvl: t.level, ap: t.ap, atk: summary.atk, rng: summary.rng, dmg: summary.dmg, desc: finalDesc,
-            draft: JSON.parse(JSON.stringify(pcDraft)), rulesRev: window.APX_POWER_RULES_REV || 1, tp, isLairAction: pcIsLairAction,
+            draft: JSON.parse(JSON.stringify(pcDraft)), rulesRev: window.APX_POWER_RULES_REV || 1, tp, isLairAction: pcIsLairAction, isAwakened: pcIsAwakened || undefined,
             usageType: pcDraft.usageType, maxCharges: pcDraft.maxCharges, rechargeOn: pcDraft.rechargeOn
         });
         if (pcTarget === 'gm' && window.apxLibAdd) { try { window.apxLibAdd('power', getTargetPowers()[getTargetPowers().length - 1], { quiet: true }); } catch (e) { } }

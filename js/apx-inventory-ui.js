@@ -137,7 +137,7 @@
                 attrs.filter(a => score(a) > 1).map(a => [a, `${a} ${score(a)} → ${score(a) - 1}`, 'pri']));
             if (!pick) return;
             st.attrAdj = st.attrAdj || {}; st.attrAdj[pick] = (st.attrAdj[pick] || 0) - 1;   // (the creation base stays as it was)
-            st.permanentInjuries = (st.permanentInjuries || []).concat([{ id: 'pi_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), limb, attr: pick, at: new Date().toISOString().slice(0, 10) }]);
+            st.permanentInjuries = (st.permanentInjuries || []).concat([{ id: 'pi_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), limb, attr: pick, at: window.apxToday() }]);
             window.recalculateMath();
         };
         window.apxRemovePermanentInjury = async function(id) {

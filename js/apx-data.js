@@ -597,15 +597,36 @@
             { key: "actionInterrupt", label: "Action Interrupt", cost: -10, desc: "The power ends the moment the target spends AP to attack or use a harmful power or ability. A target that can spend AP can also spend 3 AP on its turn to repeat an Escape Save, potentially ending the power. Can't be taken on a power that inflicts Stunned, Paralyzed, or Unconscious." }
         ];
 
+        // Step 7: 10 XP per AP below 4, 5 XP back per AP above 4; or one of the alternatives (alt):
+        // Reaction (a set trigger condition), or a Lengthy Cast Time (uninterrupted focus, AP unchanged)
         const POWER_AP_MODS = [
             { key: "ap4", label: "4 AP (Default)", cost: 0, ap: 4 },
             { key: "ap3", label: "3 AP", cost: 10, ap: 3 },
             { key: "ap2", label: "2 AP", cost: 20, ap: 2 },
-            { key: "ap1", label: "1 AP or Reaction", cost: 35, ap: 1 },
+            { key: "ap1", label: "1 AP", cost: 30, ap: 1 },
             { key: "ap5", label: "5 AP", cost: -5, ap: 5 },
             { key: "ap6", label: "6 AP", cost: -10, ap: 6 },
-            { key: "lengthy", label: "Lengthy Cast Time (1 full minute, unmodified AP)", cost: -15, ap: 4 }
+            { key: "ap7", label: "7 AP", cost: -15, ap: 7 },
+            { key: "ap8", label: "8 AP", cost: -20, ap: 8 },
+            { key: "reaction", label: "Reaction", cost: 15, ap: 0, alt: true, reaction: true,
+              desc: "Used as your Reaction instead of AP. You must set a specific condition for it to be used, and it can't be changed without making a new power." },
+            { key: "lengthy1m", label: "Lengthy Cast Time: 1 Minute", cost: -15, ap: 4, alt: true, cast: "1 minute" },
+            { key: "lengthy10m", label: "Lengthy Cast Time: 10 Minutes", cost: -20, ap: 4, alt: true, cast: "10 minutes" },
+            { key: "lengthy1h", label: "Lengthy Cast Time: 1 Hour", cost: -30, ap: 4, alt: true, cast: "1 hour" },
+            { key: "lengthy8h", label: "Lengthy Cast Time: 8 Hours", cost: -40, ap: 4, alt: true, cast: "8 hours" },
+            { key: "lengthy12h", label: "Lengthy Cast Time: 12 Hours", cost: -50, ap: 4, alt: true, cast: "12 hours" },
+            { key: "lengthy24h", label: "Lengthy Cast Time: 24 Hours", cost: -60, ap: 4, alt: true, cast: "24 hours" }
         ];
+        const POWER_LENGTHY_DESC = "This power takes uninterrupted focus to cast. If that focus is disrupted by even a minor distraction (talking over your ritual words, a pop-up ad over your lines of code, a bead of sweat on the carefully drawn runes), make a CON saving throw (DC 10 or higher, set by your GM) as if Concentrating on the Power. On a failure the Power is interrupted, the time spent is wasted, and it must restart from the beginning.";
+        // A draft's Step 7 choice under the current rules (older powers: "1 AP or Reaction" set to
+        // Reaction is a Reaction; the old one-length Lengthy Cast Time is 1 Minute)
+        function apxPowerApKey(d) {
+            d = d || {};
+            if (d.apMod === 'ap1' && d.apReaction) return 'reaction';
+            if (d.apMod === 'lengthy') return 'lengthy1m';
+            return POWER_AP_MODS.some(a => a.key === d.apMod) ? d.apMod : 'ap4';
+        }
+        window.apxPowerApKey = apxPowerApKey;
 
         const POWER_REFUNDS = [
             { key: "minorRestriction", label: "Minor Restriction", cost: -5, desc: "A minor condition (light/darkness, a loud noise, a chant, specific gestures) must be met to cast it." },
@@ -933,7 +954,24 @@
             return [{ formula: fmt(a), type: draft.dmgType || 'Fire', count: a.length }, { formula: fmt(b), type: draft.secondDmgType || 'Cold', count: b.length }];
         };
         window.apxDmgSplitText = parts => (parts || []).map(p => `${p.formula} ${p.type}`).join(' + ');
-        window.apxPowerIsReaction = p => !!(p && p.draft && p.draft.apMod === 'ap1' && p.draft.apReaction);
+        window.apxPowerIsReaction = p => !!(p && p.draft && apxPowerApKey(p.draft) === 'reaction');
+        // A Lengthy Cast Time power's casting time ("1 hour"), or ''
+        window.apxPowerCastTime = p => { let k = p && p.draft ? apxPowerApKey(p.draft) : ''; let m = POWER_AP_MODS.find(a => a.key === k); return m && m.cast ? m.cast : ''; };
+        // Powers whose damage type is chosen each time they're used (+10 XP): ask which (both, with a
+        // second type). Returns { dmgType, secondDmgType }, null when the power doesn't need it, or false
+        // when the person cancelled.
+        window.apxPowerChooseTypes = async function(draft, name) {
+            if (!draft || !draft.dmgTypeOnUse || draft.isHealing || !window.APXDice || !APXDice.ask) return null;
+            let types = typeof DMG_TYPES !== 'undefined' ? DMG_TYPES : ['Bludgeoning', 'Piercing', 'Slashing', 'Fire', 'Cold', 'Electric', 'Acid', 'Poison', 'Sonic', 'Radiation', 'Force', 'Psychic'];
+            let pick = (title, cur) => APXDice.ask(title, 'This power\'s damage type is chosen each time it\'s used.', types.map(t => [t, t, t === cur ? 'pri' : '']), { grid: true });
+            let a = await pick(`${name || 'Power'}: ${draft.addSecondType ? 'first damage type' : 'damage type'}`, draft.dmgType);
+            if (!a) return false;
+            let b = null;
+            if (draft.addSecondType) { b = await pick(`${name || 'Power'}: second damage type`, draft.secondDmgType); if (!b) return false; }
+            return { dmgType: a, secondDmgType: b || draft.secondDmgType };
+        };
+        // "+Attr" on a power's damage, shown as the actual modifier ("2d6 Fire +3")
+        window.apxAttrDmgText = (txt, mod) => String(txt == null ? '' : txt).replace(/\s*\+\s*Attr\b/i, () => { let m = parseInt(mod) || 0; return ` ${m >= 0 ? '+' : '−'}${Math.abs(m)}`; });
         window.apxPowerApLabel = p => window.apxPowerIsReaction(p) ? 'Reaction' : `${p && p.ap != null ? p.ap : 0} AP`;
         // Instant tooltip for map markers (an area's name as soon as the cursor is over it)
         window.apxMapTip = function(e, text) {

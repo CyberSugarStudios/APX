@@ -1605,9 +1605,14 @@
             let m = txt.match(/^\s*((?:\d*d\d+)(?:\s*[+-]\s*(?:\d*d\d+|\d+))*)\s*(.*)$/i);
             if (!m || !window.APXDice) return txt;
             let heal = /heal/i.test(m[2]);
+            // "+Attr": the power's own Core Attribute modifier, shown and rolled as a number
+            let am = /\+\s*Attr/i.test(m[2]) ? (calc.mods[window.apxPowerAttr ? window.apxPowerAttr(p) : window.state.powerAttr] || 0) : 0;
+            let formula = m[1].replace(/\s+/g, '') + (am ? (am > 0 ? '+' : '') + am : '');
+            let typeTxt = m[2].replace(/\+\s*Attr/i, '').replace(/\(Heal\)/i, '').replace(/\(type chosen on use\)/i, '').trim();
             let attr = calc.cantAct ? ` data-no-roll data-apx-blocked="${calc.cantActLabel}"`
-                : apxRollAttr({ type: 'damage', label: (p.name || 'Power') + (heal ? ' healing' : ' damage'), formula: m[1].replace(/\s+/g, ''), dmgType: heal ? '' : m[2].trim(), heal: heal || undefined, wcat: 'power' });
-            return `<span class="apx-rollable" style="text-decoration:underline dotted;text-underline-offset:2px" title="Click to roll"${attr}>${m[1]}</span> ${m[2]}`;
+                : apxRollAttr({ type: 'damage', label: (p.name || 'Power') + (heal ? ' healing' : ' damage'), formula, dmgType: heal ? '' : typeTxt, heal: heal || undefined, wcat: 'power' });
+            let shown = window.apxAttrDmgText ? window.apxAttrDmgText(m[2], am) : m[2];
+            return `<span class="apx-rollable" style="text-decoration:underline dotted;text-underline-offset:2px" title="Click to roll"${attr}>${m[1]}</span> ${shown}`;
         }
 
         // ── Rolling powers ──────────────────────────────────────────────
@@ -1668,7 +1673,9 @@
         // rolls the d20 and its damage together (a critical hit doubles the damage dice). Save and
         // Guaranteed powers roll their damage or healing, and anything that needs a saving throw tells
         // the GM (with your Power DC). A power with no roll shows its description.
-        function apxPowerDamage(p) {
+        function apxPowerDamage(p, chosen) {
+            // A power whose damage type is chosen on use: the types picked this time
+            if (chosen && p && p.draft) p = Object.assign({}, p, { draft: Object.assign({}, p.draft, chosen) });
             // Two damage types (a split power): each part is rolled on its own, the attribute bonus on the first
             let split = p && p.draft && window.apxDmgSplit ? window.apxDmgSplit(p.draft) : null;
             if (split) {
@@ -1681,12 +1688,15 @@
             let heal = /heal/i.test(m[2]);
             let formula = m[1].replace(/\s+/g, '');
             if (/\+\s*Attr/i.test(m[2])) { let am = calc.mods[window.apxPowerAttr ? window.apxPowerAttr(p) : window.state.powerAttr] || 0; if (am) formula += (am > 0 ? '+' : '') + am; }
-            return { formula, heal, type: m[2].replace(/\+\s*Attr/i, '').replace(/\(Heal\)/i, '').trim() };
+            return { formula, heal, type: chosen && !heal ? chosen.dmgType : m[2].replace(/\+\s*Attr/i, '').replace(/\(Heal\)/i, '').replace(/\(type chosen on use\)/i, '').trim() };
         }
         window.apxUsePower = async function(idx) {
             let p = apxPowerAt(idx); if (!p || !window.APXDice) return;
             if (calc.cantAct) { APXDice.notify(`You're ${calc.cantActLabel}, so you can't use powers until that ends.`, { kind: 'warn', open: true }); return; }
             let name = p.name || 'Power', who = window.state.name || '';
+            // Damage type chosen each time it's used (both, with a second type): asked before anything is spent
+            let chosen = window.apxPowerChooseTypes ? await window.apxPowerChooseTypes(p.draft, name) : null;
+            if (chosen === false) return;
             // An item's power runs on the item (its uses are on the card), not on your Power Slots
             let itemSrc = /^i\d+_\d+$/.test(String(idx)) ? (window.state.items || [])[+String(idx).slice(1).split('_')[0]] : null;
             // What the power runs on: Full Rest Powers use a Power Slot of its Level (or a higher one when
@@ -1732,7 +1742,7 @@
             else notes.push(`no ${poolName} left`);
             window.recalculateMath();
             let useNote = notes.join(' · ');
-            let info = apxPowerAtkInfo(p), dmg = apxPowerDamage(p);
+            let info = apxPowerAtkInfo(p), dmg = apxPowerDamage(p, chosen);
             let flavor = String(p.desc || '').trim();
             let pnums = apxPowerNums(p), dc = pnums.dc;
             let saveKind0 = info.kind === 'save' ? (/halves/i.test(info.text) ? 'halves' : 'negates') : null;

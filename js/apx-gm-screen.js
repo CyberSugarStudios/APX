@@ -499,7 +499,7 @@ window.renderGmScreen = function() {
         body.innerHTML = '<div class="text-xs text-slate-500 text-center py-6">No party loaded yet. Click "Load Party" to pull from the active world or load from exported files.</div>';
         return;
     }
-    body.innerHTML = window.gmParty.map((p, idx) => {
+    body.innerHTML = '<div class="grid grid-cols-1 sm:grid-cols-2 gap-2 items-start">' + window.gmParty.map((p, idx) => {
         let s = p.summary;
         // Same full stat block as double-clicking the player's token
         let sb = typeof window._gmPlayerStatBlock === 'function' ? window._gmPlayerStatBlock(p, s.name) : null;
@@ -558,7 +558,7 @@ window.renderGmScreen = function() {
                 </details>
             </div>
         `;
-    }).join('');
+    }).join('') + '</div>';
 };
 
 // ------------------------------------------------------------------
@@ -727,13 +727,13 @@ window.addToInitiative = function(sourceIdx, sourceType, faction, displayName) {
         let resolvedFaction = faction || nextAddFaction();
         // Use displayName (world NPC name) if provided, otherwise fall back to stat block name
         let entryName = displayName || sb.name;
-        entry = { id: crypto.randomUUID(), name: entryName, baseInitiative: sb.initiative, surprised: false, currentHp: sb.maxHp, maxHp: sb.maxHp, tempHp: 0, ap: sb.ap, ac: sb.ac, dr: sb.dr, er: sb.er, faction: resolvedFaction, bleedOutTurns: null, tpValue: window.npcXpForTier(npcTierForTP(n.npc.gmTpBudget || 0).tier), sourceNpcId: n.id, hasLairActions: !!n.npc.lairActions, lairTraitNote: null, powerUsage: {} };
+        entry = { id: crypto.randomUUID(), name: entryName, baseInitiative: sb.initiative, surprised: false, currentHp: sb.maxHp, maxHp: sb.maxHp, tempHp: 0, ap: sb.ap, ac: sb.ac, dr: sb.dr, er: sb.er, faction: resolvedFaction, bleedOutTurns: null, tpValue: window.npcXpForTier(npcTierForTP(n.npc.gmTpBudget || 0).tier) * (n.npc.mythicAwakening ? 2 : 1), sourceNpcId: n.id, hasLairActions: !!n.npc.lairActions, lairTraitNote: null, powerUsage: {} };
         // Limited-use powers (Charges or Recharge) get their own tracked
         // usage on the initiative entry itself, independent of the NPC's
         // own saved data -- so two copies of the same monster in the same
         // fight track their charges separately, and closing the tracker
         // doesn't burn a real charge off the NPC's master sheet.
-        sb.powerCards.concat(sb.lairActionPowerCards).forEach((p, i) => {
+        sb.powerCards.concat(sb.lairActionPowerCards, sb.awakenedPowerCards || []).forEach((p, i) => {
             if (p.usageType === 'charges' || p.usageType === 'recharge') {
                 entry.powerUsage[p.name] = 0;
             }
@@ -1837,11 +1837,14 @@ function _gmEndPfx(entry, keyOrId, why) {
     let f = list.find(x => x.id === keyOrId || x.key === keyOrId); if (!f) return;
     entry._powerFx = list.filter(x => x !== f);
     let still = new Set(entry._powerFx.reduce((a, x) => a.concat(x.conds), []));
-    f.conds.forEach(c => {
-        if (still.has(c)) return;
-        if (entry.faction === 'player') _gmSetPlayerCondition(entry, c, false);
-        else if (window._gmRemoveEntryCondition) window._gmRemoveEntryCondition(entry.id, c);
-    });
+    entry._noStandCost = true;
+    try {
+        f.conds.forEach(c => {
+            if (still.has(c)) return;
+            if (entry.faction === 'player') _gmSetPlayerCondition(entry, c, false);
+            else if (window._gmRemoveEntryCondition) window._gmRemoveEntryCondition(entry.id, c);
+        });
+    } finally { delete entry._noStandCost; }
     if (entry._condTimers) entry._condTimers = entry._condTimers.filter(t => !(f.conds.includes(t.cond) && !still.has(t.cond)));
     if (why) gmLog({ text: `${_gmPublicName(entry)} is no longer ${_gmCondNames(f.conds)} (${f.label}: ${why}).`, gmText: `${_gmGmName(entry)} is no longer ${_gmCondNames(f.conds)} (${f.label}: ${why}).`, kind: 'info' });
     window.renderInitiativeTracker();
@@ -2265,6 +2268,7 @@ window._gmEntryXp = function(entry) {
     let n = entry.sourceNpcId && (window.gmNpcs || []).find(x => x.id === entry.sourceNpcId);
     if (n && window.npcXpForTier) {
         let xp = window.npcXpForTier(npcTierForTP(n.npc.gmTpBudget || 0).tier);
+        if (n.npc.mythicAwakening) xp *= 2;   // Mythic Awakening: the party fights it twice
         entry.tpValue = xp;
         return xp;
     }
@@ -2337,6 +2341,9 @@ function _afterHpChange(entry, wasAboveZero) {
             // on their own. The popup is only for players without a linked sheet (or outside combat).
             if (!(entry.playerUid && window.gmCombatStarted)) window.openBleedOutModal(entry.id);
         } else if (_gmUndeadDown(entry)) {
+            return;
+        } else if (!entry.awakened && _gmHasMythic(entry)) {
+            _gmAwaken(entry, 'auto');
             return;
         } else {
             window.gmPendingXp += window._gmEntryXp(entry);
@@ -3100,7 +3107,7 @@ window.endCombat = async function(force) {
             players.filter(e => e.playerUid).forEach(e => {
                 if (inviteCode && window.apxAuth?.enabled && typeof window.apxAuth.addXpToPlayer === 'function') {
                     window.apxAuth.addXpToPlayer(inviteCode, e.playerUid, perPlayer, {
-                        name: `Combat (Round ${window.gmRoundNumber})`, date: new Date().toISOString().slice(0, 10),
+                        name: `Combat (Round ${window.gmRoundNumber})`, date: window.apxToday(),
                         session: (typeof _wNotes !== 'undefined' && (_wNotes.session || []).length) || null,
                         description: `${totalXp} XP split between ${split}.` })
                         .catch(err => console.warn('XP grant error:', err.message));
@@ -3225,7 +3232,7 @@ function renderInitiativePowerBubbles(e) {
     let sb = ncStatBlockFor(e.sourceNpcId);
     if (!sb) return '';
     let slotsHtml = _gmCasterSlotsHtml(e, sb);
-    let limitedPowers = sb.powerCards.concat(sb.lairActionPowerCards).filter(p => p.usageType === 'charges' || p.usageType === 'recharge');
+    let limitedPowers = sb.powerCards.concat(sb.lairActionPowerCards, e.awakened ? (sb.awakenedPowerCards || []) : []).filter(p => p.usageType === 'charges' || p.usageType === 'recharge');
     if (!limitedPowers.length) return slotsHtml;
     if (!e.powerUsage) e.powerUsage = {};
     return slotsHtml + limitedPowers.map(p => {
@@ -3243,15 +3250,82 @@ function renderInitiativePowerBubbles(e) {
             `;
         }
         let isUsed = used > 0;
+        let rc = _gmRechargeOn(p), cost = _gmRechargeCost(p);
+        let nm = p.name.replace(/'/g, "\\'");
         return `
             <div class="flex items-center gap-2 text-[9px] text-slate-400">
-                <span class="font-bold shrink-0">${p.name} <span class="text-slate-500">(Recharge 5-6)</span></span>
-                <button onclick="window.adjustInitiativePowerCharges('${e.id}', '${p.name.replace(/'/g, "\\'")}', -1)" class="w-4 h-4 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold text-[9px] leading-none">-</button>
+                <span class="font-bold shrink-0">${p.name} <span class="text-slate-500">(Recharge ${rc === 6 ? '6' : rc + '-6'})</span></span>
+                <button onclick="window.adjustInitiativePowerCharges('${e.id}', '${nm}', -1)" class="w-4 h-4 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold text-[9px] leading-none">-</button>
                 <span>${isUsed ? 'Used' : 'Available'}</span>
-                <button onclick="window.adjustInitiativePowerCharges('${e.id}', '${p.name.replace(/'/g, "\\'")}', 1)" class="w-4 h-4 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold text-[9px] leading-none">+</button>
+                <button onclick="window.adjustInitiativePowerCharges('${e.id}', '${nm}', 1)" class="w-4 h-4 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold text-[9px] leading-none">+</button>
+                ${isUsed ? `<button onclick="window._gmRechargeTry('${e.id}', '${nm}')" title="Spend ${cost} AP (half its AP, rounded down, minimum 1) to roll a d6 to recharge it" class="px-1.5 h-4 rounded bg-indigo-700 hover:bg-indigo-600 text-white font-bold text-[9px] leading-none">Recharge (${cost} AP)</button>` : ''}
             </div>
         `;
     }).join('');
+}
+// ── Recharge powers ──
+// At the start of the creature's turn, each used Recharge power rolls a d6 and recharges on its number
+// (5-6, or 6). The creature can also spend half the power's AP (rounded down, minimum 1) to roll for it.
+function _gmRechargeOn(p) { return parseInt(p && p.rechargeOn) === 6 ? 6 : 5; }
+function _gmRechargeCost(p) { return Math.max(1, Math.floor((parseInt(p && p.ap) || 0) / 2)); }
+function _gmRechargeRoll(e, p, why) {
+    let r = window.APXDice ? APXDice.rnd(6) : 1 + Math.floor(Math.random() * 6);
+    let ok = r >= _gmRechargeOn(p);
+    if (ok) e.powerUsage[p.name] = 0;
+    gmLog({ text: `${_gmGmName(e)}'s ${p.name}: recharge roll ${r}${why ? ' (' + why + ')' : ''}, ${ok ? 'recharged' : 'not yet'}.`, kind: 'info', gmOnly: true });
+    return ok;
+}
+function _gmRechargeTick(e) {
+    if (!e || e.faction === 'player' || !e.sourceNpcId || !e.powerUsage || typeof ncStatBlockFor !== 'function') return;
+    let sb = ncStatBlockFor(e.sourceNpcId); if (!sb) return;
+    sb.powerCards.concat(sb.lairActionPowerCards, e.awakened ? (sb.awakenedPowerCards || []) : [])
+        .filter(p => p.usageType === 'recharge' && (e.powerUsage[p.name] || 0) > 0)
+        .forEach(p => _gmRechargeRoll(e, p, 'start of its turn'));
+}
+window._gmRechargeTry = function(entryId, name) {
+    let e = (window.gmInitiative || []).find(x => x.id === entryId); if (!e) return;
+    let sb = e.sourceNpcId && typeof ncStatBlockFor === 'function' ? ncStatBlockFor(e.sourceNpcId) : null; if (!sb) return;
+    let p = sb.powerCards.concat(sb.lairActionPowerCards, sb.awakenedPowerCards || []).find(x => x.name === name); if (!p) return;
+    let cost = _gmRechargeCost(p), have = gmApCurrent(e);
+    if (have < cost) { window.APXDice?.notify(`${_gmGmName(e)} needs ${cost} AP to try to recharge ${name} (it has ${have}).`, { kind: 'warn', open: true }); return; }
+    e.apCur = have - cost;
+    if (!e.powerUsage) e.powerUsage = {};
+    _gmRechargeRoll(e, p, `spent ${cost} AP`);
+    window.renderInitiativeTracker();
+};
+
+// ── Mythic Awakening ──
+// The first time it drops to 0 HP it doesn't die: HP fully restored, negative conditions gone, full AP,
+// and initiative skips to its turn. Its Awakened powers unlock. Ticking "Awakened" does the same by hand.
+function _gmHasMythic(e) {
+    let n = e && e.sourceNpcId && (window.gmNpcs || []).find(x => x.id === e.sourceNpcId);
+    return !!(n && n.npc && n.npc.mythicAwakening);
+}
+function _gmAwaken(e, how) {
+    e.awakened = true;
+    e.currentHp = e.maxHp; e.ko = false;
+    let conds = window._gmEntryConditions ? window._gmEntryConditions(e.id) : [];
+    e._noStandCost = true;
+    try { conds.forEach(c => { if (window._gmRemoveEntryCondition) window._gmRemoveEntryCondition(e.id, c); }); } finally { delete e._noStandCost; }
+    e._powerFx = []; e._condTimers = []; e.bleedOutTurns = null;
+    e.apCur = gmApMax(e);
+    let i = window.gmInitiative.indexOf(e);
+    if (window.gmCombatStarted && i >= 0 && i !== window.gmCurrentTurnIdx) { window.gmCurrentTurnIdx = i; window.gmTurnNumber = (window.gmTurnNumber || 1) + 1; }
+    gmLog({ text: `${_gmPublicName(e)} Awakens! ${how === 'gm' ? '' : 'It refuses to fall: '}its wounds close and it rises at full strength${window.gmCombatStarted ? ', taking its turn now' : ''}.`, gmText: `${_gmGmName(e)} Awakens (Mythic Awakening): full HP, conditions cleared, full AP${window.gmCombatStarted ? ', its turn now' : ''}. Its Awakened powers are unlocked.`, kind: 'info', force: true });
+    window.renderInitiativeTracker();
+    if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
+    if (typeof window.refreshOpenStatBlocks === 'function') window.refreshOpenStatBlocks();
+    if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
+}
+window._gmToggleAwakened = function(entryId, on) {
+    let e = (window.gmInitiative || []).find(x => x.id === entryId); if (!e) return;
+    if (on) _gmAwaken(e, 'gm');
+    else { e.awakened = false; window.renderInitiativeTracker(); if (typeof window.refreshOpenStatBlocks === 'function') window.refreshOpenStatBlocks(); }
+};
+function _gmMythicHtml(e) {
+    if (e.faction === 'player' || !_gmHasMythic(e)) return '';
+    return `<label class="flex items-center gap-1 text-[9px] font-bold ${e.awakened ? 'text-amber-300' : 'text-slate-400'} cursor-pointer" title="Mythic Awakening: the first time it drops to 0 HP it Awakens on its own (full HP, conditions cleared, full AP, its turn now). Tick to Awaken it now; its Awakened powers unlock.">
+        <input type="checkbox" ${e.awakened ? 'checked' : ''} onchange="window._gmToggleAwakened('${e.id}', this.checked)" style="width:11px;height:11px"> Mythic Awakening: ${e.awakened ? 'Awakened' : 'not yet'}</label>`;
 }
 // Same "delta matches what's displayed" convention as the companion's own
 // charges control: "-" spends a charge (displayed remaining count drops),
@@ -3287,6 +3361,7 @@ function gmApCurrent(e) {
 // A Surprised creature gains only 1 AP at the start of its first turn of combat
 // (this includes creatures added mid-combat that enter Surprised).
 function gmStartTurnAp(e) {
+    if (e && e.faction !== 'player' && window.gmCombatStarted) { try { _gmRechargeTick(e); } catch (err) { console.warn('Recharge:', err); } }
     let first = e._apTurns === 0 || (e._apTurns == null && e.apCur == null);   // older saved combats: only brand-new entries
     e._apTurns = (e._apTurns || 0) + 1;
     e._apFirstSurprised = !!(first && e.surprised);
@@ -3325,7 +3400,7 @@ window._gmBurnTick = _gmBurnTick;
 // Prone removed during combat: standing up cost the creature 2 AP (NPCs; players' sheets handle their own)
 window._gmStandUpAp = function(entryId) {
     let e = (window.gmInitiative || []).find(x => x.id === entryId);
-    if (!e || !window.gmCombatStarted || e.faction === 'player') return;
+    if (!e || !window.gmCombatStarted || e.faction === 'player' || e._noStandCost) return;   // (an effect ending it isn't standing up)
     let have = gmApCurrent(e), cost = 2;
     e.apCur = Math.max(0, have - cost);
     gmLog({ text: `${e.name} stands up.`, gmText: `${e.name} stands up (−${Math.min(have, cost)} AP${have < cost ? `, had only ${have}` : ''}, ${e.apCur} left).`, kind: 'info' });
@@ -3465,7 +3540,43 @@ window._gmPlayerCondPicker = function(entryId, ev) {
     window._apxCondPicker(r.left, r.bottom + 4, () => _gmPlayerCondList(e).filter(c => c !== 'bleedingout' || e.bleedOutTurns != null), (id, on) => window._gmTogglePlayerCond(entryId, id, on), 'Conditions: ' + (e.name || ''));
 };
 // A player's Power Slots (live from their sheet) and powers, for the GM's stat block window
-window._gmPlayerPowersHtml = function(st, hdr) {
+// One of a player's powers, in full (the stat block, the party panel and the power's own popup)
+function _gmPlayerPowerCard(p, st, mods, big) {
+    let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    let attr = window.apxPowerAttr ? window.apxPowerAttr(p, st) : '';
+    let pool = window.apxPowerPool ? (window.apxPowerPool(p, st) === 'short' ? 'Short Rest' : 'Full Rest') : '';
+    let dmg = window.apxAttrDmgText ? window.apxAttrDmgText(p.dmg || '-', (mods || {})[attr]) : (p.dmg || '-');
+    let lines = p.draft && window.apxPowerSaveLines ? window.apxPowerSaveLines(p.draft) : null;
+    let cast = window.apxPowerCastTime ? window.apxPowerCastTime(p) : '';
+    let fs = big ? '.75rem' : '.58rem';
+    return `<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.3rem;font-size:${fs};color:#94a3b8;margin:.15rem 0">
+            <div><span style="color:#64748b">A/S:</span> ${esc(p.atk || '-')}</div><div><span style="color:#64748b">R/A:</span> ${esc(p.rng || '-')}</div><div><span style="color:#64748b">D/H:</span> ${esc(dmg)}</div></div>
+        <div style="font-size:${fs};color:#a78bfa;font-weight:700">${[attr, pool, cast ? 'Lengthy Cast Time: ' + cast : ''].filter(Boolean).map(esc).join(' · ')}</div>
+        ${lines && lines.escape ? `<div style="font-size:${fs};color:#c4b5fd;font-weight:700">${esc(lines.escape)}</div>` : ''}
+        ${p.desc ? `<div style="font-size:${fs};color:#cbd5e1;line-height:1.4;white-space:pre-wrap;margin-top:.15rem">${esc(p.desc)}</div>` : ''}`;
+}
+// Click a power's name (party panel, a player's stat block): the power in its own window
+window._gmPlayerPowerPopup = function(uid, idx) {
+    let pm = (window.gmParty || []).find(x => x.fileName === uid || x.summary?.playerUid === uid);
+    let st = pm && pm.state, p = st && (st.powers || [])[idx]; if (!p) return;
+    let winId = 'pwrPop_' + String(uid).replace(/[^a-z0-9_-]/gi, '') + '_' + idx;
+    document.getElementById(winId)?.remove();
+    let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    let spot = window.apxWindowSpot ? window.apxWindowSpot(380, 320, 0) : { left: 200, top: 120, w: 380 };
+    let win = document.createElement('div');
+    win.id = winId;
+    win.style.cssText = `position:fixed;left:${spot.left}px;top:${spot.top}px;width:${spot.w}px;max-height:70vh;background:#0f172a;border:1px solid #7c3aed;border-radius:.6rem;z-index:${(window.apxFloatingZTop = (window.apxFloatingZTop || 2000) + 1)};box-shadow:0 10px 40px rgba(0,0,0,.85);display:flex;flex-direction:column;overflow:hidden`;
+    win.innerHTML = `<div id="${winId}_hdr" style="cursor:grab;user-select:none;background:#2e1065;padding:.5rem .7rem;display:flex;align-items:center;gap:.5rem">
+            <div style="flex:1;min-width:0"><div data-win-title style="font-size:.9rem;font-weight:900;color:#ede9fe">${esc(p.name || 'Power')}</div>
+            <div style="font-size:.62rem;color:#c4b5fd">${esc(pm.summary?.name || 'Player')} · Lvl ${esc(p.lvl)} · ${esc(window.apxPowerApLabel ? window.apxPowerApLabel(p) : (p.ap + ' AP'))}</div></div>
+            <button data-x title="Close" style="background:none;border:none;color:#c4b5fd;font-size:1.05rem;font-weight:800;cursor:pointer">X</button></div>
+        <div style="padding:.6rem .8rem;overflow-y:auto">${_gmPlayerPowerCard(p, st, pm.summary && pm.summary.mods, true)}</div>`;
+    win.querySelector('[data-x]').onclick = () => win.remove();
+    document.body.appendChild(win);
+    if (typeof window.makeDraggable === 'function') window.makeDraggable(win, document.getElementById(winId + '_hdr'));
+    else if (typeof window.apxMakeDraggable === 'function') window.apxMakeDraggable(win, document.getElementById(winId + '_hdr'));
+};
+window._gmPlayerPowersHtml = function(st, hdr, uid, mods) {
     if (!st) return '';
     let perks = st.perks || {}, used = st.usedPowerSlots || {};
     let fx = {}; try { fx = (window.apxItemEffects ? window.apxItemEffects(st).stat : {}) || {}; } catch (e) { }
@@ -3479,11 +3590,16 @@ window._gmPlayerPowersHtml = function(st, hdr) {
     }
     let cmax = Math.max(0, (perks.pwr_cha || 0) + (fx.slot_CHA || 0));
     if (cmax) { let u = Math.min(cmax, used.CHA || 0); rows.push(`<div style="display:flex;align-items:center;gap:.4rem;font-size:.6rem;color:#cbd5e1"><span style="width:62px;color:#fcd34d;font-weight:800">Short Rest</span>${pips(cmax, u)}<span style="color:#94a3b8">${cmax - u}/${cmax}${(perks.pwr_cha || 0) >= 5 ? ' · L1 free' : ''}</span></div>`); }
-    let powers = (st.powers || []).map(p => `${String(p.name || 'Power').replace(/</g, '&lt;')} <span style="color:#64748b">(L${p.lvl}${window.apxPowerAttr ? ', ' + window.apxPowerAttr(p, st) : ''}${window.apxPowerPool ? ', ' + (window.apxPowerPool(p, st) === 'short' ? 'Short' : 'Full') : ''})</span>`);
+    let u = String(uid || '').replace(/'/g, '');
+    let powers = (st.powers || []).map((p, i) => `<div style="border:1px solid #4c1d95;border-radius:.3rem;padding:.3rem .4rem;margin:.2rem 0;background:rgba(76,29,149,.12)">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:.3rem">
+            <span ${u ? `onclick="window._gmPlayerPowerPopup('${u}', ${i})" title="Open this power in its own window"` : ''} style="font-weight:900;font-size:.66rem;color:#d8b4fe;${u ? 'cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px' : ''}">${String(p.name || 'Power').replace(/</g, '&lt;')}</span>
+            <span style="font-size:.56rem;color:#94a3b8;white-space:nowrap">Lvl ${p.lvl} | ${window.apxPowerApLabel ? window.apxPowerApLabel(p) : p.ap + ' AP'}</span></div>
+        ${_gmPlayerPowerCard(p, st, mods, false)}</div>`);
     if (!rows.length && !powers.length) return '';
     return (hdr ? hdr('Powers') : '<div style="font-weight:900;font-size:.6rem">Powers</div>')
         + (rows.length ? `<div style="display:flex;flex-direction:column;gap:2px;padding:.15rem 0">${rows.join('')}</div>` : '')
-        + (powers.length ? `<div style="font-size:0.6rem;color:#d8b4fe;padding:0.15rem 0;line-height:1.45">${powers.join(', ')}</div>` : '');
+        + (powers.length ? `<div style="padding:0.15rem 0">${powers.join('')}</div>` : '');
 };
 window.renderInitiativeTracker = function() {
     let body = document.getElementById('initiativeTrackerBody');
@@ -3589,6 +3705,7 @@ window.renderInitiativeTracker = function() {
                     </div>`;
                 })() : ''}
                 ${(e.wounds || []).length ? `<div class="flex items-center gap-1 flex-wrap">${e.wounds.map(l => `<span class="apx-cond-chip" style="border-color:#f87171;color:#fecaca" title="${String(_gmWoundEffect(l)).replace(/"/g, '&quot;')} Click × when it heals.">${l} Wound<button onclick="window._gmHealNpcWound('${e.id}','${l.replace(/'/g, '')}')">&times;</button></span>`).join('')}</div>` : ''}
+                ${_gmMythicHtml(e)}
                 ${_gmPowerFxHtml(e)}
                 ${e.sourceNpcId ? renderInitiativePowerBubbles(e) : ''}
                 ${isCurrent ? '<div class="text-[9px] text-amber-300 font-bold">Current Turn</div>' : ''}
@@ -3819,7 +3936,7 @@ window.openGrantXpModal = function() {
             <label class="gx-full">Description<textarea id="gxDesc" rows="2" placeholder="What the party did (shows in each player's XP log)"></textarea></label>
             <label>XP each<input id="gxAmt" type="number" min="1" value="5"></label>
             <label>Session<input id="gxSession" type="number" min="1" value="${sessions || 1}"></label>
-            <label>Date<input id="gxDate" type="date" value="${new Date().toISOString().slice(0, 10)}"></label>
+            <label>Date<input id="gxDate" type="date" value="${window.apxToday()}"></label>
             <div class="gx-full gx-radios"><span>Type</span>
                 <label><input type="radio" name="gxCat" value="discovery" checked> Discovery</label>
                 <label><input type="radio" name="gxCat" value="roleplay"> Role Play</label>

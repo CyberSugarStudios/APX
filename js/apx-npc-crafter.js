@@ -679,6 +679,15 @@ window.ncToggleCompanionWeaponAim = function(idx, checked) {
     c.weapons[idx].aimed = checked;
     window.recalculateMath();
 };
+// Reorder a creature's powers (NPC or Loyal Companion): its stat block lists them in this order
+window.ncMovePower = function(i, d) {
+    let c = ncActiveCompanion(); if (!c || !Array.isArray(c.powers)) return;
+    let j = i + d; if (j < 0 || j >= c.powers.length) return;
+    let t = c.powers[i]; c.powers[i] = c.powers[j]; c.powers[j] = t;
+    if (typeof window.recalculateMath === 'function') window.recalculateMath();
+    ncRenderAll();
+    if (ncTarget === 'gm' && window.apxAuth?.enabled && window.apxAuth.saveGmNpcs) window.apxAuth.saveGmNpcs(window.gmNpcs || []).catch(() => {});
+};
 window.ncRemoveCompanionPower = function(idx) {
     let c = ncActiveCompanion();
     if (!c || !c.powers[idx]) return;
@@ -1250,8 +1259,10 @@ window.companionStatBlock = function() {
         .map(t => t.chooseEnergy ? { ...t, label: `${t.label} (${(c.traitChoice || {})[t.key] || 'Fire'})` } : t)
         .map(t => t.tierCalc ? { ...t, tierNote: t.tierCalc(tier) } : t);
     let card = p => ({ name: p.name, lvl: p.lvl, ap: p.ap, atk: p.atk, rng: p.rng, dmg: p.dmg, desc: p.desc, usageType: p.usageType, maxCharges: p.maxCharges, rechargeOn: p.rechargeOn, draft: p.draft || null });
-    let powerCards = c.powers.filter(p => !p.isLairAction).map(card);
-    let lairActionPowerCards = c.powers.filter(p => p.isLairAction).map(card);
+    let powerCards = c.powers.filter(p => !p.isLairAction && !p.isAwakened).map(card);
+    let lairActionPowerCards = c.powers.filter(p => p.isLairAction && !p.isAwakened).map(card);
+    // Mythic Awakening: powers it has only once it Awakens
+    let awakenedPowerCards = c.mythicAwakening ? c.powers.filter(p => p.isAwakened).map(card) : [];
     // Powers from equipped items come after its own
     wornItems.forEach(it => (window.apxItemPowers ? window.apxItemPowers(it) : []).forEach(p => powerCards.push(Object.assign(card(p), { fromItem: it.name || 'an item' }))));
     // Power Attack Bonus / Save DC: same shape as a weapon's trained
@@ -1372,7 +1383,7 @@ window.companionStatBlock = function() {
         armorWt: wornWt, armorReqStr, armorStrShort, armorClass,
         otherTrainings: c.otherTrainings, equippedWeapons, equippedArmorName: armor.name || null, trainedSkills, saves, saveTrained,
         hasShield: !!(c.shield && c.shield.owned), shieldOn, hasHelmet: helmetOn, hands, freeHands,
-        senseList, traitList, powerList, powerCards, lairActionPowerCards, casterSlots: c.casterSlots,
+        senseList, traitList, powerList, powerCards, lairActionPowerCards, awakenedPowerCards, casterSlots: c.casterSlots,
         powerAttrChoice, powerAttackBonus, powerSaveDc,
         conditionImmunities: ncTraitMerge(c, 'immuneConds', c.conditionImmunities), conditionalDmgImmunities: c.conditionalDmgImmunities,
         energyImmunities: ncTraitMerge(c, 'immuneEnergy', c.energyImmunities), energyVulnerabilities: ncTraitMerge(c, 'vulnEnergy', c.energyVulnerabilities),
@@ -1847,9 +1858,11 @@ function buildStatBlockHtml(sb, editable) {
             </div>` : ''}
             ${sb.lairActionPowerCards.length ? sb.lairActionPowerCards.map((p, i) => powerCardHtml(p, false, sb, 'lair', i)).join('') : ''}
             ${sb.mythicAwakening ? `<div class="text-[10px] text-slate-300 mt-1">
-                <span class="font-bold">Mythic Awakening</span>
+                <span class="font-bold">Mythic Awakening</span>${(() => { let e = sb._initId && (window.gmInitiative || []).find(x => x.id === sb._initId); return e ? (e.awakened ? ' <span class="text-amber-300 font-bold">(Awakened)</span>' : ' <span class="text-slate-500">(not yet)</span>') : ''; })()}
+                <div class="text-slate-400 mt-0.5">The first time it drops to 0 HP it doesn't die: its HP refills, its negative conditions end, it regains its full AP, and initiative skips to its turn. Its XP reward is doubled.</div>
                 ${sb.mythicAwakeningText ? `<div style="white-space: pre-line" class="mt-0.5">${esc(sb.mythicAwakeningText)}</div>` : ''}
-            </div>` : ''}
+            </div>
+            ${(sb.awakenedPowerCards || []).length ? `<div class="text-[10px] font-black text-amber-300 uppercase mt-1.5 mb-0.5">Awakened Powers</div>${sb.awakenedPowerCards.map((p, i) => powerCardHtml(p, false, sb, 'awake', i)).join('')}` : ''}` : ''}
         </div>` : ''}
         ${sb.powerCards.length ? `<div class="bg-slate-900 border border-slate-700 rounded p-2 mt-2">
             <div class="flex items-center justify-between mb-1 flex-wrap gap-1">
@@ -1886,7 +1899,8 @@ function npcPowerStatBlock(key) {
 }
 window.apxNpcUsePower = async function(key, list, idx, initId) {
     let sb = npcPowerStatBlock(key); if (!sb || !window.APXDice) return;
-    let p = (list === 'lair' ? sb.lairActionPowerCards : sb.powerCards)[idx]; if (!p) return;
+    let p = (list === 'lair' ? sb.lairActionPowerCards : list === 'awake' ? (sb.awakenedPowerCards || []) : sb.powerCards)[idx]; if (!p) return;
+    if (list === 'awake' && !npcAwakened(sb, initId)) { window.APXDice?.notify(`${p.name || 'That power'} is locked until ${sb.name || 'the creature'} Awakens.`, { kind: 'warn', open: true }); return; }
     let d = p.draft || {};
     let step = d.step1 || (/save halves/i.test(p.atk || '') ? 'saveHalves' : /guaranteed/i.test(p.atk || '') ? 'guaranteed' : 'atkSave');
     let isReact = window.apxPowerIsReaction && window.apxPowerIsReaction(p);
@@ -1896,7 +1910,7 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
     if (m) {
         let formula = m[1].replace(/\s+/g, ''), heal = /heal/i.test(m[2]);
         if (/\+\s*Attr/i.test(m[2])) { let am = (sb.mods || {})[sb.powerAttrChoice] || 0; if (am) formula += (am > 0 ? '+' : '') + am; }
-        dmg = { formula, heal, type: m[2].replace(/\+\s*Attr/i, '').replace(/\(Heal\)/i, '').trim() };
+        dmg = { formula, heal, type: m[2].replace(/\+\s*Attr/i, '').replace(/\(Heal\)/i, '').replace(/\(type chosen on use\)/i, '').trim() };
     }
     // Two damage types (a split power): each part rolled on its own, the attribute bonus on the first
     let split = window.apxDmgSplit ? window.apxDmgSplit(d) : null;
@@ -1911,6 +1925,31 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
     let whoGm = actor ? (window._gmGmName ? window._gmGmName(actor) : actor.name) : sb.name;
     let whoPub = actor ? (window._gmPublicName ? window._gmPublicName(actor) : actor.name) : sb.name;
     if (actor && !sb._isCompanion) flags.initId = actor.id;
+    // Charges and Recharge: using it marks it used on the creature in the tracker (asked first if none are left)
+    if (actor && !sb._isCompanion && (p.usageType === 'charges' || p.usageType === 'recharge')) {
+        actor.powerUsage = actor.powerUsage || {};
+        let used = actor.powerUsage[p.name] || 0, max = p.usageType === 'charges' ? Math.max(1, parseInt(p.maxCharges) || 1) : 1;
+        if (used >= max) {
+            let ans = await APXDice.ask(p.name || 'Power', p.usageType === 'recharge' ? `${p.name || 'It'} hasn't recharged yet (Recharge ${p.rechargeOn === 6 ? '6' : (p.rechargeOn || 5) + '-6'}).` : `${whoGm} has no charges of ${p.name || 'it'} left.`, [['use', 'Use anyway', 'pri']]);
+            if (ans !== 'use') return;
+        }
+        actor.powerUsage[p.name] = Math.min(max, used + 1);
+        if (typeof window.renderInitiativeTracker === 'function') window.renderInitiativeTracker();
+    }
+    // Damage type chosen each time it's used: whoever uses it (the GM, or the player with a companion) picks
+    let chosen = window.apxPowerChooseTypes ? await window.apxPowerChooseTypes(d, p.name) : null;
+    if (chosen === false) return;
+    if (chosen) {
+        d = Object.assign({}, d, chosen);
+        if (dmg && !dmg.heal) {
+            let sp = window.apxDmgSplit ? window.apxDmgSplit(d) : null;
+            if (sp) {
+                let am = d.addAttrToDmg ? ((sb.mods || {})[sb.powerAttrChoice] || 0) : 0;
+                if (am) sp[0].formula += (am > 0 ? '+' : '') + am;
+                dmg = { formula: sp.map(x => x.formula).join('+'), heal: false, type: sp.map(x => x.type).join(' + '), split: sp };
+            } else dmg.type = chosen.dmgType;
+        }
+    }
     let o = Object.assign({ label: p.name || 'Power', who: whoGm, perks: false, gambleAllowed: false, apCost: cost, flavor: p.desc || '', power: true }, flags);
     // Power Slot powers spend a Caster Slot of their Level (or the lowest higher one left)
     if (p.usageType === 'slot' && !sb._isCompanion) {
@@ -1963,15 +2002,22 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
     tell(`${whoPub} uses ${p.name || 'a power'}${isReact ? ' (Reaction)' : ''}${saveTxt}.`, `${whoGm} uses ${p.name || 'a power'}${isReact ? ' (Reaction)' : ''}${saveTxt}.`);
     offerFx();
 };
+// Has this stat block's creature (in the tracker) Awakened? Outside the tracker its Awakened powers are shown, unlocked.
+function npcAwakened(sb, initId) {
+    let id = initId || (sb && sb._initId);
+    let e = id && (window.gmInitiative || []).find(x => x.id === id);
+    return e ? !!e.awakened : !id;
+}
 function powerCardHtml(p, compUse, sb, list, idx) {
     let key = npcPowerKey(sb);
+    if (list === 'awake' && !npcAwakened(sb)) key = null;   // locked until it Awakens
     let useAttr = key ? ` onclick="window.apxNpcUsePower(decodeURIComponent('${encodeURIComponent(key).replace(/'/g, '%27')}'), '${list}', ${idx}, ${sb._initId ? `'${sb._initId}'` : 'null'})" title="Use this power: roll it${window.apxPowerIsReaction(p) ? ' (Reaction)' : ', spending ' + p.ap + ' AP'}" style="cursor:pointer"` : '';
     let usageLabel = '';
     if (p.usageType === 'slot') usageLabel = `Power Slot (Level ${p.lvl} or higher)`;
     else if (p.usageType === 'charges') usageLabel = `Charges: ${p.maxCharges}/day`;
     else if (p.usageType === 'recharge') usageLabel = `Recharge ${p.rechargeOn === 6 ? '6' : p.rechargeOn + '-6'}`;
     return `
-        <div class="bg-slate-800 p-1.5 rounded border border-slate-700 mb-1" data-roll-label="${String(p.name||'Power').replace(/"/g,'&quot;')}">
+        <div class="bg-slate-800 p-1.5 rounded border ${list === 'awake' ? 'border-amber-700/60' : 'border-slate-700'} mb-1" data-roll-label="${String(p.name||'Power').replace(/"/g,'&quot;')}" ${list === 'awake' && !npcAwakened(sb) ? 'style="opacity:.55" title="Locked until it Awakens"' : ''}>
             <div class="flex justify-between items-center mb-0.5">
                 <span class="font-bold text-[10px] text-purple-300 ${key ? 'hover:underline' : ''}"${useAttr}>${p.name}</span>
                 <span class="flex items-center gap-1"><span class="text-[8px] bg-slate-900 px-1.5 py-0.5 rounded border border-slate-600 text-slate-400 font-bold ${key ? 'hover:border-indigo-400 hover:text-indigo-200' : ''}"${useAttr}>Lvl ${p.lvl} | ${window.apxPowerApLabel(p)}</span>
@@ -1981,7 +2027,7 @@ function powerCardHtml(p, compUse, sb, list, idx) {
             <div class="grid grid-cols-3 gap-1 mb-0.5 text-[9px] text-slate-400">
                 <div><span class="text-slate-500">A/S:</span> ${p.atk}</div>
                 <div><span class="text-slate-500">R/A:</span> ${p.rng}</div>
-                <div><span class="text-slate-500">D/H:</span> ${p.dmg}</div>
+                <div><span class="text-slate-500">D/H:</span> ${window.apxAttrDmgText ? window.apxAttrDmgText(p.dmg, (sb && sb.mods || {})[sb && sb.powerAttrChoice]) : p.dmg}</div>
             </div>
             ${(() => { let l = p.draft && window.apxPowerSaveLines ? window.apxPowerSaveLines(p.draft, sb && sb.powerSaveDc) : null; return l && l.escape && !/Escape Save/.test(p.desc || '') ? `<div class="text-[9px] text-purple-300 font-bold mb-0.5">${l.escape}</div>` : ''; })()}
             <div class="text-[9px] text-slate-500 leading-tight" style="white-space:pre-wrap;">${p.desc}</div>
@@ -2064,7 +2110,7 @@ function ncRenderSummary() {
     let xpWrap = document.getElementById('ncSumXpWrap');
     if (xpWrap) {
         xpWrap.classList.toggle('hidden', ncTarget !== 'gm');
-        if (ncTarget === 'gm') document.getElementById('ncSumXp').innerText = window.npcXpForTier(tierInfo.tier); // matches the XP stashed on defeat in the GM Screen's initiative tracker
+        if (ncTarget === 'gm') document.getElementById('ncSumXp').innerText = window.npcXpForTier(tierInfo.tier) * (ncActiveCompanion().mythicAwakening ? 2 : 1); // matches the XP stashed on defeat in the GM Screen's initiative tracker (doubled by Mythic Awakening)
     }
     document.getElementById('npcCrafterTitle').innerText = ncTarget === 'gm' ? 'The NPC Crafter -- GM NPC' : ncTarget === 'summon' ? `The NPC Crafter -- Summoned Creature (Tier ${window._ncSummon?.tier || 1})` : 'The NPC Crafter -- Loyal Companion';
     let tpBanner = document.getElementById('ncTpBannerText');
@@ -2342,11 +2388,13 @@ function ncRenderStep5() {
 
 function ncRenderStep6() {
     let c = ncActiveCompanion();
+    let mv = (i, d, ok) => `<button onclick="window.ncMovePower(${i}, ${d})" ${ok ? '' : 'disabled'} title="Move ${d < 0 ? 'up' : 'down'}" class="w-5 h-5 rounded text-[10px] font-bold ${ok ? 'bg-slate-700 hover:bg-slate-600 text-white' : 'bg-slate-800 text-slate-600'}">${d < 0 ? '▲' : '▼'}</button>`;
     let powerRows = c.powers.map((p, i) => `
         <div class="bg-slate-900 border border-slate-700 rounded p-2">
             <div class="flex items-center justify-between">
-                <span class="text-xs font-bold text-purple-300">${p.name} <span class="text-slate-500 font-normal">(Lvl ${p.lvl}, ${window.apxPowerApLabel(p)}, ${p.tp} TP)</span></span>
-                <div class="flex gap-2">
+                <span class="text-xs font-bold text-purple-300">${p.name} <span class="text-slate-500 font-normal">(Lvl ${p.lvl}, ${window.apxPowerApLabel(p)}, ${p.tp} TP)</span>${p.isLairAction ? ' <span class="text-[9px] text-amber-400 font-bold">Lair Action</span>' : ''}${p.isAwakened ? ' <span class="text-[9px] text-amber-300 font-bold">Awakened</span>' : ''}</span>
+                <div class="flex gap-2 items-center">
+                    ${mv(i, -1, i > 0)}${mv(i, 1, i < c.powers.length - 1)}
                     ${p.draft ? `<button onclick="window.openPowerEditor(${i}, ncTarget)" class="text-[10px] text-purple-400 hover:text-purple-300 font-bold">Edit</button>` : ''}
                     <button onclick="window.ncRemoveCompanionPower(${i})" class="text-[10px] text-red-400 hover:text-red-300 font-bold">Remove</button>
                 </div>
@@ -2546,11 +2594,17 @@ function ncRenderStep8() {
                 </div>
             </label>
             <div class="text-[10px] text-slate-400 bg-slate-800/60 border border-slate-700 rounded p-1.5 mt-2 leading-snug">
-                <span class="font-bold text-slate-300">Quick reference:</span> Instead of dying or falling unconscious at 0 HP, the creature transforms --
-                typically gaining a fresh pool of HP, new or upgraded actions, and often a change in its immunities or
-                resistances, at the GM's discretion. This is a general summary to work from, not a verbatim rule -- check
-                your book for exact wording.
+                The first time it's reduced to 0 HP it doesn't die: its HP is fully restored, all negative conditions end, it regains its full AP, and initiative skips to its turn.
+                It may change its look, gain new attacks (Awakened Powers below), or lose vulnerabilities. Its XP reward doubles, since the party fights it twice.
+                In the tracker this happens on its own, or tick <b>Awakened</b> on its row.
             </div>
+            ${c.mythicAwakening ? `<div class="mt-2">
+                <div class="text-[9px] text-slate-500 uppercase tracking-wider mb-1">Awakened Powers <span class="normal-case">(locked until it Awakens; TP like any power)</span></div>
+                ${c.powers.map((p, i) => p.isAwakened ? `<div class="flex items-center justify-between bg-slate-800 border border-amber-800/50 rounded px-2 py-1 mb-1">
+                    <span class="text-[10px] font-bold text-amber-200">${p.name} <span class="text-slate-500 font-normal">(Lvl ${p.lvl}, ${p.tp} TP)</span></span>
+                    <span class="flex gap-2">${p.draft ? `<button onclick="window.openPowerEditor(${i}, ncTarget)" class="text-[10px] text-purple-400 hover:text-purple-300 font-bold">Edit</button>` : ''}<button onclick="window.ncRemoveCompanionPower(${i})" class="text-[10px] text-red-400 hover:text-red-300 font-bold">Remove</button></span></div>` : '').join('')}
+                <button onclick="window.openAwakenedPowerCrafter()" class="mt-1 px-3 py-1.5 rounded bg-amber-700 hover:bg-amber-600 text-white text-[10px] font-bold">+ Build an Awakened Power</button>
+            </div>` : ''}
             <div class="mt-2">
                 <label class="block text-[9px] text-slate-500 uppercase tracking-wider mb-1">Describe the awakened form</label>
                 <textarea id="ncMythicAwakeningText" onchange="window.ncSetMythicAwakeningText(this.value)" rows="3" placeholder="e.g. At 0 HP, the dragon's wounds cauterize into molten scars. It gains 50 temp HP and its breath weapon recharges immediately..." class="w-full bg-slate-800 border-slate-600 text-xs text-slate-200">${c.mythicAwakeningText || ''}</textarea>
