@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.5.1000',
-        released: '2026-10-05T10:00:00',
-        releasedText: 'October 5, 2026 · 10:00 AM',
+        version: 'v2026.10.5.0445',
+        released: '2026-10-05T04:45:00',
+        releasedText: 'October 5, 2026 · 4:45 AM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs with loot of their own, apart from their stat blocks, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -45,14 +45,17 @@
                 'The Loot Maker adds Crafting Materials too: any amount of Common, Uncommon or Rare, which land in the player\'s own Crafting Materials when given.',
                 'Power saves and Escape Saves run in the tracker: pick a power\'s targets, NPC saves roll themselves, the Conditions go on whoever fails, and lasting effects ask for their Escape Save each turn. An NPCs to rebuild list walks you through stat blocks with powers built before these rules.',
                 'Mythic Awakening runs itself: at its first 0 HP the creature Awakens (full HP, conditions cleared, full AP, its turn now), its Awakened powers unlock, and its XP reward doubles. Recharge powers roll for themselves at the start of the creature\'s turn, have a Recharge button that spends half their AP, and using one marks it used.',
-                'Reorder an NPC\'s or Loyal Companion\'s powers with ▲ ▼, right-click a chat message to delete it, and the Party panel shows two players side by side, each with their powers in full (click a power\'s name for its own window).'
+                'Reorder an NPC\'s or Loyal Companion\'s powers with ▲ ▼, right-click a chat message to delete it, and the Party panel shows two players side by side, each with their powers in full (click a power\'s name for its own window).',
+                'NPC stat blocks have a Token Image: the default token for every creature built from them, which a named NPC\'s own picture replaces. Summoning a saved NPC brings its image along.',
+                'Tactician players are asked for their swap when you press Start Combat, while you see "Waiting on Tactician choice" (or choose for them); a Rank 5 Tactician can hand their turn to an ally, and the tracker returns to normal after.',
             ]],
             ['For Players', [
                 'Identical items stack: three Leather Armors from three bandits make one "Leather Armor ×3" row. Equipping takes one from the stack, taking it off puts it back, and older inventories are joined up the first time you open the character.',
                 'A new character starts in the world you choose, or in none, and a character with no world sees only Join World, never another world\'s maps, notes or fog.',
                 'Leaving a world takes one step: delete the character, move it out of the world folder, or press × on the world folder. You come off the GM\'s player list, and your character stays yours.',
                 'Powers roll like weapons, powers from equipped magic items join your list without using a Power Slot, and a power can be built as a Reaction with a trigger of its own.',
-                'Power Crafter Step 7 is reworked: set the AP cost with − and + (each AP below 4 costs 10 XP, each AP over 4 refunds 5 XP, up to your own AP), or make it a Reaction (15 XP, with a set trigger) or pick a Lengthy Cast Time from 1 Minute (-15 XP) to 24 Hours (-60 XP). Steps 1 and 3 are now called Delivery and Targeting, and every power costs at least 5 XP. Step 4 can let you choose the damage type each time you use the power (+10 XP; both types with a second one).',
+                'Power Crafter Step 3 (Targeting) crafts areas to the exact size: an AoE (x3) is a Line (0.5 XP per square), Cone (3 XP per square of length) or Burst (10 XP per square of radius), sized with − and + while a preview shows the squares it hits and the XP. Powers with the old fixed-size areas need rebuilding.',
+                'Power Crafter Step 7 is reworked: set the AP cost with − and + (each AP below 4 costs 10 XP, each AP over 4 refunds 5 XP, with no upper limit since AP can be banked), or make it a Reaction (15 XP, with a set trigger) or pick a Lengthy Cast Time from 1 Minute (-15 XP) to 24 Hours (-60 XP). Steps 1 and 3 are now called Delivery and Targeting, and every power costs at least 5 XP. Step 4 can let you choose the damage type each time you use the power (+10 XP; both types with a second one).',
                 'Powers show the real number from their Core Attribute instead of "+Attr", and the Consumable Crafter follows the Power Crafter\'s save rules, with Artisan raising its XP limit by 5 per rank.',
                 'Luck and Looting, trading, Omen dice you can pass on, and Loyal Companions with their own AP, turns and an HP box that takes damage just like yours.',
                 'Luck Points have − and + buttons, clicking your Rest Dice spends one to heal, and four-armed characters get extra arms, hands and a shield in every Off Hand.',
@@ -62,7 +65,8 @@
                 'Edit Token re-crops the circle your portrait and token show, without uploading the picture again.',
                 'Custom items can set a Core Attribute to a total, "unless higher" if you like: an Exo Suit that makes your STR 15 unless it\'s already more.',
                 'Click the Action Points title for every Combat Maneuver and Standard Action, side by side: one click spends the AP and applies the effect (Fight Defensively\'s AC, Block\'s Sturdy-weapon roll, Power Attack\'s damage and more), shown under Armor & Defenses with a ✕ to end it. Pin the ones you use most to Weapons & Attacks.',
-                'Summon a Creature powers are built in the NPC Crafter at the Tier you choose (+15 XP per Tier above 1), and their creatures appear next to you on your GM\'s battle map.',
+                'Summon a Creature powers are built in the NPC Crafter at the Tier you choose (+15 XP per Tier above 1), with a token image if you like, and their creatures appear next to you on your GM\'s battle map.',
+                'Tactician runs itself: at Rank 1, pressing Start Combat asks you to swap an ally\'s place in the initiative order with another creature\'s (the ally is no longer Surprised); at Rank 5, your turn can go to an ally once per combat.',
                 'Grappling is reworked: Grapple (3 AP) and Pin (2 AP) are contested checks, the grappler is Staggered while holding on, Choke (2 AP) deals unarmed damage to a Pinned creature with no attack roll, and Escape (4 AP) ends it all. The Actions list runs each step and tells your GM\'s tracker.',
                 'Non-lethal damage: type "-6 nl" or tick Non-lethal, and 0 HP knocks the creature out (Unconscious, snoring on the battle map) instead of Bleeding Out or dying.',
                 'Power saving throws name their Core Attribute, and a power with a lasting effect gives its target an Escape Save at the end of each of its turns, never one the effect makes it automatically fail. Powers built before this show a Powers to rebuild list (free) when your sheet opens.'
@@ -92,8 +96,10 @@
                 'Damage Interrupt: taking damage calls for the Escape Save (an effect with none just ends). Action Interrupt: the power ends when the target attacks or uses a harmful power or ability, and a target that can spend AP can spend 3 AP to repeat its Escape Save; it can\'t be taken with Stunned, Paralyzed or Unconscious. Guaranteed Hit still allows Escape Saves.',
                 'Teleportation does not provoke Attacks of Opportunity.',
                 'Step 4: for 10 more XP, a power\'s damage type is chosen each time it\'s used (with a second damage type, both are).',
-                'Step 7: each AP below 4 costs 10 XP (1 AP is 30 XP), each AP over 4 refunds 5 XP (up to the caster\'s own AP), or choose Reaction (15 XP, with a specific trigger that can\'t change without making a new power) or a Lengthy Cast Time: 1 Minute (-15 XP), 10 Minutes (-20), 1 Hour (-30), 8 Hours (-40), 12 Hours (-50) or 24 Hours (-60). A distraction while casting calls for a CON save (DC 10 or more) as if Concentrating, or the power must start over.',
+                'Step 7: each AP below 4 costs 10 XP (1 AP is 30 XP), each AP over 4 refunds 5 XP (no upper limit: AP can be banked), or choose Reaction (15 XP, with a specific trigger that can\'t change without making a new power) or a Lengthy Cast Time: 1 Minute (-15 XP), 10 Minutes (-20), 1 Hour (-30), 8 Hours (-40), 12 Hours (-50) or 24 Hours (-60). A distraction while casting calls for a CON save (DC 10 or more) as if Concentrating, or the power must start over.',
                 'Power Crafter Step 1 is now called Delivery and Step 3 Targeting. Every power costs at least 5 XP.',
+                'Step 3 (Targeting): Single Target (x1), Split Target (x2), or AoE (x3) in a shape crafted to an exact size: Line, 1 square wide (0.5 XP per square: 12 squares is 6 XP, 399 is 199), Cone from the edge of your space (3 XP per square of length: 15 squares is 45 XP), or Burst from a central square (10 XP per square of radius: 10 squares is 100 XP). The fixed Small to Massive AoEs are gone.',
+                'Tactician: Rank 1\'s swap happens as combat starts, and Rank 5 skips your turn to give an ally a full turn right away; initiative then carries on from the creature after you.',
                 'Artisan raises the most XP you can spend crafting a Consumable by 5 for each rank.'
             ]],
             ['Also', [
@@ -156,8 +162,10 @@
                 'Attack powers roll the d20 and their damage together, doubling the damage dice on a crit. Save powers roll their effect, show your DC and let your GM know. Powers without a roll show their description.',
                 'In the Power Crafter, Attack Roll / Save Negates powers choose one or the other. An Attack Roll power is a Power Attack or a Martial Improvement riding on one of your weapons, and you can switch weapons on the power\'s card.',
                 'Reaction (Power Crafter Step 7, 15 XP): the power is used as your Reaction instead of AP, with a trigger you write when you craft it ("When an ally within 3 squares is hit"). The trigger shows on the power.',
-                'Step 7 sets the AP cost with − and +: 3 AP 10 XP, 2 AP 20 XP, 1 AP 30 XP; 5 AP refunds 5 XP, 6 AP 10 XP, and so on up to your own AP. Lengthy Cast Time is a dropdown of six lengths, from 1 Minute (-15 XP) to 24 Hours (-60 XP), and shows its casting time on the power.',
+                'Step 7 sets the AP cost with − and +: 3 AP 10 XP, 2 AP 20 XP, 1 AP 30 XP; 5 AP refunds 5 XP, 6 AP 10 XP, and so on with no upper limit (AP can be banked, so a big power can wait for a saved-up turn). Lengthy Cast Time is a dropdown of six lengths, from 1 Minute (-15 XP) to 24 Hours (-60 XP), and shows its casting time on the power.',
                 'Power Crafter Step 1 is now called Delivery and Step 3 Targeting, in the Power and Consumable Crafters alike. Every power costs at least 5 XP.',
+                'Step 3 (Targeting): choose AoE, then Line, Cone or Burst, and size it one square at a time with − and + (or type it). The preview draws the area on a grid the way your GM\'s Measure tool does, with the number of squares it hits, the shape\'s XP and the power\'s total.',
+                'Area powers built with Small, Medium, Large or Massive AoE are in the Powers to rebuild list: Rebuild opens them as a Burst of the same radius, ready for you to choose the shape and size.',
                 'Choose the damage type when you use it (Step 4, +10 XP): using the power asks which type (both types, for a power with a second one), and that\'s the type it deals. Your companion\'s powers ask whoever uses them.',
                 'Powers built with 1 AP, the old 1 AP / Reaction option or a Lengthy Cast Time show in the Powers to rebuild list. Rebuilding is optional: it refunds any XP the power now costs less (a Reaction gets 20 back), and anything else keeps its cost.',
                 'Damage that adds your Power Attribute shows the number ("2d6 Fire +3") instead of "+Attr", and rolls it too.',
@@ -261,6 +269,7 @@
                 'Your AP empties when a fight begins and refills on your turn, with or without a map (1 AP if you\'re Surprised). Standing up from Prone costs 2 AP in combat.',
                 'Attacks and powers spend their own AP, and you\'re asked first when you\'re short or a perk might change the cost.',
                 'AP perks (Adrenaline, Relentless) add their AP when combat starts, and New Turn never gives AP twice.',
+                'Tactician Rank 1: when your GM presses Start Combat, a window shows the initiative order (who\'s an ally, who\'s Surprised; hidden creatures aren\'t listed) so you can pick an ally and the creature they swap places with. Rank 5: once per combat, at the start of your turn, you can skip it to give an ally a full turn now.',
                 'Drag your token in combat to see its path and AP cost (1, then 2, then 3… per Move); it\'s paid when you drop it. Hold Alt to move without paying.',
                 'Click the Action Points title in Vitals for every Combat Maneuver (left) and Standard Action (right). A click spends the AP (asking first if you\'re short) and applies what it can: Fight Defensively adds +4 AC (+2 on a turn you attack), Block doubles your shield or rolls your Sturdy weapon\'s die for AC, Fight Offensively gives Advantage, Power and Precision Attack add STR or AGI to your next melee hit, Charge adds a die, and Feint and Vault roll their checks.',
                 'Active effects show under Armor & Defenses with a red ✕ to end them early; they end on their own at your next turn or when you attack.',
@@ -374,6 +383,7 @@
             ]],
             ['World NPCs', [
                 'Every NPC window has a Stat Block button whenever a stat block is linked.',
+                'Token Image (NPC Crafter, under the name): a stat block\'s default token, shown on every token built from it in the tracker and on battle maps, for you and your players, and beside it in the NPC Roster. A named NPC\'s own picture replaces it on their token.',
                 'Tag a stat block with worlds (NPC Roster → World) and it appears only in those worlds: in the NPC Roster, the Saved NPC list for initiative, and Link Stat Block. Untagged stat blocks appear everywhere. Each list says how many it\'s hiding, and the Roster\'s "Show all" brings them back for re-tagging.',
                 'Revealed NPCs show their pictures in your players\' World viewer, and revealed map notes appear in their Discoveries.',
                 'Session Notes support bullets and bold, and open in a read view with an Edit button.',
@@ -405,8 +415,8 @@
             ]],
             ['NPC Powers, Saves and Conditions', [
                 'On any NPC or Loyal Companion stat block, click a power\'s name or its "Lvl X | Y AP" tag to use it, as players do. Attack powers roll d20 + Power Attack Bonus with their damage, save powers show the DC and roll their effect, and the rest show their description. The AP comes off the creature taking its turn, and a Reaction power costs none.',
-                'Reaction powers (Power Crafter Step 7, 15 XP) carry their trigger, and their tag reads "Reaction". Step 7\'s new AP costs (up to the creature\'s own AP) and Lengthy Cast Times apply to NPC powers too.',
-                'An NPC\'s Summon a Creature power can summon an NPC you\'ve already made: the Power Crafter lists your saved NPCs at or below the power\'s Tier (never summoners or other summons). The NPC Crafter\'s power list has an Edit Summoned Creature button to change the creature later.',
+                'Reaction powers (Power Crafter Step 7, 15 XP) carry their trigger, and their tag reads "Reaction". Step 7\'s new AP costs (with no upper limit) and Lengthy Cast Times apply to NPC powers too, and so does Step 3\'s exact-size Line, Cone or Burst; NPCs with old fixed-size area powers are on the NPCs to rebuild list.',
+                'An NPC\'s Summon a Creature power can summon an NPC you\'ve already made, token image and all: the Power Crafter lists your saved NPCs at or below the power\'s Tier (never summoners or other summons). The NPC Crafter\'s power list has an Edit Summoned Creature button to change the creature later.',
                 'A power whose damage type is chosen on use asks you which type when you use it from the stat block.',
                 'Reorder powers: ▲ and ▼ beside each power in the NPC Crafter (Loyal Companions too) set the order its stat block lists them in.',
                 'Damage that adds the Power Attribute shows the number ("1d8 Fire +2") instead of "+Attr".',
@@ -442,6 +452,8 @@
             ['Initiative and Combat', [
                 'The tracker stands on its own and uses a battle map only when one is open or chosen as the fight\'s Battle map.',
                 'Every creature\'s AP is tracked and carries over. Surprised creatures get 1 AP on their first turn, and players\' AP refills on their turn even without a map.',
+                'Tactician Rank 1: Start Combat shows "Waiting on Tactician choice" while the player picks their swap (Choose for them, or Start without waiting, if they\'re away). The swap and the ally\'s lost Surprise are applied as Round 1 begins.',
+                'Tactician Rank 5: at the start of that player\'s turn (once per combat) they can give it to an ally; the ally becomes the active creature, and Next Turn then goes to whoever comes after the Tactician.',
                 'The combat log lives in the dice tray: players see hits on enemies without numbers, while you see every amount and every real name.',
                 'Players roll their saves from their own tray and NPCs from a button in your log, and End Combat checks whether anyone is still Bleeding Out.',
                 'An Omen die a player passes you waits in your tray and can replace any creature\'s d20.',

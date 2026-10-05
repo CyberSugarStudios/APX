@@ -301,3 +301,126 @@ function craftBuyOrCraftHtml(delta, m) {
     let mats = [[m.commonCt, 'Common'], [m.minUncommonCt, 'Uncommon'], [m.minRareCt, 'Rare']].filter(x => x[0] > 0).map(x => x[0] + ' ' + x[1]).join(', ') || 'no materials';
     return `<div class="text-[10px] text-slate-400 mt-1.5 flex flex-wrap justify-between gap-x-3 gap-y-0.5">${buy}<span><span class="text-orange-300 font-bold">Craft:</span> ${mats} · DC ${m.dc} · ${m.hours} hr</span></div>`;
 }
+
+// ── Step 3: Targeting (Power and Consumable Crafters) ─────────────────
+// AoE shapes are crafted to an exact size. The preview uses the battle map's Measure math
+// (APXBattle.areaCells), so the squares shown are the squares the power will hit.
+function apxAoeMutate(d, action, val) {
+    delete d._aoeFrom;
+    if (action === 'aoe') {
+        d.aoe = val;
+        if (val === 'aoe' && !(window.POWER_AOE_SHAPES || []).some(x => x.key === d.aoeShape)) { d.aoeShape = 'burst'; d.aoeSize = 1; }
+    } else if (action === 'shape') {
+        let sh = (window.POWER_AOE_SHAPES || []).find(x => x.key === val); if (!sh) return;
+        if (d.aoeShape !== val) { d.aoeShape = val; d.aoeSize = sh.def; }
+        d.aoe = 'aoe';
+    } else if (action === 'step') {
+        d.aoeSize = Math.max(1, (parseInt(d.aoeSize) || 1) + val);
+    } else if (action === 'size') {
+        let n = parseInt(val); if (n >= 1) d.aoeSize = Math.min(9999, n);
+    }
+}
+window.apxAoeMutate = apxAoeMutate;
+
+// { svg, count, estimated } for a shape of the given size, drawn from a 1-square caster/origin
+function apxAoePreview(shape, n) {
+    n = Math.max(1, parseInt(n) || 1);
+    let cells = [], estimated = false;
+    let fa = { x0: 0, x1: 0, y0: 0, y1: 0 };
+    if (shape === 'line') {
+        if (n <= 2000) for (let x = 1; x <= n; x++) cells.push({ gx: x, gy: 0 });
+    } else if (window.APXBattle && window.APXBattle.areaCells && n <= 400) {
+        cells = window.APXBattle.areaCells(fa, { gx: n, gy: 0 }, shape, n > 120 ? 3 : n > 40 ? 5 : 12).cells;
+    } else estimated = true;
+    let R = n + 0.5, half = Math.atan(0.5);
+    let count = shape === 'line' ? n : estimated
+        ? Math.round(shape === 'burst' ? Math.PI * R * R : R * R * half - 0.5)
+        : cells.length;
+    // Bounds (in squares), with a square of margin
+    let minX = -1, maxX = 1, minY = -1, maxY = 1;
+    if (shape === 'line') maxX = n + 1;
+    else if (shape === 'cone') { maxX = n + 1; minY = -Math.ceil(n / 2) - 1; maxY = Math.ceil(n / 2) + 1; }
+    else { minX = minY = -n - 1; maxX = maxY = n + 1; }
+    let W = maxX - minX + 1, H = maxY - minY + 1;
+    // Rows of contiguous squares become single rects
+    let rows = {};
+    cells.forEach(c => { (rows[c.gy] = rows[c.gy] || []).push(c.gx); });
+    let rects = '';
+    Object.keys(rows).forEach(y => {
+        let xs = rows[y].sort((a, b) => a - b), st = xs[0], pv = xs[0];
+        for (let i = 1; i <= xs.length; i++) {
+            if (i < xs.length && xs[i] === pv + 1) { pv = xs[i]; continue; }
+            rects += `<rect x="${st - minX}" y="${y - minY}" width="${pv - st + 1}" height="1"/>`;
+            if (i < xs.length) { st = pv = xs[i]; }
+        }
+    });
+    let grid = '';
+    if (W <= 70 && H <= 70) {
+        let p = '';
+        for (let x = 0; x <= W; x++) p += `M${x} 0V${H}`;
+        for (let y = 0; y <= H; y++) p += `M0 ${y}H${W}`;
+        grid = `<path d="${p}" stroke="currentColor" stroke-opacity=".18" stroke-width="${Math.max(0.03, W / 300)}" fill="none"/>`;
+    }
+    let ox = -minX + 0.5, oy = -minY + 0.5, sw = Math.max(0.06, W / 160);
+    let outline = '';
+    if (shape === 'burst') outline = `<circle cx="${ox}" cy="${oy}" r="${R}" fill="none" stroke="#facc15" stroke-width="${sw}" stroke-dasharray="${sw * 3} ${sw * 2}"/>`;
+    else if (shape === 'cone') {
+        let x1 = ox + R * Math.cos(half), y1 = oy - R * Math.sin(half), y2 = oy + R * Math.sin(half);
+        outline = `<path d="M${ox} ${oy}L${x1} ${y1}A${R} ${R} 0 0 1 ${x1} ${y2}Z" fill="none" stroke="#facc15" stroke-width="${sw}" stroke-dasharray="${sw * 3} ${sw * 2}"/>`;
+    } else outline = `<rect x="${ox + 0.5}" y="${oy - 0.5}" width="${n}" height="1" fill="none" stroke="#facc15" stroke-width="${sw}"/>`;
+    let origin = shape === 'burst'
+        ? `<circle cx="${ox}" cy="${oy}" r=".22" fill="#a855f7"/>`
+        : `<circle cx="${ox}" cy="${oy}" r=".42" fill="#7c3aed" stroke="#e9d5ff" stroke-width=".08"/>`;
+    let ar = W / H, w = ar >= 1 ? 300 : Math.max(60, Math.round(220 * ar)), h = ar >= 1 ? Math.max(24, Math.min(220, Math.round(300 / ar))) : 220;
+    if (shape === 'line') { w = 300; h = Math.max(24, Math.min(60, Math.round(300 / ar))); }
+    let svg = `<svg data-aoe-preview viewBox="0 0 ${W} ${H}" width="${w}" height="${h}" preserveAspectRatio="xMidYMid meet" style="max-width:100%;color:var(--c-text,#e2e8f0);background:var(--c-surface2,#0f172a);border:1px solid var(--c-border,#334155);border-radius:.35rem">
+        ${grid}<g fill="#facc15" fill-opacity=".38">${rects}</g>${outline}${origin}</svg>`;
+    return { svg, count, estimated };
+}
+window.apxAoePreview = apxAoePreview;
+
+// The Step 3 options. o: { pre: 'pc' | 'cc', price(xp, mutate, isCur) -> text, total: 'Power total: 45 XP (Lvl 2)' }
+function apxStep3Html(d, o) {
+    let A = window.apxPowerAoe(d), pre = o.pre;
+    let price = o.price || (x => x + ' XP');
+    let opt = s => {
+        let on = A.key === s.key;
+        return `<label class="flex items-start gap-2 bg-slate-900 border ${on ? 'border-purple-500' : 'border-slate-700'} rounded p-2 cursor-pointer">
+            <input type="radio" name="${pre}Aoe" class="mt-1" ${on ? 'checked' : ''} onchange="window.${pre}SetAoe('${s.key}')">
+            <div><div class="text-xs font-bold text-slate-200">${s.label} <span class="text-yellow-500">[x${s.mult}]</span></div><div class="text-[10px] text-slate-500 leading-tight">${s.desc}</div></div>
+        </label>`;
+    };
+    let html = POWER_STEP3_AOE.map(opt).join('');
+    if (A.key !== 'aoe') return html;
+    if (A.legacy || d._aoeFrom) html += `<div class="text-[10px] text-amber-400 leading-tight" data-aoe-legacy>This power used ${d._aoeFrom || A.label}, from before areas were crafted to an exact size${d._aoeFrom ? ` (shown below as a Burst of the same radius)` : ''}. Choose its shape and size.</div>`;
+    let shapes = window.POWER_AOE_SHAPES.map(sh => {
+        let on = A.shape === sh.key;
+        return `<button type="button" data-aoe-shape="${sh.key}" onclick="window.${pre}SetAoeShape('${sh.key}')" class="flex-1 min-w-[90px] text-left rounded p-2 border ${on ? 'border-amber-400 bg-amber-900/30' : 'border-slate-700 bg-slate-900 hover:border-slate-500'}">
+            <div class="text-xs font-bold ${on ? 'text-amber-300' : 'text-slate-200'}">${sh.label}</div><div class="text-[9px] text-yellow-500">${sh.costText}</div></button>`;
+    }).join('');
+    html += `<div class="bg-slate-950/40 border border-slate-700 rounded p-2 space-y-2" data-aoe-box>
+        <div class="flex gap-1.5 flex-wrap">${shapes}</div>`;
+    if (A.shape) {
+        let sh = A.shapeDef, P = apxAoePreview(A.shape, A.size);
+        let btn = (dd, ok) => `<button type="button" onclick="window.${pre}AoeSize(${dd})" ${ok ? '' : 'disabled'} class="w-7 h-7 rounded text-sm font-bold ${ok ? (dd < 0 ? 'bg-slate-700 hover:bg-slate-600' : 'bg-amber-700 hover:bg-amber-600') + ' text-white' : 'bg-slate-800 text-slate-600'}" title="${dd < 0 ? 'One square smaller' : 'One square bigger'}">${dd < 0 ? '−' : '+'}</button>`;
+        html += `<div class="text-[10px] text-slate-400 leading-tight">${sh.desc}</div>
+        <div class="flex items-center gap-2 flex-wrap" data-aoe-size>
+            <span class="text-xs font-bold text-slate-200">${sh.size}</span>${btn(-1, A.size > 1)}
+            <input type="number" min="1" value="${A.size}" onchange="window.${pre}AoeSize(0, this.value)" class="text-center bg-slate-800 border-slate-600 text-sm font-black" style="width:4.5rem;min-width:0;flex:0 0 auto;padding:.15rem .3rem" aria-label="${sh.size} in squares">
+            ${btn(1, true)}<span class="text-[10px] text-slate-400">square${A.size === 1 ? '' : 's'}</span>
+            <span class="ml-auto text-[11px] font-bold text-yellow-500" data-aoe-cost>${price(A.cost, x => { x.aoe = 'aoe'; x.aoeShape = A.shape; x.aoeSize = A.size; }, true)}</span>
+        </div>
+        <div class="flex flex-wrap items-start gap-3">
+            <div class="max-w-full overflow-hidden">${P.svg}</div>
+            <div class="text-[11px] text-slate-300 space-y-1 min-w-[120px]">
+                <div><span class="text-2xl font-black text-amber-300" data-aoe-count>${P.estimated ? '~' : ''}${P.count}</span> <span class="text-slate-400">square${P.count === 1 ? '' : 's'} hit</span></div>
+                <div class="text-slate-400">${A.label}: ${A.shape === 'line' ? `${A.size} × 0.5` : `${A.size} × ${sh.per}`} = <b class="text-yellow-400">${A.cost} XP</b></div>
+                <div class="text-slate-400">Damage dice and Utility cost x3.</div>
+                ${o.total ? `<div class="font-bold text-white" data-aoe-total>${o.total}</div>` : ''}
+                <div class="text-[9px] text-slate-500 leading-tight">${A.shape === 'burst' ? 'Squares at least half inside the circle count.' : A.shape === 'cone' ? 'Shown pointing straight out; squares at least a quarter inside count. Your GM\'s Measure tool draws it in any direction.' : 'Shown straight out; it can point any direction.'}</div>
+            </div>
+        </div>`;
+    }
+    return html + '</div>';
+}
+window.apxStep3Html = apxStep3Html;

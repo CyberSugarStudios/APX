@@ -1093,7 +1093,7 @@
         m.last = n;
     }
     // Cone / Burst: the squares an area covers from its origin (a square, or a creature's edge)
-    function areaCells(fa, target, mode) {
+    function areaCells(fa, target, mode, samples) {   // samples: per-side sampling (12 by default; fewer for big previews)
         let near = _nearest(fa, { x0: target.gx, x1: target.gx, y0: target.gy, y1: target.gy });
         let L = Math.max(1, squaresBetween(target.gx - near.gx, target.gy - near.gy));
         let cx = (fa.x0 + fa.x1 + 1) / 2, cy = (fa.y0 + fa.y1 + 1) / 2;
@@ -1105,7 +1105,7 @@
             if (mode === 'cone') {
                 // A square is in the cone when at least a quarter of it lies inside the cone as drawn
                 // (the apex at the creature's center, the arc L squares past its edge)
-                let R = L + (fa.x1 - fa.x0 + 1) / 2, cosH = Math.cos(CONE_HALF), inN = 0, N = 12;
+                let R = L + (fa.x1 - fa.x0 + 1) / 2, cosH = Math.cos(CONE_HALF), inN = 0, N = samples || 12;
                 for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
                     let vx = gx + (i + 0.5) / N - cx, vy = gy + (j + 0.5) / N - cy, vl = Math.hypot(vx, vy);
                     if (vl <= R && vl > 0 && (vx * dx + vy * dy) / (vl * dl) >= cosH - 1e-9) inN++;
@@ -1116,7 +1116,7 @@
             }
             // Burst: a square is in it when at least half of it lies inside the circle as drawn
             // (centered on the creature, reaching L squares past its edge)
-            let R = L + (fa.x1 - fa.x0 + 1) / 2, N = 12, inN = 0;
+            let R = L + (fa.x1 - fa.x0 + 1) / 2, N = samples || 12, inN = 0;
             for (let i = 0; i < N; i++) for (let j = 0; j < N; j++)
                 if (Math.hypot(gx + (i + 0.5) / N - cx, gy + (j + 0.5) / N - cy) <= R) inN++;
             if (inN * 2 < N * N) continue;

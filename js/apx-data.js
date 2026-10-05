@@ -491,14 +491,39 @@
             { key: "extreme", label: "Extreme Range", cost: 10, desc: "You can place the target or origin point anywhere you can see." }
         ];
 
+        // Step 3: Targeting. AoE (x3) is crafted to an exact size in one of three shapes.
         const POWER_STEP3_AOE = [
-            { key: "single", label: "Single Target", mult: 1, desc: "Affects one target within range." },
-            { key: "split", label: "Split Target", mult: 2, desc: "Manually divide damage or healing dice between multiple specific targets within range." },
-            { key: "small", label: "Small AoE", mult: 3, desc: "1-sq radius blast, 6-sq line, or 3-sq cone." },
-            { key: "medium", label: "Medium AoE", mult: 4, desc: "2-sq radius blast, 12-sq line, or 6-sq cone." },
-            { key: "large", label: "Large AoE", mult: 5, desc: "4-sq radius blast, 24-sq line, or 12-sq cone." },
-            { key: "massive", label: "Massive AoE", mult: 6, desc: "8-sq radius blast, 48-sq line, or 24-sq cone." }
+            { key: "single", label: "Single Target", mult: 1, desc: "The power affects one target within range." },
+            { key: "split", label: "Split Target", mult: 2, desc: "The power allows you to manually divide damage or healing dice between multiple specific targets within the range." },
+            { key: "aoe", label: "AoE", mult: 3, desc: "The power affects all targets within a designated geometric shape: choose a Line, Cone or Burst and its size." }
         ];
+        const POWER_AOE_SHAPES = [
+            { key: "line", label: "Line", per: 0.5, size: "Length", def: 6, costText: "0.5 XP per square",
+              desc: "A straight line of contiguous squares projecting outward in a single direction from the origin point. 1 square wide, as long as you choose." },
+            { key: "cone", label: "Cone", per: 3, size: "Length", def: 3, costText: "3 XP per square of length",
+              desc: "A triangular area that blossoms outward from an origin point on the edge of your space, getting wider as it travels away to sweep across the grid." },
+            { key: "burst", label: "Burst", per: 10, size: "Radius", def: 1, costText: "10 XP per square of radius",
+              desc: "A circular area expanding equally in all directions from a central square. It affects every square that falls within the chosen radius." }
+        ];
+        // Areas from before the Step 3 rework (fixed sizes); they still work until the power is rebuilt
+        const POWER_AOE_LEGACY = {
+            small: { label: "Small AoE", mult: 3, r: 1 }, medium: { label: "Medium AoE", mult: 4, r: 2 },
+            large: { label: "Large AoE", mult: 5, r: 4 }, massive: { label: "Massive AoE", mult: 6, r: 8 }
+        };
+        // A power's Step 3: { key, mult, cost (XP for the shape), shape, size, label ("12-sq Line"), legacy }
+        function apxPowerAoe(d) {
+            d = d || {};
+            let old = POWER_AOE_LEGACY[d.aoe];
+            if (old) return { key: 'aoe', mult: old.mult, cost: 0, shape: null, size: old.r, label: old.label, legacy: true };
+            let def = POWER_STEP3_AOE.find(s => s.key === d.aoe) || POWER_STEP3_AOE[0];
+            if (def.key !== 'aoe') return { key: def.key, mult: def.mult, cost: 0, shape: null, size: 0, label: def.label };
+            let sh = POWER_AOE_SHAPES.find(x => x.key === d.aoeShape) || POWER_AOE_SHAPES[2];
+            let n = Math.max(1, parseInt(d.aoeSize) || sh.def);
+            return { key: 'aoe', mult: def.mult, cost: Math.floor(n * sh.per), shape: sh.key, size: n,
+                label: sh.key === 'burst' ? `${n}-sq Burst` : `${n}-sq ${sh.label}`, shapeDef: sh };
+        }
+        window.apxPowerAoe = apxPowerAoe;
+        window.POWER_AOE_SHAPES = POWER_AOE_SHAPES;
 
         const POWER_DIE_COSTS = { d4: 1, d6: 2, d8: 3, d10: 5, d12: 8 };
         const POWER_DIE_STEPS = ["d4", "d6", "d8", "d10", "d12"];

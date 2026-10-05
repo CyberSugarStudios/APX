@@ -79,6 +79,9 @@ function pcCostOn(xp, unmutate, suffix) {
     return delta > 0 ? `${delta} TP` : delta < 0 ? `${delta} TP` : '0 TP';
 }
 
+// The draft as it's saved (without crafter-only notes)
+function pcSavedDraft() { let d = JSON.parse(JSON.stringify(pcDraft)); delete d._aoeFrom; delete d._lastAp; return d; }
+
 function getBlankPowerDraft() {
     return {
         step1: 'atkSave', step2: 'touch', aoe: 'single',
@@ -143,10 +146,11 @@ window.pcSetPool = function(v) { pcDraft.pool = v === 'short' ? 'short' : 'full'
 window.pcCalcXP = function(draft) {
     let step1Def = POWER_STEP1.find(s => s.key === draft.step1);
     let step2Def = POWER_STEP2_RANGE.find(s => s.key === draft.step2);
-    let aoeDef = POWER_STEP3_AOE.find(s => s.key === draft.aoe);
+    let aoeDef = window.apxPowerAoe(draft);   // { mult, cost (the AoE shape's XP), ... }
 
     let step1Cost = step1Def.cost;
     let step2Cost = step2Def.cost;
+    let step3Cost = aoeDef.cost;   // Line 0.5 XP per square, Cone 3 XP per square of length, Burst 10 XP per square of radius
 
     // Step 4: Damage or Healing. Only the die-table cost and Step 5 Utility
     // get multiplied by Area of Effect (Ch.7: "[AoE] applies a multiplier
@@ -211,11 +215,11 @@ window.pcCalcXP = function(draft) {
         step8Cost = 0;
     }
 
-    let total = Math.max(5, step1Cost + step2Cost + step4Cost + step5Cost + step6Cost + step7Cost + step8Cost);   // every power costs at least 5 XP
+    let total = Math.max(5, step1Cost + step2Cost + step3Cost + step4Cost + step5Cost + step6Cost + step7Cost + step8Cost);   // every power costs at least 5 XP
     let levelDef = POWER_LEVEL_TABLE.find(l => total >= l.min && total <= l.max) || POWER_LEVEL_TABLE[POWER_LEVEL_TABLE.length - 1];
 
     return {
-        step1Cost, step2Cost, step4Cost, step5Cost, step6Cost, step7Cost, step8Cost, total,
+        step1Cost, step2Cost, step3Cost, step4Cost, step5Cost, step6Cost, step7Cost, step8Cost, total,
         level: levelDef.level, totalDiceCount, ap, step5Count, mythic: mythic ? mythic.key : null
     };
 };
@@ -364,6 +368,8 @@ window.openPowerEditor = function(idx, target) {
     pcIsLairAction = !!power.isLairAction; // preserve whichever section this power already belongs to
     pcIsAwakened = !!power.isAwakened;
     pcDraft = JSON.parse(JSON.stringify(power.draft));
+    // an area from before Step 3's rework (Small to Massive AoE): start from a Burst of the same radius
+    if (window.apxPowerAoe && window.apxPowerAoe(pcDraft).legacy) { let A = window.apxPowerAoe(pcDraft); pcDraft.aoe = 'aoe'; pcDraft.aoeShape = 'burst'; pcDraft.aoeSize = A.size; pcDraft._aoeFrom = A.label; }
     // older Step 7 choices in the current terms ("1 AP or Reaction" set to Reaction, the one-length Lengthy Cast)
     if (window.apxPowerApKey) { let k = window.apxPowerApKey(pcDraft); if (k !== pcDraft.apMod) pcDraft.apMod = k; delete pcDraft.apReaction; }
     // older powers: the attribute and power type they used before each power chose its own
@@ -501,7 +507,9 @@ window.pcSetStep1 = function(val) {
     pcRenderAll();
 };
 window.pcSetStep2 = function(val) { pcDraft.step2 = val; pcRenderAll(); };
-window.pcSetAoe = function(val) { pcDraft.aoe = val; pcRenderAll(); };
+window.pcSetAoe = function(val) { window.apxAoeMutate(pcDraft, 'aoe', val); pcRenderAll(); };
+window.pcSetAoeShape = function(val) { window.apxAoeMutate(pcDraft, 'shape', val); pcRenderAll(); };
+window.pcAoeSize = function(d, val) { window.apxAoeMutate(pcDraft, val != null ? 'size' : 'step', val != null ? val : d); pcRenderAll(); };
 window.pcSetDie = function(step, delta) {
     let cur = pcDraft.dmg[step] || 0;
     // Max 8 dice per die step. A power built under the old 12-dice rule can
@@ -653,15 +661,7 @@ window.pcToggleDurationMod = function(key, checked) {
 };
 window.pcSetApMod = function(val) { if (!val) return; pcDraft.apMod = val; delete pcDraft.apReaction; pcRenderAll(); };
 // AP cost − / +: from 1 AP up to the caster's own AP
-function pcCasterApCap() {
-    let ap = 0;
-    try {
-        if (pcTarget === 'player') ap = (window.state && window.state.derived && window.state.derived.ap) || (typeof calc !== 'undefined' && calc.maxAp) || 6;
-        else if (pcTarget === 'item' || pcTarget === 'lib') ap = 12;
-        else if (typeof window.companionStatBlock === 'function') { let sb = window.companionStatBlock(); ap = sb && sb.ap; }
-    } catch (e) { }
-    return Math.max(4, parseInt(ap) || 6);
-}
+function pcCasterApCap() { return 99; }   // no cap: AP can be banked, so a power may cost more than a turn's AP
 window.pcSetApCount = function(d) {
     let k = window.apxPowerApKey ? window.apxPowerApKey(pcDraft) : pcDraft.apMod;
     let m = /^ap(\d+)$/.exec(k || ''), n = m ? parseInt(m[1]) : 4;
@@ -824,12 +824,9 @@ function pcRenderStep2() {
 }
 
 function pcRenderStep3() {
-    document.getElementById('pcStep3Options').innerHTML = POWER_STEP3_AOE.map(s => `
-        <label class="flex items-start gap-2 bg-slate-900 border ${pcDraft.aoe === s.key ? 'border-purple-500' : 'border-slate-700'} rounded p-2 cursor-pointer">
-            <input type="radio" name="pcAoe" class="mt-1" ${pcDraft.aoe === s.key ? 'checked' : ''} onchange="window.pcSetAoe('${s.key}')">
-            <div><div class="text-xs font-bold text-slate-200">${s.label} <span class="text-yellow-500">[x${s.mult}]</span></div><div class="text-[10px] text-slate-500 leading-tight">${s.desc}</div></div>
-        </label>
-    `).join('');
+    let t = window.pcCalcXP(pcDraft);
+    let total = pcIsNpc() ? `Power: Lvl ${t.level} · ${pcTpFor(pcDraft)} TP` : `Power total: ${t.total} XP (Lvl ${t.level})`;
+    document.getElementById('pcStep3Options').innerHTML = window.apxStep3Html(pcDraft, { pre: 'pc', price: x => x + ' XP', total });
 }
 
 function pcRenderStep4() {
@@ -1009,7 +1006,7 @@ function pcRenderStep7() {
             <div class="flex-1 min-w-0"><div class="flex items-center gap-2 flex-wrap" data-pc-apcount>
                 <span class="text-xs font-bold text-slate-200">AP cost</span>${btn(-1, n > 1)}<span class="w-12 text-center text-sm font-black text-white">${n} AP</span>${btn(1, n < cap)}
                 <span class="text-[10px] ${(window.apxPowerApCost ? window.apxPowerApCost(n) : 0) < 0 ? 'text-slate-500' : 'text-yellow-500'} ml-auto">${apN ? (pcIsNpc() ? '' : (n === 4 ? 'default' : (n < 4 ? `+${(4 - n) * 10} XP` : `-${(n - 4) * 5} XP`))) : apCostTxt}</span></div>
-            <div class="text-[10px] text-slate-500 leading-tight mt-0.5">4 AP by default. Each AP less costs 10 XP; each AP over 4 refunds 5 XP. Up to ${cap} AP (${pcTarget === 'player' ? 'your' : pcTarget === 'item' || pcTarget === 'lib' ? 'a caster\'s' : 'the creature\'s'} AP).</div></div>`)
+            <div class="text-[10px] text-slate-500 leading-tight mt-0.5">4 AP by default. Each AP less costs 10 XP; each AP over 4 refunds 5 XP. There's no upper limit: AP can be banked, so a costly power may take saving up over turns.</div></div>`)
         + `<div class="text-[10px] text-slate-400 font-bold mt-3 mb-1">Or one of these instead</div>`
         + POWER_AP_MODS.filter(a => a.alt && a.reaction).map(row).join('')
         + box(!!lenCur, `<input type="radio" name="pcApMod" class="mt-1" ${lenCur ? 'checked' : ''} onchange="window.pcSetApMod('${(lenCur || lengthy[0]).key}')">
@@ -1233,7 +1230,7 @@ function pcBuildTextSummary() {
     let t = window.pcCalcXP(pcDraft);
     let step1Def = POWER_STEP1.find(s => s.key === pcDraft.step1);
     let step2Def = POWER_STEP2_RANGE.find(s => s.key === pcDraft.step2);
-    let aoeDef = POWER_STEP3_AOE.find(s => s.key === pcDraft.aoe);
+    let aoeDef = window.apxPowerAoe(pcDraft);
 
     let atk = step1Def.label;
     let sAttr = (window.APX_SAVE_ATTRS || []).includes(pcDraft.saveAttr) ? pcDraft.saveAttr + ' ' : '';
@@ -1358,7 +1355,7 @@ window.finishPowerCrafter = function() {
         if (tp === null) return;
         getTargetPowers().push({
             name, lvl: t.level, ap: t.ap, atk: summary.atk, rng: summary.rng, dmg: summary.dmg, desc: finalDesc,
-            draft: JSON.parse(JSON.stringify(pcDraft)), rulesRev: window.APX_POWER_RULES_REV || 1, tp, isLairAction: pcIsLairAction, isAwakened: pcIsAwakened || undefined,
+            draft: pcSavedDraft(), rulesRev: window.APX_POWER_RULES_REV || 1, tp, isLairAction: pcIsLairAction, isAwakened: pcIsAwakened || undefined,
             usageType: pcDraft.usageType, maxCharges: pcDraft.maxCharges, rechargeOn: pcDraft.rechargeOn,
             attr: pcTarget === 'item' ? (pcDraft.coreAttr || undefined) : undefined
         });
@@ -1391,7 +1388,7 @@ window.finishPowerCrafter = function() {
     window.state.powers.push({
         name, lvl: t.level, ap: t.ap, atk: summary.atk, rng: summary.rng, dmg: summary.dmg, desc: finalDesc,
         attr: pcDraft.coreAttr || pcDefaultAttr(), pool: pcDraft.pool || pcDefaultPool(),
-        draft: JSON.parse(JSON.stringify(pcDraft)), rulesRev: window.APX_POWER_RULES_REV || 1, wasFree: useFree || useChaFree, paidXP
+        draft: pcSavedDraft(), rulesRev: window.APX_POWER_RULES_REV || 1, wasFree: useFree || useChaFree, paidXP
     });
 
     window.closeModal('powerCrafterModal');
@@ -1446,7 +1443,7 @@ window.savePowerChanges = function() {
         power.name = name;
         power.lvl = t.level; power.ap = t.ap;
         power.atk = summary.atk; power.rng = summary.rng; power.dmg = summary.dmg; power.desc = finalDesc;
-        power.draft = JSON.parse(JSON.stringify(pcDraft));
+        power.draft = pcSavedDraft();
         power.rulesRev = window.APX_POWER_RULES_REV || 1;
         power.usageType = pcDraft.usageType; power.maxCharges = pcDraft.maxCharges; power.rechargeOn = pcDraft.rechargeOn;
         window.closeModal('powerCrafterModal');
@@ -1491,7 +1488,7 @@ window.savePowerChanges = function() {
     power.lvl = t.level; power.ap = t.ap;
     power.atk = summary.atk; power.rng = summary.rng; power.dmg = summary.dmg; power.desc = finalDesc;
     power.attr = pcDraft.coreAttr || power.attr || pcDefaultAttr(); power.pool = pcDraft.pool || power.pool || pcDefaultPool();
-    power.draft = JSON.parse(JSON.stringify(pcDraft));
+    power.draft = pcSavedDraft();
     power.rulesRev = window.APX_POWER_RULES_REV || 1;
 
     window.closeModal('powerCrafterModal');
@@ -1514,7 +1511,7 @@ window.savePowerAsNew = function() {
         if (tp === null) return;
         getTargetPowers().push({
             name, lvl: t.level, ap: t.ap, atk: summary.atk, rng: summary.rng, dmg: summary.dmg, desc: finalDesc,
-            draft: JSON.parse(JSON.stringify(pcDraft)), rulesRev: window.APX_POWER_RULES_REV || 1, tp, isLairAction: pcIsLairAction, isAwakened: pcIsAwakened || undefined,
+            draft: pcSavedDraft(), rulesRev: window.APX_POWER_RULES_REV || 1, tp, isLairAction: pcIsLairAction, isAwakened: pcIsAwakened || undefined,
             usageType: pcDraft.usageType, maxCharges: pcDraft.maxCharges, rechargeOn: pcDraft.rechargeOn
         });
         if (pcTarget === 'gm' && window.apxLibAdd) { try { window.apxLibAdd('power', getTargetPowers()[getTargetPowers().length - 1], { quiet: true }); } catch (e) { } }
@@ -1545,7 +1542,7 @@ window.savePowerAsNew = function() {
     window.state.powers.push({
         name, lvl: t.level, ap: t.ap, atk: summary.atk, rng: summary.rng, dmg: summary.dmg, desc: finalDesc,
         attr: pcDraft.coreAttr || pcDefaultAttr(), pool: pcDraft.pool || pcDefaultPool(),
-        draft: JSON.parse(JSON.stringify(pcDraft)), rulesRev: window.APX_POWER_RULES_REV || 1, wasFree: useFree || useChaFreeUpgrade, paidXP
+        draft: pcSavedDraft(), rulesRev: window.APX_POWER_RULES_REV || 1, wasFree: useFree || useChaFreeUpgrade, paidXP
     });
 
     window.closeModal('powerCrafterModal');

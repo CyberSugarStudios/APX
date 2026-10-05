@@ -315,3 +315,58 @@ window.apxToday = function (d) {
     }))).observe(document.body, { childList: true });
     if (document.body) watchNew(); else document.addEventListener('DOMContentLoaded', watchNew);
 })();
+
+// ── Tactician (INT perk) choices: shared by the player's sheet and the GM's "choose for them" ──
+// o: { rank: 1 | 5, who, order: [{ id, name, faction, surprised, me }] }
+// done({ a, b }) for Rank 1 (swap a and b), done({ ally }) for Rank 5, done(null) to pass.
+window.apxTacticianDialog = function (o, done) {
+    let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    if (window.apxInjectDialogStyles) window.apxInjectDialogStyles();
+    document.querySelectorAll('[data-apx-tactician]').forEach(n => n.remove());
+    let back = document.createElement('div');
+    back.className = 'apxdlg-back'; back.setAttribute('data-apx-tactician', o.rank);
+    let isAlly = r => r.faction === 'player' || r.faction === 'ally';
+    let facCol = { player: '#60a5fa', ally: '#4ade80', enemy: '#f87171', neutral: '#cbd5e1' };
+    let facLbl = { player: 'Player', ally: 'Ally', enemy: 'Enemy', neutral: 'Neutral' };
+    let row = (r, i, inputs) => `<div style="display:flex;align-items:center;gap:.5rem;padding:.3rem .45rem;border:1px solid var(--c-border,#334155);border-radius:.4rem;margin-bottom:.25rem;background:var(--c-surface2,#0f172a)">
+        <span style="width:1.3rem;text-align:right;font-size:.7rem;color:var(--c-text-dimmer,#94a3b8);font-weight:800">${i + 1}.</span>
+        <span style="flex:1;min-width:0;font-size:.78rem;font-weight:700;color:var(--c-text,#e2e8f0)">${esc(r.name)}${r.me ? ' <span style="font-size:.62rem;color:#a78bfa">(you)</span>' : ''}
+            <span style="font-size:.6rem;font-weight:800;color:${facCol[r.faction] || '#cbd5e1'};margin-left:.25rem">${facLbl[r.faction] || ''}</span>
+            ${r.surprised ? '<span style="font-size:.58rem;font-weight:800;color:#fbbf24;border:1px solid #b45309;border-radius:.25rem;padding:0 .25rem;margin-left:.25rem">Surprised</span>' : ''}</span>
+        ${inputs}</div>`;
+    let order = o.order || [];
+    let body;
+    if (o.rank === 5) {
+        let allies = order.filter(r => isAlly(r) && !r.me);
+        body = `<div class="apxdlg-title">Tactician: skip your turn?</div>
+            <div class="apxdlg-msg" style="margin-bottom:.6rem">Once this combat, you can skip your turn to give an ally a full turn right now. Afterward, initiative carries on from the creature after you.</div>
+            ${allies.length ? allies.map((r, i) => row(r, order.indexOf(r), `<input type="radio" name="apxTac5" value="${esc(r.id)}" ${i === 0 ? 'checked' : ''} aria-label="Give ${esc(r.name)} a turn">`)).join('')
+                : '<div class="apxdlg-msg">No allies to give a turn to.</div>'}
+            <div class="apxdlg-row" style="margin-top:.7rem"><button class="apxdlg-btn apxdlg-cancel" data-tac-pass>Keep my turn</button>
+                ${allies.length ? '<button class="apxdlg-btn apxdlg-ok" data-tac-ok>Give them my turn</button>' : ''}</div>`;
+    } else {
+        body = `<div class="apxdlg-title">Tactician: swap initiative places</div>
+            <div class="apxdlg-msg" style="margin-bottom:.6rem">${o.who ? esc(o.who) + ', c' : 'C'}hoose an ally and the creature they trade places with in the initiative order. The ally is no longer Surprised.</div>
+            <div style="display:flex;justify-content:flex-end;gap:.9rem;font-size:.6rem;font-weight:800;color:var(--c-text-dimmer,#94a3b8);padding:0 .55rem .15rem">
+                <span>Ally</span><span>Swap with</span></div>
+            ${order.map((r, i) => row(r, i, `<input type="radio" name="apxTacA" value="${esc(r.id)}" ${isAlly(r) ? '' : 'disabled'} aria-label="Ally: ${esc(r.name)}" style="margin-right:.85rem">
+                <input type="radio" name="apxTacB" value="${esc(r.id)}" aria-label="Swap with ${esc(r.name)}" style="margin-right:1.1rem">`)).join('')}
+            <div data-tac-err style="font-size:.7rem;color:#f87171;min-height:1rem;margin-top:.2rem"></div>
+            <div class="apxdlg-row" style="margin-top:.4rem"><button class="apxdlg-btn apxdlg-cancel" data-tac-pass>Don't swap</button>
+                <button class="apxdlg-btn apxdlg-ok" data-tac-ok>Swap</button></div>`;
+    }
+    back.innerHTML = `<div class="apxdlg" style="width:min(460px,100%);max-height:85vh;overflow:auto">${body}</div>`;
+    document.body.appendChild(back);
+    let finish = v => { back.remove(); try { done && done(v); } catch (e) { console.warn('Tactician:', e); } };
+    back.querySelector('[data-tac-pass]').onclick = () => finish(null);
+    let ok = back.querySelector('[data-tac-ok]');
+    if (ok) ok.onclick = () => {
+        if (o.rank === 5) { let r = back.querySelector('input[name="apxTac5"]:checked'); if (r) finish({ ally: r.value }); return; }
+        let a = back.querySelector('input[name="apxTacA"]:checked'), b = back.querySelector('input[name="apxTacB"]:checked');
+        let err = back.querySelector('[data-tac-err]');
+        if (!a || !b) { err.textContent = 'Pick an ally and who they swap with.'; return; }
+        if (a.value === b.value) { err.textContent = 'Pick two different creatures.'; return; }
+        finish({ a: a.value, b: b.value });
+    };
+    return back;
+};

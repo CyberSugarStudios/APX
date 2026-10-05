@@ -2163,6 +2163,7 @@ function _gmHandleRollEvent(uid, ev) {
         return;
     }
     // Grapple / Pin / Escape / Choke / let go, from a player's Actions list
+    if (ev.kind === 'tactician') { if (firstSeen) _gmTacAnswer(uid, ev); return; }
     if (ev.kind === 'grapple') { if (firstSeen && (ev.t || Date.now()) > Date.now() - 600000) _gmGrappleEvent(uid, ev); return; }
     // Summon a Creature: its creatures join next to the caster (in or out of combat)
     if (ev.kind === 'power' && ev.summon && firstSeen && (ev.t || Date.now()) > Date.now() - 600000) {
@@ -3053,6 +3054,7 @@ window.clearInitiative = function() {
         window.gmInitiative = [];
         window.gmCurrentTurnIdx = 0;
         window.gmCombatStarted = false;
+        window._gmExtraTurn = null; _gmTac = null; _gmTacWaitClose();
         window.gmRoundNumber = 1;
         window.gmTurnNumber = 1;
         window.gmPendingXp = 0;
@@ -3117,6 +3119,7 @@ window.endCombat = async function(force) {
         window.gmInitiative = [];
         window.gmCurrentTurnIdx = 0;
         window.gmCombatStarted = false;
+        window._gmExtraTurn = null;
         window.gmRoundNumber = 1;
         window.gmTurnNumber = 1;
         window.gmPendingXp = 0;
@@ -3130,21 +3133,168 @@ window.endCombat = async function(force) {
     }, true);
 };
 
+
+// ── Tactician (INT perk) ──────────────────────────────────────────────
+// Rank 1: when Start Combat is pressed, a Tactician player swaps an ally's initiative place with another
+// creature's (the ally is no longer Surprised). The GM waits for the choice (or chooses for them).
+// Rank 5: at the start of their turn (once per combat) they can skip it to give an ally a full turn now;
+// afterward initiative carries on from the creature after the Tactician.
+let _gmTac = null;   // { key, waiting: { entryId: { uid, name, status, order } }, swaps: [{ by, a, b }] }
+window._gmExtraTurn = null;   // { tacId, allyId } while an ally takes a Tactician's turn
+function _gmTacRank(e) {
+    if (!e || e.faction !== 'player' || !e.playerUid || e.companionOf || e.summonOf) return 0;
+    let pm = (window.gmParty || []).find(p => p.fileName === e.playerUid || p.summary?.playerUid === e.playerUid);
+    return parseInt((((pm && (pm.state || pm.charState)) || {}).perks || {}).int_tactician) || 0;
+}
+window._gmTacRank = _gmTacRank;
+function _gmTacFollower(e) { return !!(e && (e.companionOf || e.summonOf || e.summonOfEntry)); }
+function _gmTacAlly(e) { return !!e && (e.faction === 'player' || e.faction === 'ally'); }
+// What a Tactician player sees: the order by name (hidden creatures left out), side, and who's Surprised
+function _gmTacOrder(list, me) {
+    return list.filter(e => !_gmTacFollower(e) && !_gmIsHidden(e))
+        .map(e => ({ id: e.id, name: _gmPublicName(e), faction: e.faction || 'enemy', surprised: !!e.surprised, me: !!(me && e.id === me.id) }));
+}
+// Two creatures trade places, each with the companion and summons that act right after it
+function _gmTacSwap(aId, bId) {
+    let L = window.gmInitiative;
+    let rootOf = e => { let o = _gmCompanionOwner(e); return o && o !== e ? rootOf(o) : e; };
+    let block = id => { let i = L.findIndex(e => e.id === id); if (i < 0) return null; let j = i + 1; while (j < L.length && _gmTacFollower(L[j]) && rootOf(L[j]) === L[i]) j++; return [i, j]; };
+    let A = block(aId), B = block(bId);
+    if (!A || !B || A[0] === B[0]) return false;
+    if (A[0] > B[0]) { let t = A; A = B; B = t; }
+    window.gmInitiative = L.slice(0, A[0]).concat(L.slice(B[0], B[1]), L.slice(A[1], B[0]), L.slice(A[0], A[1]), L.slice(B[1]));
+    return true;
+}
+function _gmTacValid(pick) {
+    if (!pick) return false;
+    let a = window.gmInitiative.find(e => e.id === pick.a), b = window.gmInitiative.find(e => e.id === pick.b);
+    return !!(a && b && a !== b && _gmTacAlly(a) && !_gmTacFollower(a) && !_gmTacFollower(b));
+}
+function _gmTacStart() {
+    let L = window.gmInitiative.slice().sort(initiativeCompare);
+    let tacs = L.filter(e => _gmTacRank(e) >= 1);
+    if (!tacs.length) return false;
+    _gmTac = { key: 'tac' + Date.now().toString(36), waiting: {}, swaps: [] };
+    tacs.forEach(e => {
+        let order = _gmTacOrder(L, e);
+        _gmTac.waiting[e.id] = { uid: e.playerUid, name: e.name, status: 'wait', order };
+        gmLog({ id: _gmTac.key + '_' + e.id, force: true, kind: 'info',
+            text: `${e.name}: Tactician lets you swap an ally's place in the initiative order with another creature's before the fight begins.`,
+            ask: { uid: e.playerUid, roll: 'tactician', rank: 1, free: true, label: 'Choose your Tactician swap', key: _gmTac.key, entryId: e.id, order } });
+    });
+    _gmTacWaitUi();
+    return true;
+}
+function _gmTacWaitClose() { document.getElementById('gmTacWait')?.remove(); }
+function _gmTacWaitUi() {
+    if (!_gmTac) return _gmTacWaitClose();
+    if (window.apxInjectDialogStyles) window.apxInjectDialogStyles();
+    let back = document.getElementById('gmTacWait');
+    if (!back) { back = document.createElement('div'); back.id = 'gmTacWait'; back.className = 'apxdlg-back'; document.body.appendChild(back); }
+    let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    let rows = Object.keys(_gmTac.waiting).map(id => {
+        let w = _gmTac.waiting[id];
+        let st = w.status === 'wait' ? '<span style="color:#fbbf24">Waiting…</span>' : w.status === 'done' ? '<span style="color:#4ade80">Swapped</span>' : '<span style="color:#94a3b8">No swap</span>';
+        return `<div style="display:flex;align-items:center;gap:.5rem;border:1px solid var(--c-border,#334155);border-radius:.45rem;padding:.4rem .55rem;margin-bottom:.3rem;background:var(--c-surface2,#0f172a)">
+            <span style="flex:1;font-weight:800;font-size:.8rem">${esc(w.name)}</span><span style="font-size:.7rem;font-weight:800">${st}</span>
+            ${w.status === 'wait' ? `<button class="apxdlg-btn apxdlg-cancel" style="padding:.25rem .6rem;font-size:.68rem" data-tac-for="${esc(id)}">Choose for them</button>` : ''}</div>`;
+    }).join('');
+    back.innerHTML = `<div class="apxdlg" style="width:min(440px,100%)">
+        <div class="apxdlg-title">Waiting on Tactician choice</div>
+        <div class="apxdlg-msg" style="margin-bottom:.6rem">Tactician (Rank 1) lets these players swap an ally's place in the initiative order with another creature's before the fight begins. Combat starts once they've chosen.</div>
+        ${rows}
+        <div class="apxdlg-row" style="margin-top:.7rem"><button class="apxdlg-btn apxdlg-cancel" data-tac-cancel>Cancel</button><button class="apxdlg-btn apxdlg-ok" data-tac-go>Start without waiting</button></div></div>`;
+    back.querySelectorAll('[data-tac-for]').forEach(b => b.onclick = () => {
+        let id = b.dataset.tacFor, w = _gmTac && _gmTac.waiting[id]; if (!w) return;
+        window.apxTacticianDialog({ rank: 1, who: w.name, order: w.order }, v => { if (_gmTac && _gmTac.waiting[id] && _gmTac.waiting[id].status === 'wait') _gmTacResolve(id, v); });
+    });
+    back.querySelector('[data-tac-cancel]').onclick = () => { _gmTac = null; _gmTacWaitClose(); };
+    back.querySelector('[data-tac-go]').onclick = () => { _gmTacWaitClose(); window.startCombat(true); };
+}
+function _gmTacResolve(entryId, pick) {
+    if (!_gmTac || !_gmTac.waiting[entryId]) return;
+    let ok = pick && _gmTacValid(pick);
+    _gmTac.waiting[entryId].status = ok ? 'done' : 'pass';
+    if (ok) _gmTac.swaps.push({ by: entryId, a: pick.a, b: pick.b });
+    if (Object.values(_gmTac.waiting).every(x => x.status !== 'wait')) { _gmTacWaitClose(); window.startCombat(true); }
+    else _gmTacWaitUi();
+}
+// Applied right after Start Combat locks the order
+function _gmTacApply(swaps) {
+    (swaps || []).forEach(s => {
+        if (!_gmTacValid(s)) return;
+        let by = window.gmInitiative.find(e => e.id === s.by), a = window.gmInitiative.find(e => e.id === s.a), b = window.gmInitiative.find(e => e.id === s.b);
+        if (!_gmTacSwap(s.a, s.b)) return;
+        let freed = [a, b].filter(x => _gmTacAlly(x) && x.surprised);
+        freed.forEach(x => { x.surprised = false; });
+        let tail = freed.length ? ` ${freed.map(_gmPublicName).join(' and ')} ${freed.length > 1 ? 'are' : 'is'} no longer Surprised.` : '';
+        let tailGm = freed.length ? ` ${freed.map(_gmGmName).join(' and ')} ${freed.length > 1 ? 'are' : 'is'} no longer Surprised.` : '';
+        gmLog({ text: `${by ? by.name : 'A Tactician'} (Tactician) swaps ${_gmPublicName(a)} and ${_gmPublicName(b)} in the initiative order.${tail}`,
+            gmText: `${by ? by.name : 'A Tactician'} (Tactician) swaps ${_gmGmName(a)} and ${_gmGmName(b)} in the initiative order.${tailGm}`, kind: 'info' });
+    });
+}
+// Rank 5: offered at the start of the Tactician's turn, once per combat
+function _gmTac5Offer(e) {
+    if (!window.gmCombatStarted || !e || _gmTacRank(e) < 5 || e._tac5Used || window._gmExtraTurn) return;
+    let allies = window.gmInitiative.filter(x => x !== e && _gmTacAlly(x) && !_gmTacFollower(x) && !_gmIsHidden(x));
+    if (!allies.length) return;
+    let key = 'tac5_' + e.id + '_' + window.gmTurnNumber;
+    gmLog({ id: key, kind: 'info', text: `${e.name}: Tactician lets you skip this turn to give an ally a full turn right now (once per combat).`,
+        ask: { uid: e.playerUid, roll: 'tactician', rank: 5, free: true, label: 'Tactician: give an ally your turn?', key, entryId: e.id, turnNo: window.gmTurnNumber, order: _gmTacOrder(window.gmInitiative, e) } });
+    gmLog({ id: key + '_gm', gmOnly: true, kind: 'info', text: `${e.name} can skip this turn for an ally's (Tactician). Their turn carries on as normal unless they choose to.` });
+}
+window._gmTac5Give = function(entryId, allyId) {
+    let e = window.gmInitiative.find(x => x.id === entryId), ally = window.gmInitiative.find(x => x.id === allyId);
+    if (!e || !ally || e === ally || !_gmTacAlly(ally) || _gmTacFollower(ally) || e._tac5Used) return false;
+    if (window.gmInitiative[window.gmCurrentTurnIdx] !== e) return false;   // only on the Tactician's own turn
+    e._tac5Used = true;
+    try { _gmExpireCondTimers(e); _gmPfxTurnEnd(e); } catch (err) { console.warn('Tactician turn end:', err); }
+    window._gmExtraTurn = { tacId: e.id, allyId: ally.id };
+    window.gmCurrentTurnIdx = window.gmInitiative.indexOf(ally);
+    window.gmTurnNumber++;
+    gmStartTurnAp(ally); _gmBurnTick(ally);
+    gmLog({ text: `${_gmPublicName(e)} skips their turn (Tactician): ${_gmPublicName(ally)} takes a full turn now. Then it's back to the creature after ${_gmPublicName(e)}.`,
+        gmText: `${_gmGmName(e)} skips their turn (Tactician): ${_gmGmName(ally)} takes a full turn now. Next Turn then goes to whoever comes after ${_gmGmName(e)}.`, kind: 'info' });
+    window.renderInitiativeTracker();
+    if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
+    if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
+    return true;
+};
+// A Tactician player's answer (from their sheet)
+function _gmTacAnswer(uid, ev) {
+    let e = window.gmInitiative.find(x => x.id === ev.entryId);
+    if (!e || e.playerUid !== uid) return;
+    if (ev.rank === 5) {
+        if (ev.pass || !ev.ally) { gmLog({ gmOnly: true, kind: 'info', text: `${e.name} keeps their turn (Tactician).` }); return; }
+        if (window.gmTurnNumber !== ev.turnNo) return;   // their turn has already passed
+        window._gmTac5Give(e.id, ev.ally);
+        return;
+    }
+    if (!_gmTac || ev.key !== _gmTac.key || !_gmTac.waiting[e.id] || _gmTac.waiting[e.id].status !== 'wait') return;
+    _gmTacResolve(e.id, ev.pass ? null : { a: ev.a, b: ev.b });
+}
+
 // Locks the current order in (one final stable sort, so any manual tie
 // breaks the GM already made are preserved) and starts Round 1, Turn 1.
 // After this, new arrivals join at the bottom instead of auto-sorting in.
-window.startCombat = function() {
+// A Tactician (Rank 1) in the fight is asked first (skipTac: already asked).
+window.startCombat = function(skipTac) {
+    if (skipTac !== true && _gmTacStart()) return;
+    let swaps = _gmTac ? _gmTac.swaps : [];
+    _gmTac = null; _gmTacWaitClose();
     window.gmInitiative.sort(initiativeCompare);
     window.gmCombatStarted = true;
     window.gmCurrentTurnIdx = 0;
     window.gmRoundNumber = 1;
     window.gmTurnNumber = 1;
-    window.gmInitiative.forEach(x => { x.apCur = 0; x._apTurns = 0; x._apFirstSurprised = false; });
+    window._gmExtraTurn = null;
+    window.gmInitiative.forEach(x => { x.apCur = 0; x._apTurns = 0; x._apFirstSurprised = false; x._tac5Used = false; });
     window.gmCombatLog = []; window._gmPendingSaves = {}; window._gmResolvedSaves = {};
     _gmSetLootDefeated(0); window.renderGmLoot && window.renderGmLoot();   // counts the enemies of this fight
     _gmLogSession = 'c' + Date.now().toString(36);
     gmLog({ text: 'Combat started. Round 1.', kind: 'info' });
-    if (window.gmInitiative[0]) { gmStartTurnAp(window.gmInitiative[0]); _gmBurnTick(window.gmInitiative[0]); }
+    _gmTacApply(swaps);
+    if (window.gmInitiative[0]) { gmStartTurnAp(window.gmInitiative[0]); _gmBurnTick(window.gmInitiative[0]); _gmTac5Offer(window.gmInitiative[0]); }
     window.renderInitiativeTracker();
     if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
     if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
@@ -3159,6 +3309,12 @@ window.nextInitiativeTurn = function() {
         if (!window.gmInitiative.length) { window.renderInitiativeTracker(); return; }
         window.gmCurrentTurnIdx = endIdx - 1;   // it was removed: the turn goes to whoever came after it
     } else { _gmExpireCondTimers(ending); try { _gmPfxTurnEnd(ending); } catch (e) { console.warn('Escape Saves:', e); } }
+    // An ally's Tactician turn just ended: initiative carries on from the creature after the Tactician
+    if (window._gmExtraTurn) {
+        let x = window._gmExtraTurn; window._gmExtraTurn = null;
+        let ti = window.gmInitiative.findIndex(q => q.id === x.tacId);
+        if (ti >= 0) window.gmCurrentTurnIdx = ti;
+    }
     window.gmCurrentTurnIdx++;
     if (window.gmCurrentTurnIdx >= window.gmInitiative.length) {
         window.gmCurrentTurnIdx = 0;
@@ -3169,6 +3325,7 @@ window.nextInitiativeTurn = function() {
     let current = window.gmInitiative[window.gmCurrentTurnIdx];
     if (current) gmStartTurnAp(current);
     if (current) _gmBurnTick(current);
+    if (current) _gmTac5Offer(current);
     if (current && current.undeadDown) _gmUndeadRevive(current);
     if (current && current.bleedOutTurns > 0) {
         current.bleedOutTurns--;
@@ -3182,6 +3339,7 @@ window.nextInitiativeTurn = function() {
 
 window.prevInitiativeTurn = function() {
     if (!window.gmInitiative.length) return;
+    window._gmExtraTurn = null;
     window.gmCurrentTurnIdx--;
     if (window.gmCurrentTurnIdx < 0) {
         window.gmCurrentTurnIdx = window.gmInitiative.length - 1;

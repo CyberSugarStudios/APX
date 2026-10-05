@@ -30,10 +30,11 @@ function getBlankConsumableDraft() {
 window.ccCalcXP = function(draft) {
     let step1Def = POWER_STEP1.find(s => s.key === draft.step1);
     let step2Def = POWER_STEP2_RANGE.find(s => s.key === draft.step2);
-    let aoeDef = POWER_STEP3_AOE.find(s => s.key === draft.aoe);
+    let aoeDef = window.apxPowerAoe(draft);
 
     let step1Cost = step1Def.cost;
     let step2Cost = step2Def.cost;
+    let step3Cost = aoeDef.cost;   // the AoE shape's own XP
 
     let totalDiceCount = POWER_DIE_STEPS.reduce((s, step) => s + (draft.dmg[step] || 0), 0);
     let perDieCost = POWER_DIE_STEPS.reduce((s, step) => s + POWER_DIE_COSTS[step] * (draft.dmg[step] || 0), 0);
@@ -67,7 +68,7 @@ window.ccCalcXP = function(draft) {
     if (draft.refunds.sacrifice) step7Cost -= 20;
     if (draft.refunds.costly) step7Cost += draft.refunds.costly;
 
-    let total = Math.max(0, step1Cost + step2Cost + step4Cost + step5Cost + step6Cost + step7Cost);
+    let total = Math.max(0, step1Cost + step2Cost + step3Cost + step4Cost + step5Cost + step6Cost + step7Cost);
 
     let firstChargeCost = total * 25;
     let perAdditionalCharge = Math.floor(firstChargeCost / 2);
@@ -76,7 +77,7 @@ window.ccCalcXP = function(draft) {
     let weight = total; // 1 lb per XP spent (RAW doesn't scale this by charge count)
 
     return {
-        step1Cost, step2Cost, step4Cost, step5Cost, step6Cost, step7Cost, total,
+        step1Cost, step2Cost, step3Cost, step4Cost, step5Cost, step6Cost, step7Cost, total,
         totalDiceCount, overCap: total > ccMaxXp(), maxXp: ccMaxXp(), firstChargeCost, perAdditionalCharge, charges, totalCost, weight, ap: 3
     };
 };
@@ -196,7 +197,9 @@ window.jumpToCcStep = function(n) {
 // ------------------------------------------------------------------
 window.ccSetStep1 = function(val) { ccDraft.step1 = val; ccRenderAll(); };
 window.ccSetStep2 = function(val) { ccDraft.step2 = val; ccRenderAll(); };
-window.ccSetAoe = function(val) { ccDraft.aoe = val; ccRenderAll(); };
+window.ccSetAoe = function(val) { window.apxAoeMutate(ccDraft, 'aoe', val); ccRenderAll(); };
+window.ccSetAoeShape = function(val) { window.apxAoeMutate(ccDraft, 'shape', val); ccRenderAll(); };
+window.ccAoeSize = function(d, val) { window.apxAoeMutate(ccDraft, val != null ? 'size' : 'step', val != null ? val : d); ccRenderAll(); };
 window.ccSetDie = function(step, delta) {
     let cur = ccDraft.dmg[step] || 0;
     let next = Math.max(0, Math.min(12, cur + delta));
@@ -302,12 +305,8 @@ function ccRenderStep2() {
     `).join('');
 }
 function ccRenderStep3() {
-    document.getElementById('ccStep3Options').innerHTML = POWER_STEP3_AOE.map(s => `
-        <label class="flex items-start gap-2 bg-slate-900 border ${ccDraft.aoe === s.key ? 'border-purple-500' : 'border-slate-700'} rounded p-2 cursor-pointer">
-            <input type="radio" name="ccAoe" class="mt-1" ${ccDraft.aoe === s.key ? 'checked' : ''} onchange="window.ccSetAoe('${s.key}')">
-            <div><div class="text-xs font-bold text-slate-200">${s.label} <span class="text-yellow-500">[x${s.mult}]</span></div><div class="text-[10px] text-slate-500 leading-tight">${s.desc}</div></div>
-        </label>
-    `).join('');
+    let t = window.ccCalcXP(ccDraft);
+    document.getElementById('ccStep3Options').innerHTML = window.apxStep3Html(ccDraft, { pre: 'cc', total: `Consumable total: ${t.total} XP` });
 }
 function ccRenderStep4() {
     let t = window.ccCalcXP(ccDraft);
@@ -437,7 +436,7 @@ function ccRenderStep7() {
     document.getElementById('ccStep7Refunds').innerHTML = minorRestrictionRow + checkboxRows + costlyRow;
 
     let t = window.ccCalcXP(ccDraft);
-    document.getElementById('ccStep7Reference').innerHTML = `A/S: ${POWER_STEP1.find(s=>s.key===ccDraft.step1).label} | R/A: ${POWER_STEP2_RANGE.find(s=>s.key===ccDraft.step2).label}${ccDraft.aoe!=='single' ? ' / ' + POWER_STEP3_AOE.find(s=>s.key===ccDraft.aoe).label : ''} | Duration: ${POWER_DURATION.find(d=>d.key===ccDraft.duration).label}`;
+    document.getElementById('ccStep7Reference').innerHTML = `A/S: ${POWER_STEP1.find(s=>s.key===ccDraft.step1).label} | R/A: ${POWER_STEP2_RANGE.find(s=>s.key===ccDraft.step2).label}${window.apxPowerAoe(ccDraft).key!=='single' ? ' / ' + window.apxPowerAoe(ccDraft).label : ''} | Duration: ${POWER_DURATION.find(d=>d.key===ccDraft.duration).label}`;
     let ta = document.getElementById('ccFlavorText');
     if (ta && ta.value !== ccDraft.flavorText) ta.value = ccDraft.flavorText;
     document.getElementById('ccChargesInput').value = ccDraft.charges;
@@ -475,7 +474,7 @@ function ccBuildTextSummary(draftOverride) {
     let t = window.ccCalcXP(d);
     let step1Def = POWER_STEP1.find(s => s.key === d.step1);
     let step2Def = POWER_STEP2_RANGE.find(s => s.key === d.step2);
-    let aoeDef = POWER_STEP3_AOE.find(s => s.key === d.aoe);
+    let aoeDef = window.apxPowerAoe(d);
 
     let atk = step1Def.label;
     let sA = (window.APX_SAVE_ATTRS || []).includes(d.saveAttr) ? d.saveAttr + ' ' : '';
@@ -526,7 +525,7 @@ window.ccBuildTextSummary = ccBuildTextSummary;
 window.ccDetailLines = function(draft) {
     let step1Def = POWER_STEP1.find(s => s.key === draft.step1);
     let step2Def = POWER_STEP2_RANGE.find(s => s.key === draft.step2);
-    let aoeDef = POWER_STEP3_AOE.find(s => s.key === draft.aoe);
+    let aoeDef = window.apxPowerAoe(draft);
     let durationDef = POWER_DURATION.find(d => d.key === draft.duration);
     let t = window.ccCalcXP(draft);
 

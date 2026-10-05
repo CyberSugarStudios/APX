@@ -1030,11 +1030,11 @@ window.renderGmNpcList = function() {
             : '';
         return `
             <div class="flex items-start justify-between bg-slate-900 border border-slate-700 rounded p-2">
-                <div>
+                <div class="flex items-start gap-2">${entry.npc.tokenImg ? `<img src="${entry.npc.tokenImg}" alt="" data-sb-token title="Token image" style="width:30px;height:30px;border-radius:50%;object-fit:cover;border:2px solid #7c3aed;flex-shrink:0">` : ''}<div>
                     <div class="text-sm font-bold text-purple-300">${entry.npc.name || 'Unnamed NPC'}</div>
                     <div class="text-[10px] text-slate-500">Tier ${tierInfo.tier} &middot; ${entry.npc.gmTpBudget || 0} TP budget</div>
                     ${tagBadges ? `<div class="flex flex-wrap gap-1 mt-1">${tagBadges}</div>` : ''}
-                </div>
+                </div></div>
                 <div class="flex gap-1 flex-wrap justify-end">
                     <button onclick="window.openStatBlockWorldTags('${entry.id}')" class="text-[10px] text-amber-400 hover:text-amber-300 font-bold px-2 py-1 border border-amber-800/40 rounded" title="Assign to Worlds">World</button>
                     <button onclick="window.openGmNpcBuilder('${entry.id}')" class="text-[10px] text-purple-400 hover:text-purple-300 font-bold px-2 py-1">Edit</button>
@@ -1465,8 +1465,34 @@ window.refreshOpenStatBlocks = function() {
 
 // Companion token picture: uploaded through the same zoom-circle cropper as the character
 // portrait. The circle is the token (battle maps, Party tab); the full image opens in the viewer.
+// A stat block's token image (GM NPCs, summoned creatures): the default token for every creature
+// built from it. A named NPC's own picture replaces it on that NPC's token.
+function ncShrinkImg(src, side) {
+    return new Promise(res => {
+        let im = new Image();
+        im.onload = () => { try { let cv = document.createElement('canvas'); cv.width = cv.height = side; let x = cv.getContext('2d'); x.fillStyle = '#0f172a'; x.fillRect(0, 0, side, side);
+            let s = Math.max(side / im.naturalWidth, side / im.naturalHeight); x.drawImage(im, (side - im.naturalWidth * s) / 2, (side - im.naturalHeight * s) / 2, im.naturalWidth * s, im.naturalHeight * s);
+            res(cv.toDataURL('image/jpeg', 0.85)); } catch (e) { res(src); } };
+        im.onerror = () => res(src); im.src = src;
+    });
+}
+window.ncSetTokenImg = function(input) {
+    let c = ncActiveCompanion(); if (!c) return;
+    if (!input) { delete c.tokenImg; ncRenderAll(); return; }
+    let file = input.files && input.files[0]; input.value = '';
+    if (!file) return;
+    let keep = async circle => { let cc = ncActiveCompanion(); if (!cc) return; cc.tokenImg = await ncShrinkImg(circle, 128); ncRenderAll(); };
+    let reader = new FileReader();
+    reader.onload = ev => {
+        if (typeof window._npcCropUI === 'function') window._npcCropUI(ev.target.result, null, keep);
+        else if (typeof window._cpfShowCropUI === 'function') window._cpfShowCropUI(ev.target.result, { title: 'Adjust Token Image', saveLabel: 'Save Token', onSave: circle => keep(circle) });
+        else keep(ev.target.result);
+    };
+    reader.readAsDataURL(file);
+};
 window.ncSetPortrait = async function(input) {
     let c = ncActiveCompanion(); if (!c) return;
+    if (ncTarget === 'gm' || ncTarget === 'summon') return window.ncSetTokenImg(input);
     let done = () => { ncRenderAll(); if (typeof window.recalculateMath === 'function') window.recalculateMath(); };   // saves, so the GM and party see it
     if (!input) { delete c.portrait; delete c.portraitFull; done(); return; }
     let file = input.files && input.files[0]; input.value = '';
@@ -2101,8 +2127,15 @@ function ncRenderSummary() {
             row.className = 'flex items-center gap-2 mt-2';
             nameEl.parentNode.appendChild(row);
         }
-        if (row) {
-            row.style.display = ncTarget === 'gm' ? 'none' : 'flex';
+        if (row && (ncTarget === 'gm' || ncTarget === 'summon')) {
+            row.style.display = 'flex';
+            let pic = c.tokenImg ? `<img src="${c.tokenImg}" alt="" data-nc-tokenimg style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid #7c3aed">`
+                : `<div style="width:40px;height:40px;border-radius:50%;background:#3b0764;border:2px solid #7c3aed;display:flex;align-items:center;justify-content:center;font-weight:900;color:#e9d5ff">${String(c.name || '?')[0].toUpperCase()}</div>`;
+            row.innerHTML = `${pic}<label class="text-[10px] font-bold px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white cursor-pointer">Token Image<input type="file" accept="image/*" class="hidden" data-nc-tokeninput onchange="window.ncSetTokenImg(this)"></label>
+                ${c.tokenImg ? `<button type="button" onclick="window.ncSetTokenImg(null)" class="text-[10px] text-red-400 hover:text-red-300 font-bold">Remove</button>` : ''}
+                <span class="text-[10px] text-slate-500 leading-tight">${ncTarget === 'gm' ? 'The default token for every creature built from this stat block. A named NPC\'s own picture replaces it on their token.' : 'This creature\'s token on the battle map.'}</span>`;
+        } else if (row) {
+            row.style.display = 'flex';
             let pic = c.portrait ? `<img src="${c.portrait}" alt="" onclick="window.ncViewPortrait()" title="View the full image" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid #16a34a;cursor:zoom-in">`
                 : `<div style="width:40px;height:40px;border-radius:50%;background:#14532d;border:2px solid #16a34a;display:flex;align-items:center;justify-content:center;font-weight:900;color:#bbf7d0">${String(c.name || '?')[0].toUpperCase()}</div>`;
             row.innerHTML = `${pic}<label class="text-[10px] font-bold px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white cursor-pointer">Token Image<input type="file" accept="image/*" class="hidden" onchange="window.ncSetPortrait(this)"></label>

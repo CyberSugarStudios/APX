@@ -41,6 +41,11 @@
             { id: 'reaction', test: d => d.apMod === 'ap1' && !!d.apReaction, text: 'Step 7 changed: Reaction is now its own AP option for 15 XP (was 35), with a set condition for when it\'s used. Rebuild it to name its trigger and get the difference back, or keep it as it is.' },
             { id: 'lengthy', test: d => d.apMod === 'lengthy', text: 'Step 7 changed: Lengthy Cast Time now comes in lengths from 1 Minute (-15 XP, the same as before) to 24 Hours (-60 XP). Rebuild it to choose a length, or keep it as it is.' }
         ],
+        // Step 3 Targeting reworked: AoE is x3 plus a shape crafted to an exact size
+        // (Line 0.5 XP per square, Cone 3 XP per square of length, Burst 10 XP per square of radius)
+        5: [
+            { id: 'aoeShape', test: d => ['small', 'medium', 'large', 'massive'].includes(d.aoe), text: 'Step 3 (Targeting) changed: areas are no longer fixed sizes. An AoE is now x3, plus its shape crafted to an exact size: Line 0.5 XP per square, Cone 3 XP per square of length, Burst 10 XP per square of radius. Rebuild it to choose its shape and size.' }
+        ],
         // Saving throws name their Core Attribute; lasting effects get an Escape Save the target can pass
         3: ['save', 'cond', 'escape', 'actionInt'].map(k => ({
             id: 'powerSaves_' + k,
@@ -403,7 +408,7 @@
         rbShownFor = key;
         window.apxRebuildList({
             id: 'sheet', title: 'Powers to rebuild',
-            intro: `The Power Crafting rules changed in ways that affect ${s.name || 'this character'}'s powers. Rebuild each one in the Power Crafter: it's free, and nothing is lost in the meantime. A power listed only for the Step 7 AP changes (1 AP, Reaction, Lengthy Cast Time) is yours to rebuild or keep: rebuilding refunds any XP it now costs less.`,
+            intro: `The Power Crafting rules changed in ways that affect ${s.name || 'this character'}'s powers. Rebuild each one in the Power Crafter: it's free, and nothing is lost in the meantime. Area powers need rebuilding because Step 3 (Targeting) now crafts each area's shape and size exactly. A power listed only for the Step 7 AP changes (1 AP, Reaction, Lengthy Cast Time) is yours to rebuild or keep: rebuilding refunds any XP it now costs less.`,
             busy: ['powerCrafterModal', 'npcCrafterModal'],
             doneText: 'All your powers are rebuilt.',
             rows: () => {
@@ -447,7 +452,7 @@
         rbGmShown[wk] = true;
         window.apxRebuildList({
             id: 'gm', title: 'NPCs to rebuild',
-            intro: `The Power Crafting rules changed (saving throws name a Core Attribute, lasting effects give their target an Escape Save, and Step 7's AP options were reworked). These NPCs${w && w.name ? ' in ' + w.name : ''} have powers to rebuild. Rebuild opens each NPC and walks you through its powers; finished NPCs drop off this list. Powers listed only for the Step 7 changes can be kept as they are.`,
+            intro: `The Power Crafting rules changed (saving throws name a Core Attribute, lasting effects give their target an Escape Save, Step 3 crafts each area's exact shape and size, and Step 7's AP options were reworked). These NPCs${w && w.name ? ' in ' + w.name : ''} have powers to rebuild. Rebuild opens each NPC and walks you through its powers; finished NPCs drop off this list. Powers listed only for the Step 7 changes can be kept as they are.`,
             busy: ['powerCrafterModal', 'npcCrafterModal'],
             doneText: 'Every NPC is rebuilt.',
             rows
