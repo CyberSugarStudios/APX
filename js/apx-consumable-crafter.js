@@ -563,10 +563,10 @@ window.ccDetailLines = function(draft) {
 
     let si = window.apxPowerSaveInfo ? window.apxPowerSaveInfo(draft) : null;
     return [
-        { label: 'Targeting', value: step1Def.label + (si && si.saveKind && si.saveAttr ? ` (${si.saveAttr} save)` : '') },
+        { label: 'Delivery', value: step1Def.label + (si && si.saveKind && si.saveAttr ? ` (${si.saveAttr} save)` : '') },
         ...(si && si.lasting && si.escapeAttr ? [{ label: 'Escape Save', value: `${si.escapeAttr}, at the end of each of the target's turns` }] : []),
         { label: 'Range', value: step2Def.label },
-        { label: 'Area of Effect', value: aoeDef.label },
+        { label: 'Targeting', value: aoeDef.label },
         { label: 'Damage/Healing', value: dmgLine },
         { label: 'Utility', value: utilityLines.length ? utilityLines.join(', ') : 'None' },
         { label: 'Duration', value: durationLine },

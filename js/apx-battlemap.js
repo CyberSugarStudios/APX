@@ -1114,8 +1114,12 @@
                 cells.push({ gx, gy });
                 continue;
             }
-            let nn = _nearest(fa, { x0: gx, x1: gx, y0: gy, y1: gy });
-            if (squaresBetween(gx - nn.gx, gy - nn.gy) > L) continue;
+            // Burst: a square is in it when at least half of it lies inside the circle as drawn
+            // (centered on the creature, reaching L squares past its edge)
+            let R = L + (fa.x1 - fa.x0 + 1) / 2, N = 12, inN = 0;
+            for (let i = 0; i < N; i++) for (let j = 0; j < N; j++)
+                if (Math.hypot(gx + (i + 0.5) / N - cx, gy + (j + 0.5) / N - cy) <= R) inN++;
+            if (inN * 2 < N * N) continue;
             cells.push({ gx, gy });
         }
         return { cells, L, cx, cy, ang: Math.atan2(dy, dx) };

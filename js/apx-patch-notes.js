@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.4.1130',
-        released: '2026-10-04T11:30:00',
-        releasedText: 'October 4, 2026 · 11:30 AM',
+        version: 'v2026.10.5.1000',
+        released: '2026-10-05T10:00:00',
+        releasedText: 'October 5, 2026 · 10:00 AM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs with loot of their own, apart from their stat blocks, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -52,7 +52,7 @@
                 'A new character starts in the world you choose, or in none, and a character with no world sees only Join World, never another world\'s maps, notes or fog.',
                 'Leaving a world takes one step: delete the character, move it out of the world folder, or press × on the world folder. You come off the GM\'s player list, and your character stays yours.',
                 'Powers roll like weapons, powers from equipped magic items join your list without using a Power Slot, and a power can be built as a Reaction with a trigger of its own.',
-                'Power Crafter Step 7 is reworked: each AP below 4 costs 10 XP and each AP over 4 refunds 5 XP, or make it a Reaction (15 XP, with a set trigger) or give it a Lengthy Cast Time from 1 Minute (-15 XP) to 24 Hours (-60 XP). Step 4 can let you choose the damage type each time you use the power (+10 XP; both types with a second one).',
+                'Power Crafter Step 7 is reworked: set the AP cost with − and + (each AP below 4 costs 10 XP, each AP over 4 refunds 5 XP, up to your own AP), or make it a Reaction (15 XP, with a set trigger) or pick a Lengthy Cast Time from 1 Minute (-15 XP) to 24 Hours (-60 XP). Steps 1 and 3 are now called Delivery and Targeting, and every power costs at least 5 XP. Step 4 can let you choose the damage type each time you use the power (+10 XP; both types with a second one).',
                 'Powers show the real number from their Core Attribute instead of "+Attr", and the Consumable Crafter follows the Power Crafter\'s save rules, with Artisan raising its XP limit by 5 per rank.',
                 'Luck and Looting, trading, Omen dice you can pass on, and Loyal Companions with their own AP, turns and an HP box that takes damage just like yours.',
                 'Luck Points have − and + buttons, clicking your Rest Dice spends one to heal, and four-armed characters get extra arms, hands and a shield in every Off Hand.',
@@ -92,7 +92,8 @@
                 'Damage Interrupt: taking damage calls for the Escape Save (an effect with none just ends). Action Interrupt: the power ends when the target attacks or uses a harmful power or ability, and a target that can spend AP can spend 3 AP to repeat its Escape Save; it can\'t be taken with Stunned, Paralyzed or Unconscious. Guaranteed Hit still allows Escape Saves.',
                 'Teleportation does not provoke Attacks of Opportunity.',
                 'Step 4: for 10 more XP, a power\'s damage type is chosen each time it\'s used (with a second damage type, both are).',
-                'Step 7: each AP below 4 costs 10 XP (1 AP is 30 XP), each AP over 4 refunds 5 XP, or choose Reaction (15 XP, with a specific trigger that can\'t change without making a new power) or a Lengthy Cast Time: 1 Minute (-15 XP), 10 Minutes (-20), 1 Hour (-30), 8 Hours (-40), 12 Hours (-50) or 24 Hours (-60). A distraction while casting calls for a CON save (DC 10 or more) as if Concentrating, or the power must start over.',
+                'Step 7: each AP below 4 costs 10 XP (1 AP is 30 XP), each AP over 4 refunds 5 XP (up to the caster\'s own AP), or choose Reaction (15 XP, with a specific trigger that can\'t change without making a new power) or a Lengthy Cast Time: 1 Minute (-15 XP), 10 Minutes (-20), 1 Hour (-30), 8 Hours (-40), 12 Hours (-50) or 24 Hours (-60). A distraction while casting calls for a CON save (DC 10 or more) as if Concentrating, or the power must start over.',
+                'Power Crafter Step 1 is now called Delivery and Step 3 Targeting. Every power costs at least 5 XP.',
                 'Artisan raises the most XP you can spend crafting a Consumable by 5 for each rank.'
             ]],
             ['Also', [
@@ -155,7 +156,8 @@
                 'Attack powers roll the d20 and their damage together, doubling the damage dice on a crit. Save powers roll their effect, show your DC and let your GM know. Powers without a roll show their description.',
                 'In the Power Crafter, Attack Roll / Save Negates powers choose one or the other. An Attack Roll power is a Power Attack or a Martial Improvement riding on one of your weapons, and you can switch weapons on the power\'s card.',
                 'Reaction (Power Crafter Step 7, 15 XP): the power is used as your Reaction instead of AP, with a trigger you write when you craft it ("When an ally within 3 squares is hit"). The trigger shows on the power.',
-                'Step 7 costs: 3 AP 10 XP, 2 AP 20 XP, 1 AP 30 XP; 5 AP refunds 5 XP, 6 AP 10 XP, up to 8 AP. Lengthy Cast Time comes in six lengths, from 1 Minute (-15 XP) to 24 Hours (-60 XP), and shows its casting time on the power.',
+                'Step 7 sets the AP cost with − and +: 3 AP 10 XP, 2 AP 20 XP, 1 AP 30 XP; 5 AP refunds 5 XP, 6 AP 10 XP, and so on up to your own AP. Lengthy Cast Time is a dropdown of six lengths, from 1 Minute (-15 XP) to 24 Hours (-60 XP), and shows its casting time on the power.',
+                'Power Crafter Step 1 is now called Delivery and Step 3 Targeting, in the Power and Consumable Crafters alike. Every power costs at least 5 XP.',
                 'Choose the damage type when you use it (Step 4, +10 XP): using the power asks which type (both types, for a power with a second one), and that\'s the type it deals. Your companion\'s powers ask whoever uses them.',
                 'Powers built with 1 AP, the old 1 AP / Reaction option or a Lengthy Cast Time show in the Powers to rebuild list. Rebuilding is optional: it refunds any XP the power now costs less (a Reaction gets 20 back), and anything else keeps its cost.',
                 'Damage that adds your Power Attribute shows the number ("2d6 Fire +3") instead of "+Attr", and rolls it too.',
@@ -285,7 +287,7 @@
                 'Double-click any popup window\'s title bar to minimize it to a tab in the bottom-left corner. The tab is named after what\'s in the window: the map\'s name, the Area Circle\'s or marker\'s name ("Area B" until it has one), the NPC, place or session, never the title bar\'s buttons.',
                 'The Measure buttons and tip sit below a map window\'s own controls instead of behind them.',
                 'A minimized map comes back with its map, tokens and pins intact.',
-                'Cones mark every square at least a quarter inside the cone as drawn, so the highlighted squares match the outline at every length and angle.',
+                'Cones mark every square at least a quarter inside the cone as drawn, and Bursts every square at least half inside the circle, so the highlighted squares match the outline at every size and angle.',
                 'Knocked-out creatures turn grey with three snoring Z\'s rising from them.',
                 'Swarms can share your square; one under another creature shows as a small handle beside it (hover for its name and conditions). Token borders scale with size, so small tokens stay readable on their turn.'
             ]],
@@ -403,7 +405,8 @@
             ]],
             ['NPC Powers, Saves and Conditions', [
                 'On any NPC or Loyal Companion stat block, click a power\'s name or its "Lvl X | Y AP" tag to use it, as players do. Attack powers roll d20 + Power Attack Bonus with their damage, save powers show the DC and roll their effect, and the rest show their description. The AP comes off the creature taking its turn, and a Reaction power costs none.',
-                'Reaction powers (Power Crafter Step 7, 15 XP) carry their trigger, and their tag reads "Reaction". Step 7\'s new AP costs and Lengthy Cast Times apply to NPC powers too.',
+                'Reaction powers (Power Crafter Step 7, 15 XP) carry their trigger, and their tag reads "Reaction". Step 7\'s new AP costs (up to the creature\'s own AP) and Lengthy Cast Times apply to NPC powers too.',
+                'An NPC\'s Summon a Creature power can summon an NPC you\'ve already made: the Power Crafter lists your saved NPCs at or below the power\'s Tier (never summoners or other summons). The NPC Crafter\'s power list has an Edit Summoned Creature button to change the creature later.',
                 'A power whose damage type is chosen on use asks you which type when you use it from the stat block.',
                 'Reorder powers: ▲ and ▼ beside each power in the NPC Crafter (Loyal Companions too) set the order its stat block lists them in.',
                 'Damage that adds the Power Attribute shows the number ("1d8 Fire +2") instead of "+Attr".',
@@ -473,7 +476,7 @@
                 'Movement paths follow diagonals without zig-zagging, and Large and bigger creatures measure from their center.',
                 'The Measure toolbar wraps in small windows, and double-clicking a window\'s title bar minimizes it to a tab named after the map, Area Circle, NPC or note it shows.',
                 'A token\'s menu says Shrink and Grow for its size.',
-                'Cones mark every square at least a quarter inside the cone as drawn, so the highlighted squares match the outline at every length and angle.',
+                'Cones mark every square at least a quarter inside the cone as drawn, and Bursts every square at least half inside the circle, so the highlighted squares match the outline at every size and angle.',
                 'Swarms share squares with any creature. A swarm under another creature is drawn beneath it, with a small handle beside that creature: hover it for the swarm\'s details (players see less), drag it to move the swarm, right-click or double-click it as you would the token.',
                 'NPC and companion tokens take their stat block\'s size (Tiny through Gargantuan), and Shrink / Grow keep their size until "Stat block size". Token borders and glows scale with the token, so a Tiny or Small creature\'s turn ring no longer swallows its picture. Hovering a token shows its HP and AC.'
             ]],

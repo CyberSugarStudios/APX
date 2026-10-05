@@ -679,6 +679,17 @@ window.ncToggleCompanionWeaponAim = function(idx, checked) {
     c.weapons[idx].aimed = checked;
     window.recalculateMath();
 };
+// A Summon a Creature power's creature, edited on its own (without reopening the Power Crafter)
+window.ncEditPowerSummon = function(i) {
+    let c = ncActiveCompanion(); let p = c && c.powers && c.powers[i];
+    if (!p || !p.draft || typeof window.openSummonCrafter !== 'function') return;
+    let tier = p.draft.summonTier || 1;
+    window.openSummonCrafter({ npc: p.draft.summonNpc || null, tier, done: npc => {
+        p.draft.summonNpc = JSON.parse(JSON.stringify(npc)); p.draft.summonNpcTier = tier;
+        if (typeof window.recalculateMath === 'function') window.recalculateMath();
+        if (ncTarget === 'gm' && window.apxAuth?.enabled && window.apxAuth.saveGmNpcs) window.apxAuth.saveGmNpcs(window.gmNpcs || []).catch(() => {});
+    } });
+};
 // Reorder a creature's powers (NPC or Loyal Companion): its stat block lists them in this order
 window.ncMovePower = function(i, d) {
     let c = ncActiveCompanion(); if (!c || !Array.isArray(c.powers)) return;
@@ -2396,6 +2407,7 @@ function ncRenderStep6() {
                 <div class="flex gap-2 items-center">
                     ${mv(i, -1, i > 0)}${mv(i, 1, i < c.powers.length - 1)}
                     ${p.draft ? `<button onclick="window.openPowerEditor(${i}, ncTarget)" class="text-[10px] text-purple-400 hover:text-purple-300 font-bold">Edit</button>` : ''}
+                    ${p.draft && ((p.draft.utility || {}).major || {}).summonCreature > 0 ? `<button onclick="window.ncEditPowerSummon(${i})" class="text-[10px] text-emerald-400 hover:text-emerald-300 font-bold" title="Change the creature this power summons">Edit Summoned Creature</button>` : ''}
                     <button onclick="window.ncRemoveCompanionPower(${i})" class="text-[10px] text-red-400 hover:text-red-300 font-bold">Remove</button>
                 </div>
             </div>

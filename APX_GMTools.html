@@ -450,8 +450,8 @@
                 }
         
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20261041130">
-    <link rel="stylesheet" href="css/tailwind.css?v=20261041130">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20261051000">
+    <link rel="stylesheet" href="css/tailwind.css?v=20261051000">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
@@ -996,9 +996,9 @@
                 <input type="text" id="ccName" placeholder="e.g. Healing Salve" class="bg-slate-900 border-purple-900/50 text-purple-300 font-bold">
             </div>
             <div class="flex gap-1 mb-3 flex-wrap text-[10px]">
-                <span id="ccTab1" onclick="window.jumpToCcStep(1)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">1. Targeting</span>
+                <span id="ccTab1" onclick="window.jumpToCcStep(1)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">1. Delivery</span>
                 <span id="ccTab2" onclick="window.jumpToCcStep(2)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">2. Range</span>
-                <span id="ccTab3" onclick="window.jumpToCcStep(3)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">3. Area of Effect</span>
+                <span id="ccTab3" onclick="window.jumpToCcStep(3)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">3. Targeting</span>
                 <span id="ccTab4" onclick="window.jumpToCcStep(4)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">4. Damage/Healing</span>
                 <span id="ccTab5" onclick="window.jumpToCcStep(5)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">5. Utility</span>
                 <span id="ccTab6" onclick="window.jumpToCcStep(6)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">6. Duration</span>
@@ -1006,7 +1006,7 @@
             </div>
 
             <div id="ccStep1" class="wizard-step active">
-                <h4 class="text-sm font-bold text-purple-400 mb-2">Step 1: Targeting and Delivery</h4>
+                <h4 class="text-sm font-bold text-purple-400 mb-2">Step 1: Delivery</h4>
                 <p class="text-[10px] text-slate-400 mb-3">How does the item's effect reach the target, and how do they resist it?</p>
                 <div id="ccStep1Options" class="space-y-1.5"><!-- JS injected --></div>
             </div>
@@ -1017,7 +1017,7 @@
             </div>
 
             <div id="ccStep3" class="wizard-step">
-                <h4 class="text-sm font-bold text-purple-400 mb-2">Step 3: Area of Effect</h4>
+                <h4 class="text-sm font-bold text-purple-400 mb-2">Step 3: Targeting</h4>
                 <div id="ccStep3Options" class="space-y-1.5"><!-- JS injected --></div>
             </div>
 
@@ -1104,9 +1104,9 @@
                 <div id="pcUsageTpNote" class="text-[10px] text-amber-400 font-bold"></div>
             </div>
             <div class="flex gap-1 mb-3 flex-wrap text-[10px]">
-                <span id="pcTab1" onclick="window.jumpToPcStep(1)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">1. Targeting</span>
+                <span id="pcTab1" onclick="window.jumpToPcStep(1)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">1. Delivery</span>
                 <span id="pcTab2" onclick="window.jumpToPcStep(2)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">2. Range</span>
-                <span id="pcTab3" onclick="window.jumpToPcStep(3)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">3. Area of Effect</span>
+                <span id="pcTab3" onclick="window.jumpToPcStep(3)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">3. Targeting</span>
                 <span id="pcTab4" onclick="window.jumpToPcStep(4)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">4. Damage/Healing</span>
                 <span id="pcTab5" onclick="window.jumpToPcStep(5)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">5. Utility</span>
                 <span id="pcTab6" onclick="window.jumpToPcStep(6)" class="wiz-tab px-2 py-1 bg-slate-800 rounded font-bold text-slate-300">6. Duration</span>
@@ -1116,7 +1116,7 @@
             </div>
 
             <div id="pcStep1" class="wizard-step active">
-                <h4 class="text-sm font-bold text-purple-400 mb-2">Step 1: Targeting and Delivery</h4>
+                <h4 class="text-sm font-bold text-purple-400 mb-2">Step 1: Delivery</h4>
                 <p class="text-[10px] text-slate-400 mb-3">How does your power reach the target, and how do they resist it?</p>
                 <div id="pcStep1Options" class="space-y-1.5"><!-- JS injected --></div>
             </div>
@@ -1128,7 +1128,7 @@
             </div>
 
             <div id="pcStep3" class="wizard-step">
-                <h4 class="text-sm font-bold text-purple-400 mb-2">Step 3: Area of Effect</h4>
+                <h4 class="text-sm font-bold text-purple-400 mb-2">Step 3: Targeting</h4>
                 <p class="text-[10px] text-slate-400 mb-3">What area does your power cover? This also multiplies the cost of Damage Dice and Utility effects (excluding Mythic Tier utilities).</p>
                 <div id="pcStep3Options" class="space-y-1.5"><!-- JS injected --></div>
             </div>
@@ -1519,36 +1519,36 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20261041130"></script>
-    <script src="js/apx-patch-notes.js?v=20261041130"></script>
-    <script src="js/apx-dice.js?v=20261041130"></script>
-    <script src="js/apx-data.js?v=20261041130"></script>
-    <script src="js/apx-item-effects.js?v=20261041130"></script>
-    <script src="js/apx-perks-db.js?v=20261041130"></script>
-    <script src="js/apx-migrations.js?v=20261041130"></script>
-    <script src="js/apx-state.js?v=20261041130"></script>
-    <script src="js/apx-craft-shared.js?v=20261041130"></script>
-    <script src="js/apx-armor-forge.js?v=20261041130"></script>
-    <script src="js/apx-weapon-forge.js?v=20261041130"></script>
-    <script src="js/apx-consumable-crafter.js?v=20261041130"></script>
-    <script src="js/apx-perks-ui.js?v=20261041130"></script>
-    <script src="js/apx-power-crafter.js?v=20261041130"></script>
-    <script src="js/apx-npc-crafter.js?v=20261041130"></script>
-    <script src="js/apx-inventory-ui.js?v=20261041130"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20261041130"></script>
-    <script src="js/apx-gm-screen.js?v=20261041130"></script>
-    <script src="js/apx-loot-maker.js?v=20261041130"></script>
-    <script src="js/apx-library.js?v=20261041130"></script>
-    <script src="js/apx-gmtools-main.js?v=20261041130"></script>
+    <script src="js/apx-dialogs.js?v=20261051000"></script>
+    <script src="js/apx-patch-notes.js?v=20261051000"></script>
+    <script src="js/apx-dice.js?v=20261051000"></script>
+    <script src="js/apx-data.js?v=20261051000"></script>
+    <script src="js/apx-item-effects.js?v=20261051000"></script>
+    <script src="js/apx-perks-db.js?v=20261051000"></script>
+    <script src="js/apx-migrations.js?v=20261051000"></script>
+    <script src="js/apx-state.js?v=20261051000"></script>
+    <script src="js/apx-craft-shared.js?v=20261051000"></script>
+    <script src="js/apx-armor-forge.js?v=20261051000"></script>
+    <script src="js/apx-weapon-forge.js?v=20261051000"></script>
+    <script src="js/apx-consumable-crafter.js?v=20261051000"></script>
+    <script src="js/apx-perks-ui.js?v=20261051000"></script>
+    <script src="js/apx-power-crafter.js?v=20261051000"></script>
+    <script src="js/apx-npc-crafter.js?v=20261051000"></script>
+    <script src="js/apx-inventory-ui.js?v=20261051000"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20261051000"></script>
+    <script src="js/apx-gm-screen.js?v=20261051000"></script>
+    <script src="js/apx-loot-maker.js?v=20261051000"></script>
+    <script src="js/apx-library.js?v=20261051000"></script>
+    <script src="js/apx-gmtools-main.js?v=20261051000"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20261041130"></script>
-    <script src="js/apx-firebase.js?v=20261041130"></script>
-    <script src="js/apx-battlemap.js?v=20261041130"></script>
-    <script src="js/apx-map-tiles.js?v=20261041130"></script>
+    <script src="js/firebase-config.js?v=20261051000"></script>
+    <script src="js/apx-firebase.js?v=20261051000"></script>
+    <script src="js/apx-battlemap.js?v=20261051000"></script>
+    <script src="js/apx-map-tiles.js?v=20261051000"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -6333,8 +6333,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </script>
     <div id="floatingWindowContainer"></div>
 
-    <script src="js/apx-chat.js?v=20261041130"></script>
-    <script src="js/apx-extras.js?v=20261041130"></script>
-    <script src="js/apx-theme-light.js?v=20261041130"></script>
+    <script src="js/apx-chat.js?v=20261051000"></script>
+    <script src="js/apx-extras.js?v=20261051000"></script>
+    <script src="js/apx-theme-light.js?v=20261051000"></script>
 </body>
 </html>

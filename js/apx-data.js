@@ -624,8 +624,12 @@
             d = d || {};
             if (d.apMod === 'ap1' && d.apReaction) return 'reaction';
             if (d.apMod === 'lengthy') return 'lengthy1m';
+            if (/^ap([1-9]\d?)$/.test(String(d.apMod || ''))) return d.apMod;   // any AP cost from 1 up
             return POWER_AP_MODS.some(a => a.key === d.apMod) ? d.apMod : 'ap4';
         }
+        // Step 7 AP cost of a plain AP choice: 10 XP per AP below 4, 5 XP back per AP above 4
+        function apxPowerApCost(n) { n = parseInt(n) || 4; return n < 4 ? (4 - n) * 10 : -(n - 4) * 5; }
+        window.apxPowerApCost = apxPowerApCost;
         window.apxPowerApKey = apxPowerApKey;
 
         const POWER_REFUNDS = [

@@ -189,9 +189,11 @@ window.pcCalcXP = function(draft) {
     if (draft.durationMods.dmgInterrupt) step6Cost -= 5;
     if (draft.durationMods.actionInterrupt) step6Cost -= 10;
 
-    let apDef = POWER_AP_MODS.find(a => a.key === (window.apxPowerApKey ? window.apxPowerApKey(draft) : draft.apMod)) || POWER_AP_MODS[0];
-    let step7Cost = apDef.cost;
-    let ap = apDef.ap;
+    let apKey = window.apxPowerApKey ? window.apxPowerApKey(draft) : draft.apMod;
+    let apN = /^ap(\d+)$/.exec(String(apKey || ''));
+    let apDef = apN ? null : (POWER_AP_MODS.find(a => a.key === apKey) || POWER_AP_MODS[0]);
+    let ap = apN ? parseInt(apN[1]) : apDef.ap;
+    let step7Cost = apN ? (window.apxPowerApCost ? window.apxPowerApCost(ap) : (ap < 4 ? (4 - ap) * 10 : -(ap - 4) * 5)) : apDef.cost;
 
     let step8Cost = 0;
     step8Cost -= 5 * (draft.refunds.minorRestriction || 0);
@@ -209,7 +211,7 @@ window.pcCalcXP = function(draft) {
         step8Cost = 0;
     }
 
-    let total = Math.max(0, step1Cost + step2Cost + step4Cost + step5Cost + step6Cost + step7Cost + step8Cost);
+    let total = Math.max(5, step1Cost + step2Cost + step4Cost + step5Cost + step6Cost + step7Cost + step8Cost);   // every power costs at least 5 XP
     let levelDef = POWER_LEVEL_TABLE.find(l => total >= l.min && total <= l.max) || POWER_LEVEL_TABLE[POWER_LEVEL_TABLE.length - 1];
 
     return {
@@ -547,8 +549,41 @@ function pcSummonBlock() {
     return '';
 }
 function pcSummonMaxTier() { let t = pcSummonOwnerTier(); return t === null ? 10 : Math.max(1, t); }
+// GM NPC powers: summon one of the GM's saved NPCs instead of building a new creature. Only NPCs the
+// power can summon are listed (its Tier or lower, never one that summons creatures of its own, never itself).
+function pcSummonPickable() {
+    if (!(pcTarget === 'gm' || pcTarget === 'lib') || !Array.isArray(window.gmNpcs) || typeof npcTierForTP !== 'function') return [];
+    let maxT = parseInt(pcDraft.summonTier) || 1;
+    let self = typeof ncActiveGmNpcId !== 'undefined' ? ncActiveGmNpcId : null;
+    let summons = n => (n.powers || []).some(p => ((p.draft && p.draft.utility && p.draft.utility.major) || {}).summonCreature > 0);
+    return window.gmNpcs.filter(e => e && e.npc && e.id !== self && !e.summonOf && !e.npc.isSummon && !summons(e.npc)
+        && npcTierForTP(e.npc.gmTpBudget || 0).tier <= maxT && (typeof window.apxNpcInActiveWorld !== 'function' || window.apxNpcInActiveWorld(e)));
+}
+function pcSummonPickHtml() {
+    let list = pcSummonPickable();
+    if (!list.length) return (pcTarget === 'gm' || pcTarget === 'lib') ? `<div class="text-slate-500">None of your saved NPCs are Tier ${parseInt(pcDraft.summonTier) || 1} or lower (and free of summons of their own).</div>` : '';
+    let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    return `<select data-pc-summonpick onchange="window.pcPickSummon(this.value)" class="mt-1 w-full bg-slate-800 border-slate-600 text-[10px] py-0.5">
+        <option value="">${pcDraft.summonFromId ? 'Change to another saved NPC…' : 'Summon one of your saved NPCs…'}</option>
+        ${list.map(e => `<option value="${esc(e.id)}" ${pcDraft.summonFromId === e.id ? 'selected' : ''}>${esc(e.npc.name || 'Unnamed NPC')} (Tier ${npcTierForTP(e.npc.gmTpBudget || 0).tier})</option>`).join('')}</select>`;
+}
+window.pcPickSummon = function(id) {
+    let e = id && (window.gmNpcs || []).find(x => x.id === id); if (!e) return;
+    let npc = JSON.parse(JSON.stringify(e.npc));
+    delete npc.portraitFull;
+    npc.isSummon = true;   // a hard 3 AP, and it can't summon creatures of its own
+    pcDraft.summonNpc = npc; pcDraft.summonNpcTier = pcDraft.summonTier || 1; pcDraft.summonFromId = e.id;
+    pcRenderAll();
+};
 window.pcSetSummonTier = function(d) {
     pcDraft.summonTier = Math.max(1, Math.min(pcSummonMaxTier(), (parseInt(pcDraft.summonTier) || 1) + d));
+    // A saved NPC picked to summon: still fine at the new Tier, or it no longer fits
+    if (pcDraft.summonFromId) {
+        let e = (window.gmNpcs || []).find(x => x.id === pcDraft.summonFromId);
+        let t = e && typeof npcTierForTP === 'function' ? npcTierForTP(e.npc.gmTpBudget || 0).tier : 99;
+        if (t <= pcDraft.summonTier) pcDraft.summonNpcTier = pcDraft.summonTier;
+        else { delete pcDraft.summonFromId; delete pcDraft.summonNpc; delete pcDraft.summonNpcTier; }
+    }
     pcRenderAll();
 };
 // Opens the NPC Crafter on the draft's summoned creature (at the chosen Tier); cb runs after it closes
@@ -616,7 +651,24 @@ window.pcToggleDurationMod = function(key, checked) {
     pcDraft.durationMods[key] = checked;
     pcRenderAll();
 };
-window.pcSetApMod = function(val) { pcDraft.apMod = val; delete pcDraft.apReaction; pcRenderAll(); };
+window.pcSetApMod = function(val) { if (!val) return; pcDraft.apMod = val; delete pcDraft.apReaction; pcRenderAll(); };
+// AP cost − / +: from 1 AP up to the caster's own AP
+function pcCasterApCap() {
+    let ap = 0;
+    try {
+        if (pcTarget === 'player') ap = (window.state && window.state.derived && window.state.derived.ap) || (typeof calc !== 'undefined' && calc.maxAp) || 6;
+        else if (pcTarget === 'item' || pcTarget === 'lib') ap = 12;
+        else if (typeof window.companionStatBlock === 'function') { let sb = window.companionStatBlock(); ap = sb && sb.ap; }
+    } catch (e) { }
+    return Math.max(4, parseInt(ap) || 6);
+}
+window.pcSetApCount = function(d) {
+    let k = window.apxPowerApKey ? window.apxPowerApKey(pcDraft) : pcDraft.apMod;
+    let m = /^ap(\d+)$/.exec(k || ''), n = m ? parseInt(m[1]) : 4;
+    n = Math.max(1, Math.min(pcCasterApCap(), n + d));
+    pcDraft.apMod = 'ap' + n; pcDraft._lastAp = n; delete pcDraft.apReaction;
+    pcRenderAll();
+};
 // "1 AP or Reaction": which one this power uses (like Attack Roll / Save Negates)
 window.pcSetApReaction = function(on) { pcDraft.apReaction = !!on; pcRenderAll(); };
 window.pcToggleRefund = function(key, checked) { pcDraft.refunds[key] = checked; pcRenderAll(); };
@@ -858,7 +910,7 @@ function pcRenderUtilityTier(tier, label, colorClass) {
             </div>
         ` + (count > 0 && ((window.APX_POWER_COND_UTILS || {})[u.key] || u.key === 'woundOneLimb') ? pcCondPickRow(u.key) : '') + (u.key === 'summonCreature' && count > 0 ? `
             <div class="flex items-center justify-between bg-slate-950 border border-purple-700/60 rounded px-2 py-1.5 gap-2 ml-3">
-                <div class="flex-1 text-[10px] text-purple-200 leading-tight">Creature Tier <span class="text-slate-500">(+15 XP per Tier above 1, per creature${pcSummonOwnerTier() !== null ? `; up to this creature's own Tier, ${pcSummonMaxTier()}` : ''})</span>${pcDraft.summonNpc ? `<div class="text-emerald-400">Built: ${String(pcDraft.summonNpc.name || 'Creature').replace(/</g, '&lt;')} <button onclick="window.pcEditSummon()" class="underline text-purple-300 hover:text-white">Edit creature</button></div>` : '<div class="text-slate-500">You build the creature in the NPC Crafter when you save this power.</div>'}</div>
+                <div class="flex-1 text-[10px] text-purple-200 leading-tight">Creature Tier <span class="text-slate-500">(+15 XP per Tier above 1, per creature${pcSummonOwnerTier() !== null ? `; up to this creature's own Tier, ${pcSummonMaxTier()}` : ''})</span>${pcDraft.summonNpc ? `<div class="text-emerald-400">${pcDraft.summonFromId ? 'Summons' : 'Built'}: ${String(pcDraft.summonNpc.name || 'Creature').replace(/</g, '&lt;')} <button onclick="window.pcEditSummon()" class="underline text-purple-300 hover:text-white">Edit creature</button></div>` : '<div class="text-slate-500">' + (pcSummonPickable().length ? 'Pick one of your NPCs below, or build' : 'You build') + ' the creature in the NPC Crafter when you save this power.</div>'}${pcSummonPickHtml()}</div>
                 <div class="flex items-center gap-1 shrink-0">
                     <button onclick="window.pcSetSummonTier(-1)" class="w-5 h-5 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold">-</button>
                     <span class="w-5 text-center text-xs font-bold text-white">${pcDraft.summonTier || 1}</span>
@@ -946,14 +998,26 @@ function pcRenderStep7() {
             <div class="text-[10px] ${String(pcDraft.reactionTrigger || '').trim() ? 'text-slate-400' : 'text-red-400'} font-bold mb-1">Trigger: when can it be used?</div>
             <input type="text" data-pc-trigger value="${esc(pcDraft.reactionTrigger || '')}" oninput="window.pcSetReactionTrigger(this.value)" placeholder="When a creature within 3 squares attacks me…" class="w-full bg-slate-800 border-slate-600 text-xs">
             <div class="text-[9px] text-slate-500 mt-1">It can't be changed without making a new power.</div></div>` : ''}`;
+    // AP cost: − and + (1 AP up to the caster's own AP); or Reaction; or a Lengthy Cast Time (dropdown)
+    let apN = /^ap(\d+)$/.exec(cur), n = apN ? parseInt(apN[1]) : (pcDraft._lastAp || 4), cap = pcCasterApCap();
+    let lengthy = POWER_AP_MODS.filter(a => a.alt && a.cast), lenCur = lengthy.find(a => a.key === cur);
+    let btn = (d, ok) => `<button type="button" onclick="window.pcSetApCount(${d})" ${ok ? '' : 'disabled'} class="w-6 h-6 rounded text-sm font-bold ${ok ? (d < 0 ? 'bg-slate-700 hover:bg-slate-600' : 'bg-amber-700 hover:bg-amber-600') + ' text-white' : 'bg-slate-800 text-slate-600'}" title="${d < 0 ? 'One AP less (costs 10 XP below 4)' : 'One AP more (refunds 5 XP above 4)'}">${d < 0 ? '−' : '+'}</button>`;
+    let apCostTxt = pcCost(pcMythicPrice(window.apxPowerApCost ? window.apxPowerApCost(n) : 0), x => { x.apMod = 'ap' + n; delete x.apReaction; }, !!apN);
+    let box = (on, inner) => `<div class="flex items-start gap-2 bg-slate-900 border ${on ? 'border-purple-500' : 'border-slate-700'} rounded p-2">${inner}</div>`;
     document.getElementById('pcStep7Options').innerHTML =
-        `<div class="text-[10px] text-slate-400 font-bold mb-1">AP cost <span class="font-normal text-slate-500">(10 XP per AP below 4; 5 XP back per AP above 4)</span></div>`
-        + POWER_AP_MODS.filter(a => !a.alt).map(row).join('')
+        box(!!apN, `<input type="radio" name="pcApMod" class="mt-1" ${apN ? 'checked' : ''} onchange="window.pcSetApMod('ap${n}')">
+            <div class="flex-1 min-w-0"><div class="flex items-center gap-2 flex-wrap" data-pc-apcount>
+                <span class="text-xs font-bold text-slate-200">AP cost</span>${btn(-1, n > 1)}<span class="w-12 text-center text-sm font-black text-white">${n} AP</span>${btn(1, n < cap)}
+                <span class="text-[10px] ${(window.apxPowerApCost ? window.apxPowerApCost(n) : 0) < 0 ? 'text-slate-500' : 'text-yellow-500'} ml-auto">${apN ? (pcIsNpc() ? '' : (n === 4 ? 'default' : (n < 4 ? `+${(4 - n) * 10} XP` : `-${(n - 4) * 5} XP`))) : apCostTxt}</span></div>
+            <div class="text-[10px] text-slate-500 leading-tight mt-0.5">4 AP by default. Each AP less costs 10 XP; each AP over 4 refunds 5 XP. Up to ${cap} AP (${pcTarget === 'player' ? 'your' : pcTarget === 'item' || pcTarget === 'lib' ? 'a caster\'s' : 'the creature\'s'} AP).</div></div>`)
         + `<div class="text-[10px] text-slate-400 font-bold mt-3 mb-1">Or one of these instead</div>`
         + POWER_AP_MODS.filter(a => a.alt && a.reaction).map(row).join('')
-        + `<div class="text-[10px] text-slate-400 font-bold mt-2 mb-1">Lengthy Cast Time <span class="font-normal text-slate-500">(the power's AP cost is unchanged)</span></div>`
-        + `<div class="text-[10px] text-slate-500 leading-tight mb-1">${POWER_LENGTHY_DESC}</div>`
-        + POWER_AP_MODS.filter(a => a.alt && a.cast).map(row).join('');
+        + box(!!lenCur, `<input type="radio" name="pcApMod" class="mt-1" ${lenCur ? 'checked' : ''} onchange="window.pcSetApMod('${(lenCur || lengthy[0]).key}')">
+            <div class="flex-1 min-w-0"><div class="flex items-center gap-2 flex-wrap"><span class="text-xs font-bold text-slate-200">Lengthy Cast Time</span>
+                <select data-pc-lengthy onchange="window.pcSetApMod(this.value)" class="bg-slate-800 border-slate-600 text-xs">
+                    ${lenCur ? '' : '<option value="" selected>Choose a length…</option>'}${lengthy.map(a => `<option value="${a.key}" ${cur === a.key ? 'selected' : ''}>${a.label.replace(/^Lengthy Cast Time:\s*/, '')} (${pcIsNpc() ? pcCost(pcMythicPrice(a.cost), x => { x.apMod = a.key; delete x.apReaction; }, cur === a.key) : a.cost + ' XP'})</option>`).join('')}</select>
+                <span class="text-[10px] text-slate-500">the power's AP cost stays 4</span></div>
+            <div class="text-[10px] text-slate-500 leading-tight mt-0.5">${POWER_LENGTHY_DESC}</div></div>`);
 }
 
 function pcRenderStep8() {
