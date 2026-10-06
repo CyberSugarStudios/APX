@@ -266,12 +266,6 @@ function pcOpenCommon() {
 // Charges/Recharge/Unlimited is a GM-NPC-only concept -- players track
 // their own power usage informally during play, so this section only
 // shows for companion/GM targets.
-function pcCurrentNpcTier() {
-    if (pcTarget === 'item' || pcTarget === 'lib') return 5;
-    if (pcTarget === 'gm' || pcTarget === 'summon') return npcTierForTP(window.companionTotalTp()).tier;
-    if (pcTarget === 'companion') return typeof lcRank === 'function' ? lcRank() : 0;
-    return 0;
-}
 function pcRenderUsageSection() {
     let section = document.getElementById('pcUsageTypeSection');
     if (!section) return; // the main character sheet's copy of this modal doesn't have this section -- Charges/Recharge is a GM/companion-only concept
@@ -283,16 +277,7 @@ function pcRenderUsageSection() {
     if (!pcDraft.usageType) pcDraft.usageType = 'unlimited';
 
     let level = window.pcCalcXP(pcDraft).level;
-    let tier = pcCurrentNpcTier();
-    // GM NPCs: Unlimited Uses is always available. (Loyal Companions keep the book's Level/Tier limit.)
-    let eligible = (pcTarget === 'gm' || pcTarget === 'item' || pcTarget === 'lib') ? true : window.npcUnlimitedUsesAllowed(level, tier);
-    if (pcDraft.usageType === 'unlimitedPaid' && !eligible) pcDraft.usageType = 'unlimited'; // no longer eligible (level/tier changed) -- fall back rather than silently keep an illegal selection
-
     document.querySelector(`input[name="pcUsageType"][value="${pcDraft.usageType}"]`).checked = true;
-    let unlimitedRadio = document.querySelector('input[name="pcUsageType"][value="unlimitedPaid"]');
-    unlimitedRadio.disabled = !eligible;
-    document.getElementById('pcUnlimitedPaidLabel').classList.toggle('opacity-40', !eligible);
-    document.getElementById('pcUnlimitedPaidWarning').classList.toggle('hidden', eligible);
 
     document.getElementById('pcChargesFields').classList.toggle('hidden', pcDraft.usageType !== 'charges');
     document.getElementById('pcRechargeFields').classList.toggle('hidden', pcDraft.usageType !== 'recharge');

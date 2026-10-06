@@ -882,8 +882,7 @@ const NPC_POWER_LEVEL_TP = { 1: 2, 2: 4, 3: 8, 4: 12, 5: 20 };
 // - Recharge: +1 TP per Power Level. Always a flat 5-6 on a d6 at the
 //   start of its turn (not a configurable threshold -- that's the book's
 //   actual rule, not a GM choice).
-// - Unlimited Uses: +5 TP per Power Level. Restricted to Level 1 Powers
-//   on Tier 1-3 NPCs, or Level 2 Powers on Tier 4-5 NPCs.
+// - Unlimited Uses: +5 TP per Power Level, any Power Level, any Tier.
 // Anything else (the "once per Full Rest" default) costs just the base.
 function npcPowerUsageExtraTp(level, usageType, maxCharges) {
     let base = NPC_POWER_LEVEL_TP[level] || 0;
@@ -898,16 +897,8 @@ function npcPowerUsageExtraTp(level, usageType, maxCharges) {
 function npcPowerTotalTp(level, usageType, maxCharges) {
     return (NPC_POWER_LEVEL_TP[level] || 0) + npcPowerUsageExtraTp(level, usageType, maxCharges);
 }
-// Unlimited Uses is only ever a legal choice for a Level 1 Power on a
-// Tier 1-3 NPC, or a Level 2 Power on a Tier 4-5 NPC.
-function npcUnlimitedUsesAllowed(level, npcTier) {
-    if (level === 1) return npcTier >= 1 && npcTier <= 3;
-    if (level === 2) return npcTier >= 4 && npcTier <= 5;
-    return false;
-}
 window.npcPowerTotalTp = npcPowerTotalTp;
 window.npcPowerUsageExtraTp = npcPowerUsageExtraTp;
-window.npcUnlimitedUsesAllowed = npcUnlimitedUsesAllowed;
 const NPC_CASTER_SLOT_TP = { 1: 1, 2: 2, 3: 3, 4: 5, 5: 10 };
 window.ncAdjustCasterSlot = function(level, delta) {
     let c = ncActiveCompanion();
@@ -1962,6 +1953,26 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
     let whoGm = actor ? (window._gmGmName ? window._gmGmName(actor) : actor.name) : sb.name;
     let whoPub = actor ? (window._gmPublicName ? window._gmPublicName(actor) : actor.name) : sb.name;
     if (actor && !sb._isCompanion) flags.initId = actor.id;
+    // An area power with a battle map open: its area is placed first (its shape and size are the power's).
+    // Everyone in it then rolls the save and takes the damage (the GM confirms it in the tracker).
+    let areaSpec = window.apxPowerAreaSpec ? window.apxPowerAreaSpec(p) : null, areaRes = null;
+    if (areaSpec && window.APXBattle && window.APXBattle.placeArea) {
+        let am = sb._isCompanion ? (window._pwAreaMap ? window._pwAreaMap(true) : null) : (actor && window._btAreaMapFor ? window._btAreaMapFor(actor) : null);   // (a creature not in the tracker has nothing to resolve it)
+        if (am) {
+            let r = await window.APXBattle.placeArea(am.winId, Object.assign({ casterId: am.tokenId, label: p.name || 'Power', safeZone: !sb._isCompanion }, areaSpec));
+            if (r === null) return;
+            if (r !== 'skip') areaRes = { mapId: am.mapId, tokenIds: r.tokenIds, safeIds: r.safeIds, names: r.names };
+        }
+    }
+    let areaNote = areaRes ? `In the area: ${areaRes.names.length ? areaRes.names.join(', ') : 'no one'}${areaRes.safeIds.length ? ` (${areaRes.safeIds.length} kept safe)` : ''}.` : '';
+    let pwId = 'pw' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    // Hands the area to the GM's tracker (a companion's goes there from its owner's sheet)
+    let areaOut = (info) => {
+        if (!areaRes) return;
+        let ev = Object.assign({ id: pwId, label: p.name || 'Power', area: { mapId: areaRes.mapId, tokenIds: areaRes.tokenIds, safeIds: areaRes.safeIds } }, info);
+        if (sb._isCompanion) window.apxOnRollEvent?.(Object.assign({ kind: 'power', companion: true, text: `${whoPub} uses ${p.name || 'a power'}. ${areaNote}` }, ev));
+        else if (actor && typeof window._gmAreaResolve === 'function') { try { window._gmAreaResolve(actor, ev); } catch (e) { console.warn('Power area:', e); } }
+    };
     // Charges and Recharge: using it marks it used on the creature in the tracker (asked first if none are left)
     if (actor && !sb._isCompanion && (p.usageType === 'charges' || p.usageType === 'recharge')) {
         actor.powerUsage = actor.powerUsage || {};
@@ -2021,6 +2032,7 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
         if (dmg && !dmg.heal) { o.dice = dmg.formula; o.dmgType = dmg.type; if (dmg.split) o.split = dmg.split; APXDice.attack(o); }
         else APXDice.check(Object.assign(o, { kind: 'attack', label: (p.name || 'Power') + ': Power Attack' }));
         tell(`${whoPub} uses ${p.name || 'a power'}${isReact ? ' (Reaction)' : ''}: attack roll.`, `${whoGm} uses ${p.name || 'a power'}${isReact ? ' (Reaction)' : ''}: attack roll.`);
+        areaOut({ attackRoll: true });
         if (fxInfo && fxInfo.conds.length) offerFx();
         return;
     }
@@ -2030,13 +2042,17 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
     let saveKind = step === 'saveHalves' ? 'halves' : (step === 'atkSave' && d.atkMode === 'save') ? 'negates' : null;
     let dc = sb.powerSaveDc;
     let sAttr = sInfo && sInfo.saveAttr ? sInfo.saveAttr + ' ' : '';
-    let bits = [isReact ? 'Reaction' : `${cost} AP`].concat(saveKind ? [`Targets make a DC ${dc} ${sAttr}save: success ${saveKind === 'halves' ? 'halves it' : 'negates it'}`] : []).concat(escLine ? [escLine] : []).concat(pre && pre.note ? [pre.note] : []).concat(o.useNote ? [o.useNote] : []);
+    let bits = [isReact ? 'Reaction' : `${cost} AP`].concat(saveKind ? [`Targets make a DC ${dc} ${sAttr}save: success ${saveKind === 'halves' ? 'halves it' : 'negates it'}`] : []).concat(escLine ? [escLine] : []).concat(pre && pre.note ? [pre.note] : []).concat(o.useNote ? [o.useNote] : []).concat(areaNote ? [areaNote] : []);
     // The tracker learns this power (and its damage type) is what hits next, not an earlier attack
-    if (dmg && !dmg.heal && typeof window.apxOnNpcPowerUse === 'function') { try { window.apxOnNpcPowerUse(o, { label: p.name || 'Power', dmgType: dmg.type, dice: dmg.formula, save: saveKind ? { dc, kind: saveKind, attr: sInfo && sInfo.saveAttr || null } : null, aoe: !!(d.aoe && !['single', 'split'].includes(d.aoe)) }); } catch (e) { console.warn('Power hook:', e); } }
-    if (dmg) APXDice.damage({ label: (p.name || 'Power') + (dmg.heal ? ' healing' : ' damage'), who: whoGm, formula: dmg.formula, dmgType: dmg.heal ? '' : dmg.type, heal: dmg.heal || undefined, perks: false, note: bits.join(' · '), split: dmg.split || undefined });
+    if (dmg && !dmg.heal && typeof window.apxOnNpcPowerUse === 'function') { try { window.apxOnNpcPowerUse(o, { id: pwId, label: p.name || 'Power', dmgType: dmg.type, dice: dmg.formula, save: saveKind ? { dc, kind: saveKind, attr: sInfo && sInfo.saveAttr || null } : null, aoe: !!(d.aoe && !['single', 'split'].includes(d.aoe)) }); } catch (e) { console.warn('Power hook:', e); } }
+    let dcard = null;
+    if (dmg) dcard = APXDice.damage({ label: (p.name || 'Power') + (dmg.heal ? ' healing' : ' damage'), who: whoGm, formula: dmg.formula, dmgType: dmg.heal ? '' : dmg.type, heal: dmg.heal || undefined, perks: false, note: bits.join(' · '), split: dmg.split || undefined });
     else APXDice.info({ label: p.name || 'Power', who: whoGm, text: p.desc || '', badges: bits });
     let saveTxt = saveKind ? `: targets make a DC ${dc} ${sAttr}save (success ${saveKind === 'halves' ? 'halves it' : 'negates it'})` : '';
     tell(`${whoPub} uses ${p.name || 'a power'}${isReact ? ' (Reaction)' : ''}${saveTxt}.`, `${whoGm} uses ${p.name || 'a power'}${isReact ? ' (Reaction)' : ''}${saveTxt}.`);
+    let dTotal = dcard && Array.isArray(dcard.parts) ? dcard.parts.filter(x => x.kind === 'dmg').reduce((t, x) => t + (x.total || 0), 0) : undefined;
+    let dShares = dmg && dmg.split && dcard && Array.isArray(dcard.parts) ? dcard.parts.filter(x => x.kind === 'dmg').map((x, i) => ({ type: (dmg.split[i] || {}).type, dmg: x.total })) : undefined;
+    areaOut({ save: saveKind && !(dmg && dmg.heal) ? { dc, kind: saveKind, attr: sInfo && sInfo.saveAttr || null } : null, dmgTotal: dTotal, dmgType: dmg && !dmg.heal ? dmg.type : '', dice: dmg ? dmg.formula : '', heal: !!(dmg && dmg.heal), dmgParts: dShares });
     offerFx();
 };
 // Has this stat block's creature (in the tracker) Awakened? Outside the tracker its Awakened powers are shown, unlocked.
@@ -2092,7 +2108,13 @@ function ncRenderAll() {
     // list -- rather than an unlabeled Close being the only way out.
     document.getElementById('ncBtnFinishGm').style.display = (ncTarget === 'gm' && ncStep >= unlocked) ? 'block' : 'none';
     let companionFinishBtn = document.getElementById('ncBtnFinishCompanion');
-    if (companionFinishBtn) companionFinishBtn.style.display = ((ncTarget === 'companion' || ncTarget === 'summon') && ncStep >= unlocked) ? 'block' : 'none';
+    if (companionFinishBtn) {
+        companionFinishBtn.style.display = ((ncTarget === 'companion' || ncTarget === 'summon') && ncStep >= unlocked) ? 'block' : 'none';
+        companionFinishBtn.innerText = ncTarget === 'summon' ? 'Save Creature' : 'Confirm & Close';
+    }
+    // Step 8 (Legendary) is GM-NPC-only: a summoned creature never reaches it, so don't show it as a locked step
+    let legendaryTab = document.getElementById('ncTab8');
+    if (legendaryTab) legendaryTab.classList.toggle('hidden', ncTarget !== 'gm');
 }
 
 // Live, full stat block beside the crafter — re-rendered on every change

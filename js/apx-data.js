@@ -524,6 +524,14 @@
         }
         window.apxPowerAoe = apxPowerAoe;
         window.POWER_AOE_SHAPES = POWER_AOE_SHAPES;
+        // An area power on the battle map: { mode, size, range } (range in squares from its user: 0 = Self/Touch,
+        // Infinity = anywhere you can see), or null for a power without an area. Old fixed-size areas are Bursts.
+        window.apxPowerAreaSpec = function(p) {
+            let d = p && p.draft; if (!d) return null;
+            let A = apxPowerAoe(d); if (A.key !== 'aoe') return null;
+            let rng = { touch: 0, short: 10, long: 30, extreme: Infinity }[d.step2];
+            return { mode: A.shape || 'burst', size: Math.max(1, A.size || 1), range: rng == null ? Infinity : rng };
+        };
 
         const POWER_DIE_COSTS = { d4: 1, d6: 2, d8: 3, d10: 5, d12: 8 };
         const POWER_DIE_STEPS = ["d4", "d6", "d8", "d10", "d12"];

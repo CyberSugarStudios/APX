@@ -1470,6 +1470,106 @@ window.apxOnNpcPowerUse = function(o, info) {
     }
     return e;
 };
+// ── Power areas ───────────────────────────────────────────────────────────
+// A power placed on the battle map as an area (a Line, Cone or Burst): everyone in it rolls the power's
+// saving throw, and takes its damage by their roll (a success halves it, or negates it). The GM sees the
+// rolls first and can leave anyone out before anything is dealt.
+function _gmEntryForToken(mapId, tokenId) {
+    let map = (typeof _wNotes !== 'undefined' && _wNotes ? _wNotes.otherMaps || [] : []).find(m => m.id === mapId);
+    let t = map && (map.battleTokens || []).find(x => x.id === tokenId);
+    if (!t) return null;
+    let list = window.gmInitiative || [];
+    if (t.initiativeId) return list.find(e => e.id === t.initiativeId) || null;
+    if (t.type === 'player' && t.playerUid) return list.find(e => e.playerUid === t.playerUid && e.faction === 'player' && !e.companionOf && !e.summonOf) || null;
+    if (t.type === 'companion' && t.playerUid) return list.find(e => e.companionOf === t.playerUid) || null;
+    return null;
+}
+window._gmEntryForToken = _gmEntryForToken;
+// A creature's saving throw bonus: a player's from their sheet, an NPC's or companion's from its stat block
+function _gmSaveBonus(entry, attr) {
+    if (!attr) return null;
+    let sb = null;
+    if (entry.companionOf) { let pm = (window.gmParty || []).find(p => p.fileName === entry.companionOf); try { sb = pm ? gmCompanionSb(pm) : null; } catch (e) { } }
+    else if (entry.faction === 'player' && entry.playerUid) {
+        let v = (((window.gmParty || []).find(p => p.fileName === entry.playerUid) || {}).summary || {}).saves;
+        return v && typeof v[attr] === 'number' ? v[attr] : null;
+    } else if (entry.sourceNpcId) { try { sb = (window.gmNpcs || []).some(n => n.id === entry.sourceNpcId) ? ncStatBlockFor(entry.sourceNpcId) : null; } catch (e) { } }
+    return sb && sb.saves && sb.saves[attr] != null ? (parseInt(sb.saves[attr]) || 0) : null;
+}
+// info: { id, label, area: { mapId, tokenIds }, save: { dc, kind, attr } | null, dmgTotal, dmgType, heal, attackRoll }
+window._gmAreaResolve = function(attacker, info) {
+    let a = info && info.area; if (!a) return;
+    let label = info.label || 'a power', seen = new Set(), rows = [];
+    (a.tokenIds || []).forEach(id => { let e = _gmEntryForToken(a.mapId, id); if (e && !seen.has(e.id) && window.gmInitiative.includes(e)) { seen.add(e.id); rows.push({ e }); } });
+    let byName = attacker ? _gmGmName(attacker) : 'Someone';
+    if (!rows.length) { gmLog({ gmOnly: true, kind: 'info', text: `${byName}'s ${label}: no one in the tracker is in its area.` }); return; }
+    let total = typeof info.dmgTotal === 'number' ? info.dmgTotal : null, save = info.save || null;
+    // An attack roll (each target is its own hit), or nothing to roll or deal: just say who's in it
+    if (info.attackRoll || (total == null && !save)) {
+        gmLog({ gmOnly: true, kind: 'info', text: `In ${byName}'s ${label}: ${rows.map(r => _gmGmName(r.e)).join(', ')}.` });
+        return;
+    }
+    let heal = !!info.heal;
+    rows.forEach(r => {
+        r.on = true;
+        if (save && !heal) {
+            let b = _gmSaveBonus(r.e, save.attr);
+            r.nat = 1 + Math.floor(Math.random() * 20); r.bonus = b || 0; r.known = b != null;
+            r.tot = r.nat + r.bonus; r.ok = r.tot >= save.dc;
+        }
+        r.amt = total == null ? 0 : (r.ok ? (save.kind === 'halves' ? Math.floor(total / 2) : 0) : total);
+    });
+    let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    let head = heal ? `${total} healing` : [save ? `DC ${save.dc} ${save.attr ? save.attr + ' ' : ''}save (success ${save.kind === 'halves' ? 'halves it' : 'negates it'})` : 'No save',
+        total != null ? `${total}${info.dmgType ? ' ' + esc(info.dmgType) : ''} damage rolled` : 'no damage'].join(' · ');
+    let box = document.createElement('div');
+    box.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:rgba(2,6,23,.6);display:flex;align-items:center;justify-content:center;padding:16px;';
+    box.innerHTML = `<div style="background:#0f172a;border:1px solid #7e22ce;border-radius:10px;max-width:520px;width:100%;max-height:85vh;overflow:auto;padding:14px;color:#e2e8f0;font-family:system-ui,sans-serif;box-shadow:0 10px 40px rgba(0,0,0,.6)">
+        <div style="font-weight:900;font-size:14px;color:#e9d5ff">${esc(byName)}: ${esc(label)} (area)</div>
+        <div style="font-size:11px;color:#94a3b8;margin:2px 0 10px">${head}</div>
+        ${rows.map((r, i) => `<label style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-top:1px solid #1e293b;font-size:12px;cursor:pointer">
+            <input type="checkbox" data-row="${i}" checked>
+            <span style="flex:1;font-weight:700">${esc(_gmGmName(r.e))}</span>
+            ${save && !heal ? `<span style="color:${r.ok ? '#4ade80' : '#f87171'};font-weight:700" title="${r.known ? '' : 'No saving throw bonus on record: rolled with +0'}">${r.tot} (d20 ${r.nat}${r.bonus ? (r.bonus > 0 ? ' +' : ' −') + Math.abs(r.bonus) : ''}${r.known ? '' : ', +0?'}) ${r.ok ? 'saved' : 'failed'}</span>` : ''}
+            <span style="min-width:64px;text-align:right;font-weight:900;color:${heal ? '#4ade80' : '#fca5a5'}">${heal ? '+' + r.amt : r.amt ? '−' + r.amt : 'none'}</span>
+        </label>`).join('')}
+        <div style="font-size:10px;color:#64748b;margin-top:8px">Damage reduction, resistances and Swarms (double from areas) are worked out as it's dealt. Untick anyone it shouldn't touch.</div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+            <button data-x style="padding:6px 14px;border-radius:6px;background:#334155;color:#fff;font-weight:700;font-size:12px;border:0;cursor:pointer">Cancel</button>
+            <button data-go style="padding:6px 14px;border-radius:6px;background:#7e22ce;color:#fff;font-weight:800;font-size:12px;border:0;cursor:pointer">${heal ? 'Heal them' : 'Deal it'}</button>
+        </div></div>`;
+    document.body.appendChild(box);
+    let close = () => box.remove();
+    box.querySelector('[data-x]').onclick = close;
+    box.addEventListener('mousedown', e => { if (e.target === box) close(); });
+    box.querySelector('[data-go]').onclick = () => {
+        box.querySelectorAll('[data-row]').forEach(cb => { rows[+cb.dataset.row].on = cb.checked; });
+        close();
+        let picked = rows.filter(r => r.on && window.gmInitiative.includes(r.e));
+        if (save && !heal) gmLog({ kind: 'info', force: true, text: `${_gmPublicName(attacker)}'s ${label}: ` + picked.map(r => `${_gmPublicName(r.e)} ${r.ok ? 'saves' : 'fails'} (${r.tot})`).join(', ') + '.' });
+        picked.forEach(r => {
+            if (heal) {
+                if (!r.amt) return;
+                let wasAboveZero = r.e.currentHp === null || r.e.currentHp > 0, before = (r.e.currentHp || 0) + (r.e.tempHp || 0);
+                let res = window.apxApplyHpInput('+' + r.amt, r.e.currentHp, r.e.tempHp, r.e.maxHp);
+                if (res) { r.e.currentHp = res.currentHp; r.e.tempHp = res.tempHp; }
+                _gmLogHpChange(r.e, before, (r.e.currentHp || 0) + (r.e.tempHp || 0), wasAboveZero, 0, null, label);
+                _afterHpChange(r.e, wasAboveZero);
+                return;
+            }
+            if (!r.amt) return;
+            let la = window._gmLastAttack;
+            let hit = la && la.id === info.id ? _gmTakeHit(r.e) : null;
+            if (hit && Array.isArray(hit.dmgShares) && total && r.amt !== total) hit = Object.assign({}, hit, { dmgShares: hit.dmgShares.map(x => Math.floor(x * r.amt / total)) });
+            let types = _gmDamageTypes({ typed: false }, hit) || (info.dmgType && window.APXDamage ? window.APXDamage.parts(info.dmgType) : null);
+            if (!types || !types.length) types = ['True'];
+            _gmDamage(r.e, { raw: r.amt, types, hit, swarmMode: 'area', src: hit ? null : `${_gmGmName(attacker)}'s ${label}` });
+        });
+        window.renderInitiativeTracker();
+        if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
+        if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
+    };
+};
 // No attack roll to match (dice rolled at the table): a typed "-N" (even -0) is still a hit,
 // by whoever is taking their turn
 function _gmTurnHit(target) {
@@ -2204,6 +2304,8 @@ function _gmHandleRollEvent(uid, ev) {
             crit: false, fumble: false, total: 0, dice: ev.dice || '', critMult: 2, reroll12: false, dmgType: ev.dmgType || '', power: true, save: ev.save || null, aoe: !!ev.aoe,
             dmgShares: Array.isArray(ev.dmgParts) ? ev.dmgParts.map(x => x.dmg) : null });
         if (firstSeen && pwEntry && ev.fx) { try { window._gmPowerFxOffer(pwEntry, ev.label || 'a power', ev.fx); } catch (e) { console.warn('Power effects:', e); } }
+        // Placed on the battle map as an area: roll everyone's saves in it and deal the damage
+        if (firstSeen && pwEntry && ev.area) { try { window._gmAreaResolve(pwEntry, ev); } catch (e) { console.warn('Power area:', e); } }
         return;
     }
     // Burning ticked at the start of their turn: say why they lost HP (instead of a plain damage line)

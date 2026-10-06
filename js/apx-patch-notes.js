@@ -11,11 +11,11 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.5.2300',
-        released: '2026-10-05T23:00:00',
-        releasedText: 'October 5, 2026 · 11:00 PM',
+        version: 'v2026.10.6.1545',
+        released: '2026-10-06T15:45:00',
+        releasedText: 'October 6, 2026 · 3:45 PM',
         title: 'Playtest Update',
-        intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs with loot of their own, apart from their stat blocks, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
+        intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs with loot of their own, apart from their stat blocks, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, area powers placed right on the battle map with every save in them rolled for you, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
             ['A New Home', [
                 'APX has moved to playapx.com. Old links and bookmarks to cybersugarstudios.com open the same page here, and cybersugarstudios.com is now the CyberSugar Studios homepage, with a link to APX.',
@@ -48,6 +48,8 @@
                 'Reorder an NPC\'s or Loyal Companion\'s powers with ▲ ▼, right-click a chat message to delete it, and the Party panel shows two players side by side, each with their powers in full (click a power\'s name for its own window).',
                 'NPC stat blocks have a Token Image: the default token for every creature built from them, which a named NPC\'s own picture replaces. Summoning a saved NPC brings its image along.',
                 'Tactician players are asked for their swap when you press Start Combat, while you see "Waiting on Tactician choice" (or choose for them); a Rank 5 Tactician can hand their turn to an ally, and the tracker returns to normal after.',
+                'Unlimited Uses on an NPC power costs 5 more TP per Power Level, at any Power Level and on an NPC of any Tier.',
+                'A Summon a Creature power\'s creature, built in the GM Tools, has a Save Creature button on its last step. The GM-only Legendary step stays out of its way.'
             ]],
             ['For Players', [
                 'Identical items stack: three Leather Armors from three bandits make one "Leather Armor ×3" row. Equipping takes one from the stack, taking it off puts it back, and older inventories are joined up the first time you open the character.',
@@ -79,7 +81,8 @@
                 'Everyone\'s AP is tracked, refills on their turn and carries over.',
                 'The dice tray has a chat: message everyone, just the GM, or the players you pick.',
                 'Your checks and saves reach your GM in or out of combat, your token\'s path shows its AP cost as you drag it, and Measure has Line, Cone and Burst modes.',
-                'Measurements stay where you put them: drag the start point to move one (started on your creature, the creature moves with its path and AP), scroll while holding the mouse button to turn a Line or Cone a square at a time, and a Line shows the exact squares it covers. Players\' measurements show for everyone; the GM\'s show when the GM presses V.'
+                'Measurements stay where you put them: drag the start point to move one (started on your creature, the creature moves with its path and AP) and scroll while dragging it to turn a Line or Cone. Scrolling while you\'re still drawing one doesn\'t turn it. A Line keeps its length as it turns and shows the exact squares it covers, and a Cone starts at the edge of its creature\'s space, so a creature is never caught in its own cone, however big it is. Players\' measurements show for everyone; the GM\'s show when the GM presses V.',
+                'Area powers land on the battle map: using a power with a Line, Cone or Burst while a battle map is open has you place its area first, at the size the power was crafted with. A Self or Touch area starts from the creature using it (scroll to turn it, drag its start to move it); a ranged one is placed anywhere within the power\'s range. The GM\'s tracker then rolls the save for everyone in it, player and NPC alike, and deals the damage by each roll once the GM confirms. With the Safe Zone perk, right-click creatures to leave them out.'
             ]],
             ['Maps', [
                 'Special Map Markers are larger and bright yellow with a dark outline (magenta for the GM while hidden), stay readable when zoomed out, and can hold loot.',
@@ -101,7 +104,8 @@
                 'Power Crafter Step 1 is now called Delivery and Step 3 Targeting. Every power costs at least 5 XP.',
                 'Step 3 (Targeting): Single Target (x1), Split Target (x2), or AoE (x3) in a shape crafted to an exact size: Line, 1 square wide (0.5 XP per square: 12 squares is 6 XP, 399 is 199), Cone from the edge of your space (3 XP per square of length: 15 squares is 45 XP), or Burst from a central square (10 XP per square of radius: 10 squares is 100 XP). The fixed Small to Massive AoEs are gone.',
                 'Tactician: Rank 1\'s swap happens as combat starts, and Rank 5 skips your turn to give an ally a full turn right away; initiative then carries on from the creature after you.',
-                'Artisan raises the most XP you can spend crafting a Consumable by 5 for each rank.'
+                'Artisan raises the most XP you can spend crafting a Consumable by 5 for each rank.',
+                'Unlimited Uses (NPC powers): for 5 additional TP per Power Level, the creature can use the power an unlimited number of times, at any Power Level and on an NPC of any Tier.'
             ]],
             ['Also', [
                 'Switching from one character to another and back keeps every change you made to each.',
@@ -179,6 +183,8 @@
                 'Powers for your Loyal Companion and for a summoned creature are priced in Threat Points from their own budget, never your XP. Building a summoned creature\'s powers from inside the Power Crafter picks your own power back up afterward.',
                 'Summoned creatures can\'t summon creatures of their own (the utility is locked when crafting their powers), and have a hard 3 AP each turn with nothing banked.',
                 'Your Loyal Companion can have a Summon a Creature power, up to its own Tier. Saving it opens the NPC Crafter for the creature and then returns to your companion; using it puts the creatures next to your companion on the battle map.',
+                'Area powers on the battle map: with your GM\'s battle map open, using a power with a Line, Cone or Burst has you place its area before anything is spent, at exactly the size you crafted. A Self or Touch area starts from your token: scroll to turn it, click a square to point it there, and drag its start to the square next to you. A Short, Long or Extreme Range area follows your mouse; click to place it within range (it turns red when it\'s out of range), then drag, turn or re-aim it. Enter (or Use power) uses it, Esc cancels, and Use without the map rolls it the old way. Your GM\'s tracker rolls everyone\'s saves in the area and deals the damage by each roll. Your Loyal Companion\'s area powers work the same way.',
+                'Safe Zone: right-click any creature in your area while placing it to keep it safe (it gets a green outline), and the GM\'s tracker leaves it out.',
                 '"Add a second damage type, splitting the dice" asks how many of the dice deal the second type (change it with − and + next to the type). The power shows as "2d6 Fire + 1d8 Cold", and using it rolls each type separately with the total underneath. A martial power rolls its weapon\'s damage and its own damage as separate types too.'
             ]],
             ['Magic and Custom Items', [
@@ -289,8 +295,8 @@
                 'Click a token to see its picture (never its stats), and NPCs your GM has revealed show their pictures in the World viewer.',
                 'Discoveries include the map notes your GM reveals, Area Circles under fog stay hidden, and a map closes on your screen when your GM stops sharing it.',
                 'Measure has Line, Cone and Burst modes, and right-click drops a waypoint. Pictures keep their shape when you resize their windows.',
-                'A measurement stays on the map after you let go. Drag its start point to move it; when it starts on your own token, dragging moves you (with the path and AP cost in combat) and the measurement comes along. Scroll while holding the mouse button to turn a Line or Cone, one square at a time. Shift+drag starts a new one.',
-                'Lines shade every square they cover, running in king steps (3 forward, 1 diagonal, 2 forward…), keep their number of squares as they turn, and name who\'s in them.',
+                'A measurement stays on the map after you let go. Drag its start point to move it; when it starts on your own token, dragging moves you (with the path and AP cost in combat) and the measurement comes along. Scroll while dragging its start to turn a Line or Cone, one square at a time. Scrolling while you\'re still drawing one doesn\'t turn it. Shift+drag starts a new one.',
+                'Lines shade every square they cover, running in king steps (3 forward, 1 diagonal, 2 forward…), and name who\'s in them. A Line keeps its length as it turns: a 12-square Line is 12 squares long at any angle, counting every other diagonal as 2 the way movement does, so it never grows as it swings around.',
                 'Your measurement shows on the GM\'s map and the other players\' (in blue, with your name), and theirs show on yours. The GM\'s show up when your GM chooses to share them.',
                 'Discoveries also hold revealed sub-notes whose place, NPC or area you haven\'t been shown.',
                 'When your GM hides something you have open (a map, an area, a place, an NPC or their picture), its window closes. Open popups update as notes are revealed or hidden.',
@@ -300,7 +306,7 @@
                 'Double-click any popup window\'s title bar to minimize it to a tab in the bottom-left corner. The tab is named after what\'s in the window: the map\'s name, the Area Circle\'s or marker\'s name ("Area B" until it has one), the NPC, place or session, never the title bar\'s buttons.',
                 'The Measure buttons and tip sit below a map window\'s own controls instead of behind them.',
                 'A minimized map comes back with its map, tokens and pins intact.',
-                'Cones mark every square at least a quarter inside the cone as drawn, and Bursts every square at least half inside the circle, so the highlighted squares match the outline at every size and angle.',
+                'A Cone starts at the edge of its creature\'s space, as the rules say, so a creature (Large and bigger included) is never in its own cone. Cones mark every square at least a quarter inside the cone as drawn, and Bursts every square at least half inside the circle, so the highlighted squares match the outline at every size and angle.',
                 'Knocked-out creatures turn grey with three snoring Z\'s rising from them.',
                 'Swarms can share your square; one under another creature shows as a small handle beside it (hover for its name and conditions). Token borders scale with size, so small tokens stay readable on their turn.'
             ]],
@@ -436,7 +442,10 @@
                 'NPC powers name the Core Attribute of their saving throw and, for a lasting effect, an Escape Save, like players\' powers.',
                 'Using a power that calls for a save (or inflicts Conditions), yours or a player\'s, puts a Roll targets\' saves (or Apply) button in your dice tray. Pick the targets: NPCs\' saves are rolled from their stat blocks, with their own Conditions counting, players are asked to roll theirs, and whoever fails gets the Conditions.',
                 'Lasting effects show on the creature\'s tracker row with their Escape Save. It\'s asked for at the end of each of the creature\'s turns, and whenever it takes damage with Damage Interrupt; attacking ends the effect with Action Interrupt. Save rolls it now, 3 AP spends the AP to repeat it, and ✕ ends the effect. An effect lasting until the end of the target\'s next turn wears off then.',
-                'When a world opens, an NPCs to rebuild list shows stat blocks in that world with powers built before the new save rules. Rebuild opens the NPC and walks you through each of its powers; finished NPCs drop off the list, and it goes away when none are left.'
+                'When a world opens, an NPCs to rebuild list shows stat blocks in that world with powers built before the new save rules. Rebuild opens the NPC and walks you through each of its powers; finished NPCs drop off the list, and it goes away when none are left.',
+                'Area powers on the battle map: using a stat block\'s power with a Line, Cone or Burst while the creature\'s token is on an open battle map has you place its area first (Self or Touch from the creature, scroll to turn it; ranged ones anywhere within range, red when out of range). Right-click creatures to keep them out of it. A window then lists everyone in it with their save already rolled (players\' from their sheets, NPCs\' and companions\' from their stat blocks) and the damage each takes: a success halves or negates it, Swarms take double, and DR, ER and resistances come off as it\'s dealt. Untick anyone it shouldn\'t touch, then Deal it. Healing areas heal everyone ticked.',
+                'Players\' and Loyal Companions\' area powers arrive the same way: the player places the area on their map, and the same window opens in your tracker with everyone\'s saves rolled.',
+                'Unlimited Uses (+5 TP per Power Level) works at any Power Level, on an NPC of any Tier.'
             ]],
             ['NPC Crafter and Weapon Forge', [
                 'NPC weapons stay fully editable: reopen one in the Weapon Forge to change melee or ranged, Light, Medium or Heavy, and its damage type at any time.',
@@ -450,6 +459,7 @@
                 'The Armor and Weapon Forges show no Cu for NPCs: their gear costs TP.',
                 'Sizes: Tiny or Smaller (3 TP: +2 AC, Advantage on AGI (Stealth), melee reach 0, no Heavy weapons), Small (+2 Stealth), Large (+15 HP, +2 Athletics, -2 Stealth), Huge (+20 HP, +4 Athletics, -4 Stealth) and Gargantuan (+30 HP, -2 AC, Advantage on Athletics, Disadvantage on Stealth). Every effect applies on its own: AC, reach, skill bonuses and Advantage or Disadvantage on the rolls. Carrying capacity is gone from the NPC Crafter.',
                 'A Loyal Companion can\'t summon creatures above its own Tier (other NPCs can), and a summoned creature can\'t summon at all. A summoned creature gets all the TP its Tier allows (Tier 1: 29 TP, Tier 2: 49 TP). Saving an NPC\'s summon power opens the crafter for its creature, then returns to the NPC.',
+                'Building a summoned creature in the GM Tools ends with a Save Creature button, and the GM-only Legendary step isn\'t shown for it.',
                 'Stat blocks (NPCs, companions, and players\' summaries) have Skills instead of Trained Skills: every skill whose roll isn\'t the plain attribute check (trained, a bonus of its own, or Advantage or Disadvantage), rolling with those.',
                 'Swarms run themselves: half damage from single-target attacks and double from area effects (powers know which; for typed damage you\'re asked), half their damage dice when below half HP, and no size bonuses or penalties.'
             ]],
@@ -483,7 +493,7 @@
                 'Grid colour, thickness and opacity are saved with each map, and colour pickers remember your recent colours.',
                 'Resize player and NPC tokens ("Sheet size" puts a player\'s back). The current NPC\'s path shows its AP cost as you drag and pays it on drop (Alt moves freely).',
                 'Measure has Line, Cone and Burst modes that list every token inside, and right-click drops a waypoint.',
-                'Measurements stay put: drag the start point to move one, or, when it starts on a creature, to move that creature (path and AP in combat) with the measurement riding along. Scroll while holding the mouse button to turn a Line or Cone, snapping square by square; Lines shade the squares they cover. Shift+drag starts a new one.',
+                'Measurements stay put: drag the start point to move one, or, when it starts on a creature, to move that creature (path and AP in combat) with the measurement riding along. Scroll while dragging its start to turn a Line or Cone, snapping square by square; scrolling while you\'re still drawing doesn\'t turn it. Lines shade the squares they cover and keep their length as they turn. Shift+drag starts a new one.',
                 'Players\' measurements show on your map in blue with their names. Yours stay private until you press V (or "Only you see it" in the Measure bar) to show them to your players; V again hides them.',
                 'Area Circles under fog are hidden from players, and stopping sharing a map closes it on their screens.',
                 'The map window\'s X stays in its corner, popups open beside the map in front of the dice tray, and pictures keep their shape when resized.',
@@ -494,7 +504,7 @@
                 'Movement paths follow diagonals without zig-zagging, and Large and bigger creatures measure from their center.',
                 'The Measure toolbar wraps in small windows, and double-clicking a window\'s title bar minimizes it to a tab named after the map, Area Circle, NPC or note it shows.',
                 'A token\'s menu says Shrink and Grow for its size.',
-                'Cones mark every square at least a quarter inside the cone as drawn, and Bursts every square at least half inside the circle, so the highlighted squares match the outline at every size and angle.',
+                'A Cone starts at the edge of its creature\'s space, as the rules say, so a creature (Large and bigger included) is never in its own cone. Cones mark every square at least a quarter inside the cone as drawn, and Bursts every square at least half inside the circle, so the highlighted squares match the outline at every size and angle.',
                 'Swarms share squares with any creature. A swarm under another creature is drawn beneath it, with a small handle beside that creature: hover it for the swarm\'s details (players see less), drag it to move the swarm, right-click or double-click it as you would the token.',
                 'NPC and companion tokens take their stat block\'s size (Tiny through Gargantuan), and Shrink / Grow keep their size until "Stat block size". Token borders and glows scale with the token, so a Tiny or Small creature\'s turn ring no longer swallows its picture. Hovering a token shows its HP and AC.'
             ]],

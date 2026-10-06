@@ -425,6 +425,7 @@
         _layoutSwarmHandles(layer, o, s, ox, oy);
         _drawGrid(layer);
         _layoutMeasure(layer);
+        _layoutArea(layer);
         _layoutShared(layer);
         layer.querySelectorAll('[data-bt]').forEach(el => { if (el._drag && el._drag.path) _drawPath(layer, el); });
     }
@@ -1067,7 +1068,7 @@
     // A measurement is kept relative to its start, so it can be moved, turned, and ride along on a creature:
     //   { mode, a: {gx,gy} start square, anchor: token id it starts on (or null), rel: {dx,dy} start minus that
     //     token's square, vec: {dx,dy} end minus start, wayRel: [{dx,dy}] a Line's corners,
-    //     L: a Cone's / Burst's length and n: the squares a Line covers (both fixed once it's placed) }
+    //     L: a Cone's / Burst's length and n: a Line's length in squares (both fixed once it's placed) }
     function _tokPos(layer, id) {
         let el = layer.querySelector(`[data-bt="${CSS.escape(id)}"]`);
         if (el && el._vm) return { gx: el._drag ? el._drag.gx : el._vm.gridX, gy: el._drag ? el._drag.gy : el._vm.gridY };
@@ -1085,18 +1086,26 @@
         if (f.token) { let p = _tokPos(layer, f.id); if (p) { let w = f.x1 - f.x0; f = Object.assign({}, f, { x0: p.gx, y0: p.gy, x1: p.gx + w, y1: p.gy + w }); } }
         return f;
     }
+    // How far a square is from a Line's start, the way the Line's length is counted: from a creature, the
+    // squares between them (adjacent = 1); from a plain square, including that square (next door = 2)
+    function _lineDist(fa, c) {
+        let near = _nearest(fa, { x0: c.gx, x1: c.gx, y0: c.gy, y1: c.gy });
+        return squaresBetween(c.gx - near.gx, c.gy - near.gy) + (fa.token ? 0 : 1);
+    }
     // The squares a Line covers, from its start toward b, in king steps: a shallow line runs straight, steps
     // diagonally, then runs straight again (3 forward, 1 diagonal, 2 forward…). A creature's own space isn't
-    // counted; a plain starting square is. n: how many squares (a placed Line keeps its length as it turns).
+    // counted; a plain starting square is. n: its length in squares (a placed Line keeps its length as it
+    // turns, so a diagonal one covers fewer squares, the way every other diagonal counts as 2).
     function lineCells(fa, b, n) {
         let cx = (fa.x0 + fa.x1 + 1) / 2, cy = (fa.y0 + fa.y1 + 1) / 2;
         let dx = b.gx + 0.5 - cx, dy = b.gy + 0.5 - cy, maj = Math.max(Math.abs(dx), Math.abs(dy));
         if (maj < 1e-9) return fa.token ? [] : [{ gx: b.gx, gy: b.gy }];
         let sx = dx / maj, sy = dy / maj, cells = [], seen = new Set();
-        for (let i = 0; n ? (cells.length < n && i < 4 * n + 20) : i <= maj + 1e-9; i++) {
+        for (let i = 0; n ? i < 4 * n + 20 : i <= maj + 1e-9; i++) {
             let gx = Math.floor(cx + sx * i + 1e-9), gy = Math.floor(cy + sy * i + 1e-9);
             if (fa.token && gx >= fa.x0 && gx <= fa.x1 && gy >= fa.y0 && gy <= fa.y1) continue;
             let k = gx + ',' + gy; if (seen.has(k)) continue;
+            if (n && _lineDist(fa, { gx, gy }) > n) break;
             seen.add(k); cells.push({ gx, gy });
         }
         return cells;
@@ -1146,7 +1155,7 @@
         let fb = _footNow(layer, endCell);
         let ca = _nearest(fa, fb), cb = _nearest(fb, fa);
         let anyToken = fa.token || fb.token;
-        let n = squaresBetween(cb.gx - ca.gx, cb.gy - ca.gy) + (anyToken ? 0 : 1);
+        let n = R.n || (squaresBetween(cb.gx - ca.gx, cb.gy - ca.gy) + (anyToken ? 0 : 1));
         let centerPts = f => [{ x: f.x0 + 0.5, y: f.y0 + 0.5 }];
         let cornerPts = f => [{ x: f.x0, y: f.y0 }, { x: f.x1 + 1, y: f.y0 }, { x: f.x0, y: f.y1 + 1 }, { x: f.x1 + 1, y: f.y1 + 1 }];
         let pa = fa.token ? cornerPts(fa) : centerPts(fa), pb = fb.token ? cornerPts(fb) : centerPts(fb);
@@ -1173,17 +1182,22 @@
         let cx = (fa.x0 + fa.x1 + 1) / 2, cy = (fa.y0 + fa.y1 + 1) / 2;
         let dx = target.gx + 0.5 - cx, dy = target.gy + 0.5 - cy, dl = Math.hypot(dx, dy) || 1;
         if (!dx && !dy) dx = dl = 1;   // pointing nowhere yet: point right
+        // A Cone's point sits on the edge of the creature's (or square's) space, where the direction leaves it,
+        // so the creature itself is never in its own cone, however big it is
+        let ux = dx / dl, uy = dy / dl, half = (fa.x1 - fa.x0 + 1) / 2;
+        let edge = half / Math.max(Math.abs(ux), Math.abs(uy), 1e-9);
+        let ax = cx + ux * edge, ay = cy + uy * edge;
         let cells = [];
         for (let gx = fa.x0 - L - 1; gx <= fa.x1 + L + 1; gx++) for (let gy = fa.y0 - L - 1; gy <= fa.y1 + L + 1; gy++) {
             let inside = gx >= fa.x0 && gx <= fa.x1 && gy >= fa.y0 && gy <= fa.y1;
             if (inside) { if (mode === 'burst') cells.push({ gx, gy }); continue; }
             if (mode === 'cone') {
                 // A square is in the cone when at least a quarter of it lies inside the cone as drawn
-                // (the apex at the creature's center, the arc L squares past its edge)
-                let R = L + (fa.x1 - fa.x0 + 1) / 2, cosH = Math.cos(CONE_HALF), inN = 0, N = samples || 12;
+                // (the point on the edge of the space, the arc L squares out from it)
+                let cosH = Math.cos(CONE_HALF), inN = 0, N = samples || 12;
                 for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
-                    let vx = gx + (i + 0.5) / N - cx, vy = gy + (j + 0.5) / N - cy, vl = Math.hypot(vx, vy);
-                    if (vl <= R && vl > 0 && (vx * dx + vy * dy) / (vl * dl) >= cosH - 1e-9) inN++;
+                    let vx = gx + (i + 0.5) / N - ax, vy = gy + (j + 0.5) / N - ay, vl = Math.hypot(vx, vy);
+                    if (vl <= L && vl > 0 && (vx * ux + vy * uy) / vl >= cosH - 1e-9) inN++;
                 }
                 if (inN * 4 < N * N) continue;
                 cells.push({ gx, gy });
@@ -1197,7 +1211,7 @@
             if (inN * 2 < N * N) continue;
             cells.push({ gx, gy });
         }
-        return { cells, L, cx, cy, ang: Math.atan2(dy, dx) };
+        return { cells, L, cx, cy, ax, ay, ang: Math.atan2(dy, dx) };
     }
     function _areaHtml(layer, R, scr, rect, s, cs, tag, who) {
         let fa = _footNow(layer, R.a);
@@ -1207,7 +1221,7 @@
         let line = who ? '#38bdf8' : R.mode === 'cone' ? 'rgba(251,146,60,.85)' : 'rgba(248,113,113,.85)';
         let html = A.cells.map(c => rect(c.gx, c.gy, c.gx, c.gy, fill, 'rgba(0,0,0,.25)')).join('');
         html += rect(fa.x0, fa.y0, fa.x1, fa.y1, 'rgba(250,204,21,.12)', 'rgba(250,204,21,.8)', fa.token);
-        let c0 = scr(A.cx, A.cy), Rr = (A.L + (fa.x1 - fa.x0 + 1) / 2) * cs * s;
+        let c0 = R.mode === 'cone' ? scr(A.ax, A.ay) : scr(A.cx, A.cy), Rr = (A.L + (R.mode === 'cone' ? 0 : (fa.x1 - fa.x0 + 1) / 2)) * cs * s;
         if (R.mode === 'burst') html += `<circle cx="${c0.x}" cy="${c0.y}" r="${Rr}" fill="none" stroke="${line}" stroke-width="2" stroke-dasharray="6 4"/>`;
         else {
             let e1 = { x: c0.x + Rr * Math.cos(A.ang - CONE_HALF), y: c0.y + Rr * Math.sin(A.ang - CONE_HALF) }, e2 = { x: c0.x + Rr * Math.cos(A.ang + CONE_HALF), y: c0.y + Rr * Math.sin(A.ang + CONE_HALF) };
@@ -1272,7 +1286,7 @@
     }
     function enterMeasure(winId, mode) {
         let layer = document.getElementById(winId + '_btScreen');
-        if (!layer || !layer._opts || layer._measure) return false;
+        if (!layer || !layer._opts || layer._measure || layer._area) return false;
         let ov = document.createElement('div');
         ov.setAttribute('data-bt-ui', 'measure');
         ov.style.cssText = `position:absolute;inset:0;z-index:${Z_UI};pointer-events:auto;cursor:crosshair;`;
@@ -1305,7 +1319,7 @@
         requestAnimationFrame(placeBar);
         if (window.ResizeObserver) { let ro = new ResizeObserver(() => placeBar()); ro.observe(layer); ov._ro = ro; }
         let m = layer._measure = { ov, svg, bar, g: null, placed: false, down: false, follow: false, held: null, mode: mode || _measureMode };
-        let setTip = () => { let t = bar.querySelector('[data-mtip]'); if (t) t.textContent = tipTxt[m.mode] + (m.placed ? ' · drag its start to move it, scroll while holding to turn it' : '') + ' · M or Esc to exit'; };
+        let setTip = () => { let t = bar.querySelector('[data-mtip]'); if (t) t.textContent = tipTxt[m.mode] + (m.placed ? ' · drag its start to move it, scroll while dragging it to turn it' : '') + ' · M or Esc to exit'; };
         setTip();
         let shareT = 0;
         let share = now => { clearTimeout(shareT); if (now) _mShare(layer); else shareT = setTimeout(() => _mShare(layer), 250); };
@@ -1328,7 +1342,7 @@
             let r = R(); if (!r) return;
             let fa = _footNow(layer, r.a);
             m.g.L = m.g.n = null;
-            if (r.mode === 'line' && !(m.g.wayRel || []).length) { let n = lineCells(fa, r.b).length; if (n) m.g.n = n; }
+            if (r.mode === 'line' && !(m.g.wayRel || []).length) { let cv = lineCells(fa, r.b); if (cv.length) m.g.n = _lineDist(fa, cv[cv.length - 1]); }
             if (r.mode === 'cone' || r.mode === 'burst') m.g.L = areaCells(fa, r.b, r.mode).L;
             m.placed = true; setTip();
         };
@@ -1407,11 +1421,11 @@
             m.g.vec = nv; _layoutMeasure(layer);
         });
         ov.addEventListener('mouseup', e => { if (!m.down) return; e.stopPropagation(); m.down = false; freeze(); share(); _layoutMeasure(layer); });
-        // Scroll while holding the mouse button: turns a Line or Cone (a plain scroll still zooms the map)
+        // Scroll while dragging a placed Line's or Cone's start: turns it. While it's still being drawn,
+        // scrolling doesn't turn it (a plain scroll still zooms the map).
         ov.addEventListener('wheel', e => {
-            if (!((e.buttons & 1) || m.down || m.held) || !m.g) return;
+            if (!m.held || !m.placed || !m.g) return;
             e.preventDefault(); e.stopPropagation();
-            if (m.down) { m.down = false; freeze(); }   // turning while drawing places it
             rotate(e.deltaY > 0 ? 1 : -1);
         }, { passive: false });
         // Right-click: a corner point on a Line (keeps going from there; click to finish). With nothing measured, it exits.
@@ -1448,6 +1462,194 @@
         if (layer._opts?.onMeasureChange) layer._opts.onMeasureChange(false);
         return true;
     }
+
+    // ── Power areas ──────────────────────────────────────────────
+    // A power with an area (a Line, Cone or Burst crafted to an exact size) is placed on the map when it's
+    // used. Its shape and size are fixed by the power; only where it starts and which way it points change.
+    //   opts: { mode: 'line'|'cone'|'burst', size, casterId: the user's token (or null), range: squares from
+    //           the user (0 = Self/Touch, Infinity = anywhere), label, safeZone: may pick creatures to leave out }
+    // Resolves { tokenIds, safeIds, names }, 'skip' (use the power without the map) or null (cancelled).
+    function _areaFoot(layer, P) {
+        if (P.anchor && P.casterId) {
+            let el = layer.querySelector(`[data-bt="${CSS.escape(P.casterId)}"]`);
+            if (el && el._vm) { let p = _tokPos(layer, P.casterId), w = span(el._vm.size) - 1; return { x0: p.gx, y0: p.gy, x1: p.gx + w, y1: p.gy + w, token: true, id: P.casterId }; }
+        }
+        return P.a ? { x0: P.a.gx, y0: P.a.gy, x1: P.a.gx, y1: P.a.gy } : null;
+    }
+    function _casterFoot(layer, P) {
+        if (!P.casterId) return null;
+        let el = layer.querySelector(`[data-bt="${CSS.escape(P.casterId)}"]`);
+        if (!el || !el._vm) return null;
+        let p = _tokPos(layer, P.casterId), w = span(el._vm.size) - 1;
+        return { x0: p.gx, y0: p.gy, x1: p.gx + w, y1: p.gy + w, token: true, id: P.casterId };
+    }
+    // How far the area's start is from its user (0 when it starts from them)
+    function _areaReach(layer, P) {
+        let cf = _casterFoot(layer, P), fa = _areaFoot(layer, P);
+        if (!cf || !fa || fa.token) return 0;
+        let n = _nearest(cf, fa);
+        return squaresBetween(fa.x0 - n.gx, fa.y0 - n.gy);
+    }
+    function _areaOk(layer, P) { return P.range === Infinity || !_casterFoot(layer, P) || _areaReach(layer, P) <= Math.max(1, P.range); }
+    function _areaCalc(layer, P) {
+        let fa = _areaFoot(layer, P); if (!fa) return null;
+        let cx = (fa.x0 + fa.x1 + 1) / 2, cy = (fa.y0 + fa.y1 + 1) / 2, D = Math.max(20, P.size * 3);
+        let b = { gx: Math.floor(cx + Math.cos(P.ang) * D), gy: Math.floor(cy + Math.sin(P.ang) * D) };
+        let cells = P.mode === 'line' ? lineCells(fa, b, P.size) : areaCells(fa, b, P.mode, P.size > 120 ? 3 : P.size > 40 ? 5 : 12, P.size).cells;
+        let set = new Set(cells.map(c => c.gx + ',' + c.gy)), hits = [];
+        (layer._opts.tokens || []).forEach(vm => {
+            let p = _tokPos(layer, vm.id) || { gx: vm.gridX, gy: vm.gridY }, sp = span(vm.size), inside = false;
+            for (let x = p.gx; x < p.gx + sp && !inside; x++) for (let y = p.gy; y < p.gy + sp && !inside; y++) if (set.has(x + ',' + y)) inside = true;
+            if (inside) hits.push({ vm, x0: p.gx, y0: p.gy, x1: p.gx + sp - 1, y1: p.gy + sp - 1 });
+        });
+        return { fa, b, cells, hits };
+    }
+    function _layoutArea(layer) {
+        let P = layer._area; if (!P || !layer._opts) return;
+        let o = layer._opts, g = o.grid, win = o.win, s = win._scale || 1, ox = win._offX || 0, oy = win._offY || 0, org = origin(g), cs = g.cellSize;
+        let scr = (x, y) => ({ x: ox + (org.ox + x * cs) * s, y: oy + (org.oy + y * cs) * s });
+        let rect = (x0, y0, x1, y1, fill, stroke, w, dash) => { let tl = scr(x0, y0), br = scr(x1 + 1, y1 + 1);
+            return `<rect x="${tl.x}" y="${tl.y}" width="${br.x - tl.x}" height="${br.y - tl.y}" fill="${fill}" stroke="${stroke}" stroke-width="${w || 1}" ${dash ? 'stroke-dasharray="5 3"' : ''}/>`; };
+        let A = _areaCalc(layer, P);
+        let tip = P.bar.querySelector('[data-atip]'), go = P.bar.querySelector('[data-ago]');
+        if (!A) { P.svg.innerHTML = ''; return; }
+        let ok = _areaOk(layer, P), reach = _areaReach(layer, P);
+        let fill = ok ? 'rgba(192,132,252,.30)' : 'rgba(248,113,113,.28)', edge = ok ? '#c084fc' : '#f87171';
+        let html = A.cells.map(c => rect(c.gx, c.gy, c.gx, c.gy, fill, 'rgba(0,0,0,.25)')).join('');
+        html += rect(A.fa.x0, A.fa.y0, A.fa.x1, A.fa.y1, 'rgba(250,204,21,.14)', '#facc15', 1.5, A.fa.token);
+        let hitN = 0;
+        A.hits.forEach(h => {
+            let safe = P.safe.has(h.vm.id);
+            if (!safe) hitN++;
+            html += rect(h.x0, h.y0, h.x1, h.y1, 'none', safe ? '#4ade80' : '#f43f5e', 3, safe);
+        });
+        // A grab ring on its start, once it's placed
+        let c0 = scr((A.fa.x0 + A.fa.x1 + 1) / 2, (A.fa.y0 + A.fa.y1 + 1) / 2);
+        if (P.placed) html += `<circle cx="${c0.x}" cy="${c0.y}" r="${Math.max(9, (A.fa.x1 - A.fa.x0 + 1) * cs * s * 0.5 + 3)}" fill="none" stroke="#fde68a" stroke-width="1.5" stroke-dasharray="3 3"/>`;
+        let shape = P.mode === 'burst' ? `${P.size}-sq Burst` : `${P.size}-sq ${P.mode === 'line' ? 'Line' : 'Cone'}`;
+        html += _measureLabel(c0.x + 16, c0.y - 18, `${P.label}: ${shape} · ${hitN} creature${hitN === 1 ? '' : 's'}${P.safe.size ? ` (${P.safe.size} safe)` : ''}`, edge, '#f5f3ff');
+        if (!ok) html += _measureLabel(c0.x + 16, c0.y + 8, P.range === 0 ? 'Too far: it starts from you (or the square next to you)' : `Out of range: ${reach} of ${P.range} squares`, '#f87171', '#fecaca');
+        P.svg.innerHTML = html;
+        if (go) { go.style.opacity = P.placed && ok ? '1' : '.5'; }
+        if (tip) {
+            let t = !P.placed ? `Move to aim, click to place it${P.range && P.range !== Infinity ? ` (range ${P.range} squares)` : ''}`
+                : `Drag its start to move it${P.mode === 'burst' ? ' · click a square to move it there' : ' · scroll to turn it · click a square to point it there'}`;
+            if (P.safeZone) t += ' · right-click a creature to keep it safe (Safe Zone)';
+            tip.textContent = t + ' · Enter to use it, Esc to cancel';
+        }
+    }
+    function placeArea(winId, opts) {
+        let layer = document.getElementById(winId + '_btScreen');
+        if (!layer || !layer._opts || !opts || !['line', 'cone', 'burst'].includes(opts.mode)) return Promise.resolve('skip');
+        if (layer._measure) exitMeasure(winId);
+        if (layer._area) layer._area.finish(null);
+        return new Promise(resolve => {
+            let ov = document.createElement('div');
+            ov.setAttribute('data-bt-ui', 'area');
+            ov.style.cssText = `position:absolute;inset:0;z-index:${Z_UI};pointer-events:auto;cursor:crosshair;`;
+            let svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('width', '100%'); svg.setAttribute('height', '100%');
+            svg.style.cssText = 'position:absolute;inset:0;pointer-events:none;overflow:visible;';
+            let bar = document.createElement('div');
+            bar.style.cssText = 'position:absolute;left:8px;right:8px;bottom:8px;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:4px;pointer-events:none;cursor:default;';
+            let btn = (attr, txt, bg, bd) => `<button ${attr} style="pointer-events:auto;border:1px solid ${bd};border-radius:5px;font-size:11px;font-weight:800;padding:3px 10px;cursor:pointer;background:${bg};color:#fff">${txt}</button>`;
+            bar.innerHTML = btn('data-ago', 'Use power', '#7e22ce', '#c084fc') + btn('data-askip', 'Use without the map', 'rgba(15,23,42,.92)', '#64748b') + btn('data-acancel', 'Cancel', 'rgba(15,23,42,.92)', '#64748b')
+                + `<span data-atip style="background:rgba(15,23,42,.92);border:1px solid #c084fc;color:#f5f3ff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:5px;white-space:normal;max-width:100%;text-align:center;pointer-events:none"></span>`;
+            ov.appendChild(svg); ov.appendChild(bar);
+            layer.appendChild(ov);
+            let size = Math.max(1, parseInt(opts.size) || 1);
+            let range = opts.range === Infinity || opts.range == null ? Infinity : Math.max(0, parseInt(opts.range) || 0);
+            let P = layer._area = { ov, svg, bar, mode: opts.mode, size, range, casterId: opts.casterId || null, label: opts.label || 'Power', safeZone: !!opts.safeZone,
+                safe: new Set(), anchor: false, a: null, ang: 0, placed: false, drag: false };
+            // Self / Touch: it starts from its user, pointing away from the map's middle-ish (right)
+            let cf = _casterFoot(layer, P);
+            if (cf && range === 0) { P.anchor = true; P.placed = true; }
+            else if (cf) { P.a = { gx: cf.x1 + 1, gy: cf.y0 }; }
+            let cellOf = e => { let p = _imgPoint(layer, e); return _cellAt(layer._opts.grid, p.x, p.y); };
+            let inCaster = c => { let f = _casterFoot(layer, P); return f && c.gx >= f.x0 && c.gx <= f.x1 && c.gy >= f.y0 && c.gy <= f.y1; };
+            let onStart = c => { let f = _areaFoot(layer, P); return f && c.gx >= f.x0 && c.gx <= f.x1 && c.gy >= f.y0 && c.gy <= f.y1; };
+            let setStart = c => { if (inCaster(c) && range === 0) { P.anchor = true; P.a = null; } else { P.anchor = false; P.a = c; } };
+            let aim = c => { let f = _areaFoot(layer, P); if (!f) return; let dx = c.gx + 0.5 - (f.x0 + f.x1 + 1) / 2, dy = c.gy + 0.5 - (f.y0 + f.y1 + 1) / 2; if (dx || dy) P.ang = Math.atan2(dy, dx); };
+            let isPan = e => e.button === 1 || (e.button === 0 && (e.ctrlKey || e.metaKey));
+            let finish = res => {
+                if (layer._area !== P) return;
+                document.removeEventListener('keydown', onKey, true);
+                window.removeEventListener('mouseup', onUp, true);
+                ov.remove(); layer._area = null;
+                resolve(res);
+            };
+            P.finish = finish;
+            let confirm = () => {
+                if (!P.placed) { toast(layer._opts.area, 'Click on the map to place the area first.'); return; }
+                if (!_areaOk(layer, P)) { toast(layer._opts.area, P.range === 0 ? 'This power starts from you: move its start onto you or the square next to you.' : `That's out of range (${_areaReach(layer, P)} of ${P.range} squares).`); return; }
+                let A = _areaCalc(layer, P); if (!A) return;
+                let hit = A.hits.filter(h => !P.safe.has(h.vm.id));
+                let res = { tokenIds: hit.map(h => h.vm.id), safeIds: A.hits.filter(h => P.safe.has(h.vm.id)).map(h => h.vm.id),
+                    names: hit.map(h => h.vm.name || String(h.vm.title || '').split(' (')[0] || 'Token'), squares: A.cells.length };
+                // Everyone sees where it landed for a few seconds (as this window's shared measurement)
+                let o = layer._opts;
+                if (o.onMeasureShare && !layer._measure) {
+                    let g = { mode: P.mode, a: P.anchor ? { gx: A.fa.x0, gy: A.fa.y0 } : P.a, anchor: P.anchor ? P.casterId : null, rel: P.anchor ? { dx: 0, dy: 0 } : null,
+                        vec: { dx: A.b.gx - A.fa.x0, dy: A.b.gy - A.fa.y0 }, wayRel: [], L: P.mode === 'line' ? null : P.size, n: P.mode === 'line' ? P.size : null };
+                    try { o.onMeasureShare(g); layer._areaShared = g; layer._mShared = true; } catch (e) { }
+                    setTimeout(() => { if (layer._areaShared === g && !layer._measure && layer._opts && layer._opts.onMeasureShare) { layer._areaShared = null; layer._mShared = false; try { layer._opts.onMeasureShare(null); } catch (e) { } } }, 15000);
+                }
+                finish(res);
+            };
+            let onKey = e => {
+                let t = e.target;
+                if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;   // typing in the chat, a box…
+                if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(null); }
+                else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); confirm(); }
+            };
+            let onUp = () => { if (P.drag) { P.drag = false; _layoutArea(layer); } };
+            document.addEventListener('keydown', onKey, true);
+            window.addEventListener('mouseup', onUp, true);
+            bar.addEventListener('mousedown', e => e.stopPropagation());
+            bar.addEventListener('pointerdown', e => e.stopPropagation());
+            bar.querySelector('[data-ago]').addEventListener('click', e => { e.stopPropagation(); confirm(); });
+            bar.querySelector('[data-askip]').addEventListener('click', e => { e.stopPropagation(); finish('skip'); });
+            bar.querySelector('[data-acancel]').addEventListener('click', e => { e.stopPropagation(); finish(null); });
+            ov.addEventListener('pointerdown', e => { if (!isPan(e)) e.stopPropagation(); });
+            ov.addEventListener('mousedown', e => {
+                if (isPan(e)) return; e.stopPropagation(); e.preventDefault(); if (e.button !== 0) return;
+                let c = cellOf(e);
+                if (!P.placed) { setStart(c); P.placed = true; }
+                else if (onStart(c)) P.drag = true;
+                else if (P.mode === 'burst') setStart(c);
+                else aim(c);
+                _layoutArea(layer);
+            });
+            ov.addEventListener('mousemove', e => {
+                let c = cellOf(e);
+                if (!P.placed || P.drag) {
+                    let f = _areaFoot(layer, P);
+                    if (!f || (P.anchor ? !inCaster(c) : (c.gx !== P.a.gx || c.gy !== P.a.gy))) { setStart(c); _layoutArea(layer); }
+                    return;
+                }
+                ov.style.cursor = onStart(c) ? 'move' : 'crosshair';
+            });
+            // Scroll turns a Line or Cone (Shift+scroll, or a Burst, still zooms the map)
+            ov.addEventListener('wheel', e => {
+                if (P.mode === 'burst' || e.shiftKey) return;
+                e.preventDefault(); e.stopPropagation();
+                P.ang += (e.deltaY > 0 ? 1 : -1) * Math.max(Math.PI / 48, Math.min(Math.PI / 12, 1 / P.size));
+                _layoutArea(layer);
+            }, { passive: false });
+            ov.addEventListener('contextmenu', e => {
+                e.preventDefault(); e.stopPropagation();
+                if (!P.safeZone) return;
+                let A = _areaCalc(layer, P); if (!A) return;
+                let c = cellOf(e), h = A.hits.find(h => c.gx >= h.x0 && c.gx <= h.x1 && c.gy >= h.y0 && c.gy <= h.y1);
+                if (!h) return;
+                if (P.safe.has(h.vm.id)) P.safe.delete(h.vm.id); else P.safe.add(h.vm.id);
+                _layoutArea(layer);
+            });
+            _layoutArea(layer);
+        });
+    }
+    function isPlacingArea(winId) { return !!document.getElementById(winId + '_btScreen')?._area; }
+
     function toggleMeasure(winId) { return exitMeasure(winId) ? false : enterMeasure(winId); }
     function isMeasuring(winId) { return !!document.getElementById(winId + '_btScreen')?._measure; }
 
@@ -1607,6 +1809,7 @@
         party: () => Object.values(store.profiles), companionOf, mail: () => store.mail,
         render, layout, clear, toast,
         numberOf, sizeFromCharState, compressImage,
-        squaresBetween, pathSquares, areaCells, lineCells, measuresFor, writeMeasure, moveCost, auraColor, enterMeasure, exitMeasure, toggleMeasure, isMeasuring
+        squaresBetween, pathSquares, areaCells, lineCells, measuresFor, writeMeasure, moveCost, auraColor, enterMeasure, exitMeasure, toggleMeasure, isMeasuring,
+        placeArea, isPlacingArea
     };
 })();

@@ -1697,6 +1697,17 @@
             // Damage type chosen each time it's used (both, with a second type): asked before anything is spent
             let chosen = window.apxPowerChooseTypes ? await window.apxPowerChooseTypes(p.draft, name) : null;
             if (chosen === false) return;
+            // An area power with a battle map open: place its area first (its shape and size are the power's).
+            // The GM's tracker then rolls everyone's saves in it and deals the damage.
+            let areaRes = null, areaSpec = window.apxPowerAreaSpec ? window.apxPowerAreaSpec(p) : null;
+            if (areaSpec && window._pwAreaMap && window.APXBattle && window.APXBattle.placeArea) {
+                let am = window._pwAreaMap(false);
+                if (am) {
+                    let r = await window.APXBattle.placeArea(am.winId, Object.assign({ casterId: am.tokenId, label: name, safeZone: ((window.state.perks || {}).gen_safezone || 0) > 0 }, areaSpec));
+                    if (r === null) return;
+                    if (r !== 'skip') areaRes = { mapId: am.mapId, tokenIds: r.tokenIds, safeIds: r.safeIds, names: r.names };
+                }
+            }
             // An item's power runs on the item (its uses are on the card), not on your Power Slots
             let itemSrc = /^i\d+_\d+$/.test(String(idx)) ? (window.state.items || [])[+String(idx).slice(1).split('_')[0]] : null;
             // What the power runs on: Full Rest Powers use a Power Slot of its Level (or a higher one when
@@ -1760,7 +1771,8 @@
             let sumN = (p.draft && p.draft.utility && p.draft.utility.major && p.draft.utility.major.summonCreature) || 0;
             let summon = sumN && p.draft.summonNpc ? { npc: (n => { delete n.portraitFull; return n; })(JSON.parse(JSON.stringify(p.draft.summonNpc))), count: sumN, tier: p.draft.summonTier || 1, power: name } : null;
             if (sumN && !summon) APXDice.notify(`${name} summons a creature, but it hasn't been built yet: edit the power and build it in the NPC Crafter.`, { kind: 'warn', open: true });
-            let tell = (text, extra) => { if (typeof window.apxOnRollEvent === 'function') window.apxOnRollEvent(Object.assign({ id: 'pw' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), kind: 'power', label: name, text }, extra || {}, summon ? { summon } : {}, isAoe ? { aoe: true } : {}, fxInfo ? { fx: fxInfo } : {})); };
+            let areaNote = areaRes ? `In the area: ${areaRes.names.length ? areaRes.names.join(', ') : 'no one'}${areaRes.safeIds.length ? ` (${areaRes.safeIds.length} kept safe)` : ''}.` : '';
+            let tell = (text, extra) => { if (typeof window.apxOnRollEvent === 'function') window.apxOnRollEvent(Object.assign({ id: 'pw' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), kind: 'power', label: name, text: areaNote ? text + ' ' + areaNote : text }, extra || {}, summon ? { summon } : {}, isAoe ? { aoe: true } : {}, fxInfo ? { fx: fxInfo } : {}, areaRes ? { area: { mapId: areaRes.mapId, tokenIds: areaRes.tokenIds, safeIds: areaRes.safeIds } } : {})); };
             if (info.kind === 'power' || info.kind === 'martial') {
                 let bonus = info.kind === 'power' ? pnums.atk : (info.w ? info.w.bonus : pnums.atk);
                 let via = info.kind === 'martial' && info.w ? ` (${info.w.label})` : '';
@@ -1788,15 +1800,18 @@
             let saveText = saveKind ? `Targets make a${/^[AEIOU]/.test(sAttr) ? 'n' : ''} ${sAttr}saving throw against DC ${dc}: a success ${saveKind === 'halves' ? 'halves it' : 'negates it'}.` : '';
             if (dmg) {
                 let dcard = APXDice.damage({ label: name + (dmg.heal ? ' healing' : ' damage'), who, formula: dmg.formula, dmgType: dmg.heal ? '' : dmg.type, heal: dmg.heal || undefined, wcat: 'power',
-                    apNote: useNote, apWarn: !pay, note: saveText || null, flavor, split: dmg.split || undefined });
+                    apNote: useNote, apWarn: !pay, note: [saveText, areaNote].filter(Boolean).join(' ') || null, flavor, split: dmg.split || undefined });
                 // a split roll: the GM's tracker divides the damage between the types as rolled
                 if (dmg.split && dcard && Array.isArray(dcard.parts)) dmg.parts = dcard.parts.filter(x => x.kind === 'dmg').map((x, i) => ({ type: (dmg.split[i] || {}).type, dmg: x.total }));
+                // what it rolled, for an area the GM's tracker resolves
+                if (dcard && Array.isArray(dcard.parts)) dmg.total = dcard.parts.filter(x => x.kind === 'dmg').reduce((t, x) => t + (x.total || 0), 0);
             } else {
-                APXDice.info({ label: name, who, text: flavor || 'Power used.', badges: [[pay ? 'info' : 'fum', useNote]].concat(saveText ? [['info', saveText]] : []) });
+                APXDice.info({ label: name, who, text: flavor || 'Power used.', badges: [[pay ? 'info' : 'fum', useNote]].concat(saveText ? [['info', saveText]] : []).concat(areaNote ? [['info', areaNote]] : []) });
             }
             let saveEv = saveKind ? { dc, kind: saveKind, attr: sInfo && sInfo.saveAttr || null } : null;
             tell((saveText ? `${who || 'A player'} uses ${name}. ${saveText}` : `${who || 'A player'} uses ${name}.`) + (escLine ? ` ${escLine}.` : ''),
-                dmg && !dmg.heal ? { dmgType: dmg.type, dice: dmg.formula, save: saveEv, dmgParts: dmg.parts || undefined } : (saveEv ? { save: saveEv } : null));
+                dmg && !dmg.heal ? { dmgType: dmg.type, dice: dmg.formula, save: saveEv, dmgParts: dmg.parts || undefined, dmgTotal: dmg.total }
+                    : Object.assign(saveEv ? { save: saveEv } : {}, dmg && dmg.heal ? { heal: true, dmgTotal: dmg.total } : {}));
         };
 
         // Summon a Creature: edit the creature on its own, without reopening the Power Crafter
