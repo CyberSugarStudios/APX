@@ -450,8 +450,8 @@
                 }
         
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20261050445">
-    <link rel="stylesheet" href="css/tailwind.css?v=20261050445">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20261052300">
+    <link rel="stylesheet" href="css/tailwind.css?v=20261052300">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
@@ -1520,36 +1520,36 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20261050445"></script>
-    <script src="js/apx-patch-notes.js?v=20261050445"></script>
-    <script src="js/apx-dice.js?v=20261050445"></script>
-    <script src="js/apx-data.js?v=20261050445"></script>
-    <script src="js/apx-item-effects.js?v=20261050445"></script>
-    <script src="js/apx-perks-db.js?v=20261050445"></script>
-    <script src="js/apx-migrations.js?v=20261050445"></script>
-    <script src="js/apx-state.js?v=20261050445"></script>
-    <script src="js/apx-craft-shared.js?v=20261050445"></script>
-    <script src="js/apx-armor-forge.js?v=20261050445"></script>
-    <script src="js/apx-weapon-forge.js?v=20261050445"></script>
-    <script src="js/apx-consumable-crafter.js?v=20261050445"></script>
-    <script src="js/apx-perks-ui.js?v=20261050445"></script>
-    <script src="js/apx-power-crafter.js?v=20261050445"></script>
-    <script src="js/apx-npc-crafter.js?v=20261050445"></script>
-    <script src="js/apx-inventory-ui.js?v=20261050445"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20261050445"></script>
-    <script src="js/apx-gm-screen.js?v=20261050445"></script>
-    <script src="js/apx-loot-maker.js?v=20261050445"></script>
-    <script src="js/apx-library.js?v=20261050445"></script>
-    <script src="js/apx-gmtools-main.js?v=20261050445"></script>
+    <script src="js/apx-dialogs.js?v=20261052300"></script>
+    <script src="js/apx-patch-notes.js?v=20261052300"></script>
+    <script src="js/apx-dice.js?v=20261052300"></script>
+    <script src="js/apx-data.js?v=20261052300"></script>
+    <script src="js/apx-item-effects.js?v=20261052300"></script>
+    <script src="js/apx-perks-db.js?v=20261052300"></script>
+    <script src="js/apx-migrations.js?v=20261052300"></script>
+    <script src="js/apx-state.js?v=20261052300"></script>
+    <script src="js/apx-craft-shared.js?v=20261052300"></script>
+    <script src="js/apx-armor-forge.js?v=20261052300"></script>
+    <script src="js/apx-weapon-forge.js?v=20261052300"></script>
+    <script src="js/apx-consumable-crafter.js?v=20261052300"></script>
+    <script src="js/apx-perks-ui.js?v=20261052300"></script>
+    <script src="js/apx-power-crafter.js?v=20261052300"></script>
+    <script src="js/apx-npc-crafter.js?v=20261052300"></script>
+    <script src="js/apx-inventory-ui.js?v=20261052300"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20261052300"></script>
+    <script src="js/apx-gm-screen.js?v=20261052300"></script>
+    <script src="js/apx-loot-maker.js?v=20261052300"></script>
+    <script src="js/apx-library.js?v=20261052300"></script>
+    <script src="js/apx-gmtools-main.js?v=20261052300"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20261050445"></script>
-    <script src="js/apx-firebase.js?v=20261050445"></script>
-    <script src="js/apx-battlemap.js?v=20261050445"></script>
-    <script src="js/apx-map-tiles.js?v=20261050445"></script>
+    <script src="js/firebase-config.js?v=20261052300"></script>
+    <script src="js/apx-firebase.js?v=20261052300"></script>
+    <script src="js/apx-battlemap.js?v=20261052300"></script>
+    <script src="js/apx-map-tiles.js?v=20261052300"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -1924,6 +1924,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                     battleMapEnabled:!!m.battleMapEnabled,
                                     battleGrid:m.battleGrid||{cellSize:50,offsetX:0,offsetY:0},
                                     battleTokens: btTokens,
+                                    tokenImgs,   // stat block token images used on this map
+                                    _gmMeasure: m._gmMeasure || null,   // the GM's Measure, while shown to players (V)
                                     battleImages: btImages,
                                     _currentInitId: window.gmCombatStarted ? (curEntry?.id || null) : null,
                                     _turnNo: window.gmTurnNumber || 0,
@@ -4025,6 +4027,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 else window._btShowTokenMenu(mapId, winId, vm.id, e);
             },
             onMeasureChange: (on) => { let b = document.getElementById(winId+'_measureBtn'); if (b) { b.style.background = on ? '#a16207' : '#1e293b'; b.style.color = on ? '#fff' : '#fde68a'; } },
+            // Your measurements reach the players only while shown (V); theirs always show here
+            measureShare: 'toggle',
+            onMeasureShare: (g) => { map._gmMeasure = g || null; if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes(); },
+            sharedMeasures: window.APXBattle.measuresFor ? window.APXBattle.measuresFor(mapId) : [],
             onDblClick:     (vm) => {
                 if (vm.type === 'npc' && vm.worldNpcId) {
                     let wn = (_wNotes.npcs||[]).find(n=>n.id===vm.worldNpcId);
@@ -6353,8 +6359,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </script>
     <div id="floatingWindowContainer"></div>
 
-    <script src="js/apx-chat.js?v=20261050445"></script>
-    <script src="js/apx-extras.js?v=20261050445"></script>
-    <script src="js/apx-theme-light.js?v=20261050445"></script>
+    <script src="js/apx-chat.js?v=20261052300"></script>
+    <script src="js/apx-extras.js?v=20261052300"></script>
+    <script src="js/apx-theme-light.js?v=20261052300"></script>
 </body>
 </html>

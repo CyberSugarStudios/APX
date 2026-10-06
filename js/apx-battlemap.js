@@ -100,7 +100,7 @@
     }
 
     // ── Player-position store (live from Firestore) ─────────────
-    const store = { byUid: {}, portraits: {}, profiles: {}, mail: {} };
+    const store = { byUid: {}, portraits: {}, profiles: {}, mail: {}, measures: {} };
     const changeHandlers = new Set();
     let _unsub = null, _code = null;
 
@@ -114,6 +114,19 @@
             if (p && _num(p.gridX) && _num(p.gridY)) return { gridX: p.gridX, gridY: p.gridY };
         }
         return { gridX: parseInt(tok?.gridX, 10) || 0, gridY: parseInt(tok?.gridY, 10) || 0 };
+    }
+    // Players' measurements on a map (each player shares theirs): [{ uid, who, g }]
+    function measuresFor(mapId, exceptUid) {
+        return Object.keys(store.measures).filter(u => u !== exceptUid && store.measures[u].map === mapId)
+            .map(u => ({ uid: u, who: (store.profiles[u] && store.profiles[u].name) || 'A player', g: store.measures[u].g }));
+    }
+    // Share (or clear, g = null) your measurement on a map with the GM and the other players
+    function writeMeasure(inviteCode, uid, mapId, g) {
+        let code = (inviteCode || _code || '').toUpperCase().trim();
+        if (!uid) return Promise.resolve();
+        if (g) store.measures[uid] = { map: mapId, g }; else delete store.measures[uid];
+        if (!code || typeof window.apxAuth?.writeBattleMeasure !== 'function') return Promise.resolve();
+        return window.apxAuth.writeBattleMeasure(code, uid, g ? { map: mapId, g } : null).catch(e => console.warn('Measure share failed:', e.message));
     }
     function portraitOf(uid) { return (uid && store.portraits[uid]) || ''; }
     function companionOf(uid) { return (uid && store.profiles[uid] && store.profiles[uid].companion) || { name: '', portrait: '' }; }
@@ -129,22 +142,24 @@
         _code = code;
         if (!window.apxAuth?.enabled || typeof window.apxAuth.listenBattlePositions !== 'function') return;
         _unsub = window.apxAuth.listenBattlePositions(code, docs => {
-            let next = {}, profiles = {};
+            let next = {}, profiles = {}, measures = {};
             docs.forEach(d => {
                 if (!d.uid) return;
                 next[d.uid] = d.battlePositions || {};
+                if (d.battleMeasure && d.battleMeasure.map && d.battleMeasure.g) measures[d.uid] = d.battleMeasure;
                 if (d.charPortrait) store.portraits[d.uid] = d.charPortrait;
                 if (d.profile) profiles[d.uid] = Object.assign({ uid: d.uid, portrait: d.charPortrait || '' }, d.profile);
                 store.mail[d.uid] = { outbox: d.outbox || {}, giftAcks: d.giftAcks || {} };
             });
             store.byUid = next;
             store.profiles = profiles;
+            store.measures = measures;
             _notify();
         });
     }
     function stop() {
         if (_unsub) { try { _unsub(); } catch (e) {} }
-        _unsub = null; _code = null; store.byUid = {}; store.profiles = {};
+        _unsub = null; _code = null; store.byUid = {}; store.profiles = {}; store.measures = {};
     }
 
     // Move a PLAYER token: update locally at once, then write the authority.
@@ -212,10 +227,10 @@
     function clear(winId) {
         let l = document.getElementById(winId + '_btScreen');
         if (!l) return;
+        exitMeasure(winId);   // (while the page can still hear that the measurement is gone)
         _restoreFog(l);
         l.querySelectorAll('[data-bt],[data-btp],[data-bt-ui],[data-bt-grid],[data-bt-aura]').forEach(el => el.remove());
         l._opts = null;
-        exitMeasure(winId);
     }
 
     // ── Tokens ───────────────────────────────────────────────────
@@ -410,6 +425,7 @@
         _layoutSwarmHandles(layer, o, s, ox, oy);
         _drawGrid(layer);
         _layoutMeasure(layer);
+        _layoutShared(layer);
         layer.querySelectorAll('[data-bt]').forEach(el => { if (el._drag && el._drag.path) _drawPath(layer, el); });
     }
 
@@ -614,6 +630,11 @@
                 if (!o.selection || !o.selection.has(el._vm.id)) o.onSelect([el._vm.id], false);
             }
             if (!el._vm.draggable || !o.onMove) { if (o.onClick) o.onClick(el._vm, e); return; }
+            el._startDrag(e);
+        });
+        // Starts dragging this token (also used when a Measure's start point on this creature is grabbed)
+        el._startDrag = e => {
+            let o = layer._opts; if (!o) return;
             try { el.setPointerCapture(e.pointerId); } catch (_) {}
             let p = _imgPoint(layer, e);
             el._drag = { sx: el._vm.gridX, sy: el._vm.gridY, gx: el._vm.gridX, gy: el._vm.gridY, px: p.x, py: p.y, alt: e.altKey };
@@ -625,7 +646,7 @@
             el.style.transition = 'none';
             el.style.cursor = 'grabbing';
             el.style.zIndex = String(Z_DRAG);
-        });
+        };
 
         el.addEventListener('pointermove', e => {
             if (!el._drag) return;
@@ -1038,42 +1059,91 @@
     }
     const CONE_HALF = Math.atan(0.5);   // a cone is as wide at its end as it is long
     let _measureMode = 'line';
-    function _measureLabel(x, y, label, color) {
+    function _measureLabel(x, y, label, color, text) {
         let w = label.length * 7 + 12;
         return `<g transform="translate(${x},${y})"><rect x="-4" y="-15" rx="4" width="${w}" height="22" fill="rgba(15,23,42,.92)" stroke="${color || '#facc15'}"/>
-            <text x="2" y="1" fill="#fde68a" font-size="12.5" font-weight="800" font-family="system-ui,sans-serif">${String(label).replace(/&/g, '&amp;').replace(/</g, '&lt;')}</text></g>`;
+            <text x="2" y="1" fill="${text || '#fde68a'}" font-size="12.5" font-weight="800" font-family="system-ui,sans-serif">${String(label).replace(/&/g, '&amp;').replace(/</g, '&lt;')}</text></g>`;
+    }
+    // A measurement is kept relative to its start, so it can be moved, turned, and ride along on a creature:
+    //   { mode, a: {gx,gy} start square, anchor: token id it starts on (or null), rel: {dx,dy} start minus that
+    //     token's square, vec: {dx,dy} end minus start, wayRel: [{dx,dy}] a Line's corners,
+    //     L: a Cone's / Burst's length and n: the squares a Line covers (both fixed once it's placed) }
+    function _tokPos(layer, id) {
+        let el = layer.querySelector(`[data-bt="${CSS.escape(id)}"]`);
+        if (el && el._vm) return { gx: el._drag ? el._drag.gx : el._vm.gridX, gy: el._drag ? el._drag.gy : el._vm.gridY };
+        return null;
+    }
+    function _mResolve(layer, g) {
+        let a = { gx: g.a.gx, gy: g.a.gy };
+        if (g.anchor) { let p = _tokPos(layer, g.anchor); if (p) a = { gx: p.gx + (g.rel ? g.rel.dx : 0), gy: p.gy + (g.rel ? g.rel.dy : 0) }; }
+        let v = g.vec || { dx: 0, dy: 0 };
+        return { mode: g.mode, a, b: { gx: a.gx + v.dx, gy: a.gy + v.dy }, way: (g.wayRel || []).map(w => ({ gx: a.gx + w.dx, gy: a.gy + w.dy })), L: g.L || null, n: g.n || null };
+    }
+    // Where a footprint is while its token is being dragged
+    function _footNow(layer, cell) {
+        let f = _footprintAt(layer, cell);
+        if (f.token) { let p = _tokPos(layer, f.id); if (p) { let w = f.x1 - f.x0; f = Object.assign({}, f, { x0: p.gx, y0: p.gy, x1: p.gx + w, y1: p.gy + w }); } }
+        return f;
+    }
+    // The squares a Line covers, from its start toward b, in king steps: a shallow line runs straight, steps
+    // diagonally, then runs straight again (3 forward, 1 diagonal, 2 forward…). A creature's own space isn't
+    // counted; a plain starting square is. n: how many squares (a placed Line keeps its length as it turns).
+    function lineCells(fa, b, n) {
+        let cx = (fa.x0 + fa.x1 + 1) / 2, cy = (fa.y0 + fa.y1 + 1) / 2;
+        let dx = b.gx + 0.5 - cx, dy = b.gy + 0.5 - cy, maj = Math.max(Math.abs(dx), Math.abs(dy));
+        if (maj < 1e-9) return fa.token ? [] : [{ gx: b.gx, gy: b.gy }];
+        let sx = dx / maj, sy = dy / maj, cells = [], seen = new Set();
+        for (let i = 0; n ? (cells.length < n && i < 4 * n + 20) : i <= maj + 1e-9; i++) {
+            let gx = Math.floor(cx + sx * i + 1e-9), gy = Math.floor(cy + sy * i + 1e-9);
+            if (fa.token && gx >= fa.x0 && gx <= fa.x1 && gy >= fa.y0 && gy <= fa.y1) continue;
+            let k = gx + ',' + gy; if (seen.has(k)) continue;
+            seen.add(k); cells.push({ gx, gy });
+        }
+        return cells;
+    }
+    // Who's in a set of squares (names), leaving out the creature it starts from
+    function _whoIn(layer, cells, skipId) {
+        let set = new Set(cells.map(c => c.gx + ',' + c.gy)), hit = [];
+        (layer._opts.tokens || []).forEach(vm => {
+            if (skipId && vm.id === skipId) return;
+            let p = _tokPos(layer, vm.id) || { gx: vm.gridX, gy: vm.gridY }, sp = span(vm.size), inside = false;
+            for (let x = p.gx; x < p.gx + sp && !inside; x++) for (let y = p.gy; y < p.gy + sp && !inside; y++) if (set.has(x + ',' + y)) inside = true;
+            if (inside) hit.push(vm.name || String(vm.title || '').split(' (')[0] || 'Token');
+        });
+        return hit;
     }
     // Square to square: counts every square the line covers, INCLUDING the starting
     // square (next-door squares = 2). Token to token (or token to square): counts the
     // squares between them the way movement does (adjacent = 1), and the line snaps to
     // the nearest CORNER of each token's space, so it doubles as a cover check.
-    function _layoutMeasure(layer) {
-        let m = layer._measure; if (!m) return;
-        if (m.bar) m.bar.querySelectorAll('[data-mmode]').forEach(b => { let on = b.dataset.mmode === m.mode; b.style.background = on ? '#a16207' : 'rgba(15,23,42,.92)'; b.style.color = on ? '#fff' : '#fde68a'; });
-        if (!m.a || !m.b) { m.svg.innerHTML = ''; return; }
+    // who: the name of whoever placed someone else's measurement (drawn in blue).
+    function _measureHtml(layer, R, who) {
         let o = layer._opts, g = o.grid, win = o.win;
         let s = win._scale || 1, ox = win._offX || 0, oy = win._offY || 0;
         let org = origin(g), cs = g.cellSize;
         let scr = (x, y) => ({ x: ox + (org.ox + x * cs) * s, y: oy + (org.oy + y * cs) * s });   // grid units -> screen
         let rect = (x0, y0, x1, y1, fill, stroke, dash) => { let tl = scr(x0, y0), br = scr(x1 + 1, y1 + 1);
             return `<rect x="${tl.x}" y="${tl.y}" width="${br.x - tl.x}" height="${br.y - tl.y}" fill="${fill}" stroke="${stroke}" stroke-width="1" ${dash ? 'stroke-dasharray="4 3"' : ''}/>`; };
-        if (m.mode === 'cone' || m.mode === 'burst') { _layoutArea(layer, m, scr, rect, s, cs); return; }
-        if (m.way && m.way.length) {
+        let tag = t => who ? who + ': ' + t : t;
+        let col = who ? '#38bdf8' : '#facc15', rgb = who ? '56,189,248' : '250,204,21', txt = who ? '#e0f2fe' : '#fde68a';
+        if (R.mode === 'cone' || R.mode === 'burst') return _areaHtml(layer, R, scr, rect, s, cs, tag, who);
+        if (R.way && R.way.length) {
             // A path with corners: squares moved along it
-            let pts = [m.a].concat(m.way, [m.b]);
+            let pts = [R.a].concat(R.way, [R.b]);
             let n = pathSquares(pts);
             let ps = pts.map(c => scr(c.gx + 0.5, c.gy + 0.5));
             let poly = ps.map(p => `${p.x},${p.y}`).join(' ');
             let end = ps[ps.length - 1];
-            m.svg.innerHTML = `${rect(m.a.gx, m.a.gy, m.a.gx, m.a.gy, 'rgba(250,204,21,.18)', 'rgba(250,204,21,.7)')}${rect(m.b.gx, m.b.gy, m.b.gx, m.b.gy, 'rgba(250,204,21,.18)', 'rgba(250,204,21,.7)')}
+            return { last: n, html: `${rect(R.a.gx, R.a.gy, R.a.gx, R.a.gy, `rgba(${rgb},.18)`, `rgba(${rgb},.7)`)}${rect(R.b.gx, R.b.gy, R.b.gx, R.b.gy, `rgba(${rgb},.18)`, `rgba(${rgb},.7)`)}
                 <polyline points="${poly}" fill="none" stroke="#000" stroke-opacity=".6" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
-                <polyline points="${poly}" fill="none" stroke="#facc15" stroke-width="2.5" stroke-dasharray="7 5" stroke-linejoin="round" stroke-linecap="round"/>
-                ${ps.map((p, i) => `<circle cx="${p.x}" cy="${p.y}" r="${i && i < ps.length - 1 ? 5 : 4}" fill="${i && i < ps.length - 1 ? '#fb923c' : '#facc15'}" stroke="#000" stroke-width="1"/>`).join('')}
-                ${_measureLabel(end.x + 14, end.y - 14, `${n} square${n === 1 ? '' : 's'} (path)`)}`;
-            m.last = n;
-            return;
+                <polyline points="${poly}" fill="none" stroke="${col}" stroke-width="2.5" stroke-dasharray="7 5" stroke-linejoin="round" stroke-linecap="round"/>
+                ${ps.map((p, i) => `<circle cx="${p.x}" cy="${p.y}" r="${i && i < ps.length - 1 ? 5 : 4}" fill="${i && i < ps.length - 1 ? '#fb923c' : col}" stroke="#000" stroke-width="1"/>`).join('')}
+                ${_measureLabel(end.x + 14, end.y - 14, tag(`${n} square${n === 1 ? '' : 's'} (path)`), col, txt)}` };
         }
-        let fa = _footprintAt(layer, m.a), fb = _footprintAt(layer, m.b);
+        let fa = _footNow(layer, R.a);
+        let cover = lineCells(fa, R.b, R.n);
+        let endCell = R.n && cover.length ? cover[cover.length - 1] : R.b;
+        let fb = _footNow(layer, endCell);
         let ca = _nearest(fa, fb), cb = _nearest(fb, fa);
         let anyToken = fa.token || fb.token;
         let n = squaresBetween(cb.gx - ca.gx, cb.gy - ca.gy) + (anyToken ? 0 : 1);
@@ -1083,21 +1153,26 @@
         let best = null;
         pa.forEach(A => pb.forEach(B => { let d = (A.x - B.x) ** 2 + (A.y - B.y) ** 2; if (!best || d < best.d) best = { d, A, B }; }));
         let p1 = scr(best.A.x, best.A.y), p2 = scr(best.B.x, best.B.y);
-        let hl = f => rect(f.x0, f.y0, f.x1, f.y1, `rgba(250,204,21,${f.token ? '.08' : '.18'})`, 'rgba(250,204,21,.7)', f.token);
+        let hl = f => rect(f.x0, f.y0, f.x1, f.y1, `rgba(${rgb},${f.token ? '.08' : '.18'})`, `rgba(${rgb},.7)`, f.token);
         let label = `${n} square${n === 1 ? '' : 's'}`;
-        m.svg.innerHTML = `${hl(fa)}${hl(fb)}
+        let shade = cover.map(c => rect(c.gx, c.gy, c.gx, c.gy, `rgba(${rgb},.13)`, 'rgba(0,0,0,.18)')).join('');
+        let hit = _whoIn(layer, cover, fa.token ? fa.id : null);
+        let html = `${shade}${hl(fa)}${fb.token || !R.n ? hl(fb) : ''}
             <line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="#000" stroke-opacity=".6" stroke-width="5" stroke-linecap="round"/>
-            <line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="#facc15" stroke-width="2.5" stroke-dasharray="7 5" stroke-linecap="round"/>
-            <circle cx="${p1.x}" cy="${p1.y}" r="4" fill="#facc15"/><circle cx="${p2.x}" cy="${p2.y}" r="4" fill="#facc15"/>
-            ${_measureLabel(p2.x + 14, p2.y - 14, label)}`;
-        m.last = n;
+            <line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="${col}" stroke-width="2.5" stroke-dasharray="7 5" stroke-linecap="round"/>
+            <circle cx="${p1.x}" cy="${p1.y}" r="4" fill="${col}"/><circle cx="${p2.x}" cy="${p2.y}" r="4" fill="${col}"/>
+            ${_measureLabel(p2.x + 14, p2.y - 14, tag(label), col, txt)}
+            ${_measureLabel(p2.x + 14, p2.y + 12, `Line covers ${cover.length}${hit.length ? ' · ' + hit.slice(0, 4).join(', ') + (hit.length > 4 ? ` +${hit.length - 4}` : '') : ''}`, col, txt)}`;
+        return { last: n, html };
     }
-    // Cone / Burst: the squares an area covers from its origin (a square, or a creature's edge)
-    function areaCells(fa, target, mode, samples) {   // samples: per-side sampling (12 by default; fewer for big previews)
+    // Cone / Burst: the squares an area covers from its origin (a square, or a creature's edge).
+    // Lfix: a placed area's length (it keeps it as it turns).
+    function areaCells(fa, target, mode, samples, Lfix) {   // samples: per-side sampling (12 by default; fewer for big previews)
         let near = _nearest(fa, { x0: target.gx, x1: target.gx, y0: target.gy, y1: target.gy });
-        let L = Math.max(1, squaresBetween(target.gx - near.gx, target.gy - near.gy));
+        let L = Lfix || Math.max(1, squaresBetween(target.gx - near.gx, target.gy - near.gy));
         let cx = (fa.x0 + fa.x1 + 1) / 2, cy = (fa.y0 + fa.y1 + 1) / 2;
         let dx = target.gx + 0.5 - cx, dy = target.gy + 0.5 - cy, dl = Math.hypot(dx, dy) || 1;
+        if (!dx && !dy) dx = dl = 1;   // pointing nowhere yet: point right
         let cells = [];
         for (let gx = fa.x0 - L - 1; gx <= fa.x1 + L + 1; gx++) for (let gy = fa.y0 - L - 1; gy <= fa.y1 + L + 1; gy++) {
             let inside = gx >= fa.x0 && gx <= fa.x1 && gy >= fa.y0 && gy <= fa.y1;
@@ -1124,35 +1199,76 @@
         }
         return { cells, L, cx, cy, ang: Math.atan2(dy, dx) };
     }
-    function _layoutArea(layer, m, scr, rect, s, cs) {
-        let o = layer._opts;
-        let fa = _footprintAt(layer, m.a);
-        let A = areaCells(fa, m.b, m.mode);
-        let set = new Set(A.cells.map(c => c.gx + ',' + c.gy));
-        let hit = [];
-        (o.tokens || []).forEach(vm => {
-            if (m.mode === 'cone' && fa.token && fa.id === vm.id) return;
-            let sp = span(vm.size), inside = false;
-            for (let x = vm.gridX; x < vm.gridX + sp && !inside; x++) for (let y = vm.gridY; y < vm.gridY + sp && !inside; y++) if (set.has(x + ',' + y)) inside = true;
-            if (inside) hit.push(vm.name || String(vm.title || '').split(' (')[0] || 'Token');
-        });
-        let fill = m.mode === 'cone' ? 'rgba(251,146,60,.26)' : 'rgba(248,113,113,.24)';
-        let line = m.mode === 'cone' ? 'rgba(251,146,60,.85)' : 'rgba(248,113,113,.85)';
+    function _areaHtml(layer, R, scr, rect, s, cs, tag, who) {
+        let fa = _footNow(layer, R.a);
+        let A = areaCells(fa, R.b, R.mode, null, R.L);
+        let hit = _whoIn(layer, A.cells, R.mode === 'cone' && fa.token ? fa.id : null);
+        let fill = R.mode === 'cone' ? 'rgba(251,146,60,.26)' : 'rgba(248,113,113,.24)';
+        let line = who ? '#38bdf8' : R.mode === 'cone' ? 'rgba(251,146,60,.85)' : 'rgba(248,113,113,.85)';
         let html = A.cells.map(c => rect(c.gx, c.gy, c.gx, c.gy, fill, 'rgba(0,0,0,.25)')).join('');
         html += rect(fa.x0, fa.y0, fa.x1, fa.y1, 'rgba(250,204,21,.12)', 'rgba(250,204,21,.8)', fa.token);
-        let c0 = scr(A.cx, A.cy), R = (A.L + (fa.x1 - fa.x0 + 1) / 2) * cs * s;
-        if (m.mode === 'burst') html += `<circle cx="${c0.x}" cy="${c0.y}" r="${R}" fill="none" stroke="${line}" stroke-width="2" stroke-dasharray="6 4"/>`;
+        let c0 = scr(A.cx, A.cy), Rr = (A.L + (fa.x1 - fa.x0 + 1) / 2) * cs * s;
+        if (R.mode === 'burst') html += `<circle cx="${c0.x}" cy="${c0.y}" r="${Rr}" fill="none" stroke="${line}" stroke-width="2" stroke-dasharray="6 4"/>`;
         else {
-            let e1 = { x: c0.x + R * Math.cos(A.ang - CONE_HALF), y: c0.y + R * Math.sin(A.ang - CONE_HALF) }, e2 = { x: c0.x + R * Math.cos(A.ang + CONE_HALF), y: c0.y + R * Math.sin(A.ang + CONE_HALF) };
-            html += `<path d="M${c0.x},${c0.y} L${e1.x},${e1.y} A${R},${R} 0 0 1 ${e2.x},${e2.y} Z" fill="none" stroke="${line}" stroke-width="2" stroke-dasharray="6 4"/>`;
+            let e1 = { x: c0.x + Rr * Math.cos(A.ang - CONE_HALF), y: c0.y + Rr * Math.sin(A.ang - CONE_HALF) }, e2 = { x: c0.x + Rr * Math.cos(A.ang + CONE_HALF), y: c0.y + Rr * Math.sin(A.ang + CONE_HALF) };
+            html += `<path d="M${c0.x},${c0.y} L${e1.x},${e1.y} A${Rr},${Rr} 0 0 1 ${e2.x},${e2.y} Z" fill="none" stroke="${line}" stroke-width="2" stroke-dasharray="6 4"/>`;
         }
-        let tgt = scr(m.b.gx + 0.5, m.b.gy + 0.5);
-        html += `<circle cx="${c0.x}" cy="${c0.y}" r="4" fill="#facc15"/><circle cx="${tgt.x}" cy="${tgt.y}" r="3" fill="${line}"/>`;
-        let label = `${m.mode === 'cone' ? 'Cone' : 'Radius'} ${A.L} sq · ${A.cells.length} squares`;
-        html += _measureLabel(tgt.x + 14, tgt.y - 14, label, line);
-        if (hit.length) html += _measureLabel(tgt.x + 14, tgt.y + 12, 'In it: ' + hit.slice(0, 5).join(', ') + (hit.length > 5 ? ` +${hit.length - 5}` : ''), line);
-        m.svg.innerHTML = html;
-        m.last = A.L;
+        // The label sits at the far edge (a placed area's end square can sit inside it once it has turned)
+        let far = R.mode === 'burst' ? scr(R.b.gx + 0.5, R.b.gy + 0.5) : { x: c0.x + Rr * Math.cos(A.ang), y: c0.y + Rr * Math.sin(A.ang) };
+        html += `<circle cx="${c0.x}" cy="${c0.y}" r="4" fill="#facc15"/><circle cx="${far.x}" cy="${far.y}" r="3" fill="${line}"/>`;
+        let label = tag(`${R.mode === 'cone' ? 'Cone' : 'Radius'} ${A.L} sq · ${A.cells.length} squares`);
+        html += _measureLabel(far.x + 14, far.y - 14, label, line, who ? '#e0f2fe' : undefined);
+        if (hit.length) html += _measureLabel(far.x + 14, far.y + 12, 'In it: ' + hit.slice(0, 5).join(', ') + (hit.length > 5 ? ` +${hit.length - 5}` : ''), line, who ? '#e0f2fe' : undefined);
+        return { last: A.L, html };
+    }
+    function _layoutMeasure(layer) {
+        let m = layer._measure; if (!m) return;
+        if (m.bar) {
+            m.bar.querySelectorAll('[data-mmode]').forEach(b => { let on = b.dataset.mmode === m.mode; b.style.background = on ? '#a16207' : 'rgba(15,23,42,.92)'; b.style.color = on ? '#fff' : '#fde68a'; });
+            let sb = m.bar.querySelector('[data-mshow]');
+            if (sb) { sb.textContent = layer._mShow ? 'Players see it (V)' : 'Only you see it (V)'; sb.style.background = layer._mShow ? '#0369a1' : 'rgba(15,23,42,.92)'; sb.style.color = layer._mShow ? '#fff' : '#bae6fd'; }
+        }
+        if (!m.g || !layer._opts) { m.svg.innerHTML = ''; return; }
+        let R = _mResolve(layer, m.g);
+        let out = _measureHtml(layer, R);
+        // A placed measurement's start can be grabbed: a ring marks it
+        let grab = '';
+        if (m.placed) {
+            let f = _footNow(layer, R.a), o = layer._opts, g = o.grid, win = o.win, s = win._scale || 1, org = origin(g), cs = g.cellSize;
+            let cx = (win._offX || 0) + (org.ox + (f.x0 + f.x1 + 1) / 2 * cs) * s, cy = (win._offY || 0) + (org.oy + (f.y0 + f.y1 + 1) / 2 * cs) * s;
+            grab = `<circle cx="${cx}" cy="${cy}" r="${Math.max(9, (f.x1 - f.x0 + 1) * cs * s * 0.5 + 3)}" fill="none" stroke="#fde68a" stroke-width="1.5" stroke-dasharray="3 3" opacity=".9"/>`;
+        }
+        m.svg.innerHTML = out.html + grab;
+        m.last = out.last;
+    }
+    // Other people's measurements (players', and the GM's when shown), drawn in blue for everyone
+    function _layoutShared(layer) {
+        let o = layer._opts;
+        let svg = layer.querySelector('[data-bt-ui="shared-measure"]');
+        let list = (o && o.sharedMeasures) || [];
+        if (!list.length) { if (svg) svg.remove(); return; }
+        if (!svg) {
+            svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('data-bt-ui', 'shared-measure');
+            svg.setAttribute('width', '100%'); svg.setAttribute('height', '100%');
+            svg.style.cssText = `position:absolute;inset:0;pointer-events:none;overflow:visible;z-index:${Z_UI - 1};`;
+            layer.appendChild(svg);
+        }
+        svg.innerHTML = list.map(sm => { try { return sm && sm.g && sm.g.a ? _measureHtml(layer, _mResolve(layer, sm.g), sm.who || 'Someone').html : ''; } catch (e) { return ''; } }).join('');
+    }
+    // Tell the page about this window's measurement (players share theirs; the GM's is shared when shown)
+    function _mShare(layer) {
+        let o = layer._opts, m = layer._measure;
+        if (!o || !o.onMeasureShare) return;
+        let show = o.measureShare !== 'toggle' || !!layer._mShow;
+        let g = null;
+        if (show && m && m.g && m.placed) {
+            let R = _mResolve(layer, m.g);
+            g = { mode: m.g.mode, a: R.a, anchor: m.g.anchor || null, rel: m.g.rel || null, vec: m.g.vec, wayRel: m.g.wayRel || [], L: m.g.L || null, n: m.g.n || null };
+        }
+        if (!g && !layer._mShared) return;
+        layer._mShared = !!g;
+        try { o.onMeasureShare(g); } catch (e) { console.warn('Measure share:', e); }
     }
     function enterMeasure(winId, mode) {
         let layer = document.getElementById(winId + '_btScreen');
@@ -1166,7 +1282,9 @@
         let bar = document.createElement('div');
         bar.style.cssText = 'position:absolute;left:8px;right:8px;top:8px;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:4px;pointer-events:none;cursor:default;';   // wraps in small windows instead of running off the edges
         let tipTxt = { line: 'Drag between squares or tokens · right-click adds a corner', cone: 'Drag from where the cone starts, toward where it points', burst: 'Drag from the center out to the radius' };
+        let toggle = layer._opts.measureShare === 'toggle';
         bar.innerHTML = ['line', 'cone', 'burst'].map(md => `<button data-mmode="${md}" style="pointer-events:auto;border:1px solid #facc15;border-radius:5px;font-size:11px;font-weight:800;padding:2px 8px;cursor:pointer;background:rgba(15,23,42,.92);color:#fde68a">${md === 'line' ? 'Line' : md === 'cone' ? 'Cone' : 'Burst'}</button>`).join('')
+            + (toggle ? `<button data-mshow title="Show this measurement to your players (V)" style="pointer-events:auto;border:1px solid #38bdf8;border-radius:5px;font-size:11px;font-weight:800;padding:2px 8px;cursor:pointer;background:rgba(15,23,42,.92);color:#bae6fd"></button>` : '')
             + `<span data-mtip style="background:rgba(15,23,42,.92);border:1px solid #facc15;color:#fde68a;font-size:11px;font-weight:700;padding:3px 8px;border-radius:5px;white-space:normal;max-width:100%;text-align:center;pointer-events:none"></span>`;
         ov.appendChild(svg); ov.appendChild(bar);
         layer.appendChild(ov);
@@ -1186,44 +1304,145 @@
         };
         requestAnimationFrame(placeBar);
         if (window.ResizeObserver) { let ro = new ResizeObserver(() => placeBar()); ro.observe(layer); ov._ro = ro; }
-        let m = layer._measure = { ov, svg, bar, a: null, b: null, down: false, follow: false, way: [], mode: mode || _measureMode };
-        let setTip = () => { let t = bar.querySelector('[data-mtip]'); if (t) t.textContent = tipTxt[m.mode] + ' · M or Esc to exit'; };
+        let m = layer._measure = { ov, svg, bar, g: null, placed: false, down: false, follow: false, held: null, mode: mode || _measureMode };
+        let setTip = () => { let t = bar.querySelector('[data-mtip]'); if (t) t.textContent = tipTxt[m.mode] + (m.placed ? ' · drag its start to move it, scroll while holding to turn it' : '') + ' · M or Esc to exit'; };
         setTip();
+        let shareT = 0;
+        let share = now => { clearTimeout(shareT); if (now) _mShare(layer); else shareT = setTimeout(() => _mShare(layer), 250); };
+        m.share = share;
         bar.addEventListener('mousedown', e => e.stopPropagation());
+        bar.addEventListener('pointerdown', e => e.stopPropagation());
         bar.querySelectorAll('[data-mmode]').forEach(b => b.addEventListener('click', e => {
-            e.stopPropagation(); m.mode = _measureMode = b.dataset.mmode; m.way = []; m.follow = false; setTip(); _layoutMeasure(layer);
+            e.stopPropagation(); m.mode = _measureMode = b.dataset.mmode; m.follow = false;
+            // A placed measurement changes shape where it is
+            if (m.g) { m.g.mode = m.mode; m.g.wayRel = []; m.g.L = m.g.n = null; if (m.placed) freeze(); share(); }
+            setTip(); _layoutMeasure(layer);
         }));
+        let sb = bar.querySelector('[data-mshow]');
+        if (sb) sb.addEventListener('click', e => { e.stopPropagation(); _toggleShow(layer); });
         let cellOf = e => { let p = _imgPoint(layer, e); return _cellAt(layer._opts.grid, p.x, p.y); };
+        let R = () => m.g ? _mResolve(layer, m.g) : null;
+        let onOrigin = c => { if (!m.placed || !m.g) return false; let f = _footNow(layer, R().a); return c.gx >= f.x0 && c.gx <= f.x1 && c.gy >= f.y0 && c.gy <= f.y1; };
+        // Fix a Line's squares and a Cone's / Burst's length, so it keeps them as it moves and turns
+        let freeze = () => {
+            let r = R(); if (!r) return;
+            let fa = _footNow(layer, r.a);
+            m.g.L = m.g.n = null;
+            if (r.mode === 'line' && !(m.g.wayRel || []).length) { let n = lineCells(fa, r.b).length; if (n) m.g.n = n; }
+            if (r.mode === 'cone' || r.mode === 'burst') m.g.L = areaCells(fa, r.b, r.mode).L;
+            m.placed = true; setTip();
+        };
+        // Turn a Line or Cone around its start, one square at a time along its far edge
+        let rotate = dir => {
+            let r = R(); if (!r || !(r.mode === 'cone' || (r.mode === 'line' && !r.way.length))) return;
+            let fa = _footNow(layer, r.a);
+            let cx = (fa.x0 + fa.x1 + 1) / 2, cy = (fa.y0 + fa.y1 + 1) / 2;
+            let tx = r.b.gx + 0.5 - cx, ty = r.b.gy + 0.5 - cy, rad = Math.hypot(tx, ty);
+            if (rad < 0.5) return;
+            let th = Math.atan2(ty, tx), step = dir * 0.3 / rad;
+            for (let k = 0; k < 4000; k++) {
+                th += step;
+                let gx = Math.floor(cx + rad * Math.cos(th)), gy = Math.floor(cy + rad * Math.sin(th));
+                if (gx === r.b.gx && gy === r.b.gy) continue;
+                if (gx >= fa.x0 && gx <= fa.x1 && gy >= fa.y0 && gy <= fa.y1) continue;
+                m.g.vec = { dx: gx - r.a.gx, dy: gy - r.a.gy };
+                break;
+            }
+            _layoutMeasure(layer); share();
+        };
         // Middle-click (or Ctrl+left) passes through to the map so it can pan while measuring
         let isPan = e => e.button === 1 || (e.button === 0 && (e.ctrlKey || e.metaKey));
-        ov.addEventListener('mousedown', e => {
-            if (isPan(e)) return; e.stopPropagation(); e.preventDefault(); if (e.button !== 0) return;
-            if (m.follow) { m.follow = false; m.b = cellOf(e); _layoutMeasure(layer); return; }   // a click ends a path being extended
-            m.down = true; m.a = cellOf(e); m.b = m.a; m.way = []; _layoutMeasure(layer);
+        // Grabbing a placed measurement's start moves it. Started on a creature you can move, the creature
+        // moves (with its path and AP in combat) and the measurement rides along. Shift+drag measures anew.
+        ov.addEventListener('pointerdown', e => {
+            if (e.button !== 0 || isPan(e) || e.shiftKey || m.follow) return;
+            let c = cellOf(e);
+            if (!onOrigin(c)) return;
+            e.stopPropagation(); e.preventDefault();
+            let r = R(), f = _footNow(layer, r.a), o = layer._opts;
+            let el = f.token ? layer.querySelector(`[data-bt="${CSS.escape(f.id)}"]`) : null;
+            let done = () => { window.removeEventListener('pointerup', done, true); window.removeEventListener('pointercancel', done, true); window.removeEventListener('pointermove', mv, true); end(); };
+            let mv = () => {}, end = () => {};
+            if (el && el._vm && el._vm.draggable && o.onMove && el._startDrag) {
+                if (m.g.anchor !== f.id) { m.g.anchor = f.id; m.g.rel = { dx: r.a.gx - el._vm.gridX, dy: r.a.gy - el._vm.gridY }; }
+                m.held = 'token';
+                el._startDrag(e);
+                end = () => { m.held = null; setTimeout(() => { _layoutMeasure(layer); share(); }, 60); };
+            } else {
+                m.held = 'move';
+                let from = c, a0 = r.a;
+                m.g.anchor = null; m.g.rel = null; m.g.a = a0;
+                mv = ev => {
+                    let cc = cellOf(ev), na = { gx: a0.gx + cc.gx - from.gx, gy: a0.gy + cc.gy - from.gy };
+                    if (na.gx === m.g.a.gx && na.gy === m.g.a.gy) return;
+                    m.g.a = na; _layoutMeasure(layer);
+                };
+                end = () => {
+                    m.held = null;
+                    // Dropped on a creature: it starts from (and moves with) that creature now
+                    let ff = _footprintAt(layer, m.g.a);
+                    if (ff.token) { m.g.anchor = ff.id; m.g.rel = { dx: m.g.a.gx - ff.x0, dy: m.g.a.gy - ff.y0 }; }
+                    _layoutMeasure(layer); share();
+                };
+            }
+            window.addEventListener('pointermove', mv, true);
+            window.addEventListener('pointerup', done, true);
+            window.addEventListener('pointercancel', done, true);
         });
-        ov.addEventListener('mousemove', e => { if (!m.down && !m.follow) return; let c = cellOf(e); if (m.b && c.gx === m.b.gx && c.gy === m.b.gy) return; m.b = c; _layoutMeasure(layer); });
-        ov.addEventListener('mouseup', e => { if (!m.down) return; e.stopPropagation(); m.down = false; });
+        ov.addEventListener('mousedown', e => {
+            if (isPan(e)) return; e.stopPropagation(); e.preventDefault(); if (e.button !== 0 || m.held) return;
+            let c = cellOf(e);
+            if (m.follow) { m.follow = false; let r = R(); m.g.vec = { dx: c.gx - r.a.gx, dy: c.gy - r.a.gy }; freeze(); share(); _layoutMeasure(layer); return; }   // a click ends a path being extended
+            let f = _footprintAt(layer, c);
+            m.down = true; m.placed = false; setTip();
+            m.g = { mode: m.mode, a: c, anchor: f.token ? f.id : null, rel: f.token ? { dx: c.gx - f.x0, dy: c.gy - f.y0 } : null, vec: { dx: 0, dy: 0 }, wayRel: [], L: null, n: null };
+            _layoutMeasure(layer);
+        });
+        ov.addEventListener('mousemove', e => {
+            if (m.held) return;
+            let c = cellOf(e);
+            if (!m.down && !m.follow) { ov.style.cursor = onOrigin(c) ? 'move' : 'crosshair'; return; }
+            let r = R(), nv = { dx: c.gx - r.a.gx, dy: c.gy - r.a.gy };
+            if (m.g.vec && nv.dx === m.g.vec.dx && nv.dy === m.g.vec.dy) return;
+            m.g.vec = nv; _layoutMeasure(layer);
+        });
+        ov.addEventListener('mouseup', e => { if (!m.down) return; e.stopPropagation(); m.down = false; freeze(); share(); _layoutMeasure(layer); });
+        // Scroll while holding the mouse button: turns a Line or Cone (a plain scroll still zooms the map)
+        ov.addEventListener('wheel', e => {
+            if (!((e.buttons & 1) || m.down || m.held) || !m.g) return;
+            e.preventDefault(); e.stopPropagation();
+            if (m.down) { m.down = false; freeze(); }   // turning while drawing places it
+            rotate(e.deltaY > 0 ? 1 : -1);
+        }, { passive: false });
         // Right-click: a corner point on a Line (keeps going from there; click to finish). With nothing measured, it exits.
         ov.addEventListener('contextmenu', e => {
             e.preventDefault(); e.stopPropagation();
-            if (m.mode === 'line' && m.a && m.b) {
-                let c = cellOf(e), last = m.way.length ? m.way[m.way.length - 1] : m.a;
-                if (c.gx !== last.gx || c.gy !== last.gy) m.way.push(c);
-                m.b = c;
+            if (m.mode === 'line' && m.g) {
+                let c = cellOf(e), r = R(), last = r.way.length ? r.way[r.way.length - 1] : r.a;
+                if (c.gx !== last.gx || c.gy !== last.gy) m.g.wayRel.push({ dx: c.gx - r.a.gx, dy: c.gy - r.a.gy });
+                m.g.vec = { dx: c.gx - r.a.gx, dy: c.gy - r.a.gy }; m.g.n = null;
                 if (!m.down) m.follow = true;
                 _layoutMeasure(layer);
                 return;
             }
-            if (!m.a) exitMeasure(winId);
+            if (!m.g) exitMeasure(winId);
         });
         (layer._opts.onMeasureChange || (() => {}))(true);
         _layoutMeasure(layer);
+        return true;
+    }
+    function _toggleShow(layer) {
+        if (!layer || !layer._opts || layer._opts.measureShare !== 'toggle') return false;
+        layer._mShow = !layer._mShow;
+        _layoutMeasure(layer); _mShare(layer);
+        toast(layer._opts.area, layer._mShow ? 'Your measurements on this map are shown to your players (V hides them).' : 'Your measurements on this map are only shown to you (V shows them to players).', 'info');
         return true;
     }
     function exitMeasure(winId) {
         let layer = document.getElementById(winId + '_btScreen');
         if (!layer || !layer._measure) return false;
         try { layer._measure.ov._ro && layer._measure.ov._ro.disconnect(); } catch (e) { }
+        layer._measure.g = null; _mShare(layer);
         layer._measure.ov.remove();
         layer._measure = null;
         if (layer._opts?.onMeasureChange) layer._opts.onMeasureChange(false);
@@ -1244,6 +1463,11 @@
                 if (live.length === 1) win = live[0].id.replace(/_btScreen$/, '');
             }
             if (win) { e.preventDefault(); toggleMeasure(win); }
+        } else if (e.key === 'v' || e.key === 'V') {
+            // GM: show / hide your measurements to your players
+            let win = _hoverWin && document.getElementById(_hoverWin + '_btScreen') ? _hoverWin : null;
+            let l = win ? document.getElementById(win + '_btScreen') : [...document.querySelectorAll('[id$="_btScreen"]')].find(x => x._opts && x._opts.measureShare === 'toggle');
+            if (l && _toggleShow(l)) e.preventDefault();
         } else if (e.key === 'Escape') {
             document.querySelectorAll('[id$="_btScreen"]').forEach(l => {
                 let w = l.id.replace(/_btScreen$/, '');
@@ -1383,6 +1607,6 @@
         party: () => Object.values(store.profiles), companionOf, mail: () => store.mail,
         render, layout, clear, toast,
         numberOf, sizeFromCharState, compressImage,
-        squaresBetween, pathSquares, areaCells, moveCost, auraColor, enterMeasure, exitMeasure, toggleMeasure, isMeasuring
+        squaresBetween, pathSquares, areaCells, lineCells, measuresFor, writeMeasure, moveCost, auraColor, enterMeasure, exitMeasure, toggleMeasure, isMeasuring
     };
 })();

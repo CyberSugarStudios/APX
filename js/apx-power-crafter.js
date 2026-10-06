@@ -661,7 +661,21 @@ window.pcToggleDurationMod = function(key, checked) {
 };
 window.pcSetApMod = function(val) { if (!val) return; pcDraft.apMod = val; delete pcDraft.apReaction; pcRenderAll(); };
 // AP cost − / +: from 1 AP up to the caster's own AP
-function pcCasterApCap() { return 99; }   // no cap: AP can be banked, so a power may cost more than a turn's AP
+// The AP the caster gains at the start of its turn (a summoned creature: a hard 3)
+function pcTurnAp() {
+    try {
+        if (pcTarget === 'summon') return 3;
+        if (pcTarget === 'player' || pcTarget === 'item') {
+            let ap = (window.state && window.state.derived && window.state.derived.ap) || (typeof calc !== 'undefined' && calc && calc.maxAp);
+            return parseInt(ap) || 6;
+        }
+        if (pcTarget === 'lib') return 6;
+        let sb = typeof window.companionStatBlock === 'function' ? window.companionStatBlock() : null;
+        return parseInt(sb && sb.ap) || 6;
+    } catch (e) { return 6; }
+}
+// A power costs at most twice that: AP can be banked, so a big power is worth waiting a turn for, but no more
+function pcCasterApCap() { return Math.max(4, 2 * pcTurnAp()); }
 window.pcSetApCount = function(d) {
     let k = window.apxPowerApKey ? window.apxPowerApKey(pcDraft) : pcDraft.apMod;
     let m = /^ap(\d+)$/.exec(k || ''), n = m ? parseInt(m[1]) : 4;
@@ -1006,7 +1020,7 @@ function pcRenderStep7() {
             <div class="flex-1 min-w-0"><div class="flex items-center gap-2 flex-wrap" data-pc-apcount>
                 <span class="text-xs font-bold text-slate-200">AP cost</span>${btn(-1, n > 1)}<span class="w-12 text-center text-sm font-black text-white">${n} AP</span>${btn(1, n < cap)}
                 <span class="text-[10px] ${(window.apxPowerApCost ? window.apxPowerApCost(n) : 0) < 0 ? 'text-slate-500' : 'text-yellow-500'} ml-auto">${apN ? (pcIsNpc() ? '' : (n === 4 ? 'default' : (n < 4 ? `+${(4 - n) * 10} XP` : `-${(n - 4) * 5} XP`))) : apCostTxt}</span></div>
-            <div class="text-[10px] text-slate-500 leading-tight mt-0.5">4 AP by default. Each AP less costs 10 XP; each AP over 4 refunds 5 XP. There's no upper limit: AP can be banked, so a costly power may take saving up over turns.</div></div>`)
+            <div class="text-[10px] text-slate-500 leading-tight mt-0.5" data-pc-apcap>4 AP by default. Each AP less costs 10 XP; each AP over 4 refunds 5 XP. Up to ${cap} AP: twice the ${pcTurnAp()} AP ${pcTarget === 'player' ? 'you gain' : pcTarget === 'item' || pcTarget === 'lib' ? 'a caster gains' : 'the creature gains'} at the start of a turn (AP can be banked, so a big power is worth waiting for).${n > cap ? ` <b class="text-red-400">This power costs ${n} AP: lower it to ${cap} AP or less.</b>` : ''}</div></div>`)
         + `<div class="text-[10px] text-slate-400 font-bold mt-3 mb-1">Or one of these instead</div>`
         + POWER_AP_MODS.filter(a => a.alt && a.reaction).map(row).join('')
         + box(!!lenCur, `<input type="radio" name="pcApMod" class="mt-1" ${lenCur ? 'checked' : ''} onchange="window.pcSetApMod('${(lenCur || lengthy[0]).key}')">
@@ -1083,6 +1097,10 @@ function pcRenderSummaryCore() {
     let t = window.pcCalcXP(pcDraft);
     let maxLevel = pcTarget !== 'player' ? 5 : pcMaxUnlockedLevel();
     let diceOver = POWER_DIE_STEPS.filter(st => (pcDraft.dmg[st] || 0) > POWER_MAX_DICE_PER_STEP);
+    // AP cost over twice the caster's turn AP (Step 7) blocks saving too
+    let apMatch = /^ap(\d+)$/.exec(String(window.apxPowerApKey ? window.apxPowerApKey(pcDraft) : pcDraft.apMod || ''));
+    let apOver = apMatch && parseInt(apMatch[1]) > pcCasterApCap() ? parseInt(apMatch[1]) : 0;
+    if (apOver) diceOver.push('ap');
     let overCap = t.level > maxLevel || diceOver.length > 0;
     let sumXpEl = document.getElementById('pcSumXp');
     let sumXpLbl = sumXpEl.previousElementSibling;
@@ -1124,7 +1142,9 @@ function pcRenderSummaryCore() {
     let capNote = document.getElementById('pcCapNote');
     if (diceOver.length) {
         capNote.classList.remove('hidden');
-        capNote.innerText = `Max ${POWER_MAX_DICE_PER_STEP} dice per die step. Lower ${diceOver.map(st => pcDraft.dmg[st] + st).join(', ')} in Step 4 to save this power.`;
+        let dOver = diceOver.filter(st => st !== 'ap');
+        capNote.innerText = [dOver.length ? `Max ${POWER_MAX_DICE_PER_STEP} dice per die step. Lower ${dOver.map(st => pcDraft.dmg[st] + st).join(', ')} in Step 4 to save this power.` : '',
+            apOver ? `This power costs ${apOver} AP; the most is ${pcCasterApCap()} AP (twice the ${pcTurnAp()} AP gained each turn). Lower it in Step 7 to save this power.` : ''].filter(Boolean).join(' ');
     } else if (overCap) {
         capNote.classList.remove('hidden');
         capNote.innerText = `This power is Level ${t.level}, but you can only use up to Level ${maxLevel} Powers. Reduce its XP total to ${POWER_LEVEL_TABLE[maxLevel-1] ? POWER_LEVEL_TABLE[maxLevel-1].max : 0} or less.`;

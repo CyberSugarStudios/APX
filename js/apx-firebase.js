@@ -47,7 +47,7 @@
             saveFogData: () => Promise.resolve(),
             loadFogData: () => Promise.resolve(null),
             loadFogDataForPlayer: () => Promise.resolve(null),
-            writeBattlePosition: () => Promise.resolve(),
+            writeBattlePosition: () => Promise.resolve(), writeBattleMeasure: () => Promise.resolve(),
             listenBattlePositions: () => (() => {}) };
         return;
     }
@@ -421,6 +421,15 @@
         }
     }
 
+    // A player's Measure on a battle map, shown to the GM and the other players (null clears it).
+    //   worldCodes/{inviteCode}/players/{uid}  →  battleMeasure = { map, g, at }
+    async function writeBattleMeasure(inviteCode, uid, val) {
+        let user = currentUser();
+        if (!user || !inviteCode || !uid || user.uid !== uid) return;
+        let ref = db.collection('worldCodes').doc(inviteCode.toUpperCase().trim()).collection('players').doc(uid);
+        await ref.update({ battleMeasure: val ? Object.assign({}, val, { at: firebase.firestore.FieldValue.serverTimestamp() }) : null });
+    }
+
     // Live listener on every player's battle positions in a world.
     // callback([{ uid, battlePositions, charPortrait }])
     function listenBattlePositions(inviteCode, callback) {
@@ -434,6 +443,7 @@
                         uid: data.uid || d.id,
                         outbox: data._outbox || {}, giftAcks: data._giftAcks || {},
                         battlePositions: data.battlePositions || {},
+                        battleMeasure: data.battleMeasure || null,   // the player's shared Measure (map, geometry)
                         charPortrait: cs.charPortrait || '',
                         // Basic public info for the players' Party view (no stats)
                         profile: {
@@ -1009,7 +1019,7 @@
         sendChat, listenChat, deleteChat,
         saveNpcPortrait, loadNpcPortrait, loadNpcPortraitForPlayer, addXpToPlayer, gmSetPlayerBattlePos,
         savePublicWorldMap, loadPublicWorldMap, loadWorldMapForPlayer, setGmHpOverride, updatePlayerBattlePos,
-        writeBattlePosition, listenBattlePositions,
+        writeBattlePosition, writeBattleMeasure, listenBattlePositions,
         saveOtherMapImage, loadOtherMapImage, loadOtherMapImageForPlayer, deleteOtherMapImage,
         saveMapTile, loadMapTile, deleteMapTiles, resetWriteStream,
         saveBattleImage, loadBattleImage, loadBattleImageForPlayer, deleteBattleImage,

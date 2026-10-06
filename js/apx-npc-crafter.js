@@ -2666,8 +2666,10 @@ window.openSummonCrafter = function(opts) {
     let tier = Math.max(1, parseInt(opts.tier) || 1);
     let npc = opts.npc ? JSON.parse(JSON.stringify(opts.npc)) : getBlankCompanion();
     if (!opts.npc && !npc.name) npc.name = 'Summoned Creature';
-    let row = (typeof NPC_TIER_TP !== 'undefined' ? NPC_TIER_TP : []).find(t => t.tier === tier);
-    npc.gmTpBudget = row ? row.tp : 100 + (tier - 5) * 20;
+    // Its budget is everything its Tier allows: up to 1 TP short of the next Tier (Tier 1: 29 TP, Tier 2: 49 TP…)
+    let tiers = typeof NPC_TIER_TP !== 'undefined' ? NPC_TIER_TP : [];
+    let next = tiers.find(t => t.tier === tier + 1);
+    npc.gmTpBudget = (next ? next.tp : 100 + (tier - 4) * 20) - 1;
     npc.isSummon = true;   // a hard 3 AP, and it can't summon creatures of its own
     let modal = document.getElementById('npcCrafterModal');
     let outer = { target: ncTarget, gmId: ncActiveGmNpcId, step: ncStep, open: !!(modal && modal.classList.contains('active')) && ncTarget !== 'summon' };
