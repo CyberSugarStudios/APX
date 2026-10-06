@@ -565,6 +565,7 @@ window.pcPickSummon = function(id) {
     let npc = JSON.parse(JSON.stringify(e.npc));
     delete npc.portraitFull;
     npc.isSummon = true;   // a hard 3 AP, and it can't summon creatures of its own
+    npc.apBonus = 0;       // (so AP it bought as a standalone NPC doesn't count)
     pcDraft.summonNpc = npc; pcDraft.summonNpcTier = pcDraft.summonTier || 1; pcDraft.summonFromId = e.id;
     pcRenderAll();
 };

@@ -474,8 +474,8 @@
         }
 
     </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20261061545">
-    <link rel="stylesheet" href="css/tailwind.css?v=20261061545">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20261061630">
+    <link rel="stylesheet" href="css/tailwind.css?v=20261061630">
 </head>
 <body class="p-2 md:p-6 flex justify-center text-sm ml-0 lg:ml-8 transition-all" style="padding-top:4.25rem"><!-- (room for the floating Roster / Settings buttons) -->
     <!-- Auth bar removed — account controls are in the sidebar -->
@@ -2358,38 +2358,38 @@
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20261061545"></script>
-    <script src="js/apx-patch-notes.js?v=20261061545"></script>
-    <script src="js/apx-dice.js?v=20261061545"></script>
-    <script src="js/apx-data.js?v=20261061545"></script>
-    <script src="js/apx-item-effects.js?v=20261061545"></script>
-    <script src="js/apx-perks-db.js?v=20261061545"></script>
-    <script src="js/apx-migrations.js?v=20261061545"></script>
-    <script src="js/apx-roster.js?v=20261061545"></script>
-    <script src="js/apx-state.js?v=20261061545"></script>
-    <script src="js/apx-origin-wizard.js?v=20261061545"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20261061545"></script>
-    <script src="js/apx-inventory-ui.js?v=20261061545"></script>
-    <script src="js/apx-craft-shared.js?v=20261061545"></script>
-    <script src="js/apx-armor-forge.js?v=20261061545"></script>
-    <script src="js/apx-weapon-forge.js?v=20261061545"></script>
-    <script src="js/apx-power-crafter.js?v=20261061545"></script>
-    <script src="js/apx-consumable-crafter.js?v=20261061545"></script>
-    <script src="js/apx-npc-crafter.js?v=20261061545"></script>
-    <script src="js/apx-engine.js?v=20261061545"></script>
-    <script src="js/apx-perks-ui.js?v=20261061545"></script>
-    <script src="js/apx-rest.js?v=20261061545"></script>
-    <script src="js/apx-looting.js?v=20261061545"></script>
-    <script src="js/apx-main.js?v=20261061545"></script>
+    <script src="js/apx-dialogs.js?v=20261061630"></script>
+    <script src="js/apx-patch-notes.js?v=20261061630"></script>
+    <script src="js/apx-dice.js?v=20261061630"></script>
+    <script src="js/apx-data.js?v=20261061630"></script>
+    <script src="js/apx-item-effects.js?v=20261061630"></script>
+    <script src="js/apx-perks-db.js?v=20261061630"></script>
+    <script src="js/apx-migrations.js?v=20261061630"></script>
+    <script src="js/apx-roster.js?v=20261061630"></script>
+    <script src="js/apx-state.js?v=20261061630"></script>
+    <script src="js/apx-origin-wizard.js?v=20261061630"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20261061630"></script>
+    <script src="js/apx-inventory-ui.js?v=20261061630"></script>
+    <script src="js/apx-craft-shared.js?v=20261061630"></script>
+    <script src="js/apx-armor-forge.js?v=20261061630"></script>
+    <script src="js/apx-weapon-forge.js?v=20261061630"></script>
+    <script src="js/apx-power-crafter.js?v=20261061630"></script>
+    <script src="js/apx-consumable-crafter.js?v=20261061630"></script>
+    <script src="js/apx-npc-crafter.js?v=20261061630"></script>
+    <script src="js/apx-engine.js?v=20261061630"></script>
+    <script src="js/apx-perks-ui.js?v=20261061630"></script>
+    <script src="js/apx-rest.js?v=20261061630"></script>
+    <script src="js/apx-looting.js?v=20261061630"></script>
+    <script src="js/apx-main.js?v=20261061630"></script>
 
     <!-- Firebase (cloud sync — requires firebase-config.js to be configured) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20261061545"></script>
-    <script src="js/apx-firebase.js?v=20261061545"></script>
-    <script src="js/apx-battlemap.js?v=20261061545"></script>
-    <script src="js/apx-map-tiles.js?v=20261061545"></script>
+    <script src="js/firebase-config.js?v=20261061630"></script>
+    <script src="js/apx-firebase.js?v=20261061630"></script>
+    <script src="js/apx-battlemap.js?v=20261061630"></script>
+    <script src="js/apx-map-tiles.js?v=20261061630"></script>
     <script>
     // ── Sidebar: folders, worlds, meatball menus ─────────────
     window._sidebarChars = [];
@@ -2755,7 +2755,7 @@
                 let pick = await new Promise(res => {
                     if (window.apxInjectDialogStyles) window.apxInjectDialogStyles();
                     let back = document.createElement('div');
-                    back.className = 'apxdlg-back'; back.style.zIndex = 2147483000;
+                    back.className = 'apxdlg-back'; back.style.zIndex = 2147483300;
                     back.innerHTML = `<div class="apxdlg" style="width:min(420px,100%)"><div class="apxdlg-title">New Character</div>
                         <div class="apxdlg-msg" style="margin-bottom:.7rem">Where does this character play?</div>
                         <div style="display:flex;flex-direction:column;gap:.4rem;margin-bottom:.8rem">
@@ -3998,7 +3998,7 @@
         let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
         let m = document.createElement('div');
         m.className = 'apx-give-menu';
-        m.style.cssText = 'position:fixed;z-index:2147483200;min-width:9rem;background:var(--c-surface,#1e293b);border:1px solid var(--c-border2,#475569);border-radius:.45rem;box-shadow:0 10px 30px rgba(0,0,0,.6);padding:.25rem;font-size:.75rem';
+        m.style.cssText = 'position:fixed;z-index:2147483300;min-width:9rem;background:var(--c-surface,#1e293b);border:1px solid var(--c-border2,#475569);border-radius:.45rem;box-shadow:0 10px 30px rgba(0,0,0,.6);padding:.25rem;font-size:.75rem';
         m.innerHTML = `<div style="padding:.25rem .5rem;color:var(--c-text-muted,#94a3b8);font-weight:800;font-size:.65rem;text-transform:uppercase">Give ${esc(item.name)} to…</div>` +
             targets.map(t => `<button data-uid="${esc(t.uid).replace(/"/g, '&quot;')}" style="display:block;width:100%;text-align:left;padding:.35rem .5rem;border-radius:.3rem;font-weight:700;color:var(--c-text,#fff);background:none;border:none;cursor:pointer" onmouseover="this.style.background='rgba(16,185,129,.2)'" onmouseout="this.style.background='none'">${esc(t.name)}</button>`).join('');
         document.body.appendChild(m);
@@ -5644,9 +5644,9 @@
         });
     }
     </script>
-    <script src="js/apx-chat.js?v=20261061545"></script>
-    <script src="js/apx-actions.js?v=20261061545"></script>
-    <script src="js/apx-extras.js?v=20261061545"></script>
-    <script src="js/apx-theme-light.js?v=20261061545"></script>
+    <script src="js/apx-chat.js?v=20261061630"></script>
+    <script src="js/apx-actions.js?v=20261061630"></script>
+    <script src="js/apx-extras.js?v=20261061630"></script>
+    <script src="js/apx-theme-light.js?v=20261061630"></script>
 </body>
 </html>

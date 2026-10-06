@@ -247,6 +247,22 @@ window.apxToday = function (d) {
     // (after the window's own handlers, which may set a z-index of their own)
     document.addEventListener('mousedown', e => { let w = floatingOf(e.target); if (w) setTimeout(() => window.apxFront(w), 0); }, true);
     document.addEventListener('touchstart', e => { let w = floatingOf(e.target); if (w) setTimeout(() => window.apxFront(w), 0); }, { capture: true, passive: true });
+    // ── New popups open on top ───────────────────────────────────────────
+    // A modal that opens takes the next layer of the same stacking order as the floating windows (maps,
+    // stat blocks, the dice tray), so it opens above everything already open and is never missed; a
+    // window opened from inside it comes up above it in turn. (Dialogs that need an answer sit higher still.)
+    function liftModal(el) {
+        if ((parseInt(el.style.zIndex) || 0) > FRONT_MAX) return;   // already above the stacking order
+        window.apxFront(el);
+    }
+    function watchModals() {
+        if (!window.MutationObserver || !document.body) return;
+        new MutationObserver(list => list.forEach(m => {
+            let el = m.target;
+            if (el.classList && el.classList.contains('modal-overlay') && el.classList.contains('active') && !(m.oldValue || '').split(/\s+/).includes('active')) liftModal(el);
+        })).observe(document.body, { attributes: true, attributeFilter: ['class'], attributeOldValue: true, subtree: true });
+    }
+    if (document.body) watchModals(); else document.addEventListener('DOMContentLoaded', watchModals);
     // ── Tabs: double-click a window's title bar to minimize it ───────────
     // It becomes a tab along the bottom of the screen; click the tab to bring it back (in front).
     function tabBar() {

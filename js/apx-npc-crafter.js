@@ -60,6 +60,7 @@ function ncActiveCompanion() {
 // choke point nearly everything in this file goes through.
 function ncMigrateCompanionFields(c) {
     if (c.gmTpBudget === undefined) c.gmTpBudget = 5;
+    if (c.isSummon && c.apBonus) c.apBonus = 0;   // a summoned creature's AP is a hard 3: TP spent on AP before comes back
     if (c.legendaryResistances === undefined) c.legendaryResistances = 0;
     if (c.legendaryApPool === undefined) c.legendaryApPool = 0;
     if (c.lairActions === undefined) c.lairActions = false;
@@ -393,6 +394,7 @@ window.ncAdjustHpTier = function(delta) {
 };
 window.ncAdjustAp = function(delta) {
     let c = ncActiveCompanion();
+    if (c.isSummon) return;   // a hard 3 AP: nothing to buy
     let tierInfo = npcTierForTP(window.companionTotalTp());
     let maxApBonus = (tierInfo.tier + 1) * NPC_AP_PER_TIER; // "+1 AP per Tier" max, Tier 0 allows 1
     if (delta > 0 && c.apBonus + delta > maxApBonus) return;
@@ -2052,8 +2054,9 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
     tell(`${whoPub} uses ${p.name || 'a power'}${isReact ? ' (Reaction)' : ''}${saveTxt}.`, `${whoGm} uses ${p.name || 'a power'}${isReact ? ' (Reaction)' : ''}${saveTxt}.`);
     let dTotal = dcard && Array.isArray(dcard.parts) ? dcard.parts.filter(x => x.kind === 'dmg').reduce((t, x) => t + (x.total || 0), 0) : undefined;
     let dShares = dmg && dmg.split && dcard && Array.isArray(dcard.parts) ? dcard.parts.filter(x => x.kind === 'dmg').map((x, i) => ({ type: (dmg.split[i] || {}).type, dmg: x.total })) : undefined;
-    areaOut({ save: saveKind && !(dmg && dmg.heal) ? { dc, kind: saveKind, attr: sInfo && sInfo.saveAttr || null } : null, dmgTotal: dTotal, dmgType: dmg && !dmg.heal ? dmg.type : '', dice: dmg ? dmg.formula : '', heal: !!(dmg && dmg.heal), dmgParts: dShares });
-    offerFx();
+    let areaSave = saveKind && !(dmg && dmg.heal) ? { dc, kind: saveKind, attr: sInfo && sInfo.saveAttr || null } : null;
+    areaOut({ save: areaSave, dmgTotal: dTotal, dmgType: dmg && !dmg.heal ? dmg.type : '', dice: dmg ? dmg.formula : '', heal: !!(dmg && dmg.heal), dmgParts: dShares, fx: fxInfo || undefined });
+    if (!(areaRes && areaSave)) offerFx();   // (an area's own saves bring its Conditions)
 };
 // Has this stat block's creature (in the tracker) Awakened? Outside the tracker its Awakened powers are shown, unlocked.
 function npcAwakened(sb, initId) {
@@ -2222,13 +2225,13 @@ function ncRenderStep1() {
                 <button onclick="window.ncAdjustHpTier(1)" class="w-6 h-6 rounded bg-amber-700 hover:bg-amber-600 text-white font-bold">+</button>
             </div>
         </div>
-        <div class="flex items-center justify-between bg-slate-900 border border-slate-700 rounded px-2 py-1.5">
+        ${c.isSummon ? `<div class="bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-[10px] text-slate-400">AP: a summoned creature has a hard 3 AP each turn, so it can't buy more.</div>` : `<div class="flex items-center justify-between bg-slate-900 border border-slate-700 rounded px-2 py-1.5">
             <span class="text-xs font-bold text-white">+1 AP (max +${NPC_AP_PER_TIER}/Tier, ${NPC_AP_TP} TP each): x${c.apBonus}</span>
             <div class="flex items-center gap-1">
                 <button onclick="window.ncAdjustAp(-1)" class="w-6 h-6 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">-</button>
                 <button onclick="window.ncAdjustAp(1)" class="w-6 h-6 rounded bg-amber-700 hover:bg-amber-600 text-white font-bold">+</button>
             </div>
-        </div>
+        </div>`}
     `;
 }
 

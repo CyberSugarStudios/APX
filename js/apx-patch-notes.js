@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.6.1545',
-        released: '2026-10-06T15:45:00',
-        releasedText: 'October 6, 2026 · 3:45 PM',
+        version: 'v2026.10.6.1630',
+        released: '2026-10-06T16:30:00',
+        releasedText: 'October 6, 2026 · 4:30 PM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs with loot of their own, apart from their stat blocks, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, area powers placed right on the battle map with every save in them rolled for you, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -82,7 +82,7 @@
                 'The dice tray has a chat: message everyone, just the GM, or the players you pick.',
                 'Your checks and saves reach your GM in or out of combat, your token\'s path shows its AP cost as you drag it, and Measure has Line, Cone and Burst modes.',
                 'Measurements stay where you put them: drag the start point to move one (started on your creature, the creature moves with its path and AP) and scroll while dragging it to turn a Line or Cone. Scrolling while you\'re still drawing one doesn\'t turn it. A Line keeps its length as it turns and shows the exact squares it covers, and a Cone starts at the edge of its creature\'s space, so a creature is never caught in its own cone, however big it is. Players\' measurements show for everyone; the GM\'s show when the GM presses V.',
-                'Area powers land on the battle map: using a power with a Line, Cone or Burst while a battle map is open has you place its area first, at the size the power was crafted with. A Self or Touch area starts from the creature using it (scroll to turn it, drag its start to move it); a ranged one is placed anywhere within the power\'s range. The GM\'s tracker then rolls the save for everyone in it, player and NPC alike, and deals the damage by each roll once the GM confirms. With the Safe Zone perk, right-click creatures to leave them out.'
+                'Area powers land on the battle map: using a power with a Line, Cone or Burst while a battle map is open has you place its area first, at the size the power was crafted with. A Self or Touch area starts from the creature using it (scroll to turn it, drag its start to move it); a ranged one is placed anywhere within the power\'s range. Everyone in it then makes a new saving throw every time it\'s used: NPCs roll from the GM\'s dice tray, players get a button to roll their own, and each creature takes the damage (and any Conditions) by its own roll. With the Safe Zone perk, right-click creatures to leave them out.'
             ]],
             ['Maps', [
                 'Special Map Markers are larger and bright yellow with a dark outline (magenta for the GM while hidden), stay readable when zoomed out, and can hold loot.',
@@ -109,6 +109,7 @@
             ]],
             ['Also', [
                 'Switching from one character to another and back keeps every change you made to each.',
+                'Every new popup opens on top of whatever is already open (map windows, stat blocks, the dice tray, other popups), so nothing opens hidden behind a window.',
                 'Deleting an account removes all of its data. Pages load faster, closed windows no longer leave blurred patches on phones, and an open page moves itself onto a new release.',
                 'The Character Sheet and GM Tools notes have all the details.'
             ]]
@@ -181,9 +182,9 @@
                 'Summon a Creature has a Tier (+15 XP per Tier above 1, per creature). Saving the power opens the NPC Crafter to build the creature with everything that Tier allows (Tier 1: 29 TP, Tier 2: 49 TP), and using it places the creatures next to your token on the battle map your GM has open.',
                 'A power that summons a creature has an Edit Summoned Creature button, so the creature can be changed without reopening the Power Crafter.',
                 'Powers for your Loyal Companion and for a summoned creature are priced in Threat Points from their own budget, never your XP. Building a summoned creature\'s powers from inside the Power Crafter picks your own power back up afterward.',
-                'Summoned creatures can\'t summon creatures of their own (the utility is locked when crafting their powers), and have a hard 3 AP each turn with nothing banked.',
+                'Summoned creatures can\'t summon creatures of their own (the utility is locked when crafting their powers), and have a hard 3 AP each turn with nothing banked, so their NPC Crafter has no AP to buy (TP spent on AP before comes back).',
                 'Your Loyal Companion can have a Summon a Creature power, up to its own Tier. Saving it opens the NPC Crafter for the creature and then returns to your companion; using it puts the creatures next to your companion on the battle map.',
-                'Area powers on the battle map: with your GM\'s battle map open, using a power with a Line, Cone or Burst has you place its area before anything is spent, at exactly the size you crafted. A Self or Touch area starts from your token: scroll to turn it, click a square to point it there, and drag its start to the square next to you. A Short, Long or Extreme Range area follows your mouse; click to place it within range (it turns red when it\'s out of range), then drag, turn or re-aim it. Enter (or Use power) uses it, Esc cancels, and Use without the map rolls it the old way. Your GM\'s tracker rolls everyone\'s saves in the area and deals the damage by each roll. Your Loyal Companion\'s area powers work the same way.',
+                'Area powers on the battle map: with your GM\'s battle map open, using a power with a Line, Cone or Burst has you place its area before anything is spent, at exactly the size you crafted. A Self or Touch area starts from your token: scroll to turn it, click a square to point it there, and drag its start to the square next to you. A Short, Long or Extreme Range area follows your mouse; click to place it within range (it turns red when it\'s out of range), then drag, turn or re-aim it. Enter (or Use power) uses it, Esc cancels, and Use without the map rolls it the old way. Everyone in the area makes a new saving throw each time you use it: if you\'re caught in one, a Roll save button appears in your dice tray, and you take the damage (half or none on a success) by your own roll. Your Loyal Companion\'s area powers work the same way.',
                 'Safe Zone: right-click any creature in your area while placing it to keep it safe (it gets a green outline), and the GM\'s tracker leaves it out.',
                 '"Add a second damage type, splitting the dice" asks how many of the dice deal the second type (change it with − and + next to the type). The power shows as "2d6 Fire + 1d8 Cold", and using it rolls each type separately with the total underneath. A martial power rolls its weapon\'s damage and its own damage as separate types too.'
             ]],
@@ -300,7 +301,7 @@
                 'Your measurement shows on the GM\'s map and the other players\' (in blue, with your name), and theirs show on yours. The GM\'s show up when your GM chooses to share them.',
                 'Discoveries also hold revealed sub-notes whose place, NPC or area you haven\'t been shown.',
                 'When your GM hides something you have open (a map, an area, a place, an NPC or their picture), its window closes. Open popups update as notes are revealed or hidden.',
-                'Map windows, popups and the dice tray share one stacking order: whichever you opened or clicked last is on top.',
+                'Map windows, popups and the dice tray share one stacking order: whichever you opened or clicked last is on top, and every new popup or window opens above everything already open.',
                 'Movement paths go straight along diagonals instead of zig-zagging, so moves cost what they should, and big creatures measure from their center.',
                 'The Measure toolbar wraps onto more lines in small windows instead of being cut off.',
                 'Double-click any popup window\'s title bar to minimize it to a tab in the bottom-left corner. The tab is named after what\'s in the window: the map\'s name, the Area Circle\'s or marker\'s name ("Area B" until it has one), the NPC, place or session, never the title bar\'s buttons.',
@@ -443,8 +444,8 @@
                 'Using a power that calls for a save (or inflicts Conditions), yours or a player\'s, puts a Roll targets\' saves (or Apply) button in your dice tray. Pick the targets: NPCs\' saves are rolled from their stat blocks, with their own Conditions counting, players are asked to roll theirs, and whoever fails gets the Conditions.',
                 'Lasting effects show on the creature\'s tracker row with their Escape Save. It\'s asked for at the end of each of the creature\'s turns, and whenever it takes damage with Damage Interrupt; attacking ends the effect with Action Interrupt. Save rolls it now, 3 AP spends the AP to repeat it, and ✕ ends the effect. An effect lasting until the end of the target\'s next turn wears off then.',
                 'When a world opens, an NPCs to rebuild list shows stat blocks in that world with powers built before the new save rules. Rebuild opens the NPC and walks you through each of its powers; finished NPCs drop off the list, and it goes away when none are left.',
-                'Area powers on the battle map: using a stat block\'s power with a Line, Cone or Burst while the creature\'s token is on an open battle map has you place its area first (Self or Touch from the creature, scroll to turn it; ranged ones anywhere within range, red when out of range). Right-click creatures to keep them out of it. A window then lists everyone in it with their save already rolled (players\' from their sheets, NPCs\' and companions\' from their stat blocks) and the damage each takes: a success halves or negates it, Swarms take double, and DR, ER and resistances come off as it\'s dealt. Untick anyone it shouldn\'t touch, then Deal it. Healing areas heal everyone ticked.',
-                'Players\' and Loyal Companions\' area powers arrive the same way: the player places the area on their map, and the same window opens in your tracker with everyone\'s saves rolled.',
+                'Area powers on the battle map: using a stat block\'s power with a Line, Cone or Burst while the creature\'s token is on an open battle map has you place its area first (Self or Touch from the creature, scroll to turn it; ranged ones anywhere within range, red when out of range). Right-click creatures to keep them out of it. A window then lists everyone in it with the damage on a failed or successful save; untick anyone it shouldn\'t touch and press Roll saves. Every use asks for new saves: NPCs and companions roll from your dice tray, players are asked to roll theirs, and each creature takes the damage (and the power\'s Conditions, on a failure) when its own roll comes in. Swarms take double, and DR, ER and resistances come off as it\'s dealt. Healing areas heal everyone ticked.',
+                'Players\' and Loyal Companions\' area powers arrive the same way: the player places the area on their map, and the same window opens in your tracker.',
                 'Unlimited Uses (+5 TP per Power Level) works at any Power Level, on an NPC of any Tier.'
             ]],
             ['NPC Crafter and Weapon Forge', [
@@ -476,7 +477,7 @@
                 'Grappled and Pinned are conditions (Grabbed became Grappled), and a creature\'s condition immunities keep conditions off it.',
                 'Grapples: marking a creature Grappled or Pinned links it to the creature next to it (you choose when there are several) and makes that grappler Staggered. Unmarking it, an Escape, the grappler letting go, being Incapacitated or leaving the fight ends the grapple and its Staggered. A Grappling weapon hit grapples on its own, and players\' Grapple, Pin, Choke and Escape from their sheets apply here, Choke damage included.',
                 'Non-lethal damage ("-12 nl", or the Non-lethal box): at 0 HP a creature is knocked out: Unconscious, still in the fight, grey with snoring Z\'s on the map (players don\'t Bleed Out). Healing wakes it; lethal damage while it\'s down kills an NPC or starts a player Bleeding Out.',
-                'Summoned creatures have a hard 3 AP: 3 at the start of each turn (1 if Surprised), none banked. An NPC\'s Summon a Creature power places its creatures next to it, on its side, acting right after it.',
+                'Summoned creatures have a hard 3 AP: 3 at the start of each turn (1 if Surprised), none banked. Their NPC Crafter doesn\'t offer +1 AP, and a saved NPC summoned by a power drops any AP it bought. An NPC\'s Summon a Creature power places its creatures next to it, on its side, acting right after it.',
                 'Grant XP has a Start Session type: 5 XP, named for the session (each sheet adds INT), so attendance XP reads cleanly in the log.',
                 'NPCs can be immune to Grappled and Pinned (NPC Crafter, Condition Immunity), and the tracker keeps those conditions off them.'
             ]],
@@ -498,7 +499,7 @@
                 'Area Circles under fog are hidden from players, and stopping sharing a map closes it on their screens.',
                 'The map window\'s X stays in its corner, popups open beside the map in front of the dice tray, and pictures keep their shape when resized.',
                 'Each map window has a Revealed / Hidden button to show or hide it for your players on the spot.',
-                'Map windows, stat blocks, area popups and the dice tray share one stacking order: whichever you opened, clicked or dragged last is on top.',
+                'Map windows, stat blocks, area popups and the dice tray share one stacking order: whichever you opened, clicked or dragged last is on top, and every new popup (an area power\'s saves, a crafter, a confirmation) opens above everything already open.',
                 'Painting fog and zooming no longer make the browser redo the page layout on every mouse move (the "Forced reflow" console messages), so both feel smoother.',
                 'Resizing a token next to a wall or another token shifts it to fit, player tokens included.',
                 'Movement paths follow diagonals without zig-zagging, and Large and bigger creatures measure from their center.',
@@ -675,7 +676,7 @@
         if (document.getElementById('apxUpdateBanner')) return;
         let b = document.createElement('div');
         b.id = 'apxUpdateBanner';
-        b.style.cssText = 'position:fixed;left:50%;bottom:1rem;transform:translateX(-50%);z-index:2147483000;background:#1e1b4b;border:1px solid #6366f1;color:#e0e7ff;font:700 .78rem system-ui,sans-serif;padding:.5rem .75rem;border-radius:.6rem;display:flex;gap:.6rem;align-items:center;box-shadow:0 8px 30px rgba(0,0,0,.6);max-width:calc(100vw - 2rem)';
+        b.style.cssText = 'position:fixed;left:50%;bottom:1rem;transform:translateX(-50%);z-index:2147483280;background:#1e1b4b;border:1px solid #6366f1;color:#e0e7ff;font:700 .78rem system-ui,sans-serif;padding:.5rem .75rem;border-radius:.6rem;display:flex;gap:.6rem;align-items:center;box-shadow:0 8px 30px rgba(0,0,0,.6);max-width:calc(100vw - 2rem)';
         b.innerHTML = `<span>A new version of APX is ready (${v}).</span><button style="background:#4f46e5;color:#fff;border:0;border-radius:.4rem;padding:.3rem .6rem;font-weight:800;cursor:pointer">Reload</button><button aria-label="Later" style="background:none;border:0;color:#a5b4fc;cursor:pointer;font-weight:800">✕</button>`;
         let [reload, later] = b.querySelectorAll('button');
         reload.onclick = () => { let u = new URL(location.href); u.searchParams.set('apx', v.replace(/^v/, '')); location.replace(u.toString()); };
@@ -697,7 +698,7 @@
         if (document.getElementById('apxMovedBanner')) return;
         let b = document.createElement('div');
         b.id = 'apxMovedBanner';
-        b.style.cssText = 'position:fixed;left:50%;bottom:1rem;transform:translateX(-50%);z-index:2147483000;background:#052e2b;border:1px solid #10b981;color:#d1fae5;font:700 .78rem system-ui,sans-serif;padding:.5rem .75rem;border-radius:.6rem;display:flex;gap:.6rem;align-items:center;box-shadow:0 8px 30px rgba(0,0,0,.6);max-width:calc(100vw - 2rem)';
+        b.style.cssText = 'position:fixed;left:50%;bottom:1rem;transform:translateX(-50%);z-index:2147483280;background:#052e2b;border:1px solid #10b981;color:#d1fae5;font:700 .78rem system-ui,sans-serif;padding:.5rem .75rem;border-radius:.6rem;display:flex;gap:.6rem;align-items:center;box-shadow:0 8px 30px rgba(0,0,0,.6);max-width:calc(100vw - 2rem)';
         b.innerHTML = `<span>APX has moved to ${esc(new URL(url).host)}.</span><button style="background:#059669;color:#fff;border:0;border-radius:.4rem;padding:.3rem .6rem;font-weight:800;cursor:pointer">Go there</button>`;
         b.querySelector('button').onclick = () => location.replace(url);
         document.body.appendChild(b);
