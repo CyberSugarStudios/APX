@@ -1755,7 +1755,7 @@
     //   opts.difficult  ["gx,gy"]: squares of difficult terrain (diagonal lines; under the fog like the map)
     //   opts.walls      [{ id, x1, y1, x2, y2 (grid units, anywhere), door, open }]: invisible except while editing them;
     //                   opts.wallsBlock(vm) -> true for the tokens they stop (a player's own)
-    //   opts.doorButtons (GM): a small open / close button on each door; opts.onDoorToggle(id)
+    //   opts.doorButtons (GM): a small door marker on each door (click to open / close); opts.onDoorToggle(id)
     //   opts.drawings   [{ id, c (colour), w (width, map px), p: [x, y, x, y…] (map px) }]
     //   opts.pings      [{ id, x, y (map px), who, gm, t }]
     function _marksSvg(layer) {
@@ -1822,7 +1822,8 @@
         _layoutDoorBtns(layer, o.doorButtons ? walls.filter(w => w && w.door) : []);
         _layoutPings(layer);
     }
-    // GM: an open / close button on each door (players never see doors or walls)
+    // GM: a small door marker on each door (players never see doors or walls). It's drawn along the wall: a
+    // bar across the gap when closed (amber), swung open when open (green). Faint until you hover it; click toggles.
     function _layoutDoorBtns(layer, doors) {
         let box = layer.querySelector('[data-bt-ui="doors"]');
         if (!doors.length) { if (box) box.remove(); return; }
@@ -1838,17 +1839,28 @@
             let b = box.querySelector(`[data-door="${CSS.escape(w.id)}"]`);
             if (!b) {
                 b = document.createElement('button'); b.setAttribute('data-door', w.id);
-                b.style.cssText = 'position:absolute;pointer-events:auto;transform:translate(-50%,-50%);font:800 9px system-ui,sans-serif;padding:1px 5px;border-radius:4px;cursor:pointer;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.7)';
+                b.style.cssText = 'position:absolute;pointer-events:auto;width:16px;height:16px;padding:0;margin:0;border:0;border-radius:50%;background:transparent;cursor:pointer;opacity:.55;transition:opacity .12s,transform .12s;';
+                b.addEventListener('mouseenter', () => { b.style.opacity = '1'; b.style.transform = b._rot + ' scale(1.35)'; });
+                b.addEventListener('mouseleave', () => { b.style.opacity = '.55'; b.style.transform = b._rot; });
                 b.addEventListener('mousedown', e => e.stopPropagation());
                 b.addEventListener('pointerdown', e => e.stopPropagation());
                 b.addEventListener('click', e => { e.stopPropagation(); let oo = layer._opts; if (oo && oo.onDoorToggle) oo.onDoorToggle(b.getAttribute('data-door')); });
                 box.appendChild(b);
             }
             let mx = ox + (org.ox + (w.x1 + w.x2) / 2 * cs) * s, my = oy + (org.oy + (w.y1 + w.y2) / 2 * cs) * s;
+            let ang = Math.atan2(w.y2 - w.y1, w.x2 - w.x1) * 180 / Math.PI;
+            b._rot = `translate(-50%,-50%) rotate(${ang.toFixed(1)}deg)`;
             b.style.left = mx + 'px'; b.style.top = my + 'px';
-            b.textContent = w.open ? 'Door: open' : 'Door: closed';
-            b.title = (w.open ? 'Open: tokens can pass. Click to close it.' : 'Closed: tokens can\'t pass. Click to open it.') + ' (Only you see this button.)';
-            b.style.background = w.open ? '#065f46' : '#78350f'; b.style.color = '#fff'; b.style.border = '1px solid ' + (w.open ? '#34d399' : '#f59e0b');
+            if (b.matches(':hover')) b.style.transform = b._rot + ' scale(1.35)'; else b.style.transform = b._rot;
+            let state = w.open ? 'open' : 'closed';
+            if (b.getAttribute('data-state') !== state) {
+                b.setAttribute('data-state', state);
+                b.innerHTML = w.open
+                    ? '<svg width="16" height="16" viewBox="0 0 16 16" style="display:block;pointer-events:none"><circle cx="8" cy="8" r="7" fill="rgba(2,44,34,.75)" stroke="#34d399" stroke-width="1.2"/><line x1="3.5" y1="8" x2="8" y2="3" stroke="#4ade80" stroke-width="2.2" stroke-linecap="round"/><circle cx="3.5" cy="8" r="1.3" fill="#4ade80"/></svg>'
+                    : '<svg width="16" height="16" viewBox="0 0 16 16" style="display:block;pointer-events:none"><circle cx="8" cy="8" r="7" fill="rgba(69,26,3,.75)" stroke="#f59e0b" stroke-width="1.2"/><line x1="3.5" y1="8" x2="12.5" y2="8" stroke="#fbbf24" stroke-width="2.4" stroke-linecap="round"/></svg>';
+                b.title = (w.open ? 'Door (open): tokens can pass. Click to close it.' : 'Door (closed): tokens can\'t pass. Click to open it.') + ' Only you see this.';
+                b.setAttribute('aria-label', w.open ? 'Close door' : 'Open door');
+            }
         });
         box.querySelectorAll('[data-door]').forEach(b => { if (!keep.has(b.getAttribute('data-door'))) b.remove(); });
     }
