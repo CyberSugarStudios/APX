@@ -2952,8 +2952,9 @@ function _gmDamage(entry, opts) {
     let incap = _gmEffConds(entry).includes('incapacitated');
     let mopt = { ignore: hit && hit.hit && window.APXDamage ? window.APXDamage.ignoreOf(hit.hit) : null, bypassRes: incap, halfBypass: def.halfBypass,
         shares: hit && Array.isArray(hit.dmgShares) && opts.types && hit.dmgShares.length === opts.types.length ? hit.dmgShares : null };   // a split roll: each type its own amount
-    // Temp HP takes its share unreduced (a player's sheet has already worked that out for its own HP)
-    let tempNow = opts.sheet ? 0 : Math.max(0, entry.tempHp || 0);
+    // Temp HP takes its share unreduced; only what gets past it is reduced by DR, ER, resistances and immunities
+    // (a player's sheet already did this for its own HP, and says how much Temp HP it had)
+    let tempNow = opts.sheet ? Math.max(0, opts.sheet.tempBefore || 0) : Math.max(0, entry.tempHp || 0);
     let M = (raw) => window.APXDamage ? (window.APXDamage.throughTemp && tempNow ? window.APXDamage.throughTemp(raw, tempNow, opts.types, def, mopt) : window.APXDamage.mitigate(raw, opts.types, def, mopt)) : { dmg: raw, raw, reduced: 0, text: `${raw} damage` };
     let res = M(opts.raw + extraSum);
     // Swarm: half damage from attacks that target a single creature, double from area effects
@@ -3180,7 +3181,7 @@ function _gmSheetDamageEvent(uid, ev) {
     if (typeof ev.hpAfter === 'number') { e.currentHp = ev.hpAfter; e.tempHp = ev.tempAfter || 0; }
     let hit = (ev.atkId && window._gmLastAttack && window._gmLastAttack.id === ev.atkId ? _gmTakeHit(e) : null) || _gmTakeHit(e) || _gmTurnHit(e);
     e._sheetDmgAt = Date.now();
-    _gmDamage(e, { raw: ev.raw || 0, types, hit, sheet: { dmg: ev.dmg || 0, hpDmg: typeof ev.hpDmg === 'number' ? ev.hpDmg : undefined }, nonlethal: !!ev.nonlethal });
+    _gmDamage(e, { raw: ev.raw || 0, types, hit, sheet: { dmg: ev.dmg || 0, hpDmg: typeof ev.hpDmg === 'number' ? ev.hpDmg : undefined, tempBefore: typeof ev.tempBefore === 'number' ? ev.tempBefore : undefined }, nonlethal: !!ev.nonlethal });
 }
 
 window.toggleSurprised = function(id, checked) {
@@ -3827,7 +3828,9 @@ function _gmBurnTick(e) {
     if ((def.immune || []).includes('Fire')) { gmLog({ text: `${_gmPublicName(e)} is Burning but immune to Fire.`, gmText: `${_gmGmName(e)} is Burning but immune to Fire: no damage.`, kind: 'info' }); return; }
     let card = window.APXDice ? window.APXDice.damage({ label: 'Burning (start of turn)', who: e.name, formula: '1d10', dmgType: 'Fire', perks: false }) : null;
     let rolled = card && card.parts && card.parts[0] ? card.parts[0].total : 1 + Math.floor(Math.random() * 10);
-    let vuln = Math.max(0, -((def.res || {}).Fire || 0));
+    let vuln0 = Math.max(0, -((def.res || {}).Fire || 0));
+    // Temp HP soaks it unmodified; a Fire Vulnerability only adds to what gets past it
+    let toTemp = Math.min(rolled, Math.max(0, e.tempHp || 0)), vuln = rolled - toTemp > 0 ? vuln0 : 0;
     let dmg = rolled + vuln, wasUp = e.currentHp > 0;
     let r = window.apxApplyHpInput('-' + dmg, e.currentHp, e.tempHp, e.maxHp);
     if (r) { e.currentHp = r.currentHp; e.tempHp = r.tempHp; }

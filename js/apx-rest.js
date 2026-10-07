@@ -360,6 +360,8 @@
         let vuln = 5 * (s.ancestryEnvVulnerabilities || []).filter(e => e.type === 'Fire').length;
         let card = window.APXDice ? window.APXDice.damage({ label: 'Burning (start of your turn)', who: s.name || '', formula: '1d10', dmgType: 'Fire', perks: false }) : null;
         let rolled = card && card.parts && card.parts[0] ? card.parts[0].total : Math.floor(Math.random() * 10) + 1;
+        // Temp HP soaks it unmodified; a Fire Vulnerability only adds to what gets past it
+        if (rolled <= Math.max(0, s.tempHp || 0)) vuln = 0;
         let dmg = rolled + vuln;
         let r = window.apxApplyHpInput ? window.apxApplyHpInput('-' + dmg, s.currentHp, s.tempHp || 0, maxHp()) : null;
         if (r) { s.currentHp = r.currentHp; s.tempHp = r.tempHp; } else s.currentHp = Math.max(0, (s.currentHp || 0) - dmg);

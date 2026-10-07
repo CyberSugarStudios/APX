@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.10.6.2245';
+window.APX_VERSION = 'v2026.10.6.2310';
 
         window.state = getInitialState();
 
@@ -365,7 +365,7 @@ window.APX_VERSION = 'v2026.10.6.2245';
                             // Tell the GM first (their tracker turns it into a hit: extra dice, reactions, saves),
                             // even when it comes to 0
                             window.apxOnRollEvent?.({ id: 'dmg' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), kind: 'damage', label: 'Damage',
-                                raw, types: t.slice(), ignoreRes: !!t.ignoreRes, nonlethal: nl || undefined, dmg: res.dmg, hpDmg: res.dmg - Math.min(Math.max(0, window.state.tempHp || 0), res.dmg), text: res.text, atkId: useAtk ? atk.id : null, hpAfter: r2.currentHp, tempAfter: r2.tempHp });
+                                raw, types: t.slice(), ignoreRes: !!t.ignoreRes, nonlethal: nl || undefined, dmg: res.dmg, hpDmg: res.dmg - Math.min(Math.max(0, window.state.tempHp || 0), res.dmg), tempBefore: Math.max(0, window.state.tempHp || 0), text: res.text, atkId: useAtk ? atk.id : null, hpAfter: r2.currentHp, tempAfter: r2.tempHp });
                             window.state.tempHp = r2.tempHp;
                             window.updateState('currentHp', r2.currentHp);
                             window.apxRefreshHpInputs?.();
