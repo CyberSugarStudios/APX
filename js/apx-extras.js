@@ -130,7 +130,7 @@
         ['Worlds', 'Playing in your GM\'s world', `
             <ul><li>Your GM gives you an <b>invite code</b>. Join the world from the lobby (or the World screen's <b>+ Join World</b>) and pick, or make, the character you'll play there.</li>
             <li>The <b>World</b> button opens what your GM shares: maps, locations, NPCs you've met, notes and discoveries, and the party.</li>
-            <li>In combat your GM's tracker and your sheet stay in sync: damage, conditions, wounds, AP and turns. New Turn refreshes your AP.</li>
+            <li>In combat your GM's tracker and your sheet stay in sync: damage, conditions, wounds, AP and turns. Your AP comes in by itself when your turn starts, even the first turn after you open your sheet mid-fight or your GM brings back a saved fight (reloading during your own turn never adds it twice). New Turn does the same by hand.</li>
             <li>Give items to other players from your inventory, and loot the GM shares lands in your inventory.</li></ul>`],
         ['Find it again', 'That\'s the basics', `
             <p>You can open this tutorial again any time: <b>Settings → Show Tutorial</b>. The same place has the <b>Patch Notes</b> for what changed in each update.</p>

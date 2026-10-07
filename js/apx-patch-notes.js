@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.7.1100',
-        released: '2026-10-07T11:00:00',
-        releasedText: 'October 7, 2026 · 11:00 AM',
+        version: 'v2026.10.7.1140',
+        released: '2026-10-07T11:40:00',
+        releasedText: 'October 7, 2026 · 11:40 AM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs with loot of their own, apart from their stat blocks, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, area powers placed right on the battle map with every save in them rolled for you, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -74,6 +74,7 @@
                 'Power saving throws name their Core Attribute, and a power with a lasting effect gives its target an Escape Save at the end of each of its turns, never one the effect makes it automatically fail. Powers built before this show a Powers to rebuild list (free) when your sheet opens.'
             ]],
             ['At the Table', [
+                'Your AP arrives on its own at the start of your turn, including the first turn after you open your sheet in the middle of a fight or your GM brings back a saved one. Reloading during your own turn never adds it twice.',
                 'Combat is saved as it happens: end a session mid-fight and the initiative order, whose turn it is, the round, every creature\'s HP, Temp HP, conditions and wounds, the saves still waiting and the combat log are all there when the GM next loads the world. Token positions stay on the maps, and players\' HP, AP and conditions on their sheets.',
                 'Temporary Hit Points: damage they soak up isn\'t reduced by DR, ER, Resistance, Vulnerability or Immunity (only what gets past them into Hit Points is), and a Wound Threshold save is only called for when the damage left over after Temp HP is greater than the Wound Threshold. Temp HP doesn\'t stack: adding more (+5 in the Temp HP box) while some is left asks which total to keep.',
                 'One tray holds every roll, the combat log and your messages, and every die has a shape of its own.',
@@ -280,6 +281,7 @@
                 'Crafting Materials your GM gives you join your Common, Uncommon and Rare Crafting Materials rows.'
             ]],
             ['Action Points', [
+                'Your AP is added at the start of every turn, including the first turn you reach after opening your sheet mid-fight or after your GM brings back a saved fight. Your sheet remembers which turn it last gave AP for, so a reload in the middle of your turn never adds it twice. Your Loyal Companion works the same way.',
                 'AP is 6 plus half your AGI modifier (at least 6), minus Fatigue, plus item bonuses, and unspent AP carries over.',
                 'Your AP empties when a fight begins and refills on your turn, with or without a map (1 AP if you\'re Surprised). Standing up from Prone costs 2 AP in combat.',
                 'Attacks and powers spend their own AP, and you\'re asked first when you\'re short or a perk might change the cost.',
@@ -479,7 +481,7 @@
             ]],
             ['Initiative and Combat', [
                 'An Undead that fails its revival save is destroyed before its turn begins, and the next creature\'s turn starts exactly as if Next Turn were pressed (its AP, Burning and all, and a new round when the order wraps).',
-                'Combat is saved with the world as it happens. End a session mid-fight and loading the world brings it all back: the initiative order, whose turn it is, the round and turn, every creature\'s HP, Temp HP, AP, conditions, wounds, timers and power uses, unpaid XP, saves still waiting, and the combat log. Players\' rolls from before it was saved aren\'t handled twice. After a refresh, the tracker\'s Battle map label becomes a button that opens the map the fight is on.',
+                'Combat is saved with the world as it happens. End a session mid-fight and loading the world brings it all back: the initiative order, whose turn it is, the round and turn, every creature\'s HP, Temp HP, AP, conditions, wounds, timers and power uses, unpaid XP, saves still waiting, and the combat log. Players\' rolls from before it was saved aren\'t handled twice. Players get their AP on their first turn after the fight comes back, like any other turn. After a refresh, the tracker\'s Battle map label becomes a button that opens the map the fight is on.',
                 'The tracker stands on its own and uses a battle map only when one is open or chosen as the fight\'s Battle map.',
                 'Every creature\'s AP is tracked and carries over. Surprised creatures get 1 AP on their first turn, and players\' AP refills on their turn even without a map.',
                 'Tactician Rank 1: Start Combat shows "Waiting on Tactician choice" while the player picks their swap (Choose for them, or Start without waiting, if they\'re away). The swap and the ally\'s lost Surprise are applied as Round 1 begins.',

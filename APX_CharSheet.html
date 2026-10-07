@@ -474,8 +474,8 @@
         }
 
     </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20261071100">
-    <link rel="stylesheet" href="css/tailwind.css?v=20261071100">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20261071140">
+    <link rel="stylesheet" href="css/tailwind.css?v=20261071140">
 </head>
 <body class="p-2 md:p-6 flex justify-center text-sm ml-0 lg:ml-8 transition-all" style="padding-top:4.25rem"><!-- (room for the floating Roster / Settings buttons) -->
     <!-- Auth bar removed — account controls are in the sidebar -->
@@ -2358,38 +2358,38 @@
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20261071100"></script>
-    <script src="js/apx-patch-notes.js?v=20261071100"></script>
-    <script src="js/apx-dice.js?v=20261071100"></script>
-    <script src="js/apx-data.js?v=20261071100"></script>
-    <script src="js/apx-item-effects.js?v=20261071100"></script>
-    <script src="js/apx-perks-db.js?v=20261071100"></script>
-    <script src="js/apx-migrations.js?v=20261071100"></script>
-    <script src="js/apx-roster.js?v=20261071100"></script>
-    <script src="js/apx-state.js?v=20261071100"></script>
-    <script src="js/apx-origin-wizard.js?v=20261071100"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20261071100"></script>
-    <script src="js/apx-inventory-ui.js?v=20261071100"></script>
-    <script src="js/apx-craft-shared.js?v=20261071100"></script>
-    <script src="js/apx-armor-forge.js?v=20261071100"></script>
-    <script src="js/apx-weapon-forge.js?v=20261071100"></script>
-    <script src="js/apx-power-crafter.js?v=20261071100"></script>
-    <script src="js/apx-consumable-crafter.js?v=20261071100"></script>
-    <script src="js/apx-npc-crafter.js?v=20261071100"></script>
-    <script src="js/apx-engine.js?v=20261071100"></script>
-    <script src="js/apx-perks-ui.js?v=20261071100"></script>
-    <script src="js/apx-rest.js?v=20261071100"></script>
-    <script src="js/apx-looting.js?v=20261071100"></script>
-    <script src="js/apx-main.js?v=20261071100"></script>
+    <script src="js/apx-dialogs.js?v=20261071140"></script>
+    <script src="js/apx-patch-notes.js?v=20261071140"></script>
+    <script src="js/apx-dice.js?v=20261071140"></script>
+    <script src="js/apx-data.js?v=20261071140"></script>
+    <script src="js/apx-item-effects.js?v=20261071140"></script>
+    <script src="js/apx-perks-db.js?v=20261071140"></script>
+    <script src="js/apx-migrations.js?v=20261071140"></script>
+    <script src="js/apx-roster.js?v=20261071140"></script>
+    <script src="js/apx-state.js?v=20261071140"></script>
+    <script src="js/apx-origin-wizard.js?v=20261071140"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20261071140"></script>
+    <script src="js/apx-inventory-ui.js?v=20261071140"></script>
+    <script src="js/apx-craft-shared.js?v=20261071140"></script>
+    <script src="js/apx-armor-forge.js?v=20261071140"></script>
+    <script src="js/apx-weapon-forge.js?v=20261071140"></script>
+    <script src="js/apx-power-crafter.js?v=20261071140"></script>
+    <script src="js/apx-consumable-crafter.js?v=20261071140"></script>
+    <script src="js/apx-npc-crafter.js?v=20261071140"></script>
+    <script src="js/apx-engine.js?v=20261071140"></script>
+    <script src="js/apx-perks-ui.js?v=20261071140"></script>
+    <script src="js/apx-rest.js?v=20261071140"></script>
+    <script src="js/apx-looting.js?v=20261071140"></script>
+    <script src="js/apx-main.js?v=20261071140"></script>
 
     <!-- Firebase (cloud sync — requires firebase-config.js to be configured) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20261071100"></script>
-    <script src="js/apx-firebase.js?v=20261071100"></script>
-    <script src="js/apx-battlemap.js?v=20261071100"></script>
-    <script src="js/apx-map-tiles.js?v=20261071100"></script>
+    <script src="js/firebase-config.js?v=20261071140"></script>
+    <script src="js/apx-firebase.js?v=20261071140"></script>
+    <script src="js/apx-battlemap.js?v=20261071140"></script>
+    <script src="js/apx-map-tiles.js?v=20261071140"></script>
     <script>
     // ── Sidebar: folders, worlds, meatball menus ─────────────
     window._sidebarChars = [];
@@ -3728,12 +3728,21 @@
                 }
                 window._pwWasInCombat = inCombat;
             } catch (e) { }
+            // Has this character already started this exact turn? (a reload in the middle of your own turn: no AP
+            // twice). Anything else is a new turn, including the first one the sheet sees after opening mid-fight
+            // or after the GM brings back a saved fight. Kept on the character, so it survives a reload.
+            let turnDone = (field, tk) => {
+                let st = window.state; if (!st) return true;
+                if (st[field] === tk) return true;
+                st[field] = tk; window.scheduleAutoSave?.();
+                return false;
+            };
             // The GM's tracker says whose turn it is (newer GM Tools): no map or token needed
             if (ct && ct.id) try {
                 let myUid = window.apxAuth?.user?.uid;
                 let key = ct.id + ':' + (ct.turnNo || 0);
                 if (myUid && ct.playerUid === myUid && window._pwLastTurnKey !== key) {
-                    let first = window._pwLastTurnKey === undefined;
+                    let first = turnDone('apTurnKey', code + ':' + (ct.session || '') + ':' + key);
                     window._pwLastTurnKey = key;
                     if (!first && ct.apGain1 && window.apxSetApValue) window.apxSetApValue(1);   // Surprised on your first turn: just 1 AP
                     else if (!first && window.apxResetAp) window.apxResetAp();
@@ -3755,7 +3764,7 @@
                     if (!first && window.apxBurnTick) window.apxBurnTick();   // Burning: 1d10 Fire at the start of your turn
                 }
                 if (myUid && ct.companionOf === myUid && window.state?.companion && window._pwCompTurnKey !== key) {
-                    let first = window._pwCompTurnKey === undefined;
+                    let first = turnDone('compApTurnKey', code + ':' + (ct.session || '') + ':' + key);
                     window._pwCompTurnKey = key;
                     if (!first && window.apxCompStartTurn) window.apxCompStartTurn(!!ct.apGain1);
                 }
@@ -3770,7 +3779,7 @@
                     if (!mine) return;
                     let key = m._currentInitId + ':' + (m._turnNo || 0);
                     if (window._pwLastTurnKey !== key) {
-                        let first = window._pwLastTurnKey === undefined;
+                        let first = turnDone('apTurnKey', code + '::' + key);
                         window._pwLastTurnKey = key;
                         // Surprised on your first turn of combat: you have just 1 AP
                         if (!first && m._curApGain1 && window.apxSetApValue) window.apxSetApValue(1);
@@ -3790,7 +3799,7 @@
                     if (!its) return;
                     let key = m._currentInitId + ':' + (m._turnNo || 0);
                     if (window._pwCompTurnKey !== key) {
-                        let first = window._pwCompTurnKey === undefined;
+                        let first = turnDone('compApTurnKey', code + '::' + key);
                         window._pwCompTurnKey = key;
                         if (!first && window.apxCompStartTurn) window.apxCompStartTurn(!!m._curApGain1);
                     }
@@ -5664,9 +5673,9 @@
         });
     }
     </script>
-    <script src="js/apx-chat.js?v=20261071100"></script>
-    <script src="js/apx-actions.js?v=20261071100"></script>
-    <script src="js/apx-extras.js?v=20261071100"></script>
-    <script src="js/apx-theme-light.js?v=20261071100"></script>
+    <script src="js/apx-chat.js?v=20261071140"></script>
+    <script src="js/apx-actions.js?v=20261071140"></script>
+    <script src="js/apx-extras.js?v=20261071140"></script>
+    <script src="js/apx-theme-light.js?v=20261071140"></script>
 </body>
 </html>
