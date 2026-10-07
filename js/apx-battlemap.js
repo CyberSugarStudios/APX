@@ -1858,6 +1858,7 @@
     function _chime() {
         try {
             _audio = _audio || new (window.AudioContext || window.webkitAudioContext)();
+            if (_audio.state === 'suspended') _audio.resume().catch(() => { });
             let t = _audio.currentTime;
             [[880, 0], [1320, 0.12]].forEach(([f, d]) => {
                 let osc = _audio.createOscillator(), gain = _audio.createGain();
@@ -1867,6 +1868,12 @@
             });
         } catch (e) { }
     }
+    // Browsers keep sound off until the page has been clicked or typed in: unlock it then, so pings from
+    // others can chime even when you haven't pinged yourself
+    ['pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, function unlock() {
+        try { _audio = _audio || new (window.AudioContext || window.webkitAudioContext)(); if (_audio.state === 'suspended') _audio.resume().catch(() => { }); } catch (e) { }
+        document.removeEventListener(ev, unlock, true);
+    }, true));
     function _layoutPings(layer) {
         let o = layer._opts; if (!o) return;
         let now = Date.now(), live = [];

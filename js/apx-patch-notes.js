@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.7.1140',
-        released: '2026-10-07T11:40:00',
-        releasedText: 'October 7, 2026 · 11:40 AM',
+        version: 'v2026.10.7.1145',
+        released: '2026-10-07T11:45:00',
+        releasedText: 'October 7, 2026 · 11:45 AM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs with loot of their own, apart from their stat blocks, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, area powers placed right on the battle map with every save in them rolled for you, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -297,7 +297,7 @@
                 'Grapple (3 AP): roll STR (Athletics), say whether you won the contest, and the creature next to you is Grappled while you\'re Staggered. Pin (2 AP) makes it Pinned; Choke (2 AP) deals your unarmed strike damage to it with no attack roll, lethal or non-lethal; ✕ on "Grappling" lets go. Escape (4 AP) frees you from a grapple and any Pin. The grapple carries over between turns, and your GM\'s tracker follows every step.'
             ]],
             ['Maps', [
-                'Ping (P, or the Ping button): press P with your mouse over a spot on a battle map and everyone at the table sees a pulse there with your character\'s name, with a chime, to point out a target to your GM or something your party should see.',
+                'Ping (P, or the Ping button): press P with your mouse over a spot on a battle map and everyone at the table sees a pulse there with your character\'s name and hears a chime (once you\'ve clicked anywhere on the page, browsers allow the sound), to point out a target to your GM or something your party should see.',
                 'Draw (battle map bar): draw on the map in any colour and size; everyone sees it. Undo and Clear mine take back your own lines.',
                 'Squares with diagonal lines are difficult terrain: moving into one costs 2 squares, and your path\'s cost shows it. A square a dead, downed or Prone creature lies in counts as difficult terrain too, and you can move through it or stop there; if that creature gets up, you\'re moved to the nearest open square.',
                 'Your GM can draw walls and doors you never see: your token can\'t cross them, and snaps back if you try.',
