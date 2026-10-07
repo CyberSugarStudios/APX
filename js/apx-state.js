@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.10.6.2020';
+window.APX_VERSION = 'v2026.10.6.2245';
 
         window.state = getInitialState();
 
@@ -365,7 +365,7 @@ window.APX_VERSION = 'v2026.10.6.2020';
                             // Tell the GM first (their tracker turns it into a hit: extra dice, reactions, saves),
                             // even when it comes to 0
                             window.apxOnRollEvent?.({ id: 'dmg' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), kind: 'damage', label: 'Damage',
-                                raw, types: t.slice(), ignoreRes: !!t.ignoreRes, nonlethal: nl || undefined, dmg: res.dmg, text: res.text, atkId: useAtk ? atk.id : null, hpAfter: r2.currentHp, tempAfter: r2.tempHp });
+                                raw, types: t.slice(), ignoreRes: !!t.ignoreRes, nonlethal: nl || undefined, dmg: res.dmg, hpDmg: res.dmg - Math.min(Math.max(0, window.state.tempHp || 0), res.dmg), text: res.text, atkId: useAtk ? atk.id : null, hpAfter: r2.currentHp, tempAfter: r2.tempHp });
                             window.state.tempHp = r2.tempHp;
                             window.updateState('currentHp', r2.currentHp);
                             window.apxRefreshHpInputs?.();
@@ -412,6 +412,18 @@ window.APX_VERSION = 'v2026.10.6.2020';
                 }
                 if (['fatigue', 'restDice', 'luckPts', 'unspentXp'].includes(stateKey)) {
                     result = Math.max(0, result);
+                }
+                // Temporary Hit Points don't stack: gaining more ("+5") while you have some asks which total to keep
+                let oldTemp = window.state.tempHp || 0;
+                if (stateKey === 'tempHp' && /^\s*\+/.test(val) && oldTemp > 0 && result > oldTemp && window.APXDice && APXDice.ask) {
+                    let gain = result - oldTemp;
+                    inputEl.value = oldTemp;
+                    APXDice.ask('Temporary Hit Points', `Temporary Hit Points don't stack. You have ${oldTemp}: keep them, or take the new ${gain}?`,
+                        [['new', `Take the new ${gain}`, gain > oldTemp ? 'pri' : ''], ['keep', `Keep ${oldTemp}`, gain > oldTemp ? '' : 'pri']]).then(a => {
+                        if (a === 'new') { window.updateState('tempHp', gain); window.apxRefreshHpInputs?.(); }
+                        else inputEl.value = window.state.tempHp || 0;
+                    });
+                    return;
                 }
 
                 window.updateState(stateKey, result);

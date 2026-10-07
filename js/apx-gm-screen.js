@@ -417,6 +417,7 @@ function startPartyListener(inviteCode) {
                         // (their sheet's roller asks for the CON (Survive) check; the popup is only for untracked players)
                         if (dropped && !(e.playerUid && window.gmCombatStarted)) setTimeout(() => window.openBleedOutModal(e.id), 0);
                         if (newHp > 0) { if (e.bleedOutTurns != null) _gmSetPlayerCondition(e, 'bleedingout', false); e.bleedOutTurns = null; e.stabilized = false; }
+                        let tempBefore = Math.max(0, e.tempHp || 0);
                         e.currentHp = newHp;
                         e.tempHp    = newTempHp;
                         // HP the player changed on their own sheet. Damage typed there arrives as a damage
@@ -444,7 +445,7 @@ function startPartyListener(inviteCode) {
                                     }
                                     _gmLogHpChange(en, before, aft, wasUp, before - aft, hit);
                                     let defId = hit ? _gmOfferDefensive(en, hit, before - aft, extras) : null;
-                                    _gmCheckWoundThreshold(en, before - aft, defId);
+                                    _gmCheckWoundThreshold(en, (before - aft) - Math.min(tempBefore, before - aft), defId);   // (only what got past Temp HP)
                                     if (hit) _gmHitEffects(en, hit, extras);
                                     if (dropped) _gmQueueBleed(en);
                                     window.renderInitiativeTracker();
@@ -2967,17 +2968,22 @@ function _gmDamage(entry, opts) {
     }
     let before = (entry.currentHp || 0) + (entry.tempHp || 0);
     let dmg = res.dmg;
+    // The Wound Threshold looks only at what gets past Temp HP into Hit Points
+    let woundDmg = 0;
     if (opts.sheet) {
         // The sheet already took off what it worked out; add what the extra dice make it here
         let base = typeof opts.sheet.dmg === 'number' ? opts.sheet.dmg : M(opts.raw).dmg;
         let more = Math.max(0, res.dmg - M(opts.raw).dmg);
         before += base;   // (the tracker already shows the sheet's new HP)
+        woundDmg = typeof opts.sheet.hpDmg === 'number' ? opts.sheet.hpDmg : base;
         if (more > 0) {
+            woundDmg += more - Math.min(Math.max(0, entry.tempHp || 0), more);
             let r2 = window.apxApplyHpInput('-' + more, entry.currentHp, entry.tempHp, entry.maxHp);
             if (r2) { entry.currentHp = r2.currentHp; entry.tempHp = r2.tempHp; }
         }
         dmg = base + more;
     } else {
+        woundDmg = dmg - Math.min(Math.max(0, entry.tempHp || 0), dmg);
         let r = window.apxApplyHpInput('-' + dmg, entry.currentHp, entry.tempHp, entry.maxHp);
         if (r) { entry.currentHp = r.currentHp; entry.tempHp = r.tempHp; }
     }
@@ -2989,8 +2995,8 @@ function _gmDamage(entry, opts) {
     gmLog({ gmOnly: true, kind: 'info', force: true, text: `${_gmGmName(entry)} ← ${who}: ${math}. (${_gmDefText(def)}, from ${def.src || 'tracker'})` });
     _gmLogHpChange(entry, before, after, wasAboveZero, dmg, hit, hit ? null : opts.src);
     let defId = hit ? _gmOfferDefensive(entry, hit, dmg, extras) : null;   // a Reaction to a Critical Hit, before the saves
-    _gmCheckWoundThreshold(entry, dmg, defId);                            // Wound Threshold, then the hit's own saves, then Bleed Out
-    if (entry.faction !== 'player' && !entry.companionOf) _gmNpcWoundCheck(entry, dmg, hit);   // NPCs have a Wound Threshold too
+    _gmCheckWoundThreshold(entry, woundDmg, defId);                       // Wound Threshold (damage past Temp HP), then the hit's own saves, then Bleed Out
+    if (entry.faction !== 'player' && !entry.companionOf) _gmNpcWoundCheck(entry, woundDmg, hit);   // NPCs have a Wound Threshold too
     if (hit) _gmHitEffects(entry, hit, extras);
     // Undead / Unalive Structure traits
     let tsb = _gmTraitSb(entry);
@@ -2998,6 +3004,12 @@ function _gmDamage(entry, opts) {
         let phys = ['Bludgeoning', 'Slashing', 'Piercing'], en = window.APXDamage ? window.APXDamage.ENERGY() : [];
         let ok = (opts.types || []).length && opts.types.every(t => phys.includes(t) || (en.includes(t) && t !== 'Fire'));
         entry._undeadOk = ok && !(hit && hit.crit); entry._undeadDc = dmg;
+        // Already down: a Critical Hit, Fire, or damage that isn't Physical or Energy finishes it
+        if (entry.undeadDown && !wasAboveZero && (opts.raw || 0) > 0 && !entry._undeadOk) {
+            entry._undeadOk = undefined; entry._undeadDc = undefined;
+            _gmUndeadDestroy(entry, hit && hit.crit ? 'a Critical Hit while it was down' : 'Fire, or damage that isn\'t Physical or Energy, while it was down');
+            return { dmg, res };
+        }
     }
     if (tsb && tsb.unalive && dmg > 0 && (opts.types || []).includes('Electric') && entry.currentHp > 0) _gmUnaliveShock(entry, tsb, dmg);
     if (opts.sheet) {
@@ -3030,25 +3042,30 @@ function _gmUndeadDown(entry) {
     if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
     return true;
 }
-async function _gmUndeadRevive(entry) {
+// Its revival save at the start of its turn rolls itself (CON, DC = the damage of the final blow)
+function _gmUndeadRevive(entry) {
     let dc = entry.undeadDown.dc, sb = _gmTraitSb(entry);
     let bonus = sb && sb.saves ? (parseInt(sb.saves.CON) || 0) : 0;
     let nat = 1 + Math.floor(Math.random() * 20), total = nat + bonus;
-    let ans = window.APXDice && APXDice.ask ? await APXDice.ask(`${_gmGmName(entry)}: Undead revival`, `CON save, DC ${dc} (the damage of the final blow). Rolled ${total} (d20 ${nat}${bonus ? (bonus > 0 ? ' +' : ' −') + Math.abs(bonus) : ''}).`,
-        [['pass', 'Success: revives with 1 HP', total >= dc ? 'pri' : ''], ['fail', 'Failure: destroyed', total < dc ? 'pri' : '']]) : (total >= dc ? 'pass' : 'fail');
+    let roll = `${total} (d20 ${nat}${bonus ? (bonus > 0 ? ' +' : ' −') + Math.abs(bonus) : ''}) vs DC ${dc}`;
     if (!window.gmInitiative.includes(entry)) return;
-    entry.undeadDown = null;
-    if (ans === 'pass') {
+    if (total >= dc) {
+        entry.undeadDown = null;
         entry.currentHp = 1;
         ['prone', 'incapacitated'].forEach(c => { if (typeof window._gmRemoveEntryCondition === 'function') window._gmRemoveEntryCondition(entry.id, c); else entry.conditions = (entry.conditions || []).filter(x => x !== c); });
-        gmLog({ text: `${_gmGmName(entry)} (Undead) rises again with 1 HP.`, kind: 'info', force: true });
+        gmLog({ text: `${_gmPublicName(entry)} rises again!`, gmText: `${_gmGmName(entry)} (Undead) rolls its revival CON save: ${roll}. It rises again with 1 HP.`, kind: 'info', force: true });
         window.renderInitiativeTracker();
-    } else {
-        gmLog({ text: `${_gmGmName(entry)} (Undead) is permanently destroyed.`, kind: 'info', force: true });
-        entry._undeadOk = false;
-        window.gmPendingXp += window._gmEntryXp(entry);
-        window.removeFromInitiative(entry.id, { dead: true });
-    }
+        if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
+    } else _gmUndeadDestroy(entry, `it failed its revival CON save (${roll})`);
+}
+// Destroyed for good: out of the fight, its XP to the party
+function _gmUndeadDestroy(entry, why) {
+    if (!window.gmInitiative.includes(entry)) return;
+    entry.undeadDown = null; entry._undeadOk = false;
+    gmLog({ text: `${_gmPublicName(entry)} is destroyed.`, gmText: `${_gmGmName(entry)} (Undead) is permanently destroyed: ${why}.`, kind: 'info', force: true });
+    window.gmPendingXp += window._gmEntryXp(entry);
+    window.removeFromInitiative(entry.id, { dead: true });
+    window.renderInitiativeTracker();
     if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
 }
 // Unalive Structure hit by Electric damage: CON save (DC 10 + half the damage) or Stunned until the end of its next turn
@@ -3102,7 +3119,7 @@ window.updateInitiativeHp = function(id, value, pre) {
             [['repair', 'It\'s a repair: heal it', 'pri'], ['no', 'Cancel']]).then(a => { if (a === 'repair') window.updateInitiativeHp(id, value, { repair: true }); });
         return;
     }
-    let before = (entry.currentHp || 0) + (entry.tempHp || 0);
+    let before = (entry.currentHp || 0) + (entry.tempHp || 0), tempBefore = Math.max(0, entry.tempHp || 0);
     entry.currentHp = r.currentHp;
     entry.tempHp = r.tempHp;
     let after = (entry.currentHp || 0) + (entry.tempHp || 0);
@@ -3111,7 +3128,7 @@ window.updateInitiativeHp = function(id, value, pre) {
     let hit = dmg > 0 ? _gmTakeHit(entry) : null;
     if (dmg > 0) { entry._undeadDc = dmg; entry._undeadOk = !(hit && hit.crit); }
     _gmLogHpChange(entry, before, after, wasAboveZero, dmg, hit);
-    _gmCheckWoundThreshold(entry, dmg);
+    _gmCheckWoundThreshold(entry, dmg - Math.min(tempBefore, dmg));   // (only what got past Temp HP)
     if (hit) _gmHitEffects(entry, hit, []);
     _afterHpChange(entry, wasAboveZero);
 };
@@ -3122,6 +3139,16 @@ window.setInitiativeTempHp = function(id, value) {
     if (_gmParseDamage(value, entry.tempHp || 0)) { let p = _gmParseDamage(value, entry.tempHp || 0); window.updateInitiativeHp(id, '-' + p.raw + (p.typed ? ' ' + p.types.join(' ') : '')); return; }
     let result = window.parseMathExpression(value, entry.tempHp || 0);
     if (result === null) { window.renderInitiativeTracker(); return; }
+    // Temporary Hit Points don't stack: gaining more ("+5") while it has some asks which total to keep
+    let oldTemp = entry.tempHp || 0;
+    if (/^\s*\+/.test(String(value)) && oldTemp > 0 && result > oldTemp && window.APXDice && APXDice.ask) {
+        let gain = result - oldTemp;
+        window.renderInitiativeTracker();
+        APXDice.ask(`${_gmGmName(entry)}: Temporary Hit Points`, `Temporary Hit Points don't stack. It has ${oldTemp}: keep them, or take the new ${gain}?`,
+            [['new', `Take the new ${gain}`, gain > oldTemp ? 'pri' : ''], ['keep', `Keep ${oldTemp}`, gain > oldTemp ? '' : 'pri']])
+            .then(a => { if (a === 'new' && window.gmInitiative.includes(entry)) window.setInitiativeTempHp(id, String(gain)); });
+        return;
+    }
     let wasAboveZero = entry.currentHp === null || entry.currentHp > 0;
     let before = (entry.currentHp || 0) + (entry.tempHp || 0);
     if (result < 0) {
@@ -3153,7 +3180,7 @@ function _gmSheetDamageEvent(uid, ev) {
     if (typeof ev.hpAfter === 'number') { e.currentHp = ev.hpAfter; e.tempHp = ev.tempAfter || 0; }
     let hit = (ev.atkId && window._gmLastAttack && window._gmLastAttack.id === ev.atkId ? _gmTakeHit(e) : null) || _gmTakeHit(e) || _gmTurnHit(e);
     e._sheetDmgAt = Date.now();
-    _gmDamage(e, { raw: ev.raw || 0, types, hit, sheet: { dmg: ev.dmg || 0 }, nonlethal: !!ev.nonlethal });
+    _gmDamage(e, { raw: ev.raw || 0, types, hit, sheet: { dmg: ev.dmg || 0, hpDmg: typeof ev.hpDmg === 'number' ? ev.hpDmg : undefined }, nonlethal: !!ev.nonlethal });
 }
 
 window.toggleSurprised = function(id, checked) {
@@ -3270,7 +3297,33 @@ function _gmRenderCombatMapSel() {
         maps.map(m => `<option value="${esc(m.id)}" ${m.id === window.gmCombatMapId ? 'selected' : ''}>${esc(m.name || 'Untitled map')}</option>`).join('');
     if (sel.innerHTML !== html) sel.innerHTML = html;
     sel.value = window.gmCombatMapId || '';
+    // A fight in progress (one brought back after a refresh, say) whose map isn't open: "Battle map" opens it
+    let lab = document.getElementById('gmCombatMapLabel');
+    if (lab) {
+        let fm = (window.gmInitiative || []).length ? _gmFightMap() : null;
+        let want = fm && !document.getElementById('omWin_' + fm.id)
+            ? `<button onclick="window.gmOpenFightMap()" title="Open ${esc(fm.name || 'the map')}, where this fight is happening" class="text-[10px] font-bold whitespace-nowrap px-2 py-0.5 rounded bg-emerald-800 hover:bg-emerald-700 text-white border border-emerald-500">Battle map ▸</button>`
+            : `<label for="gmCombatMapSel" class="text-[10px] text-slate-400 font-bold whitespace-nowrap">Battle map</label>`;
+        if (lab.innerHTML !== want) lab.innerHTML = want;
+    }
 }
+// The map this fight is on: the one picked for it, or else the map holding most of its creatures' tokens
+function _gmFightMap() {
+    let maps = (typeof _wNotes !== 'undefined' && _wNotes.otherMaps) || [];
+    if (window.gmCombatMapId) { let m = maps.find(x => x.id === window.gmCombatMapId); if (m) return m; }
+    let ids = new Set((window.gmInitiative || []).map(e => e.id)), uids = new Set((window.gmInitiative || []).map(e => e.playerUid || e.companionOf).filter(Boolean));
+    let best = null, bestN = 0;
+    maps.filter(m => m.battleMapEnabled).forEach(m => {
+        let n = (m.battleTokens || []).filter(t => ids.has(t.initiativeId) || ((t.type === 'player' || t.type === 'companion') && uids.has(t.playerUid))).length;
+        if (n > bestN) { best = m; bestN = n; }
+    });
+    return best;
+}
+window.gmOpenFightMap = function() {
+    let m = _gmFightMap(); if (!m || typeof window.openOtherMapWindow !== 'function') return;
+    window.openOtherMapWindow(m.id);
+    setTimeout(() => window.renderInitiativeTracker && window.renderInitiativeTracker(), 50);
+};
 window.setCombatMap = function(mapId) {
     window.gmCombatMapId = mapId || null;
     if (window.gmCombatMapId && typeof window._btLinkUnlinked === 'function') window._btLinkUnlinked(window.gmCombatMapId);

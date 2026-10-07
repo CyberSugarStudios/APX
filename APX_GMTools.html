@@ -450,8 +450,8 @@
                 }
         
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20261062020">
-    <link rel="stylesheet" href="css/tailwind.css?v=20261062020">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20261062245">
+    <link rel="stylesheet" href="css/tailwind.css?v=20261062245">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
@@ -515,7 +515,7 @@
                 </div>
 
                 <div class="flex items-center gap-2 mb-2">
-                    <label for="gmCombatMapSel" class="text-[10px] text-slate-400 font-bold whitespace-nowrap">Battle map</label>
+                    <span id="gmCombatMapLabel"><label for="gmCombatMapSel" class="text-[10px] text-slate-400 font-bold whitespace-nowrap">Battle map</label></span>
                     <select id="gmCombatMapSel" onchange="window.setCombatMap(this.value)" title="Initiative links to tokens only on maps you have open, or on the map picked here. With no map, the tracker runs on its own." class="flex-1 min-w-0 bg-slate-800 border-slate-600 text-[10px] py-1"></select>
                 </div>
                 <div id="initiativeTrackerBody" class="max-h-[40vh] overflow-y-auto pr-1 space-y-1.5 mb-2"><!-- JS injected --></div>
@@ -1520,36 +1520,36 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20261062020"></script>
-    <script src="js/apx-patch-notes.js?v=20261062020"></script>
-    <script src="js/apx-dice.js?v=20261062020"></script>
-    <script src="js/apx-data.js?v=20261062020"></script>
-    <script src="js/apx-item-effects.js?v=20261062020"></script>
-    <script src="js/apx-perks-db.js?v=20261062020"></script>
-    <script src="js/apx-migrations.js?v=20261062020"></script>
-    <script src="js/apx-state.js?v=20261062020"></script>
-    <script src="js/apx-craft-shared.js?v=20261062020"></script>
-    <script src="js/apx-armor-forge.js?v=20261062020"></script>
-    <script src="js/apx-weapon-forge.js?v=20261062020"></script>
-    <script src="js/apx-consumable-crafter.js?v=20261062020"></script>
-    <script src="js/apx-perks-ui.js?v=20261062020"></script>
-    <script src="js/apx-power-crafter.js?v=20261062020"></script>
-    <script src="js/apx-npc-crafter.js?v=20261062020"></script>
-    <script src="js/apx-inventory-ui.js?v=20261062020"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20261062020"></script>
-    <script src="js/apx-gm-screen.js?v=20261062020"></script>
-    <script src="js/apx-loot-maker.js?v=20261062020"></script>
-    <script src="js/apx-library.js?v=20261062020"></script>
-    <script src="js/apx-gmtools-main.js?v=20261062020"></script>
+    <script src="js/apx-dialogs.js?v=20261062245"></script>
+    <script src="js/apx-patch-notes.js?v=20261062245"></script>
+    <script src="js/apx-dice.js?v=20261062245"></script>
+    <script src="js/apx-data.js?v=20261062245"></script>
+    <script src="js/apx-item-effects.js?v=20261062245"></script>
+    <script src="js/apx-perks-db.js?v=20261062245"></script>
+    <script src="js/apx-migrations.js?v=20261062245"></script>
+    <script src="js/apx-state.js?v=20261062245"></script>
+    <script src="js/apx-craft-shared.js?v=20261062245"></script>
+    <script src="js/apx-armor-forge.js?v=20261062245"></script>
+    <script src="js/apx-weapon-forge.js?v=20261062245"></script>
+    <script src="js/apx-consumable-crafter.js?v=20261062245"></script>
+    <script src="js/apx-perks-ui.js?v=20261062245"></script>
+    <script src="js/apx-power-crafter.js?v=20261062245"></script>
+    <script src="js/apx-npc-crafter.js?v=20261062245"></script>
+    <script src="js/apx-inventory-ui.js?v=20261062245"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20261062245"></script>
+    <script src="js/apx-gm-screen.js?v=20261062245"></script>
+    <script src="js/apx-loot-maker.js?v=20261062245"></script>
+    <script src="js/apx-library.js?v=20261062245"></script>
+    <script src="js/apx-gmtools-main.js?v=20261062245"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20261062020"></script>
-    <script src="js/apx-firebase.js?v=20261062020"></script>
-    <script src="js/apx-battlemap.js?v=20261062020"></script>
-    <script src="js/apx-map-tiles.js?v=20261062020"></script>
+    <script src="js/firebase-config.js?v=20261062245"></script>
+    <script src="js/apx-firebase.js?v=20261062245"></script>
+    <script src="js/apx-battlemap.js?v=20261062245"></script>
+    <script src="js/apx-map-tiles.js?v=20261062245"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -3827,7 +3827,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let atZero = entry.currentHp !== null && entry.currentHp !== undefined && entry.currentHp <= 0;
         if (!atZero) return { isBleedingOut:false, isDead:false };
         if (entry.ko) return { isBleedingOut:false, isDead:false };   // knocked out (non-lethal), not dying
-        if (entry.undeadDown) return { isBleedingOut:false, isDead:false };
+        if (entry.undeadDown) return { isBleedingOut:false, isDead:true };   // a downed Undead looks dead (it may still rise)
         if (entry.faction === 'player') return { isBleedingOut: !entry.stabilized, isDead:false };
         return { isBleedingOut:false, isDead:true };
     };
@@ -6435,8 +6435,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </script>
     <div id="floatingWindowContainer"></div>
 
-    <script src="js/apx-chat.js?v=20261062020"></script>
-    <script src="js/apx-extras.js?v=20261062020"></script>
-    <script src="js/apx-theme-light.js?v=20261062020"></script>
+    <script src="js/apx-chat.js?v=20261062245"></script>
+    <script src="js/apx-extras.js?v=20261062245"></script>
+    <script src="js/apx-theme-light.js?v=20261062245"></script>
 </body>
 </html>
