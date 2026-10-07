@@ -1804,7 +1804,7 @@
     //   opts.walls      [{ id, x1, y1, x2, y2 (grid units, anywhere), door, open }]: invisible except while editing them;
     //                   opts.wallsBlock(vm) -> true for the tokens they stop (a player's own)
     //   opts.doorButtons (GM): a small door marker on each door (click to open / close); opts.onDoorToggle(id)
-    //   opts.drawings   [{ id, c (colour), w (width, map px), p: [x, y, x, y…] (map px) }]
+    //   opts.drawings   [{ id, c (colour), w (width, map px), p: [x, y, x, y…] (map px), s (snapped: straight lines) }]
     //   opts.pings      [{ id, x, y (map px), who, gm, t }]
     function _marksSvg(layer) {
         let svg = layer.querySelector('[data-bt-ui="marks"]');
@@ -1846,13 +1846,20 @@
                 }
             });
             // Drawings
+            // Freehand strokes are drawn as smooth curves through their points; snapped ones (d.s) as straight lines
             draws.forEach(d => {
                 let p = d.p || []; if (p.length < 2) return;
-                let pts = [];
-                for (let i = 0; i + 1 < p.length; i += 2) { let q = px(p[i], p[i + 1]); pts.push(q.x.toFixed(1) + ',' + q.y.toFixed(1)); }
-                if (pts.length === 1) pts.push(pts[0]);
+                let q = [];
+                for (let i = 0; i + 1 < p.length; i += 2) q.push(px(p[i], p[i + 1]));
+                if (q.length === 1) q.push({ x: q[0].x + 0.01, y: q[0].y });
+                let f = v => v.toFixed(1), dd = `M${f(q[0].x)} ${f(q[0].y)}`;
+                if (d.s || q.length < 3) for (let i = 1; i < q.length; i++) dd += ` L${f(q[i].x)} ${f(q[i].y)}`;
+                else {
+                    for (let i = 1; i < q.length - 1; i++) dd += ` Q${f(q[i].x)} ${f(q[i].y)} ${f((q[i].x + q[i + 1].x) / 2)} ${f((q[i].y + q[i + 1].y) / 2)}`;
+                    dd += ` L${f(q[q.length - 1].x)} ${f(q[q.length - 1].y)}`;
+                }
                 let col = String(d.c || '#f43f5e').replace(/[^#a-zA-Z0-9(),.%\s]/g, '');
-                html += `<polyline points="${pts.join(' ')}" fill="none" stroke="${col}" stroke-width="${Math.max(1, (d.w || 4) * s)}" stroke-linecap="round" stroke-linejoin="round"/>`;
+                html += `<path d="${dd}" fill="none" stroke="${col}" stroke-width="${Math.max(1, (d.w || 4) * s)}" stroke-linecap="round" stroke-linejoin="round"/>`;
             });
             // Walls and doors: only while editing them (red walls; doors amber when closed, green when open)
             if (showWalls) {
@@ -2022,11 +2029,12 @@
             T.walls = JSON.parse(JSON.stringify(o.walls || []));
             bar.innerHTML = tip('Walls: drag anywhere to draw one (it joins another wall\'s end when you start or stop near it; hold Alt to snap to grid corners) · Shift+click a wall to make it a door (or a wall again) · right-click a wall to delete it · players\' tokens can\'t cross walls or closed doors · only you see walls, and only while this is on');
         } else if (kind === 'draw') {
-            T.color = _DRAW_PREFS.c || '#f43f5e'; T.size = _DRAW_PREFS.w || 3;
+            T.color = _DRAW_PREFS.c || '#f43f5e'; T.size = _DRAW_PREFS.w || 3; T.snap = !!_DRAW_PREFS.snap;
             bar.innerHTML = `<label style="${chip};display:flex;align-items:center;gap:4px">Colour <input data-dcol type="color" value="${T.color}" style="width:26px;height:18px;border:0;padding:0;background:none;cursor:pointer"></label>
                 <label style="${chip};display:flex;align-items:center;gap:4px">Size <input data-dsize type="range" min="1" max="10" value="${T.size}" style="width:80px"><b data-dsizev>${T.size}</b></label>
+                <button data-dsnap title="Snap: lines join the nearest square corners and centres, drawn straight (Alt flips it while you draw)" style="${chip}">Snap: ${T.snap ? 'on' : 'off'}</button>
                 <button data-dundo style="${chip}">Undo</button><button data-dclear style="${chip}">Clear mine</button>${o.isGM ? `<button data-dclearall style="${chip};border-color:#ef4444;color:#fecaca">Clear everyone's</button>` : ''}`
-                + tip('Draw: drag on the map · everyone at the table sees it · Esc, right-click or the button to stop');
+                + tip('Draw: drag on the map, freehand · Snap (or hold Alt) for straight lines between squares · everyone at the table sees it · Esc, right-click or the button to stop');
         } else if (kind === 'ping') {
             bar.innerHTML = tip('Click where you want everyone to look (or press P with your mouse there, any time)');
         }
@@ -2037,6 +2045,9 @@
             let save = () => { _DRAW_PREFS.c = T.color; _DRAW_PREFS.w = T.size; try { localStorage.setItem('apxDrawPrefs', JSON.stringify(_DRAW_PREFS)); } catch (e) { } };
             bar.querySelector('[data-dcol]').addEventListener('input', e => { T.color = e.target.value; save(); });
             bar.querySelector('[data-dsize]').addEventListener('input', e => { T.size = parseInt(e.target.value) || 3; bar.querySelector('[data-dsizev]').textContent = T.size; save(); });
+            let sb = bar.querySelector('[data-dsnap]'), paintSnap = () => { sb.textContent = 'Snap: ' + (T.snap ? 'on' : 'off'); sb.style.background = T.snap ? '#a16207' : 'rgba(15,23,42,.92)'; sb.style.color = T.snap ? '#fff' : '#e2e8f0'; };
+            paintSnap();
+            sb.addEventListener('click', e => { e.stopPropagation(); T.snap = !T.snap; _DRAW_PREFS.snap = T.snap; save(); paintSnap(); });
             bar.querySelector('[data-dundo]').addEventListener('click', e => { e.stopPropagation(); let oo = layer._opts; if (oo.onDrawUndo) oo.onDrawUndo(); });
             bar.querySelector('[data-dclear]').addEventListener('click', e => { e.stopPropagation(); let oo = layer._opts; if (oo.onDrawClear) oo.onDrawClear(false); });
             let ca = bar.querySelector('[data-dclearall]'); if (ca) ca.addEventListener('click', e => { e.stopPropagation(); let oo = layer._opts; if (oo.onDrawClear) oo.onDrawClear(true); });
@@ -2070,23 +2081,50 @@
             e.stopPropagation(); e.preventDefault();
             if (e.button !== 0) return;
             let oo = layer._opts;
-            if (kind === 'ping') { let p = _imgPoint(layer, e); if (oo.onPing) oo.onPing({ x: Math.round(p.x), y: Math.round(p.y) }); exitTool(winId); return; }
+            if (kind === 'ping') { let p = _imgPoint(layer, e); _sendPing(layer, { x: Math.round(p.x), y: Math.round(p.y) }); exitTool(winId); return; }
             if (kind === 'terrain') { let c = cellOf(e); T.down = true; T.mode = T.set.has(c.gx + ',' + c.gy) ? 'remove' : 'add'; T.last = c.gx + ',' + c.gy; paint(c); _layoutMarks(layer); return; }
             if (kind === 'walls') {
                 if (e.shiftKey) { let w = nearWall(e); if (w) { w.door = !w.door; w.open = false; wallsOut(); _layoutMarks(layer); } return; }
                 let c = cornerOf(e); T.down = true; T.drag = { x1: c.x, y1: c.y, x2: c.x, y2: c.y }; _layoutMarks(layer); return;
             }
-            if (kind === 'draw') { let p = _imgPoint(layer, e); T.down = true; T.stroke = { c: T.color, w: Math.round(T.size * (oo.grid.cellSize || 50) / 25 * 10) / 10, p: [Math.round(p.x), Math.round(p.y)] }; _layoutMarks(layer); }
+            if (kind === 'draw') {
+                T.down = true; T.strokeSnap = T.snap !== !!e.altKey;
+                let p = drawPt(e, T.strokeSnap);
+                T.stroke = { c: T.color, w: Math.round(T.size * (oo.grid.cellSize || 50) / 25 * 10) / 10, p: [p.x, p.y] };
+                if (T.strokeSnap) T.stroke.s = 1;
+                _layoutMarks(layer);
+            }
         });
-        ov.addEventListener('mousemove', e => {
+        // A drawing's point (map px): freehand to a tenth of a pixel, or snapped to the nearest square corner / centre
+        let drawPt = (e, snap) => {
+            let p = _imgPoint(layer, e);
+            if (!snap) return { x: Math.round(p.x * 10) / 10, y: Math.round(p.y * 10) / 10 };
+            let g = layer._opts.grid, org = origin(g), hcs = g.cellSize / 2;
+            return { x: Math.round((org.ox + Math.round((p.x - org.ox) / hcs) * hcs) * 10) / 10, y: Math.round((org.oy + Math.round((p.y - org.oy) / hcs) * hcs) * 10) / 10 };
+        };
+        ov.addEventListener(kind === 'draw' ? 'pointermove' : 'mousemove', e => {
             if (kind === 'walls' && !T.down) { T.corner = cornerOf(e); _layoutMarks(layer); return; }
             if (!T.down) return;
             if (kind === 'terrain') { let c = cellOf(e), k = c.gx + ',' + c.gy; if (k === T.last) return; T.last = k; paint(c); _layoutMarks(layer); return; }
             if (kind === 'walls') { let c = cornerOf(e); T.drag.x2 = c.x; T.drag.y2 = c.y; T.corner = c; _layoutMarks(layer); return; }
             if (kind === 'draw') {
-                let p = _imgPoint(layer, e), pts = T.stroke.p, lx = pts[pts.length - 2], ly = pts[pts.length - 1];
-                if (Math.hypot(p.x - lx, p.y - ly) * (layer._opts.win._scale || 1) < 3 || pts.length > 1600) return;
-                pts.push(Math.round(p.x), Math.round(p.y)); _layoutMarks(layer);
+                let pts = T.stroke.p, lx = pts[pts.length - 2], ly = pts[pts.length - 1];
+                if (pts.length > 2400) return;
+                if (T.strokeSnap) {
+                    // Snapped: a new point each time the pointer reaches another square corner or centre
+                    let p = drawPt(e, true);
+                    if (p.x === lx && p.y === ly) return;
+                    pts.push(p.x, p.y);
+                } else {
+                    // Freehand: every pointer sample (the browser's in-between ones too), a couple of screen pixels apart
+                    let sc = layer._opts.win._scale || 1, evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
+                    (evs && evs.length ? evs : [e]).forEach(ev => {
+                        let p = drawPt(ev, false), n = pts.length;
+                        if (Math.hypot(p.x - pts[n - 2], p.y - pts[n - 1]) * sc < 2) return;
+                        pts.push(p.x, p.y);
+                    });
+                }
+                _layoutMarks(layer);
             }
         });
         let up = () => {
@@ -2120,12 +2158,32 @@
         _layoutMarks(layer);
         return true;
     }
+    // Pings come in charges: 3 in a row, then one comes back every 3 seconds
+    const PING_CHARGES = 3, PING_RECHARGE = 3000;
+    let _pingCh = PING_CHARGES, _pingAt = 0, _pingWarned = 0;
+    function _pingCharges() {
+        let now = Date.now();
+        if (_pingCh >= PING_CHARGES) { _pingAt = now; return _pingCh; }
+        let back = Math.floor((now - _pingAt) / PING_RECHARGE);
+        if (back > 0) { _pingCh = Math.min(PING_CHARGES, _pingCh + back); _pingAt += back * PING_RECHARGE; if (_pingCh >= PING_CHARGES) _pingAt = now; }
+        return _pingCh;
+    }
+    function _sendPing(layer, pt) {
+        let o = layer && layer._opts; if (!o || !o.onPing) return false;
+        if (_pingCharges() < 1) {
+            let now = Date.now();
+            if (now - _pingWarned > 1200) { _pingWarned = now; toast(o.area, 'Ping recharging: ' + Math.ceil((PING_RECHARGE - (now - _pingAt)) / 1000) + 's'); }
+            return true;
+        }
+        _pingCh--;
+        o.onPing(pt);
+        return true;
+    }
     // P: ping where your mouse is on the map you're over
     function pingHere(winId) {
         let layer = document.getElementById(winId + '_btScreen');
         if (!layer || !layer._opts || !layer._opts.onPing || !layer._mouse) return false;
-        layer._opts.onPing({ x: Math.round(layer._mouse.x), y: Math.round(layer._mouse.y) });
-        return true;
+        return _sendPing(layer, { x: Math.round(layer._mouse.x), y: Math.round(layer._mouse.y) });
     }
 
     function toggleMeasure(winId) { return exitMeasure(winId) ? false : enterMeasure(winId); }
@@ -2150,6 +2208,7 @@
             if (l && _toggleShow(l)) e.preventDefault();
         } else if (e.key === 'p' || e.key === 'P') {
             let win = _hoverWin && document.getElementById(_hoverWin + '_btScreen') ? _hoverWin : null;
+            if (win && e.repeat && document.getElementById(win + '_btScreen')?._opts?.onPing) { e.preventDefault(); return; }   // held down: one ping
             if (win && pingHere(win)) e.preventDefault();
         } else if (e.key === 'Escape') {
             document.querySelectorAll('[id$="_btScreen"]').forEach(l => {
