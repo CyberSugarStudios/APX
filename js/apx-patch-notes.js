@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.6.2310',
-        released: '2026-10-06T23:10:00',
-        releasedText: 'October 6, 2026 · 11:10 PM',
+        version: 'v2026.10.7.1100',
+        released: '2026-10-07T11:00:00',
+        releasedText: 'October 7, 2026 · 11:00 AM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs with loot of their own, apart from their stat blocks, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, area powers placed right on the battle map with every save in them rolled for you, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -87,6 +87,8 @@
                 'Area powers land on the battle map: using a power with a Line, Cone or Burst while a battle map is open has you place its area first, at the size the power was crafted with. A Self or Touch area starts from the creature using it (scroll to turn it 15° a notch, drag its start to move it); a ranged one is placed anywhere within the power\'s range. A Line or Cone points the way it was last used, and right-click (or Esc) cancels. Everyone in it then makes a new saving throw every time it\'s used: NPCs roll from the GM\'s dice tray, players get a button to roll their own, and each creature takes the damage (and any Conditions) by its own roll. With the Safe Zone perk, Shift+click creatures to leave them out.'
             ]],
             ['Maps', [
+                'Battle maps have new tools. Terrain (GM): squares of difficult terrain, drawn with diagonal lines under the fog, cost 2 squares to move into. Walls (GM): lines only the GM sees (while editing them) that players\' tokens can\'t cross, and doors that open and close from a button only the GM sees, for secret doors too. Draw: everyone can draw on the map in any colour and size. Ping (P): a pulse, a chime and your character\'s name (or "GM") wherever your mouse is.',
+                'A dead, downed or Prone creature\'s square can be moved through or stood in, as difficult terrain; when it gets up, whoever is standing over it moves to the nearest open square.',
                 'Special Map Markers are larger and bright yellow with a dark outline (magenta for the GM while hidden), stay readable when zoomed out, and can hold loot.',
                 'Area Circles stay about the same size on screen at any zoom, every marker shows its name the instant your mouse is over it, and a linked NPC\'s name opens that NPC\'s full window.',
                 'Linked maps open in one spot on screen, each a little offset from the last, never off the edge.',
@@ -293,6 +295,10 @@
                 'Grapple (3 AP): roll STR (Athletics), say whether you won the contest, and the creature next to you is Grappled while you\'re Staggered. Pin (2 AP) makes it Pinned; Choke (2 AP) deals your unarmed strike damage to it with no attack roll, lethal or non-lethal; ✕ on "Grappling" lets go. Escape (4 AP) frees you from a grapple and any Pin. The grapple carries over between turns, and your GM\'s tracker follows every step.'
             ]],
             ['Maps', [
+                'Ping (P, or the Ping button): press P with your mouse over a spot on a battle map and everyone at the table sees a pulse there with your character\'s name, with a chime, to point out a target to your GM or something your party should see.',
+                'Draw (battle map bar): draw on the map in any colour and size; everyone sees it. Undo and Clear mine take back your own lines.',
+                'Squares with diagonal lines are difficult terrain: moving into one costs 2 squares, and your path\'s cost shows it. A square a dead, downed or Prone creature lies in counts as difficult terrain too, and you can move through it or stop there; if that creature gets up, you\'re moved to the nearest open square.',
+                'Your GM can draw walls and doors you never see: your token can\'t cross them, and snaps back if you try.',
                 'Special Map Markers (the single letters your GM places) are larger and bright yellow with a dark outline, easy to spot on light and dark maps alike, and never too small to read when zoomed out.',
                 'Area Circles stay about the same size on screen at any zoom: a single building when zoomed in, never more than 3% of the map when zoomed out.',
                 'Rest your mouse on any marker and its name appears at once.',
@@ -472,6 +478,7 @@
                 'Swarms run themselves: half damage from single-target attacks and double from area effects (powers know which; for typed damage you\'re asked), half their damage dice when below half HP, and no size bonuses or penalties.'
             ]],
             ['Initiative and Combat', [
+                'An Undead that fails its revival save is destroyed before its turn begins, and the next creature\'s turn starts exactly as if Next Turn were pressed (its AP, Burning and all, and a new round when the order wraps).',
                 'Combat is saved with the world as it happens. End a session mid-fight and loading the world brings it all back: the initiative order, whose turn it is, the round and turn, every creature\'s HP, Temp HP, AP, conditions, wounds, timers and power uses, unpaid XP, saves still waiting, and the combat log. Players\' rolls from before it was saved aren\'t handled twice. After a refresh, the tracker\'s Battle map label becomes a button that opens the map the fight is on.',
                 'The tracker stands on its own and uses a battle map only when one is open or chosen as the fight\'s Battle map.',
                 'Every creature\'s AP is tracked and carries over. Surprised creatures get 1 AP on their first turn, and players\' AP refills on their turn even without a map.',
@@ -495,6 +502,10 @@
                 'Loyal Companions sit under their owners with stat blocks, token art and + Initiative, and their HP follows their owner\'s sheet, including damage typed into the companion\'s HP box there.'
             ]],
             ['Maps', [
+                'Terrain (battle map bar): click or drag across squares to mark difficult terrain, drawn with diagonal lines for everyone and hidden under fog like the map. Moving into one costs 2 squares, and movement paths count it.',
+                'Walls: drag between grid corners to draw walls players\' tokens can\'t cross (they snap back, the way fog works). Shift+click a wall to make it a door, right-click to delete. Walls show only while Walls is on; each door gets a small button only you can see that opens or closes it, so a secret door stays shut until you open it.',
+                'Draw: draw on the map in any colour and size, seen by everyone (Undo, Clear mine, Clear everyone\'s). Ping (P): a pulse, a chime and "GM" wherever your mouse is; players\' pings carry their character\'s name.',
+                'Dead, downed (Undead waiting to rise included) and Prone creatures don\'t block their square: others can move through or stand in it, as difficult terrain. When the creature gets up, whoever stands over it moves to the nearest open square.',
                 'Linked maps open in the same spot: the first near the middle of the screen, each next one slightly offset, and never off screen however many are open.',
                 'Hover over an Area Circle or Special Map Marker and its name appears at once, for you and your players.',
                 'Area Circles stay about the same size on screen as you zoom: one building on a city map zoomed in, never more than 3% of the map zoomed out.',

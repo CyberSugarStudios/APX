@@ -450,8 +450,8 @@
                 }
         
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20261062310">
-    <link rel="stylesheet" href="css/tailwind.css?v=20261062310">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20261071100">
+    <link rel="stylesheet" href="css/tailwind.css?v=20261071100">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
@@ -1520,36 +1520,36 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20261062310"></script>
-    <script src="js/apx-patch-notes.js?v=20261062310"></script>
-    <script src="js/apx-dice.js?v=20261062310"></script>
-    <script src="js/apx-data.js?v=20261062310"></script>
-    <script src="js/apx-item-effects.js?v=20261062310"></script>
-    <script src="js/apx-perks-db.js?v=20261062310"></script>
-    <script src="js/apx-migrations.js?v=20261062310"></script>
-    <script src="js/apx-state.js?v=20261062310"></script>
-    <script src="js/apx-craft-shared.js?v=20261062310"></script>
-    <script src="js/apx-armor-forge.js?v=20261062310"></script>
-    <script src="js/apx-weapon-forge.js?v=20261062310"></script>
-    <script src="js/apx-consumable-crafter.js?v=20261062310"></script>
-    <script src="js/apx-perks-ui.js?v=20261062310"></script>
-    <script src="js/apx-power-crafter.js?v=20261062310"></script>
-    <script src="js/apx-npc-crafter.js?v=20261062310"></script>
-    <script src="js/apx-inventory-ui.js?v=20261062310"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20261062310"></script>
-    <script src="js/apx-gm-screen.js?v=20261062310"></script>
-    <script src="js/apx-loot-maker.js?v=20261062310"></script>
-    <script src="js/apx-library.js?v=20261062310"></script>
-    <script src="js/apx-gmtools-main.js?v=20261062310"></script>
+    <script src="js/apx-dialogs.js?v=20261071100"></script>
+    <script src="js/apx-patch-notes.js?v=20261071100"></script>
+    <script src="js/apx-dice.js?v=20261071100"></script>
+    <script src="js/apx-data.js?v=20261071100"></script>
+    <script src="js/apx-item-effects.js?v=20261071100"></script>
+    <script src="js/apx-perks-db.js?v=20261071100"></script>
+    <script src="js/apx-migrations.js?v=20261071100"></script>
+    <script src="js/apx-state.js?v=20261071100"></script>
+    <script src="js/apx-craft-shared.js?v=20261071100"></script>
+    <script src="js/apx-armor-forge.js?v=20261071100"></script>
+    <script src="js/apx-weapon-forge.js?v=20261071100"></script>
+    <script src="js/apx-consumable-crafter.js?v=20261071100"></script>
+    <script src="js/apx-perks-ui.js?v=20261071100"></script>
+    <script src="js/apx-power-crafter.js?v=20261071100"></script>
+    <script src="js/apx-npc-crafter.js?v=20261071100"></script>
+    <script src="js/apx-inventory-ui.js?v=20261071100"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20261071100"></script>
+    <script src="js/apx-gm-screen.js?v=20261071100"></script>
+    <script src="js/apx-loot-maker.js?v=20261071100"></script>
+    <script src="js/apx-library.js?v=20261071100"></script>
+    <script src="js/apx-gmtools-main.js?v=20261071100"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20261062310"></script>
-    <script src="js/apx-firebase.js?v=20261062310"></script>
-    <script src="js/apx-battlemap.js?v=20261062310"></script>
-    <script src="js/apx-map-tiles.js?v=20261062310"></script>
+    <script src="js/firebase-config.js?v=20261071100"></script>
+    <script src="js/apx-firebase.js?v=20261071100"></script>
+    <script src="js/apx-battlemap.js?v=20261071100"></script>
+    <script src="js/apx-map-tiles.js?v=20261071100"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -1828,6 +1828,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             tiles: m.tiles || null,   // full-resolution tile list (large maps)
                             battleMapEnabled: !!m.battleMapEnabled,
                             battleGrid: m.battleGrid||{cellSize:50,offsetX:0,offsetY:0},
+                            difficult: m.difficult || [], walls: m.walls || [], drawings: (m.drawings || []).slice(-300),
                             battleImages: (m.battleImages||[]).map(i => i.src && window.apxAuth?.enabled ? (({src, ...r}) => r)(i) : i),
                             battleTokens: (m.battleTokens||[]).map(t=>{
                                 // Persist the live position (player tokens: from the position authority)
@@ -1898,6 +1899,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         swarm:        !!t.swarm,
                                         _dead:        isDead,
                                         _bleedingOut: isBO,
+                                        _down:        !!t._down,     // down or Prone: others can stand in its square (difficult terrain)
                                         _ko:          !isDead && !!((entry || (t.type === 'player' && t.playerUid ? (window.gmInitiative||[]).find(e=>e.playerUid===t.playerUid && !e.companionOf && !e.summonOf) : null))?.ko),
                                         _bleedTurns:  (isBO && entry?.bleedOutTurns != null) ? entry.bleedOutTurns : null,
                                         _faction:     t.faction || entry?.faction  || null,
@@ -1942,6 +1944,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                     battleTokens: btTokens,
                                     tokenImgs,   // stat block token images used on this map
                                     _gmMeasure: m._gmMeasure || null,   // the GM's Measure, while shown to players (V)
+                                    difficult: m.difficult || [],       // difficult terrain (drawn under the fog)
+                                    walls: (m.walls || []).map(w => ({ x1: w.x1, y1: w.y1, x2: w.x2, y2: w.y2, door: !!w.door, open: !!w.open })),   // never drawn for players: they just stop their tokens
+                                    drawings: (m.drawings || []).slice(-300),
                                     battleImages: btImages,
                                     _currentInitId: window.gmCombatStarted ? (curEntry?.id || null) : null,
                                     _turnNo: window.gmTurnNumber || 0,
@@ -3076,6 +3081,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 <button onclick="window.openBattleTokenPanel('${mapId}','${winId}')" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#065f46;border:1px solid #10b981;color:#6ee7b7;border-radius:0.2rem;cursor:pointer;white-space:nowrap;">+ Token</button>
                 <button onclick="window._btPickImage('${mapId}','${winId}')" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#312e81;border:1px solid #6366f1;color:#c7d2fe;border-radius:0.2rem;cursor:pointer;white-space:nowrap;" title="Add a movable image (cart, tower floor, overlay). Right-click it for layers, size, lock, hide.">+ Image</button>
                 <button id="${winId}_measureBtn" onclick="window.APXBattle.toggleMeasure('${winId}')" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#1e293b;border:1px solid #a16207;color:#fde68a;border-radius:0.2rem;cursor:pointer;white-space:nowrap;" title="Measure squares between two points or tokens (hotkey M)">Measure</button>
+                <button id="${winId}_tool_terrain" onclick="window.APXBattle.toggleTool('${winId}','terrain')" title="Mark squares as difficult terrain (diagonal lines, hidden under fog): moving into one costs 2 squares" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:0.2rem;cursor:pointer;white-space:nowrap;">Terrain</button>
+                <button id="${winId}_tool_walls" onclick="window.APXBattle.toggleTool('${winId}','walls')" title="Draw walls and doors (only you see them, and only while this is on): players' tokens can't pass walls or closed doors" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:0.2rem;cursor:pointer;white-space:nowrap;">Walls</button>
+                <button id="${winId}_tool_draw" onclick="window.APXBattle.toggleTool('${winId}','draw')" title="Draw on the map: everyone sees it" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:0.2rem;cursor:pointer;white-space:nowrap;">Draw</button>
+                <button onclick="window.APXBattle.toggleTool('${winId}','ping')" title="Ping a spot for everyone (or press P with your mouse there)" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#1e293b;border:1px solid #38bdf8;color:#bae6fd;border-radius:0.2rem;cursor:pointer;white-space:nowrap;">Ping (P)</button>
                 <button onclick="window._btAddAllToInitiative('${mapId}')" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#1e3a5f;border:1px solid #3b82f6;color:#93c5fd;border-radius:0.2rem;cursor:pointer;white-space:nowrap;" title="Add all revealed tokens to initiative">All to Init</button>
                 <button onclick="window._btAddAllTokens('${mapId}')" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#065f46;border:1px solid #10b981;color:#6ee7b7;border-radius:0.2rem;cursor:pointer;white-space:nowrap;" title="Add a token to this map for every NPC in the initiative tracker that doesn't have one here (added hidden)">All Tokens</button>
                 <button onclick="let s=document.getElementById('${winId}_battleControls'); s.style.display=s.style.display==='none'?'flex':'none';" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#1e293b;border:1px solid #334155;color:#94a3b8;border-radius:0.2rem;cursor:pointer;white-space:nowrap;">Grid</button>
@@ -3834,6 +3843,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Effective grid position — player tokens come from the live authority
     function _btPos(mapId, t) { return window.APXBattle.posOf(mapId, t); }
+    // A creature that's down (dead, a downed Undead, at 0 HP, knocked out) or Prone: others can stand in its
+    // square, which counts as difficult terrain
+    window._btIsDown = function(t) {
+        if (!t) return false;
+        let entry = t.initiativeId ? (window.gmInitiative||[]).find(e=>e.id===t.initiativeId)
+            : (t.type === 'player' && t.playerUid ? (window.gmInitiative||[]).find(e=>e.playerUid===t.playerUid && !e.companionOf && !e.summonOf) : null);
+        if (window._btLifeState(t, entry).isDead) return true;
+        if (entry && (entry.ko || entry.undeadDown || (entry.currentHp !== null && entry.currentHp !== undefined && entry.currentHp <= 0))) return true;
+        let ids = t.type === 'player' && t.playerUid ? ((((window.gmParty||[]).find(p=>p.fileName===t.playerUid)||{}).state||{}).conditions || []) : (t.conditions || []);
+        if (window.apxEffectiveConditions) { try { ids = window.apxEffectiveConditions(ids).map(c=>c.id); } catch (e) { } }
+        return ids.includes('prone');
+    };
 
     // Can this token sit at gx,gy? (no SAME-size token on the same square(s))
     function _btCanPlace(map, tokenId, gx, gy, sizeOverride) {
@@ -3960,6 +3981,23 @@ document.addEventListener('DOMContentLoaded', () => {
             if (window.APXBattle.SIZES[sz] && sz !== (t.size || 'medium')) { t.size = sz; sizeChanged = true; }
         });
         if (sizeChanged) saveWorldNotes();
+        // Who's down (or Prone): passable, difficult terrain. One that gets back up while another creature
+        // stands in its square pushes that creature to the nearest open square.
+        let standUps = [];
+        (map.battleTokens||[]).forEach(t => {
+            let now = !!window._btIsDown(t);
+            if (!!t._down !== now) { if (t._down && !now) standUps.push(t); t._down = now; }
+        });
+        standUps.forEach(t => {
+            let p = _btPos(mapId, t);
+            let over = (map.battleTokens||[]).find(o => o !== t && !o._down && !o.swarm && window.APXBattle.findBlocker([o], {id:t.id, size:t.size||'medium'}, p.gridX, p.gridY, x=>_btPos(mapId,x)));
+            if (!over) return;
+            let free = window.APXBattle.findFreeCell(map.battleTokens, {id:over.id, size:over.size||'medium'}, p.gridX, p.gridY, x=>_btPos(mapId,x));
+            if (free) {
+                window.APXDice?.notify(`${t.name || 'A creature'} gets up: ${over.name || 'the creature over it'} moves to the nearest open square.`, { kind: 'note' });
+                setTimeout(() => _btCommitMove(mapId, winId, over.id, free.gridX, free.gridY), 0);
+            }
+        });
 
         let vms = (map.battleTokens||[]).map(t => {
             let pos = _btPos(mapId, t);
@@ -4016,7 +4054,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 numColor: factionBorder,
                 portrait,
                 title: `${t.name} (${t.size||'medium'}${t.swarm?', Swarm':''})${linkedEntry && linkedEntry.currentHp != null ? ` · HP ${linkedEntry.currentHp}/${linkedEntry.maxHp ?? '?'}${linkedEntry.ac != null ? ` · AC ${linkedEntry.ac}` : ''}` : ''}${isHidden?' [Hidden]':''} — dbl-click for stat block, right-click for options`,
-                draggable: interactive, interactive,
+                draggable: interactive, interactive, down: !!t._down,
                 type: t.type, worldNpcId: t.worldNpcId, playerUid: t.playerUid, name: t.name
             };
         });
@@ -4058,6 +4096,31 @@ document.addEventListener('DOMContentLoaded', () => {
             // Your measurements reach the players only while shown (V); theirs always show here
             measureShare: 'toggle',
             onMeasureShare: (g) => { map._gmMeasure = g || null; if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes(); },
+            // Difficult terrain, walls and doors, drawings and pings
+            isGM: true, doorButtons: true,
+            difficult: map.difficult || [], walls: map.walls || [], wallsBlock: () => false,
+            drawings: (map.drawings||[]).concat(window.APXBattle.drawingsFor ? window.APXBattle.drawingsFor(mapId) : []),
+            pings: (window.APXBattle.pingsFor ? window.APXBattle.pingsFor(mapId) : []).concat(map._gmPingLocal ? [map._gmPingLocal] : []),
+            onTerrainChange: list => { map.difficult = list; saveWorldNotes(); _btRenderTokens(mapId, winId); },
+            onWallsChange: list => { map.walls = list; saveWorldNotes(); _btRenderTokens(mapId, winId); },
+            onDoorToggle: id => { let w = (map.walls||[]).find(x=>x.id===id); if (!w) return; w.open = !w.open; window.saveWorldNotesNow(); _btRenderTokens(mapId, winId); },
+            onDraw: st => { map.drawings = (map.drawings||[]).concat([st]).slice(-300); saveWorldNotes(); _btRenderTokens(mapId, winId); },
+            onDrawUndo: () => { map.drawings = (map.drawings||[]).slice(0, -1); saveWorldNotes(); _btRenderTokens(mapId, winId); },
+            onDrawClear: all => {
+                map.drawings = [];
+                if (all) {
+                    let code = getActiveWorld()?.inviteCode, d = window.APXBattle.draws ? window.APXBattle.draws() : {};
+                    Object.keys(d).forEach(uid => { if (((d[uid] || {})[mapId] || []).length) window.APXBattle.writeDrawings(code, uid, mapId, []); });
+                }
+                saveWorldNotes(); _btRenderTokens(mapId, winId);
+            },
+            onPing: pt => {
+                let pg = { id: 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), map: mapId, x: pt.x, y: pt.y, t: Date.now(), who: 'GM', gm: true };
+                map._gmPingLocal = pg; _btRenderTokens(mapId, winId);
+                let code = getActiveWorld()?.inviteCode;
+                if (code && window.apxAuth?.writeGmPing) window.apxAuth.writeGmPing(code, pg).catch(e => console.warn('Ping:', e.message));
+            },
+            onToolChange: kind => ['terrain', 'walls', 'draw'].forEach(k => { let b = document.getElementById(winId + '_tool_' + k); if (b) { b.style.background = kind === k ? '#a16207' : '#1e293b'; b.style.color = kind === k ? '#fff' : '#e2e8f0'; } }),
             sharedMeasures: window.APXBattle.measuresFor ? window.APXBattle.measuresFor(mapId) : [],
             onDblClick:     (vm) => {
                 if (vm.type === 'npc' && vm.worldNpcId) {
@@ -6435,8 +6498,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </script>
     <div id="floatingWindowContainer"></div>
 
-    <script src="js/apx-chat.js?v=20261062310"></script>
-    <script src="js/apx-extras.js?v=20261062310"></script>
-    <script src="js/apx-theme-light.js?v=20261062310"></script>
+    <script src="js/apx-chat.js?v=20261071100"></script>
+    <script src="js/apx-extras.js?v=20261071100"></script>
+    <script src="js/apx-theme-light.js?v=20261071100"></script>
 </body>
 </html>

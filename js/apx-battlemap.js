@@ -76,7 +76,7 @@
         let me = moving.swarm ? moving : (tokens || []).find(t => t && t.id === moving.id);
         if (me && me.swarm) return null;
         for (let o of (tokens || [])) {
-            if (!o || o.id === moving.id || o.swarm) continue;
+            if (!o || o.id === moving.id || o.swarm || o._down || o.down) continue;   // a dead, downed or Prone creature can be stood over
             let p = posOf(o);
             if (collides(moving.size, gx, gy, o.size, p.gridX, p.gridY)) return o;
         }
@@ -100,7 +100,7 @@
     }
 
     // ── Player-position store (live from Firestore) ─────────────
-    const store = { byUid: {}, portraits: {}, profiles: {}, mail: {}, measures: {} };
+    const store = { byUid: {}, portraits: {}, profiles: {}, mail: {}, measures: {}, pings: {}, draws: {} };
     const changeHandlers = new Set();
     let _unsub = null, _code = null;
 
@@ -128,6 +128,35 @@
         if (!code || typeof window.apxAuth?.writeBattleMeasure !== 'function') return Promise.resolve();
         return window.apxAuth.writeBattleMeasure(code, uid, g ? { map: mapId, g } : null).catch(e => console.warn('Measure share failed:', e.message));
     }
+    // Players' pings on a map (each player's latest): [{ id, x, y, who, t }]
+    function pingsFor(mapId) {
+        return Object.keys(store.pings).map(u => store.pings[u]).filter(p => p && p.map === mapId && p.id)
+            .map(p => ({ id: p.id, x: p.x, y: p.y, t: p.t, who: p.who || 'A player' }));
+    }
+    // Everyone's drawings on a map (all players'), each stroke tagged with whose it is
+    function drawingsFor(mapId) {
+        let out = [];
+        Object.keys(store.draws).forEach(u => ((store.draws[u] || {})[mapId] || []).forEach(st => out.push(Object.assign({ by: u }, st))));
+        return out;
+    }
+    function myDrawings(uid, mapId) { return (((store.draws[uid] || {})[mapId]) || []).slice(); }
+    // Share your ping / drawings (players: on your own record; the page passes the GM's elsewhere)
+    function writePing(inviteCode, uid, mapId, ping) {
+        let code = (inviteCode || _code || '').toUpperCase().trim();
+        let p = Object.assign({ map: mapId }, ping);
+        if (uid) store.pings[uid] = p;
+        _notify();
+        if (!code || !uid || typeof window.apxAuth?.writePlayerBattle !== 'function') return Promise.resolve();
+        return window.apxAuth.writePlayerBattle(code, uid, { battlePing: p }).catch(e => console.warn('Ping failed:', e.message));
+    }
+    function writeDrawings(inviteCode, uid, mapId, strokes) {
+        let code = (inviteCode || _code || '').toUpperCase().trim();
+        if (!uid) return Promise.resolve();
+        store.draws[uid] = Object.assign({}, store.draws[uid] || {}, { [mapId]: strokes });
+        _notify();
+        if (!code || typeof window.apxAuth?.writePlayerBattle !== 'function') return Promise.resolve();
+        return window.apxAuth.writePlayerBattle(code, uid, { ['battleDraw.' + mapId]: strokes }).catch(e => console.warn('Drawing save failed:', e.message));
+    }
     function portraitOf(uid) { return (uid && store.portraits[uid]) || ''; }
     function companionOf(uid) { return (uid && store.profiles[uid] && store.profiles[uid].companion) || { name: '', portrait: '' }; }
 
@@ -147,6 +176,8 @@
                 if (!d.uid) return;
                 next[d.uid] = d.battlePositions || {};
                 if (d.battleMeasure && d.battleMeasure.map && d.battleMeasure.g) measures[d.uid] = d.battleMeasure;
+                if (d.battlePing && d.battlePing.map) store.pings[d.uid] = d.battlePing;
+                store.draws[d.uid] = d.battleDraw || {};
                 if (d.charPortrait) store.portraits[d.uid] = d.charPortrait;
                 if (d.profile) profiles[d.uid] = Object.assign({ uid: d.uid, portrait: d.charPortrait || '' }, d.profile);
                 store.mail[d.uid] = { outbox: d.outbox || {}, giftAcks: d.giftAcks || {} };
@@ -159,7 +190,7 @@
     }
     function stop() {
         if (_unsub) { try { _unsub(); } catch (e) {} }
-        _unsub = null; _code = null; store.byUid = {}; store.profiles = {}; store.measures = {};
+        _unsub = null; _code = null; store.byUid = {}; store.profiles = {}; store.measures = {}; store.pings = {}; store.draws = {};
     }
 
     // Move a PLAYER token: update locally at once, then write the authority.
@@ -424,6 +455,7 @@
         }
         _layoutSwarmHandles(layer, o, s, ox, oy);
         _drawGrid(layer);
+        _layoutMarks(layer);
         _layoutMeasure(layer);
         _layoutArea(layer);
         _layoutShared(layer);
@@ -643,7 +675,9 @@
             _beginGroup(layer, el._group);
             // In combat, a creature on its turn shows its path and what the move costs in AP
             let mp = !el._group.length && o.movePath ? o.movePath(el._vm) : null;
-            if (mp) { el._drag.mp = mp; el._drag.path = [{ gx: el._vm.gridX, gy: el._vm.gridY }]; _drawPath(layer, el); }
+            if (mp) { el._drag.mp = mp; el._drag.path = [{ gx: el._vm.gridX, gy: el._vm.gridY }]; el._drag.diff = _diffFor(layer, el._vm); _drawPath(layer, el); }
+            // Walls stop this token (a player's own): its route is followed so a wall can't be skipped over
+            if (!el._group.length && (o.walls || []).length && o.wallsBlock && o.wallsBlock(el._vm)) el._drag.trail = [{ gx: el._vm.gridX, gy: el._vm.gridY }];
             el.style.transition = 'none';
             el.style.cursor = 'grabbing';
             el.style.zIndex = String(Z_DRAG);
@@ -657,13 +691,14 @@
             if (c.gridX === el._drag.gx && c.gridY === el._drag.gy) return;
             el._drag.gx = c.gridX; el._drag.gy = c.gridY;
             if (el._drag.path) { _extendPath(el._drag.path, c.gridX, c.gridY); _drawPath(layer, el); }
+            if (el._drag.trail) _extendPath(el._drag.trail, c.gridX, c.gridY);
             if (el._group && el._group.length) {
                 _applyGroupDelta(layer, el._group, c.gridX - el._drag.sx, c.gridY - el._drag.sy);
                 let ok = !o.canGroupMove || o.canGroupMove(_moveList(el, el._group));
                 [el].concat(el._group).forEach(m => m.style.opacity = ok ? String(m._vm.opacity == null ? 1 : m._vm.opacity) : '0.4');
                 el.style.outline = ok ? (el._sel ? '2px solid #22d3ee' : 'none') : '2px dashed #ef4444';
             } else {
-                let bad = o.previewBlocked ? !!o.previewBlocked(el._vm, c.gridX, c.gridY) : false;
+                let bad = (o.previewBlocked ? !!o.previewBlocked(el._vm, c.gridX, c.gridY) : false) || !!(el._drag.trail && wallBlocking(o.walls, el._vm.size, el._drag.trail));
                 el.style.opacity = bad ? '0.4' : String(el._vm.opacity == null ? 1 : el._vm.opacity);
                 el.style.outline = bad ? '2px dashed #ef4444' : (el._sel ? '2px solid #22d3ee' : 'none');
             }
@@ -686,8 +721,11 @@
             el.style.opacity = String(el._vm.opacity == null ? 1 : el._vm.opacity);
             if (!o) return;
             if (cancelled || (d.gx === d.sx && d.gy === d.sy)) { layout(o.winId); return; }
+            // A wall (or a closed door) in the way: back to the last spot
+            if (d.trail && wallBlocking(o.walls, el._vm.size, d.trail)) { toast(o.area, 'A wall is in the way.'); _glideBack(layer, [el]); return; }
             let dest = o.resolveDrop ? o.resolveDrop(el._vm, d.gx, d.gy) : { gridX: d.gx, gridY: d.gy };
             if (!dest || (dest.gridX === d.sx && dest.gridY === d.sy)) { _glideBack(layer, [el]); return; }  // blocked -> back to last spot
+            if (d.trail && (dest.gridX !== d.gx || dest.gridY !== d.gy) && wallBlocking(o.walls, el._vm.size, [{ gx: d.gx, gy: d.gy }, { gx: dest.gridX, gy: dest.gridY }])) { toast(o.area, 'A wall is in the way.'); _glideBack(layer, [el]); return; }
             // The page can refuse a move (not enough AP for the path): the token goes back
             if (pinfo && o.beforeMove && o.beforeMove(el._vm, dest.gridX, dest.gridY, pinfo) === false) { _glideBack(layer, [el]); return; }
             el._vm.gridX = dest.gridX; el._vm.gridY = dest.gridY;
@@ -896,7 +934,7 @@
     // ── Area hooks: marquee select, click-to-deselect, hover tracking ──
     let _hoverWin = null;
     function _hookArea(area, layer) {
-        area.addEventListener('mousemove', () => { _hoverWin = layer.id.replace(/_btScreen$/, ''); });
+        area.addEventListener('mousemove', e => { _hoverWin = layer.id.replace(/_btScreen$/, ''); if (layer._opts) { try { layer._mouse = _imgPoint(layer, e); } catch (_) { } } });
         area.addEventListener('mousedown', e => {
             let o = layer._opts;
             if (!o || e.button !== 0 || layer._measure) return;
@@ -1013,8 +1051,57 @@
     }
     function _pathInfo(d) {
         if (!d || !d.path) return null;
-        let squares = pathSquares(d.path);
-        return { squares, path: d.path.slice(), free: !!d.alt, mp: d.mp, cost: moveCost(d.mp, squares) };
+        let plain = pathSquares(d.path), squares = d.diff ? pathCost(d.path, d.diff) : plain;
+        return { squares, plain, difficult: squares > plain, path: d.path.slice(), free: !!d.alt, mp: d.mp, cost: moveCost(d.mp, squares) };
+    }
+    // Squares of movement along a path, where each step into difficult terrain counts double (2 squares for 1)
+    function pathCost(cells, isDiff) {
+        let sq = 0, diag = 0;
+        for (let i = 1; i < (cells || []).length; i++) {
+            let dx = Math.abs(cells[i].gx - cells[i - 1].gx), dy = Math.abs(cells[i].gy - cells[i - 1].gy);
+            let d = Math.min(dx, dy), st = Math.max(dx, dy) - d;
+            let inc = st + d + Math.floor((diag + d) / 2) - Math.floor(diag / 2);
+            diag += d;
+            if (isDiff && isDiff(cells[i])) inc *= 2;
+            sq += inc;
+        }
+        return sq;
+    }
+    // Is a square difficult terrain for a creature of this size? (the map's difficult squares, plus any square
+    // a dead, downed or Prone creature lies in)
+    function _diffFor(layer, vm) {
+        let o = layer._opts || {}, set = new Set(o.difficult || []);
+        (o.tokens || []).forEach(t => {
+            if (!t || t.id === vm.id || !(t.down || t._down)) return;
+            let p = _tokPos(layer, t.id) || { gx: t.gridX, gy: t.gridY }, sp = span(t.size);
+            for (let x = p.gx; x < p.gx + sp; x++) for (let y = p.gy; y < p.gy + sp; y++) set.add(x + ',' + y);
+        });
+        if (!set.size) return null;
+        let sp = span(vm.size);
+        return c => { for (let x = c.gx; x < c.gx + sp; x++) for (let y = c.gy; y < c.gy + sp; y++) if (set.has(x + ',' + y)) return true; return false; };
+    }
+    // Walls: a token's path (anchor squares) that crosses a wall or a closed door. A wall runs between grid corners.
+    function _orient(ax, ay, bx, by, cx, cy) { let v = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax); return Math.abs(v) < 1e-9 ? 0 : v > 0 ? 1 : -1; }
+    function _segHits(ax, ay, bx, by, w, touch) {
+        let d1 = _orient(w.x1, w.y1, w.x2, w.y2, ax, ay), d2 = _orient(w.x1, w.y1, w.x2, w.y2, bx, by);
+        let d3 = _orient(ax, ay, bx, by, w.x1, w.y1), d4 = _orient(ax, ay, bx, by, w.x2, w.y2);
+        if (d1 && d2 && d3 && d4) return d1 !== d2 && d3 !== d4;
+        if (!touch) return false;
+        // touching (not running along it): a step through a wall's end corner counts as crossing it
+        if (!d1 && !d2) return false;
+        let on = (px, py, qx, qy, rx, ry) => Math.min(px, qx) - 1e-9 <= rx && rx <= Math.max(px, qx) + 1e-9 && Math.min(py, qy) - 1e-9 <= ry && ry <= Math.max(py, qy) + 1e-9;
+        return (!d1 && on(w.x1, w.y1, w.x2, w.y2, ax, ay)) || (!d2 && on(w.x1, w.y1, w.x2, w.y2, bx, by))
+            || (!d3 && on(ax, ay, bx, by, w.x1, w.y1)) || (!d4 && on(ax, ay, bx, by, w.x2, w.y2));
+    }
+    function wallBlocking(walls, size, cells) {
+        let ws = (walls || []).filter(w => w && !(w.door && w.open));
+        if (!ws.length || !cells || cells.length < 2) return null;
+        let sp = span(size), h = sp / 2, touch = sp % 2 === 1;
+        for (let i = 1; i < cells.length; i++) {
+            let ax = cells[i - 1].gx + h, ay = cells[i - 1].gy + h, bx = cells[i].gx + h, by = cells[i].gy + h;
+            for (let w of ws) if (_segHits(ax, ay, bx, by, w, touch)) return w;
+        }
+        return null;
     }
     function _drawPath(layer, el) {
         let d = el._drag, o = layer._opts;
@@ -1032,7 +1119,8 @@
         let info = _pathInfo(d), cost = info.cost, have = d.mp.apHave;
         let over = !d.alt && have != null && cost.ap > have;
         let col = d.alt ? '#a5b4fc' : over ? '#f87171' : '#4ade80';
-        let label = info.squares === 0 ? 'Drag to move' : d.alt ? `${info.squares} sq · free move (Alt)` : cost.stuck ? `${info.squares} sq · Speed 0` : `${info.squares} sq · ${cost.ap} AP${have != null ? ` (of ${have})` : ''}`;
+        let sqTxt = info.difficult ? `${info.squares} sq (difficult terrain)` : `${info.squares} sq`;
+        let label = info.squares === 0 ? 'Drag to move' : d.alt ? `${sqTxt} · free move (Alt)` : cost.stuck ? `${sqTxt} · Speed 0` : `${sqTxt} · ${cost.ap} AP${have != null ? ` (of ${have})` : ''}`;
         let end = pts[pts.length - 1];
         svg.innerHTML = (pts.length > 1 ? `<polyline points="${pts.map(p => p.x + ',' + p.y).join(' ')}" fill="none" stroke="#000" stroke-opacity=".55" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>
             <polyline points="${pts.map(p => p.x + ',' + p.y).join(' ')}" fill="none" stroke="${col}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>` : '')
@@ -1287,6 +1375,7 @@
     function enterMeasure(winId, mode) {
         let layer = document.getElementById(winId + '_btScreen');
         if (!layer || !layer._opts || layer._measure || layer._area) return false;
+        if (layer._tool) exitTool(winId);
         let ov = document.createElement('div');
         ov.setAttribute('data-bt-ui', 'measure');
         ov.style.cssText = `position:absolute;inset:0;z-index:${Z_UI};pointer-events:auto;cursor:crosshair;`;
@@ -1661,6 +1750,309 @@
     }
     function isPlacingArea(winId) { return !!document.getElementById(winId + '_btScreen')?._area; }
 
+
+    // ── Markings: difficult terrain, drawings, walls & doors, pings ─────
+    //   opts.difficult  ["gx,gy"]: squares of difficult terrain (diagonal lines; under the fog like the map)
+    //   opts.walls      [{ id, x1, y1, x2, y2 (grid corners), door, open }]: invisible except while editing them;
+    //                   opts.wallsBlock(vm) -> true for the tokens they stop (a player's own)
+    //   opts.doorButtons (GM): a small open / close button on each door; opts.onDoorToggle(id)
+    //   opts.drawings   [{ id, c (colour), w (width, map px), p: [x, y, x, y…] (map px) }]
+    //   opts.pings      [{ id, x, y (map px), who, gm, t }]
+    function _marksSvg(layer) {
+        let svg = layer.querySelector('[data-bt-ui="marks"]');
+        if (!svg) {
+            svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('data-bt-ui', 'marks');
+            svg.setAttribute('width', '100%'); svg.setAttribute('height', '100%');
+            svg.style.cssText = 'position:absolute;inset:0;pointer-events:none;overflow:visible;z-index:60;';
+            layer.insertBefore(svg, layer.firstChild);
+        }
+        return svg;
+    }
+    function _layoutMarks(layer) {
+        let o = layer._opts; if (!o) return;
+        let g = o.grid, win = o.win, s = win._scale || 1, ox = win._offX || 0, oy = win._offY || 0, org = origin(g), cs = g.cellSize;
+        let scr = (x, y) => ({ x: ox + (org.ox + x * cs) * s, y: oy + (org.oy + y * cs) * s });   // grid units -> screen
+        let px = (x, y) => ({ x: ox + x * s, y: oy + y * s });                                     // map pixels -> screen
+        let tool = layer._tool;
+        let diff = tool && tool.kind === 'terrain' ? [...tool.set] : (o.difficult || []);
+        let draws = (o.drawings || []).concat(tool && tool.kind === 'draw' && tool.stroke ? [tool.stroke] : []);
+        let walls = tool && tool.kind === 'walls' ? tool.walls : (o.walls || []);
+        let showWalls = !!(tool && tool.kind === 'walls');
+        if (!diff.length && !draws.length && !showWalls) {
+            let old = layer.querySelector('[data-bt-ui="marks"]'); if (old) old.innerHTML = '';
+        } else {
+            let svg = _marksSvg(layer), pid = 'apxHatch_' + layer.id;
+            let hs = Math.max(4, cs * s / 5);
+            let html = `<defs><pattern id="${pid}" patternUnits="userSpaceOnUse" width="${hs}" height="${hs}" patternTransform="rotate(45)"><rect width="${hs}" height="${hs}" fill="rgba(120,53,15,.18)"/><line x1="0" y1="0" x2="0" y2="${hs}" stroke="rgba(251,191,36,.75)" stroke-width="${Math.max(1, hs / 4)}"/></pattern></defs>`;
+            // Difficult terrain: rows of squares merged into strips
+            let rows = {};
+            diff.forEach(k => { let [x, y] = String(k).split(',').map(Number); if (isFinite(x) && isFinite(y)) (rows[y] = rows[y] || []).push(x); });
+            Object.keys(rows).forEach(y => {
+                let xs = rows[y].sort((a, b) => a - b), st = xs[0], pv = xs[0];
+                for (let i = 1; i <= xs.length; i++) {
+                    if (i < xs.length && xs[i] === pv + 1) { pv = xs[i]; continue; }
+                    let a = scr(st, +y), b = scr(pv + 1, +y + 1);
+                    html += `<rect x="${a.x}" y="${a.y}" width="${b.x - a.x}" height="${b.y - a.y}" fill="url(#${pid})" stroke="rgba(251,191,36,.45)" stroke-width="1"/>`;
+                    if (i < xs.length) st = pv = xs[i];
+                }
+            });
+            // Drawings
+            draws.forEach(d => {
+                let p = d.p || []; if (p.length < 2) return;
+                let pts = [];
+                for (let i = 0; i + 1 < p.length; i += 2) { let q = px(p[i], p[i + 1]); pts.push(q.x.toFixed(1) + ',' + q.y.toFixed(1)); }
+                if (pts.length === 1) pts.push(pts[0]);
+                let col = String(d.c || '#f43f5e').replace(/[^#a-zA-Z0-9(),.%\s]/g, '');
+                html += `<polyline points="${pts.join(' ')}" fill="none" stroke="${col}" stroke-width="${Math.max(1, (d.w || 4) * s)}" stroke-linecap="round" stroke-linejoin="round"/>`;
+            });
+            // Walls and doors: only while editing them (red walls; doors amber when closed, green when open)
+            if (showWalls) {
+                walls.forEach(w => {
+                    let a = scr(w.x1, w.y1), b = scr(w.x2, w.y2);
+                    let col = w.door ? (w.open ? '#4ade80' : '#f59e0b') : '#ef4444';
+                    html += `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="#000" stroke-opacity=".6" stroke-width="7" stroke-linecap="round"/>
+                        <line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="${col}" stroke-width="4" stroke-linecap="round" ${w.door && w.open ? 'stroke-dasharray="8 6"' : ''}/>`;
+                });
+                if (tool.drag) { let a = scr(tool.drag.x1, tool.drag.y1), b = scr(tool.drag.x2, tool.drag.y2); html += `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="#fca5a5" stroke-width="3" stroke-dasharray="6 4"/><circle cx="${a.x}" cy="${a.y}" r="4" fill="#fca5a5"/><circle cx="${b.x}" cy="${b.y}" r="4" fill="#fca5a5"/>`; }
+                if (tool.corner) { let c = scr(tool.corner.x, tool.corner.y); html += `<circle cx="${c.x}" cy="${c.y}" r="5" fill="none" stroke="#fca5a5" stroke-width="2"/>`; }
+            }
+            svg.innerHTML = html;
+        }
+        _layoutDoorBtns(layer, o.doorButtons ? walls.filter(w => w && w.door) : []);
+        _layoutPings(layer);
+    }
+    // GM: an open / close button on each door (players never see doors or walls)
+    function _layoutDoorBtns(layer, doors) {
+        let box = layer.querySelector('[data-bt-ui="doors"]');
+        if (!doors.length) { if (box) box.remove(); return; }
+        if (!box) {
+            box = document.createElement('div'); box.setAttribute('data-bt-ui', 'doors');
+            box.style.cssText = `position:absolute;inset:0;pointer-events:none;z-index:${Z_UI - 3};`;
+            layer.appendChild(box);
+        }
+        let o = layer._opts, g = o.grid, win = o.win, s = win._scale || 1, ox = win._offX || 0, oy = win._offY || 0, org = origin(g), cs = g.cellSize;
+        let keep = new Set();
+        doors.forEach(w => {
+            keep.add(w.id);
+            let b = box.querySelector(`[data-door="${CSS.escape(w.id)}"]`);
+            if (!b) {
+                b = document.createElement('button'); b.setAttribute('data-door', w.id);
+                b.style.cssText = 'position:absolute;pointer-events:auto;transform:translate(-50%,-50%);font:800 9px system-ui,sans-serif;padding:1px 5px;border-radius:4px;cursor:pointer;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.7)';
+                b.addEventListener('mousedown', e => e.stopPropagation());
+                b.addEventListener('pointerdown', e => e.stopPropagation());
+                b.addEventListener('click', e => { e.stopPropagation(); let oo = layer._opts; if (oo && oo.onDoorToggle) oo.onDoorToggle(b.getAttribute('data-door')); });
+                box.appendChild(b);
+            }
+            let mx = ox + (org.ox + (w.x1 + w.x2) / 2 * cs) * s, my = oy + (org.oy + (w.y1 + w.y2) / 2 * cs) * s;
+            b.style.left = mx + 'px'; b.style.top = my + 'px';
+            b.textContent = w.open ? 'Door: open' : 'Door: closed';
+            b.title = (w.open ? 'Open: tokens can pass. Click to close it.' : 'Closed: tokens can\'t pass. Click to open it.') + ' (Only you see this button.)';
+            b.style.background = w.open ? '#065f46' : '#78350f'; b.style.color = '#fff'; b.style.border = '1px solid ' + (w.open ? '#34d399' : '#f59e0b');
+        });
+        box.querySelectorAll('[data-door]').forEach(b => { if (!keep.has(b.getAttribute('data-door'))) b.remove(); });
+    }
+    // Pings: a pulse, a chime and who pinged, for a few seconds
+    const _pingSeen = {};
+    let _audio = null;
+    function _chime() {
+        try {
+            _audio = _audio || new (window.AudioContext || window.webkitAudioContext)();
+            let t = _audio.currentTime;
+            [[880, 0], [1320, 0.12]].forEach(([f, d]) => {
+                let osc = _audio.createOscillator(), gain = _audio.createGain();
+                osc.type = 'sine'; osc.frequency.value = f;
+                gain.gain.setValueAtTime(0.0001, t + d); gain.gain.exponentialRampToValueAtTime(0.18, t + d + 0.02); gain.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.5);
+                osc.connect(gain); gain.connect(_audio.destination); osc.start(t + d); osc.stop(t + d + 0.55);
+            });
+        } catch (e) { }
+    }
+    function _layoutPings(layer) {
+        let o = layer._opts; if (!o) return;
+        let now = Date.now(), live = [];
+        (o.pings || []).forEach(pg => {
+            if (!pg || !pg.id) return;
+            let seen = _pingSeen[pg.id];
+            if (!seen) {
+                seen = _pingSeen[pg.id] = { at: now };
+                if (now - (pg.t || now) < 15000) { seen.fresh = true; _chime(); }
+            }
+            if (seen.fresh && now - seen.at < 6000) live.push(pg);
+        });
+        let box = layer.querySelector('[data-bt-ui="pings"]');
+        if (!live.length) { if (box) box.remove(); return; }
+        if (!box) {
+            box = document.createElement('div'); box.setAttribute('data-bt-ui', 'pings');
+            box.style.cssText = `position:absolute;inset:0;pointer-events:none;z-index:${Z_UI - 2};`;
+            if (!document.getElementById('apxPingCss')) {
+                let st = document.createElement('style'); st.id = 'apxPingCss';
+                st.textContent = '@keyframes apxPing{0%{transform:translate(-50%,-50%) scale(.2);opacity:1}100%{transform:translate(-50%,-50%) scale(2.6);opacity:0}}';
+                document.head.appendChild(st);
+            }
+            layer.appendChild(box);
+        }
+        let win = o.win, s = win._scale || 1, ox = win._offX || 0, oy = win._offY || 0;
+        let keep = new Set();
+        live.forEach(pg => {
+            keep.add(pg.id);
+            let el = box.querySelector(`[data-ping="${CSS.escape(pg.id)}"]`);
+            if (!el) {
+                el = document.createElement('div'); el.setAttribute('data-ping', pg.id);
+                el.style.cssText = 'position:absolute;width:0;height:0';
+                let col = pg.gm ? '#f59e0b' : '#38bdf8';
+                el.innerHTML = [0, 0.5, 1].map(d => `<div style="position:absolute;left:0;top:0;width:56px;height:56px;border-radius:50%;border:3px solid ${col};transform:translate(-50%,-50%) scale(.2);opacity:0;animation:apxPing 1.5s ease-out ${d}s 3 both"></div>`).join('')
+                    + `<div style="position:absolute;left:0;top:0;width:12px;height:12px;border-radius:50%;background:${col};transform:translate(-50%,-50%);box-shadow:0 0 10px ${col}"></div>`
+                    + `<div style="position:absolute;left:14px;top:-26px;white-space:nowrap;background:rgba(15,23,42,.92);border:1px solid ${col};color:#fff;font:800 12px system-ui,sans-serif;padding:2px 7px;border-radius:5px"></div>`;
+                el.lastChild.textContent = pg.who || 'Someone';
+                box.appendChild(el);
+                let left = Math.max(500, 6000 - (now - _pingSeen[pg.id].at));
+                setTimeout(() => { el.remove(); if (box.isConnected && !box.children.length) box.remove(); }, left);
+            }
+            el.style.left = (ox + pg.x * s) + 'px'; el.style.top = (oy + pg.y * s) + 'px';
+        });
+        box.querySelectorAll('[data-ping]').forEach(el => { if (!keep.has(el.getAttribute('data-ping'))) el.remove(); });
+    }
+
+    // ── Editing tools: difficult terrain and walls (GM), drawing (everyone), ping ──
+    // One at a time, in place of Measure. The page's buttons call toggleTool(winId, kind); Esc stops.
+    function exitTool(winId) {
+        let layer = document.getElementById(winId + '_btScreen');
+        if (!layer || !layer._tool) return false;
+        let t = layer._tool; layer._tool = null;
+        try { t.ov.remove(); } catch (e) { }
+        if (t.winUp) window.removeEventListener('mouseup', t.winUp, true);
+        if (layer._opts && layer._opts.onToolChange) layer._opts.onToolChange(null);
+        _layoutMarks(layer);
+        return true;
+    }
+    function toggleTool(winId, kind) {
+        let layer = document.getElementById(winId + '_btScreen');
+        if (!layer) return false;
+        if (layer._tool && layer._tool.kind === kind) { exitTool(winId); return false; }
+        return enterTool(winId, kind);
+    }
+    function toolOf(winId) { let l = document.getElementById(winId + '_btScreen'); return l && l._tool ? l._tool.kind : null; }
+    const _DRAW_PREFS = (() => { try { return JSON.parse(localStorage.getItem('apxDrawPrefs') || '{}') || {}; } catch (e) { return {}; } })();
+    function enterTool(winId, kind) {
+        let layer = document.getElementById(winId + '_btScreen');
+        if (!layer || !layer._opts) return false;
+        if (layer._measure) exitMeasure(winId);
+        if (layer._area) return false;
+        if (layer._tool) exitTool(winId);
+        let o = layer._opts;
+        let ov = document.createElement('div');
+        ov.setAttribute('data-bt-ui', 'tool');
+        ov.style.cssText = `position:absolute;inset:0;z-index:${Z_UI};pointer-events:auto;cursor:crosshair;`;
+        let bar = document.createElement('div');
+        bar.style.cssText = 'position:absolute;left:8px;right:8px;bottom:8px;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:5px;pointer-events:none;cursor:default;';
+        let chip = 'pointer-events:auto;border:1px solid #64748b;border-radius:5px;font-size:11px;font-weight:800;padding:2px 8px;cursor:pointer;background:rgba(15,23,42,.92);color:#e2e8f0';
+        let tip = t => `<span style="background:rgba(15,23,42,.92);border:1px solid #94a3b8;color:#f1f5f9;font-size:11px;font-weight:700;padding:3px 8px;border-radius:5px;white-space:normal;max-width:100%;text-align:center;pointer-events:none">${t}</span>`;
+        let T = layer._tool = { kind, ov, bar, down: false };
+        if (kind === 'terrain') {
+            T.set = new Set(o.difficult || []);
+            bar.innerHTML = tip('Difficult terrain: click or drag across squares to add or remove it (moving into one costs 2 squares; it hides under fog like the map) · Esc or the button to stop');
+        } else if (kind === 'walls') {
+            T.walls = JSON.parse(JSON.stringify(o.walls || []));
+            bar.innerHTML = tip('Walls: drag between grid corners to draw one · Shift+click a wall to make it a door (or a wall again) · right-click a wall to delete it · players\' tokens can\'t cross walls or closed doors · only you see walls, and only while this is on');
+        } else if (kind === 'draw') {
+            T.color = _DRAW_PREFS.c || '#f43f5e'; T.size = _DRAW_PREFS.w || 3;
+            bar.innerHTML = `<label style="${chip};display:flex;align-items:center;gap:4px">Colour <input data-dcol type="color" value="${T.color}" style="width:26px;height:18px;border:0;padding:0;background:none;cursor:pointer"></label>
+                <label style="${chip};display:flex;align-items:center;gap:4px">Size <input data-dsize type="range" min="1" max="10" value="${T.size}" style="width:80px"><b data-dsizev>${T.size}</b></label>
+                <button data-dundo style="${chip}">Undo</button><button data-dclear style="${chip}">Clear mine</button>${o.isGM ? `<button data-dclearall style="${chip};border-color:#ef4444;color:#fecaca">Clear everyone's</button>` : ''}`
+                + tip('Draw: drag on the map · everyone at the table sees it · Esc, right-click or the button to stop');
+        } else if (kind === 'ping') {
+            bar.innerHTML = tip('Click where you want everyone to look (or press P with your mouse there, any time)');
+        }
+        ov.appendChild(bar); layer.appendChild(ov);
+        bar.addEventListener('mousedown', e => e.stopPropagation());
+        bar.addEventListener('pointerdown', e => e.stopPropagation());
+        if (kind === 'draw') {
+            let save = () => { _DRAW_PREFS.c = T.color; _DRAW_PREFS.w = T.size; try { localStorage.setItem('apxDrawPrefs', JSON.stringify(_DRAW_PREFS)); } catch (e) { } };
+            bar.querySelector('[data-dcol]').addEventListener('input', e => { T.color = e.target.value; save(); });
+            bar.querySelector('[data-dsize]').addEventListener('input', e => { T.size = parseInt(e.target.value) || 3; bar.querySelector('[data-dsizev]').textContent = T.size; save(); });
+            bar.querySelector('[data-dundo]').addEventListener('click', e => { e.stopPropagation(); let oo = layer._opts; if (oo.onDrawUndo) oo.onDrawUndo(); });
+            bar.querySelector('[data-dclear]').addEventListener('click', e => { e.stopPropagation(); let oo = layer._opts; if (oo.onDrawClear) oo.onDrawClear(false); });
+            let ca = bar.querySelector('[data-dclearall]'); if (ca) ca.addEventListener('click', e => { e.stopPropagation(); let oo = layer._opts; if (oo.onDrawClear) oo.onDrawClear(true); });
+        }
+        let isPan = e => e.button === 1 || (e.button === 0 && (e.ctrlKey || e.metaKey));
+        let cellOf = e => { let p = _imgPoint(layer, e); return _cellAt(layer._opts.grid, p.x, p.y); };
+        let gridPt = e => { let p = _imgPoint(layer, e), g = layer._opts.grid, org = origin(g); return { x: (p.x - org.ox) / g.cellSize, y: (p.y - org.oy) / g.cellSize }; };
+        let cornerOf = e => { let q = gridPt(e); return { x: Math.round(q.x), y: Math.round(q.y) }; };
+        let nearWall = e => {
+            let q = gridPt(e), best = null, bd = 0.35;
+            T.walls.forEach(w => {
+                let vx = w.x2 - w.x1, vy = w.y2 - w.y1, L = vx * vx + vy * vy || 1;
+                let t = Math.max(0, Math.min(1, ((q.x - w.x1) * vx + (q.y - w.y1) * vy) / L));
+                let d = Math.hypot(q.x - (w.x1 + t * vx), q.y - (w.y1 + t * vy));
+                if (d < bd) { bd = d; best = w; }
+            });
+            return best;
+        };
+        let wallsOut = () => { let oo = layer._opts; if (oo.onWallsChange) oo.onWallsChange(JSON.parse(JSON.stringify(T.walls))); };
+        let paint = c => { let k = c.gx + ',' + c.gy; if (T.mode === 'add') T.set.add(k); else T.set.delete(k); };
+        ov.addEventListener('mousedown', e => {
+            if (isPan(e)) return;
+            e.stopPropagation(); e.preventDefault();
+            if (e.button !== 0) return;
+            let oo = layer._opts;
+            if (kind === 'ping') { let p = _imgPoint(layer, e); if (oo.onPing) oo.onPing({ x: Math.round(p.x), y: Math.round(p.y) }); exitTool(winId); return; }
+            if (kind === 'terrain') { let c = cellOf(e); T.down = true; T.mode = T.set.has(c.gx + ',' + c.gy) ? 'remove' : 'add'; T.last = c.gx + ',' + c.gy; paint(c); _layoutMarks(layer); return; }
+            if (kind === 'walls') {
+                if (e.shiftKey) { let w = nearWall(e); if (w) { w.door = !w.door; w.open = false; wallsOut(); _layoutMarks(layer); } return; }
+                let c = cornerOf(e); T.down = true; T.drag = { x1: c.x, y1: c.y, x2: c.x, y2: c.y }; _layoutMarks(layer); return;
+            }
+            if (kind === 'draw') { let p = _imgPoint(layer, e); T.down = true; T.stroke = { c: T.color, w: Math.round(T.size * (oo.grid.cellSize || 50) / 25 * 10) / 10, p: [Math.round(p.x), Math.round(p.y)] }; _layoutMarks(layer); }
+        });
+        ov.addEventListener('mousemove', e => {
+            if (kind === 'walls' && !T.down) { T.corner = cornerOf(e); _layoutMarks(layer); return; }
+            if (!T.down) return;
+            if (kind === 'terrain') { let c = cellOf(e), k = c.gx + ',' + c.gy; if (k === T.last) return; T.last = k; paint(c); _layoutMarks(layer); return; }
+            if (kind === 'walls') { let c = cornerOf(e); T.drag.x2 = c.x; T.drag.y2 = c.y; T.corner = c; _layoutMarks(layer); return; }
+            if (kind === 'draw') {
+                let p = _imgPoint(layer, e), pts = T.stroke.p, lx = pts[pts.length - 2], ly = pts[pts.length - 1];
+                if (Math.hypot(p.x - lx, p.y - ly) * (layer._opts.win._scale || 1) < 3 || pts.length > 1600) return;
+                pts.push(Math.round(p.x), Math.round(p.y)); _layoutMarks(layer);
+            }
+        });
+        let up = () => {
+            if (!T.down || layer._tool !== T) return;
+            T.down = false;
+            let oo = layer._opts;
+            if (kind === 'terrain' && oo.onTerrainChange) oo.onTerrainChange([...T.set]);
+            if (kind === 'walls' && T.drag) {
+                let d = T.drag; T.drag = null;
+                if (d.x1 !== d.x2 || d.y1 !== d.y2) {
+                    T.walls.push({ id: 'w' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), x1: d.x1, y1: d.y1, x2: d.x2, y2: d.y2, door: false, open: false });
+                    wallsOut();
+                }
+            }
+            if (kind === 'draw' && T.stroke) {
+                let st = T.stroke; T.stroke = null;
+                if (st.p.length === 2) st.p.push(st.p[0] + 1, st.p[1]);   // a dot
+                if (oo.onDraw) oo.onDraw(Object.assign({ id: 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5) }, st));
+            }
+            _layoutMarks(layer);
+        };
+        ov.addEventListener('mouseup', up);
+        T.winUp = () => up();
+        window.addEventListener('mouseup', T.winUp, true);
+        ov.addEventListener('contextmenu', e => {
+            e.preventDefault(); e.stopPropagation();
+            if (kind === 'walls') { let w = nearWall(e); if (w) { T.walls = T.walls.filter(x => x !== w); wallsOut(); _layoutMarks(layer); return; } }
+            exitTool(winId);
+        });
+        if (o.onToolChange) o.onToolChange(kind);
+        _layoutMarks(layer);
+        return true;
+    }
+    // P: ping where your mouse is on the map you're over
+    function pingHere(winId) {
+        let layer = document.getElementById(winId + '_btScreen');
+        if (!layer || !layer._opts || !layer._opts.onPing || !layer._mouse) return false;
+        layer._opts.onPing({ x: Math.round(layer._mouse.x), y: Math.round(layer._mouse.y) });
+        return true;
+    }
+
     function toggleMeasure(winId) { return exitMeasure(winId) ? false : enterMeasure(winId); }
     function isMeasuring(winId) { return !!document.getElementById(winId + '_btScreen')?._measure; }
 
@@ -1681,9 +2073,13 @@
             let win = _hoverWin && document.getElementById(_hoverWin + '_btScreen') ? _hoverWin : null;
             let l = win ? document.getElementById(win + '_btScreen') : [...document.querySelectorAll('[id$="_btScreen"]')].find(x => x._opts && x._opts.measureShare === 'toggle');
             if (l && _toggleShow(l)) e.preventDefault();
+        } else if (e.key === 'p' || e.key === 'P') {
+            let win = _hoverWin && document.getElementById(_hoverWin + '_btScreen') ? _hoverWin : null;
+            if (win && pingHere(win)) e.preventDefault();
         } else if (e.key === 'Escape') {
             document.querySelectorAll('[id$="_btScreen"]').forEach(l => {
                 let w = l.id.replace(/_btScreen$/, '');
+                if (l._tool) exitTool(w);
                 if (l._measure) exitMeasure(w);
                 else if (l._opts?.onSelect && l._opts.selection?.size) l._opts.onSelect([], false);
             });
@@ -1821,6 +2217,8 @@
         render, layout, clear, toast,
         numberOf, sizeFromCharState, compressImage,
         squaresBetween, pathSquares, areaCells, lineCells, measuresFor, writeMeasure, moveCost, auraColor, enterMeasure, exitMeasure, toggleMeasure, isMeasuring,
-        placeArea, isPlacingArea
+        placeArea, isPlacingArea,
+        pathCost, wallBlocking, enterTool, exitTool, toggleTool, toolOf, pingHere,
+        pingsFor, drawingsFor, myDrawings, writePing, writeDrawings, draws: () => store.draws
     };
 })();

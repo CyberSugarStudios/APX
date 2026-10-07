@@ -47,7 +47,7 @@
             saveFogData: () => Promise.resolve(),
             loadFogData: () => Promise.resolve(null),
             loadFogDataForPlayer: () => Promise.resolve(null),
-            writeBattlePosition: () => Promise.resolve(), writeBattleMeasure: () => Promise.resolve(),
+            writeBattlePosition: () => Promise.resolve(), writeBattleMeasure: () => Promise.resolve(), writePlayerBattle: () => Promise.resolve(), writeGmPing: () => Promise.resolve(),
             listenBattlePositions: () => (() => {}) };
         return;
     }
@@ -430,6 +430,18 @@
         await ref.update({ battleMeasure: val ? Object.assign({}, val, { at: firebase.firestore.FieldValue.serverTimestamp() }) : null });
     }
 
+    // A player's own battle-map extras (ping, drawings): fields on their world record. The GM may write
+    // them too (Clear everyone's drawings). Field paths like 'battleDraw.<mapId>' update just that map.
+    async function writePlayerBattle(inviteCode, uid, fields) {
+        if (!currentUser() || !inviteCode || !uid || !fields) return;
+        await db.collection('worldCodes').doc(inviteCode.toUpperCase().trim()).collection('players').doc(uid).update(apxClean(fields));
+    }
+    // The GM's ping, on the world record players already listen to
+    async function writeGmPing(inviteCode, ping) {
+        if (!currentUser() || !inviteCode) return;
+        await db.collection('worldCodes').doc(inviteCode.toUpperCase().trim()).set({ gmPing: ping ? apxClean(ping) : null }, { merge: true });
+    }
+
     // Live listener on every player's battle positions in a world.
     // callback([{ uid, battlePositions, charPortrait }])
     function listenBattlePositions(inviteCode, callback) {
@@ -444,6 +456,8 @@
                         outbox: data._outbox || {}, giftAcks: data._giftAcks || {},
                         battlePositions: data.battlePositions || {},
                         battleMeasure: data.battleMeasure || null,   // the player's shared Measure (map, geometry)
+                        battlePing: data.battlePing || null,         // the player's last ping { map, x, y, t, who }
+                        battleDraw: data.battleDraw || null,         // the player's drawings, per map { mapId: [strokes] }
                         charPortrait: cs.charPortrait || '',
                         // Basic public info for the players' Party view (no stats)
                         profile: {
@@ -1019,7 +1033,7 @@
         sendChat, listenChat, deleteChat,
         saveNpcPortrait, loadNpcPortrait, loadNpcPortraitForPlayer, addXpToPlayer, gmSetPlayerBattlePos,
         savePublicWorldMap, loadPublicWorldMap, loadWorldMapForPlayer, setGmHpOverride, updatePlayerBattlePos,
-        writeBattlePosition, writeBattleMeasure, listenBattlePositions,
+        writeBattlePosition, writeBattleMeasure, listenBattlePositions, writePlayerBattle, writeGmPing,
         saveOtherMapImage, loadOtherMapImage, loadOtherMapImageForPlayer, deleteOtherMapImage,
         saveMapTile, loadMapTile, deleteMapTiles, resetWriteStream,
         saveBattleImage, loadBattleImage, loadBattleImageForPlayer, deleteBattleImage,

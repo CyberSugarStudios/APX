@@ -3607,10 +3607,24 @@ window.nextInitiativeTurn = function() {
     }
     window.gmTurnNumber++;
     let current = window.gmInitiative[window.gmCurrentTurnIdx];
+    // A downed Undead rolls its revival before anything else (no AP while it's down). Destroyed, the next
+    // creature's turn starts exactly as if Next Turn had been pressed: AP, Burning, Tactician and all.
+    while (current && current.undeadDown) {
+        let at = window.gmCurrentTurnIdx;
+        _gmUndeadRevive(current);
+        if (window.gmInitiative.includes(current)) break;   // it rose: its turn
+        if (!window.gmInitiative.length) { window.renderInitiativeTracker(); return; }
+        if (at >= window.gmInitiative.length) {
+            at = 0; window.gmRoundNumber++;
+            gmLog({ text: `Round ${window.gmRoundNumber}.`, kind: 'info' });
+        }
+        window.gmCurrentTurnIdx = at;
+        window.gmTurnNumber++;
+        current = window.gmInitiative[window.gmCurrentTurnIdx];
+    }
     if (current) gmStartTurnAp(current);
     if (current) _gmBurnTick(current);
     if (current) _gmTac5Offer(current);
-    if (current && current.undeadDown) _gmUndeadRevive(current);
     if (current && current.bleedOutTurns > 0) {
         current.bleedOutTurns--;
         if (current.bleedOutTurns === 0) { _killBledOutPlayer(current); return; }

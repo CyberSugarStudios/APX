@@ -474,8 +474,8 @@
         }
 
     </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20261062310">
-    <link rel="stylesheet" href="css/tailwind.css?v=20261062310">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20261071100">
+    <link rel="stylesheet" href="css/tailwind.css?v=20261071100">
 </head>
 <body class="p-2 md:p-6 flex justify-center text-sm ml-0 lg:ml-8 transition-all" style="padding-top:4.25rem"><!-- (room for the floating Roster / Settings buttons) -->
     <!-- Auth bar removed — account controls are in the sidebar -->
@@ -2358,38 +2358,38 @@
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20261062310"></script>
-    <script src="js/apx-patch-notes.js?v=20261062310"></script>
-    <script src="js/apx-dice.js?v=20261062310"></script>
-    <script src="js/apx-data.js?v=20261062310"></script>
-    <script src="js/apx-item-effects.js?v=20261062310"></script>
-    <script src="js/apx-perks-db.js?v=20261062310"></script>
-    <script src="js/apx-migrations.js?v=20261062310"></script>
-    <script src="js/apx-roster.js?v=20261062310"></script>
-    <script src="js/apx-state.js?v=20261062310"></script>
-    <script src="js/apx-origin-wizard.js?v=20261062310"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20261062310"></script>
-    <script src="js/apx-inventory-ui.js?v=20261062310"></script>
-    <script src="js/apx-craft-shared.js?v=20261062310"></script>
-    <script src="js/apx-armor-forge.js?v=20261062310"></script>
-    <script src="js/apx-weapon-forge.js?v=20261062310"></script>
-    <script src="js/apx-power-crafter.js?v=20261062310"></script>
-    <script src="js/apx-consumable-crafter.js?v=20261062310"></script>
-    <script src="js/apx-npc-crafter.js?v=20261062310"></script>
-    <script src="js/apx-engine.js?v=20261062310"></script>
-    <script src="js/apx-perks-ui.js?v=20261062310"></script>
-    <script src="js/apx-rest.js?v=20261062310"></script>
-    <script src="js/apx-looting.js?v=20261062310"></script>
-    <script src="js/apx-main.js?v=20261062310"></script>
+    <script src="js/apx-dialogs.js?v=20261071100"></script>
+    <script src="js/apx-patch-notes.js?v=20261071100"></script>
+    <script src="js/apx-dice.js?v=20261071100"></script>
+    <script src="js/apx-data.js?v=20261071100"></script>
+    <script src="js/apx-item-effects.js?v=20261071100"></script>
+    <script src="js/apx-perks-db.js?v=20261071100"></script>
+    <script src="js/apx-migrations.js?v=20261071100"></script>
+    <script src="js/apx-roster.js?v=20261071100"></script>
+    <script src="js/apx-state.js?v=20261071100"></script>
+    <script src="js/apx-origin-wizard.js?v=20261071100"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20261071100"></script>
+    <script src="js/apx-inventory-ui.js?v=20261071100"></script>
+    <script src="js/apx-craft-shared.js?v=20261071100"></script>
+    <script src="js/apx-armor-forge.js?v=20261071100"></script>
+    <script src="js/apx-weapon-forge.js?v=20261071100"></script>
+    <script src="js/apx-power-crafter.js?v=20261071100"></script>
+    <script src="js/apx-consumable-crafter.js?v=20261071100"></script>
+    <script src="js/apx-npc-crafter.js?v=20261071100"></script>
+    <script src="js/apx-engine.js?v=20261071100"></script>
+    <script src="js/apx-perks-ui.js?v=20261071100"></script>
+    <script src="js/apx-rest.js?v=20261071100"></script>
+    <script src="js/apx-looting.js?v=20261071100"></script>
+    <script src="js/apx-main.js?v=20261071100"></script>
 
     <!-- Firebase (cloud sync — requires firebase-config.js to be configured) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20261062310"></script>
-    <script src="js/apx-firebase.js?v=20261062310"></script>
-    <script src="js/apx-battlemap.js?v=20261062310"></script>
-    <script src="js/apx-map-tiles.js?v=20261062310"></script>
+    <script src="js/firebase-config.js?v=20261071100"></script>
+    <script src="js/apx-firebase.js?v=20261071100"></script>
+    <script src="js/apx-battlemap.js?v=20261071100"></script>
+    <script src="js/apx-map-tiles.js?v=20261071100"></script>
     <script>
     // ── Sidebar: folders, worlds, meatball menus ─────────────
     window._sidebarChars = [];
@@ -3656,6 +3656,9 @@
                 worldMapTiles: newTiles,
                 worldMapDataUrl: cachedMap
             };
+            // The GM's ping on a battle map
+            let gp = data.gmPing || null;
+            if ((gp && gp.id) !== (world.gmPing && world.gmPing.id)) { world.gmPing = gp; setTimeout(() => { try { window._pwRefreshBattleWindows && window._pwRefreshBattleWindows(); } catch (e) { } }, 0); }
             // World Settings (Starting XP, Max GP, starting Cu, attribute method)
             if (data.worldSettings) window._pwSetWorldSettings(code, data.worldSettings);
             // Race templates the GM adds to (or takes out of) this world show up in the Ancestry builder at once
@@ -4539,6 +4542,8 @@
                     <button onclick="window.pwOmZoom('${winId}',0.8)"  style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;font-size:0.7rem;font-weight:700;padding:0.2rem 0.5rem;border-radius:0.25rem;cursor:pointer;">−</button>
                     <button onclick="window.pwOmReset('${winId}')"     style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;padding:0.2rem 0.5rem;border-radius:0.25rem;cursor:pointer;">Reset</button>
                     <button id="${winId}_measureBtn" onclick="window.APXBattle && window.APXBattle.toggleMeasure('${winId}')" title="Measure squares between two points or tokens (hotkey M)" style="display:none;background:#1e293b;border:1px solid #a16207;color:#fde68a;font-size:0.7rem;font-weight:700;padding:0.2rem 0.5rem;border-radius:0.25rem;cursor:pointer;">Measure</button>
+                    <button id="${winId}_tool_draw" data-bt-extra onclick="window.APXBattle && window.APXBattle.toggleTool('${winId}','draw')" title="Draw on the map: everyone at the table sees it" style="display:none;background:#1e293b;border:1px solid #475569;color:#e2e8f0;font-size:0.7rem;font-weight:700;padding:0.2rem 0.5rem;border-radius:0.25rem;cursor:pointer;">Draw</button>
+                    <button data-bt-extra onclick="window.APXBattle && window.APXBattle.toggleTool('${winId}','ping')" title="Ping a spot for everyone (or press P with your mouse there)" style="display:none;background:#1e293b;border:1px solid #38bdf8;color:#bae6fd;font-size:0.7rem;font-weight:700;padding:0.2rem 0.5rem;border-radius:0.25rem;cursor:pointer;">Ping (P)</button>
                 </div>
                 <div id="${winId}_vp" style="position:absolute;transform-origin:0 0;will-change:transform;">
                     <img id="${winId}_img" src="" alt="" style="display:none;max-width:none;user-select:none;pointer-events:none;">
@@ -4853,6 +4858,7 @@
         window.APXBattle.styleGrid(canvas);   // the grid itself is drawn by APXBattle (screen space)
     }
     // Re-render every open battle-map window (called when positions change in Firestore)
+    window._pwRefreshBattleWindows = () => _pwRefreshBattleWindows();
     function _pwRefreshBattleWindows() {
         let world = window._playerWorldData;
         (world?.notesV2?.otherMaps||[]).forEach(m => {
@@ -4916,6 +4922,7 @@
         if (!area || !window.APXBattle) return;
         let mBtn = document.getElementById(winId+'_measureBtn');
         if (mBtn) mBtn.style.display = map?.battleMapEnabled ? '' : 'none';
+        document.getElementById(winId)?.querySelectorAll('[data-bt-extra]').forEach(b => { b.style.display = map?.battleMapEnabled ? '' : 'none'; });
         if (!img || !img.naturalWidth || !map?.battleMapEnabled) { window.APXBattle.clear(winId); return; }
         let g = window.APXBattle.grid(map.battleGrid);
         let posOf = t => window.APXBattle.posOf(map.id, t);
@@ -4992,7 +4999,7 @@
                 portrait,
                 title: t.name || '',
                 name: t.name || '',
-                draggable: mine, interactive: true,
+                draggable: mine, interactive: true, down: !!t._down, _down: !!t._down,
                 aura: t._aura && !isDead ? { type: t._aura.type, radius: t._aura.radius || 1, title: `${t._aura.type} aura` } : null,
                 type: t.type, worldNpcId: t.worldNpcId || null, playerUid: t.playerUid || null,
                 attrs: t.type==='npc' && t.worldNpcId ? {'data-pwbt-npc': t.worldNpcId} : null
@@ -5031,6 +5038,19 @@
             onMeasureShare: (g) => window.APXBattle.writeMeasure(window._playerWorldData?.inviteCode, myUid, map.id, g),
             sharedMeasures: (window.APXBattle.measuresFor ? window.APXBattle.measuresFor(map.id, myUid) : []).concat(map._gmMeasure && map._gmMeasure.a ? [{ who: 'GM', g: map._gmMeasure }] : []),
             onMeasureChange: (on) => { let b = document.getElementById(winId+'_measureBtn'); if (b) { b.style.background = on ? '#a16207' : '#1e293b'; b.style.color = on ? '#fff' : '#fde68a'; } },
+            // Difficult terrain (under the fog), walls and closed doors (never drawn: they just stop your tokens),
+            // everyone's drawings, and pings
+            difficult: map.difficult || [], walls: map.walls || [], wallsBlock: vm => mineIds.has(vm.id),
+            drawings: (map.drawings || []).concat(window.APXBattle.drawingsFor ? window.APXBattle.drawingsFor(map.id) : []),
+            pings: (window.APXBattle.pingsFor ? window.APXBattle.pingsFor(map.id) : []).concat(world?.gmPing && world.gmPing.map === map.id ? [world.gmPing] : []),
+            onDraw: st => { let code = window._playerWorldData?.inviteCode; let mine = window.APXBattle.myDrawings(myUid, map.id).concat([st]).slice(-150); window.APXBattle.writeDrawings(code, myUid, map.id, mine); },
+            onDrawUndo: () => { let code = window._playerWorldData?.inviteCode; window.APXBattle.writeDrawings(code, myUid, map.id, window.APXBattle.myDrawings(myUid, map.id).slice(0, -1)); },
+            onDrawClear: () => { let code = window._playerWorldData?.inviteCode; window.APXBattle.writeDrawings(code, myUid, map.id, []); },
+            onPing: pt => {
+                let code = window._playerWorldData?.inviteCode;
+                window.APXBattle.writePing(code, myUid, map.id, { id: 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), x: pt.x, y: pt.y, t: Date.now(), who: window.state?.name || 'A player' });
+            },
+            onToolChange: kind => { let b = document.getElementById(winId + '_tool_draw'); if (b) { b.style.background = kind === 'draw' ? '#a16207' : '#1e293b'; b.style.color = kind === 'draw' ? '#fff' : '#e2e8f0'; } },
             previewBlocked: (vm, gx, gy) => _pwCellUnderFog(winId, gx, gy, g) ||
                 !!window.APXBattle.findBlocker(visible, {id: vm.id, size: vm.size}, gx, gy, posOf),
             resolveDrop: landing,
@@ -5644,9 +5664,9 @@
         });
     }
     </script>
-    <script src="js/apx-chat.js?v=20261062310"></script>
-    <script src="js/apx-actions.js?v=20261062310"></script>
-    <script src="js/apx-extras.js?v=20261062310"></script>
-    <script src="js/apx-theme-light.js?v=20261062310"></script>
+    <script src="js/apx-chat.js?v=20261071100"></script>
+    <script src="js/apx-actions.js?v=20261071100"></script>
+    <script src="js/apx-extras.js?v=20261071100"></script>
+    <script src="js/apx-theme-light.js?v=20261071100"></script>
 </body>
 </html>
