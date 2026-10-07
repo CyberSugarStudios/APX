@@ -690,8 +690,11 @@
             if (el._drag.path && el._drag.alt !== e.altKey) { el._drag.alt = e.altKey; _drawPath(layer, el); }
             if (c.gridX === el._drag.gx && c.gridY === el._drag.gy) return;
             el._drag.gx = c.gridX; el._drag.gy = c.gridY;
-            if (el._drag.path) { _extendPath(el._drag.path, c.gridX, c.gridY); _drawPath(layer, el); }
-            if (el._drag.trail) _extendPath(el._drag.trail, c.gridX, c.gridY);
+            // A token walls stop follows them: its path bends around a wall's corner instead of cutting across it
+            let wb = el._drag.trail ? (a, b) => !!wallBlocking(o.walls, el._vm.size, [a, b]) : null;
+            let inMap = el._drag.trail ? _inMapFn(o, el._vm.size) : null;
+            if (el._drag.path) { _extendPath(el._drag.path, c.gridX, c.gridY, wb, inMap); _drawPath(layer, el); }
+            if (el._drag.trail) _extendPath(el._drag.trail, c.gridX, c.gridY, wb, inMap);
             if (el._group && el._group.length) {
                 _applyGroupDelta(layer, el._group, c.gridX - el._drag.sx, c.gridY - el._drag.sy);
                 let ok = !o.canGroupMove || o.canGroupMove(_moveList(el, el._group));
@@ -1030,24 +1033,69 @@
         }
         return { ap, moves: n, left, actions };
     }
-    // King-step from the path's end to (gx, gy); stepping back onto the path erases the loop
-    function _extendPath(path, gx, gy) {
+    // King-step from the path's end to (gx, gy); stepping back onto the path erases the loop.
+    // blocked(a, b) (optional): true when a step crosses a wall. Then the path goes around the wall's corner
+    // instead (a diagonal that would clip it becomes two straight steps, or a short detour), and never
+    // smooths a corner into a diagonal through a wall, so a token can be walked around corners in one drag.
+    function _extendPath(path, gx, gy, blocked, inMap) {
         let last = path[path.length - 1];
         if (last.gx === gx && last.gy === gy) return;
-        let cur = { gx: last.gx, gy: last.gy }, guard = 0;
+        let steps = blocked ? _wallRoute(last, { gx, gy }, blocked, inMap) : null;
+        let cur = { gx: last.gx, gy: last.gy }, guard = 0, k = 0;
         while ((cur.gx !== gx || cur.gy !== gy) && guard++ < 400) {
-            cur = { gx: cur.gx + Math.sign(gx - cur.gx), gy: cur.gy + Math.sign(gy - cur.gy) };
+            cur = steps && k < steps.length ? steps[k++] : { gx: cur.gx + Math.sign(gx - cur.gx), gy: cur.gy + Math.sign(gy - cur.gy) };
             let i = path.findIndex(p => p.gx === cur.gx && p.gy === cur.gy);
             if (i >= 0) path.length = i + 1; else path.push(cur);
             // A hand-drawn diagonal wobbles into a staircase (→ ↓ → ↓): whenever the square two back is a
             // king's step from this one, the corner between them is dropped, so the path runs diagonally
-            // and costs what the move really is (bigger tokens, whose anchor jumps more, wobble the most)
+            // and costs what the move really is (bigger tokens, whose anchor jumps more, wobble the most).
+            // Not when that diagonal would cut through a wall.
             while (path.length >= 3) {
                 let a = path[path.length - 3], c = path[path.length - 1];
                 if (Math.max(Math.abs(a.gx - c.gx), Math.abs(a.gy - c.gy)) > 1) break;
+                if (blocked && blocked(a, c)) break;
                 path.splice(path.length - 2, 1);
             }
         }
+    }
+    // Is a token's square on the map? (its centre inside the map image)
+    function _inMapFn(o, size) {
+        if (!o || !o.imgSize || !o.imgSize.w || !o.imgSize.h) return null;
+        let org = origin(o.grid), cs = o.grid.cellSize, h = span(size) / 2;
+        return c => { let x = org.ox + (c.gx + h) * cs, y = org.oy + (c.gy + h) * cs; return x >= 0 && y >= 0 && x <= o.imgSize.w && y <= o.imgSize.h; };
+    }
+    // The steps from a to b that don't cross a wall: the plain king-step line when it's clear, otherwise the
+    // shortest way round a wall's corner (at most 2 steps longer, so a drag across the middle of a wall is
+    // still stopped). Null when there's none: the move is blocked.
+    function _wallRoute(a, b, blocked, inMap) {
+        let straight = [], cur = { gx: a.gx, gy: a.gy }, clear = true;
+        while (cur.gx !== b.gx || cur.gy !== b.gy) {
+            let nx = { gx: cur.gx + Math.sign(b.gx - cur.gx), gy: cur.gy + Math.sign(b.gy - cur.gy) };
+            if (clear && blocked(cur, nx)) clear = false;
+            straight.push(nx); cur = nx;
+        }
+        if (clear) return straight;
+        let pad = 2, x0 = Math.min(a.gx, b.gx) - pad, x1 = Math.max(a.gx, b.gx) + pad, y0 = Math.min(a.gy, b.gy) - pad, y1 = Math.max(a.gy, b.gy) + pad;
+        let maxLen = Math.max(Math.abs(a.gx - b.gx), Math.abs(a.gy - b.gy)) + 2;
+        let key = c => c.gx + ',' + c.gy, prev = { [key(a)]: null }, depth = { [key(a)]: 0 }, q = [a], h = 0;
+        // Straight steps first, so a corner is rounded with two straight steps rather than a diagonal
+        let dirs = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+        while (h < q.length) {
+            let c = q[h++];
+            if (c.gx === b.gx && c.gy === b.gy) {
+                let out = [], k = key(c);
+                while (prev[k]) { let [x, y] = k.split(',').map(Number); out.unshift({ gx: x, gy: y }); k = prev[k]; }
+                return out;
+            }
+            if (depth[key(c)] >= maxLen) continue;
+            for (let [dx, dy] of dirs) {
+                let n = { gx: c.gx + dx, gy: c.gy + dy }, nk = key(n);
+                if (n.gx < x0 || n.gx > x1 || n.gy < y0 || n.gy > y1 || nk in prev) continue;
+                if ((inMap && !inMap(n)) || blocked(c, n)) continue;
+                prev[nk] = key(c); depth[nk] = depth[key(c)] + 1; q.push(n);
+            }
+        }
+        return null;
     }
     function _pathInfo(d) {
         if (!d || !d.path) return null;
