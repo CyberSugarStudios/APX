@@ -1627,12 +1627,64 @@
         let n = _nearest(cf, fa);
         return squaresBetween(fa.x0 - n.gx, fa.y0 - n.gy);
     }
-    function _areaOk(layer, P) { return P.range === Infinity || !_casterFoot(layer, P) || _areaReach(layer, P) <= Math.max(1, P.range); }
+    // Walls and closed doors block areas: a placed area's start must be in sight of its user
+    function _areaSight(layer, P) {
+        let cf = _casterFoot(layer, P), fa = _areaFoot(layer, P);
+        if (!cf || !fa || fa.token) return true;
+        let ws = _sightWalls(layer._opts); if (!ws.length) return true;
+        return _sightClear(ws, (cf.x0 + cf.x1 + 1) / 2, (cf.y0 + cf.y1 + 1) / 2, fa.x0 + 0.5, fa.y0 + 0.5);
+    }
+    function _areaOk(layer, P) { return _areaSight(layer, P) && (P.range === Infinity || !_casterFoot(layer, P) || _areaReach(layer, P) <= Math.max(1, P.range)); }
+    function _sightWalls(o) { return ((o && o.walls) || []).filter(w => w && !(w.door && w.open)); }
+    function _sightClear(ws, ax, ay, bx, by, touch) { for (let w of ws) if (_segHits(ax, ay, bx, by, w, touch)) return false; return true; }
+    // An area cut by walls: a Line stops at the first wall, a Cone covers only the squares its point can see,
+    // and a Burst spreads from its middle around corners as far as its radius reaches along the way
+    function _areaWalls(layer, P, fa, cells, b) {
+        let ws = _sightWalls(layer._opts); if (!ws.length || !cells.length) return cells;
+        let cx = (fa.x0 + fa.x1 + 1) / 2, cy = (fa.y0 + fa.y1 + 1) / 2;
+        if (P.mode === 'line') {
+            let out = [], px = cx, py = cy;
+            for (let c of cells) {
+                if (!_sightClear(ws, px, py, c.gx + 0.5, c.gy + 0.5, true)) break;
+                out.push(c); px = c.gx + 0.5; py = c.gy + 0.5;
+            }
+            return out;
+        }
+        if (P.mode === 'cone') {
+            let A = areaCells(fa, b, 'cone', 1, P.size);   // just its point
+            return cells.filter(c => _sightClear(ws, A.ax, A.ay, c.gx + 0.5, c.gy + 0.5, true));
+        }
+        // Burst
+        let R = P.size + (fa.x1 - fa.x0 + 1) / 2, key = c => c.gx + ',' + c.gy;
+        let inSet = new Set(cells.map(key)), dist = {}, q = [];
+        cells.forEach(c => { if (c.gx >= fa.x0 && c.gx <= fa.x1 && c.gy >= fa.y0 && c.gy <= fa.y1) { dist[key(c)] = Math.hypot(c.gx + 0.5 - cx, c.gy + 0.5 - cy); q.push(c); } });
+        // Shortest way to each square that doesn't cross a wall (straight steps 1, diagonal ones 1.41)
+        while (q.length) {
+            let bi = 0; for (let i = 1; i < q.length; i++) if (dist[key(q[i])] < dist[key(q[bi])]) bi = i;
+            let c = q.splice(bi, 1)[0], dc = dist[key(c)];
+            for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+                if (!dx && !dy) continue;
+                let n = { gx: c.gx + dx, gy: c.gy + dy }, nk = key(n);
+                if (!inSet.has(nk)) continue;
+                let nd = dc + (dx && dy ? Math.SQRT2 : 1);
+                if (dist[nk] !== undefined && dist[nk] <= nd) continue;
+                if (!_sightClear(ws, c.gx + 0.5, c.gy + 0.5, n.gx + 0.5, n.gy + 0.5, true)) continue;
+                dist[nk] = nd; q.push(n);
+            }
+        }
+        // In sight of the middle: in it, as without walls. Around a corner: in it if the way there is short enough.
+        return cells.filter(c => {
+            if (_sightClear(ws, cx, cy, c.gx + 0.5, c.gy + 0.5, true)) return true;
+            let d = dist[key(c)];
+            return d !== undefined && d <= R;
+        });
+    }
     function _areaCalc(layer, P) {
         let fa = _areaFoot(layer, P); if (!fa) return null;
         let cx = (fa.x0 + fa.x1 + 1) / 2, cy = (fa.y0 + fa.y1 + 1) / 2, D = Math.max(20, P.size * 3);
         let b = { gx: Math.floor(cx + Math.cos(P.ang) * D), gy: Math.floor(cy + Math.sin(P.ang) * D) };
         let cells = P.mode === 'line' ? lineCells(fa, b, P.size) : areaCells(fa, b, P.mode, P.size > 120 ? 3 : P.size > 40 ? 5 : 12, P.size).cells;
+        cells = _areaWalls(layer, P, fa, cells, b);
         let set = new Set(cells.map(c => c.gx + ',' + c.gy)), hits = [];
         (layer._opts.tokens || []).forEach(vm => {
             let p = _tokPos(layer, vm.id) || { gx: vm.gridX, gy: vm.gridY }, sp = span(vm.size), inside = false;
@@ -1665,7 +1717,7 @@
         if (P.placed) html += `<circle cx="${c0.x}" cy="${c0.y}" r="${Math.max(9, (A.fa.x1 - A.fa.x0 + 1) * cs * s * 0.5 + 3)}" fill="none" stroke="#fde68a" stroke-width="1.5" stroke-dasharray="3 3"/>`;
         let shape = P.mode === 'burst' ? `${P.size}-sq Burst` : `${P.size}-sq ${P.mode === 'line' ? 'Line' : 'Cone'}`;
         html += _measureLabel(c0.x + 16, c0.y - 18, `${P.label}: ${shape} · ${hitN} creature${hitN === 1 ? '' : 's'}${P.safe.size ? ` (${P.safe.size} safe)` : ''}`, edge, '#f5f3ff');
-        if (!ok) html += _measureLabel(c0.x + 16, c0.y + 8, P.range === 0 ? 'Too far: it starts from you (or the square next to you)' : `Out of range: ${reach} of ${P.range} squares`, '#f87171', '#fecaca');
+        if (!ok) html += _measureLabel(c0.x + 16, c0.y + 8, !_areaSight(layer, P) ? 'A wall is in the way: you can\'t see that spot' : P.range === 0 ? 'Too far: it starts from you (or the square next to you)' : `Out of range: ${reach} of ${P.range} squares`, '#f87171', '#fecaca');
         P.svg.innerHTML = html;
         if (go) { go.style.opacity = P.placed && ok ? '1' : '.5'; }
         if (tip) {
@@ -1727,7 +1779,7 @@
             P.finish = finish;
             let confirm = () => {
                 if (!P.placed) { toast(layer._opts.area, 'Click on the map to place the area first.'); return; }
-                if (!_areaOk(layer, P)) { toast(layer._opts.area, P.range === 0 ? 'This power starts from you: move its start onto you or the square next to you.' : `That's out of range (${_areaReach(layer, P)} of ${P.range} squares).`); return; }
+                if (!_areaOk(layer, P)) { toast(layer._opts.area, !_areaSight(layer, P) ? 'A wall is in the way: the area has to start somewhere you can see.' : P.range === 0 ? 'This power starts from you: move its start onto you or the square next to you.' : `That's out of range (${_areaReach(layer, P)} of ${P.range} squares).`); return; }
                 let A = _areaCalc(layer, P); if (!A) return;
                 let hit = A.hits.filter(h => !P.safe.has(h.vm.id));
                 let res = { tokenIds: hit.map(h => h.vm.id), safeIds: A.hits.filter(h => P.safe.has(h.vm.id)).map(h => h.vm.id),
@@ -1875,7 +1927,119 @@
             svg.innerHTML = html;
         }
         _layoutDoorBtns(layer, o.doorButtons ? walls.filter(w => w && w.door) : []);
+        _layoutRoomBtns(layer);
         _layoutPings(layer);
+    }
+    // ── Rooms: closed loops of walls (doors count as wall) ──
+    // Returns [{ id, poly: [{x, y}] (grid units), holes: [poly] (rooms inside it), ix, iy (a spot well inside it) }]
+    let _roomsKey = null, _roomsVal = [];
+    function rooms(walls) {
+        let segs = (walls || []).filter(w => w && isFinite(w.x1) && isFinite(w.y1) && isFinite(w.x2) && isFinite(w.y2) && (w.x1 !== w.x2 || w.y1 !== w.y2));
+        let key = segs.map(w => [w.x1, w.y1, w.x2, w.y2].join(',')).join(';');
+        if (key === _roomsKey) return _roomsVal;
+        // Split every wall where another one crosses it or an end touches it, so the walls make one network
+        let ts = segs.map(() => [0, 1]), EPS = 0.12;
+        let proj = (w, x, y) => { let vx = w.x2 - w.x1, vy = w.y2 - w.y1, L = vx * vx + vy * vy; let t = ((x - w.x1) * vx + (y - w.y1) * vy) / L; return { t, d: Math.hypot(w.x1 + t * vx - x, w.y1 + t * vy - y) }; };
+        segs.forEach((a, i) => segs.forEach((b, j) => {
+            if (i === j) return;
+            // b's ends on a
+            [[b.x1, b.y1], [b.x2, b.y2]].forEach(([x, y]) => { let q = proj(a, x, y); if (q.t > 1e-6 && q.t < 1 - 1e-6 && q.d < EPS) ts[i].push(q.t); });
+            if (j < i) return;
+            // a proper crossing
+            let d = (a.x2 - a.x1) * (b.y2 - b.y1) - (a.y2 - a.y1) * (b.x2 - b.x1); if (Math.abs(d) < 1e-12) return;
+            let t = ((b.x1 - a.x1) * (b.y2 - b.y1) - (b.y1 - a.y1) * (b.x2 - b.x1)) / d, u = ((b.x1 - a.x1) * (a.y2 - a.y1) - (b.y1 - a.y1) * (a.x2 - a.x1)) / d;
+            if (t > 1e-6 && t < 1 - 1e-6 && u > 1e-6 && u < 1 - 1e-6) { ts[i].push(t); ts[j].push(u); }
+        }));
+        // Corners: points that close together are the same corner
+        let pts = [], vid = (x, y) => { for (let k = 0; k < pts.length; k++) if (Math.hypot(pts[k].x - x, pts[k].y - y) < 0.05) return k; pts.push({ x, y }); return pts.length - 1; };
+        let adj = [], edge = (u, v) => { if (u === v) return; (adj[u] = adj[u] || new Set()).add(v); (adj[v] = adj[v] || new Set()).add(u); };
+        segs.forEach((w, i) => {
+            let list = [...new Set(ts[i])].sort((a, b) => a - b), prev = null;
+            list.forEach(t => { let v = vid(w.x1 + t * (w.x2 - w.x1), w.y1 + t * (w.y2 - w.y1)); if (prev !== null) edge(prev, v); prev = v; });
+        });
+        // Loose ends can't close a room: trim them away
+        let changed = true;
+        while (changed) { changed = false; adj.forEach((nb, v) => { if (nb && nb.size === 1) { let u = [...nb][0]; adj[u].delete(v); adj[v] = null; changed = true; } else if (nb && !nb.size) adj[v] = null; }); }
+        // Walk each face of the network, always taking the next wall round to the right
+        let order = adj.map((nb, v) => nb ? [...nb].sort((a, b) => Math.atan2(pts[a].y - pts[v].y, pts[a].x - pts[v].x) - Math.atan2(pts[b].y - pts[v].y, pts[b].x - pts[v].x)) : null);
+        let used = new Set(), faces = [];
+        order.forEach((nb, u0) => (nb || []).forEach(v0 => {
+            if (used.has(u0 + '>' + v0)) return;
+            let poly = [], u = u0, v = v0, guard = 0;
+            while (!used.has(u + '>' + v) && guard++ < 5000) {
+                used.add(u + '>' + v); poly.push(pts[u]);
+                let l = order[v], i = l.indexOf(u), w = l[(i - 1 + l.length) % l.length];
+                u = v; v = w;
+            }
+            let A = 0; for (let k = 0; k < poly.length; k++) { let a = poly[k], b = poly[(k + 1) % poly.length]; A += a.x * b.y - b.x * a.y; }
+            if (A / 2 > 0.5) faces.push({ poly, area: A / 2 });   // the outsides of networks come out the other way round
+        }));
+        let inside = (pt, poly) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { let a = poly[i], b = poly[j]; if ((a.y > pt.y) !== (b.y > pt.y) && pt.x < (b.x - a.x) * (pt.y - a.y) / (b.y - a.y) + a.x) c = !c; } return c; };
+        let segDist = (pt, poly) => { let m = Infinity; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { let a = poly[j], b = poly[i], vx = b.x - a.x, vy = b.y - a.y, L = vx * vx + vy * vy || 1; let t = Math.max(0, Math.min(1, ((pt.x - a.x) * vx + (pt.y - a.y) * vy) / L)); m = Math.min(m, Math.hypot(a.x + t * vx - pt.x, a.y + t * vy - pt.y)); } return m; };
+        let out = faces.map(f => {
+            let holes = faces.filter(g => g !== f && g.area < f.area && g.poly.every(p => inside(p, f.poly) || segDist(p, f.poly) < 1e-6) && g.poly.some(p => inside(p, f.poly))).map(g => g.poly);
+            // A spot well inside it for its button
+            let xs = f.poly.map(p => p.x), ys = f.poly.map(p => p.y), best = null;
+            let x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys), st = Math.max(0.25, Math.max(x1 - x0, y1 - y0) / 24);
+            let mx = (x0 + x1) / 2, my = (y0 + y1) / 2, nx = Math.ceil((x1 - x0) / 2 / st), ny = Math.ceil((y1 - y0) / 2 / st);
+            for (let i = -nx; i <= nx; i++) for (let j = -ny; j <= ny; j++) {
+                let x = mx + i * st, y = my + j * st;
+                let pt = { x, y }; if (!inside(pt, f.poly) || holes.some(h => inside(pt, h))) continue;
+                let d = Math.min(segDist(pt, f.poly), ...holes.map(h => segDist(pt, h))), dc = Math.hypot(x - (x0 + x1) / 2, y - (y0 + y1) / 2);
+                if (!best || d > best.d + st / 2 || (d > best.d - st / 2 && dc < best.dc)) best = { x, y, d: Math.max(d, best ? best.d : 0), dc };
+            }
+            let id = 'r' + f.poly.map(p => Math.round(p.x * 10) + '.' + Math.round(p.y * 10)).sort().join('_');
+            return best ? { id, poly: f.poly, holes, ix: best.x, iy: best.y } : null;
+        }).filter(Boolean);
+        _roomsKey = key; _roomsVal = out;
+        return out;
+    }
+    // GM: a small fog button in each room. opts.roomFog = { isFogged(room) -> bool, toggle(room), version() };
+    // the rooms it's given carry map-pixel outlines too (room.px, room.pxHoles)
+    function _layoutRoomBtns(layer) {
+        let o = layer._opts, rf = o && o.roomFog;
+        let list = rf && (!rf.show || rf.show()) ? rooms(o.walls || []) : [];
+        let box = layer.querySelector('[data-bt-ui="rooms"]');
+        if (!list.length) { if (box) box.remove(); return; }
+        if (!box) {
+            box = document.createElement('div'); box.setAttribute('data-bt-ui', 'rooms');
+            box.style.cssText = `position:absolute;inset:0;pointer-events:none;z-index:${Z_UI - 4};`;
+            layer.appendChild(box);
+        }
+        let g = o.grid, win = o.win, s = win._scale || 1, ox = win._offX || 0, oy = win._offY || 0, org = origin(g), cs = g.cellSize;
+        let mp = p => ({ x: org.ox + p.x * cs, y: org.oy + p.y * cs });
+        let ver = String(rf.version ? rf.version() : ''), keep = new Set();
+        list.forEach(r => {
+            keep.add(r.id);
+            let room = Object.assign({}, r, { px: r.poly.map(mp), pxHoles: r.holes.map(h => h.map(mp)), cs });
+            let b = box.querySelector(`[data-room="${CSS.escape(r.id)}"]`);
+            if (!b) {
+                b = document.createElement('button'); b.setAttribute('data-room', r.id);
+                b.style.cssText = 'position:absolute;pointer-events:auto;width:20px;height:20px;padding:0;margin:0;border:0;background:transparent;cursor:pointer;opacity:.5;transform:translate(-50%,-50%);transition:opacity .12s,transform .12s;';
+                b.addEventListener('mouseenter', () => { b.style.opacity = '1'; b.style.transform = 'translate(-50%,-50%) scale(1.3)'; });
+                b.addEventListener('mouseleave', () => { b.style.opacity = '.5'; b.style.transform = 'translate(-50%,-50%)'; });
+                b.addEventListener('mousedown', e => e.stopPropagation());
+                b.addEventListener('pointerdown', e => e.stopPropagation());
+                b.addEventListener('click', e => {
+                    e.stopPropagation();
+                    let oo = layer._opts; if (!oo || !oo.roomFog || !b._room) return;
+                    Promise.resolve(oo.roomFog.toggle(b._room)).then(() => { b._ver = null; _layoutRoomBtns(layer); });
+                });
+                box.appendChild(b);
+            }
+            b._room = room;
+            let c = mp({ x: r.ix, y: r.iy });
+            b.style.left = (ox + c.x * s) + 'px'; b.style.top = (oy + c.y * s) + 'px';
+            if (b._ver !== ver) {
+                b._ver = ver;
+                let fogged = !!rf.isFogged(room);
+                b.innerHTML = `<svg width="20" height="20" viewBox="0 0 20 20" style="display:block;pointer-events:none"><rect x="1" y="1" width="18" height="18" rx="5" fill="${fogged ? 'rgba(30,41,59,.95)' : 'rgba(15,23,42,.7)'}" stroke="${fogged ? '#94a3b8' : '#64748b'}" stroke-width="1.2" ${fogged ? '' : 'stroke-dasharray="2.5 2"'}/>`
+                    + `<path d="M5.5 13.5h9a2.6 2.6 0 0 0 .2-5.2 3.6 3.6 0 0 0-6.9-1.1A2.8 2.8 0 0 0 5.5 13.5z" fill="${fogged ? '#cbd5e1' : 'none'}" stroke="#cbd5e1" stroke-width="1.3"/></svg>`;
+                b.title = (fogged ? 'Room in fog: click to reveal the whole room.' : 'Room: click to cover the whole room in fog.') + ' (Only you see this.)';
+                b.setAttribute('aria-label', fogged ? 'Reveal room' : 'Fog room');
+            }
+        });
+        box.querySelectorAll('[data-room]').forEach(b => { if (!keep.has(b.getAttribute('data-room'))) b.remove(); });
     }
     // GM: a small door marker on each door (players never see doors or walls). It's drawn along the wall: a
     // bar across the gap when closed (amber), swung open when open (green). Faint until you hover it; click toggles.
@@ -1974,15 +2138,36 @@
                 el = document.createElement('div'); el.setAttribute('data-ping', pg.id);
                 el.style.cssText = 'position:absolute;width:0;height:0';
                 let col = pg.gm ? '#f59e0b' : '#38bdf8';
-                el.innerHTML = [0, 0.5, 1].map(d => `<div style="position:absolute;left:0;top:0;width:56px;height:56px;border-radius:50%;border:3px solid ${col};transform:translate(-50%,-50%) scale(.2);opacity:0;animation:apxPing 1.5s ease-out ${d}s 3 both"></div>`).join('')
-                    + `<div style="position:absolute;left:0;top:0;width:12px;height:12px;border-radius:50%;background:${col};transform:translate(-50%,-50%);box-shadow:0 0 10px ${col}"></div>`
-                    + `<div style="position:absolute;left:14px;top:-26px;white-space:nowrap;background:rgba(15,23,42,.92);border:1px solid ${col};color:#fff;font:800 12px system-ui,sans-serif;padding:2px 7px;border-radius:5px"></div>`;
-                el.lastChild.textContent = pg.who || 'Someone';
+                // On the map: pulses, a dot and the name. Off screen: an arrow on the edge of the view pointing to it.
+                el.innerHTML = `<div data-pin>` + [0, 0.5, 1].map(d => `<div style="position:absolute;left:0;top:0;width:56px;height:56px;border-radius:50%;border:3px solid ${col};transform:translate(-50%,-50%) scale(.2);opacity:0;animation:apxPing 1.5s ease-out ${d}s 3 both"></div>`).join('')
+                    + `<div style="position:absolute;left:0;top:0;width:12px;height:12px;border-radius:50%;background:${col};transform:translate(-50%,-50%);box-shadow:0 0 10px ${col}"></div></div>`
+                    + `<div data-edge style="display:none"><div style="position:absolute;left:0;top:0;width:34px;height:34px;border-radius:50%;border:3px solid ${col};transform:translate(-50%,-50%) scale(.2);opacity:0;animation:apxPing 1.5s ease-out 0s 4 both"></div>`
+                    + `<div data-arrow style="position:absolute;left:0;top:0;width:0;height:0"><svg width="26" height="26" viewBox="-13 -13 26 26" style="position:absolute;left:-13px;top:-13px;overflow:visible"><circle r="10" fill="rgba(15,23,42,.92)" stroke="${col}" stroke-width="2"/><path data-arrowp d="M-5,-5 L7,0 L-5,5 L-2,0 Z" fill="${col}"/></svg></div></div>`
+                    + `<div data-name style="position:absolute;left:14px;top:-26px;white-space:nowrap;background:rgba(15,23,42,.92);border:1px solid ${col};color:#fff;font:800 12px system-ui,sans-serif;padding:2px 7px;border-radius:5px"></div>`;
+                el.querySelector('[data-name]').textContent = pg.who || 'Someone';
                 box.appendChild(el);
                 let left = Math.max(500, 6000 - (now - _pingSeen[pg.id].at));
                 setTimeout(() => { el.remove(); if (box.isConnected && !box.children.length) box.remove(); }, left);
             }
-            el.style.left = (ox + pg.x * s) + 'px'; el.style.top = (oy + pg.y * s) + 'px';
+            let x = ox + pg.x * s, y = oy + pg.y * s, W = (o.area && o.area.clientWidth) || layer.clientWidth, H = (o.area && o.area.clientHeight) || layer.clientHeight;
+            let m = 22, off = W > 2 * m && H > 2 * m && (x < m || y < m || x > W - m || y > H - m);
+            let pin = el.querySelector('[data-pin]'), edge = el.querySelector('[data-edge]'), nm = el.querySelector('[data-name]');
+            if (off) {
+                // Pinned to the edge of the view, where the line from the middle of the view toward the ping leaves it
+                let cx = W / 2, cy = H / 2, dx = x - cx, dy = y - cy;
+                let t = Math.min(dx ? (dx > 0 ? (W - m - cx) / dx : (m - cx) / dx) : Infinity, dy ? (dy > 0 ? (H - m - cy) / dy : (m - cy) / dy) : Infinity);
+                let ex = cx + dx * t, ey = cy + dy * t;
+                el.style.left = ex + 'px'; el.style.top = ey + 'px';
+                pin.style.display = 'none'; edge.style.display = '';
+                edge.querySelector('[data-arrowp]').setAttribute('transform', `rotate(${(Math.atan2(dy, dx) * 180 / Math.PI).toFixed(1)})`);
+                // The name sits inside the view, away from the edge it's on
+                nm.style.left = (ex > W - 140 ? -14 - (nm.offsetWidth || 80) : 16) + 'px';
+                nm.style.top = (ey < 40 ? 14 : -28) + 'px';
+            } else {
+                el.style.left = x + 'px'; el.style.top = y + 'px';
+                pin.style.display = ''; edge.style.display = 'none';
+                nm.style.left = '14px'; nm.style.top = '-26px';
+            }
         });
         box.querySelectorAll('[data-ping]').forEach(el => { if (!keep.has(el.getAttribute('data-ping'))) el.remove(); });
     }
@@ -2352,7 +2537,7 @@
         numberOf, sizeFromCharState, compressImage,
         squaresBetween, pathSquares, areaCells, lineCells, measuresFor, writeMeasure, moveCost, auraColor, enterMeasure, exitMeasure, toggleMeasure, isMeasuring,
         placeArea, isPlacingArea,
-        pathCost, wallBlocking, enterTool, exitTool, toggleTool, toolOf, pingHere,
+        pathCost, wallBlocking, enterTool, exitTool, toggleTool, toolOf, pingHere, rooms, refreshRooms: winId => { let l = document.getElementById(winId + '_btScreen'); if (l) _layoutRoomBtns(l); },
         pingsFor, drawingsFor, myDrawings, writePing, writeDrawings, draws: () => store.draws
     };
 })();
