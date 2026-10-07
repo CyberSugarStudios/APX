@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.7.1145',
-        released: '2026-10-07T11:45:00',
-        releasedText: 'October 7, 2026 · 11:45 AM',
+        version: 'v2026.10.7.1345',
+        released: '2026-10-07T13:45:00',
+        releasedText: 'October 7, 2026 · 1:45 PM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs with loot of their own, apart from their stat blocks, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, area powers placed right on the battle map with every save in them rolled for you, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -88,7 +88,7 @@
                 'Area powers land on the battle map: using a power with a Line, Cone or Burst while a battle map is open has you place its area first, at the size the power was crafted with. A Self or Touch area starts from the creature using it (scroll to turn it 15° a notch, drag its start to move it); a ranged one is placed anywhere within the power\'s range. A Line or Cone points the way it was last used, and right-click (or Esc) cancels. Everyone in it then makes a new saving throw every time it\'s used: NPCs roll from the GM\'s dice tray, players get a button to roll their own, and each creature takes the damage (and any Conditions) by its own roll. With the Safe Zone perk, Shift+click creatures to leave them out.'
             ]],
             ['Maps', [
-                'Battle maps have new tools. Terrain (GM): squares of difficult terrain, drawn with diagonal lines under the fog, cost 2 squares to move into. Walls (GM): lines only the GM sees (while editing them) that players\' tokens can\'t cross, and doors that open and close from a button only the GM sees, for secret doors too. Draw: everyone can draw on the map in any colour and size. Ping (P): a pulse, a chime and your character\'s name (or "GM") wherever your mouse is.',
+                'Battle maps have new tools. Terrain (GM): squares of difficult terrain, drawn with diagonal lines under the fog, cost 2 squares to move into. Walls (GM): lines drawn anywhere, at any angle, that only the GM sees (while editing them) and players\' tokens can\'t cross, and doors that open and close from a button only the GM sees, for secret doors too. Draw: everyone can draw on the map in any colour and size. Ping (P): a pulse, a chime and your character\'s name (or "GM") wherever your mouse is.',
                 'A dead, downed or Prone creature\'s square can be moved through or stood in, as difficult terrain; when it gets up, whoever is standing over it moves to the nearest open square.',
                 'Special Map Markers are larger and bright yellow with a dark outline (magenta for the GM while hidden), stay readable when zoomed out, and can hold loot.',
                 'Area Circles stay about the same size on screen at any zoom, every marker shows its name the instant your mouse is over it, and a linked NPC\'s name opens that NPC\'s full window.',
@@ -505,7 +505,7 @@
             ]],
             ['Maps', [
                 'Terrain (battle map bar): click or drag across squares to mark difficult terrain, drawn with diagonal lines for everyone and hidden under fog like the map. Moving into one costs 2 squares, and movement paths count it.',
-                'Walls: drag between grid corners to draw walls players\' tokens can\'t cross (they snap back, the way fog works). Shift+click a wall to make it a door, right-click to delete. Walls show only while Walls is on; each door gets a small button only you can see that opens or closes it, so a secret door stays shut until you open it.',
+                'Walls: drag anywhere on the map to draw walls players\' tokens can\'t cross (they snap back, the way fog works). They go exactly where you draw them, at any angle; an end placed near another wall\'s end joins it with no gap, and holding Alt snaps to grid corners. Shift+click a wall to make it a door, right-click to delete. Walls show only while Walls is on; each door gets a small button only you can see that opens or closes it, so a secret door stays shut until you open it.',
                 'Draw: draw on the map in any colour and size, seen by everyone (Undo, Clear mine, Clear everyone\'s). Ping (P): a pulse, a chime and "GM" wherever your mouse is; players\' pings carry their character\'s name.',
                 'Dead, downed (Undead waiting to rise included) and Prone creatures don\'t block their square: others can move through or stand in it, as difficult terrain. When the creature gets up, whoever stands over it moves to the nearest open square.',
                 'Linked maps open in the same spot: the first near the middle of the screen, each next one slightly offset, and never off screen however many are open.',

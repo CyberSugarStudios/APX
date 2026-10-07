@@ -1753,7 +1753,7 @@
 
     // ── Markings: difficult terrain, drawings, walls & doors, pings ─────
     //   opts.difficult  ["gx,gy"]: squares of difficult terrain (diagonal lines; under the fog like the map)
-    //   opts.walls      [{ id, x1, y1, x2, y2 (grid corners), door, open }]: invisible except while editing them;
+    //   opts.walls      [{ id, x1, y1, x2, y2 (grid units, anywhere), door, open }]: invisible except while editing them;
     //                   opts.wallsBlock(vm) -> true for the tokens they stop (a player's own)
     //   opts.doorButtons (GM): a small open / close button on each door; opts.onDoorToggle(id)
     //   opts.drawings   [{ id, c (colour), w (width, map px), p: [x, y, x, y…] (map px) }]
@@ -1815,7 +1815,7 @@
                         <line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="${col}" stroke-width="4" stroke-linecap="round" ${w.door && w.open ? 'stroke-dasharray="8 6"' : ''}/>`;
                 });
                 if (tool.drag) { let a = scr(tool.drag.x1, tool.drag.y1), b = scr(tool.drag.x2, tool.drag.y2); html += `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="#fca5a5" stroke-width="3" stroke-dasharray="6 4"/><circle cx="${a.x}" cy="${a.y}" r="4" fill="#fca5a5"/><circle cx="${b.x}" cy="${b.y}" r="4" fill="#fca5a5"/>`; }
-                if (tool.corner) { let c = scr(tool.corner.x, tool.corner.y); html += `<circle cx="${c.x}" cy="${c.y}" r="5" fill="none" stroke="#fca5a5" stroke-width="2"/>`; }
+                if (tool.corner) { let c = scr(tool.corner.x, tool.corner.y); html += `<circle cx="${c.x}" cy="${c.y}" r="${tool.corner.snap ? 7 : 5}" fill="${tool.corner.snap ? 'rgba(252,165,165,.35)' : 'none'}" stroke="#fca5a5" stroke-width="2"/>`; }
             }
             svg.innerHTML = html;
         }
@@ -1960,7 +1960,7 @@
             bar.innerHTML = tip('Difficult terrain: click or drag across squares to add or remove it (moving into one costs 2 squares; it hides under fog like the map) · Esc or the button to stop');
         } else if (kind === 'walls') {
             T.walls = JSON.parse(JSON.stringify(o.walls || []));
-            bar.innerHTML = tip('Walls: drag between grid corners to draw one · Shift+click a wall to make it a door (or a wall again) · right-click a wall to delete it · players\' tokens can\'t cross walls or closed doors · only you see walls, and only while this is on');
+            bar.innerHTML = tip('Walls: drag anywhere to draw one (it joins another wall\'s end when you start or stop near it; hold Alt to snap to grid corners) · Shift+click a wall to make it a door (or a wall again) · right-click a wall to delete it · players\' tokens can\'t cross walls or closed doors · only you see walls, and only while this is on');
         } else if (kind === 'draw') {
             T.color = _DRAW_PREFS.c || '#f43f5e'; T.size = _DRAW_PREFS.w || 3;
             bar.innerHTML = `<label style="${chip};display:flex;align-items:center;gap:4px">Colour <input data-dcol type="color" value="${T.color}" style="width:26px;height:18px;border:0;padding:0;background:none;cursor:pointer"></label>
@@ -1984,7 +1984,15 @@
         let isPan = e => e.button === 1 || (e.button === 0 && (e.ctrlKey || e.metaKey));
         let cellOf = e => { let p = _imgPoint(layer, e); return _cellAt(layer._opts.grid, p.x, p.y); };
         let gridPt = e => { let p = _imgPoint(layer, e), g = layer._opts.grid, org = origin(g); return { x: (p.x - org.ox) / g.cellSize, y: (p.y - org.oy) / g.cellSize }; };
-        let cornerOf = e => { let q = gridPt(e); return { x: Math.round(q.x), y: Math.round(q.y) }; };
+        // Walls go anywhere: exactly where you point (Alt: snap to a grid corner). An end within a fifth of a
+        // square of another wall's end joins it, so walls meet without gaps a token could slip through.
+        let cornerOf = e => {
+            let q = gridPt(e);
+            if (e.altKey) return { x: Math.round(q.x), y: Math.round(q.y) };
+            let best = null, bd = 0.2;
+            T.walls.forEach(w => [[w.x1, w.y1], [w.x2, w.y2]].forEach(([x, y]) => { let d = Math.hypot(q.x - x, q.y - y); if (d < bd) { bd = d; best = { x, y, snap: true }; } }));
+            return best || { x: Math.round(q.x * 100) / 100, y: Math.round(q.y * 100) / 100 };
+        };
         let nearWall = e => {
             let q = gridPt(e), best = null, bd = 0.35;
             T.walls.forEach(w => {
