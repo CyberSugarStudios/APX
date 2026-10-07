@@ -450,8 +450,8 @@
                 }
         
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20261061715">
-    <link rel="stylesheet" href="css/tailwind.css?v=20261061715">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20261062020">
+    <link rel="stylesheet" href="css/tailwind.css?v=20261062020">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
@@ -1520,36 +1520,36 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20261061715"></script>
-    <script src="js/apx-patch-notes.js?v=20261061715"></script>
-    <script src="js/apx-dice.js?v=20261061715"></script>
-    <script src="js/apx-data.js?v=20261061715"></script>
-    <script src="js/apx-item-effects.js?v=20261061715"></script>
-    <script src="js/apx-perks-db.js?v=20261061715"></script>
-    <script src="js/apx-migrations.js?v=20261061715"></script>
-    <script src="js/apx-state.js?v=20261061715"></script>
-    <script src="js/apx-craft-shared.js?v=20261061715"></script>
-    <script src="js/apx-armor-forge.js?v=20261061715"></script>
-    <script src="js/apx-weapon-forge.js?v=20261061715"></script>
-    <script src="js/apx-consumable-crafter.js?v=20261061715"></script>
-    <script src="js/apx-perks-ui.js?v=20261061715"></script>
-    <script src="js/apx-power-crafter.js?v=20261061715"></script>
-    <script src="js/apx-npc-crafter.js?v=20261061715"></script>
-    <script src="js/apx-inventory-ui.js?v=20261061715"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20261061715"></script>
-    <script src="js/apx-gm-screen.js?v=20261061715"></script>
-    <script src="js/apx-loot-maker.js?v=20261061715"></script>
-    <script src="js/apx-library.js?v=20261061715"></script>
-    <script src="js/apx-gmtools-main.js?v=20261061715"></script>
+    <script src="js/apx-dialogs.js?v=20261062020"></script>
+    <script src="js/apx-patch-notes.js?v=20261062020"></script>
+    <script src="js/apx-dice.js?v=20261062020"></script>
+    <script src="js/apx-data.js?v=20261062020"></script>
+    <script src="js/apx-item-effects.js?v=20261062020"></script>
+    <script src="js/apx-perks-db.js?v=20261062020"></script>
+    <script src="js/apx-migrations.js?v=20261062020"></script>
+    <script src="js/apx-state.js?v=20261062020"></script>
+    <script src="js/apx-craft-shared.js?v=20261062020"></script>
+    <script src="js/apx-armor-forge.js?v=20261062020"></script>
+    <script src="js/apx-weapon-forge.js?v=20261062020"></script>
+    <script src="js/apx-consumable-crafter.js?v=20261062020"></script>
+    <script src="js/apx-perks-ui.js?v=20261062020"></script>
+    <script src="js/apx-power-crafter.js?v=20261062020"></script>
+    <script src="js/apx-npc-crafter.js?v=20261062020"></script>
+    <script src="js/apx-inventory-ui.js?v=20261062020"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20261062020"></script>
+    <script src="js/apx-gm-screen.js?v=20261062020"></script>
+    <script src="js/apx-loot-maker.js?v=20261062020"></script>
+    <script src="js/apx-library.js?v=20261062020"></script>
+    <script src="js/apx-gmtools-main.js?v=20261062020"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20261061715"></script>
-    <script src="js/apx-firebase.js?v=20261061715"></script>
-    <script src="js/apx-battlemap.js?v=20261061715"></script>
-    <script src="js/apx-map-tiles.js?v=20261061715"></script>
+    <script src="js/firebase-config.js?v=20261062020"></script>
+    <script src="js/apx-firebase.js?v=20261062020"></script>
+    <script src="js/apx-battlemap.js?v=20261062020"></script>
+    <script src="js/apx-map-tiles.js?v=20261062020"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -1631,7 +1631,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
     window.switchGmWorld = function(id) {
-        saveWorldNotes();
+        window.saveWorldNotesNow();   // (right now: the world being left keeps its notes and any fight in progress)
         selectGmWorld(id);
     };
 
@@ -1691,6 +1691,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 xpLog:           priv.xpLog || [],
                 loot:            priv.loot || [],
                 lootDefeated:    priv.lootDefeated || 0,
+                combatJson:      priv.combatJson || null,   // a fight left mid-combat
                 settings:        Object.assign(window.apxDefaultWorldSettings(), priv.settings || w.worldSettings || {}),
                 // ALWAYS load from private data first — priv contains the full unfiltered
                 // list. publicNotes only holds revealed items and is player-facing only.
@@ -1720,6 +1721,18 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             window.showWorldTab('session');
             try { window.renderGmLoot && window.renderGmLoot(); } catch (e) { }
+            // A fight left mid-combat comes back as it was; another world's fight doesn't follow you here
+            try {
+                let live = window._gmCombatWorldId === id && (window.gmInitiative||[]).length;   // (re-opening the world you're running: the fight is already here)
+                let back = !live && _wNotes.combatJson && window._gmRestoreCombat ? window._gmRestoreCombat(_wNotes.combatJson) : false;
+                if (!back && window._gmCombatWorldId && window._gmCombatWorldId !== id && (window.gmInitiative||[]).length) {
+                    window.gmInitiative = []; window.gmCurrentTurnIdx = 0; window.gmCombatStarted = false;
+                    window.gmRoundNumber = 1; window.gmTurnNumber = 1; window.gmPendingXp = 0; window.gmCombatMapId = null;
+                    window.gmCombatLog = [];
+                    window.renderInitiativeTracker && window.renderInitiativeTracker();
+                }
+            } catch (e) { console.warn('Saved combat:', e); }
+            window._gmCombatWorldId = id;
         }
     }
     function renderWorldSelector() {
@@ -1778,6 +1791,8 @@ document.addEventListener('DOMContentLoaded', () => {
         {
             let w = getActiveWorld();
             if (!w) return;
+            // The fight in progress (or none), saved with the world so a session can end mid-combat
+            try { _wNotes.combatJson = window._gmCombatSnapshot ? window._gmCombatSnapshot() : null; } catch (e) { console.warn('Saving combat:', e); }
 
             w.notesV2 = JSON.parse(JSON.stringify(_wNotes));
 
@@ -1834,6 +1849,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         xpLog: (w.notesV2.xpLog || []).slice(0, 100),
                         loot: (w.notesV2.loot || []).slice(0, 200),
                         lootDefeated: w.notesV2.lootDefeated || 0,
+                        combatJson: w.notesV2.combatJson || null,
                         settings: w.notesV2.settings || window.apxDefaultWorldSettings(),
                     }
                 };
@@ -6419,8 +6435,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </script>
     <div id="floatingWindowContainer"></div>
 
-    <script src="js/apx-chat.js?v=20261061715"></script>
-    <script src="js/apx-extras.js?v=20261061715"></script>
-    <script src="js/apx-theme-light.js?v=20261061715"></script>
+    <script src="js/apx-chat.js?v=20261062020"></script>
+    <script src="js/apx-extras.js?v=20261062020"></script>
+    <script src="js/apx-theme-light.js?v=20261062020"></script>
 </body>
 </html>

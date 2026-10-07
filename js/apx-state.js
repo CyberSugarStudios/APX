@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.10.6.1715';
+window.APX_VERSION = 'v2026.10.6.2020';
 
         window.state = getInitialState();
 
@@ -358,7 +358,7 @@ window.APX_VERSION = 'v2026.10.6.1715';
                             let nl = !!(pe.nonlethal || t.nonlethal);   // non-lethal: 0 HP knocks you out instead
                             useAtk = !!(t.fromSuggest && fresh);
                             let eff = window.apxEffectiveConditions ? window.apxEffectiveConditions(window.state.conditions || [], window.state).map(c => c.id) : [];
-                            let res = window.APXDamage.mitigate(raw, t, def, { ignore: useAtk ? window.APXDamage.ignoreOf(atk) : null, bypassRes: eff.includes('incapacitated'), halfBypass: def.halfBypass });
+                            let res = (window.APXDamage.throughTemp ? window.APXDamage.throughTemp.bind(null, raw, window.state.tempHp || 0) : window.APXDamage.mitigate.bind(null, raw))(t, def, { ignore: useAtk ? window.APXDamage.ignoreOf(atk) : null, bypassRes: eff.includes('incapacitated'), halfBypass: def.halfBypass });
                             if (useAtk) (window._pwUsedAtk = window._pwUsedAtk || {})[atk.id] = true;
                             let r2 = window.apxApplyHpInput('-' + res.dmg, window.state.currentHp, window.state.tempHp, maxHp);
                             if (!r2) return;

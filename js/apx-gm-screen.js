@@ -2269,6 +2269,8 @@ function _gmHandleRollEvent(uid, ev) {
     if (_gmSeenRoll[ev.id] === sig) return;
     let firstSeen = !(ev.id in _gmSeenRoll);
     _gmSeenRoll[ev.id] = sig;
+    // A fight brought back from a saved session: rolls made before it was saved were already handled
+    if (firstSeen && window._gmRollCutoff && (ev.t || 0) && ev.t <= window._gmRollCutoff) return;
     // A player spent an Omen die on someone else's roll: it waits in the GM's dice tray
     if (ev.kind === 'omen') {
         if (!firstSeen) return;
@@ -2393,6 +2395,84 @@ function _gmHandleRollEvent(uid, ev) {
     if (head.type === 'bleed' && entry.currentHp !== null && entry.currentHp <= 0) _gmApplyBleed(entry, r.turns);
 }
 window._gmHandleRollEvent = _gmHandleRollEvent;
+
+// ── A fight that survives the session ─────────────────────────────────────
+// The whole fight is saved with the world as it changes: the initiative order (HP, Temp HP, AP,
+// conditions, wounds, timers, power uses…), whose turn it is, the round, unpaid XP, the saves still
+// waiting and the combat log. Loading the world brings it back exactly as it was; the token positions
+// are on the maps already, and each player's own HP, AP and conditions are on their sheet.
+let _gmCombatSaveT = 0;
+function _gmCombatSaveSoon() {
+    if (window._gmRestoringCombat) return;
+    clearTimeout(_gmCombatSaveT);
+    _gmCombatSaveT = setTimeout(() => { if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes(); }, 1500);
+}
+window._gmCombatSaveSoon = _gmCombatSaveSoon;
+function _gmPlain(v) {
+    // (Sets become arrays; functions, like an area power's damage hook, aren't saved)
+    return v == null ? v : JSON.parse(JSON.stringify(v, (k, x) => x instanceof Set ? [...x] : typeof x === 'function' ? undefined : x));
+}
+function _gmSaveQueue(q) {
+    let out = {};
+    Object.keys(q || {}).forEach(id => {
+        let items = (q[id] || []).filter(it => it && !it.area);   // an area power's waiting saves end with the session
+        if (items.length) out[id] = _gmPlain(items);
+    });
+    return out;
+}
+window._gmCombatSnapshot = function() {
+    if (!(window.gmInitiative || []).length && !window.gmCombatStarted) return null;
+    let body = JSON.stringify({
+        initiative: _gmPlain(window.gmInitiative || []),
+        curIdx: window.gmCurrentTurnIdx || 0, started: !!window.gmCombatStarted,
+        round: window.gmRoundNumber || 1, turn: window.gmTurnNumber || 1,
+        pendingXp: window.gmPendingXp || 0, mapId: window.gmCombatMapId || null,
+        lairKey: window.gmLairSharedTraitKey || null, inLair: !!window.gmInLair,
+        extraTurn: _gmPlain(window._gmExtraTurn || null),
+        log: _gmPlain((window.gmCombatLog || []).slice(-80)), logSession: _gmLogSession || null,
+        pendingSaves: _gmSaveQueue(window._gmPendingSaves), condSaves: _gmSaveQueue(window._gmCondSaves),
+        npcWtAsks: _gmPlain(window._gmNpcWtAsks || {}), flurry: _gmPlain(window._gmFlurry || {}),
+        lastNpcAtk: _gmPlain(window._gmLastNpcAtk || null)
+    });
+    // (stamped when the fight last changed, so an unchanged fight isn't written again)
+    if (body !== window._gmLastCombatBody) { window._gmLastCombatBody = body; window._gmLastCombatAt = Date.now(); }
+    return JSON.stringify({ v: 1, savedAt: window._gmLastCombatAt, fight: body });
+};
+window._gmRestoreCombat = function(json) {
+    let s = null;
+    try {
+        let outer = typeof json === 'string' ? JSON.parse(json) : json;
+        s = outer && outer.fight ? Object.assign(JSON.parse(outer.fight), { savedAt: outer.savedAt }) : outer;
+    } catch (e) { console.warn('Saved combat:', e); }
+    if (!s || !Array.isArray(s.initiative) || !s.initiative.length) return false;
+    window._gmRestoringCombat = true;
+    try {
+        let sets = q => { Object.keys(q || {}).forEach(id => (q[id] || []).forEach(it => { it.known = new Set(Array.isArray(it.known) ? it.known : []); })); return q || {}; };
+        window.gmInitiative = s.initiative;
+        window.gmCurrentTurnIdx = Math.min(Math.max(0, s.curIdx || 0), Math.max(0, s.initiative.length - 1));
+        window.gmCombatStarted = !!s.started;
+        window.gmRoundNumber = s.round || 1; window.gmTurnNumber = s.turn || 1;
+        window.gmPendingXp = s.pendingXp || 0; window.gmCombatMapId = s.mapId || null;
+        window.gmLairSharedTraitKey = s.lairKey || null; window.gmInLair = !!s.inLair;
+        window._gmExtraTurn = s.extraTurn || null;
+        window._gmPendingSaves = sets(s.pendingSaves); window._gmCondSaves = sets(s.condSaves);
+        window._gmNpcWtAsks = s.npcWtAsks || {}; window._gmFlurry = s.flurry || {};
+        window._gmLastNpcAtk = s.lastNpcAtk || null;
+        _gmLogSession = s.logSession || _gmLogSession;
+        // Players' rolls from before the save were already handled: only newer ones count (no damage twice)
+        window._gmRollCutoff = s.savedAt || Date.now();
+        window.gmCombatLog = (s.log || []).slice();
+        if (window.APXDice && APXDice.logEntry) window.gmCombatLog.forEach(e => APXDice.logEntry(e.gmText ? Object.assign({}, e, { text: e.gmText }) : e));
+        window.renderInitiativeTracker();
+        if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
+    } finally { window._gmRestoringCombat = false; }
+    let cur = window.gmInitiative[window.gmCurrentTurnIdx];
+    if (window.APXDice && APXDice.notify) APXDice.notify(window.gmCombatStarted
+        ? `The fight you left off in is back: Round ${window.gmRoundNumber}, ${cur ? _gmGmName(cur) + "'s turn" : 'turn ' + window.gmTurnNumber}.`
+        : `The initiative tracker you left off with is back (${window.gmInitiative.length} in it, combat not started).`, { kind: 'note', open: true });
+    _gmPublishLogSoon();
+    return true;
+};
 
 // XP for defeating an initiative entry: from its stat block's current Tier (so older
 // combats pick up XP table changes); quick-add NPCs keep their stored value (0).
@@ -2871,7 +2951,9 @@ function _gmDamage(entry, opts) {
     let incap = _gmEffConds(entry).includes('incapacitated');
     let mopt = { ignore: hit && hit.hit && window.APXDamage ? window.APXDamage.ignoreOf(hit.hit) : null, bypassRes: incap, halfBypass: def.halfBypass,
         shares: hit && Array.isArray(hit.dmgShares) && opts.types && hit.dmgShares.length === opts.types.length ? hit.dmgShares : null };   // a split roll: each type its own amount
-    let M = (raw) => window.APXDamage ? window.APXDamage.mitigate(raw, opts.types, def, mopt) : { dmg: raw, raw, reduced: 0, text: `${raw} damage` };
+    // Temp HP takes its share unreduced (a player's sheet has already worked that out for its own HP)
+    let tempNow = opts.sheet ? 0 : Math.max(0, entry.tempHp || 0);
+    let M = (raw) => window.APXDamage ? (window.APXDamage.throughTemp && tempNow ? window.APXDamage.throughTemp(raw, tempNow, opts.types, def, mopt) : window.APXDamage.mitigate(raw, opts.types, def, mopt)) : { dmg: raw, raw, reduced: 0, text: `${raw} damage` };
     let res = M(opts.raw + extraSum);
     // Swarm: half damage from attacks that target a single creature, double from area effects
     let swarmSb = _gmTraitSb(entry);
@@ -3910,6 +3992,7 @@ window._gmPlayerPowersHtml = function(st, hdr, uid, mods) {
 window.renderInitiativeTracker = function() {
     let body = document.getElementById('initiativeTrackerBody');
     if (!body) return;
+    _gmCombatSaveSoon();   // every change to the fight is saved with the world (a session can end mid-combat)
     let roundTurnEl = document.getElementById('initiativeRoundTurn');
     if (roundTurnEl) roundTurnEl.innerText = window.gmCombatStarted ? `Round ${window.gmRoundNumber} -- Turn ${window.gmTurnNumber}` : 'Combat not started';
     let xpEl = document.getElementById('pendingXpDisplay');

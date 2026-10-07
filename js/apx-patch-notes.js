@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.6.1715',
-        released: '2026-10-06T17:15:00',
-        releasedText: 'October 6, 2026 · 5:15 PM',
+        version: 'v2026.10.6.2020',
+        released: '2026-10-06T20:20:00',
+        releasedText: 'October 6, 2026 · 8:20 PM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs with loot of their own, apart from their stat blocks, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, area powers placed right on the battle map with every save in them rolled for you, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -74,6 +74,8 @@
                 'Power saving throws name their Core Attribute, and a power with a lasting effect gives its target an Escape Save at the end of each of its turns, never one the effect makes it automatically fail. Powers built before this show a Powers to rebuild list (free) when your sheet opens.'
             ]],
             ['At the Table', [
+                'Combat is saved as it happens: end a session mid-fight and the initiative order, whose turn it is, the round, every creature\'s HP, Temp HP, conditions and wounds, the saves still waiting and the combat log are all there when the GM next loads the world. Token positions stay on the maps, and players\' HP, AP and conditions on their sheets.',
+                'Temporary Hit Points: damage they soak up isn\'t reduced by DR, ER, Resistance, Vulnerability or Immunity (only what gets past them into Hit Points is), and damage to Temp HP that exceeds a Wound Threshold triggers a Wound.',
                 'One tray holds every roll, the combat log and your messages, and every die has a shape of its own.',
                 'The log asks for each save in turn (Wound Threshold, then the hit\'s own saves, then Bleed Out) with a button that rolls it. Players never see the numbers on hits against enemies, so DR and ER stay secret.',
                 'Weapon properties apply themselves on a hit, and every weapon has a damage type (unarmed strikes are Bludgeoning).',
@@ -212,6 +214,7 @@
                 '"Reduce armor weight" stops once the armor weighs 0 lb, and the armor class line above the mods never wraps, so the − and + buttons stay put as you click.'
             ]],
             ['Damage and Defense', [
+                'Temporary Hit Points: damage your Temp HP soaks up isn\'t reduced by your DR, ER, resistances, vulnerabilities or immunities; only what gets past them into your Hit Points is. All of it counts toward your Wound Threshold, so a big hit to your Temp HP can still Wound you.',
                 'Type the whole damage into your HP box: "-9", "35-9" after the 35 already there, several hits at once ("-5-3" is 8), or with a phone\'s minus sign. Your DR (physical) or ER (energy), resistances, vulnerabilities and immunities come off, by the type of the attack your GM just rolled, or the type you add ("-9 fire"). The tray shows the working.',
                 'Whenever you type "-X" without a damage type, a chooser asks first, even right after your GM rolls an attack (that attack is offered as the first button, in case it\'s what hit you): a button for every damage type (Bludgeoning, Piercing and Slashing each have their own) showing what your defences do against it (DR 3, ER 2, +5 res, Immune), and a Bypass resistances button that takes the damage in full, with no DR, ER, resistance or immunity reducing it.',
                 'The Temp HP box works the same way: "-6" is damage (Temp HP takes it first), and a plain number still sets your Temp HP.',
@@ -352,6 +355,7 @@
                 'The World tab\'s Players list updates itself while it\'s open.'
             ]],
             ['Damage and the Tracker', [
+                'Temporary Hit Points take their share of a hit unreduced (no DR, ER, Resistance, Vulnerability or Immunity); only what gets past them into Hit Points is reduced. The whole hit counts toward the Wound Threshold.',
                 'All damage runs through one system: the HP box, the Temp HP box, and damage players type on their sheets. It works out the attack that hit, its damage type, extra dice, the target\'s defences, HP and the log, then Reactions, the Wound Threshold save, the weapon\'s own saves and Bleed Out. It works before Start Combat and without a battle map.',
                 'Type the whole damage ("-8"). The target\'s DR (physical) or ER (energy) comes off, along with Damage Resistances, Vulnerabilities, Immunities and weapons that ignore DR/ER. The type comes from the last attack roll, or from what you add ("-8 fire"). "70-7" in a box showing 70 means 7 damage, "-5-3" adds up to 8, phone minus signs work, and clicking a box selects its number.',
                 'Whenever nothing says what kind of damage a "-X" is (no attack, or an attack with no damage type), a chooser opens with a button for every damage type showing the target\'s defence against it (DR 5, ER 3, +5 res, Immune), and a Bypass resistances button for damage nothing reduces. Typing "-8 fire" or "-8 true" skips it.',
@@ -468,6 +472,7 @@
                 'Swarms run themselves: half damage from single-target attacks and double from area effects (powers know which; for typed damage you\'re asked), half their damage dice when below half HP, and no size bonuses or penalties.'
             ]],
             ['Initiative and Combat', [
+                'Combat is saved with the world as it happens. End a session mid-fight and loading the world brings it all back: the initiative order, whose turn it is, the round and turn, every creature\'s HP, Temp HP, AP, conditions, wounds, timers and power uses, unpaid XP, saves still waiting, and the combat log. Players\' rolls from before it was saved aren\'t handled twice.',
                 'The tracker stands on its own and uses a battle map only when one is open or chosen as the fight\'s Battle map.',
                 'Every creature\'s AP is tracked and carries over. Surprised creatures get 1 AP on their first turn, and players\' AP refills on their turn even without a map.',
                 'Tactician Rank 1: Start Combat shows "Waiting on Tactician choice" while the player picks their swap (Choose for them, or Start without waiting, if they\'re away). The swap and the ally\'s lost Surprise are applied as Round 1 begins.',

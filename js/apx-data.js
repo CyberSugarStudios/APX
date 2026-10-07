@@ -1130,6 +1130,18 @@
         return { dmg: total, raw, reduced: raw - total, text: bits.join('; ') };
     }
 
+    // Damage to a creature with Temporary Hit Points: what Temp HP soaks up isn't changed by DR, ER, Resistance,
+    // Vulnerability or Immunity; only what gets past it into Hit Points is reduced (mitigate). It all counts
+    // toward the Wound Threshold (dmg = to Temp HP + to Hit Points).
+    function throughTemp(raw, temp, types, def, opts) {
+        raw = Math.max(0, Math.floor(Number(raw) || 0)); temp = Math.max(0, Math.floor(Number(temp) || 0));
+        let toTemp = Math.min(raw, temp), rest = raw - toTemp;
+        if (!toTemp) return Object.assign(mitigate(raw, types, def, opts), { toTemp: 0 });
+        let r = mitigate(rest, types, def, opts);
+        let text = `${toTemp} to Temp HP (no DR, ER, resistance or immunity)` + (rest ? `; the other ${rest}: ${r.text}` : '');
+        return { dmg: toTemp + r.dmg, toTemp, toHp: r.dmg, raw, reduced: rest - r.dmg, text };
+    }
+
     // The weapon's own DR/ER-ignoring property (NPC weapons: Ignore X / half / all)
     function ignoreOf(hit) {
         let props = (hit && hit.props) || [];
@@ -1210,5 +1222,5 @@
         if (ct && ct.id && !ct.ended) return atk.turnNo != null && atk.turnNo === ct.turnNo && (atk.round == null || atk.round === ct.round);
         return Date.now() - (atk.t || 0) < 120000;
     };
-    window.APXDamage = { PHYS, ENERGY, norm, parts, isEnergy, mitigate, ignoreOf, askType, parseHpEntry, fromStatBlock };
+    window.APXDamage = { PHYS, ENERGY, norm, parts, isEnergy, mitigate, throughTemp, ignoreOf, askType, parseHpEntry, fromStatBlock };
 })();
