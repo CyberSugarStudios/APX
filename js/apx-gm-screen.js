@@ -919,11 +919,13 @@ window.removeFromInitiative = function(id, opts) {
     try { let gone = window.gmInitiative[idx]; if (gone.grappling) { let t = _gmEntryById(gone.grappling); if (t) _gmEndGrapple(t, `${_gmPublicName(gone)} is out of the fight`); } if (gone.grappledBy) _gmEndGrapple(gone, null, true); } catch (e) { console.warn('Grapple end:', e); }
     let wasCurrent = (idx === window.gmCurrentTurnIdx) && window.gmCombatStarted;
     if (opts?.dead) {
-        if (typeof window._gmMarkTokenDead === 'function') window._gmMarkTokenDead(id);
+        // (its loot first: a named NPC's own loot is found through its token, which marking it dead unlinks)
         try { _gmCaptureLoot(window.gmInitiative[idx]); } catch (e) { console.warn('Loot capture:', e); }
+        if (typeof window._gmMarkTokenDead === 'function') window._gmMarkTokenDead(id);
     }
     else if (typeof window._gmUnlinkEntry === 'function') window._gmUnlinkEntry(id);
     let gone = window.gmInitiative[idx];
+    try { _gmClearNpcWtAsks(gone); } catch (e) { }
     window.gmInitiative.splice(idx, 1);
     if (typeof window._gmRenumber === 'function') window._gmRenumber();
     if (idx < window.gmCurrentTurnIdx) window.gmCurrentTurnIdx--;
@@ -2448,6 +2450,7 @@ function _gmSetKo(entry, on, quiet) {
 }
 window._gmSetKo = _gmSetKo;
 function _afterHpChange(entry, wasAboveZero) {
+    if (entry.faction !== 'player' && !entry.companionOf && entry.currentHp !== null && entry.currentHp <= 0) _gmClearNpcWtAsks(entry);   // down: no Wound Threshold save
     let ko = _gmKoCheck(entry, wasAboveZero);
     if (ko === 'lethal') wasAboveZero = true;   // treated as just dropping
     if (ko === 'ko' && !entry.companionOf) {
@@ -2537,18 +2540,32 @@ window._gmNpcWt = _gmNpcWt;
 function _gmNpcWoundCheck(entry, dmg, hit) {
     if (!entry || !(dmg > 0) || entry.currentHp === null || entry.currentHp <= 0) return;
     let wt = _gmNpcWt(entry); if (wt == null || dmg <= wt) return;
+    // NPCs don't carry lasting injuries: with every limb already Wounded there's nothing left to Wound
+    if (_gmNpcLimbs(entry).every(l => (entry.wounds || []).includes(l))) return;
     let dc = Math.max(10, Math.floor(dmg / 2));
     let sb = _gmNpcSb(entry), traits = (sb && sb.traitList || []).map(t => t.key);
     let notes = [];
     if (traits.includes('multiheaded')) notes.push('Multi-Headed: one of its heads is severed (two grow back at the start of its next turn unless it took Energy damage)');
     if (traits.includes('swallowwhole')) notes.push('Swallow Whole: it regurgitates any creature it has swallowed');
     let id = 'nwt_' + entry.id + '_' + Date.now().toString(36);
+    (window._gmNpcWtAsks[entry.id] = window._gmNpcWtAsks[entry.id] || []).push(id);
     gmLog({ id, gmOnly: true, force: true, kind: 'wt',
         text: `${_gmGmName(entry)} took ${dmg} damage, more than its Wound Threshold (${wt}): DC ${dc} CON save, or a limb is Wounded.${notes.length ? ' ' + notes.join('. ') + '.' : ''}`,
         ask: { gm: true, entryId: entry.id, roll: 'save', kind: 'npcwound', attr: 'CON', dc, logId: id, label: `Roll ${_gmGmName(entry)}'s CON save (DC ${dc})` } });
     if (notes.length) gmLog({ text: `${_gmPublicName(entry)} reels from the blow!`, kind: 'wt' });
 }
 window._gmNpcWoundCheck = _gmNpcWoundCheck;
+// An NPC's Wound Threshold saves still waiting when it goes down: settled, so they don't clog the tray
+window._gmNpcWtAsks = window._gmNpcWtAsks || {};   // entry id -> its WT save log ids
+function _gmClearNpcWtAsks(entry) {
+    let ids = entry && window._gmNpcWtAsks[entry.id]; if (!ids) return;
+    delete window._gmNpcWtAsks[entry.id];
+    ids.forEach(id => {
+        let L = (window.gmCombatLog || []).find(x => x.id === id);
+        if (L && L.ask) gmLog({ id, gmOnly: true, force: true, kind: 'wt', ask: null, text: `${_gmGmName(entry)} went down before its Wound Threshold save: no save needed.` });
+    });
+}
+window._gmClearNpcWtAsks = _gmClearNpcWtAsks;
 function _gmNpcLimbs(entry) {
     let base = (typeof WOUND_LIMBS_BASE !== 'undefined' ? WOUND_LIMBS_BASE : ['Head', 'Torso', 'Left Arm', 'Right Arm', 'Left Leg', 'Right Leg']).slice();
     (entry.wounds || []).forEach(l => { if (!base.includes(l)) base.push(l); });
@@ -2562,6 +2579,7 @@ function _gmNpcWoundSave(e, ask) {
     APXDice.check({ kind: 'save', attr: 'CON', label: `CON Save (DC ${ask.dc}): Wound`, who: e.name, bonus, perks: false, initId: e.id,
         onResult: r => {
             let pass = !r.autoFail && r.total >= ask.dc;
+            if (window._gmNpcWtAsks[e.id]) window._gmNpcWtAsks[e.id] = window._gmNpcWtAsks[e.id].filter(x => x !== ask.logId);
             if (pass) {
                 if (st.limbLog) {
                     if (st.limb) _gmHealNpcWoundEntry(e, st.limb, true);
@@ -2576,7 +2594,7 @@ function _gmNpcWoundSave(e, ask) {
                 let already = e.wounds || [];
                 gmLog({ id: st.limbLog, gmOnly: true, force: true, kind: 'wt',
                     text: `Choose the limb ${_gmGmName(e)} Wounds (based on the attack)${already.length ? `. Already Wounded: ${already.join(', ')}` : ''}:`,
-                    ask: { gm: true, entryId: e.id, kind: 'npclimb', logId: st.limbLog, choices: _gmNpcLimbs(e).map(l => already.includes(l) ? l + ' (again)' : l) } });
+                    ask: { gm: true, entryId: e.id, kind: 'npclimb', logId: st.limbLog, choices: _gmNpcLimbs(e).filter(l => !already.includes(l)) } });   // (an NPC can't take the same Wound twice)
                 window._gmNpcLimbState = window._gmNpcLimbState || {};
                 window._gmNpcLimbState[st.limbLog] = st;
             }

@@ -184,6 +184,8 @@
         .apxd-card.log{padding:.3rem .5rem;border-left:3px solid var(--c-indigo,#6366f1);font-size:.74rem;line-height:1.35;color:var(--c-text-dimmer,#cbd5e1)}
         .apxd-card.log.k-dmg{border-left-color:#ef4444} .apxd-card.log.k-heal{border-left-color:#10b981}
         .apxd-card.log.k-wt{border-left-color:#f59e0b} .apxd-card.log.k-bleed{border-left-color:#b91c1c}
+        .apxd-card.log.apxd-pin{border:1px solid #f59e0b;border-left-width:3px;background:rgba(245,158,11,.08)}
+        .apxd-card.log.apxd-pin::before{content:'📌 Waiting on you';display:block;font-size:.6rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:#f59e0b;margin-bottom:.1rem}
         .apxd-card.log.k-roll{border-left-color:#818cf8} .apxd-card.log.k-info{border-left-color:#64748b}
         .apxd-card.log.k-note{border-left-color:#38bdf8} .apxd-card.log.k-warn{border-left-color:#f87171;color:var(--c-text,#fff)}
         .apxd-card.log.k-xp{border-left-color:#34d399} .apxd-card.log.k-loot{border-left-color:#f59e0b}
@@ -292,7 +294,15 @@
         document.body.appendChild(el);
         tray.el = el; tray.fab = fab; tray.log = el.querySelector('.apxd-log');
         el.querySelector('[data-close]').onclick = () => toggle(false);
-        el.querySelector('[data-clear]').onclick = () => { cards = []; logCards = {}; tray.clearedAt = Date.now(); try { localStorage.setItem('apx_tray_cleared_' + trayKey(), String(tray.clearedAt)); } catch (e) { } tray.log.innerHTML = '<div class="apxd-empty">Log cleared.</div>'; };
+        el.querySelector('[data-clear]').onclick = () => {
+            // Roll requests still waiting on you survive a Clear (they'd be lost otherwise)
+            let keep = cards.filter(askPending);
+            cards = keep; logCards = {}; keep.forEach(c => { logCards[c.log.id] = c; });
+            tray.clearedAt = Date.now(); try { localStorage.setItem('apx_tray_cleared_' + trayKey(), String(tray.clearedAt)); } catch (e) { }
+            tray.log.innerHTML = keep.length ? '' : '<div class="apxd-empty">Log cleared.</div>';
+            keep.forEach(c => tray.log.appendChild(c.el));
+            pinAsks();
+        };
         el.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => setMode(b.dataset.mode));
         // Die buttons add to a pool; Roll rolls the pool (plus the text field) and clears both
         tray.pool = {};
@@ -473,7 +483,7 @@
             : e.ask.roll === 'save' ? `Roll ${e.ask.attr || 'CON'} save${e.ask.dc ? ' (DC ' + e.ask.dc + ')' : ''}` : 'Roll CON (Survive)';
         return `<div style="margin-top:.3rem"><button data-logask ${done || waitWt ? 'disabled' : ''} style="font-size:.66rem;font-weight:800;padding:.18rem .5rem;border-radius:.3rem;cursor:${done || waitWt ? 'default' : 'pointer'};border:1px solid ${done ? 'var(--c-border2,#475569)' : '#f59e0b'};background:${done || waitWt ? 'none' : '#b45309'};color:${done ? 'var(--c-text-muted,#94a3b8)' : '#fff'};opacity:${waitWt ? '.6' : '1'}">${label}</button></div>`;
     }
-    function refreshAskCards() { cards.forEach(x => { if (x.log && x.log.ask) renderCard(x); }); }
+    function refreshAskCards() { cards.forEach(x => { if (x.log && x.log.ask) renderCard(x); }); pinAsks(); }
 
     function renderCard(c, spin) {
         let el = c.el || (c.el = document.createElement('div'));
@@ -540,9 +550,29 @@
         cards.unshift(c);
         renderCard(c, true);
         tray.log.insertBefore(c.el, tray.log.firstChild);
-        while (cards.length > 40) { let old = cards.pop(); old.el?.remove(); }
+        for (let i = cards.length - 1; cards.length > 40 && i >= 0; i--) {
+            if (askPending(cards[i])) continue;
+            let old = cards.splice(i, 1)[0]; old.el?.remove(); if (old.log) delete logCards[old.log.id];
+        }
+        pinAsks();
         tray.log.scrollTop = 0;
         return c;
+    }
+    // Roll requests still waiting on you (a save, a choice, a Reaction) stay pinned at the top of the tray,
+    // oldest first, so a new roll never pushes one out of sight. Once answered, it drops back into its place.
+    const PIN_MAX_AGE = 30 * 60 * 1000;
+    function askPending(c) {
+        let e = c && c.log;
+        return !!(e && e.ask && askIsMine(e) && !tray.askDone[e.id] && Date.now() - (e.t || 0) < PIN_MAX_AGE);
+    }
+    function pinAsks() {
+        if (!tray.log) return;
+        let pinned = cards.filter(askPending).reverse();   // oldest request first
+        let order = pinned.concat(cards.filter(c => !pinned.includes(c)));
+        order.forEach(c => { if (c.el) c.el.classList.toggle('apxd-pin', pinned.includes(c)); });
+        let kids = [...tray.log.children].filter(n => n.classList && n.classList.contains('apxd-card'));
+        if (order.every((c, i) => kids[i] === c.el)) return;
+        order.forEach(c => { if (c.el) tray.log.appendChild(c.el); });
     }
 
     // Recompute a d20 part after Omen replacement / Luck reroll
@@ -1122,14 +1152,19 @@
         let c = logCards[e.id];
         if (!c && (e.t || 0) <= clearedAt()) return;   // cleared entries stay cleared
         if (c && c.log.text === e.text && c.log.kind === e.kind && !!c.log.ask === !!e.ask) return;
-        if (c) { c.log = e; renderCard(c); return; }
+        if (c) { c.log = e; renderCard(c); pinAsks(); return; }
         c = { log: e, parts: [] };
         logCards[e.id] = c;
         let empty = tray.log.querySelector('.apxd-empty'); if (empty) empty.remove();
         cards.unshift(c);
         renderCard(c);
         tray.log.insertBefore(c.el, tray.log.firstChild);
-        while (cards.length > 60) { let old = cards.pop(); old.el?.remove(); if (old.log) delete logCards[old.log.id]; }
+        // Too many: the oldest go, but never a roll request that's still waiting on you
+        for (let i = cards.length - 1; cards.length > 60 && i >= 0; i--) {
+            if (askPending(cards[i])) continue;
+            let old = cards.splice(i, 1)[0]; old.el?.remove(); if (old.log) delete logCards[old.log.id];
+        }
+        pinAsks();
         if (!tray.open) tray.fab.classList.add('unseen');
     };
     APXDice.hasLogEntry = id => !!logCards[id];
@@ -1189,6 +1224,7 @@
     }
     APXDice.linkifyScopes = linkifyScopes;
 
+    APXDice.toggle = force => toggle(force);   // (the d20 button, or double-clicking the tray's title bar)
     window.APXDice = APXDice;
     // Build the floating button once the page is ready
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { build(); watch(); }); else { build(); watch(); }

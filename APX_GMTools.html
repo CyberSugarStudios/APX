@@ -450,8 +450,8 @@
                 }
         
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20261061630">
-    <link rel="stylesheet" href="css/tailwind.css?v=20261061630">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20261061715">
+    <link rel="stylesheet" href="css/tailwind.css?v=20261061715">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
@@ -1520,36 +1520,36 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20261061630"></script>
-    <script src="js/apx-patch-notes.js?v=20261061630"></script>
-    <script src="js/apx-dice.js?v=20261061630"></script>
-    <script src="js/apx-data.js?v=20261061630"></script>
-    <script src="js/apx-item-effects.js?v=20261061630"></script>
-    <script src="js/apx-perks-db.js?v=20261061630"></script>
-    <script src="js/apx-migrations.js?v=20261061630"></script>
-    <script src="js/apx-state.js?v=20261061630"></script>
-    <script src="js/apx-craft-shared.js?v=20261061630"></script>
-    <script src="js/apx-armor-forge.js?v=20261061630"></script>
-    <script src="js/apx-weapon-forge.js?v=20261061630"></script>
-    <script src="js/apx-consumable-crafter.js?v=20261061630"></script>
-    <script src="js/apx-perks-ui.js?v=20261061630"></script>
-    <script src="js/apx-power-crafter.js?v=20261061630"></script>
-    <script src="js/apx-npc-crafter.js?v=20261061630"></script>
-    <script src="js/apx-inventory-ui.js?v=20261061630"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20261061630"></script>
-    <script src="js/apx-gm-screen.js?v=20261061630"></script>
-    <script src="js/apx-loot-maker.js?v=20261061630"></script>
-    <script src="js/apx-library.js?v=20261061630"></script>
-    <script src="js/apx-gmtools-main.js?v=20261061630"></script>
+    <script src="js/apx-dialogs.js?v=20261061715"></script>
+    <script src="js/apx-patch-notes.js?v=20261061715"></script>
+    <script src="js/apx-dice.js?v=20261061715"></script>
+    <script src="js/apx-data.js?v=20261061715"></script>
+    <script src="js/apx-item-effects.js?v=20261061715"></script>
+    <script src="js/apx-perks-db.js?v=20261061715"></script>
+    <script src="js/apx-migrations.js?v=20261061715"></script>
+    <script src="js/apx-state.js?v=20261061715"></script>
+    <script src="js/apx-craft-shared.js?v=20261061715"></script>
+    <script src="js/apx-armor-forge.js?v=20261061715"></script>
+    <script src="js/apx-weapon-forge.js?v=20261061715"></script>
+    <script src="js/apx-consumable-crafter.js?v=20261061715"></script>
+    <script src="js/apx-perks-ui.js?v=20261061715"></script>
+    <script src="js/apx-power-crafter.js?v=20261061715"></script>
+    <script src="js/apx-npc-crafter.js?v=20261061715"></script>
+    <script src="js/apx-inventory-ui.js?v=20261061715"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20261061715"></script>
+    <script src="js/apx-gm-screen.js?v=20261061715"></script>
+    <script src="js/apx-loot-maker.js?v=20261061715"></script>
+    <script src="js/apx-library.js?v=20261061715"></script>
+    <script src="js/apx-gmtools-main.js?v=20261061715"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20261061630"></script>
-    <script src="js/apx-firebase.js?v=20261061630"></script>
-    <script src="js/apx-battlemap.js?v=20261061630"></script>
-    <script src="js/apx-map-tiles.js?v=20261061630"></script>
+    <script src="js/firebase-config.js?v=20261061715"></script>
+    <script src="js/apx-firebase.js?v=20261061715"></script>
+    <script src="js/apx-battlemap.js?v=20261061715"></script>
+    <script src="js/apx-map-tiles.js?v=20261061715"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -3011,6 +3011,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── Floating map window ───────────────────────────────────────
     window.openOtherMapWindow = function(mapId) {
         let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId); if (!map) return;
+        // Opened from the World menu: it closes (as if its Close button was pressed) so the map isn't behind it
+        if (document.getElementById('gmWorldModal')?.classList.contains('active')) window.closeModal('gmWorldModal');
         let winId = 'omWin_'+mapId;
         let existing = document.getElementById(winId);
         if (existing) {
@@ -3059,6 +3061,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <button onclick="window._btPickImage('${mapId}','${winId}')" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#312e81;border:1px solid #6366f1;color:#c7d2fe;border-radius:0.2rem;cursor:pointer;white-space:nowrap;" title="Add a movable image (cart, tower floor, overlay). Right-click it for layers, size, lock, hide.">+ Image</button>
                 <button id="${winId}_measureBtn" onclick="window.APXBattle.toggleMeasure('${winId}')" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#1e293b;border:1px solid #a16207;color:#fde68a;border-radius:0.2rem;cursor:pointer;white-space:nowrap;" title="Measure squares between two points or tokens (hotkey M)">Measure</button>
                 <button onclick="window._btAddAllToInitiative('${mapId}')" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#1e3a5f;border:1px solid #3b82f6;color:#93c5fd;border-radius:0.2rem;cursor:pointer;white-space:nowrap;" title="Add all revealed tokens to initiative">All to Init</button>
+                <button onclick="window._btAddAllTokens('${mapId}')" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#065f46;border:1px solid #10b981;color:#6ee7b7;border-radius:0.2rem;cursor:pointer;white-space:nowrap;" title="Add a token to this map for every NPC in the initiative tracker that doesn't have one here (added hidden)">All Tokens</button>
                 <button onclick="let s=document.getElementById('${winId}_battleControls'); s.style.display=s.style.display==='none'?'flex':'none';" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#1e293b;border:1px solid #334155;color:#94a3b8;border-radius:0.2rem;cursor:pointer;white-space:nowrap;">Grid</button>
                 </span>
                 <!-- Grid settings: hidden by default, toggled by Grid button -->
@@ -3858,6 +3861,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (entry === undefined) entry = t.initiativeId ? (window.gmInitiative||[]).find(e=>e.id===t.initiativeId) : null;
         let sid = (entry && entry.sourceNpcId) || t.statBlockId || null;
         if (!sid && t.worldNpcId) sid = (_wNotes.npcs||[]).find(n=>n.id===t.worldNpcId)?.statBlockId || null;
+        // A token that lost its link (its creature died or left the fight before tokens remembered their
+        // stat block): the one stat block with its name and a token image
+        if (!sid) {
+            let nm = String(t.baseName || t.name || '').replace(/\s+\d+$/, '').trim();
+            let m = nm ? (window.gmNpcs||[]).filter(x => x && x.npc && x.npc.tokenImg && String(x.npc.name || '').trim() === nm) : [];
+            if (m.length === 1) { sid = m[0].id; t.statBlockId = sid; }
+        }
         let g = sid ? (window.gmNpcs||[]).find(x=>x.id===sid) : null;
         return g && g.npc && g.npc.tokenImg ? sid : null;
     };
@@ -3921,6 +3931,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (t.type === 'companion' && t.playerUid) { let pm = (window.gmParty||[]).find(p=>p.fileName===t.playerUid); npc = pm?.state?.companion || null; }
             else if (t.type === 'npc') {
                 let en = t.initiativeId ? (window.gmInitiative||[]).find(e=>e.id===t.initiativeId) : null;
+                // The token remembers its stat block (its image, size…) for after it's unlinked from the tracker
+                if (en?.sourceNpcId && t.statBlockId !== en.sourceNpcId) { t.statBlockId = en.sourceNpcId; sizeChanged = true; }
                 let sid = en?.sourceNpcId || (t.worldNpcId ? (_wNotes.npcs||[]).find(n=>n.id===t.worldNpcId)?.statBlockId : null);
                 npc = sid ? (window.gmNpcs||[]).find(g=>g.id===sid)?.npc || null : null;
             }
@@ -4759,7 +4771,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof window.renderInitiativeTracker === 'function') window.renderInitiativeTracker();
         saveWorldNotes(); _btRenderTokens(mapId,winId);
     };
-    window.linkBattleTokenToInit = function(mapId,tokenId,initId){ let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); let tok=(map?.battleTokens||[]).find(t=>t.id===tokenId); if(tok){tok.initiativeId=initId;tok._explicitDead=false;let en=(window.gmInitiative||[]).find(x=>x.id===initId);if(en?.conditions?.length&&tok.type!=='player'){tok.conditions=[...new Set([...(tok.conditions||[]),...en.conditions])];en.conditions=[];}window._gmRenumber();saveWorldNotes();} };
+    window.linkBattleTokenToInit = function(mapId,tokenId,initId){ let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); let tok=(map?.battleTokens||[]).find(t=>t.id===tokenId); if(tok){tok.initiativeId=initId;tok._explicitDead=false;let en=(window.gmInitiative||[]).find(x=>x.id===initId);if(en?.sourceNpcId&&tok.type==='npc')tok.statBlockId=en.sourceNpcId;if(en?.conditions?.length&&tok.type!=='player'){tok.conditions=[...new Set([...(tok.conditions||[]),...en.conditions])];en.conditions=[];}window._gmRenumber();saveWorldNotes();} };
     window._btToggleReveal = function(mapId,winId,tokenId){ let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); let tok=(map?.battleTokens||[]).find(t=>t.id===tokenId); if(!tok) return; tok.revealed=tok.revealed===false?true:false; saveWorldNotes(); _btRenderTokens(mapId,winId); };
     window._btRefreshAllOpenMaps = function(){ (_wNotes.otherMaps||[]).forEach(m=>{if(m.battleMapEnabled){let wid='omWin_'+m.id;if(document.getElementById(wid))_btRenderTokens(m.id,wid);}}); };
     // An area power used by a creature in the tracker: the open battle map its token is on, where its area is placed
@@ -4795,21 +4807,55 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // "+ Token" in the tracker: create a battle token for an entry that has none
-    window._spawnTokenForInitEntry = function(initEntryId) {
+    window._spawnTokenForInitEntry = function(initEntryId, mapId) {
         let entry = (window.gmInitiative||[]).find(e=>e.id===initEntryId);
         if (!entry) return;
-        let target = (_wNotes.otherMaps||[]).find(m => m.battleMapEnabled && document.getElementById('omWin_'+m.id));
+        let target = (_wNotes.otherMaps||[]).find(m => m.battleMapEnabled && document.getElementById('omWin_'+m.id) && (!mapId || m.id === mapId));
         if (!target) { alert('Open a Battle Map window first.'); return; }
         let wn = (_wNotes.npcs||[]).find(n=>n.statBlockId===entry.sourceNpcId);
         let color = {enemy:'#d97706',neutral:'#64748b',ally:'#16a34a'}[entry.faction]||'#d97706';
         let tok = window._btAddToken(target.id, 'omWin_'+target.id, entry.baseName || entry.name, 'npc', color, wn?.id||null, null, entry.faction);
         if (!tok) return;
         tok.initiativeId = initEntryId;
+        if (entry.sourceNpcId) tok.statBlockId = entry.sourceNpcId;   // keeps its token image once unlinked
         tok.revealed = false;   // added hidden: reveal it from the token's menu when the players should see it
         window._gmRenumber();
         if (typeof window.renderInitiativeTracker === 'function') window.renderInitiativeTracker();
         saveWorldNotes();
         _btRenderTokens(target.id, 'omWin_'+target.id);
+    };
+
+    // Delete key: removes the selected tokens (or the one under the mouse), the same as Remove Token in its menu
+    document.addEventListener('keydown', e => {
+        if (e.key !== 'Delete' || e.ctrlKey || e.metaKey || e.altKey) return;
+        let t = e.target;
+        if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+        let jobs = [];
+        (_wNotes.otherMaps||[]).forEach(m => {
+            let winId = 'omWin_'+m.id;
+            if (!m.battleMapEnabled || !document.getElementById(winId)) return;
+            if (window.APXBattle?.isMeasuring?.(winId) || window.APXBattle?.isPlacingArea?.(winId)) return;
+            let ids = [..._btSelFor(m.id)].filter(id => (m.battleTokens||[]).some(tk => tk.id === id));
+            if (ids.length) jobs.push({ m, winId, ids });
+        });
+        if (!jobs.length) {
+            let el = document.querySelector('[data-bt]:hover'), layer = el && el.closest('[id$="_btScreen"]');
+            let winId = layer ? layer.id.replace(/_btScreen$/, '') : null, m = winId && (_wNotes.otherMaps||[]).find(x => 'omWin_'+x.id === winId);
+            if (m && (m.battleTokens||[]).some(tk => tk.id === el.getAttribute('data-bt'))) jobs.push({ m, winId, ids: [el.getAttribute('data-bt')] });
+        }
+        if (!jobs.length) return;
+        e.preventDefault();
+        document.getElementById('btContextMenu')?.remove();
+        jobs.forEach(j => { j.ids.forEach(id => { _btSelFor(j.m.id).delete(id); window.removeBattleToken(j.m.id, j.winId, id); }); });
+    });
+
+    // "All Tokens" (battle map bar): a token on this map for every NPC in the tracker that has none here
+    window._btAddAllTokens = function(mapId) {
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId); if (!map) return;
+        let need = (window.gmInitiative||[]).filter(e => e.faction !== 'player' && !e.companionOf && !(map.battleTokens||[]).some(t => t.initiativeId === e.id));
+        if (!need.length) { window.APXDice?.notify('Every NPC in the tracker already has a token on this map.', { kind: 'note' }); return; }
+        need.forEach(e => window._spawnTokenForInitEntry(e.id, mapId));
+        window.APXDice?.notify(`Added ${need.length} token${need.length === 1 ? '' : 's'} (hidden: reveal them from each token's menu).`, { kind: 'note' });
     };
 
     // The battle token(s) of an initiative entry: { map, tok }
@@ -6373,8 +6419,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </script>
     <div id="floatingWindowContainer"></div>
 
-    <script src="js/apx-chat.js?v=20261061630"></script>
-    <script src="js/apx-extras.js?v=20261061630"></script>
-    <script src="js/apx-theme-light.js?v=20261061630"></script>
+    <script src="js/apx-chat.js?v=20261061715"></script>
+    <script src="js/apx-extras.js?v=20261061715"></script>
+    <script src="js/apx-theme-light.js?v=20261061715"></script>
 </body>
 </html>

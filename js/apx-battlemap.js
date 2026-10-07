@@ -1533,10 +1533,17 @@
         if (go) { go.style.opacity = P.placed && ok ? '1' : '.5'; }
         if (tip) {
             let t = !P.placed ? `Move to aim, click to place it${P.range && P.range !== Infinity ? ` (range ${P.range} squares)` : ''}`
-                : `Drag its start to move it${P.mode === 'burst' ? ' · click a square to move it there' : ' · scroll to turn it · click a square to point it there'}`;
-            if (P.safeZone) t += ' · right-click a creature to keep it safe (Safe Zone)';
-            tip.textContent = t + ' · Enter to use it, Esc to cancel';
+                : `Drag its start to move it${P.mode === 'burst' ? ' · click a square to move it there' : ' · scroll to turn it (Alt+scroll: finer) · click a square to point it there'}`;
+            if (P.safeZone) t += ' · Shift+click a creature to keep it safe (Safe Zone)';
+            tip.textContent = t + ' · Enter to use it, Esc or right-click to cancel';
         }
+    }
+    // The direction each power's Line or Cone was last used in (remembered on this device)
+    const _areaAngs = (() => { try { return JSON.parse(localStorage.getItem('apxAreaAngles') || '{}') || {}; } catch (e) { return {}; } })();
+    function _areaAng(key, ang) {
+        if (ang === undefined) return typeof _areaAngs[key] === 'number' ? _areaAngs[key] : 0;
+        _areaAngs[key] = Math.atan2(Math.sin(ang), Math.cos(ang));
+        try { localStorage.setItem('apxAreaAngles', JSON.stringify(_areaAngs)); } catch (e) { }
     }
     function placeArea(winId, opts) {
         let layer = document.getElementById(winId + '_btScreen');
@@ -1559,8 +1566,10 @@
             layer.appendChild(ov);
             let size = Math.max(1, parseInt(opts.size) || 1);
             let range = opts.range === Infinity || opts.range == null ? Infinity : Math.max(0, parseInt(opts.range) || 0);
+            // A Line or Cone points the way it last did for this power (no turning it back around every time)
+            let angKey = (opts.key || opts.label || 'Power') + '|' + opts.mode;
             let P = layer._area = { ov, svg, bar, mode: opts.mode, size, range, casterId: opts.casterId || null, label: opts.label || 'Power', safeZone: !!opts.safeZone,
-                safe: new Set(), anchor: false, a: null, ang: 0, placed: false, drag: false };
+                safe: new Set(), anchor: false, a: null, ang: _areaAng(angKey), placed: false, drag: false };
             // Self / Touch: it starts from its user, pointing away from the map's middle-ish (right)
             let cf = _casterFoot(layer, P);
             if (cf && range === 0) { P.anchor = true; P.placed = true; }
@@ -1586,6 +1595,7 @@
                 let hit = A.hits.filter(h => !P.safe.has(h.vm.id));
                 let res = { tokenIds: hit.map(h => h.vm.id), safeIds: A.hits.filter(h => P.safe.has(h.vm.id)).map(h => h.vm.id),
                     names: hit.map(h => h.vm.name || String(h.vm.title || '').split(' (')[0] || 'Token'), squares: A.cells.length };
+                if (P.mode !== 'burst') _areaAng(angKey, P.ang);
                 // Everyone sees where it landed for a few seconds (as this window's shared measurement)
                 let o = layer._opts;
                 if (o.onMeasureShare && !layer._measure) {
@@ -1614,6 +1624,7 @@
             ov.addEventListener('mousedown', e => {
                 if (isPan(e)) return; e.stopPropagation(); e.preventDefault(); if (e.button !== 0) return;
                 let c = cellOf(e);
+                if (e.shiftKey && P.safeZone && P.placed) { toggleSafe(c); return; }   // Safe Zone: Shift+click a creature in it
                 if (!P.placed) { setStart(c); P.placed = true; }
                 else if (onStart(c)) P.drag = true;
                 else if (P.mode === 'burst') setStart(c);
@@ -1633,18 +1644,18 @@
             ov.addEventListener('wheel', e => {
                 if (P.mode === 'burst' || e.shiftKey) return;
                 e.preventDefault(); e.stopPropagation();
-                P.ang += (e.deltaY > 0 ? 1 : -1) * Math.max(Math.PI / 48, Math.min(Math.PI / 12, 1 / P.size));
+                P.ang += (e.deltaY > 0 ? 1 : -1) * (e.altKey ? Math.max(Math.PI / 48, Math.min(Math.PI / 12, 1 / P.size)) : Math.PI / 12);   // 15° a notch; Alt for a square at a time
                 _layoutArea(layer);
             }, { passive: false });
-            ov.addEventListener('contextmenu', e => {
-                e.preventDefault(); e.stopPropagation();
-                if (!P.safeZone) return;
+            let toggleSafe = c => {
                 let A = _areaCalc(layer, P); if (!A) return;
-                let c = cellOf(e), h = A.hits.find(h => c.gx >= h.x0 && c.gx <= h.x1 && c.gy >= h.y0 && c.gy <= h.y1);
+                let h = A.hits.find(h => c.gx >= h.x0 && c.gx <= h.x1 && c.gy >= h.y0 && c.gy <= h.y1);
                 if (!h) return;
                 if (P.safe.has(h.vm.id)) P.safe.delete(h.vm.id); else P.safe.add(h.vm.id);
                 _layoutArea(layer);
-            });
+            };
+            // Right-click: the same as Cancel
+            ov.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); finish(null); });
             _layoutArea(layer);
         });
     }

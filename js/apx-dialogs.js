@@ -321,14 +321,23 @@ window.apxToday = function (d) {
         let hdr = w.firstElementChild;
         if (!hdr || !hdr.contains(e.target)) return;   // only the title bar (the top strip)
         e.preventDefault();
+        // The Dice and Notifications tray isn't tabbed: double-clicking its title bar closes it, like its d20 button
+        if (w.classList.contains('apxd-tray')) { if (window.APXDice && window.APXDice.toggle) window.APXDice.toggle(false); return; }
         minimize(w);
     }, true);
 
     // A window that just opened goes on top too
-    let watchNew = () => new MutationObserver(list => list.forEach(m => m.addedNodes.forEach(n => {
-        if (n.nodeType !== 1) return;
-        setTimeout(() => { if (n.isConnected && floatingOf(n) === n && !n.classList.contains('apxd-tray')) window.apxFront(n); }, 0);
-    }))).observe(document.body, { childList: true });
+    // (windows opened straight on the page, or in the floating-window container map and NPC windows use)
+    let watchNew = () => {
+        let mo = new MutationObserver(list => list.forEach(m => m.addedNodes.forEach(n => {
+            if (n.nodeType !== 1) return;
+            setTimeout(() => { if (n.isConnected && floatingOf(n) === n && !n.classList.contains('apxd-tray')) window.apxFront(n); }, 0);
+        })));
+        mo.observe(document.body, { childList: true });
+        let box = document.getElementById('floatingWindowContainer');
+        if (box) mo.observe(box, { childList: true });
+        else document.addEventListener('DOMContentLoaded', () => { let b = document.getElementById('floatingWindowContainer'); if (b) mo.observe(b, { childList: true }); });
+    };
     if (document.body) watchNew(); else document.addEventListener('DOMContentLoaded', watchNew);
 })();
 
