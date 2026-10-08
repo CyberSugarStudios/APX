@@ -318,8 +318,11 @@
             { id: "gen_ghost", name: "Ghost", attr: "GEN", max: 3, baseCost: 10, baseDesc: "+1 to AGI (Stealth) per rank.", ranks: ["+1 Stealth.", "+2 Stealth.", "+3 Stealth."], effect: (c, r) => { c.skills.Stealth = (c.skills.Stealth||0)+r; } },
             { id: "gen_heavysleeper", name: "Heavy Sleeper", attr: "GEN", max: 3, baseCost: 10, baseDesc: "Sleep in armor without penalty.", ranks: ["Sleep in Light armor.", "Sleep in Medium armor.", "Sleep in Heavy armor."] },
             { id: "gen_planted", name: "Planted", attr: "GEN", max: 3, baseCost: 10, baseDesc: "+1 to resist Prone/forced move per rank.", ranks: ["+1 bonus.", "+2 bonus.", "+3 bonus."] },
-            { id: "gen_resilient", name: "Resilient", attr: "GEN", max: 3, baseCost: 10, baseDesc: "Rest Dice step increases (d6 > d8 > d10 > d12).", ranks: ["d8s.", "d10s.", "d12s."], effect: (c, r) => { 
-                if(r===1) c.restDieStep="d8"; if(r===2) c.restDieStep="d10"; if(r===3) c.restDieStep="d12"; 
+            { id: "gen_resilient", name: "Resilient", attr: "GEN", max: 3, baseCost: 10, baseDesc: "Rest Dice step increases (d6 > d8 > d10 > d12).", ranks: ["d8s.", "d10s.", "d12s."], effect: (c, r) => {
+                // Steps up from whatever the die already is, so ranks bought with XP and a Racial Bonus Perk add up
+                // (Racial Resilient + 1 bought rank = d10), up to d12
+                let steps = ["d6", "d8", "d10", "d12"], at = Math.max(0, steps.indexOf(c.restDieStep || "d6"));
+                c.restDieStep = steps[Math.min(steps.length - 1, at + (r || 0))];
             }},
             { id: "gen_strongarm", name: "Strong Arm", attr: "GEN", max: 3, baseCost: 10, baseDesc: "Throw distance +1 square per rank.", ranks: ["+1 sq.", "+2 sq.", "+3 sq."] },
             { id: "gen_twitchy", name: "Twitchy", attr: "GEN", max: 3, baseCost: 10, baseDesc: "+1 Initiative per rank.", ranks: ["+1 Init.", "+2 Init.", "+3 Init."], effect: (c, r) => { c.init += r; } },
