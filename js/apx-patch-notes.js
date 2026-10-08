@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.8.1445',
-        released: '2026-10-08T14:45:00',
-        releasedText: 'October 8, 2026 · 2:45 PM',
+        version: 'v2026.10.8.1615',
+        released: '2026-10-08T16:15:00',
+        releasedText: 'October 8, 2026 · 4:15 PM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs with loot of their own, apart from their stat blocks, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, area powers placed right on the battle map with every save in them rolled for you, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -334,6 +334,7 @@
                 'Power Crafting allows at most 8 dice per die step, Sacrifice keeps the caster from regaining HP until their next turn, and Mythic Utilities cost a flat 130 XP. Powers this affects show "Recraft (Free)".',
                 'Brute\'s carry capacity stacks with your race\'s size: each step doubles it again.',
                 'Armor Master: each Rank makes your worn armor (with Shield and Helmet) count as 5 lbs lighter for its weight class and STR requirement.',
+                'Armor too heavy for your STR gives Disadvantage on all attack rolls, attribute checks and saving throws (it only reached attacks before), with -2 Speed and no AGI bonus to AC. Your GM\'s party view uses the same Armor Master weight to check it.',
                 'Brute Rank 2: you aren\'t Staggered while you grapple a creature (the grapple rework\'s cost for holding on).',
                 'Your size applies itself: Small gives Advantage on AGI (Stealth); Large gives Disadvantage on AGI (Stealth) and Advantage on STR (Athletics) when you Grapple, Pin or Escape.'
             ]],

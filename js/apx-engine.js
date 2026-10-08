@@ -353,7 +353,8 @@
             // Speed 0/AP 0, scoped precisely per the rulebook (e.g. Prone
             // is melee Disadvantage + ranged Advantage, not a blanket
             // penalty; Head Wound only affects PER/INT checks).
-            if (calc.hasArmorDisadvantage) applyEffectSource('Armor (STR requirement not met)', { atkDisadvantage: 'general' });
+            // Armor too heavy for your STR: Disadvantage on all attack rolls, attribute checks and saving throws
+            if (calc.hasArmorDisadvantage) applyEffectSource('Armor (STR requirement not met)', { atkDisadvantage: 'general', checkDisadvantage: 'all', saveDisadvantage: 'all' });
             // Conditions in effect = the ones set + the ones they bring with them
             // (Bleeding Out -> Unconscious -> Incapacitated, Paralyzed -> Incapacitated...)
             let effConds = window.apxEffectiveConditions ? window.apxEffectiveConditions(window.state.conditions, window.state) : (window.state.conditions || []).map(id => ({ id }));

@@ -92,11 +92,12 @@ function computeCharSummary(state) {
     (state.extraShields || []).forEach(x => { armorAc += x.ac || 0; armorDr += x.dr || 0; armorEr += x.er || 0; armorWt += x.wt || 0; });
     if (hm && hm.equipped && !hm.broken) { armorAc += hm.ac || 0; armorDr += hm.dr || 0; armorEr += hm.er || 0; armorWt += hm.wt || 0; }
 
-    let reqStr = Math.floor(armorWt / 10);
+    let classWt = Math.max(0, armorWt - 5 * ((state.perks || {}).str_armormaster || 0));   // Armor Master: 5 lb lighter per rank
+    // The STR requirement uses that lighter weight too, the same as the sheet (not met: Disadvantage on
+    // attacks, attribute checks and saves)
+    let reqStr = Math.floor(classWt / 10);
     let meetsStr = calc.scores.STR >= reqStr;
     calc.hasArmorDisadvantage = (!meetsStr && armorWt > 0);
-
-    let classWt = Math.max(0, armorWt - 5 * ((state.perks || {}).str_armormaster || 0));   // Armor Master: 5 lb lighter per rank
     let armorClass = armorWt === 0 ? null : (classWt > 70 ? 'Heavily' : (classWt > 30 ? 'Moderately' : 'Lightly'));
     let isHeavy = armorClass === 'Heavily';
 
