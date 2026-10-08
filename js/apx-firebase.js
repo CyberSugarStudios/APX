@@ -48,7 +48,7 @@
             loadFogData: () => Promise.resolve(null),
             loadFogDataForPlayer: () => Promise.resolve(null),
             writeBattlePosition: () => Promise.resolve(), writeBattleMeasure: () => Promise.resolve(), writePlayerBattle: () => Promise.resolve(), writeGmPing: () => Promise.resolve(),
-            listenBattlePositions: () => (() => {}) };
+            listenBattlePositions: () => (() => {}), askLuck: () => Promise.resolve(), claimLuck: () => Promise.resolve(false) };
         return;
     }
 
@@ -323,6 +323,24 @@
         if (msg.gm) doc.gm = true;
         await _chatCol(inviteCode).add(apxClean(doc));
     }
+    // Luck Points between players, carried by the world chat (everyone it names sees the line):
+    //   ask:   luckreq_<reqId>  { kind:'luckReq', reqId, rollId, to: [allies with Luck Points] }
+    //   claim: luckgive_<reqId> { kind:'luckGive', reqId, asker }: a chat message can be created but never
+    //          changed, so only the FIRST ally to claim it succeeds; anyone after them is turned away
+    //          (permission denied), so only one Luck Point is ever spent.
+    async function askLuck(inviteCode, req) {
+        let user = currentUser(); if (!user || !inviteCode || !req || !req.reqId) return;
+        let doc = { from: user.uid, fromName: String(req.fromName || '').slice(0, 80), to: (req.to || []).slice(0, 40), text: String(req.text || '').slice(0, 1000), t: Date.now(),
+            kind: 'luckReq', reqId: String(req.reqId), rollId: String(req.rollId || ''), label: String(req.label || '').slice(0, 120) };
+        await _chatCol(inviteCode).doc('luckreq_' + doc.reqId).set(apxClean(doc));
+    }
+    async function claimLuck(inviteCode, give) {
+        let user = currentUser(); if (!user || !inviteCode || !give || !give.reqId) return false;
+        let doc = { from: user.uid, fromName: String(give.fromName || '').slice(0, 80), to: (give.to || []).slice(0, 40), text: String(give.text || '').slice(0, 1000), t: Date.now(),
+            kind: 'luckGive', reqId: String(give.reqId), asker: String(give.asker || ''), rollId: String(give.rollId || '') };
+        try { await _chatCol(inviteCode).doc('luckgive_' + doc.reqId).set(apxClean(doc)); return true; }
+        catch (e) { if (/permission|PERMISSION_DENIED|exists/i.test(String(e && (e.code || e.message)))) return false; throw e; }
+    }
     // asGm: the GM reads the whole world chat. Players listen to what's for everyone plus what names them.
     function listenChat(inviteCode, asGm, callback, onError) {
         let user = currentUser(); if (!user || !inviteCode) return () => {};
@@ -467,6 +485,7 @@
                             origin: cs.origin?.name || '',
                             age: cs.charAge || '',
                             size: cs.ancestry?.size || null,
+                            luckPts: Math.max(0, parseInt(cs.luckPts, 10) || 0),   // who can lend a Luck Point
                             companion: cs.companion ? { name: cs.companion.name || 'Companion', portrait: cs.companion.portrait || '', portraitFull: cs.companion.portraitFull || '', size: cs.companion.size || 'medium' } : null
                         }
                     };
@@ -1038,7 +1057,7 @@
         saveMapTile, loadMapTile, deleteMapTiles, resetWriteStream,
         saveBattleImage, loadBattleImage, loadBattleImageForPlayer, deleteBattleImage,
         addXpGrant, ackXpGrants, setGmCondition, setGmWound, publishCombatLog, writeRollLog, setGmCompanionHp,
-        gmGiveToPlayer, ackGmGifts, writeOutbox, clearOutbox, ackGift, publishLootRequest,
+        gmGiveToPlayer, ackGmGifts, writeOutbox, clearOutbox, ackGift, publishLootRequest, askLuck, claimLuck,
         saveFogData, loadFogData, loadFogDataForPlayer, listenFogDataForPlayer,
         listenWorldPlayers, listenPublicWorldNotes, kickWorldPlayer, leaveWorldAsPlayer,
         scheduleAutoSave, setActiveCharId,

@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.8.0110',
-        released: '2026-10-08T01:10:00',
-        releasedText: 'October 8, 2026 · 1:10 AM',
+        version: 'v2026.10.8.0130',
+        released: '2026-10-08T01:30:00',
+        releasedText: 'October 8, 2026 · 1:30 AM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs with loot of their own, apart from their stat blocks, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, area powers placed right on the battle map with every save in them rolled for you, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -60,7 +60,7 @@
                 'Power Crafter Step 7 is reworked: set the AP cost with − and + (each AP below 4 costs 10 XP, each AP over 4 refunds 5 XP, up to twice the AP you gain at the start of your turn), or make it a Reaction (15 XP, with a set trigger) or pick a Lengthy Cast Time from 1 Minute (-15 XP) to 24 Hours (-60 XP). Steps 1 and 3 are now called Delivery and Targeting, and every power costs at least 5 XP. Step 4 can let you choose the damage type each time you use the power (+10 XP; both types with a second one).',
                 'Powers show the real number from their Core Attribute instead of "+Attr", and the Consumable Crafter follows the Power Crafter\'s save rules, with Artisan raising its XP limit by 5 per rank. No power can cost more than 200 XP (free ones included): any over it are rebuilt for free. NPC and companion powers stop at the top of Level 5 too, shown in TP.',
                 'Luck and Looting, trading, Omen dice you can pass on, and Loyal Companions with their own AP, turns and an HP box that takes damage just like yours.',
-                'Luck Points have − and + buttons, clicking your Rest Dice spends one to heal, and four-armed characters get extra arms, hands and a shield in every Off Hand.',
+                'Luck Points have − and + buttons, clicking your Rest Dice spends one to heal, and four-armed characters get extra arms, hands and a shield in every Off Hand. Out of Luck Points, ask your party: the first ally to spend one of theirs rerolls your d20.',
                 'Powers are reworked: each has its own Core Attribute, chosen when you craft it, and Full Rest Powers (formerly INT) and Short Rest Powers (formerly CHA) are two pools you can mix.',
                 'You have one character in each world, your GM\'s Race Templates update your Race Builder live, and your Currency shows wherever you spend it.',
                 'The Weapon and Armor Forges roll their Craft check in the dice tray, so Luck Points and Omens work on it, and spell out what buying or crafting costs.',
@@ -259,6 +259,7 @@
             ]],
             ['Rest, Recover and Luck', [
                 'Luck Points: − spends one and + gets one back.',
+                'Ask for a Luck Point: out of Luck Points, a d20 roll can ask the allies in your world who still have one. They get a prompt (and the ask shows in the chat); the first to spend one pays it and your roll is rerolled, and if two click at once only one is charged. An ask stays open for 3 minutes.',
                 'Click the Rest Dice die, or the words "Rest Dice", to spend one and heal the roll plus your CON modifier. At full HP nothing is spent.',
                 'Short Rest, Full Rest, Shake it Off and Shrug It Off each have a button, and your GM\'s log says where the healing came from. Regenerative costs 3 GP and adds a Regen button on your turn.'
             ]],

@@ -664,6 +664,18 @@
                     let li = document.getElementById('luckPtsInput'); if (li) li.value = st.luckPts;
                 }
             }));
+            // Out of Luck Points: ask the party. The first ally to answer spends one of theirs, and this d20 is rerolled.
+            let allies = pts <= 0 && typeof window.apxLuckAllies === 'function' ? window.apxLuckAllies() : [];
+            if (pts <= 0 && (allies.length || p.luckAsked)) acts.push({
+                label: p.luckAsked ? 'Luck Point asked…' : 'Ask for a Luck Point',
+                cls: 'luck',
+                title: p.luckAsked ? 'Waiting for an ally to spend a Luck Point on this roll' : `You're out of Luck Points: ask ${allies.map(a => a.name).join(', ')} to spend one of theirs so you can reroll this d20`,
+                run: () => {
+                    if (p.luckAsked || typeof window.apxAskLuck !== 'function') return;
+                    p.luckAsked = window.apxAskLuck({ rollId: c.id, label: c.label || p.title || 'a roll', nat: p.nat });
+                    if (p.luckAsked) onChange(true);
+                }
+            });
         }
         return acts;
     }
@@ -1125,6 +1137,25 @@
         }
         APXDice.notify(`You spent an Omen die (${v}${adjTxt}) on another creature's roll.` + (window._pwOmenSent ? ' Your GM can apply it to that roll.' : ' Tell your GM which roll it replaces.'), { kind: 'note', open: true });
     }
+    // An ally spent a Luck Point on one of your rolls: reroll its d20 (the same way your own Luck reroll does)
+    APXDice.applyAllyLuck = function (rollId, fromName) {
+        let c = cards.find(k => k.id === rollId); if (!c) return false;
+        let p = (c.parts || []).find(x => x && x.r && Array.isArray(x.r.rolls) && !x.luckUsed);
+        if (!p) return false;
+        let m = c.gamble ? 'dis' : (p.origMode || 'normal');
+        p.luckUsed = true; p.luckAsked = null; p.luckFrom = fromName || 'An ally';
+        p.r = d20(m); p.omenAt = undefined; p.omenAdj = 0; p.badgeMode = m;
+        settleD20(p);
+        if (c._redo) c._redo(true); else renderCard(c);
+        APXDice.notify(`${p.luckFrom} spent a Luck Point for you: ${c.label || 'your roll'} is rerolled (natural ${p.nat}, total ${p.total}).`, { kind: 'note', open: true });
+        return true;
+    };
+    // The ask went unanswered (or was withdrawn): the button comes back
+    APXDice.clearLuckAsk = function (rollId) {
+        let c = cards.find(k => k.id === rollId); if (!c) return;
+        (c.parts || []).forEach(x => { if (x) x.luckAsked = null; });
+        if (c._redo) c._redo(true);
+    };
     // An Omen die passed to you by another player
     APXDice.receiveOmen = function (g) {
         if (!g || !g.id) return;

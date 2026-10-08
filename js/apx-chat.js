@@ -249,6 +249,8 @@
                     if (old.length) window.apxAuth.deleteChat(code, old).catch(() => { });
                 }
                 first = false;
+                // Asks for a Luck Point (and their answers) ride in the chat: js/apx-luck.js
+                if (!isGmPage()) { try { window.apxLuckOnChat?.(list); } catch (e) { console.warn('Luck asks:', e); } }
                 if (fresh && fresh.length) {
                     let trayOpen = document.querySelector('.apxd-tray')?.classList.contains('open');
                     if (!trayOpen || !chat.open) document.querySelector('.apxd-fab')?.classList.add('unseen');

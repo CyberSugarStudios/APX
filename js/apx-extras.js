@@ -96,6 +96,7 @@
         ['Rolling', 'Rolling dice', `
             <p>Click any skill, attribute, save, weapon or power on the sheet to roll it. Results show up in the <b>Dice and Notifications tray</b> (the d20 button in the bottom-right corner).</p>
             <ul><li>The tray has Advantage and Disadvantage for the next d20, a dice pool for any other roll, and buttons to spend <b>Luck Points</b> or <b>Omen dice</b> on a roll you just made.</li>
+            <li><b>Out of Luck?</b> With no Luck Points left, a d20 roll offers <b>Ask for a Luck Point</b> when someone else in your world still has one. Every ally with a Luck Point gets a prompt (and the ask shows in the chat): the first to click <b>Spend 1 Luck Point</b> pays it and your roll is rerolled. If two allies click at once, only one is charged. Unanswered asks close after 3 minutes.</li>
             <li>Conditions, wounds and your perks are added to rolls for you, and the badges on a roll show what changed it.</li>
             <li>A power or consumable with a <b>second damage type</b> splits its dice (you choose how many go to the second type when you craft it), and each type is rolled on its own with the total underneath.</li>
             <li>The <b>Chat</b> at the bottom of the tray messages everyone, just the GM, or any players you pick.</li>
