@@ -911,6 +911,10 @@
                 if (!count) return false;
                 // On medium melee, reach only applies to the 2H row — suppress on 1H badge
                 if (exclude2HOnlyProps && p.key === 'reach' && w.weightClass === 'medium') return false;
+                // Thrown, Returning and Grappling are melee-only
+                if (w.category === 'ranged' && ['thrown', 'returning', 'grappling'].includes(p.key)) return false;
+                // …and so does Stunning (unless the weapon deals Energy (Electric) damage)
+                if (exclude2HOnlyProps && p.key === 'stunning' && w.weightClass === 'medium' && w.elemental !== 'Electric') return false;
                 return true;
             }).filter(p => !p.addonOf).map(p => {
                 let val = w.properties[p.key];
@@ -1265,10 +1269,14 @@
             let critMult = (w.critMult || 2) + ((window.state.perks['luc_fortunatefighter'] || 0) >= 4 ? 1 : 0);
             let rollName = (w.name || 'Weapon') + (opts.label ? (opts.attr === 'STR' && /2-Handed/.test(opts.label) ? ' (2-Handed)' : /Aimed/.test(opts.label) ? ' (Aimed)' : '') : '');
             // What a hit with it can do (Crushing, Stunning, Flurry…): read by the GM's tracker
-            let hitMeta = { weapon: w.name || 'Weapon', props: Object.keys(w.properties || {}).filter(k => { let v = w.properties[k]; return typeof v === 'number' ? v > 0 : !!v; }),
+            // (a Medium weapon's Stunning only works in its two-handed attack, unless it's Energy (Electric))
+            let medStun1H = w.weightClass === 'medium' && w.elemental !== 'Electric' && !/2-Handed/.test(opts.label || '');
+            // Thrown, Returning and Grappling are melee-only (a ranged weapon forged with them before keeps no effect)
+            let meleeOnly = k => w.category === 'ranged' && ['thrown', 'returning', 'grappling'].includes(k);
+            let hitMeta = { weapon: w.name || 'Weapon', props: Object.keys(w.properties || {}).filter(k => { let v = w.properties[k]; if (k === 'stunning' && medStun1H) return false; if (k === 'reach' && w.weightClass === 'medium' && !/2-Handed/.test(opts.label || '')) return false; if (meleeOnly(k)) return false; return typeof v === 'number' ? v > 0 : !!v; }),
                 die: '1d' + ((String(opts.dice || '').match(/\d*d(\d+)/) || [0, 6])[1]), dmgType: apxWeaponDmgType(w), strMod: calc.mods.STR || 0, intMod: calc.mods.INT || 0, elec: w.elemental === 'Electric',
                 // Ranged weapons fire Light / Medium / Heavy Ammo by weight (its effect shows in the roller)
-                ammo: cat === 'ranged' && !(w.properties && w.properties.thrown) && ['light', 'medium', 'heavy'].includes(w.weightClass) ? w.weightClass : null };
+                ammo: cat === 'ranged' && !(w.properties && w.properties.thrown && w.category !== 'ranged') && ['light', 'medium', 'heavy'].includes(w.weightClass) ? w.weightClass : null };
             // pcAttack/apCost/aimed: the sheet's AP hook (apxBeforeAttack) spends AP for this attack
             let atkRoll = apxRollAttr({ type: 'attack', label: rollName, bonus: atk, dice: opts.dice, dmgMod, critMult, dmgType: apxWeaponDmgType(w), disSources: disadvSources, advSources,
                 pcAttack: true, wcat: cat, apCost: parseInt(opts.ap) || 0, ranged: cat === 'ranged', aimed: cat === 'ranged' && !!w.aimed, unarmed: !!w.isUnarmed,

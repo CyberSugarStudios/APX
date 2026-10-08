@@ -511,7 +511,7 @@ window.renderGmScreen = function() {
         body.innerHTML = '<div class="text-xs text-slate-500 text-center py-6">No party loaded yet. Click "Load Party" to pull from the active world or load from exported files.</div>';
         return;
     }
-    body.innerHTML = '<div class="grid grid-cols-1 sm:grid-cols-2 gap-2 items-start">' + window.gmParty.map((p, idx) => {
+    let cards = window.gmParty.map((p, idx) => {
         let s = p.summary;
         // Same full stat block as double-clicking the player's token
         let sb = typeof window._gmPlayerStatBlock === 'function' ? window._gmPlayerStatBlock(p, s.name, true) : null;
@@ -572,7 +572,19 @@ window.renderGmScreen = function() {
                 </details>
             </div>
         `;
-    }).join('') + '</div>';
+    });
+    // Two columns that each stack tight: every card sits right under the one above it in its column,
+    // however long its neighbour is (each card goes to whichever column is shorter so far)
+    body.innerHTML = '<div class="grid grid-cols-1 sm:grid-cols-2 gap-2 items-start" data-party-cols><div class="flex flex-col min-w-0" data-col="0"></div><div class="flex flex-col min-w-0" data-col="1"></div></div>';
+    let grid = body.querySelector('[data-party-cols]'), cols = body.querySelectorAll('[data-col]'), hgt = [0, 0];
+    let wide = getComputedStyle(grid).gridTemplateColumns.trim().split(/\s+/).length > 1;
+    cards.forEach((html, i) => {
+        let t = document.createElement('template'); t.innerHTML = html.trim();
+        let k = wide ? (hgt[0] <= hgt[1] ? 0 : 1) : 0;
+        let nodes = [...t.content.childNodes];
+        nodes.forEach(n => cols[k].appendChild(n));
+        hgt[k] += nodes.reduce((a, n) => a + (n.offsetHeight || 0), 0) + 8 + 0.001 * i;   // (hidden panel: heights are 0, so it alternates)
+    });
 };
 
 // ------------------------------------------------------------------
