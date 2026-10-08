@@ -1981,12 +1981,19 @@
             // A spot well inside it for its button
             let xs = f.poly.map(p => p.x), ys = f.poly.map(p => p.y), best = null;
             let x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys), st = Math.max(0.25, Math.max(x1 - x0, y1 - y0) / 24);
-            let mx = (x0 + x1) / 2, my = (y0 + y1) / 2, nx = Math.ceil((x1 - x0) / 2 / st), ny = Math.ceil((y1 - y0) / 2 / st);
+            let mx = (x0 + x1) / 2, my = (y0 + y1) / 2, nx = Math.ceil((x1 - x0) / 2 / st), ny = Math.ceil((y1 - y0) / 2 / st), spots = [];
             for (let i = -nx; i <= nx; i++) for (let j = -ny; j <= ny; j++) {
                 let x = mx + i * st, y = my + j * st;
                 let pt = { x, y }; if (!inside(pt, f.poly) || holes.some(h => inside(pt, h))) continue;
                 let d = Math.min(segDist(pt, f.poly), ...holes.map(h => segDist(pt, h))), dc = Math.hypot(x - (x0 + x1) / 2, y - (y0 + y1) / 2);
+                spots.push({ x, y, d });
                 if (!best || d > best.d + st / 2 || (d > best.d - st / 2 && dc < best.dc)) best = { x, y, d: Math.max(d, best ? best.d : 0), dc };
+            }
+            // Its button sits out of the way, tucked into the room's top-left corner (just clear of the walls)
+            if (best) {
+                let clear = Math.min(0.4, best.d * 0.8), corner = null;
+                spots.forEach(p => { if (p.d >= clear - 1e-9 && (!corner || p.x + p.y < corner.x + corner.y - 1e-9)) corner = p; });
+                if (corner) best = corner;
             }
             let id = 'r' + f.poly.map(p => Math.round(p.x * 10) + '.' + Math.round(p.y * 10)).sort().join('_');
             return best ? { id, poly: f.poly, holes, ix: best.x, iy: best.y } : null;
@@ -2015,9 +2022,9 @@
             let b = box.querySelector(`[data-room="${CSS.escape(r.id)}"]`);
             if (!b) {
                 b = document.createElement('button'); b.setAttribute('data-room', r.id);
-                b.style.cssText = 'position:absolute;pointer-events:auto;width:20px;height:20px;padding:0;margin:0;border:0;background:transparent;cursor:pointer;opacity:.5;transform:translate(-50%,-50%);transition:opacity .12s,transform .12s;';
-                b.addEventListener('mouseenter', () => { b.style.opacity = '1'; b.style.transform = 'translate(-50%,-50%) scale(1.3)'; });
-                b.addEventListener('mouseleave', () => { b.style.opacity = '.5'; b.style.transform = 'translate(-50%,-50%)'; });
+                b.style.cssText = 'position:absolute;pointer-events:auto;width:16px;height:16px;padding:0;margin:0;border:0;background:transparent;cursor:pointer;opacity:.4;transform:translate(-50%,-50%);transition:opacity .12s,transform .12s;';
+                b.addEventListener('mouseenter', () => { b.style.opacity = '1'; b.style.transform = 'translate(-50%,-50%) scale(1.35)'; });
+                b.addEventListener('mouseleave', () => { b.style.opacity = '.4'; b.style.transform = 'translate(-50%,-50%)'; });
                 b.addEventListener('mousedown', e => e.stopPropagation());
                 b.addEventListener('pointerdown', e => e.stopPropagation());
                 b.addEventListener('click', e => {
@@ -2033,7 +2040,7 @@
             if (b._ver !== ver) {
                 b._ver = ver;
                 let fogged = !!rf.isFogged(room);
-                b.innerHTML = `<svg width="20" height="20" viewBox="0 0 20 20" style="display:block;pointer-events:none"><rect x="1" y="1" width="18" height="18" rx="5" fill="${fogged ? 'rgba(30,41,59,.95)' : 'rgba(15,23,42,.7)'}" stroke="${fogged ? '#94a3b8' : '#64748b'}" stroke-width="1.2" ${fogged ? '' : 'stroke-dasharray="2.5 2"'}/>`
+                b.innerHTML = `<svg width="16" height="16" viewBox="0 0 20 20" style="display:block;pointer-events:none"><rect x="1" y="1" width="18" height="18" rx="5" fill="${fogged ? 'rgba(30,41,59,.95)' : 'rgba(15,23,42,.7)'}" stroke="${fogged ? '#94a3b8' : '#64748b'}" stroke-width="1.2" ${fogged ? '' : 'stroke-dasharray="2.5 2"'}/>`
                     + `<path d="M5.5 13.5h9a2.6 2.6 0 0 0 .2-5.2 3.6 3.6 0 0 0-6.9-1.1A2.8 2.8 0 0 0 5.5 13.5z" fill="${fogged ? '#cbd5e1' : 'none'}" stroke="#cbd5e1" stroke-width="1.3"/></svg>`;
                 b.title = (fogged ? 'Room in fog: click to reveal the whole room.' : 'Room: click to cover the whole room in fog.') + ' (Only you see this.)';
                 b.setAttribute('aria-label', fogged ? 'Reveal room' : 'Fog room');

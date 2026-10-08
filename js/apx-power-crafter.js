@@ -802,7 +802,14 @@ function pcRulesProblems() {
         out.push('A Reaction power needs its trigger: the specific condition for using it (Step 7).');
     // No power costs more than 200 XP (the top of Level 5), free or not
     let tot = window.pcCalcXP(pcDraft).total;
-    if (tot > window.APX_POWER_MAX_XP) out.push(`Powers cap at ${window.APX_POWER_MAX_XP} XP (the top of Level 5). This one is ${tot} XP: lower it by ${tot - window.APX_POWER_MAX_XP} XP to save it.`);
+    if (tot > window.APX_POWER_MAX_XP) {
+        if (pcIsNpc()) {
+            // NPC powers are priced in TP by Level: the cap is the top of Level 5, in TP for this power's usage
+            let capTp = window.npcPowerTotalTp ? window.npcPowerTotalTp(5, pcDraft.usageType, pcDraft.maxCharges) : null;
+            let over = Math.round((tot - window.APX_POWER_MAX_XP) / window.APX_POWER_MAX_XP * 100);
+            out.push(`Powers cap at the top of Level 5${capTp != null ? ` (${capTp} TP with this usage)` : ''}. This one is built about ${over}% past it: remove or lower options until it fits.`);
+        } else out.push(`Powers cap at ${window.APX_POWER_MAX_XP} XP (the top of Level 5). This one is ${tot} XP: lower it by ${tot - window.APX_POWER_MAX_XP} XP to save it.`);
+    }
     return out;
 }
 

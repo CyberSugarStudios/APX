@@ -48,7 +48,7 @@
         ],
         // Powers cap at 200 XP (a free power could be built far past Level 5): rebuild to 200 or less, free
         6: [
-            { id: 'xpCap', test: d => typeof window.pcCalcXP === 'function' && window.pcCalcXP(d).total > (window.APX_POWER_MAX_XP || 200), text: 'Powers now cap at 200 XP (the top of Level 5), and this one costs more. It can\'t be used until it\'s rebuilt to 200 XP or less: the rebuild is free, and any XP you paid over the new cost comes back.' }
+            { id: 'xpCap', test: d => typeof window.pcCalcXP === 'function' && window.pcCalcXP(d).total > (window.APX_POWER_MAX_XP || 200), text: 'Powers now cap at the top of Level 5 (200 XP for a character\'s power; Level 5\'s TP for an NPC\'s), and this one is built past it. Rebuild it to fit (free): a character gets back any XP paid over the new cost, and can\'t use it until then.' }
         ],
         // Saving throws name their Core Attribute; lasting effects get an Escape Save the target can pass
         3: ['save', 'cond', 'escape', 'actionInt'].map(k => ({
