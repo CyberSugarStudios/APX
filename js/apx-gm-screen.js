@@ -69,7 +69,8 @@ function computeCharSummary(state) {
     ATTRIBUTES.forEach(a => { if (itemFx.attr[a]) calc.scores[a] += itemFx.attr[a]; });
     if (window.apxApplyItemAttrSets) window.apxApplyItemAttrSets(calc.scores, itemFx);
     // A worn, powered Exo-Suit: STR or AGI 15 (20 with Powerful) unless already higher
-    let exo = window.apxExoActive ? window.apxExoActive(state) : null;
+    // (only when the sheet says it's in effect: the GM can turn Exo-Suits off for the world)
+    let exo = state.derived && state.derived.exo && window.apxExoActive ? window.apxExoActive(state) : null;
     if (exo) calc.scores[exo.attr] = Math.max(calc.scores[exo.attr], exo.attrFloor);
     Object.keys(itemFx.skill).forEach(t => {
         let sk = [...SKILLS, ...(state.customSkills || [])].find(x => x.name === t || x.id === t);

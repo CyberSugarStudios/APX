@@ -474,8 +474,8 @@
         }
 
     </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20261072150">
-    <link rel="stylesheet" href="css/tailwind.css?v=20261072150">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20261080050">
+    <link rel="stylesheet" href="css/tailwind.css?v=20261080050">
 </head>
 <body class="p-2 md:p-6 flex justify-center text-sm ml-0 lg:ml-8 transition-all" style="padding-top:4.25rem"><!-- (room for the floating Roster / Settings buttons) -->
     <!-- Auth bar removed — account controls are in the sidebar -->
@@ -676,6 +676,8 @@
                 <div class="flex justify-between items-end border-b border-cyan-900 pb-2 mb-3">
                     <h2 class="section-title border-none mb-0 pb-0 text-cyan-400">Armor & Defenses</h2>
                 </div>
+                <!-- Exo-Suit in use (js/apx-exo.js): what it's doing right now, and its combat buttons -->
+                <div id="exoBanner" class="hidden mb-3"></div>
                 
                 <div class="grid grid-cols-3 gap-2 mb-3">
                     <div class="bg-slate-900 p-2 rounded border border-slate-700 text-center">
@@ -727,7 +729,7 @@
                 </div>
                 <div id="armorWarning" class="text-[10px] text-red-400 mt-2 hidden text-center font-black uppercase tracking-wider bg-red-900/30 border border-red-800 rounded p-1">Strength Requirement Not Met! (-2 Speed, Disadvantage on Atk/Checks/Saves)</div>
 
-                <div class="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-700">
+                <div id="equipSlots" class="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-700">
                     <div id="shieldControl" class="bg-slate-900 rounded border border-slate-700 p-2 text-center">
                         <div class="text-[9px] text-slate-500 uppercase font-bold mb-1" data-tip="Requires one hand to wield. Can be used to perform the Block Combat Maneuver.">Shield</div>
                         <div id="shieldStatus" class="text-[10px] text-slate-400 mb-1">Not Equipped</div>
@@ -742,9 +744,9 @@
                             <button id="helmetBreakBtn" onclick="window.breakHelmet()" class="hidden bg-red-600/20 text-red-400 hover:bg-red-600/40 text-[10px] px-2 py-1 rounded border border-red-700/50 transition font-bold">Break</button>
                         </div>
                     </div>
+                    <!-- Exo-Suit slot (js/apx-exo.js): shown when the GM's World Settings allow them, or a suit is owned -->
+                    <div id="exoControl" class="hidden bg-slate-900 rounded border border-fuchsia-900/70 p-2 text-center"></div>
                 </div>
-                <!-- Exo-Suit (js/apx-exo.js): shown when the GM's World Settings allow them -->
-                <div id="exoControl" class="hidden bg-slate-900 rounded border border-fuchsia-900/60 p-2 mt-2"></div>
             </div>
 
             <!-- Notes: always exactly as tall as Vitals and Defenses beside it (its list scrolls inside) -->
@@ -2360,39 +2362,39 @@
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20261072150"></script>
-    <script src="js/apx-patch-notes.js?v=20261072150"></script>
-    <script src="js/apx-dice.js?v=20261072150"></script>
-    <script src="js/apx-data.js?v=20261072150"></script>
-    <script src="js/apx-item-effects.js?v=20261072150"></script>
-    <script src="js/apx-exo.js?v=20261072150"></script>
-    <script src="js/apx-perks-db.js?v=20261072150"></script>
-    <script src="js/apx-migrations.js?v=20261072150"></script>
-    <script src="js/apx-roster.js?v=20261072150"></script>
-    <script src="js/apx-state.js?v=20261072150"></script>
-    <script src="js/apx-origin-wizard.js?v=20261072150"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20261072150"></script>
-    <script src="js/apx-inventory-ui.js?v=20261072150"></script>
-    <script src="js/apx-craft-shared.js?v=20261072150"></script>
-    <script src="js/apx-armor-forge.js?v=20261072150"></script>
-    <script src="js/apx-weapon-forge.js?v=20261072150"></script>
-    <script src="js/apx-power-crafter.js?v=20261072150"></script>
-    <script src="js/apx-consumable-crafter.js?v=20261072150"></script>
-    <script src="js/apx-npc-crafter.js?v=20261072150"></script>
-    <script src="js/apx-engine.js?v=20261072150"></script>
-    <script src="js/apx-perks-ui.js?v=20261072150"></script>
-    <script src="js/apx-rest.js?v=20261072150"></script>
-    <script src="js/apx-looting.js?v=20261072150"></script>
-    <script src="js/apx-main.js?v=20261072150"></script>
+    <script src="js/apx-dialogs.js?v=20261080050"></script>
+    <script src="js/apx-patch-notes.js?v=20261080050"></script>
+    <script src="js/apx-dice.js?v=20261080050"></script>
+    <script src="js/apx-data.js?v=20261080050"></script>
+    <script src="js/apx-item-effects.js?v=20261080050"></script>
+    <script src="js/apx-exo.js?v=20261080050"></script>
+    <script src="js/apx-perks-db.js?v=20261080050"></script>
+    <script src="js/apx-migrations.js?v=20261080050"></script>
+    <script src="js/apx-roster.js?v=20261080050"></script>
+    <script src="js/apx-state.js?v=20261080050"></script>
+    <script src="js/apx-origin-wizard.js?v=20261080050"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20261080050"></script>
+    <script src="js/apx-inventory-ui.js?v=20261080050"></script>
+    <script src="js/apx-craft-shared.js?v=20261080050"></script>
+    <script src="js/apx-armor-forge.js?v=20261080050"></script>
+    <script src="js/apx-weapon-forge.js?v=20261080050"></script>
+    <script src="js/apx-power-crafter.js?v=20261080050"></script>
+    <script src="js/apx-consumable-crafter.js?v=20261080050"></script>
+    <script src="js/apx-npc-crafter.js?v=20261080050"></script>
+    <script src="js/apx-engine.js?v=20261080050"></script>
+    <script src="js/apx-perks-ui.js?v=20261080050"></script>
+    <script src="js/apx-rest.js?v=20261080050"></script>
+    <script src="js/apx-looting.js?v=20261080050"></script>
+    <script src="js/apx-main.js?v=20261080050"></script>
 
     <!-- Firebase (cloud sync — requires firebase-config.js to be configured) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20261072150"></script>
-    <script src="js/apx-firebase.js?v=20261072150"></script>
-    <script src="js/apx-battlemap.js?v=20261072150"></script>
-    <script src="js/apx-map-tiles.js?v=20261072150"></script>
+    <script src="js/firebase-config.js?v=20261080050"></script>
+    <script src="js/apx-firebase.js?v=20261080050"></script>
+    <script src="js/apx-battlemap.js?v=20261080050"></script>
+    <script src="js/apx-map-tiles.js?v=20261080050"></script>
     <script>
     // ── Sidebar: folders, worlds, meatball menus ─────────────
     window._sidebarChars = [];
@@ -5693,9 +5695,9 @@
         });
     }
     </script>
-    <script src="js/apx-chat.js?v=20261072150"></script>
-    <script src="js/apx-actions.js?v=20261072150"></script>
-    <script src="js/apx-extras.js?v=20261072150"></script>
-    <script src="js/apx-theme-light.js?v=20261072150"></script>
+    <script src="js/apx-chat.js?v=20261080050"></script>
+    <script src="js/apx-actions.js?v=20261080050"></script>
+    <script src="js/apx-extras.js?v=20261080050"></script>
+    <script src="js/apx-theme-light.js?v=20261080050"></script>
 </body>
 </html>
