@@ -232,9 +232,16 @@
 
             // Items that set a score to a total ("STR 15 unless higher"), after every bonus and perk
             if (window.apxApplyItemAttrSets) window.apxApplyItemAttrSets(calc.scores, itemFx);
+            // A worn, powered Exo-Suit (js/apx-exo.js): STR or AGI 15 (20 with Powerful) unless already higher
+            let exo = calc.exo = window.apxExoActive ? window.apxExoActive(window.state) : null;
+            if (exo) calc.scores[exo.attr] = Math.max(calc.scores[exo.attr], exo.attrFloor);
             ATTRIBUTES.forEach(a => {
                 calc.mods[a] = calc.scores[a] - 5;
             });
+            if (exo) {
+                (calc.skillAdv[exo.skill] = calc.skillAdv[exo.skill] || []).push('Exo-Suit');
+                if (exo.sys.has('forceMult')) calc.bonusMeleeDmg += Math.max(0, calc.mods.STR);   // STR modifier twice on melee damage
+            }
 
             calc.maxRestDice = calc.scores.CON + (calc.maxRestDice - 5) + fxStat('maxRestDice');
             calc.maxRestDice = Math.max(0, calc.maxRestDice);
@@ -262,11 +269,15 @@
             {
                 let sz = parseInt(window.state.ancestry.size) || 30;
                 calc.sizeKey = sz <= 15 ? 'small' : sz >= 60 ? 'large' : 'medium';
+                calc.sizeName = calc.sizeKey;
+                // A Juggernaut Exo-Suit makes you one Size larger
+                if (exo && exo.sizeUp) { calc.sizeName = { small: 'medium', medium: 'large', large: 'huge' }[calc.sizeKey]; if (calc.sizeKey !== 'large') calc.sizeKey = calc.sizeName; }
                 if (calc.sizeKey === 'small') (calc.skillAdv.Stealth = calc.skillAdv.Stealth || []).push('Small size');
                 if (calc.sizeKey === 'large') (calc.skillDis.Stealth = calc.skillDis.Stealth || []).push('Large size');
             }
             let sizeMult = (parseInt(window.state.ancestry.size) || 30);
-            if (calc.sizeMultBoost > 0) sizeMult *= Math.pow(2, calc.sizeMultBoost);   // each step (Brute R1, Load-Bearing) is one size larger: stacks with the ancestry size
+            if (calc.sizeMultBoost > 0) sizeMult *= Math.pow(2, calc.sizeMultBoost);
+            if (exo && exo.sizeUp) sizeMult *= 2;   // each step (Brute R1, Load-Bearing) is one size larger: stacks with the ancestry size
             calc.carryCap = calc.scores.STR * sizeMult + (calc.carryCap - 150) + fxStat('carryCap');
 
             let armorWt = window.state.equippedArmor.wt;
@@ -434,6 +445,8 @@
             let turnAc = window.apxTurnFxAc ? window.apxTurnFxAc() : 0;   // Fight Defensively, Block… (until your next turn)
             armorAc += turnAc;
             calc.ac += allowedAgi + armorAc;
+            // Juggernaut Plating: the suit's defenses instead of your own (this turn's maneuvers still count)
+            if (exo && exo.plating) calc.ac = exo.plating.ac + turnAc;
             document.getElementById('dispAc').innerText = calc.ac;
             // Update AC label tooltip dynamically
             {
@@ -494,6 +507,7 @@
             calc.dr += Math.max(0, calc.mods.CON) + armorDr;
             let baseErMods = [calc.mods.AGI, calc.mods.PER, calc.mods.INT, calc.mods.CHA, calc.mods.LUC].map(v => Math.max(v, 0));
             calc.er += Math.max(...baseErMods) + armorEr;
+            if (exo && exo.plating) { calc.dr = exo.plating.dr; calc.er = exo.plating.er; }
 
             document.getElementById('dispDr').innerText = calc.dr;
             document.getElementById('dispEr').innerText = calc.er;
@@ -575,6 +589,11 @@
             document.getElementById('dispAp').innerText = calc.maxAp;
             window.apxRenderApPips && window.apxRenderApPips();
             document.getElementById('dispInit').innerText = calc.init;
+            // Exo-Suits: a Juggernaut's Speed is fixed (3, or 2 with Dreadnought Plating); a Phantom adds 1.
+            // A shut-down Juggernaut weighs on anyone with STR 14 or less: Speed 1.
+            if (exo && exo.speedFixed) calc.speed = exo.speedFixed;
+            if (exo && exo.speedPlus) calc.speed += exo.speedPlus;
+            if (window.apxExoOverburdened && window.apxExoOverburdened(window.state, calc.scores.STR)) calc.speed = Math.min(calc.speed, 1);
             document.getElementById('dispSpeed').innerText = calc.speedForcedZero ? 0 : Math.max(0, calc.speed);
             document.getElementById('dispMaxRest').innerText = calc.maxRestDice;
             document.getElementById('dispRestDieStep').innerText = calc.restDieStep;
@@ -588,6 +607,7 @@
             }
             window.state.lastKnownMaxRestDice = calc.maxRestDice;
             calc.woundThreshold = (calc.scores.CON * 2) + calc.wtBoost + fxStat('wt');
+            if (exo && exo.plating) calc.woundThreshold = exo.plating.wt;
             document.getElementById('dispWt').innerText = calc.woundThreshold;
             // The numbers this sheet shows, saved with the character: the GM's party panel and damage
             // math use exactly these (DR/ER with shield, helmet, perks and items; resistances by type)
@@ -597,6 +617,7 @@
                 let prevDerived = JSON.stringify(window.state.derived || null);
                 window.state.derived = { ac: calc.ac, dr: calc.dr, er: calc.er, maxHp: calc.maxHp, wt: calc.woundThreshold, ap: calc.maxAp, init: calc.init,
                     speed: calc.speedForcedZero ? 0 : Math.max(0, calc.speed), res: def.res || {}, immune: def.immune || [], halfBypass: !!def.halfBypass,
+                    sizeName: calc.sizeName || calc.sizeKey, exo: exo ? (exo.frame + (exo.plating ? ':' + exo.platingName : '')) : null,
                     unarmored: armorWt === 0, defensive: (window.state.perks || {}).con_defensive || 0, helmet: !!(h.equipped && !h.broken) };
                 // changed (first time on this version, or new gear): save it so the GM has it (after things settle)
                 if (prevDerived !== JSON.stringify(window.state.derived)) {
@@ -619,6 +640,7 @@
             renderWeapons();
             renderInventory(armorWt);
             if (typeof window.renderActiveConditions === 'function') window.renderActiveConditions();
+            if (typeof window.apxRenderExo === 'function') window.apxRenderExo();
             renderPowerStats();
             renderPowers();
             renderActivePerks();
@@ -1692,6 +1714,7 @@
         }
         window.apxUsePower = async function(idx) {
             let p = apxPowerAt(idx); if (!p || !window.APXDice) return;
+            if (window.apxPowerOverCap && window.apxPowerOverCap(p)) { APXDice.notify(`${p.name || 'This power'} costs more than ${window.APX_POWER_MAX_XP || 200} XP, the most a power can cost. Rebuild it in the Power Crafter (free) before using it.`, { kind: 'warn', open: true }); if (typeof window.openPowerEditor === 'function' && typeof idx === 'number') window.openPowerEditor(idx); return; }
             if (calc.cantAct) { APXDice.notify(`You're ${calc.cantActLabel}, so you can't use powers until that ends.`, { kind: 'warn', open: true }); return; }
             let name = p.name || 'Power', who = window.state.name || '';
             // Damage type chosen each time it's used (both, with a second type): asked before anything is spent

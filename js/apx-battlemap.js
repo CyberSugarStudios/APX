@@ -2424,6 +2424,8 @@
 
     // Character sheet size (ancestry.size = lbs-per-STR multiplier: 15 small, 30 medium, 60 large)
     function sizeFromCharState(st) {
+        // The size the sheet works out (a Juggernaut Exo-Suit makes its wearer one size larger)
+        if (st && st.derived && SIZES[st.derived.sizeName]) return st.derived.sizeName;
         let v = parseInt(st?.ancestry?.size, 10);
         if (!v) return null;
         return v <= 15 ? 'small' : v >= 60 ? 'large' : 'medium';

@@ -450,8 +450,8 @@
                 }
         
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20261071525">
-    <link rel="stylesheet" href="css/tailwind.css?v=20261071525">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20261071715">
+    <link rel="stylesheet" href="css/tailwind.css?v=20261071715">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
@@ -1520,36 +1520,37 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20261071525"></script>
-    <script src="js/apx-patch-notes.js?v=20261071525"></script>
-    <script src="js/apx-dice.js?v=20261071525"></script>
-    <script src="js/apx-data.js?v=20261071525"></script>
-    <script src="js/apx-item-effects.js?v=20261071525"></script>
-    <script src="js/apx-perks-db.js?v=20261071525"></script>
-    <script src="js/apx-migrations.js?v=20261071525"></script>
-    <script src="js/apx-state.js?v=20261071525"></script>
-    <script src="js/apx-craft-shared.js?v=20261071525"></script>
-    <script src="js/apx-armor-forge.js?v=20261071525"></script>
-    <script src="js/apx-weapon-forge.js?v=20261071525"></script>
-    <script src="js/apx-consumable-crafter.js?v=20261071525"></script>
-    <script src="js/apx-perks-ui.js?v=20261071525"></script>
-    <script src="js/apx-power-crafter.js?v=20261071525"></script>
-    <script src="js/apx-npc-crafter.js?v=20261071525"></script>
-    <script src="js/apx-inventory-ui.js?v=20261071525"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20261071525"></script>
-    <script src="js/apx-gm-screen.js?v=20261071525"></script>
-    <script src="js/apx-loot-maker.js?v=20261071525"></script>
-    <script src="js/apx-library.js?v=20261071525"></script>
-    <script src="js/apx-gmtools-main.js?v=20261071525"></script>
+    <script src="js/apx-dialogs.js?v=20261071715"></script>
+    <script src="js/apx-patch-notes.js?v=20261071715"></script>
+    <script src="js/apx-dice.js?v=20261071715"></script>
+    <script src="js/apx-data.js?v=20261071715"></script>
+    <script src="js/apx-item-effects.js?v=20261071715"></script>
+    <script src="js/apx-exo.js?v=20261071715"></script>
+    <script src="js/apx-perks-db.js?v=20261071715"></script>
+    <script src="js/apx-migrations.js?v=20261071715"></script>
+    <script src="js/apx-state.js?v=20261071715"></script>
+    <script src="js/apx-craft-shared.js?v=20261071715"></script>
+    <script src="js/apx-armor-forge.js?v=20261071715"></script>
+    <script src="js/apx-weapon-forge.js?v=20261071715"></script>
+    <script src="js/apx-consumable-crafter.js?v=20261071715"></script>
+    <script src="js/apx-perks-ui.js?v=20261071715"></script>
+    <script src="js/apx-power-crafter.js?v=20261071715"></script>
+    <script src="js/apx-npc-crafter.js?v=20261071715"></script>
+    <script src="js/apx-inventory-ui.js?v=20261071715"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20261071715"></script>
+    <script src="js/apx-gm-screen.js?v=20261071715"></script>
+    <script src="js/apx-loot-maker.js?v=20261071715"></script>
+    <script src="js/apx-library.js?v=20261071715"></script>
+    <script src="js/apx-gmtools-main.js?v=20261071715"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20261071525"></script>
-    <script src="js/apx-firebase.js?v=20261071525"></script>
-    <script src="js/apx-battlemap.js?v=20261071525"></script>
-    <script src="js/apx-map-tiles.js?v=20261071525"></script>
+    <script src="js/firebase-config.js?v=20261071715"></script>
+    <script src="js/apx-firebase.js?v=20261071715"></script>
+    <script src="js/apx-battlemap.js?v=20261071715"></script>
+    <script src="js/apx-map-tiles.js?v=20261071715"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -1982,7 +1983,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── World Settings ───────────────────────────────────────────
     // Rules for characters in this world: Starting XP, Max GP, starting Currency, and how
     // Core Attributes are set. Characters that aren't in a world aren't affected.
-    window.apxDefaultWorldSettings = () => ({ startingXp: 25, maxGp: 15, startingCu: 0, attrMethod: 'pointBuy' });
+    window.apxDefaultWorldSettings = () => ({ startingXp: 25, maxGp: 15, startingCu: 0, attrMethod: 'pointBuy', allowExoSuits: false });
     window.renderWorldSettings = function() {
         let el = document.getElementById('wPanelSettings'); if (!el) return;
         let st = _wNotes.settings = Object.assign(window.apxDefaultWorldSettings(), _wNotes.settings || {});
@@ -1996,6 +1997,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${num('maxGp', 'Max Genetic Points (GP)', 'GP budget for the Ancestry builder. Default 15.', 0)}
                 ${num('startingCu', 'Starting Currency bonus (Cu)', 'Extra Currency each new character gets.', 0)}
             </div>
+            ${window._wsGrantHtml()}
+            <label class="flex items-start gap-2 bg-slate-900 border border-slate-700 rounded p-3 mb-3 cursor-pointer">
+                <input type="checkbox" ${st.allowExoSuits ? 'checked' : ''} onchange="window.setWorldSetting('allowExoSuits', this.checked)" class="mt-0.5">
+                <div><div class="text-xs font-bold text-white">Allow Exo-Suits</div><div class="text-[10px] text-slate-500 leading-tight">Players can buy and build Exo-Suits (Rulebook Chapter 11): a Juggernaut or Phantom Base Suit for 5,000 Currency with up to 3 Integrated Systems, from the Exo-Suit Forge on their sheet. Off: the forge is hidden, and suits already bought stay as they are.</div></div></label>
             <div class="bg-slate-900 border border-slate-700 rounded p-3">
                 <div class="text-xs font-bold text-white mb-2">Core Attributes</div>
                 <label class="flex items-start gap-2 mb-2 cursor-pointer"><input type="radio" name="wsAttr" ${st.attrMethod !== 'standardArray' ? 'checked' : ''} onchange="window.setWorldSetting('attrMethod','pointBuy')" class="mt-0.5">
@@ -2004,9 +2009,42 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div><div class="text-xs font-bold text-slate-200">Standard Array</div><div class="text-[10px] text-slate-500 leading-tight">Assign 7, 6, 5, 5, 5, 4 and 3 to the seven attributes (dropdowns instead of number boxes).</div></div></label>
             </div>`;
     };
+    // Give one player more than the world's settings: extra GP (their Ancestry budget), Cu or XP
+    window._wsGrantHtml = function() {
+        let party = (window.gmParty || []).filter(p => p && p.fileName);
+        let opts = party.map(p => `<option value="${p.fileName}">${String((p.state && p.state.name) || (p.summary && p.summary.name) || 'Player').replace(/</g, '&lt;')}</option>`).join('');
+        let row = (k, label, hint) => `<div class="flex items-center gap-2 flex-wrap"><span class="text-[11px] font-bold text-slate-200 w-28">${label}</span>
+            <input id="wsGrant_${k}" type="number" min="1" value="" placeholder="0" class="bg-slate-800 text-sm w-20 text-center">
+            <button onclick="window._wsGrant('${k}')" class="px-2 py-1 rounded text-[11px] font-bold" style="background:#065f46;color:#d1fae5;border:1px solid #10b981">Give</button>
+            <span class="text-[10px] text-slate-500 leading-tight">${hint}</span></div>`;
+        return `<div class="bg-slate-900 border border-slate-700 rounded p-3 mb-3">
+            <div class="text-xs font-bold text-white mb-1">Give a player more</div>
+            <div class="text-[10px] text-slate-500 mb-2 leading-tight">On top of the settings above, for one player's current character (a reward, a late joiner, a rebuilt character). It reaches their sheet the next time it's open.</div>
+            ${party.length ? `<select id="wsGrantWho" class="bg-slate-800 text-xs mb-2 w-full sm:w-64">${opts}</select>
+            <div class="space-y-1.5">${row('gp', 'Extra GP', 'Raises their Ancestry GP budget for this world')}${row('cu', 'Extra Cu', 'Added to their Currency')}${row('xp', 'Extra Starting XP', 'Added to their unspent XP (no XP bonuses apply)')}</div>`
+            : `<div class="text-[11px] text-slate-400">No players in this world yet.</div>`}</div>`;
+    };
+    window._wsGrant = async function(kind) {
+        let uid = document.getElementById('wsGrantWho')?.value, inp = document.getElementById('wsGrant_' + kind);
+        let n = Math.max(0, parseInt(inp && inp.value) || 0);
+        if (!uid || !n) { window.APXDice?.notify('Choose a player and an amount first.', { kind: 'warn' }); return; }
+        let code = getActiveWorld()?.inviteCode, p = (window.gmParty || []).find(x => x.fileName === uid);
+        let who = (p && p.state && p.state.name) || 'the player';
+        if (!code || !window.apxAuth?.gmGiveToPlayer) { window.APXDice?.notify('Open a world with an invite code first.', { kind: 'warn' }); return; }
+        let label = kind === 'gp' ? n + ' GP' : kind === 'cu' ? n + ' Cu' : n + ' XP';
+        let ok = await window.apxConfirm(`Give ${who} ${label}?`, { title: 'Give a player more', okLabel: 'Give' });
+        if (!ok) return;
+        let gift = { id: 'ws_' + kind + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), from: 'World Settings' };
+        gift[kind === 'gp' ? 'gp' : kind === 'cu' ? 'cu' : 'xp'] = n;
+        try {
+            await window.apxAuth.gmGiveToPlayer(code, uid, gift);
+            if (inp) inp.value = '';
+            window.APXDice?.notify(`Sent ${label} to ${who}.`, { kind: 'note' });
+        } catch (e) { window.APXDice?.notify('Could not send it: ' + e.message, { kind: 'warn' }); }
+    };
     window.setWorldSetting = function(key, val) {
         _wNotes.settings = Object.assign(window.apxDefaultWorldSettings(), _wNotes.settings || {});
-        _wNotes.settings[key] = key === 'attrMethod' ? val : Math.max(0, parseInt(val) || 0);
+        _wNotes.settings[key] = key === 'attrMethod' ? val : typeof val === 'boolean' ? val : Math.max(0, parseInt(val) || 0);
         saveWorldNotes();
         window.APXDice?.notify(`World Settings saved.`, { kind: 'note' });
     };
@@ -5049,7 +5087,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Full player stat block popup — opened by double-clicking a player's battle token
     // ONE player stat block, used by the token double-click window, the initiative
     // tracker (click a player's name) and the Party panel.
-    window._gmPlayerStatBlock = function(p, playerName) {
+    // compact: the Party panel's card (powers listed by name, Level and AP; the pop-up shows them in full)
+    window._gmPlayerStatBlock = function(p, playerName, compact) {
         let s = p?.summary; let st = p?.state;
         if (!s) return null;
         const hdr=(t)=>`<div style="font-size:0.52rem;font-weight:900;text-transform:uppercase;color:#6366f1;letter-spacing:0.07em;margin:0.5rem 0 0.2rem;border-bottom:1px solid #1e293b;padding-bottom:0.15rem;">${t}</div>`;
@@ -5090,6 +5129,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Ancestry name is a string in s.ancestryName — never use st.ancestry directly
         let subtitle = s.ancestryName || '';
+        // In a powered Exo-Suit: its framework and Plating (its defenses are already the ones shown)
+        let exoD = st?.derived?.exo;
+        if (exoD) subtitle += ` · <span style="color:#f0abfc" title="Wearing a powered Exo-Suit">Exo-Suit: ${String(exoD).replace(/</g,'&lt;').replace(/^juggernaut/, 'Juggernaut').replace(/^phantom/, 'Phantom').replace(':', ', ')}</span>`;
 
         let R = o => window.APXDice ? ` data-apx-roll='${window.APXDice.attr(Object.assign({ who: s.name, perks: false }, o))}' title="Click to roll"` : '';
         savesTable = `<table style="width:100%;border-collapse:collapse;font-size:0.6rem;margin-top:0.1rem;">
@@ -5123,7 +5165,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ${envSection}
             ${hdr('Skills')}<div style="font-size:0.62rem;color:#a3e635;padding:0.15rem 0;">${skillsList}</div>
             ${hdr('Languages')}<div style="font-size:0.62rem;color:#c4b5fd;padding:0.15rem 0;">${languages}</div>
-            ${window._gmPlayerPowersHtml ? window._gmPlayerPowersHtml(st, hdr, p && (p.fileName || p.summary?.playerUid), s.mods) : ''}
+            ${window._gmPlayerPowersHtml ? window._gmPlayerPowersHtml(st, hdr, p && (p.fileName || p.summary?.playerUid), s.mods, compact) : ''}
         </div>` };
     };
 
@@ -6548,8 +6590,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </script>
     <div id="floatingWindowContainer"></div>
 
-    <script src="js/apx-chat.js?v=20261071525"></script>
-    <script src="js/apx-extras.js?v=20261071525"></script>
-    <script src="js/apx-theme-light.js?v=20261071525"></script>
+    <script src="js/apx-chat.js?v=20261071715"></script>
+    <script src="js/apx-extras.js?v=20261071715"></script>
+    <script src="js/apx-theme-light.js?v=20261071715"></script>
 </body>
 </html>

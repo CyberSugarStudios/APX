@@ -68,6 +68,9 @@ function computeCharSummary(state) {
     calc.speed += fxStat('speed');
     ATTRIBUTES.forEach(a => { if (itemFx.attr[a]) calc.scores[a] += itemFx.attr[a]; });
     if (window.apxApplyItemAttrSets) window.apxApplyItemAttrSets(calc.scores, itemFx);
+    // A worn, powered Exo-Suit: STR or AGI 15 (20 with Powerful) unless already higher
+    let exo = window.apxExoActive ? window.apxExoActive(state) : null;
+    if (exo) calc.scores[exo.attr] = Math.max(calc.scores[exo.attr], exo.attrFloor);
     Object.keys(itemFx.skill).forEach(t => {
         let sk = [...SKILLS, ...(state.customSkills || [])].find(x => x.name === t || x.id === t);
         let key = sk ? sk.id : t;
@@ -492,6 +495,13 @@ window.gmOpenCompanionStatBlock = function(uid) {
     window.openFloatingStatBlockRaw('comp_' + uid, `${csb.name} (${p.summary?.name || 'player'}'s companion)`, window.buildStatBlockHtml(csb, false));
 };
 
+function _gmPartyShut() { try { return JSON.parse(localStorage.getItem('apxPartyShut') || '{}') || {}; } catch (e) { return {}; } }
+window._gmPartyToggle = function(uid) {
+    let m = _gmPartyShut();
+    if (m[uid]) delete m[uid]; else m[uid] = 1;
+    try { localStorage.setItem('apxPartyShut', JSON.stringify(m)); } catch (e) { }
+    window.renderGmScreen();
+};
 window.renderGmScreen = function() {
     try { window.renderGmLoot && window.renderGmLoot(); } catch (e) { }
     let body = document.getElementById('gmScreenBody');
@@ -503,12 +513,15 @@ window.renderGmScreen = function() {
     body.innerHTML = '<div class="grid grid-cols-1 sm:grid-cols-2 gap-2 items-start">' + window.gmParty.map((p, idx) => {
         let s = p.summary;
         // Same full stat block as double-clicking the player's token
-        let sb = typeof window._gmPlayerStatBlock === 'function' ? window._gmPlayerStatBlock(p, s.name) : null;
+        let sb = typeof window._gmPlayerStatBlock === 'function' ? window._gmPlayerStatBlock(p, s.name, true) : null;
         if (sb) {
             let uid = String(p.fileName || '').replace(/'/g, '');
+            // Shrunk: just the portrait, name, ancestry and + Initiative (remembered per player on this device)
+            let shut = !!_gmPartyShut()[uid];
             return `
             <div class="rounded-lg mb-2 overflow-hidden" style="background:#0f172a;border:1px solid #6366f1;">
                 <div style="background:#1e1b4b;padding:0.5rem 0.75rem;display:flex;align-items:center;gap:0.6rem;">
+                    <button onclick="window._gmPartyToggle('${uid}')" title="${shut ? 'Expand this stat block' : 'Shrink to portrait, name, ancestry and + Initiative'}" style="background:none;border:0;color:#a5b4fc;font-size:.8rem;font-weight:900;cursor:pointer;padding:0 .1rem;line-height:1">${shut ? '▸' : '▾'}</button>
                     ${sb.portrait}
                     <div style="flex:1;min-width:0;cursor:pointer;" onclick="window._btOpenPlayerSummary && window._btOpenPlayerSummary('${String(s.name).replace(/'/g, '')}','${uid}')" title="Open in its own window">
                         <div style="font-size:0.85rem;font-weight:900;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${sb.name}</div>
@@ -516,8 +529,7 @@ window.renderGmScreen = function() {
                     </div>
                     <button onclick="window.addToInitiative(${idx}, 'party')" class="text-[9px] px-2 py-1 rounded bg-indigo-700 hover:bg-indigo-600 text-white font-bold">+ Initiative</button>
                 </div>
-                ${sb.body}
-                ${_gmCompanionRow(p, idx)}
+                ${shut ? '' : sb.body + _gmCompanionRow(p, idx)}
             </div>`;
         }
         let hpPct = s.maxHp > 0 ? Math.max(0, Math.min(100, (s.currentHp / s.maxHp) * 100)) : 0;
@@ -4034,7 +4046,7 @@ window._gmPlayerPowerPopup = function(uid, idx) {
     if (typeof window.makeDraggable === 'function') window.makeDraggable(win, document.getElementById(winId + '_hdr'));
     else if (typeof window.apxMakeDraggable === 'function') window.apxMakeDraggable(win, document.getElementById(winId + '_hdr'));
 };
-window._gmPlayerPowersHtml = function(st, hdr, uid, mods) {
+window._gmPlayerPowersHtml = function(st, hdr, uid, mods, compact) {
     if (!st) return '';
     let perks = st.perks || {}, used = st.usedPowerSlots || {};
     let fx = {}; try { fx = (window.apxItemEffects ? window.apxItemEffects(st).stat : {}) || {}; } catch (e) { }
@@ -4053,7 +4065,7 @@ window._gmPlayerPowersHtml = function(st, hdr, uid, mods) {
         <div style="display:flex;justify-content:space-between;align-items:baseline;gap:.3rem">
             <span ${u ? `onclick="window._gmPlayerPowerPopup('${u}', ${i})" title="Open this power in its own window"` : ''} style="font-weight:900;font-size:.66rem;color:#d8b4fe;${u ? 'cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px' : ''}">${String(p.name || 'Power').replace(/</g, '&lt;')}</span>
             <span style="font-size:.56rem;color:#94a3b8;white-space:nowrap">Lvl ${p.lvl} | ${window.apxPowerApLabel ? window.apxPowerApLabel(p) : p.ap + ' AP'}</span></div>
-        ${_gmPlayerPowerCard(p, st, mods, false)}</div>`);
+        ${compact ? '' : _gmPlayerPowerCard(p, st, mods, false)}</div>`);
     if (!rows.length && !powers.length) return '';
     return (hdr ? hdr('Powers') : '<div style="font-weight:900;font-size:.6rem">Powers</div>')
         + (rows.length ? `<div style="display:flex;flex-direction:column;gap:2px;padding:.15rem 0">${rows.join('')}</div>` : '')

@@ -800,6 +800,9 @@ function pcRulesProblems() {
     let out = info.problems.map(k => window.apxPowerSaveProblemText ? window.apxPowerSaveProblemText(info, k) : k);
     if ((window.apxPowerApKey ? window.apxPowerApKey(pcDraft) : pcDraft.apMod) === 'reaction' && !pcStepSkipped(7) && !String(pcDraft.reactionTrigger || '').trim())
         out.push('A Reaction power needs its trigger: the specific condition for using it (Step 7).');
+    // No power costs more than 200 XP (the top of Level 5), free or not
+    let tot = window.pcCalcXP(pcDraft).total;
+    if (tot > window.APX_POWER_MAX_XP) out.push(`Powers cap at ${window.APX_POWER_MAX_XP} XP (the top of Level 5). This one is ${tot} XP: lower it by ${tot - window.APX_POWER_MAX_XP} XP to save it.`);
     return out;
 }
 

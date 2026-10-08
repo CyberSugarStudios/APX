@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.7.1525',
-        released: '2026-10-07T15:25:00',
-        releasedText: 'October 7, 2026 · 3:25 PM',
+        version: 'v2026.10.7.1715',
+        released: '2026-10-07T17:15:00',
+        releasedText: 'October 7, 2026 · 5:15 PM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs with loot of their own, apart from their stat blocks, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, area powers placed right on the battle map with every save in them rolled for you, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -25,7 +25,7 @@
                 'Two new looks: Kawaii is now a true light theme on every screen, and Cyber Sigil is its hot-pink dark twin.'
             ]],
             ['For GMs', [
-                'World Settings fix Starting XP, Max GP, starting Cu, and Point Buy or Standard Array for everyone in your world.',
+                'World Settings fix Starting XP, Max GP, starting Cu, and Point Buy or Standard Array for everyone in your world, give one player extra GP, Cu or Starting XP, and can allow Exo-Suits. The Party panel lists powers by name and shrinks each card down to its portrait and + Initiative.',
                 'The Loot Maker builds loot with the players\' own forges and crafters, or as custom items you can edit later, for an NPC, an Area Circle, a Special Map Marker or the Loot list. Make several at once, and change any row\'s count with − and +.',
                 'Give hands over one item from a stack ("Black Cloak ×3" becomes ×2) and keeps your chosen player selected; All hands over the lot.',
                 'Magic items can change nearly anything on a sheet and grant powers.',
@@ -58,7 +58,7 @@
                 'Powers roll like weapons, powers from equipped magic items join your list without using a Power Slot, and a power can be built as a Reaction with a trigger of its own.',
                 'Power Crafter Step 3 (Targeting) crafts areas to the exact size: an AoE (x3) is a Line (0.5 XP per square), Cone (3 XP per square of length) or Burst (10 XP per square of radius), sized with − and + while a preview shows the squares it hits and the XP. Powers with the old fixed-size areas need rebuilding.',
                 'Power Crafter Step 7 is reworked: set the AP cost with − and + (each AP below 4 costs 10 XP, each AP over 4 refunds 5 XP, up to twice the AP you gain at the start of your turn), or make it a Reaction (15 XP, with a set trigger) or pick a Lengthy Cast Time from 1 Minute (-15 XP) to 24 Hours (-60 XP). Steps 1 and 3 are now called Delivery and Targeting, and every power costs at least 5 XP. Step 4 can let you choose the damage type each time you use the power (+10 XP; both types with a second one).',
-                'Powers show the real number from their Core Attribute instead of "+Attr", and the Consumable Crafter follows the Power Crafter\'s save rules, with Artisan raising its XP limit by 5 per rank.',
+                'Powers show the real number from their Core Attribute instead of "+Attr", and the Consumable Crafter follows the Power Crafter\'s save rules, with Artisan raising its XP limit by 5 per rank. No power can cost more than 200 XP (free ones included): any over it are rebuilt for free.',
                 'Luck and Looting, trading, Omen dice you can pass on, and Loyal Companions with their own AP, turns and an HP box that takes damage just like yours.',
                 'Luck Points have − and + buttons, clicking your Rest Dice spends one to heal, and four-armed characters get extra arms, hands and a shield in every Off Hand.',
                 'Powers are reworked: each has its own Core Attribute, chosen when you craft it, and Full Rest Powers (formerly INT) and Short Rest Powers (formerly CHA) are two pools you can mix.',
@@ -169,6 +169,8 @@
                 'Escape Saves (Step 6): a power that leaves a lasting effect on its target (a Condition for 1 Minute or more, a command, a polymorph, a banishment) names the save the target makes at the end of each of its turns to break free. Saves the effect makes it automatically fail are greyed out: an AGI save can dodge a paralysis, but it can\'t end one. The Escape Save shows on the power, its card and your GM\'s tracker.',
                 'Action Interrupt can\'t be taken on a power that inflicts Stunned, Paralyzed or Unconscious, and the Teleport utilities say they don\'t provoke Attacks of Opportunity.',
                 'Powers built before these rules show a Powers to rebuild list when your sheet opens. Rebuild opens each one in the Power Crafter for free; the list updates as you go and goes away once they\'re all done.',
+                'Powers cap at 200 XP (the top of Level 5), free powers included. A power already over it shows in Powers to rebuild and can\'t be used until it\'s rebuilt to 200 XP or less: free, and any XP paid over the new cost comes back.',
+                'Exo-Suits (Rulebook Chapter 11), when your GM allows them: the Exo-Suit Forge under your Shield and Helmet builds a Juggernaut (STR 15, Advantage on Athletics, Speed 3, one Size larger, and its Plating\'s AC, DR, ER and WT in place of yours: Standard, Assault or Dreadnought) or a Phantom (AGI 15, Advantage on Stealth, Speed +1, Active Camouflage with its uses per Short Rest) for 5,000 Currency, with up to 3 Integrated Systems. Systems you\'ve bought can be swapped back in free. Enter the Suit powers it up; one hit past your Temp HP over your Wound Threshold overloads it (Overload covers a Critical Hit), and a System Reboot (6 AP) brings it back. A shut-down Juggernaut leaves you at Speed 1 if your STR is 14 or less. Your GM sees the suit on your stat block, and your token grows a size on battle maps.',
                 'Click a power\'s name or its "Lvl X | Y AP" tag to use it. It spends its AP and a use from its pool, and asks first if you\'re short; "Use anyway" spends what you have.',
                 'Attack powers roll the d20 and their damage together, doubling the damage dice on a crit. Save powers roll their effect, show your DC and let your GM know. Powers without a roll show their description.',
                 'In the Power Crafter, Attack Roll / Save Negates powers choose one or the other. An Attack Roll power is a Power Attack or a Martial Improvement riding on one of your weapons, and you can switch weapons on the power\'s card.',
@@ -404,7 +406,9 @@
             ]],
             ['World Settings', [
                 'Set your world\'s Starting XP (default 25), Max GP (default 15), starting Cu, and Point Buy or Standard Array.',
-                'Players in your world can\'t edit their own XP or Max GP, and Grant XP adds each player\'s bonuses and keeps the reason.'
+                'Players in your world can\'t edit their own XP or Max GP, and Grant XP adds each player\'s bonuses and keeps the reason.',
+                'Give a player more: send one player extra GP (raising their Ancestry budget in your world), Cu or Starting XP (no XP bonuses), on top of the settings.',
+                'Allow Exo-Suits: your players can build Juggernaut and Phantom Exo-Suits (Rulebook Chapter 11) in the Exo-Suit Forge on their sheets. A player in a powered suit shows it under their name, with the suit\'s defenses in their stats.'
             ]],
             ['World NPCs', [
                 'Every NPC window has a Stat Block button whenever a stat block is linked.',
@@ -501,6 +505,7 @@
             ]],
             ['Party and Companions', [
                 'Party stat blocks show each player\'s AC, DR, ER, Max HP, AP, Initiative and Wound Threshold exactly as their sheet does.',
+                'The Party panel lists each player\'s powers by name, Level and AP (click one to open it, or the player\'s name for their full stat block with every power in full), and each card shrinks to just the portrait, name, ancestry and + Initiative with the ▾ beside it.',
                 'Loyal Companions sit under their owners with stat blocks, token art and + Initiative, and their HP follows their owner\'s sheet, including damage typed into the companion\'s HP box there.'
             ]],
             ['Maps', [

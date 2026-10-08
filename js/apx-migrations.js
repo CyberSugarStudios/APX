@@ -46,6 +46,10 @@
         5: [
             { id: 'aoeShape', test: d => ['small', 'medium', 'large', 'massive'].includes(d.aoe), text: 'Step 3 (Targeting) changed: areas are no longer fixed sizes. An AoE is now x3, plus its shape crafted to an exact size: Line 0.5 XP per square, Cone 3 XP per square of length, Burst 10 XP per square of radius. Rebuild it to choose its shape and size.' }
         ],
+        // Powers cap at 200 XP (a free power could be built far past Level 5): rebuild to 200 or less, free
+        6: [
+            { id: 'xpCap', test: d => typeof window.pcCalcXP === 'function' && window.pcCalcXP(d).total > (window.APX_POWER_MAX_XP || 200), text: 'Powers now cap at 200 XP (the top of Level 5), and this one costs more. It can\'t be used until it\'s rebuilt to 200 XP or less: the rebuild is free, and any XP you paid over the new cost comes back.' }
+        ],
         // Saving throws name their Core Attribute; lasting effects get an Escape Save the target can pass
         3: ['save', 'cond', 'escape', 'actionInt'].map(k => ({
             id: 'powerSaves_' + k,
@@ -70,6 +74,8 @@
         return out;
     };
     window.apxPowerNeedsRecraft = p => window.apxPowerRecraftReasons(p).length > 0;
+    // Over the 200 XP cap: can't be used until it's rebuilt (checked on its build, whenever it was saved)
+    window.apxPowerOverCap = p => !!(p && p.draft && typeof window.pcCalcXP === 'function' && (() => { try { return window.pcCalcXP(p.draft).total > (window.APX_POWER_MAX_XP || 200); } catch (e) { return false; } })());
 
     // Small reusable badge/button for power lists
     window.apxRecraftBadge = function (p, onclickJs) {
@@ -408,7 +414,7 @@
         rbShownFor = key;
         window.apxRebuildList({
             id: 'sheet', title: 'Powers to rebuild',
-            intro: `The Power Crafting rules changed in ways that affect ${s.name || 'this character'}'s powers. Rebuild each one in the Power Crafter: it's free, and nothing is lost in the meantime. Area powers need rebuilding because Step 3 (Targeting) now crafts each area's shape and size exactly. A power listed only for the Step 7 AP changes (1 AP, Reaction, Lengthy Cast Time) is yours to rebuild or keep: rebuilding refunds any XP it now costs less.`,
+            intro: `The Power Crafting rules changed in ways that affect ${s.name || 'this character'}'s powers. Rebuild each one in the Power Crafter: it's free, and nothing is lost in the meantime. Area powers need rebuilding because Step 3 (Targeting) now crafts each area's shape and size exactly. A power listed only for the Step 7 AP changes (1 AP, Reaction, Lengthy Cast Time) is yours to rebuild or keep: rebuilding refunds any XP it now costs less. Powers now cap at 200 XP: one that costs more can't be used until it's rebuilt to 200 XP or less (free).`,
             busy: ['powerCrafterModal', 'npcCrafterModal'],
             doneText: 'All your powers are rebuilt.',
             rows: () => {

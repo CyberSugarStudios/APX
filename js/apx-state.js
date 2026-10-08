@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.10.7.1525';
+window.APX_VERSION = 'v2026.10.7.1715';
 
         window.state = getInitialState();
 
@@ -366,9 +366,12 @@ window.APX_VERSION = 'v2026.10.7.1525';
                             // even when it comes to 0
                             window.apxOnRollEvent?.({ id: 'dmg' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), kind: 'damage', label: 'Damage',
                                 raw, types: t.slice(), ignoreRes: !!t.ignoreRes, nonlethal: nl || undefined, dmg: res.dmg, hpDmg: res.dmg - Math.min(Math.max(0, window.state.tempHp || 0), res.dmg), tempBefore: Math.max(0, window.state.tempHp || 0), text: res.text, atkId: useAtk ? atk.id : null, hpAfter: r2.currentHp, tempAfter: r2.tempHp });
+                            let exoHit = res.dmg - Math.min(Math.max(0, window.state.tempHp || 0), res.dmg);
                             window.state.tempHp = r2.tempHp;
                             window.updateState('currentHp', r2.currentHp);
                             window.apxRefreshHpInputs?.();
+                            // An Exo-Suit's Power Core overloads when one hit (past Temp HP) is over the Wound Threshold
+                            window.apxExoOnDamage?.(exoHit, calc.woundThreshold);
                             window.scheduleAutoSave?.();
                             if (nl && r2.currentHp <= 0 && !(window.state.conditions || []).includes('unconscious') && typeof window.toggleCondition === 'function') { window.state.koNonlethal = true; window.toggleCondition('unconscious', true); }
                             window.APXDice?.notify(`Damage${useAtk ? ` from ${atk.by}'s ${atk.label}` : ''}: ${res.text}${nl ? ' (non-lethal)' : ''}.${nl && r2.currentHp <= 0 ? ' You\'re knocked out: Unconscious, not Bleeding Out.' : ''}`, { kind: res.dmg ? 'warn' : 'note' });

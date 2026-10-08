@@ -474,8 +474,8 @@
         }
 
     </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20261071525">
-    <link rel="stylesheet" href="css/tailwind.css?v=20261071525">
+    <link rel="stylesheet" href="css/apx-themes.css?v=20261071715">
+    <link rel="stylesheet" href="css/tailwind.css?v=20261071715">
 </head>
 <body class="p-2 md:p-6 flex justify-center text-sm ml-0 lg:ml-8 transition-all" style="padding-top:4.25rem"><!-- (room for the floating Roster / Settings buttons) -->
     <!-- Auth bar removed — account controls are in the sidebar -->
@@ -743,6 +743,8 @@
                         </div>
                     </div>
                 </div>
+                <!-- Exo-Suit (js/apx-exo.js): shown when the GM's World Settings allow them -->
+                <div id="exoControl" class="hidden bg-slate-900 rounded border border-fuchsia-900/60 p-2 mt-2"></div>
             </div>
 
             <!-- Notes: always exactly as tall as Vitals and Defenses beside it (its list scrolls inside) -->
@@ -2358,38 +2360,39 @@
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20261071525"></script>
-    <script src="js/apx-patch-notes.js?v=20261071525"></script>
-    <script src="js/apx-dice.js?v=20261071525"></script>
-    <script src="js/apx-data.js?v=20261071525"></script>
-    <script src="js/apx-item-effects.js?v=20261071525"></script>
-    <script src="js/apx-perks-db.js?v=20261071525"></script>
-    <script src="js/apx-migrations.js?v=20261071525"></script>
-    <script src="js/apx-roster.js?v=20261071525"></script>
-    <script src="js/apx-state.js?v=20261071525"></script>
-    <script src="js/apx-origin-wizard.js?v=20261071525"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20261071525"></script>
-    <script src="js/apx-inventory-ui.js?v=20261071525"></script>
-    <script src="js/apx-craft-shared.js?v=20261071525"></script>
-    <script src="js/apx-armor-forge.js?v=20261071525"></script>
-    <script src="js/apx-weapon-forge.js?v=20261071525"></script>
-    <script src="js/apx-power-crafter.js?v=20261071525"></script>
-    <script src="js/apx-consumable-crafter.js?v=20261071525"></script>
-    <script src="js/apx-npc-crafter.js?v=20261071525"></script>
-    <script src="js/apx-engine.js?v=20261071525"></script>
-    <script src="js/apx-perks-ui.js?v=20261071525"></script>
-    <script src="js/apx-rest.js?v=20261071525"></script>
-    <script src="js/apx-looting.js?v=20261071525"></script>
-    <script src="js/apx-main.js?v=20261071525"></script>
+    <script src="js/apx-dialogs.js?v=20261071715"></script>
+    <script src="js/apx-patch-notes.js?v=20261071715"></script>
+    <script src="js/apx-dice.js?v=20261071715"></script>
+    <script src="js/apx-data.js?v=20261071715"></script>
+    <script src="js/apx-item-effects.js?v=20261071715"></script>
+    <script src="js/apx-exo.js?v=20261071715"></script>
+    <script src="js/apx-perks-db.js?v=20261071715"></script>
+    <script src="js/apx-migrations.js?v=20261071715"></script>
+    <script src="js/apx-roster.js?v=20261071715"></script>
+    <script src="js/apx-state.js?v=20261071715"></script>
+    <script src="js/apx-origin-wizard.js?v=20261071715"></script>
+    <script src="js/apx-ancestry-wizard.js?v=20261071715"></script>
+    <script src="js/apx-inventory-ui.js?v=20261071715"></script>
+    <script src="js/apx-craft-shared.js?v=20261071715"></script>
+    <script src="js/apx-armor-forge.js?v=20261071715"></script>
+    <script src="js/apx-weapon-forge.js?v=20261071715"></script>
+    <script src="js/apx-power-crafter.js?v=20261071715"></script>
+    <script src="js/apx-consumable-crafter.js?v=20261071715"></script>
+    <script src="js/apx-npc-crafter.js?v=20261071715"></script>
+    <script src="js/apx-engine.js?v=20261071715"></script>
+    <script src="js/apx-perks-ui.js?v=20261071715"></script>
+    <script src="js/apx-rest.js?v=20261071715"></script>
+    <script src="js/apx-looting.js?v=20261071715"></script>
+    <script src="js/apx-main.js?v=20261071715"></script>
 
     <!-- Firebase (cloud sync — requires firebase-config.js to be configured) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20261071525"></script>
-    <script src="js/apx-firebase.js?v=20261071525"></script>
-    <script src="js/apx-battlemap.js?v=20261071525"></script>
-    <script src="js/apx-map-tiles.js?v=20261071525"></script>
+    <script src="js/firebase-config.js?v=20261071715"></script>
+    <script src="js/apx-firebase.js?v=20261071715"></script>
+    <script src="js/apx-battlemap.js?v=20261071715"></script>
+    <script src="js/apx-map-tiles.js?v=20261071715"></script>
     <script>
     // ── Sidebar: folders, worlds, meatball menus ─────────────
     window._sidebarChars = [];
@@ -2872,7 +2875,7 @@
     window.apxActiveWorldSettings = function() {
         let code = window.apxActiveWorldCode();
         if (!code) return null;
-        return Object.assign({ startingXp: 25, maxGp: 15, startingCu: 0, attrMethod: 'pointBuy' }, window._pwWorldSettings[code] || {});
+        return Object.assign({ startingXp: 25, maxGp: 15, startingCu: 0, attrMethod: 'pointBuy', allowExoSuits: false }, window._pwWorldSettings[code] || {});
     };
     window.apxApplyWorldRules = function() {
         let st = window.state; if (!st) return;
@@ -2884,9 +2887,11 @@
             el.classList.toggle('cursor-not-allowed', !!ws);
         });
         if (ws && st.ancestry) {
-            st.ancestry.gpLimit = ws.maxGp;
-            let gl = document.getElementById('wizGpLimit'); if (gl) { gl.value = ws.maxGp; gl.disabled = true; gl.title = 'Set by your GM for this world'; }
-            let dl = document.getElementById('dispGpLimit'); if (dl) dl.innerText = ws.maxGp;
+            // The world's GP budget, plus any extra GP the GM gave this character
+            let gp = ws.maxGp + ((st.worldGpBonus || {})[code] || 0);
+            st.ancestry.gpLimit = gp;
+            let gl = document.getElementById('wizGpLimit'); if (gl) { gl.value = gp; gl.disabled = true; gl.title = 'Set by your GM for this world'; }
+            let dl = document.getElementById('dispGpLimit'); if (dl) dl.innerText = gp;
         } else {
             let gl = document.getElementById('wizGpLimit'); if (gl) { gl.disabled = false; gl.title = ''; }
         }
@@ -2901,6 +2906,7 @@
             st.worldStart = { code, applied: fresh, at: Date.now() };
             if (typeof window.recalculateMath === 'function') window.recalculateMath();
         }
+        window.apxRenderExo?.();   // Exo-Suits come and go with the world's settings
     };
 
     // Race templates belong to ONE world. Keep each world's list separately and only
@@ -4119,10 +4125,24 @@
                 st.currency = (parseInt(st.currency) || 0) + (parseInt(g.cu) || 0);
                 applied.push(`${g.cu} Cu`);
             }
+            // From the GM's World Settings: extra GP (this world's Ancestry budget) and extra Starting XP
+            if (g.gp) {
+                st.worldGpBonus = Object.assign({}, st.worldGpBonus || {});
+                st.worldGpBonus[code] = (st.worldGpBonus[code] || 0) + (parseInt(g.gp) || 0);
+                applied.push(`${g.gp} extra GP`);
+                window.apxApplyWorldRules?.();
+            }
+            if (g.xp) {
+                let n = parseInt(g.xp) || 0;
+                st.unspentXp = (parseInt(st.unspentXp) || 0) + n;
+                (st.xpLog = st.xpLog || []).unshift({ id: g.id, name: 'Extra Starting XP', desc: 'From your GM (World Settings)', category: 'other', date: window.apxToday ? window.apxToday() : '', session: null, base: n, bonus: 0, bonusParts: [], total: n });
+                let ux = document.getElementById('unspentXp'); if (ux) ux.value = st.unspentXp;
+                applied.push(`${n} XP`);
+            }
         });
         st.receivedGifts = st.receivedGifts.slice(-200);
         if (applied.length) {
-            window.APXDice?.notify(`Loot from the GM: ${applied.join(', ')}.`, { kind: 'loot', open: true });
+            window.APXDice?.notify(`${gifts.some(g => g.from === 'World Settings') ? 'From your GM' : 'Loot from the GM'}: ${applied.join(', ')}.`, { kind: 'loot', open: true });
             window.recalculateMath?.();
             window.scheduleAutoSave?.();
         }
@@ -5673,9 +5693,9 @@
         });
     }
     </script>
-    <script src="js/apx-chat.js?v=20261071525"></script>
-    <script src="js/apx-actions.js?v=20261071525"></script>
-    <script src="js/apx-extras.js?v=20261071525"></script>
-    <script src="js/apx-theme-light.js?v=20261071525"></script>
+    <script src="js/apx-chat.js?v=20261071715"></script>
+    <script src="js/apx-actions.js?v=20261071715"></script>
+    <script src="js/apx-extras.js?v=20261071715"></script>
+    <script src="js/apx-theme-light.js?v=20261071715"></script>
 </body>
 </html>

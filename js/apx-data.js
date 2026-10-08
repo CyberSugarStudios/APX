@@ -535,6 +535,7 @@
 
         const POWER_DIE_COSTS = { d4: 1, d6: 2, d8: 3, d10: 5, d12: 8 };
         const POWER_DIE_STEPS = ["d4", "d6", "d8", "d10", "d12"];
+        window.APX_POWER_MAX_XP = 200;     // the most any power can cost (the top of Level 5)
         const POWER_MAX_DICE_PER_STEP = 8; // was 12 before the Sept 23, 2026 update
 
         // Utility effects. `rep: true` = "*" in the book (selectable multiple
