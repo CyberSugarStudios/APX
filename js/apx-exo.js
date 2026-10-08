@@ -103,10 +103,12 @@
         if (on) { box.style.boxShadow = '0 0 0 2px rgba(217,70,239,.75)'; box.setAttribute('data-exo-tip', '1'); box.title = tip; }
         else if (box.getAttribute('data-exo-tip')) { box.style.boxShadow = ''; box.removeAttribute('data-exo-tip'); box.title = ''; }
     }
+    // The sheet's numbers (calc lives in js/apx-state.js)
+    const C = () => { try { return (typeof calc !== 'undefined' && calc) || {}; } catch (e) { return {}; } };
     window.apxRenderExo = function () {
-        let tile = document.getElementById('exoControl'), banner = document.getElementById('exoBanner'), slots = document.getElementById('equipSlots');
+        let tile = document.getElementById('exoControl'), slots = document.getElementById('equipSlots'), vb = document.getElementById('exoVitalsBtn');
         if (!tile) return;
-        let st = window.state, x = st && st.exoSuit, allowed = window.apxExoAllowed(), c = window.calc || {};
+        let st = window.state, x = st && st.exoSuit, allowed = window.apxExoAllowed(), c = C();
         let act = window.apxExoActive(st), f = x ? (EXO.frames[x.frame] || {}) : {};
         // The slot: shown when suits are allowed here, or one is owned
         let show = !!x || allowed;
@@ -118,53 +120,80 @@
                 : !x.worn ? `${esc(f.name)} · <span class="text-slate-400">Stowed</span>`
                 : x.overloaded ? `${esc(f.name)} · <span class="text-red-400 font-bold">Overloaded</span>`
                 : `${esc(f.name)} · <span class="text-emerald-400 font-bold">Powered</span>`;
-            tile.innerHTML = `<div class="text-[9px] text-fuchsia-300/80 uppercase font-bold mb-1" data-tip="A piloted suit of power armor (Rulebook Chapter 11): a Juggernaut or a Phantom, with up to 3 Integrated Systems">Exo-Suit</div>
-                ${x ? `<div class="text-[10px] font-bold text-fuchsia-200 truncate" title="${esc(x.name || '')}">${esc(x.name || 'Exo-Suit')}</div>` : ''}
-                <div class="text-[10px] text-slate-400 mb-1">${status}</div>
+            // Click EXO-SUIT (or its name) for everything the suit does
+            tile.innerHTML = `<div ${x ? 'onclick="window.apxExoDetails()" role="button" title="What your Exo-Suit does: click for its details" style="cursor:pointer"' : 'data-tip="A piloted suit of power armor (Rulebook Chapter 11): a Juggernaut or a Phantom, with up to 3 Integrated Systems"'}>
+                    <div class="text-[9px] text-fuchsia-300/80 uppercase font-bold mb-1 ${x ? 'underline decoration-dotted underline-offset-2 hover:text-fuchsia-200' : ''}">Exo-Suit</div>
+                    ${x ? `<div class="text-[10px] font-bold text-fuchsia-200 truncate hover:text-white">${esc(x.name || 'Exo-Suit')}</div>` : ''}
+                    <div class="text-[10px] text-slate-400 mb-1">${status}</div></div>
                 <div class="flex flex-col gap-1">${!x
                     ? _btn('w-full whitespace-nowrap ' + B_FUCH, 'Exo-Suit Forge', 'window.openExoForge()', 'Build a Juggernaut or Phantom suit (5,000 Currency)')
                     : (allowed ? _btn('w-full whitespace-nowrap ' + B_CYAN, x.worn ? 'Leave Suit' : 'Enter Suit', 'window.apxExoWear()', 'Getting in or out takes 1 minute' + (x.frame === 'juggernaut' ? ' (6 AP in combat)' : '')) : '')
                       + _btn('w-full whitespace-nowrap ' + B_FUCH, allowed ? 'Forge' : 'Scrap…', 'window.openExoForge()', allowed ? 'Change its systems or name, or scrap it' : 'Your GM has turned Exo-Suits off for this world: it does nothing here')}</div>`;
         } else tile.innerHTML = '';
-        // The banner: while it's worn
-        if (banner) {
-            if (!x || !x.worn || !allowed) { banner.classList.add('hidden'); banner.innerHTML = ''; }
-            else {
-                banner.classList.remove('hidden');
-                let sys = (x.systems || []).map(id => sysDef(x.frame, id)).filter(Boolean);
-                let bits = [];
-                if (act) {
-                    bits.push(`${act.attr} ${Math.max((c.scores || {})[act.attr] || 0, act.attrFloor)}`, `Adv. on ${act.skill}`);
-                    if (act.speedFixed) bits.push(`Speed ${act.speedFixed} (fixed)`); if (act.speedPlus) bits.push('Speed +1');
-                    if (act.sizeUp) bits.push('one Size larger');
-                    if (act.plating) bits.push(`${act.platingName}: AC ${act.plating.ac} · DR ${act.plating.dr} · ER ${act.plating.er} · WT ${act.plating.wt}`);
-                }
-                let camo = '';
-                if (x.frame === 'phantom') {
-                    let max = window.apxExoCamoMax(st, (c.mods || {}).AGI), left = Math.max(0, max - (x.camoUsed || 0));
-                    camo = _btn(B_IND, `Camouflage ${left}/${max} (2 AP)`, 'window.apxExoCamo()', 'Become Invisible until the start of your next turn. Uses come back on a Short Rest.', !act || !left);
-                }
-                banner.innerHTML = `<div class="rounded-lg border ${x.overloaded ? 'border-red-700 bg-red-950/40' : 'border-fuchsia-700 bg-fuchsia-950/40'} p-2">
-                    <div class="flex items-center justify-between gap-2 flex-wrap">
-                        <div class="min-w-0"><div class="text-[9px] uppercase font-black ${x.overloaded ? 'text-red-300' : 'text-fuchsia-300'}">${x.overloaded ? 'Exo-Suit overloaded: shut down' : 'In your Exo-Suit'} · ${esc(f.name)}</div>
-                            <div class="text-sm font-black text-white truncate">${esc(x.name || 'Exo-Suit')}</div></div>
-                        <div class="flex gap-1 flex-wrap">${camo}${x.overloaded
-                            ? _btn(B_GRN, 'System Reboot (6 AP)', 'window.apxExoReboot()', 'Bring the suit back online')
-                            : _btn(B_RED, 'Overload', 'window.apxExoOverload()', 'A Critical Hit, or one hit over your Wound Threshold (caught automatically when you take damage), overloads the Power Core')}
-                            ${_btn(B_CYAN, 'Leave Suit', 'window.apxExoWear()', 'Getting out takes 1 minute' + (x.frame === 'juggernaut' ? ' (6 AP in combat)' : ''))}</div>
-                    </div>
-                    <div class="text-[10px] mt-1 ${x.overloaded ? 'text-red-200' : 'text-fuchsia-100/90'} leading-snug">${act ? bits.join(' · ')
-                        : 'Everything the suit grants is gone until a System Reboot.' + (window.apxExoOverburdened(st, (c.scores || {}).STR || 0) ? ' The dead Juggernaut weighs on you: Speed 1, and moving costs double AP.' : '')}</div>
-                    ${sys.length ? `<div class="mt-1">${sys.map(s => `<span title="${esc(s.desc)}" class="inline-block text-[9px] bg-slate-900/70 border border-fuchsia-900 text-fuchsia-200 rounded px-1 mr-1 mb-0.5">${esc(s.name)}</span>`).join('')}</div>` : ''}
-                </div>`;
+        // Vitals: Overload Exo-Suit while it's powered (System Reboot once it has overloaded)
+        if (vb) {
+            let on = !!(x && x.worn && allowed);
+            vb.classList.toggle('hidden', !on);
+            if (on) {
+                vb.textContent = x.overloaded ? 'Reboot Exo-Suit (6 AP)' : 'Overload Exo-Suit';
+                vb.title = x.overloaded ? 'System Reboot: bring the suit back online' : 'A Critical Hit, or one hit over your Wound Threshold (caught automatically when you take damage), overloads the Power Core: the suit shuts down until a System Reboot (6 AP)';
+                vb.style.borderColor = x.overloaded ? 'var(--c-emerald,#059669)' : '#dc2626';
+                vb.style.color = x.overloaded ? 'var(--c-emerald-lt,#6ee7b7)' : '#fca5a5';
+                vb.onclick = () => x.overloaded ? window.apxExoReboot() : window.apxExoOverload();
             }
         }
+        document.getElementById('apxExoDetails') && window.apxExoDetails(true);   // keep an open pop-up current
         // The numbers the suit sets, marked
         let pl = act && act.plating, tip = pl ? `Set by ${x.name || 'your Exo-Suit'} (${act.platingName}) instead of your own` : '';
         ['dispAc', 'dispDr', 'dispEr', 'dispWt'].forEach(id => _mark(id, !!pl, tip));
-        let acc = document.getElementById('dispAcCalc');
-        if (acc && pl) acc.innerText = `${act.platingName} ${pl.ac}${pl.ac !== c.ac ? (c.ac > pl.ac ? ' +' : ' ') + (c.ac - pl.ac) + ' (this turn)' : ''}`;
+        let acc = document.getElementById('dispAcCalc'), turn = pl ? (c.ac || pl.ac) - pl.ac : 0;
+        if (acc && pl) acc.innerText = `${act.platingName} ${pl.ac}${turn ? (turn > 0 ? ' +' : ' ') + turn + ' (this turn)' : ''}`;
         _mark('dispSpeed', !!act, act ? `${x.name || 'Your Exo-Suit'}: ${act.speedFixed ? 'Speed fixed at ' + act.speedFixed : 'Speed +1'}` : '');
+    };
+    // The suit's details: what it does right now, its systems, and its buttons (click EXO-SUIT in its slot)
+    window.apxExoDetails = function (refresh) {
+        let st = window.state, x = st && st.exoSuit, old = document.getElementById('apxExoDetails');
+        if (!x) { if (old) old.remove(); return; }
+        if (refresh && !old) return;
+        let c = C(), f = EXO.frames[x.frame] || {}, act = window.apxExoActive(st), allowed = window.apxExoAllowed();
+        let sys = (x.systems || []).map(id => sysDef(x.frame, id)).filter(Boolean);
+        let state = !allowed ? ['Not allowed in this world: it does nothing here', '#fcd34d'] : !x.worn ? ['Stowed: Enter Suit to power it up', '#94a3b8'] : x.overloaded ? ['Overloaded: shut down until a System Reboot (6 AP)', '#f87171'] : ['Powered', '#4ade80'];
+        let now = [];
+        if (act) {
+            now.push(`${act.attr} ${Math.max((c.scores || {})[act.attr] || 0, act.attrFloor)} (unless already higher)`, `Advantage on ${act.attr} (${act.skill}) checks`);
+            if (act.speedFixed) now.push(`Speed is a fixed ${act.speedFixed} squares`); if (act.speedPlus) now.push('Speed +1 square');
+            if (act.sizeUp) now.push('One Size larger');
+            if (act.plating) now.push(`${act.platingName}: AC ${act.plating.ac}, DR ${act.plating.dr}, ER ${act.plating.er}, WT ${act.plating.wt} instead of your own`);
+        } else if (x.worn && x.overloaded && window.apxExoOverburdened(st, (c.scores || {}).STR || 0)) now.push('The dead Juggernaut weighs on you: Speed 1, and moving costs double AP');
+        let camo = '';
+        if (x.frame === 'phantom') {
+            let max = window.apxExoCamoMax(st, (c.mods || {}).AGI), left = Math.max(0, max - (x.camoUsed || 0));
+            camo = `<div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;margin-top:.5rem;font-size:.72rem">Active Camouflage: <b>${left}/${max}</b> left this Short Rest
+                ${_btn(B_IND, 'Camouflage (2 AP)', 'window.apxExoCamo()', 'Become Invisible until the start of your next turn', !act || !left)}</div>`;
+        }
+        let back = old || document.createElement('div');
+        if (!old) {
+            back.id = 'apxExoDetails';
+            back.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(2,6,23,.6);display:flex;align-items:center;justify-content:center;padding:12px';
+            back.addEventListener('mousedown', e => { if (e.target === back) back.remove(); });
+            document.body.appendChild(back);
+            if (window.apxFront) try { window.apxFront(back); } catch (e) { }
+        }
+        back.innerHTML = `<div style="width:min(440px,100%);max-height:90vh;overflow:auto;background:#0f172a;border:1px solid #a21caf;border-radius:.7rem;padding:.9rem;color:#e2e8f0;box-shadow:0 20px 60px rgba(0,0,0,.6)">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem">
+                <div><div style="font-size:.62rem;font-weight:900;text-transform:uppercase;color:#f0abfc">Exo-Suit · ${esc(f.name || '')}</div>
+                <div style="font-size:1rem;font-weight:900">${esc(x.name || 'Exo-Suit')}</div>
+                <div style="font-size:.7rem;font-weight:800;color:${state[1]}">${state[0]}</div></div>
+                <button onclick="document.getElementById('apxExoDetails').remove()" style="background:none;border:0;color:#94a3b8;font-size:1.05rem;cursor:pointer">✕</button></div>
+            ${now.length ? `<ul style="margin:.5rem 0 0;padding-left:1.1rem;font-size:.72rem;line-height:1.45;color:#f5d0fe">${now.map(t => `<li>${t}</li>`).join('')}</ul>` : ''}
+            <div style="font-size:.68rem;font-weight:900;margin-top:.6rem">Integrated Systems (${sys.length}/${EXO.maxSystems})</div>
+            ${sys.length ? sys.map(s => `<div style="margin-top:.3rem;border:1px solid #4a044e;border-radius:.35rem;padding:.3rem .45rem;background:rgba(74,4,78,.25)"><div style="font-size:.72rem;font-weight:800">${esc(s.name)}</div><div style="font-size:.64rem;color:#cbd5e1;line-height:1.35">${esc(s.desc)}</div></div>`).join('') : '<div style="font-size:.66rem;color:#94a3b8;margin-top:.2rem">None installed (Forge to add up to 3).</div>'}
+            ${camo}
+            <div style="font-size:.62rem;color:#94a3b8;margin-top:.6rem;line-height:1.35">A Critical Hit, or one hit over your Wound Threshold, overloads the Power Core (Overload Exo-Suit in Vitals; a hit over your WT is caught automatically). Getting in or out takes 1 minute${x.frame === 'juggernaut' ? ' (6 AP in combat)' : ''}.</div>
+            <div style="display:flex;gap:.4rem;justify-content:flex-end;margin-top:.7rem">
+                ${allowed ? _btn(B_CYAN, x.worn ? 'Leave Suit' : 'Enter Suit', 'window.apxExoWear()', '') : ''}
+                ${_btn(B_FUCH, allowed ? 'Forge' : 'Scrap…', "document.getElementById('apxExoDetails').remove();window.openExoForge()", '')}</div>
+        </div>`;
     };
 
     let save = () => { window.recalculateMath?.(); window.scheduleAutoSave?.(); };
@@ -198,7 +227,7 @@
     };
     window.apxExoCamo = function () {
         let st = window.state, x = st?.exoSuit; if (!x || !window.apxExoActive(st)) return;
-        let max = window.apxExoCamoMax(st, (window.calc?.mods || {}).AGI);
+        let max = window.apxExoCamoMax(st, (C().mods || {}).AGI);
         if ((x.camoUsed || 0) >= max) { window.APXDice?.notify('No Active Camouflage left until a Short Rest.', { kind: 'warn' }); return; }
         if (!spendAp(2, 'Active Camouflage')) return;
         x.camoUsed = (x.camoUsed || 0) + 1;
