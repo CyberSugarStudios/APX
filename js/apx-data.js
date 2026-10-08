@@ -188,7 +188,7 @@
             { key: "damageaura", chooseEnergy: true, label: "Damage Aura", tp: 3, desc: "Creatures ending their turn within 1 sq take Xd6 chosen Energy damage (X = Tier, min 1).", tierCalc: (tier) => { let x = Math.max(1, tier); return `At Tier ${tier}: ${x}d6 damage.`; } },
             { key: "incorporeal", label: "Incorporeal Movement", tp: 3, desc: "Moves through solid objects/creatures as difficult terrain. Ending its turn inside an object deals 1d10 Force damage to it." },
             { key: "shapechanger", label: "Shapechanger", tp: 3, desc: "4 AP: mimic any creature/object of its Size. Advantage on AGI (Stealth)/CHA (Deceive) to pass as that form." },
-            { key: "bloodiedfrenzy", label: "Bloodied Frenzy", tp: 4, desc: "At or below half HP: +2 AP at the start of its turn, weapon attacks gain Flurry." },
+            { key: "bloodiedfrenzy", label: "Bloodied Frenzy", tp: 4, desc: "At or below half HP: +2 AP at the start of its turn, weapon attacks gain Flurry. A summoned creature's hard 3 AP rises to 5 while it lasts." },
             { key: "regeneration", label: "Regeneration", tp: 4, desc: "Heals 5 HP per Tier at the start of its turn unless it took Energy damage (+1 TP to restrict to one Energy type).", hasEnergyTypeOption: true, tierCalc: (tier) => `At Tier ${tier}: heals ${5 * tier} HP.` },
             { key: "swallowwhole", label: "Swallow Whole", tp: 4, desc: "Large+ only: 2 AP to swallow a grappled smaller target (Blinded, Restrained, Xd6 Acid/turn, X=Tier). Regurgitates if WT is exceeded.", tierCalc: (tier) => `At Tier ${tier}: ${Math.max(1, tier)}d6 Acid/turn.` },
             { key: "hivemind", label: "Hive Mind", tp: 4, desc: "Telepathic link to others with this trait within 20 sq; shares Surprise and up to 3 banked AP; shares damage evenly among linked creatures." },
@@ -699,13 +699,23 @@
             }
             return Math.max(0, intMod);
         }
+        // A perk's rank counting General Perks gained free as a Racial (Ancestry) Bonus Perk too, so a racial copy
+        // and ranks bought with XP stack everywhere a perk is read (the perk shop already counts both toward its max)
+        function apxPerkRank(st, id) {
+            st = st || {};
+            let n = ((st.perks || {})[id] || 0) + (st.ancestryBonusPerks || []).filter(b => b && b.perkId === id).length;
+            let def = (typeof PERKS_DB !== 'undefined' ? PERKS_DB : window.PERKS_DB || []).find(p => p.id === id);
+            return def && def.max ? Math.min(def.max, n) : n;
+        }
+        window.apxPerkRank = apxPerkRank;
         function apxXpBonus(st, category, base, intMod) {
             st = st || {};
-            let perks = st.perks || {}, parts = [];
-            if ((perks.gen_educated || 0) > 0) parts.push({ label: 'Educated', amount: 1 });
-            if ((perks.gen_expertise || 0) > 0) {
+            let parts = [];
+            if (apxPerkRank(st, 'gen_educated') > 0) parts.push({ label: 'Educated', amount: 1 });
+            if (apxPerkRank(st, 'gen_expertise') > 0) {
                 let ch = (st.perkChoices && st.perkChoices.gen_expertise) || {};
-                let choice = String(Object.values(ch).filter(Boolean)[0] || '').toLowerCase();
+                let racial = (st.ancestryBonusPerks || []).find(b => b && b.perkId === 'gen_expertise' && b.choice);
+                let choice = String(Object.values(ch).filter(Boolean)[0] || (racial && racial.choice) || '').toLowerCase();
                 let match = (category === 'combat' && choice.includes('combat')) ||
                             (category === 'discovery' && choice.includes('discovery')) ||
                             (category === 'roleplay' && choice.includes('role'));

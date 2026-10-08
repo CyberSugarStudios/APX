@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.10.8.1355';
+window.APX_VERSION = 'v2026.10.8.1445';
 
         window.state = getInitialState();
 
@@ -551,7 +551,7 @@ window.APX_VERSION = 'v2026.10.8.1355';
         window.apxRollRestDie = function() {
             if (!window.APXDice) return;
             window.APXDice.rest({ label: 'Rest Die', who: window.state.name || '', dieStep: calc.restDieStep || 'd6', count: 1,
-                wellRested: (window.state.perks || {})['gen_wellrested'] > 0 });
+                wellRested: window.apxPerkRank(window.state, 'gen_wellrested') > 0 });
         };
 
         // Keep both HP boxes showing the real values after any change

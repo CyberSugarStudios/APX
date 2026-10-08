@@ -568,13 +568,13 @@
                 }
             }
 
-            let tirelessRank = window.state.perks['gen_tireless'] || 0;
+            let tirelessRank = window.apxPerkRank(window.state, 'gen_tireless');   // (a Racial Bonus Perk copy counts too)
             let effectiveFatigue = Math.max(0, window.state.fatigue - tirelessRank);
             calc.effectiveFatigue = effectiveFatigue;
             // AP gained at the start of combat (on your first turn of the fight): Adrenaline, Relentless R5, items
             {
                 let pk = window.state.perks || {}, src = [], n = 0;
-                let adr = (pk.gen_adrenaline || 0) + (window.state.ancestryBonusPerks || []).filter(b => b.perkId === 'gen_adrenaline').length;
+                let adr = window.apxPerkRank(window.state, 'gen_adrenaline');
                 if (adr) { n += adr; src.push(`Adrenaline +${adr}`); }
                 if ((pk.agi_relentless || 0) >= 5) { n += 4; src.push('Relentless +4'); }
                 let fxc = fxStat('combatAp'); if (fxc) { n += fxc; src.push(`items ${fxc > 0 ? '+' : ''}${fxc}`); }
@@ -1734,7 +1734,7 @@
             if (areaSpec && window._pwAreaMap && window.APXBattle && window.APXBattle.placeArea) {
                 let am = window._pwAreaMap(false);
                 if (am) {
-                    let r = await window.APXBattle.placeArea(am.winId, Object.assign({ casterId: am.tokenId, label: name, safeZone: ((window.state.perks || {}).gen_safezone || 0) > 0 }, areaSpec));
+                    let r = await window.APXBattle.placeArea(am.winId, Object.assign({ casterId: am.tokenId, label: name, safeZone: window.apxPerkRank(window.state, 'gen_safezone') > 0 }, areaSpec));
                     if (r === null) return;
                     if (r !== 'skip') areaRes = { mapId: am.mapId, tokenIds: r.tokenIds, safeIds: r.safeIds, names: r.names };
                 }

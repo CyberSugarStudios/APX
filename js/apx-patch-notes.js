@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.8.1355',
-        released: '2026-10-08T13:55:00',
-        releasedText: 'October 8, 2026 · 1:55 PM',
+        version: 'v2026.10.8.1445',
+        released: '2026-10-08T14:45:00',
+        releasedText: 'October 8, 2026 · 2:45 PM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs with loot of their own, apart from their stat blocks, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, area powers placed right on the battle map with every save in them rolled for you, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -190,7 +190,7 @@
                 'Summon a Creature has a Tier (+15 XP per Tier above 1, per creature). Saving the power opens the NPC Crafter to build the creature with everything that Tier allows (Tier 1: 29 TP, Tier 2: 49 TP), and using it places the creatures next to your token on the battle map your GM has open.',
                 'A power that summons a creature has an Edit Summoned Creature button, so the creature can be changed without reopening the Power Crafter.',
                 'Powers for your Loyal Companion and for a summoned creature are priced in Threat Points from their own budget, never your XP. Building a summoned creature\'s powers from inside the Power Crafter picks your own power back up afterward.',
-                'Summoned creatures can\'t summon creatures of their own (the utility is locked when crafting their powers), and have a hard 3 AP each turn with nothing banked, so their NPC Crafter has no AP to buy (TP spent on AP before comes back).',
+                'Summoned creatures can\'t summon creatures of their own (the utility is locked when crafting their powers), and have a hard 3 AP each turn with nothing banked, so their NPC Crafter has no AP to buy (TP spent on AP before comes back). The one exception is Bloodied Frenzy: at or below half HP it gains 2 more, up to 5.',
                 'Your Loyal Companion can have a Summon a Creature power, up to its own Tier. Saving it opens the NPC Crafter for the creature and then returns to your companion; using it puts the creatures next to your companion on the battle map.',
                 'Area powers on the battle map: with your GM\'s battle map open, using a power with a Line, Cone or Burst has you place its area before anything is spent, at exactly the size you crafted. A Self or Touch area starts from your token: scroll to turn it (15° a notch, Alt+scroll for finer), click a square to point it there, and drag its start to the square next to you. A Line or Cone starts pointing the way you last used that power. A Short, Long or Extreme Range area follows your mouse; click to place it within range (it turns red when it\'s out of range), then drag, turn or re-aim it. Enter (or Use power) uses it, Esc or right-click cancels, and Use without the map rolls it the old way. Everyone in the area makes a new saving throw each time you use it: if you\'re caught in one, a Roll save button appears in your dice tray, and you take the damage (half or none on a success) by your own roll. Your Loyal Companion\'s area powers work the same way. Walls and closed doors block areas: an area has to start somewhere its user can see, a Line stops at the first wall, a Cone doesn\'t reach behind one, and a Burst spreads around corners only as far as its radius reaches along the way.',
                 'Safe Zone: Shift+click any creature in your area while placing it to keep it safe (it gets a green outline), and the GM\'s tracker leaves it out.',
@@ -340,7 +340,8 @@
             ['Layout and Account', [
                 'Settings sits beside World, and Undo and Redo are at the bottom of the Roster menu (Ctrl+Z and Ctrl+Y still work).',
                 'The Owned perk filter shows the perks you can still upgrade and hides maxed ones.',
-                'Resilient stacks: each rank steps your Rest Dice up one size from wherever they are, so a Racial Bonus Perk Resilient plus a rank bought with XP makes them d10 (up to d12).',
+                'General Perks stack: one you got as a Racial Bonus Perk and ranks you buy later with XP add together everywhere (Tireless, Adrenaline, Fast, Tough, Twitchy and the rest), up to the perk\'s max. Resilient steps your Rest Dice up one size per rank from wherever they are, so a racial Resilient plus one bought rank makes them d10 (up to d12). Racial Well Rested, Safe Zone, Educated and Expertise work on their own too.',
+                'Bloodied Frenzy (NPC trait) is applied by the tracker: at or below half HP the creature gains +2 AP at the start of its turn, and a summoned creature\'s hard 3 AP rises to 5 while it lasts.',
                 'Small text is larger, pages load faster (the styling is one small prebuilt file), and closed windows no longer blur the page behind them on phones.',
                 'Delete Account removes every character, folder, world and image tied to your account, along with the settings this browser saved.',
                 'Colour pickers remember your recent colours: click one to use it, hover it for an X to remove it.',
@@ -503,7 +504,7 @@
                 'Grappled and Pinned are conditions (Grabbed became Grappled), and a creature\'s condition immunities keep conditions off it.',
                 'Grapples: marking a creature Grappled or Pinned links it to the creature next to it (you choose when there are several) and makes that grappler Staggered. Unmarking it, an Escape, the grappler letting go, being Incapacitated or leaving the fight ends the grapple and its Staggered. A Grappling weapon hit grapples on its own, and players\' Grapple, Pin, Choke and Escape from their sheets apply here, Choke damage included.',
                 'Non-lethal damage ("-12 nl", or the Non-lethal box): at 0 HP a creature is knocked out: Unconscious, still in the fight, grey with snoring Z\'s on the map (players don\'t Bleed Out). Healing wakes it; lethal damage while it\'s down kills an NPC or starts a player Bleeding Out.',
-                'Summoned creatures have a hard 3 AP: 3 at the start of each turn (1 if Surprised), none banked. Their NPC Crafter doesn\'t offer +1 AP, and a saved NPC summoned by a power drops any AP it bought. An NPC\'s Summon a Creature power places its creatures next to it, on its side, acting right after it.',
+                'Summoned creatures have a hard 3 AP: 3 at the start of each turn (1 if Surprised), none banked; with the Bloodied Frenzy trait, 5 while at or below half HP. Their NPC Crafter doesn\'t offer +1 AP, and a saved NPC summoned by a power drops any AP it bought. An NPC\'s Summon a Creature power places its creatures next to it, on its side, acting right after it.',
                 'Grant XP has a Start Session type: 5 XP, named for the session (each sheet adds INT), so attendance XP reads cleanly in the log.',
                 'NPCs can be immune to Grappled and Pinned (NPC Crafter, Condition Immunity), and the tracker keeps those conditions off them.'
             ]],

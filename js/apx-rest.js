@@ -20,7 +20,7 @@
     function maxHp() { return C().maxHp || parseInt(document.getElementById('dispMaxHp')?.innerText) || st().currentHp || 0; }
     function conMod() { return (C().mods && C().mods.CON) || 0; }
     function dieStep() { return C().restDieStep || 'd6'; }
-    function wellRested() { return ((st().perks || {}).gen_wellrested || 0) > 0; }
+    function wellRested() { return window.apxPerkRank ? window.apxPerkRank(st(), 'gen_wellrested') > 0 : ((st().perks || {}).gen_wellrested || 0) > 0; }
     function refresh() { window.recalculateMath(); window.apxRefreshHpInputs?.(); }
 
     function panel(title, bodyHtml, wide) {

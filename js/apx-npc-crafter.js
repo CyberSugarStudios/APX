@@ -2225,7 +2225,7 @@ function ncRenderStep1() {
                 <button onclick="window.ncAdjustHpTier(1)" class="w-6 h-6 rounded bg-amber-700 hover:bg-amber-600 text-white font-bold">+</button>
             </div>
         </div>
-        ${c.isSummon ? `<div class="bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-[10px] text-slate-400">AP: a summoned creature has a hard 3 AP each turn, so it can't buy more.</div>` : `<div class="flex items-center justify-between bg-slate-900 border border-slate-700 rounded px-2 py-1.5">
+        ${c.isSummon ? `<div class="bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-[10px] text-slate-400">AP: a summoned creature has a hard 3 AP each turn, so it can't buy more. The one exception is the Bloodied Frenzy trait: at or below half HP it gains 2 more, up to 5.</div>` : `<div class="flex items-center justify-between bg-slate-900 border border-slate-700 rounded px-2 py-1.5">
             <span class="text-xs font-bold text-white">+1 AP (max +${NPC_AP_PER_TIER}/Tier, ${NPC_AP_TP} TP each): x${c.apBonus}</span>
             <div class="flex items-center gap-1">
                 <button onclick="window.ncAdjustAp(-1)" class="w-6 h-6 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">-</button>

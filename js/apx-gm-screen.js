@@ -132,7 +132,7 @@ function computeCharSummary(state) {
     let baseErMods = [calc.mods.AGI, calc.mods.PER, calc.mods.INT, calc.mods.CHA, calc.mods.LUC].map(v => Math.max(v, 0));
     calc.er += Math.max(...baseErMods) + armorEr;
 
-    let tirelessRank = (state.perks || {})['gen_tireless'] || 0;
+    let tirelessRank = window.apxPerkRank ? window.apxPerkRank(state, 'gen_tireless') : ((state.perks || {})['gen_tireless'] || 0);
     let effectiveFatigue = Math.max(0, (state.fatigue || 0) - tirelessRank);
     calc.maxAp = calc.apForcedZero ? 0 : Math.max(0, Math.max(6, 6 + Math.floor(calc.mods.AGI / 2)) - effectiveFatigue + fxStat('maxAp'));   // 6 + half AGI mod (round down), min 6 — Sept 23, 2026 update
 
@@ -3832,7 +3832,14 @@ window.toggleInitiativePowerSlot = function(entryId, powerName, idx) {
 // AP pool per creature. Unspent AP carries over between turns with no cap;
 // pips show its AP plus one empty stored pip, growing as the pool fills.
 // NPCs: click pips to spend/refund. Players: mirrors their sheet.
-function gmApMax(e) { return e && e.summoned ? 3 : Math.max(0, parseInt(e.ap) || 0); }
+// Bloodied Frenzy (NPC trait): at or below half HP, +2 AP at the start of its turn (a summoned creature's hard
+// 3 AP rises to 5 while it lasts)
+function _gmBloodiedFrenzy(e) {
+    if (!e || e.faction === 'player' || e.currentHp == null || !(e.maxHp > 0) || e.currentHp <= 0 || e.currentHp > e.maxHp / 2) return false;
+    let sb = typeof _gmNpcSb === 'function' ? _gmNpcSb(e) : null;
+    return !!(sb && (sb.traitList || []).some(t => t && t.key === 'bloodiedfrenzy'));
+}
+function gmApMax(e) { return e && e.summoned ? (_gmBloodiedFrenzy(e) ? 5 : 3) : Math.max(0, parseInt(e.ap) || 0); }
 function gmApCurrent(e) {
     let max = gmApMax(e);
     let cur = e.apCur;
@@ -3850,6 +3857,11 @@ function gmStartTurnAp(e) {
     // A creature summoned by a power: a hard 3 AP, gained fresh each turn (nothing banked)
     if (e.summoned) e.apCur = e._apFirstSurprised ? 1 : 3;
     else e.apCur = gmApCurrent(e) + (e._apFirstSurprised ? 1 : gmApMax(e));
+    // Bloodied Frenzy: at or below half HP, +2 AP (a summoned creature's cap goes from 3 to 5)
+    if (_gmBloodiedFrenzy(e)) {
+        e.apCur = e.summoned ? Math.min(5, e.apCur + 2) : e.apCur + 2;
+        gmLog({ text: `${_gmPublicName(e)} is Bloodied and frenzied: +2 AP this turn.`, gmText: `Bloodied Frenzy: ${_gmGmName(e)} is at or below half HP, +2 AP (${e.apCur} AP)${e.summoned ? '; its summoned 3 AP cap is 5 while it lasts' : ''}.`, kind: 'info' });
+    }
     // Conditions that take away AP (Stunned, Incapacitated, Paralyzed, Unconscious…): no AP this turn
     let noAp = _gmEffConds(e).map(id => (typeof CONDITIONS !== 'undefined' ? CONDITIONS : []).find(c => c.id === id)).filter(c => c && c.apZero);
     if (noAp.length) {
