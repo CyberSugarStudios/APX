@@ -6,7 +6,7 @@
 //    chosen modifier, once per Short Rest (state.traitPowers; used like any power, without a Power Slot).
 //  • Integrated Equipment: pick a piece of standard gear for each time the trait was taken; it goes in the
 //    inventory as "<item> (Integrated)", built into the body (hidden, can't be disarmed).
-//  • An "Ancestry Traits" note (beside Languages) listing every trait and flaw, kept up to date.
+//  • An "Ancestry Traits" note (beside Languages) listing the traits and flaws the sheet doesn't already show, kept up to date.
 // Characters made before these existed are asked to set them up when their sheet opens.
 // ============================================================
 (function () {
@@ -131,23 +131,27 @@
     };
 
     // ── The Ancestry Traits note ──
+    // Traits and flaws the sheet already shows somewhere else (a weapon, an item, a training, a power, a perk,
+    // AC, resistances, Notice, carry capacity, extra hands, a speed, the Regenerate button, Max HP): left out
+    const ON_SHEET = new Set(['t_innwpn', 't_inteq', 't_skap', 't_arm', 't_env', 't_sens', 't_load', 't_dis', 't_bp', 't_poly', 't_reg', 't_vert', 't_fly', 'f_frag', 'f_env']);
     function traitNoteText(st) {
         let defs = typeof ANCESTRY_TRAITS !== 'undefined' ? ANCESTRY_TRAITS : [], fdefs = typeof ANCESTRY_FLAWS !== 'undefined' ? ANCESTRY_FLAWS : [];
         let count = ids => ids.reduce((m, id) => (m[id] = (m[id] || 0) + 1, m), {});
         let line = (defsList, id, n) => { let d = defsList.find(x => x.id === id); return d ? `• ${d.name}${n > 1 ? ' ×' + n : ''}: ${d.desc}` : null; };
-        let t = count(traitsOf(st)), f = count((st.ancestry && st.ancestry.flaws) || []);
+        let t = count(traitsOf(st).filter(id => !ON_SHEET.has(id))), f = count(((st.ancestry && st.ancestry.flaws) || []).filter(id => !ON_SHEET.has(id)));
         let out = Object.keys(t).map(id => line(defs, id, t[id])).filter(Boolean);
         let fl = Object.keys(f).map(id => line(fdefs, id, f[id])).filter(Boolean);
-        (st.traitPowers || []).forEach(p => { if (p.trait === 't_dis') out = out.map(l => l.startsWith('• Discharging Internals') ? l + ` (yours: ${p.rng} of ${p.energy}, DC 10 + ${p.attr})` : l); });
-        let integ = (st.items || []).filter(i => i && i.integrated).map(i => i.name.replace(/ \(Integrated\)$/, ''));
-        if (integ.length) out = out.map(l => l.startsWith('• Integrated Equipment') ? l + ` (yours: ${integ.join(', ')})` : l);
         return out.join('\n') + (fl.length ? (out.length ? '\n\n' : '') + 'Flaws:\n' + fl.join('\n') : '');
     }
     function syncTraitNote(st) {
         let text = traitNoteText(st);
         st.charNotes = st.charNotes || [];
         let n = st.charNotes.find(x => x && x.autoTraits);
-        if (!text) return false;
+        if (!text) {
+            // Nothing left to list: an untouched note goes away
+            if (n && n.content === n.autoText) { st.charNotes = st.charNotes.filter(x => x !== n); return true; }
+            return false;
+        }
         if (!n) {
             st.charNotes.push({ id: 'cn_traits_' + Date.now(), title: 'Ancestry Traits', session: 0, date: window.apxToday ? window.apxToday() : '', content: text, autoTraits: true, autoText: text });
             return true;
