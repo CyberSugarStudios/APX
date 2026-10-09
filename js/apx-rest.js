@@ -154,6 +154,7 @@
                 let chaBack = (s.usedPowerSlots && s.usedPowerSlots.CHA) || 0;
                 if (s.usedPowerSlots) s.usedPowerSlots.CHA = 0;
                 if (s.exoSuit) s.exoSuit.camoUsed = 0;   // Active Camouflage uses come back on a Short Rest
+                (s.traitPowers || []).forEach(tp => { tp.used = 0; });   // Ancestry Trait powers (once per Short Rest)
                 let recBack = recoverUsedList(s);
                 s.recoverUsed = {};
                 let compSlots = restoreCompanionSlots(false);
@@ -245,6 +246,7 @@
             s2.restDice = Math.min(maxDice, (s2.restDice || 0) + diceBack);
             if (s2.usedPowerSlots) Object.keys(s2.usedPowerSlots).forEach(k => s2.usedPowerSlots[k] = 0);
             if (s2.exoSuit) s2.exoSuit.camoUsed = 0;
+            (s2.traitPowers || []).forEach(tp => { tp.used = 0; });
             s2.luckPts = maxLuck;
             s2.recoverUsed = {};
             s2.apCurrent = (typeof calc !== 'undefined' && calc.maxAp) || 6; delete s2.apUsed;

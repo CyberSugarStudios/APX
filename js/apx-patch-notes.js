@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.8.1615',
-        released: '2026-10-08T16:15:00',
-        releasedText: 'October 8, 2026 · 4:15 PM',
+        version: 'v2026.10.9.0855',
+        released: '2026-10-09T08:55:00',
+        releasedText: 'October 9, 2026 · 8:55 AM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs with loot of their own, apart from their stat blocks, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, area powers placed right on the battle map with every save in them rolled for you, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -152,6 +152,9 @@
                 'XP from your GM includes your bonuses (INT modifier, Educated, Expertise), the XP fields lock while you\'re in a world, and the XP Log beside Spend XP lists everything gained and spent.',
                 'Standard Array uses 7, 6, 5, 5, 5, 4 and 3, once each. Point Buy starts every attribute at 4 with 7 points to spend, each between 2 and 7.',
                 'Race Templates from your GM update the Race Builder as soon as the GM saves them.',
+                'Discharging Internals sets itself up: a compact crafter shows your area (a 3-square Cone or a 6-square Line) and asks for the Energy type and the attribute for its DC, then adds the power to your Powers: 3 AP, 3d6 of that Energy, AGI save for half, DC 10 + that modifier, once per Short Rest without a Power Slot. It places on the battle map like any area power, and Change on its card reopens the crafter. Characters made before this are asked when their sheet opens.',
+                'Integrated Equipment has you pick standard gear from the Adventuring Gear list, once for each time you took the trait; it goes in your inventory as "<item> (Integrated)", weightless, built into you. Characters made before this are asked when their sheet opens.',
+                'An Ancestry Traits note (beside Languages) lists every trait and flaw your race gives you, with your Discharging Internals and Integrated Equipment choices, and keeps itself up to date unless you edit it.',
                 'Save & Apply in the Race Builder sends you to Step 4 when training is still missing, and asks first when Genetic Points are left unspent.',
                 'Attributes bought with XP (and injuries) are kept apart from your base attributes, so rebuilding your race never loses them. Existing characters are converted the first time you open them.',
                 'One character per world: joining, or moving a character into a world that already has one, asks whether to archive or delete the other.',
@@ -511,7 +514,7 @@
             ]],
             ['Party and Companions', [
                 'Party stat blocks show each player\'s AC, DR, ER, Max HP, AP, Initiative and Wound Threshold exactly as their sheet does.',
-                'The Party panel lists each player\'s powers by name, Level and AP (click one to open it, or the player\'s name for their full stat block with every power in full), and each card shrinks to just the portrait, name, ancestry and + Initiative with the ▾ beside it. Cards stack in two columns, each right under the one above, with no gaps beside a longer stat block.',
+                'The Party panel lists each player\'s powers by name, Level and AP (click one to open it, or the player\'s name for their full stat block with every power in full), and each card shrinks to just the portrait, name, ancestry and + Initiative with the ▾ beside it. Cards stack in two columns, each right under the one above, with no gaps beside a longer stat block. A player\'s Discharging Internals shows with their powers, with its uses left.',
                 'Loyal Companions sit under their owners with stat blocks, token art and + Initiative, and their HP follows their owner\'s sheet, including damage typed into the companion\'s HP box there.'
             ]],
             ['Maps', [

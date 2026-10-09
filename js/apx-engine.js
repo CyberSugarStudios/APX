@@ -642,6 +642,7 @@
             renderInventory(armorWt);
             if (typeof window.renderActiveConditions === 'function') window.renderActiveConditions();
             if (typeof window.apxRenderExo === 'function') window.apxRenderExo();
+            if (typeof window.apxTraitSetupSoon === 'function') window.apxTraitSetupSoon();   // Ancestry Traits to set up, and their note
             renderPowerStats();
             renderPowers();
             renderActivePerks();
@@ -1532,6 +1533,8 @@
             let attr = window.apxPowerAttr ? window.apxPowerAttr(p) : (window.state.powerAttr || 'INT');
             let mod = calc.mods[attr] || 0, top = window.apxPowerMaxLevel ? window.apxPowerMaxLevel() : 0;
             let pfx = k => (calc.itemFx && calc.itemFx.stat && calc.itemFx.stat[k]) || 0;
+            // An Ancestry Trait's power: its DC is 10 + the attribute modifier chosen for it
+            if (p && p.trait) return { attr, mod, atk: mod + window.state.trainingBonus, dc: 10 + mod };
             return { attr, mod, atk: mod + window.state.trainingBonus + top + pfx('powerAtk'), dc: 10 + mod + top + pfx('powerDc') };
         }
         window.apxPowerNums = apxPowerNums;
@@ -1681,6 +1684,9 @@
         }
         // A power by its index in state.powers, or 'i<item>_<power>' for a power an equipped item grants
         function apxPowerAt(idx) {
+            // A power from an Ancestry Trait (Discharging Internals): "t0", "t1"…
+            let tm = /^t(\d+)$/.exec(String(idx));
+            if (tm) return (window.state.traitPowers || [])[+tm[1]] || null;
             let m = /^i(\d+)_(\d+)$/.exec(String(idx));
             if (m) { let it = (window.state.items || [])[+m[1]]; return (window.apxItemPowers ? window.apxItemPowers(it) : [])[+m[2]] || null; }
             return window.state.powers[parseInt(idx)] || null;
@@ -1725,6 +1731,9 @@
             let p = apxPowerAt(idx); if (!p || !window.APXDice) return;
             if (window.apxPowerOverCap && window.apxPowerOverCap(p)) { APXDice.notify(`${p.name || 'This power'} costs more than ${window.APX_POWER_MAX_XP || 200} XP, the most a power can cost. Rebuild it in the Power Crafter (free) before using it.`, { kind: 'warn', open: true }); if (typeof window.openPowerEditor === 'function' && typeof idx === 'number') window.openPowerEditor(idx); return; }
             if (calc.cantAct) { APXDice.notify(`You're ${calc.cantActLabel}, so you can't use powers until that ends.`, { kind: 'warn', open: true }); return; }
+            // An Ancestry Trait's power runs on its own uses (once per Short Rest), not on Power Slots
+            let traitSrc = /^t\d+$/.test(String(idx)) ? p : null;
+            if (traitSrc && (traitSrc.used || 0) >= (traitSrc.usesMax || 1)) { APXDice.notify(`You've used ${p.name || 'it'}: it comes back on a Short Rest.`, { kind: 'warn', open: true }); return; }
             let name = p.name || 'Power', who = window.state.name || '';
             // Damage type chosen each time it's used (both, with a second type): asked before anything is spent
             let chosen = window.apxPowerChooseTypes ? await window.apxPowerChooseTypes(p.draft, name) : null;
@@ -1755,8 +1764,8 @@
                 let mx = getMaxSlotsForLevel('CHA'), u = window.state.usedPowerSlots.CHA || 0;
                 return u < mx ? { key: 'CHA', max: mx, used: u, label: 'Short Rest use' } : null;
             };
-            let slot = itemSrc ? { key: null, free: true } : (pool === 'short' ? shortSlot() : fullSlot());
-            let alt = itemSrc || slot ? null : (pool === 'short' ? (perks.pwr_int > 0 ? fullSlot() : null) : (perks.pwr_cha > 0 ? shortSlot() : null));
+            let slot = traitSrc ? { key: null, free: true, label: `${p.name} (Ancestry Trait, once per Short Rest)` } : itemSrc ? { key: null, free: true } : (pool === 'short' ? shortSlot() : fullSlot());
+            let alt = itemSrc || traitSrc || slot ? null : (pool === 'short' ? (perks.pwr_int > 0 ? fullSlot() : null) : (perks.pwr_cha > 0 ? shortSlot() : null));
             let cost = window.apxPowerIsReaction && window.apxPowerIsReaction(p) ? 0 : Math.max(0, parseInt(p.ap) || 0);   // a Reaction power costs no AP
             let have = typeof window.apxApCurrent === 'function' ? window.apxApCurrent() : cost;
             // Whatever you have is spent: a slot if one's left, the AP if there's enough. Short on
@@ -1780,7 +1789,7 @@
             if (apOk && cost > 0) { window.apxSpendAp(cost); notes.push(`-${cost} AP (${window.apxApCurrent()} left)`); }
             else if (!apOk) notes.push(`AP short (needed ${cost}, had ${have})`);
             if (itemSrc) notes.push(`from ${itemSrc.name || 'an item'} (${window.apxItemPowerUsage ? window.apxItemPowerUsage(p) : 'item power'})`);
-            else if (slot && slot.free) notes.push(slot.label);
+            else if (slot && slot.free) { notes.push(slot.label); if (traitSrc) traitSrc.used = (traitSrc.used || 0) + 1; }
             else if (slot) { window.state.usedPowerSlots[slot.key] = slot.used + 1; notes.push(`-1 ${slot.label} (${Math.max(0, slot.max - slot.used - 1)} left)`); }
             else notes.push(`no ${poolName} left`);
             window.recalculateMath();
@@ -1881,6 +1890,22 @@
             `).join('');
             // Powers from equipped items (made by the GM): used like your own, but they don't take a Power Slot
             let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+            // Powers from Ancestry Traits (Discharging Internals): once per Short Rest, no Power Slot
+            html += (window.state.traitPowers || []).map((p, ti) => { let key = 't' + ti, left = Math.max(0, (p.usesMax || 1) - (p.used || 0)); return `
+                <div class="bg-slate-900 p-2 rounded border border-amber-800 relative shadow-inner" data-roll-label="${esc(p.name || 'Power')}">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="font-bold text-sm text-indigo-300 cursor-pointer hover:text-indigo-200" onclick="window.apxUsePower('${key}')" title="Use it: no Power Slot needed">${esc(p.name || 'Power')}</span>
+                        <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded border border-slate-600 text-slate-400 font-bold shadow cursor-pointer hover:border-indigo-400 hover:text-indigo-200" onclick="window.apxUsePower('${key}')" title="Use it: spend ${esc(p.ap)} AP">${esc(p.ap)} AP</span>
+                    </div>
+                    <div class="text-[9px] text-amber-300 font-bold mb-1">Ancestry Trait · ${left}/${p.usesMax || 1} use${(p.usesMax || 1) === 1 ? '' : 's'} left (comes back on a Short Rest)
+                        ${window.apxTraitPowerEdit ? `<button onclick="window.apxTraitPowerEdit(${ti})" class="ml-1 text-purple-400 hover:text-purple-300 underline">Change</button>` : ''}</div>
+                    <div class="grid grid-cols-3 gap-1 mb-1 text-[10px] text-slate-400">
+                        <div><span class="text-slate-500">A/S:</span> ${apxPowerAtkHtml(p, key)}</div>
+                        <div><span class="text-slate-500">R/A:</span> ${esc(p.rng)}</div>
+                        <div><span class="text-slate-500">D/H:</span> ${apxPowerDmgHtml(p)}</div>
+                    </div>
+                    <div class="text-[10px] text-slate-500 leading-tight font-medium">${esc(p.desc)}</div>
+                </div>`; }).join('');
             html += window.apxItemPowerList().map(({ p, key, item }) => `
                 <div class="bg-slate-900 p-2 rounded border border-cyan-800 relative shadow-inner" data-roll-label="${esc(p.name || 'Power')}">
                     <div class="flex justify-between items-center mb-1">

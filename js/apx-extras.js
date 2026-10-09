@@ -90,7 +90,7 @@
         ['Making a character', 'Character creation: three steps, in order', `
             <div class="apxtut-steps"><div><b>1</b>Race Builder</div><div><b>2</b>Origin</div><div><b>3</b>Spend XP</div></div>
             <p>A character is finished by doing all three, in this order. Each one is a button at the top of the sheet.</p>
-            <ol><li><b>Race Builder</b> (the Ancestry button): pick a race your GM made (or build your own), spend its Genetic Points, and choose its training. <b>Save &amp; Apply</b> sends you back to any step that's still missing something.</li>
+            <ol><li><b>Race Builder</b> (the Ancestry button): pick a race your GM made (or build your own), spend its Genetic Points, and choose its training. <b>Save &amp; Apply</b> sends you back to any step that's still missing something. Some traits set themselves up next: <b>Discharging Internals</b> opens a small crafter (a 3-square Cone or 6-square Line, an Energy type, and the attribute for its DC) and adds it to your Powers, used once per Short Rest without a Power Slot; <b>Integrated Equipment</b> has you pick standard gear for each time you took it, added to your inventory as "(Integrated)". Every trait and flaw is listed in an <b>Ancestry Traits</b> note beside Languages.</li>
             <li><b>Origin</b>: your life before adventuring: languages and trainings, starting wealth, and an Origin feature.</li>
             <li><b>Spend XP</b>: buy attributes, skill ranks, perks, Hit Points and powers. Everything you gain and spend is in the <b>XP Log</b>. A General Perk you got from your race (a Racial Bonus Perk) counts toward that perk: ranks you buy later add to it, up to its max.</li></ol>`],
         ['Rolling', 'Rolling dice', `

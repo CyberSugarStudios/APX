@@ -4092,6 +4092,11 @@ window._gmPlayerPowersHtml = function(st, hdr, uid, mods, compact) {
             <span ${u ? `onclick="window._gmPlayerPowerPopup('${u}', ${i})" title="Open this power in its own window"` : ''} style="font-weight:900;font-size:.66rem;color:#d8b4fe;${u ? 'cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px' : ''}">${String(p.name || 'Power').replace(/</g, '&lt;')}</span>
             <span style="font-size:.56rem;color:#94a3b8;white-space:nowrap">Lvl ${p.lvl} | ${window.apxPowerApLabel ? window.apxPowerApLabel(p) : p.ap + ' AP'}</span></div>
         ${compact ? '' : _gmPlayerPowerCard(p, st, mods, false)}</div>`);
+    // Powers from Ancestry Traits (Discharging Internals)
+    (st.traitPowers || []).forEach(p => powers.push(`<div style="border:1px solid #92400e;border-radius:.3rem;padding:.3rem .4rem;margin:.2rem 0;background:rgba(146,64,14,.12)">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:.3rem"><span style="font-weight:900;font-size:.66rem;color:#fdba74">${String(p.name || 'Power').replace(/</g, '&lt;')}</span>
+        <span style="font-size:.56rem;color:#94a3b8;white-space:nowrap">Trait | ${p.ap} AP · ${Math.max(0, (p.usesMax || 1) - (p.used || 0))}/${p.usesMax || 1} per Short Rest</span></div>
+        ${compact ? '' : `<div style="font-size:.6rem;color:#cbd5e1">${String(p.desc || '').replace(/</g, '&lt;')}</div>`}</div>`));
     if (!rows.length && !powers.length) return '';
     return (hdr ? hdr('Powers') : '<div style="font-weight:900;font-size:.6rem">Powers</div>')
         + (rows.length ? `<div style="display:flex;flex-direction:column;gap:2px;padding:.15rem 0">${rows.join('')}</div>` : '')
