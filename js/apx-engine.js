@@ -50,12 +50,12 @@
             // Extra arms are named by side now: "Extra Arm 1/2" → "Left Arm 2" / "Right Arm 2"
             if (window.state.woundedLimbs.some(l => /^Extra Arm \d+$/.test(l)))
                 window.state.woundedLimbs = window.state.woundedLimbs.map(l => { let m = l.match(/^Extra Arm (\d+)$/); if (!m) return l; let i = +m[1] - 1; return `${i % 2 ? 'Right' : 'Left'} Arm ${2 + Math.floor(i / 2)}`; });
-            // Both legs Wounded: you fall Prone (and can't stand until a leg heals)
-            if (window.state.woundedLimbs.filter(l => /Leg/.test(l)).length >= 2 && !window.state.conditions.includes('prone')) {
+            // All legs Wounded (two, or more with extra legs): you fall Prone (and can't stand until a leg heals)
+            if (window.apxAllLegsWounded && window.apxAllLegsWounded(window.state) && !window.state.conditions.includes('prone')) {
                 window.state.conditions.push('prone');
                 if (window.APXDice && window.APXDice.notify && window._apxLegProneNote !== window.state.woundedLimbs.join('|')) {
                     window._apxLegProneNote = window.state.woundedLimbs.join('|');
-                    setTimeout(() => window.APXDice.notify('Both legs are Wounded: you fall Prone, and can\'t stand up until one of them heals.', { kind: 'warn' }), 0);
+                    setTimeout(() => window.APXDice.notify('All of your legs are Wounded: you fall Prone, and can\'t stand up until one of them heals.', { kind: 'warn' }), 0);
                 }
             }
             if (!window.state.savesTrained) window.state.savesTrained = { STR: false, AGI: false, CON: false, PER: false, INT: false, CHA: false, LUC: false };
@@ -376,14 +376,16 @@
             }
 
             let legWoundCount = 0;
-            (window.state.woundedLimbs || []).forEach(limb => {
+            [...new Set(window.state.woundedLimbs || [])].forEach(limb => {   // (a Torso Wounded twice is one source)
                 let limbType = limb.includes('Leg') ? 'Leg' : limb.includes('Arm') ? 'Arm' : limb;
                 if (limbType === 'Leg') legWoundCount++;
                 let limbDef = WOUND_LIMB_EFFECTS[limbType];
                 if (limbDef) applyEffectSource(`${limb} Wound`, limbDef);
             });
-            if (legWoundCount >= 2) {
-                applyEffectSource('Both Legs Wounded (Prone)', { atkDisadvantage: 'melee', rangedAtkAdvantage: true });
+            // A Wounded leg gives the Staggered condition's effects
+            if (legWoundCount) { let stg = CONDITIONS.find(c => c.id === 'staggered'); if (stg) applyEffectSource('Staggered (Leg Wound)', stg); }
+            if (window.apxAllLegsWounded && window.apxAllLegsWounded(window.state)) {
+                applyEffectSource('All Legs Wounded (Prone)', { atkDisadvantage: 'melee', rangedAtkAdvantage: true });
             }
 
             // This turn's maneuvers (Fight Defensively, Fight Offensively…): see js/apx-actions.js
@@ -1259,6 +1261,40 @@
                 back.querySelector('[data-v="spend"]').focus();
             });
         };
+        // Ranged attacks in combat fire a round of their Ammo Type (Light, Medium or Heavy, by the weapon's weight):
+        // with none of it left the weapon can't be used. The round is spent once the attack goes ahead.
+        (function () {
+            let inner = window.apxBeforeAttack;
+            let AMMO = { light: 'Light Ammo', medium: 'Medium Ammo', heavy: 'Heavy Ammo' };
+            window.apxAmmoStack = function (type) {
+                let name = AMMO[type]; if (!name) return null;
+                window.apxNormalizeAmmo?.(window.state);
+                return (window.state.items || []).find(i => i && !i.isConsumable && new RegExp('^' + name + '\\b', 'i').test(i.name || '') && (parseInt(i.ct) || 0) > 0) || null;
+            };
+            window.apxBeforeAttack = function (o) {
+                let type = o && o.pcAttack && !o.companion && o.hit && o.hit.ammo;
+                let inCombat = !!window._pwCombatCode;
+                if (!type || !inCombat) return inner(o);
+                let stack = window.apxAmmoStack(type);
+                if (!stack) {
+                    window.APXDice?.notify(`${(o.hit && o.hit.weapon) || 'This weapon'} fires ${AMMO[type]}, and you have none left. Buy or find some (Adventuring Gear → Ammo) to use it.`, { kind: 'warn', open: true });
+                    return false;
+                }
+                let after = res => {
+                    if (res === false) return res;
+                    let st2 = window.apxAmmoStack(type); if (!st2) return res;
+                    st2.ct = (parseInt(st2.ct) || 0) - 1;
+                    if (st2.ct <= 0) window.state.items = window.state.items.filter(i => i !== st2);
+                    let left = st2.ct > 0 ? st2.ct : 0;
+                    window.recalculateMath?.(); window.scheduleAutoSave?.();
+                    let note = `−1 ${AMMO[type]} (${left} left)`;
+                    if (res && typeof res === 'object') return Object.assign({}, res, { note: res.note ? res.note + ' · ' + note : note });
+                    return { note };
+                };
+                let r = inner(o);
+                return r && typeof r.then === 'function' ? r.then(after) : after(r);
+            };
+        })();
 
         function renderWeaponRow(w, idx, opts) {
             let dmgMod = weaponDmgModifier(w, opts.attr);

@@ -20,9 +20,9 @@
     'use strict';
     // Ammo effects (Ch.8 Ammo Types), shown on ranged attacks
     const AMMO_FX = {
-        light:  { name: 'Light Ammo', hit: 'once per turn, after spending AP to move, one attack with it costs 0 AP', crit: '', tip: 'Light Ammo: nimble rounds, easy to fire on the run.' },
-        medium: { name: 'Medium Ammo', hit: 'on a hit, the target\'s Speed is 1 lower until the end of its next turn', crit: 'the target is also Staggered', tip: 'Medium Ammo: heavier rounds that throw targets off balance.' },
-        heavy:  { name: 'Heavy Ammo', hit: 'on a hit, you can push the target up to 2 squares away; double damage to objects, structures and vehicles', crit: 'the target is also knocked Prone', tip: 'Heavy Ammo: massive rounds that physically move what they hit.' }
+        light:  { name: 'Light Ammo', hit: 'once per turn, when you hit a creature, you can move up to your Speed for 0 AP before the end of this turn', crit: '', tip: 'Light Ammo: nimble rounds, easy to fire on the run.' },
+        medium: { name: 'Medium Ammo', hit: 'on a hit, the target\'s Speed is 1 lower until the end of its next turn', crit: 'the target is also Wounded (you choose the limb)', tip: 'Medium Ammo: heavier rounds that tear into their target.' },
+        heavy:  { name: 'Heavy Ammo', hit: 'on a hit, you can push the target up to 2 squares away; double damage to objects, structures and vehicles', crit: 'the target is also Staggered', tip: 'Heavy Ammo: massive rounds that physically move what they hit.' }
     };
 
     // Critical hits multiply the NUMBER of damage dice rolled: 2d4 at x2 rolls 4d4,

@@ -78,7 +78,14 @@
             window.openModal('conditionPickerModal');
         };
 
-        const bothLegsWounded = () => (window.state.woundedLimbs || []).filter(l => /Leg/.test(l)).length >= 2;
+        // Every leg the character has (two, or more with extra legs) is Wounded
+        window.apxAllLegsWounded = function(st) {
+            st = st || window.state || {};
+            let legs = (window.apxWoundSlotsFor ? window.apxWoundSlotsFor(st) : ['Left Leg', 'Right Leg']).filter(l => /Leg/.test(l));
+            let w = st.woundedLimbs || [];
+            return legs.length > 0 && legs.every(l => w.includes(l));
+        };
+        const bothLegsWounded = () => window.apxAllLegsWounded(window.state);
         window.toggleCondition = async function(id, checked) {
             if (!checked && id === 'prone' && bothLegsWounded()) {
                 window.APXDice?.notify('You can\'t stand up while both legs are Wounded. Heal one of them first.', { kind: 'warn', open: true });
@@ -103,12 +110,23 @@
             window.recalculateMath();
         };
 
-        window.toggleWoundedLimb = function(limb, checked) {
+        // one: take off just one of a limb's Wounds (a Torso can be Wounded several times)
+        window.toggleWoundedLimb = function(limb, checked, one) {
             if (checked) {
                 if (!window.state.woundedLimbs.includes(limb)) { window.state.woundedLimbs.push(limb); window.apxArmWoundNote?.(limb); }
+            } else if (one) {
+                let i = window.state.woundedLimbs.lastIndexOf(limb);
+                if (i >= 0) window.state.woundedLimbs.splice(i, 1);
             } else {
                 window.state.woundedLimbs = window.state.woundedLimbs.filter(x => x !== limb);
             }
+            window.recalculateMath();
+        };
+        // Another Torso Wound: one more extra damage die, and no Permanent Injury
+        window.apxAddTorsoWound = function() {
+            window.state.woundedLimbs = (window.state.woundedLimbs || []).concat(['Torso']);
+            let n = window.state.woundedLimbs.filter(l => l === 'Torso').length;
+            window.APXDice?.notify(`Torso Wounded ${n} times: you take ${n} extra damage dice from each hit.`, { kind: 'warn' });
             window.recalculateMath();
         };
 
@@ -168,7 +186,11 @@
                 let x = removable ? xBtn(`window.toggleCondition(decodeURIComponent('${encodeURIComponent(ec.id).replace(/'/g, '%27')}'), false)`, 'Remove ' + c.name) : '';
                 return `<span class="inline-flex items-center text-[9px] ${from ? 'bg-red-900/20 text-red-300/80 border-dashed' : 'bg-red-900/40 text-red-300'} border border-red-800/50 px-1.5 py-0.5 rounded font-bold" title="${String(c.desc).replace(/"/g, '&quot;')}${from ? ' (from ' + from + ' — remove ' + from + ' to clear)' : ''}${legLock ? ' (both legs are Wounded: you can\'t stand until one heals)' : ''}">${c.name}${x}</span>`;
             });
-            let limbTags = window.state.woundedLimbs.map(limb =>
+            let limbCount = {}; window.state.woundedLimbs.forEach(l => { limbCount[l] = (limbCount[l] || 0) + 1; });
+            let limbTags = Object.keys(limbCount).map(limb => limb === 'Torso'
+                // A Torso stacks: +1 for another Wound (no Permanent Injury), × takes one off
+                ? `<span class="inline-flex items-center text-[9px] bg-red-900/40 text-red-300 border border-red-800/50 px-1.5 py-0.5 rounded font-bold" title="Each Torso Wound adds one more die of damage from every hit">Wounded: Torso${limbCount[limb] > 1 ? ' ×' + limbCount[limb] : ''}<button type="button" class="ml-1 px-1 rounded border border-red-700/70 text-red-200 hover:text-white hover:bg-red-900/60 leading-none" title="Torso Wounded again: one more extra damage die (no Permanent Injury)" onclick="event.stopPropagation();window.apxAddTorsoWound()">+1</button>${xBtn(`window.toggleWoundedLimb('Torso', false, true)`, 'Remove one Torso Wound')}</span>`
+                :
                 `<span class="inline-flex items-center text-[9px] bg-red-900/40 text-red-300 border border-red-800/50 px-1.5 py-0.5 rounded font-bold">Wounded: ${limb}<button type="button" class="apx-perm-btn ml-1 px-1 rounded border border-fuchsia-700/70 text-fuchsia-300 hover:text-white hover:bg-fuchsia-900/60 leading-none" title="Wounded again before it healed? Record a Permanent Injury (−1 to an attribute)" onclick="event.stopPropagation();window.apxPermanentInjury(decodeURIComponent('${encodeURIComponent(limb).replace(/'/g, '%27')}'))">Re-wounded</button>${xBtn(`window.toggleWoundedLimb(decodeURIComponent('${encodeURIComponent(limb).replace(/'/g, '%27')}'), false)`, 'Remove Wounded: ' + limb)}</span>`
             );
             let permTags = (window.state.permanentInjuries || []).map(pi =>

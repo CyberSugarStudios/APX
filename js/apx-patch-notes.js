@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.9.0950',
-        released: '2026-10-09T09:50:00',
-        releasedText: 'October 9, 2026 · 9:50 AM',
+        version: 'v2026.10.9.1050',
+        released: '2026-10-09T10:50:00',
+        releasedText: 'October 9, 2026 · 10:50 AM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs with loot of their own, apart from their stat blocks, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, area powers placed right on the battle map with every save in them rolled for you, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -214,7 +214,9 @@
                 'With four arms, the Off, Off 2 and Off 3 shield buttons sit side by side, each with its own Unequip underneath, and every shield you hold adds its +AC/DR/ER.',
                 'The Weapon Forge can make thrown weapons Returning for 300 more Currency.',
                 'A Medium weapon used two-handed steps its die size up: 2d8 becomes 2d10.',
-                'Ammunition effects (Light, Medium, Heavy) show as badges on ranged rolls.'
+                'Ammunition effects (Light, Medium, Heavy) show as badges on ranged rolls.',
+                'Ranged attacks in combat fire a round of their Ammo Type (Light, Medium or Heavy, by the weapon\'s weight): the round comes off your inventory once the attack goes ahead, and with none left the weapon can\'t be used until you buy or find more. The attack card shows the rounds left.',
+                'Ammo Types, updated: Light Ammo: once per turn, a hit lets you move up to your Speed for 0 AP before the end of your turn. Medium Ammo: a hit lowers the target\'s Speed by 1 until the end of its next turn, and a Critical Hit also Wounds it (you choose the limb). Heavy Ammo: a hit can push the target up to 2 squares away, a Critical Hit also Staggers it, and it deals double damage to objects, structures and vehicles. Your GM\'s tracker applies them, asking which limb a Medium crit Wounds.'
             ]],
             ['Weapon and Armor Forges', [
                 'Weapon properties fit the weapon: Thrown (with Returning) and Grappling are for melee weapons only, and Stunning can now go on a Medium melee weapon, working only in its two-handed attack like Reach (unless it deals Energy (Electric) damage). A ranged weapon forged with Thrown or Grappling before keeps no effect from them.',
@@ -240,7 +242,7 @@
             ['Conditions and Injuries', [
                 'Wound Threshold and Bleed Out: your next CON save decides the Wound, then CON (Survive) sets your Bleed Out rounds. If a Luck reroll or an Omen die turns the Wound save into a success, the GM\'s limb choice disappears and any limb already chosen heals.',
                 'When a Critical Hit lands on you, the tray offers "React: Turn to normal hit (Defensive)" with Defensive Rank 5 while unarmored, and "React: Break Helmet (normal hit)" with an intact Helmet. Either one returns the crit\'s extra damage and adjusts your Wound save.',
-                'A Torso Wound adds a die to every hit on you (the largest die the attack rolled), both legs Wounded keeps you Prone until one heals, and four arms add Left Arm 2 and Right Arm 2 to the Wound list.',
+                'Wounds follow the updated rules. Leg: you\'re Staggered, and with all of your legs Wounded (however many you have) you fall Prone and can\'t stand until one heals. Torso: every hit on you deals one more die (the largest die the attack rolled), and the Torso can be Wounded again and again without a Permanent Injury: each Torso Wound adds another die (+1 on its tag adds one, × takes one off). Head: Disadvantage on attack rolls and on PER and INT checks (no longer on saving throws). Four arms add Left Arm 2 and Right Arm 2 to the Wound list.',
                 'Stunned starts your turn with 0 AP, and a Stunning weapon\'s stun ends at the end of the attacker\'s next turn. Burning deals 1d10 Fire at the start of your turn, ignoring ER.',
                 'Unconscious, Paralyzed and Incapacitated stop attacks and powers and automatically fail the right checks. Conditions bring along the conditions they include, and Permanent Injuries are tracked.',
                 'Grappled and Pinned are conditions. Grappled: Speed 0 and Disadvantage on attacks against anyone but the grappler. Pinned: also Grappled, Restrained and Prone. (Grabbed became Grappled.)'
@@ -465,7 +467,7 @@
                 'Every stat block has a SAVE button under each Core Attribute, and Saving Throw Training (Step 5, 2 TP each) adds the Training Bonus to one save.',
                 'Conditions affect NPCs the way they affect players: Stunned, Incapacitated, Paralyzed, Unconscious and Bleeding Out leave no AP at the start of their turn, Burning rolls 1d10 Fire, Poisoned, Frightened, Blinded, Prone and the rest add Disadvantage or Advantage, and Paralyzed automatically fails STR and AGI.',
                 'Remove Power asks for confirmation in front of the NPC Crafter, where you can see it.',
-                'NPC Wound Thresholds, (5 + CON mod) × 2: a hit that big asks for a CON save, and a failure rolls a Wound. Wounds show on the tracker and can be healed. Leg Wounds stagger, and a Torso Wound adds a die to hits. NPCs don\'t carry lasting injuries: the limb list never offers one that\'s already Wounded, a creature with every limb Wounded isn\'t asked for the save, and a save still waiting when the creature goes down is settled on its own instead of staying in your tray.',
+                'NPC Wound Thresholds, (5 + CON mod) × 2: a hit that big asks for a CON save, and a failure rolls a Wound. Wounds show on the tracker and can be healed. Leg Wounds stagger (all of its legs Wounded: Prone), each Torso Wound adds a die to hits (the Torso can be Wounded again), and a Head Wound gives Disadvantage on attacks and PER and INT checks. NPCs don\'t carry lasting injuries: the limb list never offers one that\'s already Wounded (except the Torso), a creature with every limb Wounded isn\'t asked for the save, and a save still waiting when the creature goes down is settled on its own instead of staying in your tray.',
                 'NPC casters have Power Slots in the tracker and on the stat block, and a power can use a new "Power Slot" usage that spends a slot of its Level or higher.',
                 'Damaging Aura (and other auras) show as a coloured ring on the map and deal their damage to everyone inside at the end of the NPC\'s turn. Traits like Death Burst let you pick the energy type.',
                 'NPC powers with a second damage type roll each type separately, like players\' powers.',

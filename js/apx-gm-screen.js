@@ -1809,14 +1809,15 @@ function _gmHitExtraDamage(target, hit) {
     // Torso Wound: every time they take damage, they take one more die of it (the largest die the attack rolled)
     {
         let pm = target.faction === 'player' ? (window.gmParty || []).find(p => p.fileName === target.playerUid) : null;
-        let torso = target.faction === 'player' ? (pm?.state?.woundedLimbs || []).includes('Torso') : (target.wounds || []).includes('Torso');
+        // (each Torso Wound adds one more die)
+        let torso = (target.faction === 'player' ? (pm?.state?.woundedLimbs || []) : (target.wounds || [])).filter(l => l === 'Torso').length;
         if (torso) {
             let sides = 0;
             String(hit.dice || (hit.hit && hit.hit.die) || '').replace(/(\d*)d(\d+)/gi, (m, n, s) => { sides = Math.max(sides, parseInt(s, 10)); return m; });
             if (sides) {
-                let n = _gmRollDie('1d' + sides);
-                out.push({ n, why: 'Torso Wound', pub: `${_gmPublicName(target)}'s Wounded Torso takes an extra damage die.`, gm: `Torso Wound: ${_gmGmName(target)} takes an extra die, +${n} damage (1d${sides}).` });
-            } else gmLog({ gmOnly: true, kind: 'info', text: `${_gmGmName(target)} has a Wounded Torso: add one more die of this attack's damage by hand (no roll to take it from).` });
+                let n = _gmRollDie(torso + 'd' + sides);
+                out.push({ n, why: 'Torso Wound', pub: `${_gmPublicName(target)}'s Wounded Torso takes ${torso > 1 ? torso + ' extra damage dice' : 'an extra damage die'}.`, gm: `Torso Wound${torso > 1 ? ' ×' + torso : ''}: ${_gmGmName(target)} takes ${torso > 1 ? torso + ' extra dice' : 'an extra die'}, +${n} damage (${torso}d${sides}).` });
+            } else gmLog({ gmOnly: true, kind: 'info', text: `${_gmGmName(target)} has ${torso > 1 ? torso + ' Torso Wounds' : 'a Wounded Torso'}: add ${torso > 1 ? torso + ' more dice' : 'one more die'} of this attack's damage by hand (no roll to take it from).` });
         }
     }
     if (props.includes('concealed') && target.surprised && !(target._apTurns > 0)) {
@@ -1835,14 +1836,30 @@ function _gmHitEffects(target, hit, extras) {
     if (props.includes('stunning'))
         _gmAskSave(target, { attr: 'CON', dc: 10 + (h.elec ? Math.max(str, int) : str), cond: 'stunned', why: 'Stunning', byId: a && a.id, turn: window.gmTurnNumber, failInf: `be Stunned until the end of ${_gmPublicName(a)}'s next turn`, fail: `is Stunned until the end of ${_gmPublicName(a)}'s next turn` });
     if (props.includes('grappling') && a) _gmStartGrapple(a, target, false, { via: `${h.weapon || 'weapon'}, Grappling` });
-    // Ammo: Medium slows (crit: Staggered until the end of its next turn); Heavy can push 2 squares (crit: Prone)
-    if (h.ammo === 'medium') {
+    // Ammo: Light lets the shooter move for free once a turn; Medium slows (crit: the target is Wounded, the
+    // shooter picks the limb); Heavy can push 2 squares (crit: Staggered) and does double damage to objects
+    if (h.ammo === 'light') {
+        gmLog({ text: `${_gmPublicName(a)} can move up to their Speed for 0 AP before the end of this turn (Light Ammo, once per turn).`, kind: 'info' });
+    } else if (h.ammo === 'medium') {
         gmLog({ text: `${_gmPublicName(target)}'s Speed is 1 lower until the end of its next turn (Medium Ammo).`, kind: 'info' });
-        if (hit.crit) { _gmAddCondition(target, 'staggered'); _gmSetCondTimer(target, { cond: 'staggered', byId: target.id, turn: window.gmTurnNumber });
-            gmLog({ text: `Critical Hit: ${_gmPublicName(target)} is Staggered until the end of its next turn (Medium Ammo).`, kind: 'info' }); }
+        if (hit.crit) {
+            let lid = 'ammolimb_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+            if (target.faction === 'player' && target.playerUid) {
+                let pm = (window.gmParty || []).find(p => p.fileName === target.playerUid), already = pm?.state?.woundedLimbs || [];
+                let limbs = window.apxWoundSlotsFor ? window.apxWoundSlotsFor(pm?.state) : (typeof WOUND_LIMBS_BASE !== 'undefined' ? WOUND_LIMBS_BASE.slice() : ['Head', 'Torso', 'Left Arm', 'Right Arm', 'Left Leg', 'Right Leg']);
+                gmLog({ id: lid, gmOnly: true, force: true, kind: 'wt', text: `Critical Hit with Medium Ammo: ${_gmGmName(target)} is Wounded. ${_gmGmName(a)} chooses the limb:`,
+                    ask: { gm: true, entryId: target.id, kind: 'limb', logId: lid, choices: limbs.map(l => already.includes(l) && l !== 'Torso' ? l + ' (again)' : l) } });
+            } else {
+                let already = target.wounds || [];
+                window._gmNpcLimbState = window._gmNpcLimbState || {}; window._gmNpcLimbState[lid] = { limbLog: lid };
+                gmLog({ id: lid, gmOnly: true, force: true, kind: 'wt', text: `Critical Hit with Medium Ammo: ${_gmGmName(target)} is Wounded. ${_gmGmName(a)} chooses the limb:`,
+                    ask: { gm: true, entryId: target.id, kind: 'npclimb', logId: lid, choices: _gmNpcLimbs(target).filter(l => l === 'Torso' || !already.includes(l)) } });
+            }
+            gmLog({ text: `Critical Hit: ${_gmPublicName(target)} is Wounded (Medium Ammo).`, kind: 'info' });
+        }
     } else if (h.ammo === 'heavy') {
-        gmLog({ text: `${_gmPublicName(a)} can push ${_gmPublicName(target)} up to 2 squares away (Heavy Ammo).${hit.crit ? ` Critical Hit: ${_gmPublicName(target)} is knocked Prone.` : ''}`, kind: 'info' });
-        if (hit.crit) _gmAddCondition(target, 'prone');
+        gmLog({ text: `${_gmPublicName(a)} can push ${_gmPublicName(target)} up to 2 squares away (Heavy Ammo).${hit.crit ? ` Critical Hit: ${_gmPublicName(target)} is Staggered.` : ''}`, kind: 'info' });
+        if (hit.crit) _gmAddCondition(target, 'staggered');
     }
     if (props.includes('flurry')) {
         window._gmFlurry[a.id] = { weapon: h.weapon, targetId: target.id, targetName: _gmPublicName(target), turn: window.gmTurnNumber };
@@ -2178,8 +2195,8 @@ function _gmOfferLimbs(entry, item, ev) {
     let limbs = window.apxWoundSlotsFor ? window.apxWoundSlotsFor(pm?.state) : (typeof WOUND_LIMBS_BASE !== 'undefined' ? WOUND_LIMBS_BASE : ['Head', 'Torso', 'Left Arm', 'Right Arm', 'Left Leg', 'Right Leg']).slice();
     already.forEach(l => { if (!limbs.includes(l)) limbs.push(l); });
     gmLog({ id: 'limb_' + ev.id, gmOnly: true, kind: 'wt', force: true,
-        text: `Choose the limb ${entry.name} Wounds (based on the attack)${already.length ? `. Already Wounded: ${already.join(', ')} (Wounding one again is a Permanent Injury)` : ''}:`,
-        ask: { gm: true, entryId: entry.id, kind: 'limb', logId: lid, choices: limbs.map(l => already.includes(l) ? l + ' (again)' : l) } });
+        text: `Choose the limb ${entry.name} Wounds (based on the attack)${already.length ? `. Already Wounded: ${already.join(', ')} (Wounding one again is a Permanent Injury, except the Torso, which takes another extra damage die)` : ''}:`,
+        ask: { gm: true, entryId: entry.id, kind: 'limb', logId: lid, choices: limbs.map(l => already.includes(l) && l !== 'Torso' ? l + ' (again)' : l) } });
 }
 window._gmWoundChosen = {};
 // Take back the limb choice for a Wound Threshold save that no longer fails (and the Wound, if one was picked)
@@ -2277,7 +2294,8 @@ function _gmApplyWound(entry, choice, logId) {
     let code = _gmInviteCode();
     if (code && window.apxAuth?.enabled && typeof window.apxAuth.setGmWound === 'function')
         window.apxAuth.setGmWound(code, entry.playerUid, limb).catch(e => console.warn('Wound to player:', e.message));
-    gmLog({ text: again ? `${entry.name}'s ${limb} is Wounded again: a Permanent Injury.` : `${entry.name}'s ${limb} is Wounded.`, kind: 'wt', force: true });
+    let pmW = (window.gmParty || []).find(p => p.fileName === entry.playerUid), torsoN = limb === 'Torso' ? ((pmW?.state?.woundedLimbs || []).filter(l => l === 'Torso').length + 1) : 0;
+    gmLog({ text: again ? `${entry.name}'s ${limb} is Wounded again: a Permanent Injury.` : torsoN > 1 ? `${entry.name}'s Torso is Wounded again (${torsoN} Torso Wounds: ${torsoN} extra damage dice from each hit).` : `${entry.name}'s ${limb} is Wounded.`, kind: 'wt', force: true });
 }
 function _gmApplyBleed(entry, turns) {
     if (!entry) return;
@@ -2701,7 +2719,7 @@ function _gmNpcWoundSave(e, ask) {
                 let already = e.wounds || [];
                 gmLog({ id: st.limbLog, gmOnly: true, force: true, kind: 'wt',
                     text: `Choose the limb ${_gmGmName(e)} Wounds (based on the attack)${already.length ? `. Already Wounded: ${already.join(', ')}` : ''}:`,
-                    ask: { gm: true, entryId: e.id, kind: 'npclimb', logId: st.limbLog, choices: _gmNpcLimbs(e).filter(l => !already.includes(l)) } });   // (an NPC can't take the same Wound twice)
+                    ask: { gm: true, entryId: e.id, kind: 'npclimb', logId: st.limbLog, choices: _gmNpcLimbs(e).filter(l => l === 'Torso' || !already.includes(l)) } });   // (an NPC can't take the same Wound twice, except the Torso)
                 window._gmNpcLimbState = window._gmNpcLimbState || {};
                 window._gmNpcLimbState[st.limbLog] = st;
             }
@@ -2711,20 +2729,23 @@ function _gmNpcWoundSave(e, ask) {
 function _gmApplyNpcWound(e, choice, logId) {
     let limb = String(choice).replace(/ \(again\)$/, '');
     let again = (e.wounds || []).includes(limb);
-    e.wounds = (e.wounds || []).filter(l => l !== limb).concat([limb]);
+    // A Torso stacks (each Wound one more extra damage die); other limbs are Wounded once
+    e.wounds = limb === 'Torso' ? (e.wounds || []).concat([limb]) : (e.wounds || []).filter(l => l !== limb).concat([limb]);
     let st = (window._gmNpcLimbState || {})[logId]; if (st) st.limb = limb;
-    // Leg: Staggered; both legs: Prone
+    // Leg: Staggered; all of its legs: Prone
     if (/Leg/.test(limb)) {
         if (window._gmAddEntryCondition) window._gmAddEntryCondition(e.id, 'staggered');
-        if (e.wounds.filter(l => /Leg/.test(l)).length >= 2 && window._gmAddEntryCondition) window._gmAddEntryCondition(e.id, 'prone');
+        let legs = _gmNpcLimbs(e).filter(l => /Leg/.test(l));
+        if (legs.length && legs.every(l => e.wounds.includes(l)) && window._gmAddEntryCondition) window._gmAddEntryCondition(e.id, 'prone');
     }
-    gmLog({ id: logId, gmOnly: true, force: true, kind: 'wt', ask: null, text: `${_gmGmName(e)}'s ${limb} is Wounded${again ? ' again (a lasting injury)' : ''}. ${_gmWoundEffect(limb)}` });
+    let tN = limb === 'Torso' ? e.wounds.filter(l => l === 'Torso').length : 0;
+    gmLog({ id: logId, gmOnly: true, force: true, kind: 'wt', ask: null, text: `${_gmGmName(e)}'s ${limb} is Wounded${tN > 1 ? ` again (${tN} Torso Wounds: ${tN} extra dice from each hit)` : again ? ' again (a lasting injury)' : ''}. ${_gmWoundEffect(limb)}` });
     gmLog({ text: `${_gmPublicName(e)}'s ${limb} is Wounded.`, kind: 'wt' });
     window.renderInitiativeTracker();
     if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
 }
 function _gmHealNpcWoundEntry(e, limb, quiet) {
-    e.wounds = (e.wounds || []).filter(l => l !== limb);
+    { let i = (e.wounds || []).lastIndexOf(limb); e.wounds = (e.wounds || []).slice(); if (limb === 'Torso' && i >= 0) e.wounds.splice(i, 1); else e.wounds = e.wounds.filter(l => l !== limb); }
     if (/Leg/.test(limb) && !(e.wounds || []).some(l => /Leg/.test(l)) && window._gmRemoveEntryCondition) window._gmRemoveEntryCondition(e.id, 'staggered');
     if (!quiet) gmLog({ gmOnly: true, force: true, kind: 'info', text: `${_gmGmName(e)}'s ${limb} is no longer Wounded.` });
     window.renderInitiativeTracker();
@@ -2735,11 +2756,11 @@ function _gmWoundEffect(limb) {
     let d = (typeof WOUND_LIMB_EFFECTS !== 'undefined' && WOUND_LIMB_EFFECTS[k]) ? WOUND_LIMB_EFFECTS[k].desc : '';
     return d.replace(/ \(Added automatically[^)]*\)/, '');
 }
-// Its Wounds change its rolls like a player's: Head (Disadvantage on attacks, saves, PER/INT checks), Arm (attacks)
+// Its Wounds change its rolls like a player's: Head (Disadvantage on attacks and PER/INT checks), Arm (attacks)
 function _gmWoundRollMods(e, kind, attr) {
     let w = e && e.wounds || [], dis = [];
     if (!w.length) return dis;
-    if (w.includes('Head') && (kind === 'attack' || kind === 'save' || (kind === 'check' && (attr === 'PER' || attr === 'INT')))) dis.push('Head Wound');
+    if (w.includes('Head') && (kind === 'attack' || (kind === 'check' && (attr === 'PER' || attr === 'INT')))) dis.push('Head Wound');
     if (kind === 'attack' && w.some(l => /Arm/.test(l))) dis.push('Arm Wound');
     return dis;
 }

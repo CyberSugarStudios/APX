@@ -90,12 +90,12 @@
         // "Leg" also triggers Staggered (no automatable effect) and, if 2+
         // legs are Wounded, Prone -- handled dynamically in calcWoundEffects().
         const WOUND_LIMB_EFFECTS = {
-            Head:  { desc: "Disadvantage on all attack rolls, saving throws, and PER and INT attribute checks.",
-                     atkDisadvantage: 'general', saveDisadvantage: 'all', checkDisadvantage: ['PER','INT'] },
-            Torso: { desc: "Whenever you take damage, you take one additional die of damage from that source. (Added automatically when the GM's tracker records the hit: one more of the largest die the attack rolled.)" },
+            Head:  { desc: "Disadvantage on all attack rolls, and on PER and INT attribute checks.",
+                     atkDisadvantage: 'general', checkDisadvantage: ['PER','INT'] },
+            Torso: { desc: "Whenever you are dealt damage, you take one additional die of damage from the attacking source. The Torso can be Wounded more than once without a Permanent Injury: each Torso Wound adds another die. (Added automatically when the GM's tracker records the hit: one more of the largest die the attack rolled, per Torso Wound.)" },
             Arm:   { desc: "Drop whatever's held in that arm. Can't wield two-handed weapons or dual wield. Disadvantage on all attack rolls.",
                      atkDisadvantage: 'general' },
-            Leg:   { desc: "Gain the Staggered condition. If both legs are Wounded, you fall Prone and can't Stand Up until at least one leg heals." }
+            Leg:   { desc: "Gain the Staggered condition. If all of your legs are Wounded, you fall Prone and can't Stand Up until at least one leg heals." }
         };
 
         // ------------------------------------------------------------------
