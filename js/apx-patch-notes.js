@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.9.1050',
-        released: '2026-10-09T10:50:00',
-        releasedText: 'October 9, 2026 · 10:50 AM',
+        version: 'v2026.10.9.2059',
+        released: '2026-10-09T20:59:00',
+        releasedText: 'October 9, 2026 · 8:59 PM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs with loot of their own, apart from their stat blocks, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, area powers placed right on the battle map with every save in them rolled for you, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -242,7 +242,7 @@
             ['Conditions and Injuries', [
                 'Wound Threshold and Bleed Out: your next CON save decides the Wound, then CON (Survive) sets your Bleed Out rounds. If a Luck reroll or an Omen die turns the Wound save into a success, the GM\'s limb choice disappears and any limb already chosen heals.',
                 'When a Critical Hit lands on you, the tray offers "React: Turn to normal hit (Defensive)" with Defensive Rank 5 while unarmored, and "React: Break Helmet (normal hit)" with an intact Helmet. Either one returns the crit\'s extra damage and adjusts your Wound save.',
-                'Wounds follow the updated rules. Leg: you\'re Staggered, and with all of your legs Wounded (however many you have) you fall Prone and can\'t stand until one heals. Torso: every hit on you deals one more die (the largest die the attack rolled), and the Torso can be Wounded again and again without a Permanent Injury: each Torso Wound adds another die (+1 on its tag adds one, × takes one off). Head: Disadvantage on attack rolls and on PER and INT checks (no longer on saving throws). Four arms add Left Arm 2 and Right Arm 2 to the Wound list.',
+                'Wounds follow the updated rules. Leg: you\'re Staggered, and with all of your legs Wounded (however many you have) you fall Prone and can\'t stand until one heals. Stable Locomotion counts as 4 legs: its Wound list adds Extra Leg 1 and Extra Leg 2, and it takes 4 Leg Wounds to knock you Prone. Torso: every hit on you deals one more die (the largest die the attack rolled), and the Torso can be Wounded again and again without a Permanent Injury: each Torso Wound adds another die (+1 on its tag adds one, × takes one off). Head: Disadvantage on attack rolls and on PER and INT checks (no longer on saving throws). Four arms add Left Arm 2 and Right Arm 2 to the Wound list.',
                 'Stunned starts your turn with 0 AP, and a Stunning weapon\'s stun ends at the end of the attacker\'s next turn. Burning deals 1d10 Fire at the start of your turn, ignoring ER.',
                 'Unconscious, Paralyzed and Incapacitated stop attacks and powers and automatically fail the right checks. Conditions bring along the conditions they include, and Permanent Injuries are tracked.',
                 'Grappled and Pinned are conditions. Grappled: Speed 0 and Disadvantage on attacks against anyone but the grappler. Pinned: also Grappled, Restrained and Prone. (Grabbed became Grappled.)'

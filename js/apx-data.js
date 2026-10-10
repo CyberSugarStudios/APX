@@ -74,6 +74,8 @@
                 let tDef = (typeof ANCESTRY_TRAITS !== 'undefined' ? ANCESTRY_TRAITS : []).find(t => t.id === tId);
                 if (tDef && tDef.extraArms) extraArms = Math.max(extraArms, tDef.extraArms);
                 if (tDef && tDef.extraLegs) extraLegs = Math.max(extraLegs, tDef.extraLegs);
+                // Stable Locomotion: treated as having 4 legs (2 extra Leg Wound slots)
+                if (tDef && tDef.minLegs) extraLegs = Math.max(extraLegs, tDef.minLegs - 2);
             });
             for (let i = 0; i < extraArms; i++) slots.push(`${i % 2 ? 'Right' : 'Left'} Arm ${2 + Math.floor(i / 2)}`);
             for (let i = 0; i < extraLegs; i++) slots.push(`Extra Leg ${i + 1}`);
@@ -363,7 +365,7 @@
             { id: "t_env", cost: 2, name: "Environmental Resistance", desc: "Choose one Energy type. Gain ER 5 against it (or immunity if chosen again).", rep: true },
             { id: "t_sens", cost: 2, name: "Keen Senses", desc: "Gain +5 bonus to PER (Notice) passive and checks." },
             { id: "t_ret", cost: 2, name: "Retractable Defense", desc: "2 AP: Withdraw. +4 AC, Speed 0, cannot attack." },
-            { id: "t_stb", cost: 2, name: "Stable Locomotion", desc: "Cannot be knocked prone unless attacker is 1+ size larger. 2x AP to climb." },
+            { id: "t_stb", cost: 2, name: "Stable Locomotion", desc: "Cannot be knocked prone unless attacker is 1+ size larger. 2x AP to climb. Counts as having 4 legs: it takes 4 Leg Wounds to knock you Prone.", minLegs: 4 },
             { id: "t_dis", cost: 2, name: "Discharging Internals", desc: "Once/Short Rest, 3 AP: 3d6 Energy damage in 3-sq cone/6-sq line." },
             { id: "t_vert", cost: 2, name: "Vertical Advantage", desc: "Climb speed = walking speed." },
             { id: "t_unal", cost: 3, name: "Unalive Physiology", desc: "Immune to Poison/Disease. Don't eat, sleep, or breathe." },

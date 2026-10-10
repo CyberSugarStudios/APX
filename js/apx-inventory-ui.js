@@ -39,6 +39,7 @@
                 let tDef = ANCESTRY_TRAITS.find(t => t.id === tId);
                 if (tDef && tDef.extraArms) extraArms = Math.max(extraArms, tDef.extraArms);
                 if (tDef && tDef.extraLegs) extraLegs = Math.max(extraLegs, tDef.extraLegs);
+                if (tDef && tDef.minLegs) extraLegs = Math.max(extraLegs, tDef.minLegs - 2);
             });
             for (let i = 0; i < extraArms; i++) slots.push(`Extra Arm ${i + 1}`);
             for (let i = 0; i < extraLegs; i++) slots.push(`Extra Leg ${i + 1}`);
