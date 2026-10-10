@@ -92,6 +92,8 @@
             let items = [{ id: e.id, item: JSON.parse(JSON.stringify(e.data || {})) }];
             return { items, lib: e, label: 'your Library', cu: null, save: () => window.apxLibUpdate && window.apxLibUpdate(e.id, items[0].item) };
         }
+        // Something new for the Library (GM Tools → Loot & Items → + New Item): only the Library keeps it
+        if (t && t.kind === 'libnew') return { items: [], libnew: true, label: 'your Library', cu: null, save: () => { } };
         if (t && t.kind === 'npc') {
             let c = npcOf(t.npcId); if (!c) return null;
             npcLoot(c);
@@ -115,6 +117,12 @@
     // lib: something the GM just made (forge, custom, consumable): it's also kept in the Library
     function addTo(t, item, lib) {
         let r = resolve(t); if (!r) return;
+        if (r.libnew) {
+            if (window.apxLibAdd) { try { window.apxLibAdd('item', item, { quiet: true, worlds: t.worlds || [] }); } catch (e) { console.warn('Library:', e); } }
+            window.apxLibRenderTab && window.apxLibRenderTab('item'); renderMaker();
+            window.APXDice?.notify(`${item.name} is in your Library.`, { kind: 'loot' });
+            return;
+        }
         if (lib && window.apxLibAdd) { try { window.apxLibAdd('item', item, { quiet: true }); } catch (e) { console.warn('Library:', e); } }
         // The same item added again joins its stack ("Black Cloak ×3", "3× Healing Draught")
         let same = window.apxItemsStack && r.items.find(l => (r.tok || r.npc || r.wnpc || l.from === 'Loot Maker') && window.apxItemsStack(l.item, item));

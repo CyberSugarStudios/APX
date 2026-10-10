@@ -509,7 +509,7 @@ window.renderGmScreen = function() {
     let body = document.getElementById('gmScreenBody');
     if (!body) return;
     if (!window.gmParty.length) {
-        body.innerHTML = '<div class="text-xs text-slate-500 text-center py-6">No party loaded yet. Click "Load Party" to pull from the active world or load from exported files.</div>';
+        body.innerHTML = '<div class="text-xs text-slate-500 text-center py-6">No party yet. Load a world (World) and its players\' characters show up here on their own.</div>';
         return;
     }
     let cards = window.gmParty.map((p, idx) => {

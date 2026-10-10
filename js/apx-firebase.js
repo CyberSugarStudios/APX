@@ -16,7 +16,7 @@
             signIn: () => {}, signUp: () => {}, signOut: () => {},
             onAuthChange: () => {}, saveCharacter: () => Promise.resolve(),
             loadCharacters: () => Promise.resolve([]), saveGmRaces: () => Promise.resolve(),
-            loadGmRaces: () => Promise.resolve([]), saveGmNpcs: () => Promise.resolve(),
+            loadGmRaces: () => Promise.resolve([]), saveGmOrigins: () => Promise.resolve(), loadGmOrigins: () => Promise.resolve([]), saveGmNpcs: () => Promise.resolve(),
             loadGmNpcs: () => Promise.resolve([]), getShareCode: () => null,
             connectToGm: () => Promise.resolve([],),
             loadFolders: () => Promise.resolve([]), saveFolder: () => Promise.resolve(),
@@ -210,6 +210,19 @@
         let doc = await db.collection('users').doc(user.uid).collection('gmRaces').doc('all').get();
         return doc.exists ? (doc.data().races || []) : [];
     }
+    // GM Origin Templates (GM Tools → Origin Templates): users/{uid}/gmOrigins/all
+    async function saveGmOrigins(list) {
+        let user = currentUser();
+        if (!user) return;
+        await db.collection('users').doc(user.uid).collection('gmOrigins').doc('all')
+            .set({ origins: apxClean(list) || [], updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    }
+    async function loadGmOrigins() {
+        let user = currentUser();
+        if (!user) return [];
+        let doc = await db.collection('users').doc(user.uid).collection('gmOrigins').doc('all').get();
+        return doc.exists ? (doc.data().origins || []) : [];
+    }
     async function saveGmNpcs(npcsArray) {
         let user = currentUser();
         if (!user) return;
@@ -281,7 +294,17 @@
         let user = currentUser();
         if (!user) return [];
         let snap = await db.collection('users').doc(user.uid).collection('worlds').get();
-        return snap.docs.map(d => ({ id: d.id, worldId: d.id, ...d.data() }));
+        let list = snap.docs.map(d => ({ id: d.id, worldId: d.id, ...d.data() }));
+        // Which race templates each world has lives on its public doc (worldCodes/{code}.races),
+        // so it's read from there: otherwise every world looks empty after a reload
+        await Promise.all(list.map(async w => {
+            if (!w.inviteCode) return;
+            try {
+                let pub = await db.collection('worldCodes').doc(w.inviteCode).get();
+                if (pub.exists && Array.isArray(pub.data().races)) w.races = pub.data().races;
+            } catch (e) { console.warn('World races:', e.message); }
+        }));
+        return list;
     }
 
     // --- World map images via Firestore sub-document --------------------
@@ -832,7 +855,7 @@
     // will be left behind when a world or an account is deleted.
     const WORLD_PRIVATE_SUBCOLLECTIONS = ['mapImage', 'otherMaps', 'mapTiles', 'npcPortraits', 'battleImages', 'fogData'];   // users/{uid}/worlds/{worldId}/…
     const WORLD_PUBLIC_SUBCOLLECTIONS  = ['players', 'mapImage'];                                               // worldCodes/{code}/…
-    const USER_SUBCOLLECTIONS          = ['characters', 'folders', 'gmRaces', 'gmNpcs', 'gmLibrary', 'profile'];             // users/{uid}/… (plus worlds)
+    const USER_SUBCOLLECTIONS          = ['characters', 'folders', 'gmRaces', 'gmOrigins', 'gmNpcs', 'gmLibrary', 'profile'];             // users/{uid}/… (plus worlds)
 
     // Delete every document in a collection, in batches
     async function _purgeCollection(ref) {
@@ -938,6 +961,8 @@
             gmUid: data.gmUid, worldId: data.worldId,
             worldName: data.worldName, name: data.worldName,
             races: data.races || [],
+            origins: data.origins || [],     // Origin Templates the GM tagged with this world
+            gmPowers: data.gmPowers || [],   // powers the GM made for players to learn (Add Power)
             worldSettings: data.worldSettings || null,
             notesV2: {
                 locations: data.publicNotes?.locations || [],
@@ -1043,7 +1068,7 @@
         signIn, signUp, signOut, onAuthChange,
         saveCharacter, loadCharacters, deleteCharacter, deleteAllUserData,
         loadFolders, saveFolder, deleteFolder,
-        saveGmRaces, loadGmRaces, saveGmNpcs, loadGmNpcs,
+        saveGmRaces, loadGmRaces, saveGmOrigins, loadGmOrigins, saveGmNpcs, loadGmNpcs,
         getShareCode, connectToGm,
         createWorld, loadWorlds, saveWorld, saveWorldRaces, saveRacesToAllWorlds, deleteWorld, joinWorldByCode,
         loadWorldPlayers,

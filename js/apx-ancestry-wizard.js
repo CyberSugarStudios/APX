@@ -1174,21 +1174,20 @@
         window.renderGmRaceList = function() {
             let body = document.getElementById('gmRaceListBody');
             if (!body) return;
+            let WT = window.apxWt;   // the World filter and tagging bar (GM Tools: js/apx-gm-content.js)
+            let tagsOf = entry => window.apxRaceWorldIds ? window.apxRaceWorldIds(entry.id) : [];
+            let shown = WT ? window.gmRaces.filter(e => WT.match('races', tagsOf(e))) : window.gmRaces;
             if (!window.gmRaces.length) {
                 body.innerHTML = '<div class="text-xs text-slate-500 text-center py-6">No race templates yet. Click "+ New Race" to build one.</div>';
-                return;
-            }
-            body.innerHTML = window.gmRaces.map(entry => {
+            } else if (!shown.length) {
+                body.innerHTML = '<div class="text-xs text-slate-500 text-center py-6">None in that world.</div>';
+            } else body.innerHTML = shown.map(entry => {
                 // Show which worlds this race is assigned to
-                let assignedWorlds = (window._gmWorlds || []).filter(w => {
-                    let races = w.races || [];
-                    return races.some(r => r.id === entry.id);
-                });
-                let worldBadges = assignedWorlds.length
-                    ? assignedWorlds.map(w => `<span class="bg-amber-900/30 border border-amber-700/50 text-amber-400 px-1.5 py-0.5 rounded text-[9px] font-bold">${w.name||w.inviteCode}</span>`).join(' ')
-                    : '<span class="text-[9px] text-slate-600 italic">Not assigned to any world</span>';
+                let worldBadges = WT ? WT.badges(tagsOf(entry), 'Not assigned to any world') : '';
                 return `
-                <div class="bg-slate-900 border border-slate-700 rounded p-2">
+                <div class="bg-slate-900 border border-slate-700 rounded p-2 flex gap-2 items-start">
+                    ${WT ? WT.check('races', entry.id) : ''}
+                    <div class="flex-1 min-w-0">
                     <div class="flex items-center justify-between mb-1">
                         <div>
                             <div class="text-sm font-bold text-indigo-300">${entry.name || 'Unnamed Race'}</div>
@@ -1202,8 +1201,12 @@
                         </div>
                     </div>
                     <div class="flex gap-1 flex-wrap">${worldBadges}</div>
+                    </div>
                 </div>`;
             }).join('');
+            if (WT) WT.bar(body, { key: 'races', ids: shown.map(e => e.id), untagged: 'Not in any world', rerender: window.renderGmRaceList,
+                onApply: (ids, w, add) => window.apxApplyRaceTags(ids, w, add),
+                note: 'Players in a world pick its Race Templates in their Ancestry & Genetics Builder.' });
         };
 
         window.deleteGmRace = function(id) {
@@ -1211,6 +1214,7 @@
             if (!entry) return;
             window.showConfirm(`Delete ${entry.name || 'this race'}? This cannot be undone.`, () => {
                 window.gmRaces = window.gmRaces.filter(r => r.id !== id);
+                document.dispatchEvent(new CustomEvent('apxGmRacesSaved'));   // saved, and taken out of its worlds
                 window.renderGmRaceList();
             });
         };
@@ -1263,7 +1267,7 @@
                     }
                     remaining--;
                     if (remaining === 0) {
-                        if (typeof window.renderGmRaceList === 'function') window.renderGmRaceList();
+                        if (typeof window.renderGmRaceList === 'function') { window.renderGmRaceList(); document.dispatchEvent(new CustomEvent('apxGmRacesSaved')); }
                         if (typeof window.renderImportedRaceList === 'function') window.renderImportedRaceList();
                         event.target.value = '';
                         if (hadError) window.showConfirm("One or more selected files weren't valid race files and were skipped.", null, true);

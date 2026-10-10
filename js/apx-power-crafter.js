@@ -334,6 +334,23 @@ window.openPowerCrafter = function(freeMode, target) {
     pcOpenCommon();
 };
 
+// A power the GM made for this world (Add Power): the Power Crafter opens on the GM's design,
+// as a new power of your own (you pay its XP, and choose its Core Attribute and power type).
+window.openPowerCrafterFromGm = function(gp) {
+    if (!gp || !gp.draft) return;
+    window.openPowerCrafter(false);
+    if (!document.getElementById('powerCrafterModal')?.classList.contains('active')) return;   // (no power ranks yet)
+    let d = JSON.parse(JSON.stringify(gp.draft));
+    if (window.apxPowerAoe && window.apxPowerAoe(d).legacy) { let A = window.apxPowerAoe(d); d.aoe = 'aoe'; d.aoeShape = 'burst'; d.aoeSize = A.size; }
+    if (window.apxPowerApKey) { let k = window.apxPowerApKey(d); if (k !== d.apMod) d.apMod = k; delete d.apReaction; }
+    if (!ATTRIBUTES.includes(d.coreAttr)) d.coreAttr = pcDefaultAttr();
+    d.pool = pcDefaultPool();
+    pcDraft = d;
+    document.getElementById('pcName').value = gp.name || '';
+    pcRenderUsageSection();
+    pcRenderAll();
+};
+
 // "Return to Forge" for an existing crafted Power -- reloads its exact
 // original build so edits start from precisely what's already there.
 window.openPowerEditor = function(idx, target) {

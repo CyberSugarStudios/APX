@@ -131,6 +131,51 @@
             window.recalculateMath();
         };
 
+        // ── Add Power: powers the GM made for this world ──────────────
+        // (GM Tools → Powers, tagged with the world). Learning one opens it in the Power Crafter on the
+        // GM's design: you pay its XP and pick its Core Attribute and power type, like any power you craft.
+        window.apxWorldGmPowers = function() {
+            let w = window._playerWorldData;
+            return (w && Array.isArray(w.gmPowers)) ? w.gmPowers.filter(p => p && p.draft && p.name) : [];
+        };
+        window.apxOpenAddPower = function(q) {
+            let old = document.getElementById('apxAddPower');
+            if (q === undefined && old) q = old.querySelector('[data-ap-q]')?.value || '';
+            old?.remove();
+            if (window.apxInjectDialogStyles) window.apxInjectDialogStyles();
+            let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+            let all = window.apxWorldGmPowers().slice().sort((a, b) => (a.lvl || 0) - (b.lvl || 0) || String(a.name).localeCompare(String(b.name)));
+            let qq = String(q || '').toLowerCase();
+            let list = all.filter(p => !qq || String(p.name).toLowerCase().includes(qq) || String(p.desc || '').toLowerCase().includes(qq));
+            let known = new Set((window.state.powers || []).map(p => String(p.name || '').toLowerCase()));
+            let inWorld = !!(window.apxActiveWorldCode && window.apxActiveWorldCode());
+            let back = document.createElement('div');
+            back.id = 'apxAddPower'; back.className = 'apxdlg-back';
+            back.innerHTML = `<div class="apxdlg" style="width:min(560px,100%);max-height:88vh;display:flex;flex-direction:column">
+                <div class="apxdlg-title">Add Power</div>
+                <div class="apxdlg-msg">${all.length ? 'Powers your GM made for this world. Learn opens one in the Power Crafter: you pay its XP and choose its Core Attribute, like a power you craft yourself.'
+                    : inWorld ? 'Your GM hasn\'t made any powers for this world yet. You can build your own with the Power Crafter.' : 'Join a world to learn the powers your GM makes for it. You can build your own with the Power Crafter.'}</div>
+                ${all.length > 5 ? `<input data-ap-q value="${esc(q || '')}" placeholder="Search powers…" style="background:#0f172a;border:1px solid #334155;color:#e2e8f0;font-size:.78rem;border-radius:.3rem;padding:.3rem .45rem;margin-bottom:.5rem">` : ''}
+                <div style="overflow-y:auto;flex:1;min-height:0;display:flex;flex-direction:column;gap:.35rem;margin-bottom:.8rem">
+                ${list.map((p, i) => `<div style="border:1px solid #334155;border-radius:.4rem;padding:.45rem .55rem;background:#0f172a;display:flex;gap:.5rem;align-items:flex-start">
+                    <div style="flex:1;min-width:0">
+                        <div style="font-size:.8rem;font-weight:900;color:#c4b5fd">${esc(p.name)} <span style="font-size:.65rem;color:#94a3b8;font-weight:700">Lvl ${esc(p.lvl)} · ${esc(p.ap)}${/\d$/.test(String(p.ap)) ? ' AP' : ''}</span></div>
+                        <div style="font-size:.66rem;color:#94a3b8">${[p.atk, p.rng, p.dmg && p.dmg !== '-' ? p.dmg : ''].filter(Boolean).map(esc).join(' · ')}</div>
+                        ${p.desc ? `<div style="font-size:.66rem;color:#cbd5e1;margin-top:.15rem;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden">${esc(p.desc)}</div>` : ''}
+                    </div>
+                    <button data-ap-learn="${all.indexOf(p)}" class="apxdlg-btn apxdlg-ok" style="flex-shrink:0;font-size:.7rem;padding:.25rem .6rem">${known.has(String(p.name).toLowerCase()) ? 'Learn again' : 'Learn'}</button></div>`).join('')
+                    || (all.length ? '<div style="font-size:.72rem;color:#64748b">No powers match that search.</div>' : '')}
+                </div>
+                <div class="apxdlg-row"><button class="apxdlg-btn" data-ap-craft>Power Crafter</button><button class="apxdlg-btn apxdlg-ok" data-ap-x>Close</button></div></div>`;
+            back.querySelector('[data-ap-x]').onclick = () => back.remove();
+            back.querySelector('[data-ap-craft]').onclick = () => { back.remove(); window.openPowerCrafter(false); };
+            back.addEventListener('mousedown', e => { if (e.target === back) back.remove(); });
+            back.querySelectorAll('[data-ap-learn]').forEach(b => b.onclick = () => { let p = all[+b.dataset.apLearn]; back.remove(); window.openPowerCrafterFromGm(p); });
+            let qi = back.querySelector('[data-ap-q]');
+            if (qi) qi.oninput = () => { let pos = qi.selectionStart; window.apxOpenAddPower(qi.value); let q2 = document.querySelector('#apxAddPower [data-ap-q]'); if (q2) { q2.focus(); try { q2.setSelectionRange(pos, pos); } catch (e) { } } };
+            document.body.appendChild(back);
+        };
+
         window.adjustFatigueFromPicker = function(delta) {
             let next = Math.max(0, (window.state.fatigue || 0) + delta);
             window.updateState('fatigue', next);
@@ -1148,20 +1193,4 @@
             });
         }
 
-        window.savePower = function() {
-            let name = document.getElementById('newPwrName').value;
-            if(!name) return;
-            window.state.powers.push({
-                name: name, lvl: document.getElementById('newPwrLvl').value,
-                ap: document.getElementById('newPwrAp').value, atk: document.getElementById('newPwrAtk').value,
-                rng: document.getElementById('newPwrRng').value, dmg: document.getElementById('newPwrDmg').value,
-                desc: document.getElementById('newPwrDesc').value,
-                attr: document.getElementById('newPwrAttr')?.value || 'INT', pool: document.getElementById('newPwrPool')?.value || 'full'
-            });
-            
-            document.getElementById('newPwrName').value = "";
-            document.getElementById('newPwrDesc').value = "";
-            window.closeModal('powerModal');
-            window.recalculateMath();
-        }
 

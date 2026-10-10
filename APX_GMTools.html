@@ -448,10 +448,10 @@
                     opacity: 0.55;
                     cursor: not-allowed;
                 }
-        
+                .apx-tb-btn:hover { filter: brightness(1.18); }
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20261092059">
-    <link rel="stylesheet" href="css/tailwind.css?v=20261092059">
+    <link rel="stylesheet" href="css/apx-themes.css?v=202610100218">
+    <link rel="stylesheet" href="css/tailwind.css?v=202610100218">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
@@ -464,10 +464,12 @@
             </div>
             <div class="flex gap-2">
                 <button onclick="window.openModal('settingsModal')" title="Settings" class="px-3 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold shadow">Settings</button>
-                <button onclick="window.openLoadPartyModal()" class="px-3 py-2 rounded bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold shadow">Load Party</button>
                 <button onclick="window.openGrantXpModal()" class="px-3 py-2 rounded bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shadow" title="Give XP to the party for discovery or role play">Grant XP</button>
                 <button onclick="window.openGmRaceRosterModal()" class="px-3 py-2 rounded bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-bold shadow">Race Templates</button>
+                <button onclick="window.openGmOriginRosterModal()" class="px-3 py-2 rounded bg-pink-800 apx-tb-btn text-white text-xs font-bold shadow">Origin Templates</button>
                 <button onclick="window.openGmNpcRosterModal()" class="px-3 py-2 rounded bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold shadow">NPCs &amp; Enemies</button>
+                <button onclick="window.openGmPowerLibModal()" class="px-3 py-2 rounded apx-tb-btn text-white text-xs font-bold shadow" style="background:#6d28d9" title="Powers you make: for NPCs, items, and for players to learn (Add Power)">Powers</button>
+                <button onclick="window.openGmItemLibModal()" class="px-3 py-2 rounded bg-yellow-700 hover:bg-yellow-600 text-white text-xs font-bold shadow" title="Custom items, forged weapons and armor, and consumables you make">Loot &amp; Items</button>
                 <button onclick="window.openModal('gmWorldModal')" class="px-3 py-2 rounded bg-amber-700 hover:bg-amber-600 text-white text-xs font-bold shadow">World</button>
                 <span id="gmToolbarWorldName" class="hidden text-xs font-bold text-amber-400 bg-amber-900/30 border border-amber-700/40 rounded px-2 py-1 cursor-pointer" onclick="window.openModal('gmWorldModal')"></span>
             </div>
@@ -588,6 +590,51 @@
             <div id="gmRaceListBody" class="max-h-[55vh] overflow-y-auto pr-1 space-y-2"><!-- JS injected --></div>
             <div class="flex justify-end mt-4">
                 <button onclick="window.closeModal('gmRaceRosterModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Close</button>
+            </div>
+        </div>
+    </div>
+
+<div class="modal-overlay" id="gmOriginRosterModal">
+        <div class="modal-content max-w-[800px]">
+            <div class="flex justify-between items-center mb-3 border-b border-pink-600 pb-2">
+                <h3 class="text-xl font-black text-white">Origin Templates</h3>
+                <div class="text-[10px] text-slate-500">Players in a tagged world pick them in their Origin Builder</div>
+            </div>
+            <div class="flex flex-wrap gap-2 mb-3">
+                <button onclick="window.openGmOriginBuilder()" class="px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow">+ New Origin</button>
+                <button onclick="document.getElementById('gmOriginImportFile').click()" class="px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold shadow">Import Origin</button>
+                <input type="file" id="gmOriginImportFile" accept=".json" multiple class="hidden" onchange="window.importGmOrigin(event)">
+                <button onclick="window.exportAllGmOrigins()" class="px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold shadow">Export All</button>
+            </div>
+            <div id="gmOriginListBody" class="max-h-[55vh] overflow-y-auto pr-1 space-y-2"><!-- JS injected (js/apx-gm-content.js) --></div>
+            <div class="flex justify-end mt-4">
+                <button onclick="window.closeModal('gmOriginRosterModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Close</button>
+            </div>
+        </div>
+    </div>
+
+<div class="modal-overlay" id="gmPowerLibModal">
+        <div class="modal-content max-w-[800px]" style="height:84vh;display:flex;flex-direction:column">
+            <div class="flex justify-between items-center mb-3 border-b border-purple-600 pb-2 flex-shrink-0">
+                <h3 class="text-xl font-black text-white">Powers</h3>
+                <button onclick="window.apxNewLibPower()" class="px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow">+ New Power</button>
+            </div>
+            <div id="wPanelLibPowers" class="flex-1 flex flex-col overflow-hidden min-h-0"><!-- JS injected (js/apx-library.js) --></div>
+            <div class="flex justify-end mt-3 flex-shrink-0">
+                <button onclick="window.closeModal('gmPowerLibModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Close</button>
+            </div>
+        </div>
+    </div>
+
+<div class="modal-overlay" id="gmItemLibModal">
+        <div class="modal-content max-w-[800px]" style="height:84vh;display:flex;flex-direction:column">
+            <div class="flex justify-between items-center mb-3 border-b border-amber-600 pb-2 flex-shrink-0">
+                <h3 class="text-xl font-black text-white">Loot &amp; Items</h3>
+                <button onclick="window.apxNewLibItem()" class="px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow">+ New Item</button>
+            </div>
+            <div id="wPanelLibItems" class="flex-1 flex flex-col overflow-hidden min-h-0"><!-- JS injected (js/apx-library.js) --></div>
+            <div class="flex justify-end mt-3 flex-shrink-0">
+                <button onclick="window.closeModal('gmItemLibModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Close</button>
             </div>
         </div>
     </div>
@@ -1344,8 +1391,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button onclick="window.showWorldTab('notes')"     id="wTabNotes"     class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Notes</button>
                     <button onclick="window.showWorldTab('map')"       id="wTabMap"       class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">World Map</button>
                     <button onclick="window.showWorldTab('othermaps')" id="wTabOthermaps" class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Other Maps</button>
-                    <button onclick="window.showWorldTab('libItems')"  id="wTabLibItems"  class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300" title="Custom items, weapons, armor and consumables you've made (your Library)">Loot &amp; Items</button>
-                    <button onclick="window.showWorldTab('libPowers')" id="wTabLibPowers" class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300" title="Powers you've made for NPCs and items (your Library)">Powers</button>
                     <button onclick="window.showWorldTab('players')"   id="wTabPlayers"   class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">Players</button>
                     <button onclick="window.showWorldTab('settings')"  id="wTabSettings"  class="px-3 py-1.5 rounded text-xs font-bold bg-slate-700 text-slate-300">World Settings</button>
                 </div>
@@ -1428,8 +1473,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div id="playersList" class="flex-1 overflow-y-auto space-y-2 min-h-0 pr-1"></div>
                 </div>
                 <div id="wPanelSettings" class="hidden flex-1 flex flex-col overflow-y-auto min-h-0 pr-1"></div>
-                <div id="wPanelLibItems" class="hidden flex-1 flex flex-col overflow-hidden min-h-0"></div>
-                <div id="wPanelLibPowers" class="hidden flex-1 flex flex-col overflow-hidden min-h-0"></div>
             </div>
             <div id="gmWorldEmpty" class="flex-1 flex items-center justify-center text-slate-500 text-sm">Create a world to start organizing your campaign.</div>
         </div>
@@ -1520,37 +1563,38 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20261092059"></script>
-    <script src="js/apx-patch-notes.js?v=20261092059"></script>
-    <script src="js/apx-dice.js?v=20261092059"></script>
-    <script src="js/apx-data.js?v=20261092059"></script>
-    <script src="js/apx-item-effects.js?v=20261092059"></script>
-    <script src="js/apx-exo.js?v=20261092059"></script>
-    <script src="js/apx-perks-db.js?v=20261092059"></script>
-    <script src="js/apx-migrations.js?v=20261092059"></script>
-    <script src="js/apx-state.js?v=20261092059"></script>
-    <script src="js/apx-craft-shared.js?v=20261092059"></script>
-    <script src="js/apx-armor-forge.js?v=20261092059"></script>
-    <script src="js/apx-weapon-forge.js?v=20261092059"></script>
-    <script src="js/apx-consumable-crafter.js?v=20261092059"></script>
-    <script src="js/apx-perks-ui.js?v=20261092059"></script>
-    <script src="js/apx-power-crafter.js?v=20261092059"></script>
-    <script src="js/apx-npc-crafter.js?v=20261092059"></script>
-    <script src="js/apx-inventory-ui.js?v=20261092059"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20261092059"></script>
-    <script src="js/apx-gm-screen.js?v=20261092059"></script>
-    <script src="js/apx-loot-maker.js?v=20261092059"></script>
-    <script src="js/apx-library.js?v=20261092059"></script>
-    <script src="js/apx-gmtools-main.js?v=20261092059"></script>
+    <script src="js/apx-dialogs.js?v=202610100218"></script>
+    <script src="js/apx-patch-notes.js?v=202610100218"></script>
+    <script src="js/apx-dice.js?v=202610100218"></script>
+    <script src="js/apx-data.js?v=202610100218"></script>
+    <script src="js/apx-item-effects.js?v=202610100218"></script>
+    <script src="js/apx-exo.js?v=202610100218"></script>
+    <script src="js/apx-perks-db.js?v=202610100218"></script>
+    <script src="js/apx-migrations.js?v=202610100218"></script>
+    <script src="js/apx-state.js?v=202610100218"></script>
+    <script src="js/apx-craft-shared.js?v=202610100218"></script>
+    <script src="js/apx-armor-forge.js?v=202610100218"></script>
+    <script src="js/apx-weapon-forge.js?v=202610100218"></script>
+    <script src="js/apx-consumable-crafter.js?v=202610100218"></script>
+    <script src="js/apx-perks-ui.js?v=202610100218"></script>
+    <script src="js/apx-power-crafter.js?v=202610100218"></script>
+    <script src="js/apx-npc-crafter.js?v=202610100218"></script>
+    <script src="js/apx-inventory-ui.js?v=202610100218"></script>
+    <script src="js/apx-ancestry-wizard.js?v=202610100218"></script>
+    <script src="js/apx-gm-screen.js?v=202610100218"></script>
+    <script src="js/apx-loot-maker.js?v=202610100218"></script>
+    <script src="js/apx-library.js?v=202610100218"></script>
+    <script src="js/apx-gm-content.js?v=202610100218"></script>
+    <script src="js/apx-gmtools-main.js?v=202610100218"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20261092059"></script>
-    <script src="js/apx-firebase.js?v=20261092059"></script>
-    <script src="js/apx-battlemap.js?v=20261092059"></script>
-    <script src="js/apx-map-tiles.js?v=20261092059"></script>
+    <script src="js/firebase-config.js?v=202610100218"></script>
+    <script src="js/apx-firebase.js?v=202610100218"></script>
+    <script src="js/apx-battlemap.js?v=202610100218"></script>
+    <script src="js/apx-map-tiles.js?v=202610100218"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -1565,6 +1609,7 @@ document.addEventListener('DOMContentLoaded', () => {
             cloudNpcs.forEach(n => { if (!window.gmNpcs.find(x => x.id === n.id)) window.gmNpcs.push(n); });
             setTimeout(() => { try { window.apxGmRebuildCheck && window.apxGmRebuildCheck(); } catch (e) { } }, 1500);
         } catch(e) { console.warn('Cloud GM NPC load failed:', e.message); }
+        try { if (window.apxLoadGmOrigins) await window.apxLoadGmOrigins(); } catch(e) { console.warn('Origin Templates load failed:', e.message); }
         // The GM's Library (everything made with the Loot Maker and Power Crafter, per world)
         try { if (window.apxLibLoad) await window.apxLibLoad(); } catch(e) { console.warn('Library load failed:', e.message); }
         // Everything made before the Library existed goes into it (once worlds and NPCs have loaded)
@@ -2051,7 +2096,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── Tab switching ────────────────────────────────────────────
     window.showWorldTab = function(tab) {
-        ['session','map','npcs','locations','notes','othermaps','libItems','libPowers','players','settings'].forEach(t => {
+        ['session','map','npcs','locations','notes','othermaps','players','settings'].forEach(t => {
             let panel = document.getElementById(`wPanel${t.charAt(0).toUpperCase()}${t.slice(1)}`);
             if (panel) { panel.classList.toggle('hidden', t!==tab); panel.classList.toggle('flex', t===tab && panel.style.display!=='block'); }
             let btn = document.getElementById(`wTab${t.charAt(0).toUpperCase()}${t.slice(1)}`);
@@ -2070,8 +2115,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (tab==='othermaps')  { window.renderOtherMapsList(); }
         if (tab==='players')    { window.renderPlayersList(); }
         if (tab==='settings')   { window.renderWorldSettings(); }
-        if (tab==='libItems')   { window.apxLibRenderTab && window.apxLibRenderTab('item'); }
-        if (tab==='libPowers')  { window.apxLibRenderTab && window.apxLibRenderTab('power'); }
     };
     window.showCampaignTab = window.showWorldTab; // alias for old refs
 
@@ -6590,8 +6633,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </script>
     <div id="floatingWindowContainer"></div>
 
-    <script src="js/apx-chat.js?v=20261092059"></script>
-    <script src="js/apx-extras.js?v=20261092059"></script>
-    <script src="js/apx-theme-light.js?v=20261092059"></script>
+    <script src="js/apx-chat.js?v=202610100218"></script>
+    <script src="js/apx-extras.js?v=202610100218"></script>
+    <script src="js/apx-theme-light.js?v=202610100218"></script>
 </body>
 </html>

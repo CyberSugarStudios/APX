@@ -474,8 +474,8 @@
         }
 
     </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=20261092059">
-    <link rel="stylesheet" href="css/tailwind.css?v=20261092059">
+    <link rel="stylesheet" href="css/apx-themes.css?v=202610100218">
+    <link rel="stylesheet" href="css/tailwind.css?v=202610100218">
 </head>
 <body class="p-2 md:p-6 flex justify-center text-sm ml-0 lg:ml-8 transition-all" style="padding-top:4.25rem"><!-- (room for the floating Roster / Settings buttons) -->
     <!-- Auth bar removed — account controls are in the sidebar -->
@@ -853,7 +853,7 @@
                         <button onclick="window.openPowerCrafter(false)" class="bg-purple-600/20 text-purple-400 hover:bg-purple-600/40 text-xs px-3 py-1 rounded border border-purple-700/50 transition font-bold">
                              Power Crafter
                         </button>
-                        <button onclick="window.openModal('powerModal')" class="bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/40 text-xs px-3 py-1 rounded border border-indigo-700/50 transition font-bold">
+                        <button onclick="window.apxOpenAddPower()" title="Learn a power your GM made for this world" class="bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/40 text-xs px-3 py-1 rounded border border-indigo-700/50 transition font-bold">
                             + Add Power
                         </button>
                     </div>
@@ -931,6 +931,8 @@
                 <h3 class="text-xl font-black text-white">Origin Builder</h3>
                 <span class="text-[10px] text-slate-500">Who you were before the adventure began</span>
             </div>
+            <!-- Origin Templates the GM made for this world (js/apx-origin-wizard.js) -->
+            <div id="origTemplateWrap" class="hidden mb-3"></div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <!-- Left: identity, wealth, feature -->
@@ -1783,60 +1785,6 @@
         </div>
     </div>
 
-    <div class="modal-overlay" id="powerModal">
-        <div class="modal-content">
-            <h3 class="text-lg font-bold text-white mb-4 border-b border-slate-600 pb-2">Add Crafted Power</h3>
-            <div class="space-y-3">
-                <div class="flex gap-2">
-                    <div class="flex-1">
-                        <label class="block text-xs text-slate-400 mb-1">Power Name</label>
-                        <input type="text" id="newPwrName" class="bg-slate-900 text-indigo-300 font-bold">
-                    </div>
-                    <div class="w-20">
-                        <label class="block text-xs text-slate-400 mb-1">Level</label>
-                        <input type="number" id="newPwrLvl" value="1" min="1" max="5" class="bg-slate-900">
-                    </div>
-                    <div class="w-20">
-                        <label class="block text-xs text-slate-400 mb-1">AP Cost</label>
-                        <input type="number" id="newPwrAp" value="4" class="bg-slate-900">
-                    </div>
-                </div>
-                <div class="grid grid-cols-3 gap-2">
-                    <div>
-                        <label class="block text-xs text-slate-400 mb-1">Attack / Save</label>
-                        <input type="text" id="newPwrAtk" placeholder="e.g. AGI Save" class="bg-slate-900 text-xs">
-                    </div>
-                    <div>
-                        <label class="block text-xs text-slate-400 mb-1">Range / AoE</label>
-                        <input type="text" id="newPwrRng" placeholder="e.g. 10 sq / 2 sq rad" class="bg-slate-900 text-xs">
-                    </div>
-                    <div>
-                        <label class="block text-xs text-slate-400 mb-1">Damage / Heal</label>
-                        <input type="text" id="newPwrDmg" placeholder="e.g. 3d6 Fire" class="bg-slate-900 text-xs">
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-xs text-slate-400 mb-1">Utility & Effects</label>
-                    <textarea id="newPwrDesc" class="bg-slate-900 text-xs h-16 resize-none" placeholder="Target is Stunned..."></textarea>
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="block text-xs text-slate-400 mb-1">Core Attribute</label>
-                        <select id="newPwrAttr" class="bg-slate-900 text-xs"><option>STR</option><option>AGI</option><option>CON</option><option>PER</option><option selected>INT</option><option>CHA</option><option>LUC</option></select>
-                    </div>
-                    <div>
-                        <label class="block text-xs text-slate-400 mb-1">Power type</label>
-                        <select id="newPwrPool" class="bg-slate-900 text-xs"><option value="full">Full Rest Power</option><option value="short">Short Rest Power</option></select>
-                    </div>
-                </div>
-            </div>
-            <div class="flex justify-end gap-2 mt-6">
-                <button onclick="window.closeModal('powerModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition">Cancel</button>
-                <button onclick="window.savePower()" class="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold transition">Add Power</button>
-            </div>
-        </div>
-    </div>
-
     <div class="modal-overlay" id="perkModal">
         <div class="modal-content">
             <div class="flex justify-between items-center mb-4 border-b border-purple-600 pb-2">
@@ -2362,41 +2310,41 @@
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=20261092059"></script>
-    <script src="js/apx-patch-notes.js?v=20261092059"></script>
-    <script src="js/apx-dice.js?v=20261092059"></script>
-    <script src="js/apx-luck.js?v=20261092059"></script>
-    <script src="js/apx-data.js?v=20261092059"></script>
-    <script src="js/apx-item-effects.js?v=20261092059"></script>
-    <script src="js/apx-exo.js?v=20261092059"></script>
-    <script src="js/apx-traits.js?v=20261092059"></script>
-    <script src="js/apx-perks-db.js?v=20261092059"></script>
-    <script src="js/apx-migrations.js?v=20261092059"></script>
-    <script src="js/apx-roster.js?v=20261092059"></script>
-    <script src="js/apx-state.js?v=20261092059"></script>
-    <script src="js/apx-origin-wizard.js?v=20261092059"></script>
-    <script src="js/apx-ancestry-wizard.js?v=20261092059"></script>
-    <script src="js/apx-inventory-ui.js?v=20261092059"></script>
-    <script src="js/apx-craft-shared.js?v=20261092059"></script>
-    <script src="js/apx-armor-forge.js?v=20261092059"></script>
-    <script src="js/apx-weapon-forge.js?v=20261092059"></script>
-    <script src="js/apx-power-crafter.js?v=20261092059"></script>
-    <script src="js/apx-consumable-crafter.js?v=20261092059"></script>
-    <script src="js/apx-npc-crafter.js?v=20261092059"></script>
-    <script src="js/apx-engine.js?v=20261092059"></script>
-    <script src="js/apx-perks-ui.js?v=20261092059"></script>
-    <script src="js/apx-rest.js?v=20261092059"></script>
-    <script src="js/apx-looting.js?v=20261092059"></script>
-    <script src="js/apx-main.js?v=20261092059"></script>
+    <script src="js/apx-dialogs.js?v=202610100218"></script>
+    <script src="js/apx-patch-notes.js?v=202610100218"></script>
+    <script src="js/apx-dice.js?v=202610100218"></script>
+    <script src="js/apx-luck.js?v=202610100218"></script>
+    <script src="js/apx-data.js?v=202610100218"></script>
+    <script src="js/apx-item-effects.js?v=202610100218"></script>
+    <script src="js/apx-exo.js?v=202610100218"></script>
+    <script src="js/apx-traits.js?v=202610100218"></script>
+    <script src="js/apx-perks-db.js?v=202610100218"></script>
+    <script src="js/apx-migrations.js?v=202610100218"></script>
+    <script src="js/apx-roster.js?v=202610100218"></script>
+    <script src="js/apx-state.js?v=202610100218"></script>
+    <script src="js/apx-origin-wizard.js?v=202610100218"></script>
+    <script src="js/apx-ancestry-wizard.js?v=202610100218"></script>
+    <script src="js/apx-inventory-ui.js?v=202610100218"></script>
+    <script src="js/apx-craft-shared.js?v=202610100218"></script>
+    <script src="js/apx-armor-forge.js?v=202610100218"></script>
+    <script src="js/apx-weapon-forge.js?v=202610100218"></script>
+    <script src="js/apx-power-crafter.js?v=202610100218"></script>
+    <script src="js/apx-consumable-crafter.js?v=202610100218"></script>
+    <script src="js/apx-npc-crafter.js?v=202610100218"></script>
+    <script src="js/apx-engine.js?v=202610100218"></script>
+    <script src="js/apx-perks-ui.js?v=202610100218"></script>
+    <script src="js/apx-rest.js?v=202610100218"></script>
+    <script src="js/apx-looting.js?v=202610100218"></script>
+    <script src="js/apx-main.js?v=202610100218"></script>
 
     <!-- Firebase (cloud sync — requires firebase-config.js to be configured) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20261092059"></script>
-    <script src="js/apx-firebase.js?v=20261092059"></script>
-    <script src="js/apx-battlemap.js?v=20261092059"></script>
-    <script src="js/apx-map-tiles.js?v=20261092059"></script>
+    <script src="js/firebase-config.js?v=202610100218"></script>
+    <script src="js/apx-firebase.js?v=202610100218"></script>
+    <script src="js/apx-battlemap.js?v=202610100218"></script>
+    <script src="js/apx-map-tiles.js?v=202610100218"></script>
     <script>
     // ── Sidebar: folders, worlds, meatball menus ─────────────
     window._sidebarChars = [];
@@ -3694,6 +3642,13 @@
                     let fromServer = !(meta && meta.fromCache);
                     if (known !== undefined && fromServer && window.apxActiveWorldCode && window.apxActiveWorldCode() === code) window.APXDice?.notify('Your GM updated this world\'s race templates. They\'re in the Ancestry & Genetics Builder.', { kind: 'note' });
                 }
+            }
+            // Origin Templates and learnable powers the GM tagged with this world (Origin Builder, Add Power)
+            world.origins = Array.isArray(data.origins) ? data.origins : [];
+            world.gmPowers = Array.isArray(data.gmPowers) ? data.gmPowers : [];
+            if (window.apxActiveWorldCode && window.apxActiveWorldCode() === code) {
+                if (document.getElementById('originModal')?.classList.contains('active')) window.renderOrigTemplates?.();
+                if (document.getElementById('apxAddPower')) window.apxOpenAddPower?.();
             }
             // The GM asked for a LUC (Loot) check
             try {
@@ -5715,9 +5670,9 @@
         });
     }
     </script>
-    <script src="js/apx-chat.js?v=20261092059"></script>
-    <script src="js/apx-actions.js?v=20261092059"></script>
-    <script src="js/apx-extras.js?v=20261092059"></script>
-    <script src="js/apx-theme-light.js?v=20261092059"></script>
+    <script src="js/apx-chat.js?v=202610100218"></script>
+    <script src="js/apx-actions.js?v=202610100218"></script>
+    <script src="js/apx-extras.js?v=202610100218"></script>
+    <script src="js/apx-theme-light.js?v=202610100218"></script>
 </body>
 </html>

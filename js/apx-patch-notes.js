@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.9.2059',
-        released: '2026-10-09T20:59:00',
-        releasedText: 'October 9, 2026 · 8:59 PM',
+        version: 'v2026.10.10.0218',
+        released: '2026-10-10T02:18:00',
+        releasedText: 'October 10, 2026 · 2:18 AM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs with loot of their own, apart from their stat blocks, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, area powers placed right on the battle map with every save in them rolled for you, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -36,7 +36,10 @@
                 'NPCs have a Wound Threshold and take Wounds, casters have Power Slots in the tracker, and auras like Damaging Aura show as a ring on the map and deal their damage each turn.',
                 'Fall damage, conditions on players straight from the tracker, grid colour, thickness and opacity, token sizes, and loot you can hand out without the rest of the party seeing.',
                 'Map windows have a Revealed / Hidden button, and everything you made before the Library existed is gathered into it too.',
-                'The World screen has Loot & Items and Powers tabs listing everything in your Library for that world, each with an Edit button.',
+                'Powers and Loot & Items are on the GM Tools toolbar now, beside Race Templates, the new Origin Templates and NPCs & Enemies. Each lists everything you\'ve made, with an Edit button.',
+                'Origin Templates: a GM-made origin with a Name, Starting Wealth, Origin Feature, Common Language and four Competencies, each locked or left to the player.',
+                'Make a power with + New Power and tag it with a world: its players can learn it from + Add Power on their sheet.',
+                'Everything you make outside a world (Race Templates, Origin Templates, NPCs, Powers, Loot & Items) has a World filter and checkboxes: tick several and tag (or untag) them with a world at once.',
                 'Before you press Start Combat, players only hear that a creature took damage or went down; the full combat log reaches them once the fight starts.',
                 'New NPC traits run themselves in the tracker: Undead (falls Prone and Incapacitated at 0 HP, looking dead, rolls its own revival save at the start of its turn, and is destroyed by a Critical Hit or Fire while down) and Unalive Structure (repair-only healing, Stunned by Electric damage). Condition immunities are enforced.',
                 'Tokens added with + Token from the tracker start hidden, and companions and summoned creatures act right after their owner.',
@@ -63,6 +66,7 @@
                 'Luck Points have − and + buttons, clicking your Rest Dice spends one to heal, and four-armed characters get extra arms, hands and a shield in every Off Hand. Out of Luck Points, ask your party: the first ally to spend one of theirs rerolls your d20.',
                 'Powers are reworked: each has its own Core Attribute, chosen when you craft it, and Full Rest Powers (formerly INT) and Short Rest Powers (formerly CHA) are two pools you can mix.',
                 'You have one character in each world, your GM\'s Race Templates update your Race Builder live, and your Currency shows wherever you spend it.',
+                'Your GM\'s Origin Templates are at the top of the Origin Builder, and + Add Power lists the powers your GM made for your world (learning one opens it in the Power Crafter).',
                 'The Weapon and Armor Forges roll their Craft check in the dice tray, so Luck Points and Omens work on it, and spell out what buying or crafting costs.',
                 'Edit Token re-crops the circle your portrait and token show, without uploading the picture again.',
                 'Custom items can set a Core Attribute to a total, "unless higher" if you like: an Exo Suit that makes your STR 15 unless it\'s already more.',
@@ -166,9 +170,11 @@
             ['Origin Builder', [
                 'It all fits on one screen: Origin Name, Starting Wealth and Origin Feature on the left, the common language and four competencies on the right.',
                 'Each competency card has Language, Skill and Weapon Type buttons. Pick one, pick another to switch, or tap the chosen one again to clear it.',
-                'Starting Wealth goes into your Currency when you save and can only be chosen once, and Save Origin writes your languages into a Languages note.'
+                'Starting Wealth goes into your Currency when you save and can only be chosen once, and Save Origin writes your languages into a Languages note.',
+                'Origin Templates from your GM sit at the top. Pick one to fill in what your GM set: the fields they locked (🔒) are fixed, and the rest are yours to choose or change. A locked Skill or Weapon Type competency trains you in it, and Build my own goes back to a blank origin (taking that training off again).'
             ]],
             ['Powers', [
+                '+ Add Power lists the powers your GM made for your world, with their Level, AP, attack, range, damage and description. Learn opens one in the Power Crafter on your GM\'s design: you pay its XP and choose its Core Attribute and power type, as with any power you craft. (Typing a power in by hand is gone: build your own in the Power Crafter.)',
                 'Saving throws name a Core Attribute: Save Negates and Save Halves powers choose which one targets roll (Power Crafter Step 1), and the card and your GM\'s log say "Targets make an AGI saving throw against DC 13".',
                 '"Inflict or end" utilities choose which Condition, and whether the power inflicts or ends it (Step 5).',
                 'Escape Saves (Step 6): a power that leaves a lasting effect on its target (a Condition for 1 Minute or more, a command, a polymorph, a banishment) names the save the target makes at the end of each of its turns to break free. Saves the effect makes it automatically fail are greyed out: an AGI save can dodge a paralysis, but it can\'t end one. The Escape Save shows on the power, its card and your GM\'s tracker.',
@@ -365,15 +371,22 @@
             ['Your Account, the Tutorial and the Library', [
                 'The GM Tools need a free APX account.',
                 'A tutorial walks through worlds, NPCs, combat, maps, loot and notes, plus what the tools can and can\'t do. Settings → Show Tutorial reopens it.',
-                'Everything you make (Loot Maker items, forged weapons and armor, consumables and NPC powers) goes into your Library, tagged with the world you made it in. Reuse it from the Loot Maker\'s Library view and the NPC power picker, tick "All worlds" to see what you made elsewhere, or tag an entry with more worlds.',
+                'Everything you make (Loot Maker items, forged weapons and armor, consumables and powers) goes into your Library, tagged with the world you made it in. Reuse it from the Loot Maker\'s Library view and the NPC power picker, tick "All worlds" to see what you made elsewhere, or tag an entry with more worlds.',
                 'Everything you made before the Library existed is gathered into it when the GM Tools open: custom items, forged and custom weapons, forged armor and consumables from each world\'s Loot list, Area Circles and Special Map Markers, plus your NPCs\' gear, loot and powers and the powers on equippable items. Each is tagged with the world it was found in, and anything you remove from the Library stays removed.',
                 'Kawaii is a true light theme on every window, and Cyber Sigil is its dark twin (Settings → Theme).',
-                'The World screen has Loot & Items and Powers tabs: this world\'s Library, searchable, filtered by type or Level, with All worlds, and Add to Loot for items.',
+                'Powers and Loot & Items (on the toolbar) are your Library: searchable, filtered by type or Level and by world, with Add to Loot for items (it goes on the open world\'s Loot list). + New Power builds a power in the Power Crafter, and + New Item opens the Loot Maker; both go straight into the Library.',
+                'Powers tagged with a world are offered to its players: + Add Power on their sheet lists them, and learning one opens it in their Power Crafter (they pay its XP). Untagged powers stay yours, for NPCs and items in every world. A power typed in by hand (not built with the Power Crafter) is for NPCs and items only.',
                 'Every Library entry has an Edit button. Powers reopen in the Power Crafter (Save to Library, or Save as New to keep both), forged weapons and armor in their forge, consumables in the Consumable Crafter, custom items in the Loot Maker\'s form, and anything else (gear, shields, helmets, quick custom weapons, Crafting Materials) in a short form. Only the Library\'s copy changes; anything already handed out, placed or on an NPC stays as it was.'
+            ]],
+            ['Templates and World Tags', [
+                'Origin Templates (toolbar) work like Race Templates, for the Origin Builder: a Name, Starting Wealth, Origin Feature, Common Language and all four Competencies (Language, Skill or Weapon Type). Lock a field and players who pick the template can\'t change it; leave it unlocked, or blank, for them to choose. Templates can be exported and imported, and players in a tagged world see them at the top of their Origin Builder.',
+                'Race Templates, Origin Templates, NPCs & Enemies, Powers and Loot & Items are made once and reused: each is tagged with the worlds it belongs to. Every one of these lists has a World filter (every world, untagged, or one world) and a checkbox on each entry. Tick several, or Select all, pick a world, and Tag or Untag them all at once; Worlds on an entry still sets one at a time.',
+                'Race Templates keep their worlds after a reload (they used to look unassigned). Editing a Race Template updates it in every world that has it, and deleting one takes it out of them.',
+                'The Load Party button is gone: your world\'s players show up in the party on their own.'
             ]],
             ['Your Party List', [
                 'The party list follows your world\'s players as they come and go. A player who deletes their character in your world, moves it out of the world folder, or leaves the world (× on its folder) drops off the list straight away, and so does anyone you kick.',
-                'Switching to another world shows only that world\'s players. A party loaded from a folder of character files stays until you load another.',
+                'Switching to another world shows only that world\'s players.',
                 'The World tab\'s Players list updates itself while it\'s open.'
             ]],
             ['Damage and the Tracker', [

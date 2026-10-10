@@ -1004,15 +1004,16 @@ window.renderGmNpcList = function() {
     let searchEl = document.getElementById('gmNpcSearch');
     let search = searchEl ? (searchEl.value || '').trim().toLowerCase() : '';
     // Stat blocks tagged for other worlds stay out of this world's roster (Show all brings them back)
-    let showAll = !!window._gmNpcShowAllWorlds || typeof window.apxNpcInActiveWorld !== 'function';
-    let inWorld = showAll ? window.gmNpcs : window.gmNpcs.filter(e => window.apxNpcInActiveWorld(e));
-    let hidden = window.gmNpcs.length - inWorld.length;
-    let note = hidden ? window.apxNpcHiddenNote(hidden, 'window._gmNpcShowAllWorlds=true;window.renderGmNpcList()')
-        : (window._gmNpcShowAllWorlds && window.gmNpcs.some(e => window.apxNpcInActiveWorld && !window.apxNpcInActiveWorld(e))
-            ? `<div class="text-[10px] text-slate-500 mb-1">Showing every world's stat blocks. <button onclick="window._gmNpcShowAllWorlds=false;window.renderGmNpcList()" class="text-amber-400 hover:text-amber-300 font-bold underline">Only this world</button></div>` : '');
+    // The World filter (js/apx-gm-content.js): Every world, Untagged, or one world's stat blocks
+    let WT = window.apxWt;
+    let inWorld = WT ? window.gmNpcs.filter(e => WT.match('npcs', window.apxNpcWorldIds(e))) : window.gmNpcs;
+    let note = '';
     let filtered = inWorld.filter(entry => !search || (entry.npc.name || '').toLowerCase().includes(search));
+    let wtBar = () => { if (WT) WT.bar(body, { key: 'npcs', ids: filtered.map(e => e.id), untagged: 'Untagged (every world)', rerender: window.renderGmNpcList,
+        onApply: (ids, w, add) => window.apxApplyNpcTags(ids, w, add), note: 'A stat block tagged with worlds only shows up in those worlds; untagged ones show up everywhere.' }); };
     if (!filtered.length) {
-        body.innerHTML = note + `<div class="text-xs text-slate-500 text-center py-6">${search ? 'No NPCs match that search.' : 'No stat blocks for this world.'}</div>`;
+        body.innerHTML = note + `<div class="text-xs text-slate-500 text-center py-6">${search ? 'No NPCs match that search.' : 'No stat blocks in that world.'}</div>`;
+        wtBar();
         return;
     }
     body.innerHTML = note + filtered.map(entry => {
@@ -1023,7 +1024,7 @@ window.renderGmNpcList = function() {
             : '';
         return `
             <div class="flex items-start justify-between bg-slate-900 border border-slate-700 rounded p-2">
-                <div class="flex items-start gap-2">${entry.npc.tokenImg ? `<img src="${entry.npc.tokenImg}" alt="" data-sb-token title="Token image" style="width:30px;height:30px;border-radius:50%;object-fit:cover;border:2px solid #7c3aed;flex-shrink:0">` : ''}<div>
+                <div class="flex items-start gap-2">${WT ? WT.check('npcs', entry.id) : ''}${entry.npc.tokenImg ? `<img src="${entry.npc.tokenImg}" alt="" data-sb-token title="Token image" style="width:30px;height:30px;border-radius:50%;object-fit:cover;border:2px solid #7c3aed;flex-shrink:0">` : ''}<div>
                     <div class="text-sm font-bold text-purple-300">${entry.npc.name || 'Unnamed NPC'}</div>
                     <div class="text-[10px] text-slate-500">Tier ${tierInfo.tier} &middot; ${entry.npc.gmTpBudget || 0} TP budget</div>
                     ${tagBadges ? `<div class="flex flex-wrap gap-1 mt-1">${tagBadges}</div>` : ''}
@@ -1037,6 +1038,7 @@ window.renderGmNpcList = function() {
             </div>
         `;
     }).join('');
+    wtBar();
 };
 
 window.openStatBlockWorldTags = function(npcId) {
