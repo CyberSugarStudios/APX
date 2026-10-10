@@ -4,12 +4,16 @@
 // the exact same framework as the Power Crafter Perk." Reuses the
 // same Step 1/2/3/4/5/6/8 data tables as Powers, but: no AP step
 // (always 3 AP flat), capped at 30 XP total (+5 per Artisan rank when a player crafts it), converts to Currency at
-// 25 Cu per XP for the first charge, weighs 1 lb per XP spent, and
+// 5 Cu per XP for the first charge, weighs 1/4 lb per XP spent (rounded down), and
 // each additional charge beyond the first costs half the first
 // charge's price.
 // ============================================================
 
 let ccDraft = null;
+// Consumable pricing rules: 5 Cu per XP and 1/4 lb per XP (rules 2). Consumables made before (25 Cu and 1 lb
+// per XP) are offered to be remade or refunded: see "Consumables to remake" at the end of this file.
+const CC_CU_PER_XP = 5;
+const CC_RULES = 2;
 let ccStep = 1;
 const CC_LAST_STEP = 7;
 
@@ -70,11 +74,11 @@ window.ccCalcXP = function(draft) {
 
     let total = Math.max(0, step1Cost + step2Cost + step3Cost + step4Cost + step5Cost + step6Cost + step7Cost);
 
-    let firstChargeCost = total * 25;
+    let firstChargeCost = total * CC_CU_PER_XP;
     let perAdditionalCharge = Math.floor(firstChargeCost / 2);
     let charges = Math.max(1, draft.charges || 1);
     let totalCost = firstChargeCost + (charges - 1) * perAdditionalCharge;
-    let weight = total; // 1 lb per XP spent (RAW doesn't scale this by charge count)
+    let weight = Math.floor(total / 4); // 1/4 lb per XP spent, rounded down (RAW doesn't scale this by charge count)
 
     return {
         step1Cost, step2Cost, step3Cost, step4Cost, step5Cost, step6Cost, step7Cost, total,
@@ -82,10 +86,16 @@ window.ccCalcXP = function(draft) {
     };
 };
 
-// Most XP a consumable can spend: 30, +5 per Artisan rank when a player crafts it (GM loot: 30)
+// Most XP a consumable can spend: 30, +5 per Artisan rank when a player crafts it (or remakes one of
+// theirs); ranks from a Racial Bonus Perk count too, up to the perk's max (GM loot: 30)
+function ccArtisanRank() {
+    let st = window.state || {};
+    if (window.apxPerkRank) return parseInt(window.apxPerkRank(st, 'int_artisan')) || 0;
+    return parseInt((st.perks || {}).int_artisan) || 0;
+}
 function ccMaxXp() {
-    let r = (typeof ccTarget !== 'undefined' && ccTarget) ? 0 : ((window.state && window.state.perks && window.state.perks.int_artisan) || 0);
-    return 30 + 5 * (parseInt(r) || 0);
+    let r = (typeof ccTarget !== 'undefined' && ccTarget && !ccTarget.player) ? 0 : ccArtisanRank();
+    return 30 + 5 * Math.max(0, Math.min(5, r));
 }
 window.ccMaxXp = ccMaxXp;
 // Saving throws, Conditions and Escape Saves, as in the Power Crafter
@@ -448,7 +458,7 @@ function ccRenderSummary() {
     let capNote = document.getElementById('ccCapNote');
     if (t.overCap) {
         capNote.classList.remove('hidden');
-        capNote.innerText = `Consumables can spend at most ${t.maxXp} XP total${t.maxXp > 30 ? ' (30, +5 per Artisan rank)' : ''}. Reduce this build by ${t.total - t.maxXp} XP.`;
+        capNote.innerText = `Consumables can spend at most ${t.maxXp} XP total${t.maxXp > 30 ? ` (30, +5 for each of your ${(t.maxXp - 30) / 5} Artisan rank${t.maxXp > 35 ? 's' : ''})` : ''}. Reduce this build by ${t.total - t.maxXp} XP.`;
     } else {
         capNote.classList.add('hidden');
     }
@@ -580,12 +590,13 @@ window.finishConsumableCrafter = function() {
     window.closeModal('consumableCrafterModal');
     let item = {
         name, wt: t.weight, ct: 1, val: t.totalCost,
-        isConsumable: true,
+        isConsumable: true, ccRules: CC_RULES,
         draft: JSON.parse(JSON.stringify(ccDraft)),
         charges: t.charges,
         chargesRemaining: t.charges,
         desc: flavorText
     };
+    if (ccTarget && ccTarget.player) { let tg = ccTarget; ccTarget = null; tg.onMade(item); return; }   // remaking one of yours
     if (ccTarget) {
         // Loot: several at once, as one stack ("3× Healing Draught")
         item.ct = Math.max(1, Math.min(99, parseInt(document.getElementById('ccLootQty')?.value) || 1));
@@ -599,4 +610,121 @@ window.finishConsumableCrafter = function() {
         if (paid) window.state.currency = (window.state.currency || 0) - t.totalCost;
         window.recalculateMath();
     });
+};
+
+// ── Consumables to remake ────────────────────────────────────────
+// Consumables now cost 5 Cu per XP (was 25) and weigh 1/4 lb per XP, rounded down (was 1 lb). Anything made
+// before is listed once, to be remade in the Consumable Crafter or kept with its new price and weight
+// (a player can take the difference back as a refund).
+function ccFullDraft(d) {
+    let base = getBlankConsumableDraft(), c = JSON.parse(JSON.stringify(d || {}));
+    Object.keys(base).forEach(k => { if (base[k] && typeof base[k] === 'object' && !Array.isArray(base[k]) && c[k] && typeof c[k] === 'object') c[k] = Object.assign({}, base[k], c[k]); });
+    return Object.assign(base, c);
+}
+window.apxConsumableNeedsUpdate = it => !!(it && it.isConsumable && it.draft && (parseInt(it.ccRules) || 0) < CC_RULES);
+// Its price (all its charges) and weight under the current rules
+window.apxConsumableNewStats = function(it) {
+    let t = window.ccCalcXP(ccFullDraft(Object.assign({}, it.draft, { charges: it.charges || (it.draft || {}).charges || 1 })));
+    return { val: t.totalCost, wt: t.weight, xp: t.total };
+};
+// The item with its new price and weight
+window.apxConsumableApplyRules = function(it) {
+    if (!window.apxConsumableNeedsUpdate(it)) return it;
+    let n = window.apxConsumableNewStats(it);
+    it.val = n.val; it.wt = n.wt; it.ccRules = CC_RULES;
+    return it;
+};
+function ccDialog(id, title, msg, rowsHtml, footHtml) {
+    document.getElementById(id)?.remove();
+    if (window.apxInjectDialogStyles) window.apxInjectDialogStyles();
+    let back = document.createElement('div');
+    back.id = id; back.className = 'apxdlg-back'; back.style.zIndex = 2147483300;
+    back.innerHTML = `<div class="apxdlg" style="width:min(600px,100%);max-height:88vh;display:flex;flex-direction:column">
+        <div class="apxdlg-title">${title}</div><div class="apxdlg-msg">${msg}</div>
+        <div style="overflow-y:auto;flex:1;min-height:0;display:flex;flex-direction:column;gap:.35rem;margin-bottom:.8rem">${rowsHtml}</div>
+        <div class="apxdlg-row">${footHtml}</div></div>`;
+    document.body.appendChild(back);
+    return back;
+}
+const ccEsc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+const ccBtnCss = 'font-size:.66rem;padding:.25rem .55rem;white-space:nowrap';
+
+// Player: the consumables in your inventory
+window.apxPlayerConsumableRemake = function(force) {
+    let st = window.state; if (!st || !Array.isArray(st.items)) return;
+    let list = st.items.map((it, i) => ({ it, i })).filter(x => window.apxConsumableNeedsUpdate(x.it));
+    if (!list.length) { document.getElementById('apxCcRemake')?.remove(); return; }
+    if (!force && (window._apxCcRemakeShown === (st.id || st.name) || document.querySelector('[data-apx-rules-popup]'))) return;
+    window._apxCcRemakeShown = st.id || st.name;
+    let rows = list.map(({ it, i }) => {
+        let n = window.apxConsumableNewStats(it), ct = Math.max(1, parseInt(it.ct) || 1), back = Math.max(0, ((parseInt(it.val) || 0) - n.val) * ct);
+        return `<div style="border:1px solid #334155;border-radius:.4rem;padding:.45rem .55rem;background:#0f172a;display:flex;gap:.5rem;align-items:center">
+            <div style="flex:1;min-width:0"><div style="font-size:.8rem;font-weight:900;color:#e2e8f0">${ccEsc(it.name)}${ct > 1 ? ` ×${ct}` : ''} <span style="font-size:.65rem;color:#94a3b8;font-weight:700">${n.xp} XP</span></div>
+                <div style="font-size:.66rem;color:#94a3b8">Was ${parseInt(it.val) || 0} Cu, ${it.wt || 0} lb each · now <b style="color:#86efac">${n.val} Cu, ${n.wt} lb</b></div></div>
+            <button class="apxdlg-btn" data-cc-remake="${i}" style="${ccBtnCss}" title="Rebuild it in the Consumable Crafter (up to ${ccMaxXpFor(true)} XP); the difference in price is refunded or paid">Remake</button>
+            <button class="apxdlg-btn" data-cc-keep="${i}" style="${ccBtnCss}" title="Keep it as it is, at its new price and weight, without a refund (a gift, or loot)">Keep</button>
+            <button class="apxdlg-btn apxdlg-ok" data-cc-refund="${i}" style="${ccBtnCss}" title="Keep it as it is, at its new price and weight, and get back what you paid over the new price">${back ? `Refund ${back} Cu` : 'Update'}</button></div>`;
+    }).join('');
+    let total = list.reduce((t, { it }) => t + Math.max(0, ((parseInt(it.val) || 0) - window.apxConsumableNewStats(it).val) * Math.max(1, parseInt(it.ct) || 1)), 0);
+    let back = ccDialog('apxCcRemake', 'Consumables to remake',
+        `Consumables now cost <b>5 Currency per XP</b> (was 25) and weigh <b>¼ lb per XP</b>, rounded down (was 1 lb), and can spend up to ${ccMaxXpFor(true)} XP${ccMaxXpFor(true) > 30 ? ' with your Artisan ranks' : ''}. For each one you made before: <b>Remake</b> it in the Consumable Crafter, <b>Keep</b> it at its new price and weight, or take a <b>Refund</b> of what you paid over the new price.`,
+        rows, `<button class="apxdlg-btn" data-cc-later>Later</button>${total ? `<button class="apxdlg-btn apxdlg-ok" data-cc-all>Refund all (${total} Cu)</button>` : `<button class="apxdlg-btn apxdlg-ok" data-cc-all>Update all</button>`}`);
+    let done = () => { window.recalculateMath && window.recalculateMath(); window.scheduleAutoSave && window.scheduleAutoSave(); window.apxPlayerConsumableRemake(true); };
+    let refund = (it, pay) => {
+        let n = window.apxConsumableNewStats(it), ct = Math.max(1, parseInt(it.ct) || 1), diff = Math.max(0, ((parseInt(it.val) || 0) - n.val) * ct);
+        window.apxConsumableApplyRules(it);
+        if (pay && diff) { st.currency = (st.currency || 0) + diff; window.APXDice?.notify(`${it.name}: ${diff} Cu refunded.`, { kind: 'loot' }); }
+    };
+    back.querySelector('[data-cc-later]').onclick = () => back.remove();
+    back.querySelector('[data-cc-all]').onclick = () => { list.forEach(({ it }) => refund(it, true)); back.remove(); done(); };
+    back.querySelectorAll('[data-cc-refund]').forEach(b => b.onclick = () => { refund(st.items[+b.dataset.ccRefund], true); done(); });
+    back.querySelectorAll('[data-cc-keep]').forEach(b => b.onclick = () => { refund(st.items[+b.dataset.ccKeep], false); done(); });
+    back.querySelectorAll('[data-cc-remake]').forEach(b => b.onclick = () => {
+        let it = st.items[+b.dataset.ccRemake]; if (!it) return;
+        back.remove();
+        window.openConsumableCrafter({ player: true, label: 'Save Remake', edit: it, onMade: made => {
+            let ct = Math.max(1, parseInt(it.ct) || 1), diff = ((parseInt(it.val) || 0) - (parseInt(made.val) || 0)) * ct;
+            let sameCharges = (parseInt(made.charges) || 1) === (parseInt(it.charges) || 1);
+            Object.assign(it, { name: made.name, draft: made.draft, val: made.val, wt: made.wt, charges: made.charges, desc: made.desc, ccRules: CC_RULES,
+                chargesRemaining: sameCharges ? (it.chargesRemaining ?? made.charges) : made.charges });
+            st.currency = (st.currency || 0) + diff;
+            window.APXDice?.notify(`${made.name} remade: ${diff >= 0 ? diff + ' Cu refunded' : -diff + ' Cu paid'}.`, { kind: 'loot' });
+            done();
+        } });
+    });
+};
+function ccMaxXpFor(player) { let keep = ccTarget; try { ccTarget = player ? { player: true } : { onMade: () => { } }; return ccMaxXp(); } finally { ccTarget = keep; } }
+
+// GM: consumables in your Library (and the copies on your saved NPCs and this world's Loot list)
+window.apxGmConsumableRemake = function(force) {
+    let lib = (window.gmLibrary || []).filter(e => e.kind === 'item' && window.apxConsumableNeedsUpdate(e.data));
+    let npcItems = [];
+    (window.gmNpcs || []).forEach(n => { let c = n && (n.npc || n); ((c && c.carriedItems) || []).forEach(l => { let it = l && (l.item || l); if (window.apxConsumableNeedsUpdate(it)) npcItems.push(it); }); });
+    let loot = [];
+    try { ((typeof _wNotes !== 'undefined' && _wNotes && _wNotes.loot) || []).forEach(l => { let it = l && (l.item || l); if (window.apxConsumableNeedsUpdate(it)) loot.push(it); }); } catch (e) { }
+    if (!lib.length && !npcItems.length && !loot.length) { document.getElementById('apxCcRemakeGm')?.remove(); return; }
+    if (!force && window._apxCcRemakeGmShown) return;
+    window._apxCcRemakeGmShown = true;
+    let rows = lib.map(e => {
+        let n = window.apxConsumableNewStats(e.data);
+        return `<div style="border:1px solid #334155;border-radius:.4rem;padding:.45rem .55rem;background:#0f172a;display:flex;gap:.5rem;align-items:center">
+            <div style="flex:1;min-width:0"><div style="font-size:.8rem;font-weight:900;color:#fde68a">${ccEsc(e.name)} <span style="font-size:.65rem;color:#94a3b8;font-weight:700">${n.xp} XP</span></div>
+                <div style="font-size:.66rem;color:#94a3b8">Was ${parseInt(e.data.val) || 0} Cu, ${e.data.wt || 0} lb · now <b style="color:#86efac">${n.val} Cu, ${n.wt} lb</b></div></div>
+            <button class="apxdlg-btn" data-ccg-remake="${ccEsc(e.id)}" style="${ccBtnCss}" title="Rebuild it in the Consumable Crafter (the Library's copy)">Remake</button>
+            <button class="apxdlg-btn apxdlg-ok" data-ccg-update="${ccEsc(e.id)}" style="${ccBtnCss}" title="Keep it as it is, at its new price and weight">Update</button></div>`;
+    }).join('') + ((npcItems.length || loot.length) ? `<div style="font-size:.68rem;color:#94a3b8;padding:.2rem">${[npcItems.length ? `${npcItems.length} on your saved NPCs` : '', loot.length ? `${loot.length} on this world's Loot list` : ''].filter(Boolean).join(' and ')}: Update all gives ${npcItems.length + loot.length === 1 ? 'it' : 'them'} the new price and weight too.</div>` : '');
+    let back = ccDialog('apxCcRemakeGm', 'Consumables to remake',
+        'Consumables now cost <b>5 Currency per XP</b> (was 25) and weigh <b>¼ lb per XP</b>, rounded down (was 1 lb). Remake one you made before in the Consumable Crafter, or Update it to its new price and weight. Your players are asked about their own copies (and can take a refund).',
+        rows, '<button class="apxdlg-btn" data-ccg-later>Later</button><button class="apxdlg-btn apxdlg-ok" data-ccg-all>Update all</button>');
+    let saveNpcs = () => { if (window.apxAuth?.enabled && window.apxAuth.saveGmNpcs) window.apxAuth.saveGmNpcs(window.gmNpcs || []).catch(() => { }); };
+    let upd = e => { let it = JSON.parse(JSON.stringify(e.data)); window.apxConsumableApplyRules(it); window.apxLibUpdate(e.id, it, { quiet: true }); };
+    back.querySelector('[data-ccg-later]').onclick = () => back.remove();
+    back.querySelector('[data-ccg-all]').onclick = () => {
+        lib.forEach(upd);
+        npcItems.forEach(it => window.apxConsumableApplyRules(it)); if (npcItems.length) saveNpcs();
+        loot.forEach(it => window.apxConsumableApplyRules(it)); if (loot.length && typeof window.saveWorldNotesNow === 'function') window.saveWorldNotesNow();
+        back.remove(); window.APXDice?.notify('Your consumables have their new prices and weights.', { kind: 'loot' });
+    };
+    back.querySelectorAll('[data-ccg-update]').forEach(b => b.onclick = () => { let e = window.apxLibGet(b.dataset.ccgUpdate); if (e) upd(e); window.apxGmConsumableRemake(true); });
+    back.querySelectorAll('[data-ccg-remake]').forEach(b => b.onclick = () => { back.remove(); window.apxEditLibItem && window.apxEditLibItem(b.dataset.ccgRemake); });
 };

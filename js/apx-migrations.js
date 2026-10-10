@@ -332,7 +332,7 @@
                     <button class="apxdlg-btn apxdlg-ok" data-recraft="${x.i}">Recraft (Free)</button></div>`).join('')}` : ''}
             <div class="apxdlg-row" style="margin-top:.8rem"><button class="apxdlg-btn apxdlg-ok" data-act="ok">Got it</button></div>
         </div>`;
-        let close = () => { back.remove(); s.rulesNotices = []; if (typeof window.recalculateMath === 'function') window.recalculateMath(); };
+        let close = () => { back.remove(); s.rulesNotices = []; if (typeof window.recalculateMath === 'function') window.recalculateMath(); setTimeout(() => window.apxPlayerConsumableRemake && window.apxPlayerConsumableRemake(), 300); };
         back.querySelector('[data-act="ok"]').onclick = close;
         back.querySelectorAll('[data-recraft]').forEach(b => b.onclick = () => {
             let idx = Number(b.dataset.recraft);

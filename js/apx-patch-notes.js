@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.10.0304',
-        released: '2026-10-10T03:04:00',
-        releasedText: 'October 10, 2026 · 3:04 AM',
+        version: 'v2026.10.10.0330',
+        released: '2026-10-10T03:30:00',
+        releasedText: 'October 10, 2026 · 3:30 AM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs with loot of their own, apart from their stat blocks, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, area powers placed right on the battle map with every save in them rolled for you, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -114,7 +114,8 @@
                 'Power Crafter Step 1 is now called Delivery and Step 3 Targeting. Every power costs at least 5 XP.',
                 'Step 3 (Targeting): Single Target (x1), Split Target (x2), or AoE (x3) in a shape crafted to an exact size: Line, 1 square wide (0.5 XP per square: 12 squares is 6 XP, 399 is 199), Cone from the edge of your space (3 XP per square of length: 15 squares is 45 XP), or Burst from a central square (10 XP per square of radius: 10 squares is 100 XP). The fixed Small to Massive AoEs are gone.',
                 'Tactician: Rank 1\'s swap happens as combat starts, and Rank 5 skips your turn to give an ally a full turn right away; initiative then carries on from the creature after you.',
-                'Artisan raises the most XP you can spend crafting a Consumable by 5 for each rank.',
+                'Artisan raises the most XP you can spend crafting a Consumable by 5 for each rank (30 XP, up to 55 at Rank 5), Racial Bonus Perk ranks included.',
+                'Consumables cost 5 Currency for every 1 XP of their effects (was 25), with each extra charge at half that, and weigh 1/4 lb per XP, rounded down (was 1 lb per XP).',
                 'Unlimited Uses (NPC powers): for 5 additional TP per Power Level, the creature can use the power an unlimited number of times, at any Power Level and on an NPC of any Tier.'
             ]],
             ['Also', [
@@ -211,7 +212,9 @@
                 'Make your own with Add Item (tick Equippable), and edit them later from their details. Items from your GM keep the bonuses and powers they came with: the details list both, and the inventory row shows "Powers: …".',
                 'Bonuses and powers work only while the item is equipped, and an item handed to you always arrives unequipped.',
                 'Add Item\'s custom item maker matches your GM\'s: any number of bonus rows (each shows what it boosts beside a small amount box), and + Craft Power for item powers. A Core Attribute row can Add to the score or Set it to a total, with an "unless higher" box (an Exo Suit: STR 15 unless yours is higher).',
-                'Consumables can split their dice between two damage types the same way, die size by die size, in the Consumable Crafter.'
+                'Consumables can split their dice between two damage types the same way, die size by die size, in the Consumable Crafter.',
+                'Consumables cost 5 Currency per XP (each extra charge half that) and weigh 1/4 lb per XP, rounded down, so a 2d4 healing potion is 10 Cu and a 30 XP grenade 150 Cu at 7 lb. The Consumable Crafter\'s limit is 30 XP, +5 per Artisan rank.',
+                'Consumables to remake: when your sheet opens, any consumable you made under the old prices is listed. Remake it in the Consumable Crafter (the difference in price is refunded, or paid), Keep it at its new price and weight, or take a Refund of what you paid over the new price. Refund all does them all at once.'
             ]],
             ['Weapons and Shields', [
                 'Weapon properties take effect when you hit: Crushing (STR save or Prone, or an extra die against a Prone target), Stunning (CON save or Stunned), Concealed (an extra die against a Surprised target), and Flurry\'s AP discount on your next attack with that weapon this turn.',
@@ -416,6 +419,7 @@
                 'Each popup keeps its own loot (a chest, a hidden cache, a shop counter), stocked with + Loot Maker, no NPC needed. Each named NPC keeps its own loot in its window.'
             ]],
             ['Several of an Item', [
+                'Consumables cost 5 Currency per XP and weigh 1/4 lb per XP, rounded down. Consumables to remake lists the ones in your Library made under the old prices when the GM Tools open: Remake one in the Consumable Crafter, or Update it to its new price and weight. Update all also updates the copies on your saved NPCs and the open world\'s Loot list, and your players are asked about their own copies.',
                 'Making a consumable for loot? The Consumable Crafter\'s last step has a "How many" box beside Give to NPC / Add to Loot, so five Healing Draughts take one trip through the crafter, not five.',
                 'Every loot row has − and + to change the count: an NPC\'s carried loot, Area Circles, Special Map Markers and the Loot Maker\'s own list. + adds another of exactly the same item, whatever it is.',
                 'An item that\'s already there joins its stack instead of starting a new row, NPC consumables included.',
