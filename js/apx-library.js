@@ -277,14 +277,17 @@
         let nNpcs = (window.gmNpcs || []).length;
         if (tabFilled !== nNpcs) { tabFilled = nNpcs; try { window.apxLibBackfill(); } catch (e) { console.warn('Library backfill:', e); } }
         let st = tabState[kind], key = 'lib-' + kind, WT = window.apxWt;
-        let subs = kind === 'item' ? ['Weapon', 'Armor', 'Consumable', 'Magic Item'] : ['1', '2', '3', '4', '5'];
+        // (setting-agnostic types: Armor takes in shields and helmets; Other is everyday gear, materials and the rest)
+        let subs = kind === 'item' ? ['Weapon', 'Armor', 'Consumable', 'Equippable', 'Other'] : ['1', '2', '3', '4', '5'];
         let inSub = e => {
             if (!st.sub) return true;
             if (st.sub === 'learn') return !!e.playable;
             if (st.sub === 'gmonly') return !e.playable;
             if (kind === 'power') return String(e.data && e.data.lvl) === st.sub;
             let k = window.apxLootKind ? window.apxLootKind(e.data || {}) : '';
-            return st.sub === 'Magic Item' ? /magic|item|equip/i.test(k) && !/weapon|armor|consumable/i.test(k) : k.toLowerCase().includes(st.sub.toLowerCase());
+            if (st.sub === 'Armor') return ['Armor', 'Shield', 'Helmet'].includes(k);
+            if (st.sub === 'Other') return !['Weapon', 'Armor', 'Shield', 'Helmet', 'Consumable', 'Equippable'].includes(k);
+            return k === st.sub;
         };
         let base = window.gmLibrary.filter(e => e.kind === kind);
         let q = st.q.toLowerCase();
