@@ -47,6 +47,7 @@
         } catch (e) { console.warn('Library load failed:', e.message); }
         let have = new Set(window.gmLibrary.map(e => e.id));
         (list || []).forEach(e => { if (e && e.id && !have.has(e.id)) window.gmLibrary.push(e); });
+        if (mergePowerDuplicates()) save();
     };
 
     // Removed by hand: remembered, so the backfill below never brings it back
@@ -56,6 +57,31 @@
         if (!Array.isArray(m.removed)) m.removed = [];
         return m;
     }
+    // The same power is one Library entry: same name and Level (older builds, copies on other NPCs,
+    // a rebuild under newer rules). Which copy is newer: rebuilt under newer rules, or built with the Power Crafter.
+    const powerKey = d => String((d && d.name) || '').trim().toLowerCase() + '|' + String((d && d.lvl) ?? '');
+    const powerRank = d => [(d && d.rulesRev) || 0, d && d.draft ? 1 : 0];
+    function newerPower(a, b) { let x = powerRank(a), y = powerRank(b); return y[0] !== x[0] ? y[0] > x[0] : y[1] > x[1]; }
+    // Duplicates already in the Library are merged into one (its worlds, and players' access, combined)
+    function mergePowerDuplicates() {
+        let groups = {}, changed = false;
+        window.gmLibrary.forEach(e => { if (e.kind === 'power' && e.data) (groups[powerKey(e.data)] = groups[powerKey(e.data)] || []).push(e); });
+        Object.values(groups).forEach(g => {
+            if (g.length < 2) return;
+            let keep = g.reduce((a, b) => newerPower(a.data, b.data) || (!newerPower(b.data, a.data) && (b.t || 0) > (a.t || 0)) ? b : a);
+            let everywhere = g.some(e => !(e.worldTags || []).length);
+            let tags = [...new Set(g.flatMap(e => e.worldTags || []))];
+            keep.worldTags = everywhere && !keep.playable && !g.some(e => e.playable) ? [] : tags;
+            if (g.some(e => e.playable)) keep.playable = true;
+            let m = meta();
+            g.forEach(e => { if (e !== keep) { let es = e._sig || sig(e.kind, e.data); if (!m.removed.includes(es)) m.removed.push(es); } });
+            window.gmLibrary = window.gmLibrary.filter(e => e === keep || !g.includes(e));
+            changed = true;
+        });
+        return changed;
+    }
+    window.apxLibMergeDuplicates = function () { if (mergePowerDuplicates()) { save(); tabRefresh(); } };
+
     // Add something the GM made. Already there: it's also tagged with this world.
     // opts: { quiet, worlds: [worldIds] (default: the open world; [] = every world), backfill }
     window.apxLibAdd = function (kind, data, opts) {
@@ -65,18 +91,31 @@
         let tags = Array.isArray(opts.worlds) ? opts.worlds.filter(Boolean) : (w ? [w] : []);
         if (opts.backfill && meta().removed.includes(s)) return null;
         let e = window.gmLibrary.find(x => x.kind === kind && x._sig === s) || window.gmLibrary.find(x => x.kind === kind && x.kind !== 'meta' && sig(x.kind, x.data) === s);
+        // A power already in the Library under the same name and Level is the same power: a newer
+        // version replaces the Library's copy (anything the GM just made is the newest)
+        if (!e && kind === 'power') {
+            e = window.gmLibrary.find(x => x.kind === 'power' && powerKey(x.data) === powerKey(data));
+            if (e && (!opts.backfill || newerPower(e.data, data))) {
+                let m = meta(), old = e._sig || sig(e.kind, e.data);
+                if (!m.removed.includes(old)) m.removed.push(old);
+                e.data = JSON.parse(JSON.stringify(data)); e.name = data.name; e.t = Date.now(); s = sig(kind, data);
+                save();
+            } else if (e) s = e._sig || sig(e.kind, e.data);   // (the Library keeps its newer copy)
+            if (e && opts.playable) { e.playable = true; save(); }
+        }
         if (e) {
             e._sig = s;
             // (an entry for every world stays that way)
             if ((e.worldTags || []).length && tags.length) {
                 let add = tags.filter(t => !e.worldTags.includes(t));
                 if (add.length) { e.worldTags = e.worldTags.concat(add); save(); }
-            } else if ((e.worldTags || []).length && !tags.length && opts.worlds) { e.worldTags = []; save(); }
+            } else if ((e.worldTags || []).length && !tags.length && opts.worlds && !opts.backfill) { e.worldTags = []; save(); }   // (a backfill only ever adds worlds)
             return e;
         }
         let copy = JSON.parse(JSON.stringify(data));
         if (kind === 'item') { copy.ct = 1; if (copy.isCustomEquippable) copy.equipped = false; }
         e = { id: uid(), kind, name: data.name, data: copy, worldTags: tags, createdIn: tags[0] || w, t: Date.now(), _sig: s };
+        if (kind === 'power' && opts.playable) e.playable = true;   // players in its worlds can learn it (Add Power)
         window.gmLibrary.push(e);
         save();
         if (!(opts && opts.quiet)) window.APXDice?.notify(`${data.name} is in your Library${w ? ' for ' + worldName(w) : ''}.`, { kind: 'loot' });
@@ -161,7 +200,8 @@
             let names = (e.worldTags || []).length ? (e.worldTags || []).map(worldName).map(esc).join(', ') : '';
             if (e.kind !== 'power' || !opts.check) return names || 'Every world';
             if (!(e.data && e.data.draft)) return (names || 'Every world') + ' · <span style="color:#94a3b8">NPCs and items only (not built with the Power Crafter, so players can\'t learn it)</span>';
-            return names ? `${names} · <span style="color:#86efac">players there can learn it (Add Power)</span>` : 'Every world (for NPCs and items) · <span style="color:#94a3b8">tag a world so its players can learn it</span>';
+            if (!e.playable) return (names || 'Every world') + ' · <span style="color:#94a3b8">GM only: NPCs and items</span>';
+            return names ? `${names} · <span style="color:#86efac">players there can learn it (Add Power)</span>` : 'Every world · <span style="color:#fcd34d">players can learn it once it\'s tagged with their world</span>';
         };
         return list.map(e => `<div style="display:flex;align-items:center;gap:.4rem;padding:.3rem .45rem;border:1px solid #334155;border-radius:.35rem;margin-bottom:.25rem;background:#0f172a">
             ${opts.check && window.apxWt ? window.apxWt.check(opts.check, e.id) : ''}
@@ -170,6 +210,7 @@
                 <div style="font-size:.6rem;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(statsOf(e))}</div>
                 <div style="font-size:.56rem;color:#64748b">${whereLine(e)}</div>
             </div>
+            ${opts.check && e.kind === 'power' ? `<button data-lib-play="${esc(e.id)}" ${e.data && e.data.draft ? '' : 'disabled'} title="${e.data && e.data.draft ? 'Can players learn this power (Add Power, in the worlds it\'s tagged with)? Click to switch.' : 'Typed in by hand, not built with the Power Crafter: NPCs and items only'}" style="${btn};background:${e.playable ? '#14532d' : '#1e293b'};border:1px solid ${e.playable ? '#22c55e' : '#475569'};color:${e.playable ? '#bbf7d0' : '#94a3b8'};white-space:nowrap">${e.playable ? 'Players ✓' : 'Players ✕'}</button>` : ''}
             ${opts.edit ? `<button data-lib-edit="${esc(e.id)}" title="${e.kind === 'power' ? 'Edit this power in the Power Crafter' : 'Edit this item'} (copies already given out or placed don't change)" style="${btn};background:#1e293b;border:1px solid #a16207;color:#fde68a">Edit</button>` : ''}
             ${opts.onPick ? `<button data-lib-pick="${esc(e.id)}" style="${btn};background:#047857;border:1px solid #059669;color:#fff">${esc(opts.pickLabel || 'Add')}</button>` : ''}
             <button data-lib-worlds="${esc(e.id)}" title="Which worlds it shows up in" style="${btn};background:#1e293b;border:1px solid #475569;color:#93c5fd">Worlds</button>
@@ -220,6 +261,7 @@
         // Powers on items already in the Library (an equippable item's powers)
         window.gmLibrary.filter(e => e.kind === 'item' && Array.isArray(e.data && e.data.powers)).forEach(e =>
             e.data.powers.forEach(p => { if (p && p.name) add('power', cleanPower(p), e.worldTags || []); }));
+        if (mergePowerDuplicates()) save();
         let added = window.gmLibrary.filter(e => e.kind !== 'meta').length - before;
         if (added > 0) { save(); (window.apxLibRefresh && window.apxLibRefresh(), tabRefresh()); }
         return added;
@@ -238,6 +280,8 @@
         let subs = kind === 'item' ? ['Weapon', 'Armor', 'Consumable', 'Magic Item'] : ['1', '2', '3', '4', '5'];
         let inSub = e => {
             if (!st.sub) return true;
+            if (st.sub === 'learn') return !!e.playable;
+            if (st.sub === 'gmonly') return !e.playable;
             if (kind === 'power') return String(e.data && e.data.lvl) === st.sub;
             let k = window.apxLootKind ? window.apxLootKind(e.data || {}) : '';
             return st.sub === 'Magic Item' ? /magic|item|equip/i.test(k) && !/weapon|armor|consumable/i.test(k) : k.toLowerCase().includes(st.sub.toLowerCase());
@@ -250,11 +294,11 @@
             : `<div style="font-size:.7rem;color:#64748b;padding:.4rem">${base.length ? 'Nothing matches.' : kind === 'power' ? 'No powers yet. + New Power builds one in the Power Crafter (powers you give NPCs are kept here too).' : 'No items yet. + New Item opens the Loot Maker (what you make for loot and NPCs is kept here too).'}</div>`;
         box.innerHTML = `<div class="flex flex-wrap items-center gap-2 mb-2 flex-shrink-0">
                 <input type="text" data-lt-q value="${esc(st.q)}" placeholder="Search ${kind === 'power' ? 'powers' : 'items'}…" class="bg-slate-900 text-xs flex-1" style="min-width:10rem">
-                <select data-lt-sub class="bg-slate-900 text-xs" style="width:auto">${[['', kind === 'power' ? 'Every Level' : 'Every type']].concat(subs.map(x => [x, kind === 'power' ? 'Level ' + x : x])).map(([v, l]) => `<option value="${v}" ${st.sub === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
+                <select data-lt-sub class="bg-slate-900 text-xs" style="width:auto">${[['', kind === 'power' ? 'Every Level' : 'Every type']].concat(subs.map(x => [x, kind === 'power' ? 'Level ' + x : x])).concat(kind === 'power' ? [['learn', 'Players can learn'], ['gmonly', 'GM only']] : []).map(([v, l]) => `<option value="${v}" ${st.sub === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
                 <span class="text-[10px] text-slate-500">${shown.length} of ${base.length}</span>
             </div>
             <div class="text-[10px] text-slate-500 mb-2 flex-shrink-0">${kind === 'power'
-                ? 'Every power you\'ve made: for NPCs (the NPC Crafter\'s power picker), items, and players. Tag a power with a world and its players can learn it from Add Power on their sheet. Edit reopens it in the Power Crafter.'
+                ? 'Every power you\'ve made: for NPCs (the NPC Crafter\'s power picker), items, and players. <b>Players ✓</b> lets players learn a power from Add Power on their sheet, in the worlds it\'s tagged with; <b>Players ✕</b> keeps it for your NPCs and items. Edit reopens it in the Power Crafter.'
                 : 'Every custom item, forged weapon and armor, and consumable you\'ve made. Add to Loot puts a copy on the open world\'s Loot list. Edit changes the Library\'s copy (reopening its forge or crafter).'}</div>
             <div data-lt-wrap class="flex-1 flex flex-col min-h-0"><div data-lt-list class="flex-1 overflow-y-auto min-h-0 pr-1">${html}</div></div>`;
         let qi = box.querySelector('[data-lt-q]');
@@ -266,6 +310,7 @@
             if (window.apxAddLoot) window.apxAddLoot(null, data);
         } : null);
         if (WT) WT.bar(listEl, { key, ids: shown.map(e => e.id), untagged: 'Untagged (every world)', rerender: () => window.apxLibRenderTab(kind),
+            extra: kind === 'power' ? [['Players ✓', 'Let players learn every selected power', ids => window.apxLibSetPlayable(ids, true)], ['Players ✕', 'Keep every selected power for your NPCs and items', ids => window.apxLibSetPlayable(ids, false)]] : null,
             onApply: (ids, w, add) => {
                 ids.forEach(id => { let e = window.apxLibGet(id); if (!e) return; e.worldTags = (e.worldTags || []).filter(t => t !== w); if (add) e.worldTags.push(w); });
                 save();
@@ -281,11 +326,18 @@
         root.querySelectorAll('[data-lib-pick]').forEach(b => b.onclick = () => { let e = window.apxLibGet(b.dataset.libPick); if (e && onPick) onPick(JSON.parse(JSON.stringify(e.data)), e); });
         root.querySelectorAll('[data-lib-worlds]').forEach(b => b.onclick = () => window.apxLibWorlds(b.dataset.libWorlds));
         root.querySelectorAll('[data-lib-del]').forEach(b => b.onclick = () => window.apxLibRemove(b.dataset.libDel));
+        root.querySelectorAll('[data-lib-play]').forEach(b => b.onclick = () => window.apxLibSetPlayable([b.dataset.libPlay], null));
         root.querySelectorAll('[data-lib-edit]').forEach(b => b.onclick = () => {
             let e = window.apxLibGet(b.dataset.libEdit); if (!e) return;
             if (e.kind === 'power') window.apxLibEditPower(e.id);
             else if (window.apxEditLibItem) window.apxEditLibItem(e.id);
         });
+    };
+
+    // Can players learn these powers (Add Power)? on: true / false, or null to switch each
+    window.apxLibSetPlayable = function (ids, on) {
+        ids.forEach(id => { let e = window.apxLibGet(id); if (!e || e.kind !== 'power' || !(e.data && e.data.draft)) return; e.playable = on === null ? !e.playable : !!on; });
+        save(); tabRefresh();
     };
 
     // ── Editing a Library power: the Power Crafter, on the Library's copy ──
@@ -298,7 +350,7 @@
         window._pcLibOnChange = power => {
             if (!power) return;
             if (power === list[0]) window.apxLibUpdate(id, power);
-            else window.apxLibAdd('power', power, { worlds: (e.worldTags || []).slice() });
+            else window.apxLibAdd('power', power, { worlds: (e.worldTags || []).slice(), playable: !!e.playable });
             tabRefresh();
         };
         window.openPowerEditor(0, 'lib');

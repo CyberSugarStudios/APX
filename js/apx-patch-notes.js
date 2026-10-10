@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.10.0218',
-        released: '2026-10-10T02:18:00',
-        releasedText: 'October 10, 2026 · 2:18 AM',
+        version: 'v2026.10.10.0235',
+        released: '2026-10-10T02:35:00',
+        releasedText: 'October 10, 2026 · 2:35 AM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs with loot of their own, apart from their stat blocks, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, area powers placed right on the battle map with every save in them rolled for you, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -38,7 +38,7 @@
                 'Map windows have a Revealed / Hidden button, and everything you made before the Library existed is gathered into it too.',
                 'Powers and Loot & Items are on the GM Tools toolbar now, beside Race Templates, the new Origin Templates and NPCs & Enemies. Each lists everything you\'ve made, with an Edit button.',
                 'Origin Templates: a GM-made origin with a Name, Starting Wealth, Origin Feature, Common Language and four Competencies, each locked or left to the player.',
-                'Make a power with + New Power and tag it with a world: its players can learn it from + Add Power on their sheet.',
+                'Make a power with + New Power and tag it with a world: its players can learn it from + Add Power on their sheet. A Players ✓ / ✕ switch on every power decides whether players can take it at all, so your NPCs\' powers stay theirs.',
                 'Everything you make outside a world (Race Templates, Origin Templates, NPCs, Powers, Loot & Items) has a World filter and checkboxes: tick several and tag (or untag) them with a world at once.',
                 'Before you press Start Combat, players only hear that a creature took damage or went down; the full combat log reaches them once the fight starts.',
                 'New NPC traits run themselves in the tracker: Undead (falls Prone and Incapacitated at 0 HP, looking dead, rolls its own revival save at the start of its turn, and is destroyed by a Critical Hit or Fire while down) and Unalive Structure (repair-only healing, Stunned by Electric damage). Condition immunities are enforced.',
@@ -375,7 +375,8 @@
                 'Everything you made before the Library existed is gathered into it when the GM Tools open: custom items, forged and custom weapons, forged armor and consumables from each world\'s Loot list, Area Circles and Special Map Markers, plus your NPCs\' gear, loot and powers and the powers on equippable items. Each is tagged with the world it was found in, and anything you remove from the Library stays removed.',
                 'Kawaii is a true light theme on every window, and Cyber Sigil is its dark twin (Settings → Theme).',
                 'Powers and Loot & Items (on the toolbar) are your Library: searchable, filtered by type or Level and by world, with Add to Loot for items (it goes on the open world\'s Loot list). + New Power builds a power in the Power Crafter, and + New Item opens the Loot Maker; both go straight into the Library.',
-                'Powers tagged with a world are offered to its players: + Add Power on their sheet lists them, and learning one opens it in their Power Crafter (they pay its XP). Untagged powers stay yours, for NPCs and items in every world. A power typed in by hand (not built with the Power Crafter) is for NPCs and items only.',
+                'Every power has a Players ✓ / ✕ switch. With ✓, players in the worlds the power is tagged with can learn it: + Add Power on their sheet lists it, and learning it opens it in their Power Crafter (they pay its XP). With ✕ it stays yours, for NPCs and items: a power built for a skeletal giant made of bones doesn\'t belong on a player. Powers you make with + New Power start at ✓, your NPCs\' powers at ✕; select several to switch them at once, and the Level filter shows only Players can learn or GM only. A power typed in by hand (not built with the Power Crafter) is for NPCs and items only.',
+                'Each power is in the Library once: copies of the same power (same name and Level) on several NPCs, or rebuilt under newer rules, are one entry, keeping the newest build and every world it was tagged with. Duplicates already in your Library are merged when the GM Tools open, and players\' Add Power lists each power once too.',
                 'Every Library entry has an Edit button. Powers reopen in the Power Crafter (Save to Library, or Save as New to keep both), forged weapons and armor in their forge, consumables in the Consumable Crafter, custom items in the Loot Maker\'s form, and anything else (gear, shields, helmets, quick custom weapons, Crafting Materials) in a short form. Only the Library\'s copy changes; anything already handed out, placed or on an NPC stays as it was.'
             ]],
             ['Templates and World Tags', [

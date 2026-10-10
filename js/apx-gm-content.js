@@ -64,6 +64,7 @@
                 <button data-wt-add ${n ? '' : 'disabled'} style="${b};background:${n ? '#b45309' : '#334155'};border:1px solid ${n ? '#f59e0b' : '#475569'};color:${n ? '#fff' : '#94a3b8'}" title="Tag every selected one with this world">Tag</button>
                 <button data-wt-rem ${n ? '' : 'disabled'} style="${b};background:#1e293b;border:1px solid #475569;color:${n ? '#fca5a5' : '#64748b'}" title="Take this world's tag off every selected one">Untag</button>`
                 : '<span class="text-[10px] text-slate-500">Create a world to tag things with it.</span>'}
+                ${(cfg.extra || []).map(([l, t], i) => `<button data-wt-x="${i}" ${n ? '' : 'disabled'} title="${esc(t)}" style="${b};background:#1e293b;border:1px solid #475569;color:${n ? '#e2e8f0' : '#64748b'}">${esc(l)}</button>`).join('')}
                 ${cfg.note ? `<div class="w-full text-[10px] text-slate-500">${cfg.note}</div>` : ''}`;
             bar.querySelector('[data-wt-filter]').onchange = e => { st.filter = e.target.value; st.sel.clear(); cfg.rerender(); };
             let allBox = bar.querySelector('[data-wt-all]');
@@ -77,6 +78,7 @@
                 st.sel.clear(); cfg.rerender();
             };
             bar.querySelector('[data-wt-add]') && (bar.querySelector('[data-wt-add]').onclick = go(true));
+            bar.querySelectorAll('[data-wt-x]').forEach(x => x.onclick = () => { let ids = [...st.sel]; if (!ids.length) return; cfg.extra[+x.dataset.wtX][2](ids); st.sel.clear(); cfg.rerender(); });
             bar.querySelector('[data-wt-rem]') && (bar.querySelector('[data-wt-rem]').onclick = go(false));
             // the row checkboxes
             listEl.querySelectorAll('[data-wt-sel]').forEach(c => c.onchange = () => {
@@ -158,7 +160,9 @@
     const pubSig = {};
     let pubT = 0;
     function pubPowers(id) {
-        return (window.gmLibrary || []).filter(e => e.kind === 'power' && e.data && e.data.draft && (e.worldTags || []).includes(id)).map(e => {
+        let seen = new Set();
+        return (window.gmLibrary || []).filter(e => e.kind === 'power' && e.playable && e.data && e.data.draft && (e.worldTags || []).includes(id))
+            .filter(e => { let k = String(e.name || '').toLowerCase() + '|' + e.data.lvl; if (seen.has(k)) return false; seen.add(k); return true; }).map(e => {
             let p = e.data;
             return { id: e.id, name: e.name || p.name, lvl: p.lvl, ap: p.ap, atk: p.atk || '', rng: p.rng || '', dmg: p.dmg || '', desc: p.desc || '', draft: p.draft };
         });
@@ -396,7 +400,7 @@
         window._pcLibPowers = [];
         window._pcLibOnChange = power => {
             if (!power) return;
-            window.apxLibAdd('power', power, { worlds: f && f !== '__none' ? [f] : [] });
+            window.apxLibAdd('power', power, { worlds: f && f !== '__none' ? [f] : [], playable: true });
             window.apxLibRenderTab && window.apxLibRenderTab('power');
         };
         window.openPowerCrafter(false, 'lib');

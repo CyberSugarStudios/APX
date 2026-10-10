@@ -136,7 +136,9 @@
         // GM's design: you pay its XP and pick its Core Attribute and power type, like any power you craft.
         window.apxWorldGmPowers = function() {
             let w = window._playerWorldData;
-            return (w && Array.isArray(w.gmPowers)) ? w.gmPowers.filter(p => p && p.draft && p.name) : [];
+            let seen = new Set();   // (one of each power: same name and Level)
+            return (w && Array.isArray(w.gmPowers)) ? w.gmPowers.filter(p => p && p.draft && p.name)
+                .filter(p => { let k = String(p.name).toLowerCase() + '|' + p.lvl; if (seen.has(k)) return false; seen.add(k); return true; }) : [];
         };
         window.apxOpenAddPower = function(q) {
             let old = document.getElementById('apxAddPower');
