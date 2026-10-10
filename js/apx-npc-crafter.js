@@ -1919,6 +1919,21 @@ function buildStatBlockHtml(sb, editable) {
 // and rolls its damage or healing, anything else shows its description. Its AP comes off the
 // creature taking its turn in the tracker (a Reaction power costs none).
 function npcPowerKey(sb) { return sb && sb._isCompanion ? 'comp:' + (sb._compOwner || '') : (sb && sb._npcId) || ''; }
+// The attacks an NPC's martial power can ride (Power Crafter → Attack Roll → Martial Improvement): its
+// innate attacks and the weapons it has. The weapon's own TP is already paid; the power costs only its own.
+// key: 'i:<innate id>' or 'w:<weapon index>' ('w:<index>:2h' for a Medium weapon held in both hands)
+window.apxNpcMartialOptions = function(sb) {
+    if (!sb) return [];
+    let clean = t => String(t || '').replace(/\s+/g, '').replace(/\+-/g, '-');
+    let out = (sb.innateAttacks || []).map(w => ({ key: 'i:' + w.id, label: w.name, bonus: w.attackBonus || 0, dice: clean(w.dmgText), dmgType: String(w.typeText || '').replace(/\s*\(split\)\s*$/, ''), innate: true }));
+    (sb.equippedWeapons || []).forEach(w => out.push({ key: 'w:' + w.weaponIdx + (w.isTwoHanded ? ':2h' : ''), label: w.name, bonus: w.atk || 0, dice: clean(w.dmg), dmgType: w.dmgType || '', critMult: w.critMult || 2, ranged: w.category === 'ranged' }));
+    return out.filter(o => /\d*d\d+/.test(o.dice));
+};
+// Which of them a power uses (the one it was made with, else the same weapon in other hands, else the first)
+window.apxNpcMartialWeapon = function(sb, key) {
+    let opts = window.apxNpcMartialOptions(sb);
+    return opts.find(o => o.key === key) || opts.find(o => o.key.split(':').slice(0, 2).join(':') === String(key || '').split(':').slice(0, 2).join(':')) || opts[0] || null;
+};
 function npcPowerStatBlock(key) {
     if (!key) return null;
     if (key.indexOf('comp:') === 0) {
@@ -2030,7 +2045,25 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
                 text: `${whoPub} uses ${p.name || 'a power'}.`, summon: { npc: (n => { delete n.portraitFull; return n; })(JSON.parse(JSON.stringify(d.summonNpc))), count: sumN, tier: d.summonTier || 1, power: p.name || 'Power' } });
         } else if (typeof window._gmSpawnNpcSummon === 'function') window._gmSpawnNpcSummon(actor, p);
     }
-    if (step === 'atkSave' && d.atkMode !== 'save' && d.atkKind !== 'martial') {
+    // Martial Improvement: the power rides one of the creature's own attacks (that attack's bonus, its
+    // damage plus the power's). With no weapon left to use, it's a Power Attack.
+    let mw = step === 'atkSave' && d.atkMode !== 'save' && d.atkKind === 'martial' ? window.apxNpcMartialWeapon(sb, d.atkWeapon) : null;
+    if (mw) {
+        o.bonus = mw.bonus; o.label = `${p.name || 'Power'} (${mw.label})`;
+        o.hit = { weapon: mw.label, props: [], die: '1d' + ((mw.dice.match(/d(\d+)/) || [0, 6])[1]), dmgType: mw.dmgType };
+        o.critMult = mw.critMult || 2;
+        if (sb.armorStrShort) o.disSources = ['Armor (STR requirement not met)'];
+        if (dmg && !dmg.heal) {
+            o.dice = mw.dice + '+' + dmg.formula; o.dmgType = [mw.dmgType, dmg.type].filter(Boolean).join(' + ');
+            o.split = [{ formula: mw.dice, type: mw.dmgType || 'Weapon' }].concat(dmg.split || [{ formula: dmg.formula, type: dmg.type }]);
+        } else { o.dice = mw.dice; o.dmgType = mw.dmgType; }
+        APXDice.attack(o);
+        tell(`${whoPub} uses ${p.name || 'a power'} with ${mw.label}${isReact ? ' (Reaction)' : ''}: attack roll.`, `${whoGm} uses ${p.name || 'a power'} with ${mw.label}${isReact ? ' (Reaction)' : ''}: attack roll.`);
+        areaOut({ attackRoll: true });
+        if (fxInfo && fxInfo.conds.length) offerFx();
+        return;
+    }
+    if (step === 'atkSave' && d.atkMode !== 'save') {
         o.bonus = sb.powerAttackBonus || 0;
         o.hit = { weapon: p.name || 'Power', props: [], die: dmg ? '1d' + ((dmg.formula.match(/d(\d+)/) || [0, 6])[1]) : '1d6', dmgType: dmg && !dmg.heal ? dmg.type : '' };
         if (dmg && !dmg.heal) { o.dice = dmg.formula; o.dmgType = dmg.type; if (dmg.split) o.split = dmg.split; APXDice.attack(o); }

@@ -987,21 +987,51 @@
             let perks = st.perks || {};
             return Math.max(perks.pwr_int || 0, perks.pwr_cha || 0);
         };
-        // "Add a second damage type, splitting the dice": the last N dice (the largest) deal the second type.
-        // → [{ formula, type, count }, { formula, type, count }] or null. flat: +1 per die goes with each part.
+        // "Add a second damage type, splitting the dice": you choose how many dice of each size deal the
+        // second type (draft.secondSplit = { d4: 2 }: 2d4 + 2d6 can be 2d6 Piercing + 2d4 Poison). Powers
+        // from before that choice give the second type their last N dice (the largest), draft.secondDice.
+        window.apxSplitCounts = function(draft) {
+            let counts = {}, out = {}, total = 0;
+            POWER_DIE_STEPS.forEach(st => { counts[st] = Math.max(0, parseInt((draft.dmg || {})[st]) || 0); total += counts[st]; });
+            if (draft.secondSplit && typeof draft.secondSplit === 'object') {
+                POWER_DIE_STEPS.forEach(st => { out[st] = Math.max(0, Math.min(counts[st], parseInt(draft.secondSplit[st]) || 0)); });
+                return out;
+            }
+            let n = Math.max(1, Math.min(Math.max(1, total - 1), parseInt(draft.secondDice) || Math.floor(total / 2)));
+            POWER_DIE_STEPS.slice().reverse().forEach(st => { let k = Math.min(counts[st], n); out[st] = k; n -= k; });
+            return out;
+        };
+        // → [{ formula, type, count }, { formula, type, count }] or null (fewer than 2 dice, or a type left
+        // with none). flat: +1 per die goes with each part.
         window.apxDmgSplit = function(draft) {
             if (!draft || draft.isHealing || !draft.addSecondType || !draft.dmg) return null;
-            let dice = [];
-            POWER_DIE_STEPS.forEach(st => { for (let i = 0; i < (parseInt(draft.dmg[st]) || 0); i++) dice.push(st); });
-            if (dice.length < 2) return null;
-            let n = Math.max(1, Math.min(dice.length - 1, parseInt(draft.secondDice) || Math.floor(dice.length / 2)));
+            let sc = window.apxSplitCounts(draft), a = [], b = [];
+            POWER_DIE_STEPS.forEach(st => {
+                let c = Math.max(0, parseInt(draft.dmg[st]) || 0), k = sc[st] || 0;
+                for (let i = 0; i < c - k; i++) a.push(st);
+                for (let i = 0; i < k; i++) b.push(st);
+            });
+            if (!a.length || !b.length) return null;
             let fmt = arr => {
                 let parts = [];
                 POWER_DIE_STEPS.forEach(st => { let c = arr.filter(x => x === st).length; if (c) parts.push(c + st); });
                 return parts.join('+') + (draft.addFlatDmgPerDie ? '+' + arr.length : '');
             };
-            let a = dice.slice(0, dice.length - n), b = dice.slice(dice.length - n);
             return [{ formula: fmt(a), type: draft.dmgType || 'Fire', count: a.length }, { formula: fmt(b), type: draft.secondDmgType || 'Cold', count: b.length }];
+        };
+        // The Power and Consumable Crafters' split rows: each die size, how many go to each type.
+        // fn: the crafter's setter, called as fn('d6', 1) (one more d6 to the second type) or fn('d6', -1)
+        window.apxSplitRowsHtml = function(draft, fn) {
+            let sc = window.apxSplitCounts(draft), t1 = draft.dmgType || 'Fire', t2 = draft.secondDmgType || 'Cold';
+            let btn = (st, dlt, on, lbl, tip) => `<button type="button" ${on ? `onclick="${fn}('${st}', ${dlt})"` : 'disabled'} title="${tip}" class="w-5 h-5 rounded ${on ? (dlt > 0 ? 'bg-amber-700 hover:bg-amber-600' : 'bg-slate-700 hover:bg-slate-600') : 'bg-slate-800 opacity-40'} text-white text-xs font-bold">${lbl}</button>`;
+            return POWER_DIE_STEPS.filter(st => (parseInt((draft.dmg || {})[st]) || 0) > 0).map(st => {
+                let c = parseInt(draft.dmg[st]) || 0, k = sc[st] || 0;
+                return `<div class="flex items-center gap-2 text-xs w-full">
+                    <span class="w-12 font-black text-white">${c}${st}</span>
+                    <span class="text-slate-300 w-28 truncate" title="${t1}">${c - k}${st} ${t1}</span>
+                    ${btn(st, -1, k > 0, '◀', `One ${st} back to ${t1}`)}${btn(st, 1, k < c, '▶', `One more ${st} to ${t2}`)}
+                    <span class="text-slate-300 truncate" title="${t2}">${k}${st} ${t2}</span></div>`;
+            }).join('');
         };
         window.apxDmgSplitText = parts => (parts || []).map(p => `${p.formula} ${p.type}`).join(' + ');
         window.apxPowerIsReaction = p => !!(p && p.draft && apxPowerApKey(p.draft) === 'reaction');

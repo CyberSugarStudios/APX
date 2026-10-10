@@ -522,25 +522,24 @@ window.pcSetDie = function(step, delta) {
     pcRenderAll();
 };
 window.pcSetHealing = function(checked) { pcDraft.isHealing = checked; pcRenderAll(); };
-window.pcSetDmgType = function(val) { pcDraft.dmgType = val; };
-window.pcSetSecondDmgType = function(val) { pcDraft.secondDmgType = val; };
+window.pcSetDmgType = function(val) { pcDraft.dmgType = val; if (pcDraft.addSecondType) pcRenderAll(); };
+window.pcSetSecondDmgType = function(val) { pcDraft.secondDmgType = val; pcRenderAll(); };
 // A second damage type splits the dice: you pick how many of them deal it (the largest dice go first)
 function pcDiceTotal(d) { return POWER_DIE_STEPS.reduce((t, st) => t + (parseInt(d.dmg[st]) || 0), 0); }
-window.pcToggleSecondType = async function(checked) {
+window.pcToggleSecondType = function(checked) {
     if (checked) {
         let total = pcDiceTotal(pcDraft);
         if (total < 2) { window.showConfirm('Splitting needs at least 2 damage dice: add dice in this step first.', null, true); pcRenderAll(); return; }
-        let def = Math.max(1, Math.min(total - 1, parseInt(pcDraft.secondDice) || Math.floor(total / 2)));
-        let v = window.apxPrompt ? await window.apxPrompt(`How many of the ${total} damage dice deal the second damage type? (1 to ${total - 1})`, String(def), { title: 'Split the damage dice', okLabel: 'Split' }) : String(def);
-        let n = parseInt(v);
-        if (!(n >= 1)) { pcRenderAll(); return; }
-        pcDraft.secondDice = Math.max(1, Math.min(total - 1, n));
+        pcDraft.secondSplit = window.apxSplitCounts(pcDraft);   // half the dice (the largest) to start; change it per die size
     }
     pcDraft.addSecondType = checked; pcRenderAll();
 };
-window.pcSetSecondDice = function(delta) {
-    let total = pcDiceTotal(pcDraft);
-    pcDraft.secondDice = Math.max(1, Math.min(Math.max(1, total - 1), (parseInt(pcDraft.secondDice) || 1) + delta));
+// Move one die of a size between the two types (+1: to the second type, -1: back to the first)
+window.pcSetSplitDie = function(st, delta) {
+    let sc = window.apxSplitCounts(pcDraft), c = parseInt(pcDraft.dmg[st]) || 0;
+    sc[st] = Math.max(0, Math.min(c, (sc[st] || 0) + delta));
+    pcDraft.secondSplit = sc;
+    pcDraft.secondDice = Object.values(sc).reduce((t, n) => t + n, 0);
     pcRenderAll();
 };
 window.pcToggleTypeOnUse = function(checked) { pcDraft.dmgTypeOnUse = !!checked; pcRenderAll(); };
@@ -715,6 +714,13 @@ function pcRenderAll() {
     pcRenderSummary();
 }
 
+// The weapons a martial power can ride: the player's attacks, or the NPC's (innate attacks and weapons)
+function pcMartialOk() { return pcTarget === 'player' || pcTarget === 'gm' || pcTarget === 'companion' || pcTarget === 'summon'; }
+function pcMartialOptions() {
+    if (pcTarget === 'player') return typeof window.apxWeaponAttackOptions === 'function' ? window.apxWeaponAttackOptions() : [];
+    if (!pcMartialOk() || typeof window.apxNpcMartialOptions !== 'function' || typeof window.companionStatBlock !== 'function') return [];
+    try { return window.apxNpcMartialOptions(window.companionStatBlock()); } catch (e) { return []; }
+}
 // Attack Roll / Save Negates: which one this power uses. An Attack Roll is a Power Attack
 // (d20 + Power Atk) or a martial improvement (the power rides a normal weapon attack).
 function pcStep1Extra() {
@@ -728,18 +734,19 @@ function pcStep1Extra() {
             ${seg(mode === 'attack', "window.pcSetAtkOpt('atkMode','attack')", 'Attack Roll', 'You roll a d20 attack against the target')}
             ${seg(mode === 'save', "window.pcSetAtkOpt('atkMode','save')", 'Save Negates', 'The target rolls a save against your Power DC; success negates it')}</div>`;
     if (mode === 'save') html += pcSaveAttrRow();
-    if (mode === 'attack' && !pcIsNpc()) {
+    if (mode === 'attack' && pcMartialOk()) {
+        let npc = pcTarget !== 'player';
         html += `<div class="flex flex-wrap items-center gap-1"><span class="text-[10px] text-slate-400 font-bold mr-1 w-20 shrink-0">Attack</span>
-            ${seg(kind === 'power', "window.pcSetAtkOpt('atkKind','power')", 'Power Attack', 'd20 + your Power Atk bonus')}
-            ${seg(kind === 'martial', "window.pcSetAtkOpt('atkKind','martial')", 'Martial Improvement', 'The power triggers with a normal weapon attack: d20 + that weapon\'s attack bonus')}</div>`;
+            ${seg(kind === 'power', "window.pcSetAtkOpt('atkKind','power')", 'Power Attack', npc ? 'd20 + the creature\'s Power Atk bonus' : 'd20 + your Power Atk bonus')}
+            ${seg(kind === 'martial', "window.pcSetAtkOpt('atkKind','martial')", 'Martial Improvement', npc ? 'The power rides one of the creature\'s own attacks: d20 + that attack\'s bonus, its damage plus the power\'s. The weapon\'s TP is already paid, so the power costs only its own TP.' : 'The power triggers with a normal weapon attack: d20 + that weapon\'s attack bonus')}</div>`;
         if (kind === 'martial') {
-            let opts = typeof window.apxWeaponAttackOptions === 'function' ? window.apxWeaponAttackOptions() : [];
+            let opts = pcMartialOptions();
             let cur = opts.find(o => o.key === pcDraft.atkWeapon) ? pcDraft.atkWeapon : (opts[0] && opts[0].key) || '';
             if (cur && pcDraft.atkWeapon !== cur) pcDraft.atkWeapon = cur;
             html += `<div class="flex items-center gap-1"><span class="text-[10px] text-slate-400 font-bold mr-1 w-20 shrink-0">Weapon</span>
                 ${opts.length ? `<select onchange="window.pcSetAtkOpt('atkWeapon', this.value)" class="flex-1 min-w-0 bg-slate-800 border-slate-600 text-[10px] py-0.5">${opts.map(o => `<option value="${esc(o.key)}" ${o.key === cur ? 'selected' : ''}>${esc(o.label)} (${o.bonus >= 0 ? '+' : ''}${o.bonus})${o.unarmed ? ' · unarmed' : o.innate ? ' · innate' : ''}</option>`).join('')}</select>`
-                    : '<span class="text-[10px] text-slate-500 italic">No weapons equipped. Add one in Weapons and Attacks.</span>'}</div>
-            <div class="text-[9px] text-slate-500">You can switch the weapon later on the power itself.</div>`;
+                    : `<span class="text-[10px] text-slate-500 italic">${npc ? 'This creature has no weapons or innate attacks yet. Add one in the NPC Crafter (it rolls as a Power Attack until then).' : 'No weapons equipped. Add one in Weapons and Attacks.'}</span>`}</div>
+            <div class="text-[9px] text-slate-500">${npc ? 'Its attack roll uses that attack\'s bonus, and a hit deals that attack\'s damage plus the power\'s. The weapon\'s TP is already paid: the power costs only its own TP.' : 'You can switch the weapon later on the power itself.'}</div>`;
         }
     }
     return html + '</div>';
@@ -817,6 +824,9 @@ function pcRulesProblems() {
     let out = info.problems.map(k => window.apxPowerSaveProblemText ? window.apxPowerSaveProblemText(info, k) : k);
     if ((window.apxPowerApKey ? window.apxPowerApKey(pcDraft) : pcDraft.apMod) === 'reaction' && !pcStepSkipped(7) && !String(pcDraft.reactionTrigger || '').trim())
         out.push('A Reaction power needs its trigger: the specific condition for using it (Step 7).');
+    // A second damage type needs dice of its own, and so does the first
+    if (pcDraft.addSecondType && !pcDraft.isHealing && pcDiceTotal(pcDraft) >= 2 && window.apxDmgSplit && !window.apxDmgSplit(pcDraft))
+        out.push('Each damage type needs at least one die: move a die to each side in Step 4\'s split.');
     // No power costs more than 200 XP (the top of Level 5), free or not
     let tot = window.pcCalcXP(pcDraft).total;
     if (tot > window.APX_POWER_MAX_XP) {
@@ -891,19 +901,15 @@ function pcRenderStep4() {
         </label>
         ${pcDraft.addSecondType ? (() => {
             let total = pcDiceTotal(pcDraft), split = window.apxDmgSplit ? window.apxDmgSplit(pcDraft) : null;
-            if (total >= 2) pcDraft.secondDice = Math.max(1, Math.min(total - 1, parseInt(pcDraft.secondDice) || Math.floor(total / 2)));
             return `
         <div class="flex flex-wrap items-center gap-2 bg-slate-900 border border-slate-700 rounded p-2">
             <span class="text-xs text-white font-bold">Second Damage Type:</span>
             <select onchange="window.pcSetSecondDmgType(this.value)" class="bg-slate-800 text-xs">
                 ${DMG_TYPES.map(t => `<option value="${t}" ${pcDraft.secondDmgType===t?'selected':''}>${t}</option>`).join('')}
             </select>
-            <span class="text-xs text-slate-300">on</span>
-            <button onclick="window.pcSetSecondDice(-1)" class="w-5 h-5 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold">-</button>
-            <span class="w-5 text-center text-xs font-bold text-white">${total >= 2 ? pcDraft.secondDice : '–'}</span>
-            <button onclick="window.pcSetSecondDice(1)" class="w-5 h-5 rounded bg-amber-700 hover:bg-amber-600 text-white text-xs font-bold">+</button>
-            <span class="text-xs text-slate-300">of ${total} dice</span>
-            <div class="w-full text-[10px] ${split ? 'text-emerald-300' : 'text-red-400'}">${split ? 'Rolls as ' + window.apxDmgSplitText(split) + ' (each type rolled separately)' : 'Add at least 2 damage dice to split them.'}</div>
+            <div class="w-full text-[10px] text-slate-400">Which dice deal which type: ◀ ▶ moves one die of that size between them.</div>
+            ${window.apxSplitRowsHtml(pcDraft, 'window.pcSetSplitDie')}
+            <div class="w-full text-[10px] ${split ? 'text-emerald-300' : 'text-red-400'}">${split ? 'Rolls as ' + window.apxDmgSplitText(split) + ' (each type rolled separately)' : total < 2 ? 'Add at least 2 damage dice to split them.' : 'Each damage type needs at least one die.'}</div>
         </div>`; })() : ''}` : ''}
         <label class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white cursor-pointer">
             <input type="checkbox" ${pcDraft.addFlatDmgPerDie ? 'checked' : ''} onchange="window.pcToggleFlatDmg(this.checked)"> +1 ${verb} per die [${pcIsNpc() ? (pcDraft.addFlatDmgPerDie ? pcCostOn(0, d => { d.addFlatDmgPerDie = false; }) : pcCost(0, d => { d.addFlatDmgPerDie = true; })) : `1 XP/die -- ${t.totalDiceCount} XP`}]
@@ -1270,8 +1276,8 @@ function pcBuildTextSummary() {
     if (pcDraft.step1 === 'saveHalves') atk = sAttr + 'Save Halves';
     if (pcDraft.step1 === 'atkSave') {
         if (pcDraft.atkMode === 'save') atk = sAttr + 'Save Negates';
-        else if (pcDraft.atkKind === 'martial' && !pcIsNpc()) {
-            let w = (typeof window.apxWeaponAttackOptions === 'function' ? window.apxWeaponAttackOptions() : []).find(o => o.key === pcDraft.atkWeapon);
+        else if (pcDraft.atkKind === 'martial' && pcMartialOk()) {
+            let w = pcMartialOptions().find(o => o.key === pcDraft.atkWeapon);
             atk = 'Attack Roll (Martial' + (w ? ': ' + w.label : '') + ')';
         } else atk = pcIsNpc() && !pcDraft.atkMode ? step1Def.label : 'Attack Roll (Power Attack)';
     }

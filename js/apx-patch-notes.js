@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.10.0235',
-        released: '2026-10-10T02:35:00',
-        releasedText: 'October 10, 2026 · 2:35 AM',
+        version: 'v2026.10.10.0304',
+        released: '2026-10-10T03:04:00',
+        releasedText: 'October 10, 2026 · 3:04 AM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs with loot of their own, apart from their stat blocks, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, area powers placed right on the battle map with every save in them rolled for you, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -119,7 +119,7 @@
             ]],
             ['Also', [
                 'Switching from one character to another and back keeps every change you made to each.',
-                'Every new popup opens on top of whatever is already open (map windows, stat blocks, the dice tray, other popups), so nothing opens hidden behind a window.',
+                'Every new popup opens on top of whatever is already open (map windows, stat blocks, the dice tray, other popups), so nothing opens hidden behind a window: the Loot Maker in front of the NPC Crafter, and a forge or crafter in front of the Loot Maker that opened it.',
                 'Deleting an account removes all of its data. Pages load faster, closed windows no longer leave blurred patches on phones, and an open page moves itself onto a new release.',
                 'The Character Sheet and GM Tools notes have all the details.'
             ]]
@@ -204,14 +204,14 @@
                 'Your Loyal Companion can have a Summon a Creature power, up to its own Tier. Saving it opens the NPC Crafter for the creature and then returns to your companion; using it puts the creatures next to your companion on the battle map.',
                 'Area powers on the battle map: with your GM\'s battle map open, using a power with a Line, Cone or Burst has you place its area before anything is spent, at exactly the size you crafted. A Self or Touch area starts from your token: scroll to turn it (15° a notch, Alt+scroll for finer), click a square to point it there, and drag its start to the square next to you. A Line or Cone starts pointing the way you last used that power. A Short, Long or Extreme Range area follows your mouse; click to place it within range (it turns red when it\'s out of range), then drag, turn or re-aim it. Enter (or Use power) uses it, Esc or right-click cancels, and Use without the map rolls it the old way. Everyone in the area makes a new saving throw each time you use it: if you\'re caught in one, a Roll save button appears in your dice tray, and you take the damage (half or none on a success) by your own roll. Your Loyal Companion\'s area powers work the same way. Walls and closed doors block areas: an area has to start somewhere its user can see, a Line stops at the first wall, a Cone doesn\'t reach behind one, and a Burst spreads around corners only as far as its radius reaches along the way.',
                 'Safe Zone: Shift+click any creature in your area while placing it to keep it safe (it gets a green outline), and the GM\'s tracker leaves it out.',
-                '"Add a second damage type, splitting the dice" asks how many of the dice deal the second type (change it with − and + next to the type). The power shows as "2d6 Fire + 1d8 Cold", and using it rolls each type separately with the total underneath. A martial power rolls its weapon\'s damage and its own damage as separate types too.'
+                '"Add a second damage type, splitting the dice" lets you choose which dice deal which type: each die size has its own ◀ ▶ to move its dice between the two, so 2d4 + 2d6 can be 2d6 Piercing + 2d4 Poison as easily as 2d4 Piercing + 2d6 Poison (each type needs at least one die). The power shows as "2d6 Fire + 1d8 Cold", and using it rolls each type separately with the total underneath. A martial power rolls its weapon\'s damage and its own damage as separate types too.'
             ]],
             ['Magic and Custom Items', [
                 'Equippable items can carry any number of bonuses, or penalties if cursed: Core Attributes, skills, AC, DR, ER, one energy resistance, Max HP, Max AP, Speed, Initiative, Wound Threshold, Max Rest Dice, Max Luck Points, Carry Capacity, attack and damage rolls, power attack and DC, saves, checks and extra Power Slots.',
                 'Make your own with Add Item (tick Equippable), and edit them later from their details. Items from your GM keep the bonuses and powers they came with: the details list both, and the inventory row shows "Powers: …".',
                 'Bonuses and powers work only while the item is equipped, and an item handed to you always arrives unequipped.',
                 'Add Item\'s custom item maker matches your GM\'s: any number of bonus rows (each shows what it boosts beside a small amount box), and + Craft Power for item powers. A Core Attribute row can Add to the score or Set it to a total, with an "unless higher" box (an Exo Suit: STR 15 unless yours is higher).',
-                'Consumables can split their dice between two damage types the same way, chosen in the Consumable Crafter.'
+                'Consumables can split their dice between two damage types the same way, die size by die size, in the Consumable Crafter.'
             ]],
             ['Weapons and Shields', [
                 'Weapon properties take effect when you hit: Crushing (STR save or Prone, or an extra die against a Prone target), Stunning (CON save or Stunned), Concealed (an extra die against a Surprised target), and Flurry\'s AP discount on your next attack with that weapon this turn.',
@@ -484,7 +484,8 @@
                 'NPC Wound Thresholds, (5 + CON mod) × 2: a hit that big asks for a CON save, and a failure rolls a Wound. Wounds show on the tracker and can be healed. Leg Wounds stagger (all of its legs Wounded: Prone), each Torso Wound adds a die to hits (the Torso can be Wounded again), and a Head Wound gives Disadvantage on attacks and PER and INT checks. NPCs don\'t carry lasting injuries: the limb list never offers one that\'s already Wounded (except the Torso), a creature with every limb Wounded isn\'t asked for the save, and a save still waiting when the creature goes down is settled on its own instead of staying in your tray.',
                 'NPC casters have Power Slots in the tracker and on the stat block, and a power can use a new "Power Slot" usage that spends a slot of its Level or higher.',
                 'Damaging Aura (and other auras) show as a coloured ring on the map and deal their damage to everyone inside at the end of the NPC\'s turn. Traits like Death Burst let you pick the energy type.',
-                'NPC powers with a second damage type roll each type separately, like players\' powers.',
+                'NPC powers with a second damage type roll each type separately, like players\' powers, and choose which dice deal which type the same way.',
+                'NPC Attack Roll powers can be a Power Attack or a Martial Improvement, like players\' powers. A Martial Improvement rides one of the creature\'s own attacks (an innate attack or a weapon it has): the attack roll uses that attack\'s bonus, and a hit deals its damage plus the power\'s, each type rolled separately. The weapon\'s TP is already paid, so the power costs only its own TP.',
                 'NPC powers name the Core Attribute of their saving throw and, for a lasting effect, an Escape Save, like players\' powers.',
                 'Using a power that calls for a save (or inflicts Conditions), yours or a player\'s, puts a Roll targets\' saves (or Apply) button in your dice tray. Pick the targets: NPCs\' saves are rolled from their stat blocks, with their own Conditions counting, players are asked to roll theirs, and whoever fails gets the Conditions.',
                 'Lasting effects show on the creature\'s tracker row with their Escape Save. It\'s asked for at the end of each of the creature\'s turns, and whenever it takes damage with Damage Interrupt; attacking ends the effect with Action Interrupt. Save rolls it now, 3 AP spends the AP to repeat it, and ✕ ends the effect. An effect lasting until the end of the target\'s next turn wears off then.',

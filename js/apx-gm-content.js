@@ -389,10 +389,8 @@
     };
 
     // ── Powers and Loot & Items (moved out of the World screen: they're the GM's Library) ──
-    // (These two sit under the Loot Maker, forges and crafters they open, which use a lower layer than other modals)
-    function sink(id) { let el = document.getElementById(id); if (!el) return; let z = () => { el.style.zIndex = 2147481500; }; z(); setTimeout(z, 0); setTimeout(z, 60); }
-    window.openGmPowerLibModal = function () { window.openModal('gmPowerLibModal'); sink('gmPowerLibModal'); window.apxLibRenderTab && window.apxLibRenderTab('power'); };
-    window.openGmItemLibModal = function () { window.openModal('gmItemLibModal'); sink('gmItemLibModal'); window.apxLibRenderTab && window.apxLibRenderTab('item'); };
+    window.openGmPowerLibModal = function () { window.openModal('gmPowerLibModal'); window.apxLibRenderTab && window.apxLibRenderTab('power'); };
+    window.openGmItemLibModal = function () { window.openModal('gmItemLibModal'); window.apxLibRenderTab && window.apxLibRenderTab('item'); };
     // + New Power: the Power Crafter, keeping what's made in the Library (tagged with the filtered world)
     window.apxNewLibPower = function () {
         if (typeof window.openPowerCrafter !== 'function') return;

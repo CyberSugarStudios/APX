@@ -166,17 +166,9 @@
         ci.rows = [...body.querySelectorAll('[data-ci-row]')].map(r => ({ key: r.querySelector('[data-ci-key]').value, amount: r.querySelector('[data-ci-amt]').value,
             mode: /^attr:/.test(r.querySelector('[data-ci-key]').value) && r.querySelector('[data-ci-mode]')?.value === 'set' ? 'set' : 'add', unlessHigher: !!r.querySelector('[data-ci-higher]')?.checked }));
     }
-    // Raise a crafter modal above the Loot Maker while it's open, then put it back
-    function raiseModal(id) {
-        let el = document.getElementById(id); if (!el) return;
-        el.dataset.lmZ = el.dataset.lmZ !== undefined ? el.dataset.lmZ : el.style.zIndex;
-        el.style.zIndex = 2147482500;
-        let watch = setInterval(() => {
-            if (el.classList.contains('active')) return;
-            clearInterval(watch);
-            if (el.dataset.lmZ !== undefined) { el.style.zIndex = el.dataset.lmZ; delete el.dataset.lmZ; }
-        }, 300);
-    }
+    // A crafter opened from the Loot Maker comes up in front of it (popups stack in the order they open:
+    // js/apx-dialogs.js). Already open: brought to the front.
+    function raiseModal(id) { let el = document.getElementById(id); if (el && el.classList.contains('active') && window.apxFront) window.apxFront(el); }
 
     window.openLootMaker = function (target) {
         maker = { target: target || { kind: 'pool' }, view: 'home', gearQ: '', ci: blankCi() };
@@ -194,6 +186,7 @@
         back.addEventListener('mousedown', e => { if (e.target === back) window.closeLootMaker(); });
         back.querySelector('[data-lm-close]').onclick = () => window.closeLootMaker();
         document.body.appendChild(back);
+        if (window.apxFront) window.apxFront(back);   // in front of whatever opened it (an NPC Crafter, a stat block…)
         renderMaker();
     };
     window.closeLootMaker = function () { document.getElementById('apxLootMaker')?.remove(); maker = null; };
@@ -476,14 +469,7 @@
     // items in the Loot Maker's form; anything else (gear, shields, helmets, quick custom weapons,
     // Crafting Materials) gets its name, weight, value and description (and a custom weapon's damage
     // and AP). Only the Library's copy changes.
-    function raiseAbove(ids) {
-        ids.forEach(m => { let el = document.getElementById(m); if (el) { el.dataset.lmZ = el.dataset.lmZ !== undefined ? el.dataset.lmZ : el.style.zIndex; el.style.zIndex = 2147482500; } });
-        let watch = setInterval(() => {
-            if (ids.some(m => document.getElementById(m)?.classList.contains('active'))) return;
-            clearInterval(watch);
-            ids.forEach(m => { let e = document.getElementById(m); if (e && e.dataset.lmZ !== undefined) { e.style.zIndex = e.dataset.lmZ; delete e.dataset.lmZ; } });
-        }, 300);
-    }
+    function raiseAbove(ids) { ids.forEach(raiseModal); }
     window.apxEditLibItem = function (libId) {
         let e = window.apxLibGet ? window.apxLibGet(libId) : null; if (!e || e.kind !== 'item') return;
         let it = e.data || {};
@@ -534,21 +520,13 @@
         if (!maker) return;
         window._lootMakerTarget = maker.target;
         let id = which === 'weapon' ? 'weaponForgeModal' : which === 'armor' ? 'armorForgeModal' : 'consumableCrafterModal';
-        const MODALS = ['weaponForgeModal', 'weaponCraftModal', 'armorForgeModal', 'armorCraftModal', 'consumableCrafterModal'];
-        MODALS.forEach(m => { let el = document.getElementById(m); if (el) { el.dataset.lmZ = el.dataset.lmZ || el.style.zIndex; el.style.zIndex = 2147482500; } });
         if (which === 'weapon') window.openWeaponForge(null, 'loot');
         else if (which === 'armor') window.openArmorForge('loot');
         else {
             let t = maker.target;
             window.openConsumableCrafter({ label: t.kind === 'npc' || t.kind === 'wnpc' ? 'Give to NPC' : 'Add to Loot', onMade: item => addTo(t, item, true) });
         }
-        // Put the z-order back once the forge closes (made something or cancelled)
-        let el = document.getElementById(id);
-        let watch = setInterval(() => {
-            if (el && el.classList.contains('active')) return;
-            clearInterval(watch);
-            MODALS.forEach(m => { let e = document.getElementById(m); if (e && e.dataset.lmZ !== undefined) { e.style.zIndex = e.dataset.lmZ; delete e.dataset.lmZ; } });
-        }, 300);
+        raiseModal(id);
     }
     window._lootMakerReceive = function (made) {
         let t = window._lootMakerTarget || (maker && maker.target) || { kind: 'pool' };

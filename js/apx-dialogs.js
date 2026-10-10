@@ -213,6 +213,7 @@ window.apxToday = function (d) {
     // notice always stay above all of them.) apxFront(el) puts el on top; apxFront(null) just hands
     // out the next layer.
     const FRONT_BASE = 2147483010, FRONT_MAX = 2147483250;
+    const PANEL_MAX = 2147483400;   // backdrop panels at or under this join the stacking order (see watchNew)
     window.apxFront = function (el) {
         let z = Math.max((window._apxPopZ || FRONT_BASE) + 1, FRONT_BASE);
         if (z > FRONT_MAX) {
@@ -331,7 +332,16 @@ window.apxToday = function (d) {
     let watchNew = () => {
         let mo = new MutationObserver(list => list.forEach(m => m.addedNodes.forEach(n => {
             if (n.nodeType !== 1) return;
-            setTimeout(() => { if (n.isConnected && floatingOf(n) === n && !n.classList.contains('apxd-tray')) window.apxFront(n); }, 0);
+            setTimeout(() => {
+                if (!n.isConnected) return;
+                if (floatingOf(n) === n && !n.classList.contains('apxd-tray')) { window.apxFront(n); return; }
+                // A panel with a backdrop (the Loot Maker, the Origin Template builder, a Library form…) opens in
+                // front of whatever is already open, like a modal does. Dialogs that need an answer (higher still) stay put.
+                if (n.parentElement === document.body && n.classList.contains('apxdlg-back')) {
+                    let z = parseInt(getComputedStyle(n).zIndex) || 0;
+                    if (z <= PANEL_MAX) window.apxFront(n);
+                }
+            }, 0);
         })));
         mo.observe(document.body, { childList: true });
         let box = document.getElementById('floatingWindowContainer');

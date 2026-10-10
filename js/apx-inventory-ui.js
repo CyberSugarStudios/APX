@@ -1131,11 +1131,9 @@
             window._pcItemPowers = window._newItemDraft.powers;
             window._pcItemOnChange = () => newItemRenderPowers();
             if (editIdx == null) window.openPowerCrafter(false, 'item'); else window.openPowerEditor(editIdx, 'item');
+            // (it opens in front of the Add Item window: popups stack in the order they open)
             let pm = document.getElementById('powerCrafterModal');
-            if (pm) {   // above the Add Item window while it's open
-                let old = pm.style.zIndex; pm.style.zIndex = 2147482500;
-                let w = setInterval(() => { if (pm.classList.contains('active')) return; clearInterval(w); pm.style.zIndex = old; }, 300);
-            }
+            if (pm && pm.classList.contains('active') && window.apxFront) window.apxFront(pm);
         };
         window.toggleNewItemEquippable = function(checked) {
             document.getElementById('newItemEquipFields').classList.toggle('hidden', !checked);
