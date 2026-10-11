@@ -1699,8 +1699,10 @@ window.openFloatingNpcStatBlockById = function(gmNpcId, npcDisplayName) {
         return;
     }
     if (!window.openFloatingStatBlockRaw) return;
-    let sb = ncStatBlockFor(gmNpcId);
-    window.openFloatingStatBlockRaw(winId, title, window.buildStatBlockHtml(sb, false));
+    let sb = ncStatBlockFor(gmNpcId), n = entry.npc || {};
+    // its token image at the top (click it for the full picture)
+    let pic = window._gmSbImageHtml ? window._gmSbImageHtml(n.tokenImg || n.portrait, n.portraitFull || n.portrait || n.tokenImg, title) : '';
+    window.openFloatingStatBlockRaw(winId, title, pic + window.buildStatBlockHtml(sb, false));
 };
 
 // Add the NPC from any floating stat block window to the initiative tracker.

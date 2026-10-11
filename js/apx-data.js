@@ -964,6 +964,54 @@
             return { left, top, w, h };
         }
         window.apxWindowSpot = apxWindowSpot;
+        // Map windows remember where they were: their place and size on screen, and their zoom and pan, per map
+        // (in this browser). A window marked data-map-view="<page>:<mapId>" is saved as it's panned or zoomed,
+        // when it closes and when the page closes; reopened, it comes back the same (or fits the map as usual
+        // when the map's image has changed size).
+        window.apxMapView = (function () {
+            const K = 'apxMapViews';
+            let all = () => { try { return JSON.parse(localStorage.getItem(K) || '{}') || {}; } catch (e) { return {}; } };
+            function save(win) {
+                let k = win && win.getAttribute && win.getAttribute('data-map-view');
+                if (!k || !win._viewReady || !(win._scale > 0)) return;
+                let img = win.querySelector('img[id$="_img"]'), a = all(), prev = a[k] || {};
+                let w = win.offsetWidth, h = win.offsetHeight;
+                a[k] = { left: parseFloat(win.style.left) || 0, top: parseFloat(win.style.top) || 0,
+                    w: w > 60 ? w : prev.w, h: h > 60 ? h : prev.h,   // (not while it's minimized)
+                    scale: win._scale, offX: win._offX || 0, offY: win._offY || 0, iw: (img && img.naturalWidth) || prev.iw || 0, t: Date.now() };
+                let keys = Object.keys(a).sort((x, y) => (a[y].t || 0) - (a[x].t || 0));
+                keys.slice(80).forEach(x => delete a[x]);   // the 80 most recent maps
+                try { localStorage.setItem(K, JSON.stringify(a)); } catch (e) { }
+            }
+            function soon(win) { if (!win) return; clearTimeout(win._viewSaveT); win._viewSaveT = setTimeout(() => save(win), 400); }
+            // Where a reopened map window goes: { left, top, w, h } (kept on screen), or the spot it was given
+            function place(key, spot) {
+                let v = all()[key]; if (!v || !(v.w > 0)) return spot;
+                let vw = window.innerWidth || 1200, vh = window.innerHeight || 800;
+                let w = Math.max(300, Math.min(v.w, vw - 8)), h = Math.max(240, Math.min(v.h, vh - 8));
+                return { left: Math.max(0, Math.min(v.left, vw - Math.min(w, 120))), top: Math.max(0, Math.min(v.top, vh - 40)), w, h };
+            }
+            // When its image has loaded: the saved zoom and pan (once), else reset() fits it; apply() draws it
+            function fit(win, reset, apply) {
+                if (!win) return;
+                let img = win.querySelector('img[id$="_img"]'), src = img ? img.src : '';
+                if (win._viewReady) { if (src && src === win._viewSrc) return; win._viewSrc = src; reset(); return; }   // (the same picture loading again: keep the view)
+                win._viewReady = true; win._viewSrc = src;
+                let k = win.getAttribute('data-map-view'), v = k && all()[k];
+                if (v && v.scale > 0 && img && img.naturalWidth && (!v.iw || v.iw === img.naturalWidth)) {
+                    win._scale = v.scale; win._offX = v.offX; win._offY = v.offY; win._tokScale = null; apply();
+                } else reset();
+            }
+            if (typeof MutationObserver !== 'undefined') {
+                new MutationObserver(ms => ms.forEach(m => m.removedNodes.forEach(n => { if (n.nodeType === 1 && n.hasAttribute && n.hasAttribute('data-map-view')) save(n); })))
+                    .observe(document.documentElement, { childList: true, subtree: true });
+            }
+            window.addEventListener('pagehide', () => document.querySelectorAll('[data-map-view]').forEach(save));
+            // moved or resized (dragging its header or its corner): remembered too
+            document.addEventListener('pointerup', e => { let w = e.target && e.target.closest && e.target.closest('[data-map-view]'); if (w) soon(w); }, true);
+            document.addEventListener('mouseup', e => { let w = e.target && e.target.closest && e.target.closest('[data-map-view]'); if (w) soon(w); }, true);
+            return { save, soon, place, fit };
+        })();
         // A power's action cost as shown: "3 AP", or "Reaction" for a 1 AP / Reaction power set to Reaction
         // ── Powers (Playtest 2 rework) ──────────────────────────────
         // Each power picks its own Core Attribute (its Attack Bonus and Save DC) and which kind of

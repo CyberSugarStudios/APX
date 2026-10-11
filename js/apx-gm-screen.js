@@ -494,8 +494,38 @@ function _gmCompanionRow(p, idx) {
 window.gmOpenCompanionStatBlock = function(uid) {
     let p = (window.gmParty || []).find(x => x.fileName === uid); if (!p) return;
     let csb = gmCompanionSb(p); if (!csb || !window.openFloatingStatBlockRaw) return;
-    window.openFloatingStatBlockRaw('comp_' + uid, `${csb.name} (${p.summary?.name || 'player'}'s companion)`, window.buildStatBlockHtml(csb, false));
+    let c = ((p.state || p.charState) || {}).companion || {};
+    window.openFloatingStatBlockRaw('comp_' + uid, `${csb.name} (${p.summary?.name || 'player'}'s companion)`, _gmSbImageHtml(c.tokenImg || c.portrait, c.portraitFull || c.portrait || c.tokenImg, csb.name) + window.buildStatBlockHtml(csb, false));
 };
+// A creature's picture at the top of its stat block window: its token image (on a battle map, the picture
+// its token there shows). Click it for the full image.
+window._gmSbImgs = window._gmSbImgs || {};
+function _gmSbImageHtml(src, full, title) {
+    if (!src) return '';
+    let id = 'sbi' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    window._gmSbImgs[id] = { full: full || src, title: title || '' };
+    return `<div style="display:flex;justify-content:center;margin:.1rem 0 .45rem"><img src="${String(src).replace(/"/g, '&quot;')}" alt="" title="Click to see the full image" onclick="window._gmSbImgOpen('${id}')" style="width:88px;height:88px;border-radius:50%;object-fit:cover;border:2px solid #a78bfa;cursor:zoom-in;box-shadow:0 4px 14px rgba(0,0,0,.6)"></div>`;
+}
+window._gmSbImageHtml = _gmSbImageHtml;
+window._gmSbImgOpen = function(id) { let x = window._gmSbImgs[id]; if (x && window.apxShowImage) window.apxShowImage(x.full, x.title); };
+// The picture for a creature in the tracker: its token's on a battle map (a named NPC's portrait there), else
+// its stat block's token image -> { src, full }
+function _gmEntryImage(entry) {
+    let maps = typeof _wNotes !== 'undefined' && _wNotes ? (_wNotes.otherMaps || []) : [];
+    let tok = null; maps.some(m => (tok = (m.battleTokens || []).find(t => t.initiativeId === entry.id)));
+    if (tok && tok.worldNpcId) {
+        let cache = (window._npcPortraitCache || {})[tok.worldNpcId], wn = (_wNotes.npcs || []).find(n => n.id === tok.worldNpcId);
+        let src = (cache && cache.portrait) || (wn && wn.portrait);
+        if (src) return { src, full: (cache && cache.portraitFull) || (wn && wn.portraitFull) || src, worldNpcId: tok.worldNpcId };
+    }
+    let sid = (tok && window._btSbImgId && window._btSbImgId(tok, entry)) || entry.sourceNpcId;
+    let g = (window.gmNpcs || []).find(n => n.id === sid) || (window.gmNpcs || []).find(n => n.id === entry.sourceNpcId);
+    let npc = g && g.npc;
+    if (npc && (npc.tokenImg || npc.portrait)) return { src: npc.tokenImg || npc.portrait, full: npc.portraitFull || npc.portrait || npc.tokenImg };
+    if (tok && tok.portrait) return { src: tok.portrait, full: tok.portrait };
+    return null;
+}
+window._gmEntryImage = _gmEntryImage;
 
 function _gmPartyShut() { try { return JSON.parse(localStorage.getItem('apxPartyShut') || '{}') || {}; } catch (e) { return {}; } }
 window._gmPartyToggle = function(uid) {
@@ -4142,6 +4172,21 @@ window._gmPlayerPowersHtml = function(st, hdr, uid, mods, compact) {
         + (rows.length ? `<div style="display:flex;flex-direction:column;gap:2px;padding:.15rem 0">${rows.join('')}</div>` : '')
         + (powers.length ? `<div style="padding:0.15rem 0">${powers.join('')}</div>` : '');
 };
+// How many Move actions a creature has used this turn (0 when its turn starts): a player's and their companion's
+// come from their sheet, a creature the GM moves from its token's path
+function _gmMovesThisTurn(e) {
+    let cur = window.gmCombatStarted ? (window.gmInitiative || [])[window.gmCurrentTurnIdx] : null;
+    if (!cur || !e) return 0;
+    let T = window.gmTurnNumber, keys = [cur.id + ':' + T, e.id + ':' + T];
+    let pm = uid => (window.gmParty || []).find(p => p.fileName === uid || (p.summary && p.summary.playerUid === uid));
+    let st = uid => { let p = pm(uid); return (p && (p.state || p.charState)) || {}; };
+    let n = 0, take = tm => { if (tm && keys.includes(tm.key)) n = Math.max(n, parseInt(tm.n) || 0); };
+    if (e.companionOf) take(st(e.companionOf).compTurnMoves);
+    else if (e.faction === 'player' && e.playerUid) take(st(e.playerUid).turnMoves);
+    take(e._moves);   // (moved by the GM)
+    return n;
+}
+window._gmMovesThisTurn = _gmMovesThisTurn;
 window.renderInitiativeTracker = function() {
     let body = document.getElementById('initiativeTrackerBody');
     if (!body) return;
@@ -4178,7 +4223,7 @@ window.renderInitiativeTracker = function() {
     // (a Loyal Companion is drawn right under its owner, wherever it sits in the list)
     order0.forEach(i => { let e = window.gmInitiative[i]; if (_gmSharesTurn(e)) return; order.push(i); window.gmInitiative.forEach((x, j) => { if (_gmSharesTurn(x) && _gmCompanionOwner(x) === e) order.push(j); }); });
 
-    body.innerHTML = order.map((idx, pos) => {
+    let cards = order.map((idx, pos) => {
         let e = window.gmInitiative[idx];
         let fs = FACTION_STYLES[e.faction] || FACTION_STYLES.neutral;
         let isCurrent = window.gmCombatStarted && pos === 0;
@@ -4191,7 +4236,7 @@ window.renderInitiativeTracker = function() {
         let downEnabled = !mate && idx < n - 1 && effInit(e) === effInit(downNeighbor) && !isAutoResolvedTie(e, downNeighbor);
 
         return `
-        <div class="${fs.bg} border ${isCurrent ? 'border-amber-400' : fs.border} rounded p-2" ${mate ? 'style="margin-top:-0.3rem;margin-left:1rem;border-top-left-radius:0;border-top-right-radius:0;border-top-style:dashed" title="A Loyal Companion: it takes its turn with its owner"' : ''}>
+        <div class="${fs.bg} border ${isCurrent ? 'border-amber-400' : fs.border} rounded p-2" ${mate ? 'title="A Loyal Companion: it takes its turn with its owner"' : ''}>
             <div class="flex items-center gap-2">
                 <div class="flex flex-col">
                     <button onclick="window.moveInitiativeEntry('${e.id}', -1)" ${upEnabled ? '' : 'disabled'} class="leading-none ${upEnabled ? 'text-slate-300 hover:text-white' : 'text-slate-700'}">&#9650;</button>
@@ -4208,6 +4253,7 @@ window.renderInitiativeTracker = function() {
             <div class="pl-6 mt-1 space-y-0.5">
                 <div class="flex items-center gap-2 flex-wrap text-[9px] ${fs.text} opacity-90">
                     <span>${fs.label}</span>
+                    ${isCurrent ? (n => `<span title="Move actions used this turn (back to 0 when its turn starts)" style="border:1px solid #38bdf8;border-radius:.25rem;padding:0 .3rem;color:#bae6fd;font-weight:800">Moves ${n}</span>`)(_gmMovesThisTurn(e)) : ''}
                     ${e.ap !== undefined && e.ap !== null ? gmApPipsHtml(e) : ''}
                     ${(e.ac !== undefined && e.ac !== null) ? `<span>AC <b class="text-white">${e.ac}</b></span>` : ''}
                     ${e.faction !== 'player' && !e.companionOf ? (() => { let wt = _gmNpcWt(e); return wt != null ? `<span title="Wound Threshold: a single hit of more damage than this (after DR/ER) calls for a CON save or a limb is Wounded">WT <b class="text-white">${wt}</b></span>` : ''; })() : ''}
@@ -4289,7 +4335,21 @@ window.renderInitiativeTracker = function() {
                 })() : ''}
             </div>
         </div>
-    `; }).join('');
+    `; });
+    // A player and their Loyal Companion: one block in the order, with an entry (HP, AP, conditions…) for each
+    let out = [];
+    for (let i = 0; i < order.length;) {
+        let owner = window.gmInitiative[order[i]], grp = [cards[i]], j = i + 1;
+        while (j < order.length && _gmSharesTurn(window.gmInitiative[order[j]]) && _gmCompanionOwner(window.gmInitiative[order[j]]) === owner) grp.push(cards[j++]);
+        if (grp.length === 1) out.push(grp[0]);
+        else {
+            let on = window.gmCombatStarted && window._gmTurnIds().includes(owner.id);
+            out.push(`<div style="border:${on ? '2px solid #fbbf24' : '1px solid #475569'};border-radius:.3rem;overflow:hidden" title="${(owner.name || 'A player').replace(/"/g, '&quot;')} and their Loyal Companion share one turn">`
+                + grp.map((c, k) => c.replace('<div class="', `<div style="border:0;border-radius:0;${k ? 'border-top:1px dashed #64748b;' : ''}" class="`)).join('') + '</div>');
+        }
+        i = j;
+    }
+    body.innerHTML = out.join('');
 };
 
 // ------------------------------------------------------------------
@@ -4332,6 +4392,17 @@ window.openFloatingStatBlock = function(entryId) {
         }
         bodyHtml = window.buildStatBlockHtml(sb, false);
     } else {
+        bodyHtml = null;
+    }
+    let pic = _gmEntryImage(entry);
+    if (pic && pic.worldNpcId && window._getNpcPortrait) {
+        // a named NPC's full picture is loaded when it's opened
+        let st = (window._npcPortraitCache || {})[pic.worldNpcId];
+        if (!st || !st.portraitFull) window._getNpcPortrait(pic.worldNpcId).then(d => { if (d && d.portraitFull) Object.values(window._gmSbImgs).forEach(x => { if (x.full === pic.full) x.full = d.portraitFull; }); }).catch(() => {});
+    }
+    let picHtml = pic ? _gmSbImageHtml(pic.src, pic.full, dispName) : '';
+    if (bodyHtml) bodyHtml = picHtml + bodyHtml;
+    else {
         bodyHtml = `
             <div class="text-[10px] text-slate-500 mb-2">No detailed stat block on file for this quick-added NPC -- here's what's tracked in the initiative order:</div>
             <div class="grid grid-cols-3 gap-1">
@@ -4340,6 +4411,7 @@ window.openFloatingStatBlock = function(entryId) {
                 <div class="text-center bg-slate-900 border border-slate-700 rounded p-1"><div class="text-[9px] text-slate-500 font-bold">AP</div><div class="text-sm font-black text-white">${entry.ap !== null && entry.ap !== undefined ? entry.ap : '--'}</div></div>
             </div>
         `;
+        bodyHtml = picHtml + bodyHtml;
     }
 
     let win = document.createElement('div');

@@ -11,14 +11,15 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.11.1042',
-        released: '2026-10-11T10:42:00',
-        releasedText: 'October 11, 2026 · 10:42 AM',
+        version: 'v2026.10.11.1300',
+        released: '2026-10-11T13:00:00',
+        releasedText: 'October 11, 2026 · 1:00 PM',
         title: 'Companions, Channeling & Consumables',
-        intro: 'Loyal Companions now take their turn with you, Channeling powers get a Channel button, crafted consumables can be used straight from your inventory, big creatures squeeze past walls on the battle map, and a few rules are tidied up: Choke, Innate Weapons and Room reveal.',
+        intro: 'Loyal Companions now take their turn with you, as a second token you move and act with. Channeling powers get a Channel button, and crafted consumables can be used straight from your inventory. Big creatures squeeze past walls on the battle map, maps reopen just as you left them, and Area Circles can show a picture. Both the sheet and the GM Tools can be pinned to one side and resized. A few rules are tidied up too: Choke, Innate Weapons and Room reveal.',
         index: [
             ['Combat', [
-                'A Loyal Companion shares its owner\'s turn: one place in the initiative order, both on turn together, and both get their AP when it starts.',
+                'A Loyal Companion shares its owner\'s turn: one block in the initiative order holding both of them, both on turn together, and both get their AP when it starts. On the battle map it\'s a second token you move and act with, with its own path, AP and Move actions.',
+                'The tracker, and your battle map on your turn, show how many Move actions have been used this turn.',
                 'Channeling powers choose, when they\'re crafted, whether channeling repeats their Damage or their Utility. While one lasts, a Channel button (half the power\'s AP) reapplies it each turn. Channeling powers made before need a free rebuild.',
                 'Crafted consumables have a Use button: 3 AP and one charge, rolled like a power.',
                 'Choke ignores the target\'s DR, ER and resistances, and counts as an attack for Fight Defensively.',
@@ -26,12 +27,18 @@
             ]],
             ['Battle Maps', [
                 'Large and bigger tokens squeeze into a smaller space where walls leave no room, and grow back where they fit.',
-                'Room reveal only opens a room when your token steps into it. A Vision cone still sees through a door the moment it opens.'
+                'Room reveal only opens a room when your token steps into it. A Vision cone still sees through a door the moment it opens.',
+                'Maps reopen where you left them: the same place, size, zoom and view.',
+                'An Area Circle can have a picture: in Image mode, clicking it shows just the picture (with its description above it, if it has one).'
+            ]],
+            ['Your Screen', [
+                'The character sheet and the GM Tools can be centred or pinned to the left or right of the screen (⇆), and squashed or stretched with the handle on their inner edge, leaving room for maps and pop-ups.'
             ]]
         ],
         sheet: [
             ['Your Turn', [
-                'Your Loyal Companion shares your turn: when it comes up, you both get your AP, and you and your companion can act in any order.',
+                'Your Loyal Companion shares your turn: when it comes up, you both get your AP, and you and your companion can act in any order. Both tokens light up on your turn. Drag either one and it shows its own path and AP cost, paid from its own AP, like controlling two characters.',
+                'On your turn, a small note on your battle map shows how many Move actions you (and your companion) have used. It\'s back to 0 when your next turn starts.',
                 'Choke (2 AP) ignores the Pinned creature\'s DR, ER and resistances. It counts as an attack, so Fight Defensively gives +2 AC (not +4) on a turn you Choke.'
             ]],
             ['Powers & Consumables', [
@@ -44,12 +51,27 @@
             ]],
             ['Battle Maps', [
                 'A Large or bigger token squeezes into the next size down (down to Medium) where walls leave it no room, such as a narrow corridor or doorway. The token shows an amber outline while you drag it there, and you\'re told when you start and stop squeezing (Disadvantage on attacks and AGI saves while squeezing). Where it fits again, it\'s its own size again. Its body can no longer slide half through a wall.',
-                'Room reveal opens a fogged room only when your token steps into it, not when a door into it opens. A Vision cone sees through a door as soon as it opens.'
+                'Room reveal opens a fogged room only when your token steps into it, not when a door into it opens. A Vision cone sees through a door as soon as it opens.',
+                'Maps remember where you left them: closing and reopening one brings it back at the same place and size, zoomed and panned just as it was (in this browser).',
+                'An Area Circle your GM gave a picture opens straight to it, with the description above it when there is one.'
+            ]],
+            ['Your Sheet', [
+                '⇆ (top left, beside Settings) centres the sheet or pins it to the left or right of the screen. While it\'s pinned, drag the handle on its inner edge to make it narrower or wider, and double-click the handle for full width. New map and pop-up windows open in the space it leaves free. Remembered in this browser.'
             ]]
         ],
         gm: [
             ['Initiative', [
-                'A Loyal Companion shares its owner\'s turn. Its card is joined under its owner\'s, both are highlighted on that turn, and both get their AP (and start-of-turn effects) when it starts. Next Turn and Prev Turn pass over it. On the battle map both tokens show as on turn, and you can move the companion\'s token during its owner\'s turn.'
+                'A Loyal Companion shares its owner\'s turn: one block in the order holding both entries, each with its own HP, AP, Moves and conditions. Both are highlighted on that turn, and both get their AP (and start-of-turn effects) when it starts. Next Turn and Prev Turn pass over it. On the battle map both tokens show as on turn, and you can move the companion\'s token during its owner\'s turn.',
+                'The creature on turn shows its Moves: the Move actions it has used this turn, starting from 0. A player\'s and their companion\'s come from their sheet; a creature you move counts from its token\'s path.'
+            ]],
+            ['Pop-ups', [
+                'A player\'s pop-out (click their token or name) now has their whole sheet: conditions, weapons (innate ones marked), what they wear, inventory with charges and Currency, perks, Ancestry traits and flaws, Origin, their Loyal Companion, and their notes.',
+                'A creature\'s stat block window shows its token image: the picture its token has on the battle map (a named NPC\'s portrait), or its stat block\'s token image. Click it to see the full picture.',
+                'Area Circles and markers can have an image: Edit → + Add Image (it\'s stored with your world like a battle map image). Turn on Image mode and a player clicking it sees just the picture, with the description above it when you\'ve written one. You see the picture in its pop-up too.'
+            ]],
+            ['Your Screen', [
+                '⇆ beside the title centres the GM Tools or pins them left or right, and the handle on their inner edge squashes or stretches them (double-click: full width). New windows open in the space they leave.',
+                'Maps reopen where you left them: the same place and size, zoomed and panned as they were (in this browser).'
             ]],
             ['Rules', [
                 'Choke ignores the target\'s DR, ER and resistances, and counts as an attack (Fight Defensively drops to +2 AC).',

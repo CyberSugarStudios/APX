@@ -474,8 +474,8 @@
         }
 
     </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=202610111042">
-    <link rel="stylesheet" href="css/tailwind.css?v=202610111042">
+    <link rel="stylesheet" href="css/apx-themes.css?v=202610111300">
+    <link rel="stylesheet" href="css/tailwind.css?v=202610111300">
 </head>
 <body class="p-2 md:p-6 flex justify-center text-sm ml-0 lg:ml-8 transition-all" style="padding-top:4.25rem"><!-- (room for the floating Roster / Settings buttons) -->
     <!-- Auth bar removed — account controls are in the sidebar -->
@@ -487,6 +487,7 @@
         <button class="hamburger-btn" onclick="window.toggleSidebar()">= Roster</button>
         <button id="playerWorldBtn" class="hamburger-btn hidden" onclick="window.openModal('playerWorldModal')" style="font-size:0.875rem;">World</button>
         <button id="settingsBtn" class="hamburger-btn" onclick="window.openModal('settingsModal')" title="Settings" style="font-size:0.875rem;">Settings</button>
+        <button class="hamburger-btn" onclick="window.apxDockCycle('sheet')" data-apx-dock-btn="sheet" title="Centre the sheet, or pin it to the left or right of the screen" style="font-size:0.875rem;">⇆</button>
     </div>
     <div id="sidebarOverlay" onclick="window.toggleSidebar()"></div>
     <div id="sidebar">
@@ -527,7 +528,7 @@
         </div>
     </div>
 
-    <div class="w-full max-w-[1400px] space-y-4" id="mainContent">
+    <div class="w-full max-w-[1400px] space-y-4" id="mainContent" data-apx-dock="sheet" data-dock-default="center">
         
         <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-xl grid grid-cols-2 md:grid-cols-4 lg:grid-cols-12 gap-3 items-end relative overflow-hidden">
             <div class="col-span-2 lg:col-span-3">
@@ -2311,42 +2312,42 @@
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=202610111042"></script>
-    <script src="js/apx-patch-notes.js?v=202610111042"></script>
-    <script src="js/apx-dice.js?v=202610111042"></script>
-    <script src="js/apx-luck.js?v=202610111042"></script>
-    <script src="js/apx-data.js?v=202610111042"></script>
-    <script src="js/apx-item-effects.js?v=202610111042"></script>
-    <script src="js/apx-exo.js?v=202610111042"></script>
-    <script src="js/apx-traits.js?v=202610111042"></script>
-    <script src="js/apx-perks-db.js?v=202610111042"></script>
-    <script src="js/apx-migrations.js?v=202610111042"></script>
-    <script src="js/apx-roster.js?v=202610111042"></script>
-    <script src="js/apx-state.js?v=202610111042"></script>
-    <script src="js/apx-origin-wizard.js?v=202610111042"></script>
-    <script src="js/apx-ancestry-wizard.js?v=202610111042"></script>
-    <script src="js/apx-inventory-ui.js?v=202610111042"></script>
-    <script src="js/apx-craft-shared.js?v=202610111042"></script>
-    <script src="js/apx-armor-forge.js?v=202610111042"></script>
-    <script src="js/apx-weapon-forge.js?v=202610111042"></script>
-    <script src="js/apx-power-crafter.js?v=202610111042"></script>
-    <script src="js/apx-consumable-crafter.js?v=202610111042"></script>
-    <script src="js/apx-npc-crafter.js?v=202610111042"></script>
-    <script src="js/apx-engine.js?v=202610111042"></script>
-    <script src="js/apx-perks-ui.js?v=202610111042"></script>
-    <script src="js/apx-rest.js?v=202610111042"></script>
-    <script src="js/apx-looting.js?v=202610111042"></script>
-    <script src="js/apx-main.js?v=202610111042"></script>
+    <script src="js/apx-dialogs.js?v=202610111300"></script>
+    <script src="js/apx-patch-notes.js?v=202610111300"></script>
+    <script src="js/apx-dice.js?v=202610111300"></script>
+    <script src="js/apx-luck.js?v=202610111300"></script>
+    <script src="js/apx-data.js?v=202610111300"></script>
+    <script src="js/apx-item-effects.js?v=202610111300"></script>
+    <script src="js/apx-exo.js?v=202610111300"></script>
+    <script src="js/apx-traits.js?v=202610111300"></script>
+    <script src="js/apx-perks-db.js?v=202610111300"></script>
+    <script src="js/apx-migrations.js?v=202610111300"></script>
+    <script src="js/apx-roster.js?v=202610111300"></script>
+    <script src="js/apx-state.js?v=202610111300"></script>
+    <script src="js/apx-origin-wizard.js?v=202610111300"></script>
+    <script src="js/apx-ancestry-wizard.js?v=202610111300"></script>
+    <script src="js/apx-inventory-ui.js?v=202610111300"></script>
+    <script src="js/apx-craft-shared.js?v=202610111300"></script>
+    <script src="js/apx-armor-forge.js?v=202610111300"></script>
+    <script src="js/apx-weapon-forge.js?v=202610111300"></script>
+    <script src="js/apx-power-crafter.js?v=202610111300"></script>
+    <script src="js/apx-consumable-crafter.js?v=202610111300"></script>
+    <script src="js/apx-npc-crafter.js?v=202610111300"></script>
+    <script src="js/apx-engine.js?v=202610111300"></script>
+    <script src="js/apx-perks-ui.js?v=202610111300"></script>
+    <script src="js/apx-rest.js?v=202610111300"></script>
+    <script src="js/apx-looting.js?v=202610111300"></script>
+    <script src="js/apx-main.js?v=202610111300"></script>
 
     <!-- Firebase (cloud sync — requires firebase-config.js to be configured) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=202610111042"></script>
-    <script src="js/apx-firebase.js?v=202610111042"></script>
-    <script src="js/apx-battlemap.js?v=202610111042"></script>
-    <script src="js/apx-fog.js?v=202610111042"></script>
-    <script src="js/apx-map-tiles.js?v=202610111042"></script>
+    <script src="js/firebase-config.js?v=202610111300"></script>
+    <script src="js/apx-firebase.js?v=202610111300"></script>
+    <script src="js/apx-battlemap.js?v=202610111300"></script>
+    <script src="js/apx-fog.js?v=202610111300"></script>
+    <script src="js/apx-map-tiles.js?v=202610111300"></script>
     <script>
     // ── Sidebar: folders, worlds, meatball menus ─────────────
     window._sidebarChars = [];
@@ -4524,9 +4525,11 @@
         window.apxFloatingZTop = (window.apxFloatingZTop||2000)+1;
 
         let spot = window.apxWindowSpot(680, 520, document.querySelectorAll('[data-pwom-win]').length);
+        if (window.apxMapView) spot = window.apxMapView.place('pw:' + mapId, spot);   // where it was last time
         let win = document.createElement('div');
         win.id = winId;
         win.setAttribute('data-pwom-win', '1');
+        win.setAttribute('data-map-view', 'pw:' + mapId);
         win._apxTitle = () => map.name || 'Map';   // its minimized tab
         win.style.cssText = `position:fixed;left:${spot.left}px;top:${spot.top}px;width:${spot.w}px;height:${spot.h}px;
             background:#0f172a;border:1px solid #334155;border-radius:0.75rem;z-index:${window.apxFloatingZTop};
@@ -4537,7 +4540,7 @@
                 border-bottom:1px solid #334155;border-radius:0.75rem 0.75rem 0 0;
                 display:flex;align-items:center;gap:0.5rem;flex-shrink:0;">
                 <span style="font-size:0.75rem;font-weight:700;color:#e2e8f0;flex:1;">${map.name}</span>
-                <button onclick="let _w=document.getElementById('${winId}'); if(_w?._fogUnsub) _w._fogUnsub(); _w?.remove()"
+                <button onclick="let _w=document.getElementById('${winId}'); if(_w&&window.apxMapView) window.apxMapView.save(_w); if(_w?._fogUnsub) _w._fogUnsub(); _w?.remove()"
                     style="background:none;border:none;color:#94a3b8;font-size:1.1rem;cursor:pointer;line-height:1;">X</button>
             </div>
             <div id="${winId}_area" style="flex:1;position:relative;overflow:hidden;cursor:grab;">
@@ -4607,6 +4610,7 @@
             if (vp) vp.style.transform=`translate(${win._offX}px,${win._offY}px) scale(${win._scale})`;
             if (win._tokScale !== win._scale) { win._tokScale = win._scale; _pwOmRenderTok(winId, win); }
             if (window.APXBattle) window.APXBattle.layout(winId);
+            if (window.apxMapView) window.apxMapView.soon(win);   // remembered for next time
         });
     }
     function _pwOmShowImg(winId, win, map, src) {
@@ -4622,7 +4626,9 @@
             // Always refresh map from current world state — the closure's `map` may be stale
             // if the Firestore listener hadn't fired yet when the window was opened.
             let freshMap = (window._playerWorldData?.notesV2?.otherMaps||[]).find(m=>m.id===mapId) || map;
-            window.pwOmReset(winId); _pwOmRenderTok(winId, win, freshMap);
+            if (window.apxMapView) window.apxMapView.fit(win, () => window.pwOmReset(winId), () => { win._tokScale = null; _pwOmTransform(winId, win); });
+            else window.pwOmReset(winId);
+            _pwOmRenderTok(winId, win, freshMap);
             if (freshMap?.battleMapEnabled) _pwBtDrawGrid(winId, freshMap);
             _pwBtRenderTokens(winId, win, freshMap);
             // Start real-time fog listener — fires immediately with current fog, then on every GM update
@@ -4680,7 +4686,7 @@
             // Under Fog of War: not drawn at all (no peeking out at the fog's edge, no tooltip, no click)
             if (_pwPointUnderFog(winId, t.x * iw, t.y * ih)) return '';
             let isSpecial = t.type === 'special';
-            let hasInfo = !!(t.name||t.description||(t.subnotes&&t.subnotes.length)||(t.linkedNpcs&&t.linkedNpcs.length));
+            let hasInfo = !!(t.name||t.description||t.imgId||(t.subnotes&&t.subnotes.length)||(t.linkedNpcs&&t.linkedNpcs.length));
             let hasLinkedMap = (t.linkedOtherMapIds||[]).some(mid=>revealedMapIds.has(mid));
             let clickable = hasInfo || hasLinkedMap;
             let clickHandler = clickable ? `onclick="event.stopPropagation();window.openPlayerTokenInfo('${m.id}','${t.id}')"` : '';
@@ -4841,6 +4847,18 @@
         let world = window._playerWorldData;
         let om = (world?.notesV2?.otherMaps||[]).find(m=>m.id===mapId);
         let tok = om?.tokens?.find(t=>t.id===tokenId); if(!tok) return;
+        // Image mode: just its picture (with the description above it, if it has one)
+        if (tok.imageMode && tok.imgId && window.apxShowImage) {
+            let title = tok.name || ('Area ' + (tok.letter || '')), show = src => window.apxShowImage(src, title, String(tok.description || '').trim());
+            let cache = window._pwBtImgCache || (window._pwBtImgCache = {});
+            if (cache[tok.imgId]) { show(cache[tok.imgId]); return; }
+            if (world?.gmUid && world?.worldId && window.apxAuth?.loadBattleImageForPlayer) {
+                window.apxAuth.loadBattleImageForPlayer(world.gmUid, world.worldId, tok.imgId)
+                    .then(d => { if (d) { cache[tok.imgId] = d; show(d); } else window.APXDice?.notify('That picture isn\'t available right now.', { kind: 'warn' }); })
+                    .catch(e => window.APXDice?.notify('Couldn\'t load that picture: ' + e.message, { kind: 'warn' }));
+                return;
+            }
+        }
         let info = { description: tok.description, mapIds: tok.linkedOtherMapIds || [], npcIds: tok.linkedNpcs || [], subnotes: tok.subnotes || [],
             redraw: () => { if (document.getElementById('ptokInfo_'+tokenId)) window.openPlayerTokenInfo(mapId, tokenId); } };
         _pwFloatWin('ptokInfo_'+tokenId,
@@ -4917,12 +4935,28 @@
         return { speed, moves: tm.n, left: tm.left, mobile: ((st.perks || {}).agi_mobile || 0) >= 1 ? 1 : 0, staggered: conds.includes('staggered'),
             apHave: window.apxApCurrent ? window.apxApCurrent() : null, key };
     }
+    // A small note on your battle maps on your turn: how many Move actions you (and your Loyal Companion) have
+    // used this turn. It's back to 0 when your turn starts.
+    function _pwMoveNotes() {
+        let ct = window._pwCombatTurn, me = window.apxAuth?.user?.uid, key = _pwTurnKey(), st = window.state || {};
+        let mine = !!(ct && ct.id && !ct.ended && me && ct.playerUid === me), comp = !!(ct && ct.id && !ct.ended && me && ct.companionOf === me && st.companion);
+        let n = tm => tm && tm.key === key ? (parseInt(tm.n) || 0) : 0;
+        let text = mine || comp ? [mine ? `Moves this turn: ${n(st.turnMoves)}` : '', comp ? `${String(st.companion?.name || 'Companion').replace(/</g, '&lt;')}: ${n(st.compTurnMoves)}` : ''].filter(Boolean).join(' · ') : '';
+        document.querySelectorAll('[id^="pwOmWin_"][id$="_area"]').forEach(area => {
+            let el = area.querySelector('[data-pw-moves]');
+            if (!text) { if (el) el.remove(); return; }
+            if (!el) { el = document.createElement('div'); el.setAttribute('data-pw-moves', '1'); el.title = 'Move actions used this turn (back to 0 when your turn starts)'; el.style.cssText = 'position:absolute;left:6px;bottom:6px;z-index:21000005;pointer-events:none;background:rgba(15,23,42,.88);border:1px solid #38bdf8;color:#bae6fd;font-size:11px;font-weight:800;padding:2px 7px;border-radius:5px;'; area.appendChild(el); }
+            el.innerHTML = text;
+        });
+    }
+    window._pwMoveNotes = _pwMoveNotes;
     function _pwPayMove(info) {
         let st = window.state; if (!st) return;
         let c = info.cost, mp = info.mp;
         let rec = { key: mp.key, n: c.moves, left: c.left };
         if (mp.comp) { st.compTurnMoves = rec; if (c.ap > 0 && window.apxCompSpendAp) window.apxCompSpendAp(c.ap); }
         else { st.turnMoves = rec; if (c.ap > 0 && window.apxSpendAp) window.apxSpendAp(c.ap); }
+        _pwMoveNotes();
         window.scheduleAutoSave?.();
         let left = mp.comp ? (window.apxCompApCurrent ? window.apxCompApCurrent() : '?') : (window.apxApCurrent ? window.apxApCurrent() : '?');
         let movesTxt = c.actions ? ` (${c.actions} Move action${c.actions > 1 ? 's' : ''}${mp.mobile ? ', Mobile −1 each' : ''}${mp.staggered ? ', Staggered ×2' : ''})` : ' (rest of your last Move)';
@@ -4973,7 +5007,8 @@
         let vms = visible.map(t => {
             let p = posOf(t);
             let mine = isMine(t);
-            let isActive = !!(t.initiativeId && ((curInitId && t.initiativeId === curInitId) || (map._curMateIds || []).includes(t.initiativeId)));
+            let isActive = !!(t.initiativeId && ((curInitId && t.initiativeId === curInitId) || (map._curMateIds || []).includes(t.initiativeId)))
+                || (t.type === 'player' && t.playerUid && t.playerUid === map._curPlayerUid) || (t.type === 'companion' && t.playerUid && t.playerUid === map._curCompOf);   // (you and your Loyal Companion share a turn)
             let isDead = !!t._dead;
             let isKo = !isDead && !!t._ko;   // knocked out (non-lethal): grey, snoring Z's
             let isBleedingOut = !!t._bleedingOut && !isKo;
@@ -5069,6 +5104,7 @@
         });
         let mineIds = new Set(visible.filter(isMine).map(t => t.id));
 
+        setTimeout(_pwMoveNotes, 0);
         window.APXBattle.render({
             winId, win, area, grid: g, tokens: vms, props,
             imgSize: { w: img.naturalWidth, h: img.naturalHeight },
@@ -5846,9 +5882,9 @@
         });
     }
     </script>
-    <script src="js/apx-chat.js?v=202610111042"></script>
-    <script src="js/apx-actions.js?v=202610111042"></script>
-    <script src="js/apx-extras.js?v=202610111042"></script>
-    <script src="js/apx-theme-light.js?v=202610111042"></script>
+    <script src="js/apx-chat.js?v=202610111300"></script>
+    <script src="js/apx-actions.js?v=202610111300"></script>
+    <script src="js/apx-extras.js?v=202610111300"></script>
+    <script src="js/apx-theme-light.js?v=202610111300"></script>
 </body>
 </html>

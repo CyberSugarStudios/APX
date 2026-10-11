@@ -450,34 +450,18 @@
                 }
                 .apx-tb-btn:hover { filter: brightness(1.18); }
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=202610111042">
-    <link rel="stylesheet" href="css/tailwind.css?v=202610111042">
+    <link rel="stylesheet" href="css/apx-themes.css?v=202610111300">
+    <link rel="stylesheet" href="css/tailwind.css?v=202610111300">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
 
-    <!-- Docked to one side (⇆ swaps it), so maps, stat blocks and other windows have the rest of the screen -->
-    <div id="gmMain" class="w-full max-w-[1400px] p-4" style="margin-left:0;margin-right:auto">
-    <script>
-    (function () {
-        let side = 'left'; try { side = localStorage.getItem('apxGmDock') === 'right' ? 'right' : 'left'; } catch (e) {}
-        let el = document.getElementById('gmMain');
-        el.style.marginLeft = side === 'right' ? 'auto' : '0'; el.style.marginRight = side === 'right' ? '0' : 'auto';
-        window.gmToggleDock = function () {
-            let right = el.style.marginLeft !== 'auto';
-            el.style.marginLeft = right ? 'auto' : '0'; el.style.marginRight = right ? '0' : 'auto';
-            try { localStorage.setItem('apxGmDock', right ? 'right' : 'left'); } catch (e) {}
-        };
-        // The part of the screen the tools leave free: new windows (maps …) open there when it's wide enough
-        window.apxFreeArea = function () {
-            let r = el.getBoundingClientRect(), vw = window.innerWidth;
-            return el.style.marginLeft === 'auto' ? { x0: 0, x1: Math.max(0, r.left) } : { x0: Math.min(vw, r.right), x1: vw };
-        };
-    })();
-    </script>
+    <!-- Docked to one side (⇆: centred, left, right; the handle on its inner edge resizes it), so maps, stat blocks
+         and other windows have the rest of the screen (js/apx-dialogs.js apxDock) -->
+    <div id="gmMain" class="w-full max-w-[1400px] p-4" data-apx-dock="gm" data-dock-default="left" style="margin-left:0;margin-right:auto">
         <div class="flex items-center justify-between mb-4">
             <div>
-                <h1 class="text-2xl font-black text-white">APX GM Tools <button onclick="window.gmToggleDock()" title="Move the GM tools to the other side of the screen" style="vertical-align:middle;font-size:0.8rem;font-weight:800;padding:0.05rem 0.4rem;border-radius:0.25rem;background:#1e293b;border:1px solid #334155;color:#94a3b8;cursor:pointer;">⇆</button></h1>
+                <h1 class="text-2xl font-black text-white">APX GM Tools <button onclick="window.apxDockCycle('gm')" data-apx-dock-btn="gm" title="Centre the GM Tools, or pin them to the left or right" style="vertical-align:middle;font-size:0.8rem;font-weight:800;padding:0.05rem 0.4rem;border-radius:0.25rem;background:#1e293b;border:1px solid #334155;color:#94a3b8;cursor:pointer;">⇆</button></h1>
                 <p class="text-xs text-slate-500">GM Screen -- party overview and initiative tracker.</p>
             </div>
             <div class="flex gap-2">
@@ -1581,39 +1565,39 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=202610111042"></script>
-    <script src="js/apx-patch-notes.js?v=202610111042"></script>
-    <script src="js/apx-dice.js?v=202610111042"></script>
-    <script src="js/apx-data.js?v=202610111042"></script>
-    <script src="js/apx-item-effects.js?v=202610111042"></script>
-    <script src="js/apx-exo.js?v=202610111042"></script>
-    <script src="js/apx-perks-db.js?v=202610111042"></script>
-    <script src="js/apx-migrations.js?v=202610111042"></script>
-    <script src="js/apx-state.js?v=202610111042"></script>
-    <script src="js/apx-craft-shared.js?v=202610111042"></script>
-    <script src="js/apx-armor-forge.js?v=202610111042"></script>
-    <script src="js/apx-weapon-forge.js?v=202610111042"></script>
-    <script src="js/apx-consumable-crafter.js?v=202610111042"></script>
-    <script src="js/apx-perks-ui.js?v=202610111042"></script>
-    <script src="js/apx-power-crafter.js?v=202610111042"></script>
-    <script src="js/apx-npc-crafter.js?v=202610111042"></script>
-    <script src="js/apx-inventory-ui.js?v=202610111042"></script>
-    <script src="js/apx-ancestry-wizard.js?v=202610111042"></script>
-    <script src="js/apx-gm-screen.js?v=202610111042"></script>
-    <script src="js/apx-loot-maker.js?v=202610111042"></script>
-    <script src="js/apx-library.js?v=202610111042"></script>
-    <script src="js/apx-gm-content.js?v=202610111042"></script>
-    <script src="js/apx-gmtools-main.js?v=202610111042"></script>
+    <script src="js/apx-dialogs.js?v=202610111300"></script>
+    <script src="js/apx-patch-notes.js?v=202610111300"></script>
+    <script src="js/apx-dice.js?v=202610111300"></script>
+    <script src="js/apx-data.js?v=202610111300"></script>
+    <script src="js/apx-item-effects.js?v=202610111300"></script>
+    <script src="js/apx-exo.js?v=202610111300"></script>
+    <script src="js/apx-perks-db.js?v=202610111300"></script>
+    <script src="js/apx-migrations.js?v=202610111300"></script>
+    <script src="js/apx-state.js?v=202610111300"></script>
+    <script src="js/apx-craft-shared.js?v=202610111300"></script>
+    <script src="js/apx-armor-forge.js?v=202610111300"></script>
+    <script src="js/apx-weapon-forge.js?v=202610111300"></script>
+    <script src="js/apx-consumable-crafter.js?v=202610111300"></script>
+    <script src="js/apx-perks-ui.js?v=202610111300"></script>
+    <script src="js/apx-power-crafter.js?v=202610111300"></script>
+    <script src="js/apx-npc-crafter.js?v=202610111300"></script>
+    <script src="js/apx-inventory-ui.js?v=202610111300"></script>
+    <script src="js/apx-ancestry-wizard.js?v=202610111300"></script>
+    <script src="js/apx-gm-screen.js?v=202610111300"></script>
+    <script src="js/apx-loot-maker.js?v=202610111300"></script>
+    <script src="js/apx-library.js?v=202610111300"></script>
+    <script src="js/apx-gm-content.js?v=202610111300"></script>
+    <script src="js/apx-gmtools-main.js?v=202610111300"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=202610111042"></script>
-    <script src="js/apx-firebase.js?v=202610111042"></script>
-    <script src="js/apx-battlemap.js?v=202610111042"></script>
-    <script src="js/apx-fog.js?v=202610111042"></script>
-    <script src="js/apx-map-tiles.js?v=202610111042"></script>
+    <script src="js/firebase-config.js?v=202610111300"></script>
+    <script src="js/apx-firebase.js?v=202610111300"></script>
+    <script src="js/apx-battlemap.js?v=202610111300"></script>
+    <script src="js/apx-fog.js?v=202610111300"></script>
+    <script src="js/apx-map-tiles.js?v=202610111300"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -1910,6 +1894,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 if (!mapIds.length && t.linkedOtherMapId) mapIds=[t.linkedOtherMapId];
                                 return {id:t.id,type:t.type||'area',letter:t.letter,x:t.x,y:t.y,name:t.name||'',description:t.description||'',
                                     revealed:!!t.revealed,linkedNpcs:t.linkedNpcs||[],linkedOtherMapIds:mapIds,subnotes:t.subnotes||[],
+                                    ...(t.imgId?{imgId:t.imgId,imageMode:!!t.imageMode}:{}),   // its picture (players load it like a battle map image)
                                     ...(t.loot&&((t.loot.items||[]).length||t.loot.cu)?{loot:t.loot}:{})};
                             })
                         })),
@@ -2025,6 +2010,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                     _turnNo: window.gmTurnNumber || 0,
                                     // Surprised on its first turn of combat: gains only 1 AP
                                     _curApGain1: !!(window.gmCombatStarted && curEntry?._apFirstSurprised),
+                                    // whose player / companion tokens are on turn (tokens not linked to the tracker by id)
+                                    _curPlayerUid: window.gmCombatStarted && curEntry && curEntry.faction === 'player' && !curEntry.companionOf ? (curEntry.playerUid || null) : null,
+                                    _curCompOf: window.gmCombatStarted && curEntry ? (curEntry.companionOf || (window._gmTurnMates && window._gmTurnMates(curEntry).length ? curEntry.playerUid : null)) : null,
                                     // Whose Loyal Companion is taking its turn (its owner's sheet refills its AP)
                                     _curCompanionOf: window.gmCombatStarted ? (curEntry?.companionOf || null) : null,
                                     tokens };
@@ -3167,9 +3155,11 @@ document.addEventListener('DOMContentLoaded', () => {
         window.apxFloatingZTop++;
         // (count the map windows themselves, not every element inside them)
         let spot = window.apxWindowSpot(730, 540, document.querySelectorAll('[data-om-win]').length);
+        if (window.apxMapView) spot = window.apxMapView.place('gm:' + mapId, spot);   // where it was last time
         let win = document.createElement('div');
         win.id = winId;
         win.setAttribute('data-om-win', '1');
+        win.setAttribute('data-map-view', 'gm:' + mapId);
         win._apxTitle = () => ((_wNotes.otherMaps||[]).find(m=>m.id===mapId) || map).name || 'Map';   // its minimized tab
         win.style.cssText = `position:fixed;left:${spot.left}px;top:${spot.top}px;width:${spot.w}px;height:${spot.h}px;
             background:#0f172a;border:1px solid #334155;border-radius:0.75rem;z-index:${window.apxFloatingZTop};
@@ -3343,6 +3333,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (vp) vp.style.transform=`translate(${win._offX}px,${win._offY}px) scale(${win._scale})`;
             if (win._tokScale !== win._scale) { win._tokScale = win._scale; _omRenderTok(winId, win); }
             if (window.APXBattle) window.APXBattle.layout(winId);
+            if (window.apxMapView) window.apxMapView.soon(win);   // remembered for next time
         });
     }
 
@@ -3376,6 +3367,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window._omCloseWindow = function(mapId) {
         if (window._gmFogViewOf && window._gmFogViewOf(mapId)) { try { window._gmFogFor(mapId, ''); } catch (e) {} }
         let win = document.getElementById('omWin_'+mapId);
+        if (win && window.apxMapView) window.apxMapView.save(win);   // where it was, for next time
         if (win) { try { win._winDragCleanup && win._winDragCleanup(); } catch (e) {} if (window.APXBattle) window.APXBattle.clear('omWin_'+mapId); win.remove(); }
         if (_fogMode === mapId && typeof window.toggleFogMode === 'function') { try { window.toggleFogMode(mapId); } catch (e) {} }
         let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
@@ -3487,8 +3479,9 @@ document.addEventListener('DOMContentLoaded', () => {
             window._gmAttachTiles(img, document.getElementById(winId+'_area'), mm);
         }
         if(empty) empty.style.display='none';
+        let fitView = () => window.apxMapView ? window.apxMapView.fit(win, () => window.omReset(winId), () => _omTransform(winId, win)) : window.omReset(winId);
         img.onload=()=>{
-            window.omReset(winId);
+            fitView();
             let mapId = winId.replace('omWin_','');
             let fc = document.getElementById(winId+'_fog');
             if (fc) {
@@ -3507,7 +3500,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 _btRenderTokens(mapId, winId);
             }
         };
-        if(img.complete&&img.naturalWidth) window.omReset(winId);
+        if(img.complete&&img.naturalWidth) fitView();
     }
 
     function _omAttachFogEvents(mapId, winId, win) {
@@ -4198,7 +4191,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let vms = (map.battleTokens||[]).map(t => {
             let pos = _btPos(mapId, t);
-            let isActive = !!(t.initiativeId && ((curInitId && t.initiativeId === curInitId) || curMates.has(t.initiativeId)));
+            // On turn: its tracker entry is (a player and their Loyal Companion are on turn together)
+            let onEntry = window.gmCombatStarted && window._gmEntryForToken ? window._gmEntryForToken(mapId, t.id) : null;
+            let isActive = !!(t.initiativeId && ((curInitId && t.initiativeId === curInitId) || curMates.has(t.initiativeId))) || !!(onEntry && (onEntry.id === curInitId || curMates.has(onEntry.id)));
             let linkedEntry = t.initiativeId ? (window.gmInitiative||[]).find(e=>e.id===t.initiativeId) : null;
             let {isBleedingOut, isDead} = window._btLifeState(t, linkedEntry);
             // Knocked out by non-lethal damage: grey, with snoring Z's
@@ -5399,8 +5394,58 @@ document.addEventListener('DOMContentLoaded', () => {
             ${hdr('Skills')}<div style="font-size:0.62rem;color:#a3e635;padding:0.15rem 0;">${skillsList}</div>
             ${hdr('Languages')}<div style="font-size:0.62rem;color:#c4b5fd;padding:0.15rem 0;">${languages}</div>
             ${window._gmPlayerPowersHtml ? window._gmPlayerPowersHtml(st, hdr, p && (p.fileName || p.summary?.playerUid), s.mods, compact) : ''}
+            ${compact ? '' : _gmPlayerFullHtml(st, hdr)}
         </div>` };
     };
+    // Everything else on their sheet, for the pop-out: weapons, what they wear, inventory and Currency, perks,
+    // Ancestry and Origin, their Loyal Companion, conditions, and their notes
+    function _gmPlayerFullHtml(st, hdr) {
+        if (!st) return '';
+        let E = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        let line = (html, col) => `<div style="font-size:0.6rem;color:${col || '#cbd5e1'};padding:0.08rem 0;">${html}</div>`;
+        let out = '';
+        // Conditions and Wounded limbs
+        let conds = (st.conditions || []).map(id => ((typeof CONDITIONS !== 'undefined' ? CONDITIONS : []).find(c => c.id === id) || {}).name || id);
+        let limbs = (st.woundedLimbs || []);
+        if (conds.length || limbs.length) out += hdr('Conditions') + line(E(conds.concat(limbs.map(l => 'Wounded ' + l)).join(', ')), '#fca5a5');
+        // Weapons
+        let wpns = (st.weapons || []).filter(w => w && w.name);
+        if (wpns.length) out += hdr('Weapons') + wpns.map(w => line(`<b style="color:#e2e8f0">${E(w.name)}</b>${w.isAncestry ? ' <span style="color:#fdba74">(innate)</span>' : ''} · ${E(w.dmg || '—')}${w.dmgType || w.elemental ? ' ' + E(w.elemental || w.dmgType) : ''} · ${E(w.ap ?? '—')} AP · ${E(w.attr || '')}${w.category === 'ranged' ? ' · Ranged' : ''}${w.forged ? ' · Forged' : ''}`)).join('');
+        // Worn gear
+        let worn = [];
+        if (st.equippedArmor && st.equippedArmor.name) worn.push(`Armor: ${E(st.equippedArmor.name)}${st.equippedArmor.ac ? ` (AC +${E(st.equippedArmor.ac)})` : ''}`);
+        if (st.equippedShield && st.equippedShield.equipped) worn.push(`Shield: ${E(st.equippedShield.name || 'Shield')}`);
+        (st.extraShields || []).forEach(x => worn.push(`Shield: ${E(x && x.name || 'Shield')}`));
+        if (st.equippedHelmet && st.equippedHelmet.equipped) worn.push(`Helmet: ${E(st.equippedHelmet.name || 'Helmet')}${st.equippedHelmet.broken ? ' (broken)' : ''}`);
+        if (st.derived && st.derived.exo) worn.push(`Exo-Suit: ${E(st.derived.exo)}`);
+        if (worn.length) out += hdr('Wearing') + worn.map(x => line(x)).join('');
+        // Inventory and Currency
+        let items = (st.items || []).filter(it => it && it.name && (parseInt(it.ct) || 0) > 0);
+        out += hdr(`Inventory · ${E(st.currency || 0)} Currency`) + (items.length ? items.map(it => line(`${E(it.name)}${(parseInt(it.ct) || 1) > 1 ? ' ×' + E(it.ct) : ''}`
+            + (it.isConsumable && (it.charges || 1) > 1 ? ` <span style="color:#c4b5fd">(${E(it.chargesRemaining ?? it.charges)}/${E(it.charges)} charges)</span>` : '')
+            + (it.isCustomEquippable && it.equipped ? ' <span style="color:#67e8f9">(equipped)</span>' : '')
+            + (it.desc ? `<div style="font-size:0.55rem;color:#94a3b8;white-space:pre-wrap">${E(it.desc).slice(0, 300)}</div>` : ''))).join('') : line('Nothing carried.', '#64748b'));
+        // Perks
+        let PDB = typeof PERKS_DB !== 'undefined' ? PERKS_DB : (window.PERKS_DB || []);
+        let ids = [...new Set(Object.keys(st.perks || {}).concat((st.ancestryBonusPerks || []).map(b => b && b.perkId).filter(Boolean)))];
+        let perks = ids.map(id => { let r = window.apxPerkRank ? window.apxPerkRank(st, id) : (st.perks || {})[id]; let d = PDB.find(x => x.id === id); return r > 0 ? `${E(d ? d.name : id)} ${r}` : null; }).filter(Boolean);
+        if (perks.length) out += hdr('Perks') + line(perks.join(', '), '#fde68a');
+        // Ancestry and Origin
+        let anc = st.ancestry || {};
+        let TR = typeof ANCESTRY_TRAITS !== 'undefined' ? ANCESTRY_TRAITS : [], FL = typeof ANCESTRY_FLAWS !== 'undefined' ? ANCESTRY_FLAWS : [];
+        let count = (list, defs) => { let m = {}; (list || []).forEach(id => { m[id] = (m[id] || 0) + 1; }); return Object.keys(m).map(id => { let d = defs.find(x => x.id === id); return `${E(d ? d.name : id)}${m[id] > 1 ? ' ×' + m[id] : ''}`; }); };
+        let traits = count(anc.traits, TR), flaws = count(anc.flaws, FL);
+        out += hdr('Ancestry & Origin') + line(`<b style="color:#e2e8f0">${E(anc.name || 'Ancestry')}</b>${anc.lifespan ? ' · ' + E(anc.lifespan) + ' lifespan' : ''}`)
+            + (traits.length ? line('Traits: ' + traits.join(', ')) : '') + (flaws.length ? line('Flaws: ' + flaws.join(', '), '#fca5a5') : '')
+            + (st.origin && st.origin.name ? line(`Origin: <b style="color:#e2e8f0">${E(st.origin.name)}</b>${st.origin.feature ? ' · ' + E(st.origin.feature) : ''}`) : '');
+        // Loyal Companion
+        let c = st.companion;
+        if (c && (c.name || c.tier)) out += hdr('Loyal Companion') + line(`<b style="color:#86efac">${E(c.name || 'Companion')}</b>${c.tier ? ' · Tier ' + E(c.tier) : ''}${c.size ? ' · ' + E(c.size) : ''}`);
+        // Notes
+        let notes = (st.charNotes || []).filter(n => n && (n.title || n.content));
+        if (notes.length) out += hdr('Notes') + notes.map(n => `<details style="font-size:0.6rem;color:#cbd5e1;margin:0.1rem 0;"><summary style="cursor:pointer;color:#e2e8f0;font-weight:800">${E(n.title || 'Note')}${n.session ? ` <span style="color:#64748b;font-weight:600">· ${E(n.session)}</span>` : ''}</summary><div style="white-space:pre-wrap;padding:0.15rem 0 0.15rem 0.5rem;color:#cbd5e1">${E(n.content || '')}</div></details>`).join('');
+        return out;
+    }
 
     window._btOpenPlayerSummary = function(playerName, playerUid) {
         let winId = 'playerSummary_'+playerUid;
@@ -5416,7 +5461,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1;
         let win = document.createElement('div');
         win.id = winId;
-        win.style.cssText=`position:fixed;right:20px;top:60px;width:340px;max-height:82vh;overflow-y:auto;background:#0f172a;border:1px solid #6366f1;border-radius:0.75rem;z-index:${window.apxFloatingZTop};box-shadow:0 10px 40px rgba(0,0,0,.9);font-family:inherit;`;
+        win.style.cssText=`position:fixed;right:20px;top:60px;width:380px;max-height:82vh;overflow-y:auto;background:#0f172a;border:1px solid #6366f1;border-radius:0.75rem;z-index:${window.apxFloatingZTop};box-shadow:0 10px 40px rgba(0,0,0,.9);font-family:inherit;`;
         win.innerHTML=`
         <div id="${winId}_hdr" style="cursor:grab;user-select:none;background:#1e1b4b;padding:0.6rem 0.75rem;display:flex;align-items:center;gap:0.6rem;position:sticky;top:0;z-index:1;">
             ${sb.portrait}
@@ -5586,6 +5631,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             style="background:#0f172a;border:1px solid #334155;color:#e2e8f0;font-size:0.7rem;border-radius:0.25rem;padding:0.35rem 0.5rem;width:100%;box-sizing:border-box;resize:vertical;">${tok.description||''}</textarea>`
                     }
                 </div>
+                ${_tokImageSection(tok, mapId, tokenId, winId, readOnly)}
                 ${!readOnly?`<label style="display:flex;align-items:center;gap:0.4rem;font-size:0.7rem;cursor:pointer;">
                     <input type="checkbox" id="${winId}_revealed" ${tok.revealed?'checked':''} style="width:14px;height:14px;">
                     <span style="color:${tok.revealed?'#4ade80':'#94a3b8'};">Revealed to players</span>
@@ -5616,6 +5662,60 @@ document.addEventListener('DOMContentLoaded', () => {
         hdr.addEventListener('mousedown', e=>{ if(e.target.closest&&e.target.closest('button,input,select,textarea,option'))return; wDrag=true; let r=win.getBoundingClientRect(); wOX=e.clientX-r.left; wOY=e.clientY-r.top; e.preventDefault(); });
         let mm=e=>{ if(!wDrag)return; win.style.left=Math.max(0,Math.min(window.innerWidth-60,e.clientX-wOX))+'px'; win.style.top=Math.max(0,Math.min(window.innerHeight-40,e.clientY-wOY))+'px'; };
         document.addEventListener('mousemove', mm); document.addEventListener('mouseup', ()=>wDrag=false);
+    };
+
+    // ── An Area Circle's (or marker's) image ─────────────────────────
+    // Stored like a battle map image (players can load it); with Image mode on, clicking it on a player's map
+    // opens just the picture, with the description above it when there is one.
+    function _tokImgSrc(tok, onLoad) {
+        if (tok.img) return tok.img;
+        if (!tok.imgId) return '';
+        let c = (window._btImgCache || (window._btImgCache = {}))[tok.imgId];
+        if (c) return c;
+        if (c === undefined && window.apxAuth?.loadBattleImage && _activeWorldId) {
+            window._btImgCache[tok.imgId] = null;
+            window.apxAuth.loadBattleImage(_activeWorldId, tok.imgId).then(d => { window._btImgCache[tok.imgId] = d || ''; if (d && onLoad) onLoad(); }).catch(() => { window._btImgCache[tok.imgId] = ''; });
+        }
+        return '';
+    }
+    function _tokImageSection(tok, mapId, tokenId, winId, readOnly) {
+        let src = _tokImgSrc(tok, () => { let el = document.getElementById(winId + '_imgBox'); if (el) el.outerHTML = _tokImageSection(tok, mapId, tokenId, winId, readOnly); });
+        let has = !!(tok.img || tok.imgId);
+        let thumb = has ? (src ? `<img src="${src}" alt="" title="Click to see it full size" onclick="window.apxShowImage(this.src, ${JSON.stringify(tok.name || ('Area ' + (tok.letter || ''))).replace(/"/g, '&quot;')})" style="display:block;max-width:100%;max-height:140px;border-radius:0.3rem;cursor:zoom-in;margin:0 auto;">` : '<div style="font-size:0.65rem;color:#64748b;">Loading image…</div>') : '';
+        if (readOnly) return has ? `<div id="${winId}_imgBox">${thumb}${tok.imageMode ? '<div style="font-size:0.6rem;color:#a5b4fc;margin-top:0.2rem;text-align:center;">Image mode: players see this picture</div>' : ''}</div>` : '';
+        return `<div id="${winId}_imgBox">
+            <label style="display:block;font-size:0.65rem;color:#94a3b8;font-weight:700;text-transform:uppercase;margin-bottom:0.2rem;">Image</label>
+            ${thumb}
+            <div style="display:flex;gap:0.35rem;margin-top:0.25rem;">
+                <label style="flex:1;text-align:center;background:#1e3a5f;border:1px solid #2563eb;color:#93c5fd;font-size:0.65rem;font-weight:700;padding:0.25rem;border-radius:0.25rem;cursor:pointer;">${has ? 'Change Image' : '+ Add Image'}<input type="file" accept="image/*" style="display:none" onchange="window._tokSetImage('${mapId}','${tokenId}','${winId}', this.files[0])"></label>
+                ${has ? `<button onclick="window._tokSetImage('${mapId}','${tokenId}','${winId}', null)" style="background:#7f1d1d;border:1px solid #991b1b;color:#fca5a5;font-size:0.65rem;font-weight:700;padding:0.25rem 0.5rem;border-radius:0.25rem;cursor:pointer;">Remove</button>` : ''}
+            </div>
+            <label style="display:flex;align-items:flex-start;gap:0.4rem;font-size:0.68rem;cursor:pointer;margin-top:0.3rem;color:#cbd5e1;">
+                <input type="checkbox" id="${winId}_imgMode" ${tok.imageMode ? 'checked' : ''} style="width:14px;height:14px;margin-top:1px;">
+                <span><b>Image mode</b>: clicking it on a player's map shows just the image (the description above it, if it has one)</span></label>
+        </div>`;
+    }
+    window._tokSetImage = async function(mapId, tokenId, winId, file) {
+        let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+        let tok=map?.tokens?.find(t=>t.id===tokenId); if(!tok) return;
+        let old = tok.imgId;
+        if (!file) {
+            delete tok.img; delete tok.imgId; tok.imageMode = false;
+            if (old && window.apxAuth?.enabled && _activeWorldId) window.apxAuth.deleteBattleImage(_activeWorldId, old).catch(() => {});
+        } else {
+            let pic; try { pic = await window.APXBattle.compressImage(file, 1600); } catch (e) { window.apxAlert(e.message, { title: 'Area Image' }); return; }
+            if (window.apxAuth?.enabled && _activeWorldId) {
+                let id = 'aimg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+                try { await window.apxAuth.saveBattleImage(_activeWorldId, id, pic.src); } catch (e) { window.apxAlert('Could not save that image: ' + e.message, { title: 'Area Image' }); return; }
+                (window._btImgCache || (window._btImgCache = {}))[id] = pic.src;
+                tok.imgId = id; delete tok.img;
+                if (old) window.apxAuth.deleteBattleImage(_activeWorldId, old).catch(() => {});
+            } else { tok.img = pic.src; delete tok.imgId; }   // no cloud: kept with the map
+            let im = document.getElementById(winId + '_imgMode'); if (im && !tok.description) im.checked = true;   // (just a picture: image mode)
+            tok.imageMode = im ? im.checked : true;
+        }
+        saveWorldNotes();
+        let el = document.getElementById(winId + '_imgBox'); if (el) el.outerHTML = _tokImageSection(tok, mapId, tokenId, winId, false);
     };
 
     window._linkTokenNpc = function(mapId, tokenId, npcId, winId) {
@@ -5694,6 +5794,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tok.name=document.getElementById(winId+'_name')?.value||'';
         tok.description=document.getElementById(winId+'_desc')?.value||'';
         tok.revealed=!!(document.getElementById(winId+'_revealed')?.checked);
+        let imEl = document.getElementById(winId+'_imgMode'); if (imEl) tok.imageMode = !!imEl.checked;
         tok.linkedNpcs=tok.linkedNpcs||[];
         // Collect subnotes from DOM inputs
         let snContainer = document.getElementById(winId+'_subnotes');
@@ -6945,8 +7046,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </script>
     <div id="floatingWindowContainer"></div>
 
-    <script src="js/apx-chat.js?v=202610111042"></script>
-    <script src="js/apx-extras.js?v=202610111042"></script>
-    <script src="js/apx-theme-light.js?v=202610111042"></script>
+    <script src="js/apx-chat.js?v=202610111300"></script>
+    <script src="js/apx-extras.js?v=202610111300"></script>
+    <script src="js/apx-theme-light.js?v=202610111300"></script>
 </body>
 </html>

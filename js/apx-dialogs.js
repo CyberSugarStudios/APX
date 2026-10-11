@@ -405,3 +405,98 @@ window.apxTacticianDialog = function (o, done) {
     };
     return back;
 };
+
+// A picture, full size: a token's image, an Area Circle's image… (click outside it, ✕ or Esc closes it).
+// text: optional words shown above it.
+window.apxShowImage = function (src, title, text) {
+    if (!src) return null;
+    if (window.apxInjectDialogStyles) window.apxInjectDialogStyles();
+    let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    let back = document.createElement('div');
+    back.className = 'apxdlg-back'; back.setAttribute('data-apx-image', '1');
+    back.innerHTML = `<div class="apxdlg" style="width:auto;max-width:min(92vw,1100px);padding:.6rem .7rem .7rem;position:relative">
+        <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.35rem"><div class="apxdlg-title" style="margin:0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(title || '')}</div>
+        <button data-x title="Close" style="background:none;border:none;color:#94a3b8;font-size:1.1rem;font-weight:900;cursor:pointer;line-height:1">✕</button></div>
+        ${text ? `<div class="apxdlg-msg" style="white-space:pre-wrap;max-width:80vw;margin-bottom:.45rem">${esc(text)}</div>` : ''}
+        <img src="${esc(src)}" alt="" style="display:block;max-width:min(88vw,1080px);max-height:${text ? 72 : 80}vh;object-fit:contain;border-radius:.4rem;margin:0 auto"></div>`;
+    let close = () => { back.remove(); document.removeEventListener('keydown', onKey, true); };
+    let onKey = e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } };
+    document.addEventListener('keydown', onKey, true);
+    back.addEventListener('click', e => { if (e.target === back) close(); });
+    back.querySelector('[data-x]').onclick = close;
+    document.body.appendChild(back);
+    if (window.apxFront) window.apxFront(back);
+    return back;
+};
+
+// ── Docking a page's main panel (the GM Tools, the character sheet) ──────────
+// ⇆ cycles it: centred → pinned left → pinned right. Pinned, a handle on its inner edge (right when it's
+// on the left, left when it's on the right) squashes or stretches it, leaving more of the screen for maps and
+// pop-ups (double-click the handle: back to full width). Remembered in this browser, per page. New windows
+// open in the space it leaves free (apxFreeArea, used by apxWindowSpot).
+// Markup: <div data-apx-dock="<key>" data-dock-default="center|left|right"> and a button calling apxDockCycle('<key>').
+(function () {
+    const docks = {};
+    let load = k => { try { return JSON.parse(localStorage.getItem('apxDock_' + k) || 'null') || {}; } catch (e) { return {}; } };
+    let save = (k, v) => { try { localStorage.setItem('apxDock_' + k, JSON.stringify(v)); } catch (e) { } };
+    const NAMES = { center: 'centred', left: 'pinned left', right: 'pinned right' };
+    function init(el) {
+        let key = el.getAttribute('data-apx-dock'); if (!key || docks[key]) return;
+        let st = load(key), def = el.getAttribute('data-dock-default') || 'center';
+        if (!['center', 'left', 'right'].includes(st.side)) { st.side = def; try { if (key === 'gm' && localStorage.getItem('apxGmDock') === 'right') st.side = 'right'; } catch (e) { } }   // (the earlier left / right switch)
+        let handle = document.createElement('div');
+        handle.title = 'Drag to make it narrower or wider (double-click: full width)';
+        handle.style.cssText = 'position:fixed;top:0;bottom:0;width:10px;cursor:col-resize;z-index:150;display:none;touch-action:none;';
+        handle.innerHTML = '<div style="position:absolute;top:50%;left:3px;width:4px;height:64px;margin-top:-32px;border-radius:3px;background:var(--c-border2,#475569);opacity:.85"></div>';
+        handle.addEventListener('mouseenter', () => { handle.firstChild.style.background = 'var(--c-accent,#818cf8)'; });
+        handle.addEventListener('mouseleave', () => { if (!handle._drag) handle.firstChild.style.background = 'var(--c-border2,#475569)'; });
+        document.body.appendChild(handle);
+        let d = { el, key, st, handle };
+        let place = () => {
+            if (d.st.side === 'center') { handle.style.display = 'none'; return; }
+            let r = el.getBoundingClientRect();
+            handle.style.display = 'block';
+            handle.style.left = Math.round((d.st.side === 'left' ? r.right : r.left) - 5) + 'px';
+        };
+        d.apply = () => {
+            let s = d.st.side;
+            el.style.marginLeft = s === 'left' ? '0' : 'auto';
+            el.style.marginRight = s === 'right' ? '0' : 'auto';
+            el.style.maxWidth = s !== 'center' && d.st.w ? d.st.w + 'px' : '';
+            document.querySelectorAll(`[data-apx-dock-btn="${key}"]`).forEach(b => { b.title = `The ${key === 'sheet' ? 'sheet' : 'GM Tools'} are ${NAMES[s]}: click to ${s === 'center' ? 'pin them to the left' : s === 'left' ? 'pin them to the right' : 'centre them'}`; });
+            requestAnimationFrame(place);
+        };
+        handle.addEventListener('pointerdown', e => {
+            if (e.button !== 0) return;
+            e.preventDefault(); handle._drag = true;
+            try { handle.setPointerCapture(e.pointerId); } catch (_) { }
+        });
+        handle.addEventListener('pointermove', e => {
+            if (!handle._drag) return;
+            let r = el.getBoundingClientRect(), vw = window.innerWidth;
+            let w = d.st.side === 'left' ? e.clientX - r.left : r.right - e.clientX;
+            d.st.w = Math.round(Math.max(Math.min(420, vw - 40), Math.min(vw - 40, w)));
+            d.apply();
+        });
+        let end = () => { if (!handle._drag) return; handle._drag = false; handle.firstChild.style.background = 'var(--c-border2,#475569)'; save(key, d.st); };
+        handle.addEventListener('pointerup', end); handle.addEventListener('pointercancel', end);
+        handle.addEventListener('dblclick', () => { d.st.w = null; save(key, d.st); d.apply(); });
+        window.addEventListener('resize', place);
+        if (typeof ResizeObserver !== 'undefined') new ResizeObserver(place).observe(el);
+        docks[key] = d;
+        d.apply();
+    }
+    window.apxDockCycle = function (key) {
+        let d = docks[key]; if (!d) return;
+        d.st.side = { center: 'left', left: 'right', right: 'center' }[d.st.side] || 'center';
+        save(key, d.st); d.apply();
+    };
+    // The part of the screen the docked panel leaves free (new windows open there when it's wide enough)
+    window.apxFreeArea = function () {
+        let d = Object.values(docks)[0]; if (!d || d.st.side === 'center') return null;
+        let r = d.el.getBoundingClientRect(), vw = window.innerWidth;
+        return d.st.side === 'right' ? { x0: 0, x1: Math.max(0, r.left) } : { x0: Math.min(vw, r.right), x1: vw };
+    };
+    let go = () => document.querySelectorAll('[data-apx-dock]').forEach(init);
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
+})();
