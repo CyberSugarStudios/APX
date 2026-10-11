@@ -647,6 +647,7 @@ window.pcSetUtilityCount = function(tier, key, delta) {
     pcRenderAll();
 };
 
+window.pcSetChannelStep = function(val) { pcDraft.channelStep = val; pcRenderAll(); };
 window.pcSetDuration = function(val) {
     pcDraft.duration = val;
     // Interrupts only make sense for durations of 1 minute or longer --
@@ -830,6 +831,11 @@ function pcRulesProblems() {
     let out = info.problems.map(k => window.apxPowerSaveProblemText ? window.apxPowerSaveProblemText(info, k) : k);
     if ((window.apxPowerApKey ? window.apxPowerApKey(pcDraft) : pcDraft.apMod) === 'reaction' && !pcStepSkipped(7) && !String(pcDraft.reactionTrigger || '').trim())
         out.push('A Reaction power needs its trigger: the specific condition for using it (Step 7).');
+    if (pcDraft.duration === 'channel' && !pcStepSkipped(6)) {
+        let co = window.apxChannelOptions(pcDraft);
+        if (co.dmg && co.util && !['dmg', 'util'].includes(pcDraft.channelStep)) out.push('Choose what Channeling repeats (Step 6): its Damage (Step 4) or its Utility (Step 5).');
+        else if (!co.dmg && !co.util) out.push('Channeling repeats a power\'s Damage (Step 4) or Utility (Step 5): give it one, or pick another Duration (Step 6).');
+    }
     if (pcDraft.durationMods && pcDraft.durationMods.dmgInterrupt && window.apxNoDmgInterrupt(pcDraft).length)
         out.push(`Damage Interrupt can't be taken on a power with the ${window.apxNoDmgInterrupt(pcDraft).join(' or ')} Utility: remove it (Step 6).`);
     // A second damage type needs dice of its own, and so does the first
@@ -1003,9 +1009,20 @@ function pcRenderStep6() {
             <div><div class="text-xs font-bold text-slate-200">${d.label} <span class="text-yellow-500">[${pcCost(pcMythicPrice(d.cost), x => { x.duration = d.key; if (d.key === 'instant') { x.durationMods.dmgInterrupt = false; x.durationMods.actionInterrupt = false; } }, pcDraft.duration === d.key)}]</span></div>${d.desc ? `<div class="text-[10px] text-slate-500 leading-tight">${d.desc}</div>` : ''}</div>
         </label>
     `).join('');
+    // Channeling: which step it repeats (asked only when the power has both)
+    let chanHtml = '';
+    if (pcDraft.duration === 'channel') {
+        let co = window.apxChannelOptions(pcDraft), cur = window.apxChannelStep(pcDraft);
+        if (cur && pcDraft.channelStep !== cur && !(co.dmg && co.util)) pcDraft.channelStep = cur;   // only one to repeat
+        let opt = (k, label, ok) => `<label class="flex items-center gap-1.5 text-xs ${ok ? 'cursor-pointer text-slate-200' : 'opacity-40'}"><input type="radio" name="pcChannelStep" ${pcDraft.channelStep === k && ok ? 'checked' : ''} ${ok ? '' : 'disabled'} onchange="window.pcSetChannelStep('${k}')"> ${label}</label>`;
+        chanHtml = `<div class="bg-slate-900 border ${co.dmg && co.util && !['dmg', 'util'].includes(pcDraft.channelStep) ? 'border-red-500' : 'border-purple-700'} rounded p-2 mb-1">
+            <div class="text-xs font-bold text-purple-200 mb-1">Channeling repeats</div>
+            <div class="flex flex-wrap gap-3">${opt('dmg', `Damage${pcDraft.isHealing ? ' / Healing' : ''} (Step 4)`, co.dmg)}${opt('util', 'Utility (Step 5)', co.util)}</div>
+            <div class="text-[10px] text-slate-500 leading-tight mt-1">Each turn while it lasts, Channel (half its AP, rounded down, at least 1) reapplies this to the same target, without another Power Slot.</div></div>`;
+    }
     let interruptsAllowed = pcDurationAllowsInterrupts(pcDraft.duration);
     let incap = pcSaveInfo().incap, noDi = window.apxNoDmgInterrupt(pcDraft);
-    document.getElementById('pcStep6Mods').innerHTML = POWER_DURATION_MODS.map(m => {
+    document.getElementById('pcStep6Mods').innerHTML = chanHtml + POWER_DURATION_MODS.map(m => {
         let ok = interruptsAllowed && !(m.key === 'actionInterrupt' && incap.length) && !(m.key === 'dmgInterrupt' && noDi.length);
         let why = m.key === 'actionInterrupt' && incap.length ? `<div class="text-[10px] text-amber-400 leading-tight">Not with ${incap.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(' or ')}: an Incapacitated creature can't spend AP.</div>`
             : m.key === 'dmgInterrupt' && noDi.length ? `<div class="text-[10px] text-amber-400 leading-tight">Not on a power with the ${noDi.join(' or ')} Utility (Step 5).</div>` : '';
@@ -1331,6 +1348,7 @@ function pcBuildTextSummary() {
     if (mythic && (mythic.skip || []).includes(6)) durationBits = [mythic.durationText];
     let sInfo = pcSaveInfo();
     if (sInfo.lasting && sInfo.escapeAttr) durationBits.push('Escape Save: ' + sInfo.escapeAttr);
+    if (pcDraft.duration === 'channel' && window.apxChannelStep(pcDraft)) durationBits.push('Channels its ' + (window.apxChannelStep(pcDraft) === 'dmg' ? (pcDraft.isHealing ? 'Healing' : 'Damage') : 'Utility'));
     if (mythic && mythic.castText) utilityBits.push('Casting time: ' + mythic.castText);
     if (!pcStepSkipped(7)) {
         let am = POWER_AP_MODS.find(a => a.key === (window.apxPowerApKey ? window.apxPowerApKey(pcDraft) : pcDraft.apMod)) || {};

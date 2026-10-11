@@ -11,6 +11,58 @@
     'use strict';
 
     const NOTES = [{
+        version: 'v2026.10.11.1042',
+        released: '2026-10-11T10:42:00',
+        releasedText: 'October 11, 2026 · 10:42 AM',
+        title: 'Companions, Channeling & Consumables',
+        intro: 'Loyal Companions now take their turn with you, Channeling powers get a Channel button, crafted consumables can be used straight from your inventory, big creatures squeeze past walls on the battle map, and a few rules are tidied up: Choke, Innate Weapons and Room reveal.',
+        index: [
+            ['Combat', [
+                'A Loyal Companion shares its owner\'s turn: one place in the initiative order, both on turn together, and both get their AP when it starts.',
+                'Channeling powers choose, when they\'re crafted, whether channeling repeats their Damage or their Utility. While one lasts, a Channel button (half the power\'s AP) reapplies it each turn. Channeling powers made before need a free rebuild.',
+                'Crafted consumables have a Use button: 3 AP and one charge, rolled like a power.',
+                'Choke ignores the target\'s DR, ER and resistances, and counts as an attack for Fight Defensively.',
+                'Innate Weapons are weapons, not unarmed strikes.'
+            ]],
+            ['Battle Maps', [
+                'Large and bigger tokens squeeze into a smaller space where walls leave no room, and grow back where they fit.',
+                'Room reveal only opens a room when your token steps into it. A Vision cone still sees through a door the moment it opens.'
+            ]]
+        ],
+        sheet: [
+            ['Your Turn', [
+                'Your Loyal Companion shares your turn: when it comes up, you both get your AP, and you and your companion can act in any order.',
+                'Choke (2 AP) ignores the Pinned creature\'s DR, ER and resistances. It counts as an attack, so Fight Defensively gives +2 AC (not +4) on a turn you Choke.'
+            ]],
+            ['Powers & Consumables', [
+                'Channeling: when you craft a Channeling power that has both Damage and Utility, choose which one channeling repeats (Step 6). After you use it, a Channeling bar above your Powers and your Attacks has Channel (half the power\'s AP, rounded down, at least 1) to reapply that to the same target, with no Power Slot and no new attack roll or save, and Stop Channeling. It lasts up to 1 Minute (10 rounds) in a fight, and ends when the fight does.',
+                'Channeling powers made before this update show "Rules changed: Recraft (Free)": rebuild one to choose what it repeats. You can still use it until then, but not channel it.',
+                'Crafted consumables have a Use (3 AP) button in your inventory and in their details: it spends 3 AP and one charge, and rolls the item\'s attack or save, damage or healing like a power. The attack is your attribute modifier plus training, and the save DC is 10 + that modifier (an item doesn\'t use your Power perks). The last charge uses the item up; the next one in a stack takes its place.'
+            ]],
+            ['Ancestry', [
+                'Innate Weapons (claws, fangs, horns, built-in blades) are weapons, not unarmed strikes: Light melee weapons you\'re always trained with, that need no hands. Boosts to unarmed strikes, like Martial Arts, apply to your Unarmed Strike, not to them, and Choke uses your Unarmed Strike.'
+            ]],
+            ['Battle Maps', [
+                'A Large or bigger token squeezes into the next size down (down to Medium) where walls leave it no room, such as a narrow corridor or doorway. The token shows an amber outline while you drag it there, and you\'re told when you start and stop squeezing (Disadvantage on attacks and AGI saves while squeezing). Where it fits again, it\'s its own size again. Its body can no longer slide half through a wall.',
+                'Room reveal opens a fogged room only when your token steps into it, not when a door into it opens. A Vision cone sees through a door as soon as it opens.'
+            ]]
+        ],
+        gm: [
+            ['Initiative', [
+                'A Loyal Companion shares its owner\'s turn. Its card is joined under its owner\'s, both are highlighted on that turn, and both get their AP (and start-of-turn effects) when it starts. Next Turn and Prev Turn pass over it. On the battle map both tokens show as on turn, and you can move the companion\'s token during its owner\'s turn.'
+            ]],
+            ['Rules', [
+                'Choke ignores the target\'s DR, ER and resistances, and counts as an attack (Fight Defensively drops to +2 AC).',
+                'Innate Weapons are weapons, not unarmed strikes: Martial Arts and Choke use the Unarmed Strike.',
+                'Channeling: a power chooses at crafting whether channeling repeats its Damage or its Utility. Players get a Channel button (half the power\'s AP) while it lasts, and each Channel shows in the log as "<power> (Channel)". Channeling powers made before need a free rebuild before they can be channeled.',
+                'Players\' crafted consumables are used from their sheet (3 AP and a charge), and arrive in your tracker like a power.'
+            ]],
+            ['Battle Maps', [
+                'A player\'s Large or bigger token squeezes into a smaller space where walls leave it no room, and you see it at its squeezed size.',
+                'Room reveal opens a room for a player only when their token steps into it. Opening a door updates Vision cones at once.'
+            ]]
+        ]
+    }, {
         version: 'v2026.10.10.1955',
         released: '2026-10-10T19:55:00',
         releasedText: 'October 10, 2026 · 7:55 PM',

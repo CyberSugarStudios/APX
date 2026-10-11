@@ -450,8 +450,8 @@
                 }
                 .apx-tb-btn:hover { filter: brightness(1.18); }
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=202610101955">
-    <link rel="stylesheet" href="css/tailwind.css?v=202610101955">
+    <link rel="stylesheet" href="css/apx-themes.css?v=202610111042">
+    <link rel="stylesheet" href="css/tailwind.css?v=202610111042">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
@@ -1581,39 +1581,39 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=202610101955"></script>
-    <script src="js/apx-patch-notes.js?v=202610101955"></script>
-    <script src="js/apx-dice.js?v=202610101955"></script>
-    <script src="js/apx-data.js?v=202610101955"></script>
-    <script src="js/apx-item-effects.js?v=202610101955"></script>
-    <script src="js/apx-exo.js?v=202610101955"></script>
-    <script src="js/apx-perks-db.js?v=202610101955"></script>
-    <script src="js/apx-migrations.js?v=202610101955"></script>
-    <script src="js/apx-state.js?v=202610101955"></script>
-    <script src="js/apx-craft-shared.js?v=202610101955"></script>
-    <script src="js/apx-armor-forge.js?v=202610101955"></script>
-    <script src="js/apx-weapon-forge.js?v=202610101955"></script>
-    <script src="js/apx-consumable-crafter.js?v=202610101955"></script>
-    <script src="js/apx-perks-ui.js?v=202610101955"></script>
-    <script src="js/apx-power-crafter.js?v=202610101955"></script>
-    <script src="js/apx-npc-crafter.js?v=202610101955"></script>
-    <script src="js/apx-inventory-ui.js?v=202610101955"></script>
-    <script src="js/apx-ancestry-wizard.js?v=202610101955"></script>
-    <script src="js/apx-gm-screen.js?v=202610101955"></script>
-    <script src="js/apx-loot-maker.js?v=202610101955"></script>
-    <script src="js/apx-library.js?v=202610101955"></script>
-    <script src="js/apx-gm-content.js?v=202610101955"></script>
-    <script src="js/apx-gmtools-main.js?v=202610101955"></script>
+    <script src="js/apx-dialogs.js?v=202610111042"></script>
+    <script src="js/apx-patch-notes.js?v=202610111042"></script>
+    <script src="js/apx-dice.js?v=202610111042"></script>
+    <script src="js/apx-data.js?v=202610111042"></script>
+    <script src="js/apx-item-effects.js?v=202610111042"></script>
+    <script src="js/apx-exo.js?v=202610111042"></script>
+    <script src="js/apx-perks-db.js?v=202610111042"></script>
+    <script src="js/apx-migrations.js?v=202610111042"></script>
+    <script src="js/apx-state.js?v=202610111042"></script>
+    <script src="js/apx-craft-shared.js?v=202610111042"></script>
+    <script src="js/apx-armor-forge.js?v=202610111042"></script>
+    <script src="js/apx-weapon-forge.js?v=202610111042"></script>
+    <script src="js/apx-consumable-crafter.js?v=202610111042"></script>
+    <script src="js/apx-perks-ui.js?v=202610111042"></script>
+    <script src="js/apx-power-crafter.js?v=202610111042"></script>
+    <script src="js/apx-npc-crafter.js?v=202610111042"></script>
+    <script src="js/apx-inventory-ui.js?v=202610111042"></script>
+    <script src="js/apx-ancestry-wizard.js?v=202610111042"></script>
+    <script src="js/apx-gm-screen.js?v=202610111042"></script>
+    <script src="js/apx-loot-maker.js?v=202610111042"></script>
+    <script src="js/apx-library.js?v=202610111042"></script>
+    <script src="js/apx-gm-content.js?v=202610111042"></script>
+    <script src="js/apx-gmtools-main.js?v=202610111042"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=202610101955"></script>
-    <script src="js/apx-firebase.js?v=202610101955"></script>
-    <script src="js/apx-battlemap.js?v=202610101955"></script>
-    <script src="js/apx-fog.js?v=202610101955"></script>
-    <script src="js/apx-map-tiles.js?v=202610101955"></script>
+    <script src="js/firebase-config.js?v=202610111042"></script>
+    <script src="js/apx-firebase.js?v=202610111042"></script>
+    <script src="js/apx-battlemap.js?v=202610111042"></script>
+    <script src="js/apx-fog.js?v=202610111042"></script>
+    <script src="js/apx-map-tiles.js?v=202610111042"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -1931,7 +1931,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         id: _ct?.id || null, turnNo: window.gmTurnNumber || 0, round: window.gmRoundNumber || 1,
                         session: (typeof _gmLogSession !== 'undefined' && _gmLogSession) || null,   // this fight (combat-start AP is granted once per fight)
                         playerUid: _ct && _ct.faction === 'player' ? (_ct.playerUid || null) : null,
-                        companionOf: _ct?.companionOf || null,
+                        // (a Loyal Companion shares its owner's turn: both get their AP when it starts)
+                        companionOf: _ct?.companionOf || (_ct && window._gmTurnMates && window._gmTurnMates(_ct).length ? _ct.playerUid : null),
                         apGain1: !!_ct?._apFirstSurprised,
                         // Flurry: the player on turn hit with this weapon, so their next attacks with it cost 1 less AP
                         flurry: (() => { let f = _ct && (window._gmFlurry || {})[_ct.id]; return f && f.turn === window.gmTurnNumber && _ct.playerUid ? { uid: _ct.playerUid, weapon: f.weapon, target: f.targetName } : null; })()
@@ -2020,6 +2021,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     drawings: (m.drawings || []).slice(-300),
                                     battleImages: btImages,
                                     _currentInitId: window.gmCombatStarted ? (curEntry?.id || null) : null,
+                                    _curMateIds: window.gmCombatStarted && window._gmTurnIds ? window._gmTurnIds().slice(1) : [],   // a Loyal Companion on turn with its owner
                                     _turnNo: window.gmTurnNumber || 0,
                                     // Surprised on its first turn of combat: gains only 1 AP
                                     _curApGain1: !!(window.gmCombatStarted && curEntry?._apFirstSurprised),
@@ -4113,6 +4115,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function _btMovePathFor(t) {
         if (!window.gmCombatStarted || !t || !t.initiativeId) return null;
         let cur = (window.gmInitiative||[])[window.gmCurrentTurnIdx];
+        // a Loyal Companion moves on its owner's turn
+        if (cur && cur.id !== t.initiativeId && window._gmTurnMates) cur = window._gmTurnMates(cur).find(m => m.id === t.initiativeId) || cur;
         if (!cur || cur.id !== t.initiativeId || cur.faction === 'player') return null;
         let speed = 3;
         if (cur.sourceNpcId && typeof ncStatBlockFor === 'function' && (window.gmNpcs||[]).some(g=>g.id===cur.sourceNpcId)) { try { speed = ncStatBlockFor(cur.sourceNpcId).speed; } catch (e) {} }
@@ -4142,6 +4146,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!img || !img.naturalWidth || !map?.battleMapEnabled) { window.APXBattle.clear(winId); return; }
 
         let curInitId = window.gmInitiative?.[window.gmCurrentTurnIdx??0]?.id || null;
+        let curMates = new Set(window.gmCombatStarted && window._gmTurnIds ? window._gmTurnIds().slice(1) : []);   // a Loyal Companion on turn with its owner
         let interactive = (_fogMode !== mapId);   // fog painting mode: tokens must not eat clicks
 
         // Player tokens match the character's size on their sheet, unless the GM resized the token
@@ -4193,7 +4198,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let vms = (map.battleTokens||[]).map(t => {
             let pos = _btPos(mapId, t);
-            let isActive = !!(t.initiativeId && curInitId && t.initiativeId === curInitId);
+            let isActive = !!(t.initiativeId && ((curInitId && t.initiativeId === curInitId) || curMates.has(t.initiativeId)));
             let linkedEntry = t.initiativeId ? (window.gmInitiative||[]).find(e=>e.id===t.initiativeId) : null;
             let {isBleedingOut, isDead} = window._btLifeState(t, linkedEntry);
             // Knocked out by non-lethal damage: grey, with snoring Z's
@@ -6599,8 +6604,8 @@ document.addEventListener('DOMContentLoaded', () => {
         window.APXFog.polys(_fogCode(), tok.playerUid, mapId, fc.width, fc.height, [window.APXFog.gridRing(pts, map.battleGrid, fc._k || 1)], true);
     };
 
-    // A door opened or shut: player tokens' Vision cones see through the doorway (or stop seeing), and
-    // a token with Room reveal in a room that door leads out of sees the room on the other side
+    // A door opened or shut: player tokens' Vision cones see through the doorway (or stop seeing).
+    // (Room reveal only opens a room when the token steps into it.)
     window._gmDoorFog = function(mapId, door) {
         let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId), fc = _fogCanvas(mapId);
         if (!map || !door || !fc || !fc.width || !window.APXFog) return;
@@ -6608,10 +6613,6 @@ document.addEventListener('DOMContentLoaded', () => {
             let fr = t.fogReveal; if (!fr || !t.playerUid || (t.type !== 'player' && t.type !== 'companion')) return;
             let pp = _btPos(mapId, t);
             if (fr.mode === 'cone') window._gmFogVision(mapId, t, null, { gridX: pp.gridX, gridY: pp.gridY, f: pp.f, sq: pp.sq });
-            else if (fr.mode === 'room' && door.open) {
-                let other = window.APXBattle.roomBeyond(map.walls || [], door, pp.gridX, pp.gridY);
-                if (other) window.APXFog.polys(_fogCode(), t.playerUid, mapId, fc.width, fc.height, window.APXFog.roomRings(other, map.battleGrid, fc._k || 1), true);
-            }
         });
     };
 
@@ -6944,8 +6945,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </script>
     <div id="floatingWindowContainer"></div>
 
-    <script src="js/apx-chat.js?v=202610101955"></script>
-    <script src="js/apx-extras.js?v=202610101955"></script>
-    <script src="js/apx-theme-light.js?v=202610101955"></script>
+    <script src="js/apx-chat.js?v=202610111042"></script>
+    <script src="js/apx-extras.js?v=202610111042"></script>
+    <script src="js/apx-theme-light.js?v=202610111042"></script>
 </body>
 </html>

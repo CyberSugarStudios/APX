@@ -628,6 +628,13 @@ function _gmCompanionOwner(e) {
     let u = e && (e.companionOf || e.summonOf); return u ? (window.gmInitiative || []).find(x => x.playerUid === u && !x.companionOf && !x.summonOf) : null;
 }
 function effInit(e) { let o = _gmCompanionOwner(e); if (o) return effInit(o); return e.baseInitiative - (e.surprised ? 10 : 0); }
+// A Loyal Companion takes its turn WITH its owner: one slot in the order (drawn joined under its owner),
+// Next / Prev Turn pass over it, and its turn (AP, start / end of turn effects) begins and ends with theirs.
+function _gmSharesTurn(e) { return !!(e && e.companionOf && !e.summonOf && !e.summonOfEntry && _gmCompanionOwner(e)); }
+function _gmTurnMates(e) { return e && e.playerUid && !e.companionOf ? (window.gmInitiative || []).filter(x => x !== e && x.companionOf === e.playerUid && !x.summonOf && !x.summonOfEntry) : []; }
+window._gmSharesTurn = _gmSharesTurn; window._gmTurnMates = _gmTurnMates;
+// Everyone whose turn it is now: the creature on turn and a companion sharing it
+window._gmTurnIds = function() { let c = window.gmCombatStarted ? (window.gmInitiative || [])[window.gmCurrentTurnIdx] : null; return c ? [c.id].concat(_gmTurnMates(c).map(m => m.id)) : []; };
 
 // PCs automatically win initiative ties against non-PCs (no manual
 // resolution needed); everything else (PC-vs-PC, NPC-vs-NPC) is a true
@@ -1755,7 +1762,7 @@ async function _gmGrappleEvent(uid, ev) {
         let t = _gmEntryById(me.grappling); if (t) _gmEndGrapple(t, `${who} lets go`);
     } else if (ev.action === 'choke') {
         let t = _gmEntryById(me.grappling);
-        if (t && ev.total != null) _gmDamage(t, { raw: parseInt(ev.total) || 0, types: ['Bludgeoning'], hit: null, src: `${me.name}'s Choke`, nonlethal: !!ev.nonlethal });
+        if (t && ev.total != null) _gmDamage(t, { raw: parseInt(ev.total) || 0, types: ['Bludgeoning'], hit: null, src: `${me.name}'s Choke`, nonlethal: !!ev.nonlethal, bypassRes: true });   // (a Choke ignores DR, ER and resistances)
         else gmLog({ text: `${who} chokes a creature: ${ev.total} Bludgeoning${ev.nonlethal ? ' (non-lethal)' : ''}.`, kind: 'info', force: true });
     }
 }
@@ -2997,7 +3004,7 @@ function _gmDamage(entry, opts) {
     let def = _gmDefenseOf(entry);
     if (opts.defAdd) { def.dr += opts.defAdd.dr || 0; def.er += opts.defAdd.er || 0; if (opts.defAdd.why) def.src = (def.src || 'tracker') + ', ' + opts.defAdd.why; }
     let incap = _gmEffConds(entry).includes('incapacitated');
-    let mopt = { ignore: hit && hit.hit && window.APXDamage ? window.APXDamage.ignoreOf(hit.hit) : null, bypassRes: incap, halfBypass: def.halfBypass,
+    let mopt = { ignore: hit && hit.hit && window.APXDamage ? window.APXDamage.ignoreOf(hit.hit) : null, bypassRes: incap || !!opts.bypassRes, halfBypass: def.halfBypass,
         shares: hit && Array.isArray(hit.dmgShares) && opts.types && hit.dmgShares.length === opts.types.length ? hit.dmgShares : null };   // a split roll: each type its own amount
     // Temp HP takes its share unreduced; only what gets past it is reduced by DR, ER, resistances and immunities
     // (a player's sheet already did this for its own HP, and says how much Temp HP it had)
@@ -3625,7 +3632,7 @@ window.startCombat = function(skipTac) {
     _gmLogSession = 'c' + Date.now().toString(36);
     gmLog({ text: 'Combat started. Round 1.', kind: 'info' });
     _gmTacApply(swaps);
-    if (window.gmInitiative[0]) { gmStartTurnAp(window.gmInitiative[0]); _gmBurnTick(window.gmInitiative[0]); _gmTac5Offer(window.gmInitiative[0]); }
+    if (window.gmInitiative[0]) { gmStartTurnAp(window.gmInitiative[0]); _gmBurnTick(window.gmInitiative[0]); _gmTac5Offer(window.gmInitiative[0]); _gmTurnMates(window.gmInitiative[0]).forEach(m => { gmStartTurnAp(m); _gmBurnTick(m); }); }
     window.renderInitiativeTracker();
     if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
     if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
@@ -3636,6 +3643,8 @@ window.nextInitiativeTurn = function() {
     // Damage Aura: the creature ending its turn next to one takes its damage (it may not survive it)
     let endIdx = window.gmCurrentTurnIdx, ending = window.gmInitiative[endIdx];
     if (window.gmCombatStarted && ending) { try { _gmAuraTick(ending); } catch (e) { console.warn('Damage Aura:', e); } }
+    // its Loyal Companion's turn ends with it
+    if (window.gmCombatStarted && ending) _gmTurnMates(ending).forEach(m => { try { _gmAuraTick(m); } catch (e) { console.warn('Damage Aura:', e); } if (window.gmInitiative.includes(m)) { _gmExpireCondTimers(m); try { _gmPfxTurnEnd(m); } catch (e) { console.warn('Escape Saves:', e); } } });
     if (ending && !window.gmInitiative.includes(ending)) {
         if (!window.gmInitiative.length) { window.renderInitiativeTracker(); return; }
         window.gmCurrentTurnIdx = endIdx - 1;   // it was removed: the turn goes to whoever came after it
@@ -3646,12 +3655,17 @@ window.nextInitiativeTurn = function() {
         let ti = window.gmInitiative.findIndex(q => q.id === x.tacId);
         if (ti >= 0) window.gmCurrentTurnIdx = ti;
     }
-    window.gmCurrentTurnIdx++;
-    if (window.gmCurrentTurnIdx >= window.gmInitiative.length) {
-        window.gmCurrentTurnIdx = 0;
-        window.gmRoundNumber++;
-        gmLog({ text: `Round ${window.gmRoundNumber}.`, kind: 'info' });
-    }
+    let step = () => {
+        window.gmCurrentTurnIdx++;
+        if (window.gmCurrentTurnIdx >= window.gmInitiative.length) {
+            window.gmCurrentTurnIdx = 0;
+            window.gmRoundNumber++;
+            gmLog({ text: `Round ${window.gmRoundNumber}.`, kind: 'info' });
+        }
+    };
+    step();
+    // (a Loyal Companion already had its turn, with its owner)
+    for (let g = 0; g < window.gmInitiative.length && _gmSharesTurn(window.gmInitiative[window.gmCurrentTurnIdx]); g++) step();
     window.gmTurnNumber++;
     let current = window.gmInitiative[window.gmCurrentTurnIdx];
     // A downed Undead rolls its revival before anything else (no AP while it's down). Destroyed, the next
@@ -3672,6 +3686,7 @@ window.nextInitiativeTurn = function() {
     if (current) gmStartTurnAp(current);
     if (current) _gmBurnTick(current);
     if (current) _gmTac5Offer(current);
+    if (current) _gmTurnMates(current).forEach(m => { gmStartTurnAp(m); _gmBurnTick(m); });   // its Loyal Companion's turn starts with it
     if (current && current.bleedOutTurns > 0) {
         current.bleedOutTurns--;
         if (current.bleedOutTurns === 0) { _killBledOutPlayer(current); return; }
@@ -3685,11 +3700,15 @@ window.nextInitiativeTurn = function() {
 window.prevInitiativeTurn = function() {
     if (!window.gmInitiative.length) return;
     window._gmExtraTurn = null;
-    window.gmCurrentTurnIdx--;
-    if (window.gmCurrentTurnIdx < 0) {
-        window.gmCurrentTurnIdx = window.gmInitiative.length - 1;
-        window.gmRoundNumber = Math.max(1, window.gmRoundNumber - 1);
-    }
+    let back = () => {
+        window.gmCurrentTurnIdx--;
+        if (window.gmCurrentTurnIdx < 0) {
+            window.gmCurrentTurnIdx = window.gmInitiative.length - 1;
+            window.gmRoundNumber = Math.max(1, window.gmRoundNumber - 1);
+        }
+    };
+    back();
+    for (let g = 0; g < window.gmInitiative.length && _gmSharesTurn(window.gmInitiative[window.gmCurrentTurnIdx]); g++) back();
     window.gmTurnNumber = Math.max(1, window.gmTurnNumber - 1);
     window.renderInitiativeTracker();
     if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
@@ -4155,19 +4174,24 @@ window.renderInitiativeTracker = function() {
         return;
     }
     let n = window.gmInitiative.length;
-    let order = Array.from({ length: n }, (_, i) => (window.gmCurrentTurnIdx + i) % n);
+    let order0 = Array.from({ length: n }, (_, i) => (window.gmCurrentTurnIdx + i) % n), order = [];
+    // (a Loyal Companion is drawn right under its owner, wherever it sits in the list)
+    order0.forEach(i => { let e = window.gmInitiative[i]; if (_gmSharesTurn(e)) return; order.push(i); window.gmInitiative.forEach((x, j) => { if (_gmSharesTurn(x) && _gmCompanionOwner(x) === e) order.push(j); }); });
 
     body.innerHTML = order.map((idx, pos) => {
         let e = window.gmInitiative[idx];
         let fs = FACTION_STYLES[e.faction] || FACTION_STYLES.neutral;
         let isCurrent = window.gmCombatStarted && pos === 0;
+        // A Loyal Companion: joined under its owner's card, and on turn with them
+        let mate = _gmSharesTurn(e);
+        if (mate && window.gmCombatStarted && _gmCompanionOwner(e) === window.gmInitiative[window.gmCurrentTurnIdx]) isCurrent = true;
 
         let upNeighbor = window.gmInitiative[idx - 1], downNeighbor = window.gmInitiative[idx + 1];
-        let upEnabled = idx > 0 && effInit(e) === effInit(upNeighbor) && !isAutoResolvedTie(e, upNeighbor);
-        let downEnabled = idx < n - 1 && effInit(e) === effInit(downNeighbor) && !isAutoResolvedTie(e, downNeighbor);
+        let upEnabled = !mate && idx > 0 && effInit(e) === effInit(upNeighbor) && !isAutoResolvedTie(e, upNeighbor);
+        let downEnabled = !mate && idx < n - 1 && effInit(e) === effInit(downNeighbor) && !isAutoResolvedTie(e, downNeighbor);
 
         return `
-        <div class="${fs.bg} border ${isCurrent ? 'border-amber-400' : fs.border} rounded p-2">
+        <div class="${fs.bg} border ${isCurrent ? 'border-amber-400' : fs.border} rounded p-2" ${mate ? 'style="margin-top:-0.3rem;margin-left:1rem;border-top-left-radius:0;border-top-right-radius:0;border-top-style:dashed" title="A Loyal Companion: it takes its turn with its owner"' : ''}>
             <div class="flex items-center gap-2">
                 <div class="flex flex-col">
                     <button onclick="window.moveInitiativeEntry('${e.id}', -1)" ${upEnabled ? '' : 'disabled'} class="leading-none ${upEnabled ? 'text-slate-300 hover:text-white' : 'text-slate-700'}">&#9650;</button>

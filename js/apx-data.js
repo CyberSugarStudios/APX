@@ -353,7 +353,7 @@
         });
 
         const ANCESTRY_TRAITS = [
-            { id: "t_innwpn", cost: 1, name: "Innate Weapon", desc: "Claws/fangs. Unarmed strikes deal 1d6 (counts as Light melee).", rep: true },
+            { id: "t_innwpn", cost: 1, name: "Innate Weapon", desc: "Claws, fangs, horns or built-in blades: an innate melee weapon (1d6, Light). It's a weapon, not an unarmed strike: always trained, needs no hands, and unarmed strike boosts (like Martial Arts) don't apply.", rep: true },
             { id: "t_inteq", cost: 1, name: "Integrated Equipment", desc: "One piece of gear built into body. Hidden, cannot be disarmed.", rep: true },
             { id: "t_nv", cost: 1, name: "Nightvision", desc: "See in dim/darkness as bright/dim light. No color in darkness." },
             { id: "t_atm", cost: 1, name: "Atmospheric Independence", desc: "Hold breath 2x long. Swim speed = walking speed." },
@@ -625,7 +625,7 @@
             { key: "1hr", label: "1 Hour", cost: 15 },
             { key: "8hr", label: "8 Hours", cost: 20 },
             { key: "24hr", label: "24 Hours", cost: 30 },
-            { key: "channel", label: "Channeling (up to 1 Minute)", cost: 35, desc: "Spend half the power's AP cost (rounded down, min 1) on your turn to reapply Step 4 or Step 5 (not both) without using another Power Slot." },
+            { key: "channel", label: "Channeling (up to 1 Minute)", cost: 35, desc: "Spend half the power's AP cost (rounded down, min 1) on your turn to reapply its Damage (Step 4) or its Utility (Step 5) to the same target, whichever you choose when crafting it (not both), without using another Power Slot." },
             { key: "permanent", label: "Permanent", cost: 50, desc: "Lasts until dispelled, cured, countered, or destroyed. Ending it is a Free Action." }
         ];
         const POWER_DURATION_MODS = [
@@ -1038,6 +1038,23 @@
         };
         // Utilities that rule out the Damage Interrupt duration modifier (Immune to Damage: a beneficial Utility's interrupt
         // comes when you take damage, and while it lasts you never do)
+        // Channeling (Step 6): what it repeats each time it's channeled, its Damage (Step 4) or its Utility
+        // (Step 5), never both. Chosen when it's crafted (draft.channelStep); a power with only one of them
+        // repeats that one. -> 'dmg' | 'util' | null (it needs choosing, or has neither)
+        window.apxChannelOptions = function(draft) {
+            let d = draft || {}, dice = Object.values(d.dmg || {}).reduce((t, n) => t + (parseInt(n) || 0), 0) > 0;
+            let util = ['minor', 'moderate', 'major', 'master', 'mythic'].some(t => Object.values((d.utility || {})[t] || {}).some(n => n > 0));
+            return { dmg: dice, util };
+        };
+        window.apxChannelStep = function(draft) {
+            if (!draft || draft.duration !== 'channel') return null;
+            let o = window.apxChannelOptions(draft);
+            if (draft.channelStep === 'dmg' && o.dmg) return 'dmg';
+            if (draft.channelStep === 'util' && o.util) return 'util';
+            if (o.dmg && !o.util) return 'dmg';
+            if (o.util && !o.dmg) return 'util';
+            return null;
+        };
         window.apxNoDmgInterrupt = function(draft) {
             let u = (draft && draft.utility) || {};
             return Object.keys(POWER_UTILITY).filter(t => u[t]).flatMap(t => POWER_UTILITY[t].filter(x => x.noDmgInterrupt && (u[t][x.key] || 0) > 0).map(x => x.label.split(';')[0].replace(/ for the duration$/, '')));

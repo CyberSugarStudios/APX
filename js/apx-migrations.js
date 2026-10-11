@@ -55,6 +55,12 @@
             { id: 'immuneNoDmgInt', test: d => !!(d.durationMods && d.durationMods.dmgInterrupt) && !!window.apxNoDmgInterrupt && window.apxNoDmgInterrupt(d).length > 0,
               text: 'Damage Interrupt can no longer be taken on a power with the Immune to Damage Utility (the interrupt for a beneficial Utility comes when you take damage, and while it lasts you never do). Rebuild it without Damage Interrupt (Step 6), free.' }
         ],
+        // Channeling: a power chooses whether Channel repeats its Damage (Step 4) or its Utility (Step 5), and
+        // gets a Channel action (half its AP) while it lasts: rebuild it to make the choice, free
+        8: [
+            { id: 'channelStep', test: d => d.duration === 'channel' && !d.channelStep,
+              text: 'Channeling now chooses, when the power is crafted, whether channeling repeats its Damage (Step 4) or its Utility (Step 5), and gives you a Channel button (half the power\'s AP) while it lasts. Rebuild it to choose (free). It can\'t be channeled until then.' }
+        ],
         // Saving throws name their Core Attribute; lasting effects get an Escape Save the target can pass
         3: ['save', 'cond', 'escape', 'actionInt'].map(k => ({
             id: 'powerSaves_' + k,

@@ -816,6 +816,8 @@
                 // unequipped in inventory -- so this doesn't reopen the
                 // free-stat-edit exploit that isLocked exists to close).
                 let nameHtml = `<div class="text-xs ${item.isLocked ? 'text-slate-400' : 'text-slate-200'} font-bold px-1 truncate" title="${item.name}">${item.name}${item.isLocked && !window.state.craftingMatWeightEnabled ? ' <span class="text-[9px] text-slate-600">(wt off)</span>' : ''}</div>`
+                    // A crafted consumable: Use runs its effect (3 AP, one charge), like a power
+                    + (item.isConsumable && item.draft ? `<button onclick="window.apxUsePower('c${idx}')" ${(item.chargesRemaining ?? item.charges ?? 1) <= 0 ? 'disabled' : ''} class="ml-1 text-[9px] font-bold px-1.5 rounded border border-purple-600 text-purple-200 bg-purple-900/40 hover:bg-purple-800/60" title="Use it: 3 AP and one charge; rolls its attack, save, damage or healing">Use (3 AP)</button>` : '')
                     + (item.isCustomEquippable && item.bonuses && window.apxItemBonusText && window.apxItemBonusText(item.bonuses)
                         ? `<div class="text-[9px] ${item.equipped ? 'text-cyan-400' : 'text-slate-500'} px-1 truncate" title="${window.apxItemBonusText(item.bonuses).replace(/"/g, '&quot;')}">${window.apxItemBonusText(item.bonuses)}</div>` : '')
                     + (item.isCustomEquippable && Array.isArray(item.powers) && item.powers.length
@@ -1357,7 +1359,7 @@
                 <tr class="bg-slate-800/50 border-b border-slate-700/50">
                     <td class="px-1 py-2">
                         ${(w.isUnarmed || w.isAncestry)
-                            ? `<div class="text-xs font-bold text-slate-300 p-1 h-7 flex items-center" data-tip="Innate weapon names are set when the trait is purchased, in the Ancestry screen.">${w.name}</div>`
+                            ? `<div class="text-xs font-bold text-slate-300 p-1 h-7 flex items-center" data-tip="${w.isAncestry ? 'An innate weapon (Innate Weapon trait): a Light melee weapon, not an unarmed strike. Always trained and needs no hands; unarmed strike boosts like Martial Arts don\'t apply to it. Its name is set when the trait is bought, in the Ancestry screen.' : 'Your Unarmed Strike.'}">${w.name}</div>`
                             : `<input type="text" value="${(w.name||'').replace(/"/g,'&quot;')}" onchange="window.updateWeaponName(${idx}, this.value)" placeholder="Weapon Name" class="bg-slate-900 border-slate-700 text-xs font-bold w-full h-7">`}
                         ${forgedWeaponBadge(w, w.weightClass === 'medium')}
                         ${w.forged ? `<button onclick="window.openWeaponForge(${idx})" class="text-[9px] text-orange-400 hover:text-orange-300 font-bold mt-0.5">Return to Forge</button>` : ''}
@@ -1551,6 +1553,7 @@
             }
 
             document.getElementById('weaponsBody').innerHTML = html;
+            let cb = document.getElementById('channelBarWeapons'); if (cb) cb.innerHTML = apxChannelBarHtml();   // Channel from your Attacks too
         }
 
         // Power Slots. Levels 1-5: Full Rest Powers (3/2/2/1/1 slots per purchase of that Rank).
@@ -1570,7 +1573,7 @@
             let mod = calc.mods[attr] || 0, top = window.apxPowerMaxLevel ? window.apxPowerMaxLevel() : 0;
             let pfx = k => (calc.itemFx && calc.itemFx.stat && calc.itemFx.stat[k]) || 0;
             // An Ancestry Trait's power: its DC is 10 + the attribute modifier chosen for it
-            if (p && p.trait) return { attr, mod, atk: mod + window.state.trainingBonus, dc: 10 + mod };
+            if (p && (p.trait || p.consumable)) return { attr, mod, atk: mod + window.state.trainingBonus, dc: 10 + mod };   // (a consumable's too)
             return { attr, mod, atk: mod + window.state.trainingBonus + top + pfx('powerAtk'), dc: 10 + mod + top + pfx('powerDc') };
         }
         window.apxPowerNums = apxPowerNums;
@@ -1723,6 +1726,9 @@
             // A power from an Ancestry Trait (Discharging Internals): "t0", "t1"…
             let tm = /^t(\d+)$/.exec(String(idx));
             if (tm) return (window.state.traitPowers || [])[+tm[1]] || null;
+            // A consumable's power (its Use button): "c3" = the item at index 3
+            let cm = /^c(\d+)$/.exec(String(idx));
+            if (cm) return window.ccPowerOf ? window.ccPowerOf((window.state.items || [])[+cm[1]]) : null;
             let m = /^i(\d+)_(\d+)$/.exec(String(idx));
             if (m) { let it = (window.state.items || [])[+m[1]]; return (window.apxItemPowers ? window.apxItemPowers(it) : [])[+m[2]] || null; }
             return window.state.powers[parseInt(idx)] || null;
@@ -1763,21 +1769,28 @@
             if (/\+\s*Attr/i.test(m[2])) { let am = calc.mods[window.apxPowerAttr ? window.apxPowerAttr(p) : window.state.powerAttr] || 0; if (am) formula += (am > 0 ? '+' : '') + am; }
             return { formula, heal, type: chosen && !heal ? chosen.dmgType : m[2].replace(/\+\s*Attr/i, '').replace(/\(Heal\)/i, '').replace(/\(type chosen on use\)/i, '').trim() };
         }
-        window.apxUsePower = async function(idx) {
+        window.apxUsePower = async function(idx, opts) {
             let p = apxPowerAt(idx); if (!p || !window.APXDice) return;
+            // Channel (opts.channel): a channeling power reapplies its Damage or its Utility (as crafted) to the same
+            // target for half its AP, no Power Slot, no new attack roll or save (see apxChannel below)
+            let chan = opts && opts.channel ? window.state.channeling : null;
             if (window.apxPowerOverCap && window.apxPowerOverCap(p)) { APXDice.notify(`${p.name || 'This power'} costs more than ${window.APX_POWER_MAX_XP || 200} XP, the most a power can cost. Rebuild it in the Power Crafter (free) before using it.`, { kind: 'warn', open: true }); if (typeof window.openPowerEditor === 'function' && typeof idx === 'number') window.openPowerEditor(idx); return; }
             if (calc.cantAct) { APXDice.notify(`You're ${calc.cantActLabel}, so you can't use powers until that ends.`, { kind: 'warn', open: true }); return; }
             // An Ancestry Trait's power runs on its own uses (once per Short Rest), not on Power Slots
             let traitSrc = /^t\d+$/.test(String(idx)) ? p : null;
             if (traitSrc && (traitSrc.used || 0) >= (traitSrc.usesMax || 1)) { APXDice.notify(`You've used ${p.name || 'it'}: it comes back on a Short Rest.`, { kind: 'warn', open: true }); return; }
-            let name = p.name || 'Power', who = window.state.name || '';
+            // A consumable: a flat 3 AP and one of its charges, no Power Slot
+            let consIdx = /^c\d+$/.test(String(idx)) ? +String(idx).slice(1) : null, consItem = consIdx != null ? (window.state.items || [])[consIdx] : null;
+            if (consItem && (consItem.chargesRemaining ?? consItem.charges ?? 1) <= 0) { APXDice.notify(`${consItem.name || 'That item'} is used up.`, { kind: 'warn', open: true }); return; }
+            let name = (p.name || 'Power') + (chan ? ' (Channel)' : ''), who = window.state.name || '';
             // Damage type chosen each time it's used (both, with a second type): asked before anything is spent
-            let chosen = window.apxPowerChooseTypes ? await window.apxPowerChooseTypes(p.draft, name) : null;
+            // (channeled: the type it was first used with)
+            let chosen = chan ? (chan.types || null) : window.apxPowerChooseTypes ? await window.apxPowerChooseTypes(p.draft, name) : null;
             if (chosen === false) return;
             // An area power with a battle map open: place its area first (its shape and size are the power's).
             // The GM's tracker then rolls everyone's saves in it and deals the damage.
             let areaRes = null, areaSpec = window.apxPowerAreaSpec ? window.apxPowerAreaSpec(p) : null;
-            if (areaSpec && window._pwAreaMap && window.APXBattle && window.APXBattle.placeArea) {
+            if (areaSpec && !chan && window._pwAreaMap && window.APXBattle && window.APXBattle.placeArea) {
                 let am = window._pwAreaMap(false);
                 if (am) {
                     let r = await window.APXBattle.placeArea(am.winId, Object.assign({ casterId: am.tokenId, label: name, safeZone: window.apxPerkRank(window.state, 'gen_safezone') > 0 }, areaSpec));
@@ -1800,9 +1813,9 @@
                 let mx = getMaxSlotsForLevel('CHA'), u = window.state.usedPowerSlots.CHA || 0;
                 return u < mx ? { key: 'CHA', max: mx, used: u, label: 'Short Rest use' } : null;
             };
-            let slot = traitSrc ? { key: null, free: true, label: `${p.name} (Ancestry Trait, once per Short Rest)` } : itemSrc ? { key: null, free: true } : (pool === 'short' ? shortSlot() : fullSlot());
-            let alt = itemSrc || traitSrc || slot ? null : (pool === 'short' ? (perks.pwr_int > 0 ? fullSlot() : null) : (perks.pwr_cha > 0 ? shortSlot() : null));
-            let cost = window.apxPowerIsReaction && window.apxPowerIsReaction(p) ? 0 : Math.max(0, parseInt(p.ap) || 0);   // a Reaction power costs no AP
+            let slot = chan ? { key: null, free: true, label: 'Channeling: no Power Slot' } : traitSrc ? { key: null, free: true, label: `${p.name} (Ancestry Trait, once per Short Rest)` } : (itemSrc || consItem) ? { key: null, free: true } : (pool === 'short' ? shortSlot() : fullSlot());
+            let alt = chan || itemSrc || consItem || traitSrc || slot ? null : (pool === 'short' ? (perks.pwr_int > 0 ? fullSlot() : null) : (perks.pwr_cha > 0 ? shortSlot() : null));
+            let cost = chan ? chan.ap : window.apxPowerIsReaction && window.apxPowerIsReaction(p) ? 0 : Math.max(0, parseInt(p.ap) || 0);   // a Reaction power costs no AP
             let have = typeof window.apxApCurrent === 'function' ? window.apxApCurrent() : cost;
             // Whatever you have is spent: a slot if one's left, the AP if there's enough. Short on
             // either, you're asked first; "Use anyway" still takes what's there.
@@ -1825,18 +1838,39 @@
             if (apOk && cost > 0) { window.apxSpendAp(cost); notes.push(`-${cost} AP (${window.apxApCurrent()} left)`); }
             else if (!apOk) notes.push(`AP short (needed ${cost}, had ${have})`);
             if (itemSrc) notes.push(`from ${itemSrc.name || 'an item'} (${window.apxItemPowerUsage ? window.apxItemPowerUsage(p) : 'item power'})`);
+            else if (consItem) {
+                // One charge: the last one uses the item up (the next in a stack takes its place)
+                let left = Math.max(0, (consItem.chargesRemaining ?? consItem.charges ?? 1) - 1), ct = parseInt(consItem.ct) || 1;
+                if (left > 0) { consItem.chargesRemaining = left; notes.push(`-1 charge (${left} left)`); }
+                else if (ct > 1) { consItem.ct = ct - 1; consItem.chargesRemaining = consItem.charges || 1; notes.push(`used up: ${ct - 1} left`); }
+                else { window.state.items.splice(consIdx, 1); notes.push('used up'); }
+            }
             else if (slot && slot.free) { notes.push(slot.label); if (traitSrc) traitSrc.used = (traitSrc.used || 0) + 1; }
             else if (slot) { window.state.usedPowerSlots[slot.key] = slot.used + 1; notes.push(`-1 ${slot.label} (${Math.max(0, slot.max - slot.used - 1)} left)`); }
             else notes.push(`no ${poolName} left`);
+            // A Channeling power: channeling starts (Channel buttons above your Powers and Attacks, up to 1 Minute)
+            let chStep = !chan && window.apxChannelStep ? window.apxChannelStep(p.draft) : null;
+            if (!chan && p.draft && p.draft.duration === 'channel') {
+                if (chStep) {
+                    let ct = window._pwCombatTurn;
+                    window.state.channeling = { key: String(idx), name: p.name || 'Power', step: chStep, ap: Math.max(1, Math.floor((parseInt(p.ap) || 0) / 2)), types: chosen || null,
+                        round: ct && ct.id && !ct.ended ? (ct.round || 1) : null, session: ct && ct.session || null, t: Date.now() };
+                    notes.push(`Channeling: Channel (${window.state.channeling.ap} AP) reapplies its ${chStep === 'dmg' ? (p.draft.isHealing ? 'Healing' : 'Damage') : 'Utility'}`);
+                } else notes.push('Rebuild it to choose what Channeling repeats (free) to channel it');
+            }
             window.recalculateMath();
             let useNote = notes.join(' · ');
             let info = apxPowerAtkInfo(p), dmg = apxPowerDamage(p, chosen);
+            // Channeled: just the step it repeats, on the same target (no attack roll or save)
+            if (chan) { info = { kind: 'none', text: '' }; if (chan.step === 'util') dmg = null; }
             let flavor = String(p.desc || '').trim();
             let pnums = apxPowerNums(p), dc = pnums.dc;
             let saveKind0 = info.kind === 'save' ? (/halves/i.test(info.text) ? 'halves' : 'negates') : null;
             // Its saving throw's Core Attribute, and the Escape Save a lasting effect gives its target
             let sInfo = p.draft && window.apxPowerSaveInfo ? window.apxPowerSaveInfo(p.draft) : null;
             let escLine = p.draft && window.apxPowerSaveLines ? window.apxPowerSaveLines(p.draft, dc).escape : '';
+            if (chan && chan.step === 'dmg') { sInfo = null; escLine = ''; }
+            if (chan) flavor = `Channeled: ${chan.step === 'dmg' ? 'its ' + (p.draft && p.draft.isHealing ? 'healing' : 'damage') : 'its Utility'} again, on the same target (no attack roll or save).` + (chan.step === 'util' && flavor ? ' ' + flavor : '');
             let fxInfo = sInfo && (sInfo.inflicts.length || sInfo.lasting) ? { conds: sInfo.inflicts.filter(c => c !== 'wounded'), lasting: sInfo.lasting, escapeAttr: sInfo.escapeAttr,
                 dur: sInfo.dur, dmgInt: sInfo.dmgInt, actInt: sInfo.actInt, saveAttr: sInfo.saveAttr, saveKind: sInfo.saveKind, dc } : null;
             if (escLine) flavor = flavor ? flavor + ' · ' + escLine + '.' : escLine + '.';
@@ -1958,6 +1992,59 @@
                 </div>`).join('');
             let pc = document.getElementById('powersContainer');
             pc.classList.add('apx-dice-scope');
-            pc.innerHTML = html;
+            pc.innerHTML = apxChannelBarHtml() + html;
         }
+
+        // ── Channeling ──────────────────────────────────────────────
+        // A power with the Channeling duration, once used, can be channeled each turn for up to 1 Minute
+        // (10 rounds): Channel spends half its AP (rounded down, at least 1) to reapply its Damage or its
+        // Utility (whichever it was crafted to repeat) to the same target, without another Power Slot.
+        // Shown above your Powers and your Attacks until it ends, the fight ends, or Stop Channeling.
+        function apxChanneling() {
+            let c = window.state && window.state.channeling; if (!c) return null;
+            let ct = window._pwCombatTurn, why = null;
+            if (c.round != null && ct) {
+                if (!ct.id || ct.ended) why = 'the fight is over';
+                else if (c.session && ct.session && c.session !== ct.session) why = 'a new fight started';
+                else if ((ct.round || 1) - c.round >= 10) why = 'it lasted its full minute (10 rounds)';
+            }
+            if (why) {
+                window.state.channeling = null; window.scheduleAutoSave && window.scheduleAutoSave();
+                window.APXDice && APXDice.notify(`${c.name} stops channeling: ${why}.`, { kind: 'note' });
+                return null;
+            }
+            return c;
+        }
+        window.apxChanneling = apxChanneling;
+        function apxChannelKey(c) {
+            let p = apxPowerAt(c.key);
+            if (p && p.name === c.name) return c.key;
+            let i = (window.state.powers || []).findIndex(x => x && x.name === c.name);   // (the list changed since)
+            return i >= 0 ? String(i) : null;
+        }
+        window.apxChannel = function() {
+            let c = apxChanneling(); if (!c) { window.recalculateMath(); return; }
+            let key = apxChannelKey(c);
+            if (key == null) { window.state.channeling = null; window.APXDice && APXDice.notify(`${c.name} isn't in your Powers any more, so it stops channeling.`, { kind: 'warn' }); window.recalculateMath(); return; }
+            return window.apxUsePower(key, { channel: true });
+        };
+        window.apxStopChanneling = function() {
+            let c = window.state.channeling; if (!c) return;
+            window.state.channeling = null;
+            window.APXDice && APXDice.notify(`You stop channeling ${c.name}.`, { kind: 'note' });
+            window.recalculateMath();
+        };
+        function apxChannelBarHtml() {
+            let c = apxChanneling(); if (!c) return '';
+            let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+            let ct = window._pwCombatTurn, rnd = c.round != null && ct && ct.id ? ` · round ${Math.min(10, (ct.round || 1) - c.round + 1)} of 10` : ' · up to 1 Minute';
+            let what = c.step === 'dmg' ? 'its damage' : 'its Utility';
+            return `<div style="background:rgba(88,28,135,.35);border:1px solid #9333ea;border-radius:.4rem;padding:.4rem .5rem;margin-bottom:.4rem;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap">
+                <span style="font-size:.75rem;font-weight:800;color:#e9d5ff">Channeling: ${esc(c.name)}</span>
+                <span style="font-size:.62rem;color:#c4b5fd">reapplies ${what} to the same target${rnd}</span>
+                <span style="flex:1"></span>
+                <button onclick="window.apxChannel()" title="Spend ${c.ap} AP: reapply ${what} to the same target (no Power Slot, no new attack roll or save)" style="font-size:.68rem;font-weight:800;padding:.15rem .5rem;border-radius:.25rem;background:#7e22ce;border:1px solid #c084fc;color:#fff;cursor:pointer">Channel (${c.ap} AP)</button>
+                <button onclick="window.apxStopChanneling()" title="End it now (a Free Action)" style="font-size:.68rem;font-weight:800;padding:.15rem .5rem;border-radius:.25rem;background:#1e293b;border:1px solid #64748b;color:#cbd5e1;cursor:pointer">Stop Channeling</button></div>`;
+        }
+        window.apxChannelBarHtml = apxChannelBarHtml;
 

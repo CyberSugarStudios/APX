@@ -218,7 +218,8 @@
     // opts = {
     //   winId, win (has _scale/_offX/_offY), area (the map's viewport element), grid,
     //   tokens: [tokenVM], props: [propVM],
-    //   onMove(vm,gx,gy), resolveDrop(vm,gx,gy)->{gridX,gridY}|null, previewBlocked(vm,gx,gy)->bool,
+    //   onMove(vm,gx,gy,info,{sq}) (sq: a Large+ token walls stop, squeezed to that size to get there; null: full size),
+    //   vm.fullSize: a squeezed token's own size (it grows back where it fits), resolveDrop(vm,gx,gy)->{gridX,gridY}|null, previewBlocked(vm,gx,gy)->bool,
     //   onDblClick(vm), onContextMenu(vm,e), onPropContextMenu(pvm,e),
     //   fogId            canvas id: the fog is lifted into this layer so props/tokens
     //                    can sit under it (a prop half in fog is half hidden)
@@ -762,6 +763,7 @@
         el.addEventListener('pointermove', e => {
             if (!el._drag) return;
             let o = layer._opts; if (!o) return;
+            el._drag.ptr = _imgPoint(layer, e);
             let c = _pointerCell(layer, el, e);
             if (el._drag.path && el._drag.alt !== e.altKey) { el._drag.alt = e.altKey; _drawPath(layer, el); }
             if (c.gridX === el._drag.gx && c.gridY === el._drag.gy) return;
@@ -777,9 +779,11 @@
                 [el].concat(el._group).forEach(m => m.style.opacity = ok ? String(m._vm.opacity == null ? 1 : m._vm.opacity) : '0.4');
                 el.style.outline = ok ? (el._sel ? '2px solid #22d3ee' : 'none') : '2px dashed #ef4444';
             } else {
-                let bad = (o.previewBlocked ? !!o.previewBlocked(el._vm, c.gridX, c.gridY) : false) || !!(el._drag.trail && wallBlocking(o.walls, el._vm.size, el._drag.trail));
+                // (a Large or bigger token squeezes past walls where it must: amber while it would)
+                let fit = _dragFit(o, el), wallBad = fit ? false : fit === null ? true : !!(el._drag.trail && wallBlocking(o.walls, el._vm.size, el._drag.trail));
+                let bad = (o.previewBlocked ? !!o.previewBlocked(el._vm, c.gridX, c.gridY) : false) || wallBad;
                 el.style.opacity = bad ? '0.4' : String(el._vm.opacity == null ? 1 : el._vm.opacity);
-                el.style.outline = bad ? '2px dashed #ef4444' : (el._sel ? '2px solid #22d3ee' : 'none');
+                el.style.outline = bad ? '2px dashed #ef4444' : fit && fit.sq ? '2px dashed #f59e0b' : (el._sel ? '2px solid #22d3ee' : 'none');
             }
             layout(o.winId);
         });
@@ -802,17 +806,26 @@
             // Turned its Vision cone (R) and put it back down where it stood: it just looks the new way
             if (!cancelled && d.facing != null && d.gx === d.sx && d.gy === d.sy && o.onFacing) { layout(o.winId); o.onFacing(el._vm, d.facing, true); return; }
             if (cancelled || (d.gx === d.sx && d.gy === d.sy)) { layout(o.winId); return; }
-            // A wall (or a closed door) in the way: back to the last spot
-            if (d.trail && wallBlocking(o.walls, el._vm.size, d.trail)) { toast(o.area, 'A wall is in the way.'); _glideBack(layer, [el]); return; }
+            // A wall (or a closed door) in the way: back to the last spot. A Large or bigger token squeezes
+            // into a smaller space where that gets it there (sq), and is full size again where it fits.
+            let big = _squeezes(o, el, d), sqz = null;
+            if (!big && d.trail && wallBlocking(o.walls, el._vm.size, d.trail)) { toast(o.area, 'A wall is in the way.'); _glideBack(layer, [el]); return; }
             let dest = o.resolveDrop ? o.resolveDrop(el._vm, d.gx, d.gy) : { gridX: d.gx, gridY: d.gy };
-            if (!dest || (dest.gridX === d.sx && dest.gridY === d.sy)) { _glideBack(layer, [el]); return; }  // blocked -> back to last spot
-            if (d.trail && (dest.gridX !== d.gx || dest.gridY !== d.gy) && wallBlocking(o.walls, el._vm.size, [{ gx: d.gx, gy: d.gy }, { gx: dest.gridX, gy: dest.gridY }])) { toast(o.area, 'A wall is in the way.'); _glideBack(layer, [el]); return; }
+            if (dest && big) {
+                let full = el._vm.fullSize || el._vm.size;
+                let fit = squeezeFit(o.walls, full, { gx: d.sx, gy: d.sy, size: el._vm.size }, d.trail, { gx: dest.gridX, gy: dest.gridY, size: el._vm.size }, _ptrSquares(o, d));
+                if (!fit) { toast(o.area, 'A wall is in the way.'); _glideBack(layer, [el]); return; }
+                dest = { gridX: fit.gridX, gridY: fit.gridY }; sqz = fit.sq;
+                if (dest.gridX === d.sx && dest.gridY === d.sy && (sqz || full) === el._vm.size) { _glideBack(layer, [el]); return; }
+            }
+            if (!dest || (!big && dest.gridX === d.sx && dest.gridY === d.sy)) { _glideBack(layer, [el]); return; }  // blocked -> back to last spot
+            if (!big && d.trail && (dest.gridX !== d.gx || dest.gridY !== d.gy) && wallBlocking(o.walls, el._vm.size, [{ gx: d.gx, gy: d.gy }, { gx: dest.gridX, gy: dest.gridY }])) { toast(o.area, 'A wall is in the way.'); _glideBack(layer, [el]); return; }
             // The page can refuse a move (not enough AP for the path): the token goes back
             if (pinfo && o.beforeMove && o.beforeMove(el._vm, dest.gridX, dest.gridY, pinfo) === false) { _glideBack(layer, [el]); return; }
             el._vm.gridX = dest.gridX; el._vm.gridY = dest.gridY;
             layout(o.winId);
             if (d.facing != null && o.onFacing) o.onFacing(el._vm, d.facing, false);   // (looks the way it was turned, not the way it walked)
-            o.onMove(el._vm, dest.gridX, dest.gridY, pinfo);
+            o.onMove(el._vm, dest.gridX, dest.gridY, pinfo, big ? { sq: sqz } : undefined);
         };
         el.addEventListener('pointerup',     () => finish(false));
         el.addEventListener('pointercancel', () => finish(true));
@@ -2698,6 +2711,62 @@
         }
         return true;
     }
+    // ── Squeezing past walls (a Large or bigger token walls stop) ──
+    // A big token can't stand with a wall through its squares, or slide along one with half its body
+    // past it: where it doesn't fit it squeezes into the next size down (down to Medium), inside the space
+    // it was dropped on, the part nearest the pointer first. -> { gridX, gridY, sq } (sq null: full size)
+    // or null (no way there, at any size it can squeeze to). Used while dragging (blocked or not) and on drop.
+    // Does this token squeeze past walls? (a Large or bigger one walls stop: opts.wallsBlock)
+    function _squeezes(o, el, d) { d = d || el._drag; return !!(d && d.trail && span(el._vm.fullSize || el._vm.size) > 1); }
+    function _ptrSquares(o, d) { if (!d.ptr) return null; let g = origin(o.grid), cs = o.grid.cellSize; return { x: (d.ptr.x - g.ox) / cs, y: (d.ptr.y - g.oy) / cs }; }
+    // While dragging: undefined (doesn't squeeze), null (no way there), else where and how it would land
+    function _dragFit(o, el) {
+        if (!_squeezes(o, el)) return undefined;
+        let d = el._drag;
+        return squeezeFit(o.walls, el._vm.fullSize || el._vm.size, { gx: d.sx, gy: d.sy, size: el._vm.size }, d.trail, { gx: d.gx, gy: d.gy, size: el._vm.size }, _ptrSquares(o, d));
+    }
+    function _bodyClear(walls, size, gx, gy) { return fitsAt({ walls, tokens: [] }, size, gx, gy); }
+    function _reachSized(walls, size, starts, goal, box) {
+        let key = c => c.gx + ',' + c.gy, seen = new Set(), q = [], n = 0;
+        starts.forEach(c => { if (!seen.has(key(c))) { seen.add(key(c)); q.push(c); } });
+        while (q.length && n++ < 4000) {
+            let c = q.shift();
+            if (c.gx === goal.gx && c.gy === goal.gy) return true;
+            for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+                if (!dx && !dy) continue;
+                let nx = { gx: c.gx + dx, gy: c.gy + dy };
+                if (nx.gx < box.x0 || nx.gy < box.y0 || nx.gx > box.x1 || nx.gy > box.y1 || seen.has(key(nx))) continue;
+                if (!_bodyClear(walls, size, nx.gx, nx.gy) || wallBlocking(walls, size, [c, nx])) continue;
+                seen.add(key(nx)); q.push(nx);
+            }
+        }
+        return false;
+    }
+    // walls; size: its full size; cur / dest: { gx, gy, size } where it stands and where it's dropped (either
+    // may be squeezed); trail: the squares dragged through; ptr: the pointer, in squares
+    function squeezeFit(walls, size, cur, trail, dest, ptr) {
+        let ws = (walls || []).filter(w => w && !(w.door && w.open)), sp = span(size);
+        if (sp <= 1 || !ws.length) return { gridX: dest.gx, gridY: dest.gy, sq: null };
+        // top-left squares for a size-s2 token that holds (or sits inside) a footprint of size ds at a
+        let around = (a, ds, s2) => { let out = [], lo = s2 >= ds ? -(s2 - ds) : 0, hi = s2 >= ds ? 0 : ds - s2; for (let ox = lo; ox <= hi; ox++) for (let oy = lo; oy <= hi; oy++) out.push({ gx: a.gx + ox, gy: a.gy + oy }); return out; };
+        let cells = (trail && trail.length ? trail : []).concat([cur, dest]);
+        let box = { x0: Math.min(...cells.map(c => c.gx)) - sp - 1, y0: Math.min(...cells.map(c => c.gy)) - sp - 1, x1: Math.max(...cells.map(c => c.gx)) + sp + 1, y1: Math.max(...cells.map(c => c.gy)) + sp + 1 };
+        let sizes = [size], i = SIZE_LIST.indexOf(size);
+        while (i > SIZE_LIST.indexOf('medium')) sizes.push(SIZE_LIST[--i]);
+        let cs = span(cur.size || size), dsp = span(dest.size || size);
+        let px = ptr ? ptr.x : dest.gx + dsp / 2, py = ptr ? ptr.y : dest.gy + dsp / 2;
+        for (let sz of sizes) {
+            let s2 = span(sz);
+            let starts = around(cur, cs, s2).filter(c => _bodyClear(ws, sz, c.gx, c.gy));
+            if (!starts.length) starts = [{ gx: cur.gx, gy: cur.gy }];
+            let opts = around(dest, dsp, s2).map(c => Object.assign(c, { d: Math.hypot(c.gx + s2 / 2 - px, c.gy + s2 / 2 - py) })).sort((a, b) => a.d - b.d);
+            for (let c of opts) {
+                if (!_bodyClear(ws, sz, c.gx, c.gy)) continue;
+                if (_reachSized(ws, sz, starts, c, box)) return { gridX: c.gx, gridY: c.gy, sq: sz === size ? null : sz };
+            }
+        }
+        return null;
+    }
     // Where a token comes out at a square: covering it if it fits, else as near as it can; a Large or bigger
     // creature that can't fit anywhere near squeezes into the next size down (down to Medium).
     // o: { tokens, id, size, target: [gx, gy], walls, cols, rows, posOf } -> { gridX, gridY, sq } or null
@@ -2734,16 +2803,6 @@
         rooms(walls).forEach(r => { if (inside(r.poly) && !r.holes.some(h => inside(h)) && (!best || polyArea(r.poly) < polyArea(best.poly))) best = r; });
         return best;
     }
-    // The room on the far side of a door from the room a square is in (null: that room has no such door)
-    function roomBeyond(walls, door, gx, gy) {
-        let here = roomAt(walls, gx, gy); if (!here || !door) return null;
-        let mx = (door.x1 + door.x2) / 2, my = (door.y1 + door.y2) / 2, L = Math.hypot(door.x2 - door.x1, door.y2 - door.y1) || 1;
-        let nx = -(door.y2 - door.y1) / L * 0.4, ny = (door.x2 - door.x1) / L * 0.4;
-        let sides = [[mx + nx, my + ny], [mx - nx, my - ny]].map(([x, y]) => roomAt(walls, x - 0.5, y - 0.5));
-        let i = sides.findIndex(r => r && r.id === here.id);
-        let other = i < 0 ? null : sides[1 - i];
-        return other && other.id !== here.id ? other : null;
-    }
     function polyArea(poly) { let A = 0; for (let k = 0; k < poly.length; k++) { let a = poly[k], b = poly[(k + 1) % poly.length]; A += a.x * b.y - b.x * a.y; } return Math.abs(A / 2); }
     // ── Vision: what a creature sees from (cx, cy), in grid units ──
     // A fan of rays (a full circle at 360°, else a cone of that angle around facing, radians), each stopped by
@@ -2768,7 +2827,7 @@
         return out;
     }
     window.APXBattle = {
-        portalAt, fitsAt, fitNear, roomAt, roomBeyond, visionPoly, previewCone, toggleCones,
+        portalAt, fitsAt, fitNear, squeezeFit, roomAt, visionPoly, previewCone, toggleCones,
         portalRequests: () => store.portalReq, portalAnswers: () => store.portalAns,
         outlineResize,
         sizeFogCanvas, styleGrid,

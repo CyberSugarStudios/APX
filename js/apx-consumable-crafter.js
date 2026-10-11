@@ -537,6 +537,15 @@ window.ccBuildTextSummary = ccBuildTextSummary;
 
 // Full line-by-line breakdown of a consumable's build, for the inventory
 // detail view ("show all Power Crafter Settings").
+// A consumable as a power its Use button can run (js/apx-engine.js apxUsePower): a flat 3 AP, no Power Slot,
+// one charge. Its attack and DC are your attribute modifier (+ training for the attack; 10 + it for the DC),
+// like an Ancestry Trait's power: an item doesn't run on your Power perks.
+window.ccPowerOf = function(item) {
+    if (!item || !item.isConsumable || !item.draft) return null;
+    let s; try { s = ccBuildTextSummary(Object.assign(getBlankConsumableDraft(), JSON.parse(JSON.stringify(item.draft)))); } catch (e) { console.warn('Consumable:', e.message); return null; }
+    return { name: item.name || 'Consumable', lvl: 'Item', ap: 3, atk: s.atk, rng: s.rng, dmg: s.dmg, desc: item.desc || s.desc, draft: item.draft, consumable: true };
+};
+
 window.ccDetailLines = function(draft) {
     let step1Def = POWER_STEP1.find(s => s.key === draft.step1);
     let step2Def = POWER_STEP2_RANGE.find(s => s.key === draft.step2);

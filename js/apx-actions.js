@@ -242,7 +242,7 @@
                 st().grappling.pinned = true; holdFx(true);
                 grappleEv('pin', { text: `${st().name || 'A player'} pins the creature.` });
             } },
-        { g: 'Combat Maneuvers', name: 'Choke', cost: 2, tip: 'On a creature you\'ve Pinned: your unarmed strike damage with no attack roll, lethal or non-lethal (0 HP from non-lethal damage knocks it out instead).',
+        { g: 'Combat Maneuvers', name: 'Choke', cost: 2, tip: 'On a creature you\'ve Pinned: your unarmed strike damage with no attack roll, lethal or non-lethal (0 HP from non-lethal damage knocks it out instead). It ignores the creature\'s DR, ER and resistances, and counts as an attack (Fight Defensively gives +2 AC, not +4, on a turn you Choke).',
             requires: () => st().grappling && st().grappling.pinned ? '' : 'You need a creature Pinned.',
             auto: async () => {
                 let ans = window.APXDice && APXDice.ask ? await APXDice.ask('Choke', 'Lethal or non-lethal? Non-lethal damage knocks the creature out at 0 HP instead of killing it.', [['nl', 'Non-lethal', 'pri'], ['lethal', 'Lethal']]) : 'nl';
@@ -253,8 +253,10 @@
                 for (let i = 0; i < n; i++) rolls.push(rollDie(sides));
                 let total = Math.max(0, rolls.reduce((a, b) => a + b, 0) + mod);
                 let nl = ans === 'nl';
-                window.APXDice?.info({ label: 'Choke', who: st().name || '', text: `${n}d${sides}${mod ? (mod > 0 ? '+' : '') + mod : ''} [${rolls.join('+')}${mod ? (mod > 0 ? '+' : '−') + Math.abs(mod) : ''}] = ${total} Bludgeoning${nl ? ', non-lethal' : ''}. No attack roll: it lands.` });
-                grappleEv('choke', { total, nonlethal: nl, text: `${st().name || 'A player'} chokes the Pinned creature: ${total} Bludgeoning${nl ? ' (non-lethal)' : ''}.` });
+                // A Choke is an attack: Fight Defensively drops to +2 AC this turn
+                st().apxAttackedTurn = true; fx().forEach(e => { if (e.key === 'defensive') e.attacked = true; }); refresh();
+                window.APXDice?.info({ label: 'Choke', who: st().name || '', text: `${n}d${sides}${mod ? (mod > 0 ? '+' : '') + mod : ''} [${rolls.join('+')}${mod ? (mod > 0 ? '+' : '−') + Math.abs(mod) : ''}] = ${total} Bludgeoning${nl ? ', non-lethal' : ''}. No attack roll: it lands, ignoring DR, ER and resistances.` });
+                grappleEv('choke', { total, nonlethal: nl, text: `${st().name || 'A player'} chokes the Pinned creature: ${total} Bludgeoning${nl ? ' (non-lethal)' : ''}, ignoring DR, ER and resistances.` });
             } },
         { g: 'Combat Maneuvers', name: 'Escape', cost: 4, tip: 'Break free of a grapple: contested STR (Athletics) or AGI (Acrobatics) against the grappler\'s STR (Athletics). On a win, the Grapple and any Pin end.',
             requires: () => myConds().includes('grappled') ? '' : 'You aren\'t Grappled.',

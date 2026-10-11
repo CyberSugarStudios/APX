@@ -334,6 +334,7 @@
                 let lines = window.ccDetailLines(item.draft);
                 let linesHtml = lines.map(l => `<div class="flex justify-between text-xs py-1 border-b border-slate-800"><span class="text-slate-500">${l.label}</span><span class="text-slate-200 font-bold text-right max-w-[60%]">${l.value}</span></div>`).join('');
                 body = `
+                    <button onclick="window.closeModal('itemDetailModal'); window.apxUsePower('c${idx}')" ${(item.chargesRemaining ?? 1) <= 0 ? 'disabled' : ''} class="w-full mb-3 px-3 py-2 rounded bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold" title="3 AP and one charge: rolls its attack, save, damage or healing">Use (3 AP)</button>
                     <div class="text-[10px] text-purple-400 uppercase font-bold tracking-wider mb-1">Consumable -- Power Crafter Settings</div>
                     <div class="bg-slate-900 border border-slate-700 rounded p-2 mb-3">${linesHtml}</div>
                     <div class="flex items-center justify-between bg-slate-900 border border-purple-800/50 rounded p-2 mb-3">
