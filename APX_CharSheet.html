@@ -474,8 +474,8 @@
         }
 
     </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=202610101710">
-    <link rel="stylesheet" href="css/tailwind.css?v=202610101710">
+    <link rel="stylesheet" href="css/apx-themes.css?v=202610101737">
+    <link rel="stylesheet" href="css/tailwind.css?v=202610101737">
 </head>
 <body class="p-2 md:p-6 flex justify-center text-sm ml-0 lg:ml-8 transition-all" style="padding-top:4.25rem"><!-- (room for the floating Roster / Settings buttons) -->
     <!-- Auth bar removed — account controls are in the sidebar -->
@@ -2310,41 +2310,42 @@
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=202610101710"></script>
-    <script src="js/apx-patch-notes.js?v=202610101710"></script>
-    <script src="js/apx-dice.js?v=202610101710"></script>
-    <script src="js/apx-luck.js?v=202610101710"></script>
-    <script src="js/apx-data.js?v=202610101710"></script>
-    <script src="js/apx-item-effects.js?v=202610101710"></script>
-    <script src="js/apx-exo.js?v=202610101710"></script>
-    <script src="js/apx-traits.js?v=202610101710"></script>
-    <script src="js/apx-perks-db.js?v=202610101710"></script>
-    <script src="js/apx-migrations.js?v=202610101710"></script>
-    <script src="js/apx-roster.js?v=202610101710"></script>
-    <script src="js/apx-state.js?v=202610101710"></script>
-    <script src="js/apx-origin-wizard.js?v=202610101710"></script>
-    <script src="js/apx-ancestry-wizard.js?v=202610101710"></script>
-    <script src="js/apx-inventory-ui.js?v=202610101710"></script>
-    <script src="js/apx-craft-shared.js?v=202610101710"></script>
-    <script src="js/apx-armor-forge.js?v=202610101710"></script>
-    <script src="js/apx-weapon-forge.js?v=202610101710"></script>
-    <script src="js/apx-power-crafter.js?v=202610101710"></script>
-    <script src="js/apx-consumable-crafter.js?v=202610101710"></script>
-    <script src="js/apx-npc-crafter.js?v=202610101710"></script>
-    <script src="js/apx-engine.js?v=202610101710"></script>
-    <script src="js/apx-perks-ui.js?v=202610101710"></script>
-    <script src="js/apx-rest.js?v=202610101710"></script>
-    <script src="js/apx-looting.js?v=202610101710"></script>
-    <script src="js/apx-main.js?v=202610101710"></script>
+    <script src="js/apx-dialogs.js?v=202610101737"></script>
+    <script src="js/apx-patch-notes.js?v=202610101737"></script>
+    <script src="js/apx-dice.js?v=202610101737"></script>
+    <script src="js/apx-luck.js?v=202610101737"></script>
+    <script src="js/apx-data.js?v=202610101737"></script>
+    <script src="js/apx-item-effects.js?v=202610101737"></script>
+    <script src="js/apx-exo.js?v=202610101737"></script>
+    <script src="js/apx-traits.js?v=202610101737"></script>
+    <script src="js/apx-perks-db.js?v=202610101737"></script>
+    <script src="js/apx-migrations.js?v=202610101737"></script>
+    <script src="js/apx-roster.js?v=202610101737"></script>
+    <script src="js/apx-state.js?v=202610101737"></script>
+    <script src="js/apx-origin-wizard.js?v=202610101737"></script>
+    <script src="js/apx-ancestry-wizard.js?v=202610101737"></script>
+    <script src="js/apx-inventory-ui.js?v=202610101737"></script>
+    <script src="js/apx-craft-shared.js?v=202610101737"></script>
+    <script src="js/apx-armor-forge.js?v=202610101737"></script>
+    <script src="js/apx-weapon-forge.js?v=202610101737"></script>
+    <script src="js/apx-power-crafter.js?v=202610101737"></script>
+    <script src="js/apx-consumable-crafter.js?v=202610101737"></script>
+    <script src="js/apx-npc-crafter.js?v=202610101737"></script>
+    <script src="js/apx-engine.js?v=202610101737"></script>
+    <script src="js/apx-perks-ui.js?v=202610101737"></script>
+    <script src="js/apx-rest.js?v=202610101737"></script>
+    <script src="js/apx-looting.js?v=202610101737"></script>
+    <script src="js/apx-main.js?v=202610101737"></script>
 
     <!-- Firebase (cloud sync — requires firebase-config.js to be configured) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=202610101710"></script>
-    <script src="js/apx-firebase.js?v=202610101710"></script>
-    <script src="js/apx-battlemap.js?v=202610101710"></script>
-    <script src="js/apx-map-tiles.js?v=202610101710"></script>
+    <script src="js/firebase-config.js?v=202610101737"></script>
+    <script src="js/apx-firebase.js?v=202610101737"></script>
+    <script src="js/apx-battlemap.js?v=202610101737"></script>
+    <script src="js/apx-fog.js?v=202610101737"></script>
+    <script src="js/apx-map-tiles.js?v=202610101737"></script>
     <script>
     // ── Sidebar: folders, worlds, meatball menus ─────────────
     window._sidebarChars = [];
@@ -4630,7 +4631,14 @@
             let _gmUid = _world?.gmUid || _saved?.gmUid;
             if (_gmUid && _worldId && window.apxAuth?.listenFogDataForPlayer) {
                 if (win._fogUnsub) win._fogUnsub(); // clean up any previous listener
-                win._fogUnsub = window.apxAuth.listenFogDataForPlayer(
+                // Your own reveals on this map (and what the GM revealed just for you)
+                let _me = window.apxAuth?.user?.uid, _code = window._playerWorldData?.inviteCode;
+                let _maskUnsub = window.APXFog && _me ? window.APXFog.watch(_code, _me, mapId, () => {
+                    _pwFogCompose(winId);
+                    let latestMap = (window._playerWorldData?.notesV2?.otherMaps||[]).find(m=>m.id===mapId);
+                    if (latestMap) { _pwBtRenderTokens(winId, win, latestMap); _pwOmRenderTok(winId, win, latestMap); }
+                }) : null;
+                let _fogListen = window.apxAuth.listenFogDataForPlayer(
                     _gmUid, _worldId, mapId,
                     fog => {
                         // Re-render tokens once the fog is actually drawn so fog-visibility is correct
@@ -4642,11 +4650,12 @@
                         else {
                             // GM cleared the fog entirely
                             let fc = document.getElementById(winId+'_fog');
-                            if (fc) { fc._fogSeq = (fc._fogSeq||0) + 1; fc.getContext('2d').clearRect(0,0,fc.width,fc.height); fc._fogLoaded = false; }
+                            if (fc) { fc._fogSeq = (fc._fogSeq||0) + 1; fc._baseImg = null; fc.getContext('2d').clearRect(0,0,fc.width,fc.height); fc._fogLoaded = false; }
                             rerender();
                         }
                     }
                 );
+                win._fogUnsub = () => { try { _fogListen && _fogListen(); } catch (e) {} try { _maskUnsub && _maskUnsub(); } catch (e) {} };
             }
         };
         win._map=map;
@@ -4983,7 +4992,7 @@
             // No picture of its own: its stat block's token image, if the GM gave it one
             if (t.type === 'npc' && !portrait && t._img) portrait = (map.tokenImgs || {})[t._img] || '';
             return {
-                id: t.id, gridX: p.gridX, gridY: p.gridY, size: t.size || 'medium',
+                id: t.id, gridX: p.gridX, gridY: p.gridY, size: p.sq || t.size || 'medium',   // (squeezed: the smaller size)
                 label: (t.name||'?')[0].toUpperCase(),
                 ko: isKo, swarm: !!t.swarm,
                 bg: isDead ? '#1a1a1a' : isKo ? '#52525b' : isBleedingOut ? '#450a0a' : (t.color||defColor),
@@ -5008,9 +5017,25 @@
             };
         });
 
+        // Your tokens' own fog reveal (set by the GM): a Vision cone reveals what it sees from where it stands
+        (map.battleTokens||[]).forEach(t => { if (isMine(t) && t.fogReveal && t.fogReveal.mode === 'cone') { let pp = posOf(t); _pwRevealVision(winId, map, t, pp, pp.sq || t.size); } });
+        // Into fog: Room reveal opens a fogged room you step into; a Vision cone lets you walk into what it can see
+        let fogOpen = (vm, gx, gy, reveal) => {
+            if (!_pwCellUnderFog(winId, gx, gy, g)) return false;
+            let tok = (map.battleTokens||[]).find(t => t.id === vm.id), fr = tok && tok.fogReveal;
+            if (!fr || !isMine(tok)) return false;
+            if (fr.mode === 'room') {
+                let room = window.APXBattle.roomAt(map.walls || [], gx, gy);
+                if (!room) return false;
+                if (reveal) _pwRevealAt(winId, map, gx, gy, vm.size);
+                return true;
+            }
+            return fr.mode === 'cone' && _pwVisionReach(map, tok, posOf(tok), gx, gy, vm.size);
+        };
         // Where a drop actually lands: fogged squares snap to the nearest open one,
         // then if a same-size token is already there -> null -> back to last spot.
         let landing = (vm, gx, gy) => {
+            if (fogOpen(vm, gx, gy, true)) return window.APXBattle.findBlocker(visible, {id: vm.id, size: vm.size}, gx, gy, posOf) ? null : { gridX: gx, gridY: gy };
             let dest = _pwNearestOpenCell(winId, gx, gy, g);
             if (window.APXBattle.findBlocker(visible, {id: vm.id, size: vm.size}, dest.gridX, dest.gridY, posOf)) return null;
             return dest;
@@ -5043,6 +5068,7 @@
             // Difficult terrain (under the fog), walls and closed doors (never drawn: they just stop your tokens),
             // everyone's drawings, and pings
             difficult: map.difficult || [], walls: map.walls || [], wallsBlock: vm => mineIds.has(vm.id),
+            portals: map.portals || [],
             drawings: (map.drawings || []).concat(window.APXBattle.drawingsFor ? window.APXBattle.drawingsFor(map.id) : []),
             pings: (window.APXBattle.pingsFor ? window.APXBattle.pingsFor(map.id) : []).concat(world?.gmPing && world.gmPing.map === map.id ? [world.gmPing] : []),
             onDraw: st => { let code = window._playerWorldData?.inviteCode; let mine = window.APXBattle.myDrawings(myUid, map.id).concat([st]).slice(-150); window.APXBattle.writeDrawings(code, myUid, map.id, mine); },
@@ -5053,7 +5079,7 @@
                 window.APXBattle.writePing(code, myUid, map.id, { id: 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), x: pt.x, y: pt.y, t: Date.now(), who: window.state?.name || 'A player' });
             },
             onToolChange: kind => { let b = document.getElementById(winId + '_tool_draw'); if (b) { b.style.background = kind === 'draw' ? '#a16207' : '#1e293b'; b.style.color = kind === 'draw' ? '#fff' : '#e2e8f0'; } },
-            previewBlocked: (vm, gx, gy) => _pwCellUnderFog(winId, gx, gy, g) ||
+            previewBlocked: (vm, gx, gy) => (_pwCellUnderFog(winId, gx, gy, g) && !fogOpen(vm, gx, gy, false)) ||
                 !!window.APXBattle.findBlocker(visible, {id: vm.id, size: vm.size}, gx, gy, posOf),
             resolveDrop: landing,
             // Clicking someone else's token shows their picture (never their stats)
@@ -5078,7 +5104,40 @@
                 let tok = (map.battleTokens||[]).find(t => t.id === vm.id);
                 window.APXBattle.move(code, tok?.playerUid || myUid, map.id, vm.id, gx, gy);
                 if (info && !info.free && info.squares > 0) _pwPayMove(info);
+                // Stepped into a portal: out the other end (or wait for the GM, when it asks them first)
+                let hit = window.APXBattle.portalAt(map.portals || [], vm.size, gx, gy);
+                if (hit && tok) setTimeout(() => _pwPortal(winId, map, tok, hit, visible, posOf), 150);
             }
+        });
+    }
+    // ── Portals (player side) ─────────────────────────────────────
+    function _pwPortal(winId, map, tok, hit, tokens, posOf) {
+        let code = window._playerWorldData?.inviteCode, me = window.apxAuth?.user?.uid || '';
+        if (hit.portal.ask && !(hit.portal.always || {})[me]) {
+            let id = 'pr' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+            window._pwPortalPending = { id, name: tok.name || 'Your token' };
+            if (code && me && window.apxAuth?.writePlayerBattle) window.apxAuth.writePlayerBattle(code, me, { portalReq: { id, map: map.id, tok: tok.id, portal: hit.portal.id, end: hit.end, t: Date.now() }, portalAns: null }).catch(e => console.warn('Portal:', e.message));
+            window.APXDice?.notify('You step into a portal. Waiting for your GM to let you through…', { kind: 'note', open: true });
+            return;
+        }
+        let img = document.getElementById(winId + '_img'), G = window.APXBattle.grid(map.battleGrid), o = window.APXBattle.origin(G);
+        let cols = img && img.naturalWidth ? Math.floor((img.naturalWidth - o.ox) / G.cellSize) : 0, rows = img && img.naturalHeight ? Math.floor((img.naturalHeight - o.oy) / G.cellSize) : 0;
+        let dest = window.APXBattle.fitNear({ tokens, id: tok.id, size: tok.size || 'medium', target: hit.dest, walls: map.walls || [], cols, rows, posOf });
+        if (!dest) { window.APXDice?.notify('The portal\'s other end has no room for you right now.', { kind: 'warn', open: true }); return; }
+        window.APXBattle.move(code, tok.playerUid || me, map.id, tok.id, dest.gridX, dest.gridY, dest.sq ? { sq: dest.sq } : null);
+        _pwRevealAt(winId, map, dest.gridX, dest.gridY, dest.sq || tok.size);
+        window.APXDice?.notify(`${tok.name || 'You'} ${tok.name ? 'goes' : 'go'} through the portal${dest.sq ? `, squeezing into a ${dest.sq} space (Disadvantage on attacks and AGI saves while squeezing)` : ''}.`, { kind: 'note' });
+    }
+    // The GM's answer to a portal that asked them first
+    if (window.APXBattle && !window._pwPortalHooked) {
+        window._pwPortalHooked = true;
+        window.APXBattle.onChange(() => {
+            let pend = window._pwPortalPending, me = window.apxAuth?.user?.uid;
+            if (!pend || !me || !window.APXBattle.portalAnswers) return;
+            let a = window.APXBattle.portalAnswers()[me];
+            if (!a || a.id !== pend.id) return;
+            window._pwPortalPending = null;
+            window.APXDice?.notify(a.ok ? 'Your GM lets you through the portal.' : 'Your GM doesn\'t let you through the portal this time.', { kind: a.ok ? 'note' : 'warn', open: !a.ok });
         });
     }
     // ── End Player Battle Map ─────────────────────────────────────
@@ -5278,12 +5337,71 @@
         fimg.onload = () => {
             if (seq !== fc._fogSeq) return;   // superseded by a newer snapshot
             if (refImg && refImg.naturalWidth) window.APXBattle.sizeFogCanvas(fc, refImg.naturalWidth, refImg.naturalHeight);
-            let ctx=fc.getContext('2d',{willReadFrequently:true});
-            ctx.clearRect(0,0,fc.width,fc.height); ctx.drawImage(fimg,0,0,fc.width,fc.height);
+            fc._baseImg = fimg;   // the GM's fog; a battle map's shows it minus your own reveals
+            if (/^pwOmWin_/.test(canvasId)) _pwFogCompose(canvasId.replace(/_fog$/, ''));
+            else { let ctx=fc.getContext('2d',{willReadFrequently:true}); ctx.clearRect(0,0,fc.width,fc.height); ctx.drawImage(fimg,0,0,fc.width,fc.height); }
             fc._fogLoaded = true;
             if (onDone) onDone();
         };
         fimg.src = base64png;
+    }
+    // ── Your own Fog of War on a battle map ───────────────────────
+    // What you see is the GM's fog minus your own reveals (js/apx-fog.js): Room reveal, a Vision cone,
+    // coming out of a portal, or what the GM revealed just for you.
+    function _pwFogCtx(winId) {
+        let fc = document.getElementById(winId + '_fog'), code = window._playerWorldData?.inviteCode, me = window.apxAuth?.user?.uid;
+        return { fc, code, me, mapId: winId.replace('pwOmWin_', '') };
+    }
+    function _pwFogCompose(winId) {
+        let { fc, code, me, mapId } = _pwFogCtx(winId);
+        if (!fc || !fc.width) return;
+        if (!fc._baseImg) { fc.getContext('2d').clearRect(0, 0, fc.width, fc.height); return; }
+        if (window.APXFog && me) window.APXFog.compose(fc, fc._baseImg, window.APXFog.mask(code, me, mapId));
+        else { let ctx = fc.getContext('2d'); ctx.clearRect(0, 0, fc.width, fc.height); ctx.drawImage(fc._baseImg, 0, 0, fc.width, fc.height); }
+    }
+    window._pwFogCompose = _pwFogCompose;
+    function _pwFogRings(winId, rings) {
+        let { fc, code, me, mapId } = _pwFogCtx(winId);
+        if (!fc || !fc.width || !me || !window.APXFog) return;
+        window.APXFog.polys(code, me, mapId, fc.width, fc.height, rings, true);
+        // show it now (a mask still loading shows it when it arrives), then redraw who can be seen
+        _pwFogCompose(winId);
+        clearTimeout(window._pwFogRedrawT);
+        window._pwFogRedrawT = setTimeout(() => { try { _pwRefreshBattleWindows(); } catch (e) { } }, 30);
+    }
+    // Reveal the room at a square for you (or, outside any room, the squares around it)
+    function _pwRevealAt(winId, map, gx, gy, size) {
+        let { fc } = _pwFogCtx(winId); if (!fc || !fc.width) return;
+        let k = fc._k || 1, room = window.APXBattle.roomAt(map.walls || [], gx, gy);
+        if (room) { _pwFogRings(winId, window.APXFog.roomRings(room, map.battleGrid, k)); return; }
+        let G = window.APXBattle.grid(map.battleGrid), o = window.APXBattle.origin(G), sp = window.APXBattle.span(size || 'medium');
+        let x0 = (o.ox + (gx - 1) * G.cellSize) * k, y0 = (o.oy + (gy - 1) * G.cellSize) * k, w = (sp + 2) * G.cellSize * k;
+        _pwFogRings(winId, [[{x:x0,y:y0},{x:x0+w,y:y0},{x:x0+w,y:y0+w},{x:x0,y:y0+w}]]);
+    }
+    // A Vision cone: what the token sees from where it stands (walls block it)
+    window._pwVisionLast = window._pwVisionLast || {};
+    function _pwRevealVision(winId, map, tok, pos, size) {
+        let fr = tok.fogReveal; if (!fr || fr.mode !== 'cone') return;
+        let { fc } = _pwFogCtx(winId); if (!fc || !fc.width) return;
+        let key = map.id + '|' + tok.id, last = window._pwVisionLast[key];
+        if (last && last.gx === pos.gridX && last.gy === pos.gridY && last.a === fr.angle && last.d === fr.dist) return;
+        // facing: the way it moved (a long jump, like a portal, keeps the way it was facing)
+        let stepped = last && (last.gx !== pos.gridX || last.gy !== pos.gridY) && Math.hypot(pos.gridX - last.gx, pos.gridY - last.gy) <= Math.max(12, fr.dist || 6);
+        let facing = stepped ? Math.atan2(pos.gridY - last.gy, pos.gridX - last.gx) : (last ? last.f : Math.PI / 2);
+        window._pwVisionLast[key] = { gx: pos.gridX, gy: pos.gridY, f: facing, a: fr.angle, d: fr.dist };
+        let sp = window.APXBattle.span(size || 'medium');
+        let pts = window.APXBattle.visionPoly(map.walls || [], pos.gridX + sp / 2, pos.gridY + sp / 2, facing, fr.angle || 90, fr.dist || 6);
+        _pwFogRings(winId, [window.APXFog.gridRing(pts, map.battleGrid, fc._k || 1)]);
+    }
+    // Can a token with Vision step into this fogged square? (within its sight distance, with nothing in the way)
+    function _pwVisionReach(map, tok, from, gx, gy, size) {
+        let fr = tok && tok.fogReveal; if (!fr || fr.mode !== 'cone') return false;
+        let sp = window.APXBattle.span(size || 'medium'), cx = from.gridX + sp / 2, cy = from.gridY + sp / 2;
+        let tx = gx + sp / 2, ty = gy + sp / 2;
+        if (Math.hypot(tx - cx, ty - cy) > (fr.dist || 6)) return false;
+        let poly = window.APXBattle.visionPoly(map.walls || [], cx, cy, 0, 360, fr.dist || 6), c = false;
+        for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { let a = poly[i], b = poly[j]; if ((a.y > ty) !== (b.y > ty) && tx < (b.x - a.x) * (ty - a.y) / (b.y - a.y) + a.x) c = !c; }
+        return c;
     }
 
     window.pwJoinWorld = async function() {
@@ -5672,9 +5790,9 @@
         });
     }
     </script>
-    <script src="js/apx-chat.js?v=202610101710"></script>
-    <script src="js/apx-actions.js?v=202610101710"></script>
-    <script src="js/apx-extras.js?v=202610101710"></script>
-    <script src="js/apx-theme-light.js?v=202610101710"></script>
+    <script src="js/apx-chat.js?v=202610101737"></script>
+    <script src="js/apx-actions.js?v=202610101737"></script>
+    <script src="js/apx-extras.js?v=202610101737"></script>
+    <script src="js/apx-theme-light.js?v=202610101737"></script>
 </body>
 </html>

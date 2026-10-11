@@ -450,8 +450,8 @@
                 }
                 .apx-tb-btn:hover { filter: brightness(1.18); }
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=202610101710">
-    <link rel="stylesheet" href="css/tailwind.css?v=202610101710">
+    <link rel="stylesheet" href="css/apx-themes.css?v=202610101737">
+    <link rel="stylesheet" href="css/tailwind.css?v=202610101737">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
@@ -1563,38 +1563,39 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=202610101710"></script>
-    <script src="js/apx-patch-notes.js?v=202610101710"></script>
-    <script src="js/apx-dice.js?v=202610101710"></script>
-    <script src="js/apx-data.js?v=202610101710"></script>
-    <script src="js/apx-item-effects.js?v=202610101710"></script>
-    <script src="js/apx-exo.js?v=202610101710"></script>
-    <script src="js/apx-perks-db.js?v=202610101710"></script>
-    <script src="js/apx-migrations.js?v=202610101710"></script>
-    <script src="js/apx-state.js?v=202610101710"></script>
-    <script src="js/apx-craft-shared.js?v=202610101710"></script>
-    <script src="js/apx-armor-forge.js?v=202610101710"></script>
-    <script src="js/apx-weapon-forge.js?v=202610101710"></script>
-    <script src="js/apx-consumable-crafter.js?v=202610101710"></script>
-    <script src="js/apx-perks-ui.js?v=202610101710"></script>
-    <script src="js/apx-power-crafter.js?v=202610101710"></script>
-    <script src="js/apx-npc-crafter.js?v=202610101710"></script>
-    <script src="js/apx-inventory-ui.js?v=202610101710"></script>
-    <script src="js/apx-ancestry-wizard.js?v=202610101710"></script>
-    <script src="js/apx-gm-screen.js?v=202610101710"></script>
-    <script src="js/apx-loot-maker.js?v=202610101710"></script>
-    <script src="js/apx-library.js?v=202610101710"></script>
-    <script src="js/apx-gm-content.js?v=202610101710"></script>
-    <script src="js/apx-gmtools-main.js?v=202610101710"></script>
+    <script src="js/apx-dialogs.js?v=202610101737"></script>
+    <script src="js/apx-patch-notes.js?v=202610101737"></script>
+    <script src="js/apx-dice.js?v=202610101737"></script>
+    <script src="js/apx-data.js?v=202610101737"></script>
+    <script src="js/apx-item-effects.js?v=202610101737"></script>
+    <script src="js/apx-exo.js?v=202610101737"></script>
+    <script src="js/apx-perks-db.js?v=202610101737"></script>
+    <script src="js/apx-migrations.js?v=202610101737"></script>
+    <script src="js/apx-state.js?v=202610101737"></script>
+    <script src="js/apx-craft-shared.js?v=202610101737"></script>
+    <script src="js/apx-armor-forge.js?v=202610101737"></script>
+    <script src="js/apx-weapon-forge.js?v=202610101737"></script>
+    <script src="js/apx-consumable-crafter.js?v=202610101737"></script>
+    <script src="js/apx-perks-ui.js?v=202610101737"></script>
+    <script src="js/apx-power-crafter.js?v=202610101737"></script>
+    <script src="js/apx-npc-crafter.js?v=202610101737"></script>
+    <script src="js/apx-inventory-ui.js?v=202610101737"></script>
+    <script src="js/apx-ancestry-wizard.js?v=202610101737"></script>
+    <script src="js/apx-gm-screen.js?v=202610101737"></script>
+    <script src="js/apx-loot-maker.js?v=202610101737"></script>
+    <script src="js/apx-library.js?v=202610101737"></script>
+    <script src="js/apx-gm-content.js?v=202610101737"></script>
+    <script src="js/apx-gmtools-main.js?v=202610101737"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=202610101710"></script>
-    <script src="js/apx-firebase.js?v=202610101710"></script>
-    <script src="js/apx-battlemap.js?v=202610101710"></script>
-    <script src="js/apx-map-tiles.js?v=202610101710"></script>
+    <script src="js/firebase-config.js?v=202610101737"></script>
+    <script src="js/apx-firebase.js?v=202610101737"></script>
+    <script src="js/apx-battlemap.js?v=202610101737"></script>
+    <script src="js/apx-fog.js?v=202610101737"></script>
+    <script src="js/apx-map-tiles.js?v=202610101737"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -1877,6 +1878,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             battleMapEnabled: !!m.battleMapEnabled,
                             battleGrid: m.battleGrid||{cellSize:50,offsetX:0,offsetY:0},
                             difficult: m.difficult || [], walls: m.walls || [], drawings: (m.drawings || []).slice(-300),
+                            portals: m.portals || [],   // linked squares (Portals tool)
                             battleImages: (m.battleImages||[]).map(i => i.src && window.apxAuth?.enabled ? (({src, ...r}) => r)(i) : i),
                             battleTokens: (m.battleTokens||[]).map(t=>{
                                 // Persist the live position (player tokens: from the position authority)
@@ -1945,6 +1947,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                         initiativeId: t.initiativeId  || null,
                                         revealed:     t.revealed      !== false,
                                         swarm:        !!t.swarm,
+                                        squeeze:      t.squeeze || null,       // squeezed into a smaller space (came out of a portal)
+                                        fogReveal:    (t.type === 'player' || t.type === 'companion') && t.fogReveal ? t.fogReveal : null,   // Room reveal / Vision cone
                                         _dead:        isDead,
                                         _bleedingOut: isBO,
                                         _down:        !!t._down,     // down or Prone: others can stand in its square (difficult terrain)
@@ -1993,6 +1997,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     tokenImgs,   // stat block token images used on this map
                                     _gmMeasure: m._gmMeasure || null,   // the GM's Measure, while shown to players (V)
                                     difficult: m.difficult || [],       // difficult terrain (drawn under the fog)
+                                    portals: (m.portals || []).map(p => ({ id: p.id, a: p.a, b: p.b, ask: !!p.ask, always: p.always || {} })),   // linked squares
                                     walls: (m.walls || []).map(w => ({ x1: w.x1, y1: w.y1, x2: w.x2, y2: w.y2, door: !!w.door, open: !!w.open })),   // never drawn for players: they just stop their tokens
                                     drawings: (m.drawings || []).slice(-300),
                                     battleImages: btImages,
@@ -3038,8 +3043,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Clear fog for an Other Map
     window._fogClearAllOmap = async function(mapId) {
-        let fc = document.getElementById('omWin_'+mapId+'_fog');
+        let fc = _fogCanvas(mapId);
         if (!fc||!fc.width) return;
+        let fv = _fogView[mapId];
+        if (fv && window.APXFog) {
+            let nm = (_fogPlayers(mapId).find(p => p.uid === fv.uid) || {}).name || 'this player';
+            let ok1 = await window.apxConfirm(`Reveal the whole map for ${nm}? Only they see it.`, { title: 'Clear Fog for One Player', okLabel: 'Reveal All' });
+            if (ok1) window.APXFog.all(_fogCode(), fv.uid, mapId, fc.width, fc.height, true);
+            return;
+        }
         let ok = await window.apxConfirm('Clear ALL fog on this map? Players will immediately see the whole map.', { title: 'Clear Fog of War', okLabel: 'Clear Fog', danger: true });
         if (!ok) return;
         fc.getContext('2d').clearRect(0,0,fc.width,fc.height);
@@ -3157,6 +3169,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <button onclick="window.omReset('${winId}')"     style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;">Reset</button>
                 <!-- Fog controls live in the header so they never accidentally paint -->
                 <button id="${winId}_fogBtn" onclick="window.toggleFogMode('${mapId}')" title="Paint Fog of War (hotkey F)" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;">Fog</button>
+                <!-- Each player has their own fog: whose you see and edit (Everyone: what you reveal, everyone sees) -->
+                <select id="${winId}_fogFor" onmousedown="window._gmFogForOpts('${mapId}', this)" onfocus="window._gmFogForOpts('${mapId}', this)" onchange="window._gmFogFor('${mapId}', this.value)" title="Fog of War for: Everyone (what you reveal or cover, everyone sees) or one player (see their fog, and reveal just for them)" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.65rem;font-weight:700;padding:0.12rem 0.2rem;border-radius:0.2rem;cursor:pointer;max-width:9rem;"><option value="">Fog for: Everyone</option></select>
                 <button id="${winId}_specialBtn" onclick="window.toggleSpecialMarkerMode('${mapId}','${winId}')" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;" title="Place a special marker (secret door, trap, etc.)">* Special</button>
                 <button id="${winId}_battleToggle" onclick="window.toggleBattleMap('${mapId}','${winId}')" style="background:${map.battleMapEnabled?'#065f46':'#1e293b'};border:1px solid ${map.battleMapEnabled?'#10b981':'#334155'};color:${map.battleMapEnabled?'#6ee7b7':'#94a3b8'};font-size:0.7rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:0.2rem;cursor:pointer;" title="Turn the Battle Map (grid + tokens) on or off">Battle: ${map.battleMapEnabled ? 'On' : 'Off'}</button>
                 <!-- Battle Map controls: always rendered, shown only while Battle is ON -->
@@ -3166,6 +3180,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <button id="${winId}_measureBtn" onclick="window.APXBattle.toggleMeasure('${winId}')" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#1e293b;border:1px solid #a16207;color:#fde68a;border-radius:0.2rem;cursor:pointer;white-space:nowrap;" title="Measure squares between two points or tokens (hotkey M)">Measure</button>
                 <button id="${winId}_tool_terrain" onclick="window.APXBattle.toggleTool('${winId}','terrain')" title="Mark squares as difficult terrain (diagonal lines, hidden under fog): moving into one costs 2 squares" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:0.2rem;cursor:pointer;white-space:nowrap;">Terrain</button>
                 <button id="${winId}_tool_walls" onclick="window.APXBattle.toggleTool('${winId}','walls')" title="Draw walls and doors (only you see them, and only while this is on): players' tokens can't pass walls or closed doors" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:0.2rem;cursor:pointer;white-space:nowrap;">Walls</button>
+                <button id="${winId}_tool_portal" onclick="window.APXBattle.toggleTool('${winId}','portal')" title="Portals: link two squares, and a token that steps into one comes out at the other (optionally asking you first)" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#1e293b;border:1px solid #a855f7;color:#e9d5ff;border-radius:0.2rem;cursor:pointer;white-space:nowrap;">Portals</button>
                 <button id="${winId}_tool_draw" onclick="window.APXBattle.toggleTool('${winId}','draw')" title="Draw on the map: everyone sees it" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:0.2rem;cursor:pointer;white-space:nowrap;">Draw</button>
                 <button onclick="window.APXBattle.toggleTool('${winId}','ping')" title="Ping a spot for everyone (or press P with your mouse there)" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#1e293b;border:1px solid #38bdf8;color:#bae6fd;border-radius:0.2rem;cursor:pointer;white-space:nowrap;">Ping (P)</button>
                 <button onclick="window._btAddAllToInitiative('${mapId}')" style="font-size:0.6rem;font-weight:700;padding:0.1rem 0.35rem;background:#1e3a5f;border:1px solid #3b82f6;color:#93c5fd;border-radius:0.2rem;cursor:pointer;white-space:nowrap;" title="Add all revealed tokens to initiative">All to Init</button>
@@ -3337,6 +3352,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // its tokens let go of their initiative entries (their conditions move to the entries), so a
     // fight with "No map (or whichever map is open)" never keeps using a map that was closed.
     window._omCloseWindow = function(mapId) {
+        if (window._gmFogViewOf && window._gmFogViewOf(mapId)) { try { window._gmFogFor(mapId, ''); } catch (e) {} }
         let win = document.getElementById('omWin_'+mapId);
         if (win) { try { win._winDragCleanup && win._winDragCleanup(); } catch (e) {} if (window.APXBattle) window.APXBattle.clear('omWin_'+mapId); win.remove(); }
         if (_fogMode === mapId && typeof window.toggleFogMode === 'function') { try { window.toggleFogMode(mapId); } catch (e) {} }
@@ -3948,15 +3964,80 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Commit a GM move. Player tokens also go to the player's position record
     // (the authority both sides listen to), so the player's map updates at once.
-    function _btCommitMove(mapId, winId, tokenId, gx, gy) {
+    function _btCommitMove(mapId, winId, tokenId, gx, gy, opts) {
         let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId); if (!map) return;
         let tok = (map.battleTokens||[]).find(t=>t.id===tokenId); if (!tok) return;
+        let from = _btPos(mapId, tok);
         tok.gridX = gx; tok.gridY = gy;
+        // A plain move ends any squeezing (opts.sq: squeezed into a smaller space, coming out of a portal)
+        let sq = opts && opts.sq ? opts.sq : null;
+        if (sq) tok.squeeze = sq; else delete tok.squeeze;
         if ((tok.type === 'player' || tok.type === 'companion') && tok.playerUid) {
-            window.APXBattle.move(getActiveWorld()?.inviteCode, tok.playerUid, mapId, tok.id, gx, gy);
+            window.APXBattle.move(getActiveWorld()?.inviteCode, tok.playerUid, mapId, tok.id, gx, gy, sq ? { sq } : null);
         }
         window.saveWorldNotesNow();   // publish immediately — no debounce
         _btRenderTokens(mapId, winId);
+        // A player token's Vision cone reveals what it sees from there (in that player's fog)
+        if ((tok.type === 'player' || tok.type === 'companion') && tok.fogReveal && tok.fogReveal.mode === 'cone') window._gmFogVision(mapId, tok, from, { gridX: gx, gridY: gy });
+        // Stepping into a portal: out the other end (you moved it, so no one is asked)
+        if (!(opts && opts.noPortal)) setTimeout(() => window._btPortalCheck(mapId, winId, tokenId), 0);
+    }
+    // ── Portals ───────────────────────────────────────────────────
+    // The map's size in squares (a token can't come out of a portal off the edge)
+    function _btMapCells(mapId, map) {
+        let img = document.getElementById('omWin_' + mapId + '_img');
+        let iw = (img && img.naturalWidth) || map._imgW || 0, ih = (img && img.naturalHeight) || map._imgH || 0;
+        if (img && img.naturalWidth) { map._imgW = iw; map._imgH = ih; }
+        if (!iw || !ih) return { cols: 0, rows: 0 };
+        let G = window.APXBattle.grid(map.battleGrid), o = window.APXBattle.origin(G);
+        return { cols: Math.floor((iw - o.ox) / G.cellSize), rows: Math.floor((ih - o.oy) / G.cellSize) };
+    }
+    // Send a token through the portal it's standing in (if it is): to the nearest spot it fits at the other end,
+    // squeezing a Large or bigger creature if it has to. A player's fog opens up where they come out.
+    window._btPortalTeleport = function(mapId, winId, tokenId, hit) {
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId); if (!map) return false;
+        let tok = (map.battleTokens||[]).find(t=>t.id===tokenId); if (!tok) return false;
+        let mc = _btMapCells(mapId, map);
+        let dest = window.APXBattle.fitNear({ tokens: map.battleTokens || [], id: tok.id, size: tok.size || 'medium', target: hit.dest, walls: map.walls || [], cols: mc.cols, rows: mc.rows, posOf: t => _btPos(mapId, t) });
+        if (!dest) { window.APXDice?.notify(`${tok.name || 'The token'} can't come out of the portal: there's no room at the other end.`, { kind: 'warn', open: true }); return false; }
+        _btCommitMove(mapId, winId || ('omWin_' + mapId), tok.id, dest.gridX, dest.gridY, { sq: dest.sq, noPortal: true });
+        if ((tok.type === 'player' || tok.type === 'companion') && tok.playerUid) window._gmFogRevealAt(mapId, tok.playerUid, dest.gridX, dest.gridY, dest.sq || tok.size);
+        window.APXDice?.notify(`${tok.name || 'A token'} goes through the portal${dest.sq ? `, squeezing into a ${dest.sq} space (Disadvantage on attacks and AGI saves while squeezing)` : ''}.`, { kind: 'note' });
+        return true;
+    };
+    window._btPortalCheck = function(mapId, winId, tokenId) {
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId); if (!map || !(map.portals||[]).length) return;
+        let tok = (map.battleTokens||[]).find(t=>t.id===tokenId); if (!tok) return;
+        let p = _btPos(mapId, tok);
+        let hit = window.APXBattle.portalAt(map.portals, p.sq || tok.size || 'medium', p.gridX, p.gridY);
+        if (hit) window._btPortalTeleport(mapId, winId, tokenId, hit);
+    };
+    // A player stepped into a portal that asks you first: allow it this time, always (that player, that portal), or not
+    let _btPortalAsked = new Set();
+    window._btPortalRequests = async function() {
+        if (!window.APXBattle?.portalRequests || !window.APXDice?.ask) return;
+        let reqs = window.APXBattle.portalRequests(), code = getActiveWorld()?.inviteCode;
+        for (let uid of Object.keys(reqs)) {
+            let r = reqs[uid];
+            if (!r || !r.id || _btPortalAsked.has(r.id) || Date.now() - (r.t || 0) > 10 * 60 * 1000) continue;
+            _btPortalAsked.add(r.id);
+            let map = (_wNotes.otherMaps||[]).find(m=>m.id===r.map), portal = map && (map.portals||[]).find(p=>p.id===r.portal);
+            let tok = map && (map.battleTokens||[]).find(t=>t.id===r.tok);
+            let answer = (ok) => code && window.apxAuth?.writePlayerBattle && window.apxAuth.writePlayerBattle(code, uid, { portalReq: null, portalAns: { id: r.id, ok: !!ok } }).catch(e => console.warn('Portal answer:', e.message));
+            if (!map || !portal || !tok) { answer(false); continue; }
+            let who = (_fogPlayers(map.id).find(x => x.uid === uid) || {}).name || tok.name || 'A player';
+            let a = await window.APXDice.ask('Portal', `${who} stepped into a portal on ${map.name || 'the map'}. Let ${tok.name && tok.name !== who ? tok.name : 'them'} through?`,
+                [['once', 'Allow this time', 'pri'], ['always', 'Always allow'], ['no', 'Not this time']]);
+            if (a === 'once' || a === 'always') {
+                if (a === 'always') { portal.always = Object.assign({}, portal.always || {}, { [uid]: true }); window.saveWorldNotesNow(); }
+                let hit = { portal, end: r.end, dest: r.end === 'b' ? portal.a : portal.b };
+                answer(window._btPortalTeleport(map.id, 'omWin_' + map.id, tok.id, hit));
+            } else answer(false);
+        }
+    };
+    if (window.APXBattle && !window._gmPortalHooked) {
+        window._gmPortalHooked = true;
+        window.APXBattle.onChange(() => { try { window._btPortalRequests(); } catch (e) { console.warn('Portal requests:', e); } });
     }
 
     // Player token positions changed in Firestore (a player moved, or our own write confirmed)
@@ -4119,7 +4200,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             return {
-                id: t.id, gridX: pos.gridX, gridY: pos.gridY, size: t.size || 'medium',
+                id: t.id, gridX: pos.gridX, gridY: pos.gridY, size: pos.sq || t.size || 'medium',   // (squeezed: the smaller size)
                 label: (t.name||'?')[0].toUpperCase(),
                 ko: isKo, swarm: !!t.swarm,
                 bg: isDead ? '#1a0000' : isKo ? '#52525b' : isBleedingOut ? '#450a0a' : (t.color||defColor),
@@ -4136,7 +4217,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 aura: isDead ? null : (() => { let a = window._btTokenAura(t); return a ? { type: a.type, radius: a.radius, title: `Damage Aura: ${a.dice} ${a.type}` } : null; })(),
                 numColor: factionBorder,
                 portrait,
-                title: `${t.name} (${t.size||'medium'}${t.swarm?', Swarm':''})${linkedEntry && linkedEntry.currentHp != null ? ` · HP ${linkedEntry.currentHp}/${linkedEntry.maxHp ?? '?'}${linkedEntry.ac != null ? ` · AC ${linkedEntry.ac}` : ''}` : ''}${isHidden?' [Hidden]':''} — dbl-click for stat block, right-click for options`,
+                title: `${t.name} (${t.size||'medium'}${pos.sq?', squeezing into a ' + pos.sq + ' space (Disadvantage on attacks and AGI saves)':''}${t.swarm?', Swarm':''})${linkedEntry && linkedEntry.currentHp != null ? ` · HP ${linkedEntry.currentHp}/${linkedEntry.maxHp ?? '?'}${linkedEntry.ac != null ? ` · AC ${linkedEntry.ac}` : ''}` : ''}${isHidden?' [Hidden]':''} — dbl-click for stat block, right-click for options`,
                 draggable: interactive, interactive, down: !!t._down,
                 type: t.type, worldNpcId: t.worldNpcId, playerUid: t.playerUid, name: t.name
             };
@@ -4183,12 +4264,19 @@ document.addEventListener('DOMContentLoaded', () => {
             isGM: true, doorButtons: true,
             // Rooms (closed loops of walls): one click covers a whole room in fog, or reveals it
             roomFog: {
-                version: () => { let fc = _fogCanvas(mapId); return fc ? (fc._fogPaintedAt||0) + ':' + (fc._fogSeq||0) + ':' + (fc._fogReady ? 1 : 0) + ':' + fc.width : ''; },
+                version: () => { let fc = _fogCanvas(mapId), fv = _fogView[mapId]; return fc ? (fc._fogPaintedAt||0) + ':' + (fc._fogSeq||0) + ':' + (fc._fogReady ? 1 : 0) + ':' + fc.width + (fv ? ':' + fv.uid + ':' + fv.ver : '') : ''; },
                 show: () => _fogMode !== mapId,   // not while painting fog
                 isFogged: room => window._gmRoomFogged(mapId, room),
                 toggle: room => window._gmRoomFogToggle(mapId, room),
             },
             difficult: map.difficult || [], walls: map.walls || [], wallsBlock: () => false,
+            portals: map.portals || [],
+            onPortalsChange: list => {
+                // (a pair that keeps its id keeps who it always lets through)
+                let old = {}; (map.portals || []).forEach(p => { old[p.id] = p; });
+                map.portals = list.map(p => Object.assign({}, p, { always: (old[p.id] && old[p.id].always) || p.always || {} }));
+                window.saveWorldNotesNow(); _btRenderTokens(mapId, winId);
+            },
             drawings: (map.drawings||[]).concat(window.APXBattle.drawingsFor ? window.APXBattle.drawingsFor(mapId) : []),
             pings: (window.APXBattle.pingsFor ? window.APXBattle.pingsFor(mapId) : []).concat(map._gmPingLocal ? [map._gmPingLocal] : []),
             onTerrainChange: list => { map.difficult = list; saveWorldNotes(); _btRenderTokens(mapId, winId); },
@@ -4210,7 +4298,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let code = getActiveWorld()?.inviteCode;
                 if (code && window.apxAuth?.writeGmPing) window.apxAuth.writeGmPing(code, pg).catch(e => console.warn('Ping:', e.message));
             },
-            onToolChange: kind => ['terrain', 'walls', 'draw'].forEach(k => { let b = document.getElementById(winId + '_tool_' + k); if (b) { b.style.background = kind === k ? '#a16207' : '#1e293b'; b.style.color = kind === k ? '#fff' : '#e2e8f0'; } }),
+            onToolChange: kind => ['terrain', 'walls', 'draw', 'portal'].forEach(k => { let b = document.getElementById(winId + '_tool_' + k); if (b) { b.style.background = kind === k ? '#a16207' : '#1e293b'; b.style.color = kind === k ? '#fff' : '#e2e8f0'; } }),
             sharedMeasures: window.APXBattle.measuresFor ? window.APXBattle.measuresFor(mapId) : [],
             onDblClick:     (vm) => {
                 if (vm.type === 'npc' && vm.worldNpcId) {
@@ -4740,6 +4828,11 @@ document.addEventListener('DOMContentLoaded', () => {
             ${initRow}
             ${isPlayer ? '' : `<div style="${row}"><span style="${lbl}">Cond</span><span style="flex:1;font-size:0.56rem;color:#fdba74;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px;" title="${esc(window._gmEffCondNames(tok.conditions).join(', '))}">${(tok.conditions||[]).length ? esc(window._gmEffCondNames(tok.conditions).join(', ')) : '<span style=\'color:#475569\'>none</span>'}</span><button onclick="window._btTokenCondPicker(${a}, event.clientX, event.clientY)" style="background:none;border:none;color:#fdba74;font-size:0.6rem;font-weight:800;cursor:pointer;padding:0 4px;">Edit</button></div>`}
             <div style="${row}"><span style="${lbl}">Size</span>${btn('Shrink', `window._btResizeToken(${a},-1)${close}`, '#c4b5fd', false, sizeIdx<=0)}${btn('Grow', `window._btResizeToken(${a},1)${close}`, '#c4b5fd', false, sizeIdx>=BT_SIZE_LIST.length-1)}${tok.sizeOverride ? btn(tok.type === 'npc' ? 'Stat block size' : 'Sheet size', `window._btResetTokenSize(${a})${close}`, '#a5b4fc', false, false, tok.type === 'npc' ? 'Go back to the size on its stat block' : 'Go back to the size on their character sheet') : ''}</div>
+            ${(isPlayer || tok.type === 'companion') && tok.playerUid ? (() => {
+                let fr = tok.fogReveal || {}, md = fr.mode || 'off';
+                return `<div style="${row}"><span style="${lbl}" title="How this token reveals Fog of War, in its player's own fog">Fog</span>${btn('Off', `window._btSetFogReveal(${a},'off')${close}`, '#94a3b8', md==='off', false, 'Reveals nothing by itself')}${btn('Room', `window._btSetFogReveal(${a},'room')${close}`, '#e9d5ff', md==='room', false, 'Room reveal: trying to move into a fogged room (walls all round) reveals the whole room for this player')}${btn('Vision', `window._btSetFogReveal(${a},'cone')${close}`, '#e9d5ff', md==='cone', false, 'Vision cone: reveals what the token can see as it moves (walls block it)')}</div>`
+                    + (md === 'cone' ? `<div style="${row}"><span style="${lbl}"></span>${btn(`Cone: ${fr.angle || 90}°, ${fr.dist || 6} squares…`, `window._btFogConeDialog(${a})${close}`, '#c4b5fd', false, false, 'Change how wide and how far it sees')}</div>` : '');
+            })() : ''}
             ${tok.initiativeId && initEntry && initEntry.maxHp !== null ? `<div style="${row}">${btn('⤓ Fall damage…', `window.gmFallDamage('${tok.initiativeId}')${close}`, '#7dd3fc', false, false, 'Fall damage: 1d10 per square after the first, softened by an Acrobatics Reaction')}</div>` : ''}
             <div style="${row}"><span style="${lbl}">Layer ${tok.layer==null?1:tok.layer}</span>${btn('Down', `window._btTokLayer('${mapId}','${winId}','${tokenId}','down')${close}`, '#c4b5fd', false, false, 'Move under images on higher layers')}${btn('Up', `window._btTokLayer('${mapId}','${winId}','${tokenId}','up')${close}`, '#c4b5fd', false, false, 'Move above images on lower layers')}</div>
             <div style="${row}">${btn('Remove Token', `window.removeBattleToken(${a})${close}`, '#f87171')}</div>`;
@@ -4753,6 +4846,43 @@ document.addEventListener('DOMContentLoaded', () => {
         menu.style.left = x + 'px'; menu.style.top = y + 'px'; menu.style.visibility = 'visible';
 
         setTimeout(()=>document.addEventListener('mousedown',function cls(ev){if(!menu.contains(ev.target)){menu.remove();document.removeEventListener('mousedown',cls);}},100));
+    };
+
+    // How a player's token reveals Fog of War (in that player's own fog): Off, Room reveal, or a Vision cone
+    window._btSetFogReveal = function(mapId, winId, tokenId, mode) {
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+        let tok = (map?.battleTokens||[]).find(t=>t.id===tokenId); if (!tok) return;
+        if (mode === 'off') delete tok.fogReveal;
+        else tok.fogReveal = Object.assign({ angle: 90, dist: 6 }, tok.fogReveal || {}, { mode });
+        window.saveWorldNotesNow();
+        _btRenderTokens(mapId, winId);
+        if (mode === 'cone') window._gmFogVision(mapId, tok, null, _btPos(mapId, tok));   // what it sees from where it stands
+        window.APXDice?.notify(mode === 'off' ? `${tok.name}: no automatic fog reveal.` : mode === 'room' ? `${tok.name}: Room reveal. Moving into a fogged room reveals it for them.` : `${tok.name}: Vision cone (${tok.fogReveal.angle}°, ${tok.fogReveal.dist} squares).`, { kind: 'note' });
+    };
+    window._btFogConeDialog = function(mapId, winId, tokenId) {
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId);
+        let tok = (map?.battleTokens||[]).find(t=>t.id===tokenId); if (!tok) return;
+        let fr = Object.assign({ mode: 'cone', angle: 90, dist: 6 }, tok.fogReveal || {});
+        document.getElementById('apxConeDlg')?.remove();
+        if (window.apxInjectDialogStyles) window.apxInjectDialogStyles();
+        let back = document.createElement('div'); back.id = 'apxConeDlg'; back.className = 'apxdlg-back'; back.style.zIndex = 2147483300;
+        back.innerHTML = `<div class="apxdlg" style="width:min(360px,100%)"><div class="apxdlg-title">${String(tok.name||'Token').replace(/</g,'&lt;')}: Vision cone</div>
+            <div class="apxdlg-msg">What this token sees as it moves is revealed in its player's fog. Walls and closed doors block it.</div>
+            <label style="display:block;font-size:.75rem;font-weight:800;margin-bottom:.2rem">Width: <span data-av>${fr.angle >= 360 ? '360° (all round)' : fr.angle + '°'}</span></label>
+            <input data-a type="range" min="30" max="360" step="15" value="${fr.angle}" style="width:100%;margin-bottom:.7rem;accent-color:#a855f7">
+            <label style="display:block;font-size:.75rem;font-weight:800;margin-bottom:.2rem">Distance: <span data-dv>${fr.dist}</span> squares</label>
+            <input data-d type="range" min="1" max="40" step="1" value="${fr.dist}" style="width:100%;margin-bottom:.9rem;accent-color:#a855f7">
+            <div class="apxdlg-row"><button class="apxdlg-btn" data-x>Cancel</button><button class="apxdlg-btn apxdlg-ok" data-ok>Save</button></div></div>`;
+        let A = back.querySelector('[data-a]'), D = back.querySelector('[data-d]');
+        A.oninput = () => { back.querySelector('[data-av]').textContent = +A.value >= 360 ? '360° (all round)' : A.value + '°'; };
+        D.oninput = () => { back.querySelector('[data-dv]').textContent = D.value; };
+        back.querySelector('[data-x]').onclick = () => back.remove();
+        back.querySelector('[data-ok]').onclick = () => {
+            tok.fogReveal = { mode: 'cone', angle: +A.value, dist: +D.value };
+            back.remove(); window.saveWorldNotesNow(); _btRenderTokens(mapId, winId);
+            window._gmFogVision(mapId, tok, null, _btPos(mapId, tok));
+        };
+        document.body.appendChild(back);
     };
 
     window._btResizeToken = function(mapId, winId, tokenId, dir) {
@@ -6271,7 +6401,7 @@ document.addEventListener('DOMContentLoaded', () => {
         [room.px].concat(room.pxHoles || []).forEach(poly => { poly.forEach((p, i) => i ? ctx.lineTo(p.x * k, p.y * k) : ctx.moveTo(p.x * k, p.y * k)); ctx.closePath(); });
     }
     window._gmRoomFogged = function(mapId, room) {
-        let fc = _fogCanvas(mapId); if (!fc || !fc.width || !room || !room.px) return false;
+        let fc = _fogView[mapId] ? _fogDisp(mapId) : _fogCanvas(mapId); if (!fc || !fc.width || !room || !room.px) return false;
         let k = fc._k || 1, xs = room.px.map(p => p.x * k), ys = room.px.map(p => p.y * k);
         let x0 = Math.max(0, Math.floor(Math.min(...xs))), y0 = Math.max(0, Math.floor(Math.min(...ys)));
         let x1 = Math.min(fc.width, Math.ceil(Math.max(...xs))), y1 = Math.min(fc.height, Math.ceil(Math.max(...ys)));
@@ -6290,6 +6420,19 @@ document.addEventListener('DOMContentLoaded', () => {
         let fc = _fogCanvas(mapId); if (!fc || !fc.width || !room || !room.px) return;
         if (fc._fogReady === false) { window.APXDice?.notify('The fog is still loading: try again in a moment.', { kind: 'warn' }); return; }
         let fogged = window._gmRoomFogged(mapId, room), k = fc._k || 1, ctx = fc.getContext('2d');
+        let ring = poly => poly.map(p => ({ x: p.x * k, y: p.y * k })), rings = [ring(room.px)].concat((room.pxHoles || []).map(ring));
+        // One player's fog: reveal the room just for them, or re-hide what was revealed just for them
+        let fv = _fogView[mapId];
+        if (fv && window.APXFog) {
+            window.APXFog.polys(_fogCode(), fv.uid, mapId, fc.width, fc.height, rings, fogged);
+            if (!fogged) {
+                // (the shared fog has it revealed: covering it for one player only hides what they revealed themselves)
+                let disp = _fogDisp(mapId);
+                setTimeout(() => { if (_fogView[mapId] && !window._gmRoomFogged(mapId, room)) window.APXDice?.notify('This room is revealed in everyone\'s fog, so it stays revealed for this player too. Switch "Fog for" to Everyone to cover it for the whole party.', { kind: 'note' }); }, 50);
+            }
+            return;
+        }
+        if (!fogged) _fogHideForAll(mapId, (uid, w, h) => window.APXFog.polys(_fogCode(), uid, mapId, w, h, rings, false));
         ctx.save();
         _roomPath(ctx, room, k);
         if (fogged) {
@@ -6307,11 +6450,103 @@ document.addEventListener('DOMContentLoaded', () => {
         delete _fogCache[(_activeWorldId||'?')+':'+mapId];
         _fogSave(mapId);
     };
+    // The shared fog (everyone's) for a map. While you look at one player's fog it's kept off-screen,
+    // and the map shows that player's view (the shared fog minus their own reveals) instead.
     function _fogCanvas(mapId) {
+        if (_fogView[mapId] && _fogView[mapId].base) return _fogView[mapId].base;
+        return _fogDisp(mapId);
+    }
+    function _fogDisp(mapId) {
         return mapId === 'worldmap'
             ? document.getElementById('mapFogCanvas')
             : document.getElementById('omWin_'+mapId+'_fog');
     }
+
+    // ── Per-player Fog of War (battle maps) ─────────────────────────
+    // Each player sees the shared fog minus their own reveals (js/apx-fog.js). "Fog for" on a map's header
+    // picks whose fog you see and edit: Everyone (what you reveal, everyone sees; what you cover is covered
+    // for everyone, their own reveals included) or one player (reveal or re-hide just for them).
+    let _fogView = {};   // mapId -> { uid, base (the shared fog, off-screen), ver, unwatch }
+    const _fogCode = () => (getActiveWorld()?.inviteCode || '');
+    const _fogEsc = t => String(t ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+    window._gmFogViewOf = mapId => (_fogView[mapId] && _fogView[mapId].uid) || null;
+    function _fogRecompose(mapId) {
+        let v = _fogView[mapId], disp = _fogDisp(mapId); if (!v || !disp || !window.APXFog) return;
+        window.APXFog.compose(disp, v.base, window.APXFog.mask(_fogCode(), v.uid, mapId));
+        v.ver = (v.ver || 0) + 1;
+        window.APXBattle?.refreshRooms && window.APXBattle.refreshRooms('omWin_' + mapId);
+    }
+    // The players whose fog can be picked: the party, and anyone with a token on this map
+    function _fogPlayers(mapId) {
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId), out = [];
+        (window.gmParty||[]).forEach(p => { let uid = p.fileName || p.summary?.playerUid; if (uid && !out.some(x=>x.uid===uid)) out.push({ uid, name: p.summary?.name || p.state?.name || 'Player' }); });
+        (map?.battleTokens||[]).forEach(t => { if (t.type === 'player' && t.playerUid && !out.some(x=>x.uid===t.playerUid)) out.push({ uid: t.playerUid, name: t.name || 'Player' }); });
+        return out;
+    }
+    window._gmFogForOpts = function(mapId, sel) {
+        if (!sel) return;
+        let cur = window._gmFogViewOf(mapId) || '';
+        sel.innerHTML = '<option value="">Fog for: Everyone</option>' + _fogPlayers(mapId).map(p => `<option value="${_fogEsc(p.uid)}">Fog for: ${_fogEsc(p.name)}</option>`).join('');
+        sel.value = cur;
+    };
+    function _fogForStyle(mapId) {
+        let sel = document.getElementById('omWin_' + mapId + '_fogFor'); if (!sel) return;
+        let on = !!window._gmFogViewOf(mapId);
+        sel.style.background = on ? '#581c87' : '#1e293b'; sel.style.color = on ? '#f5d0fe' : '#94a3b8'; sel.style.borderColor = on ? '#c084fc' : '#334155';
+    }
+    window._gmFogFor = function(mapId, uid) {
+        let disp = _fogDisp(mapId);
+        if (!disp || !disp.width || !window.APXFog) return;
+        let v = _fogView[mapId];
+        if (!uid) {
+            if (v) {
+                try { v.unwatch && v.unwatch(); } catch (e) { }
+                let ctx = disp.getContext('2d'); ctx.clearRect(0, 0, disp.width, disp.height); ctx.drawImage(v.base, 0, 0);
+                ['_fogReady', '_fogPaintedAt', '_fogSeq'].forEach(k => { disp[k] = v.base[k]; });
+                delete _fogView[mapId];
+            }
+        } else {
+            if (!v) {
+                let base = document.createElement('canvas');
+                base.width = disp.width; base.height = disp.height;
+                ['_k', '_imgW', '_imgH', '_fogReady', '_fogPaintedAt', '_fogSeq'].forEach(k => { base[k] = disp[k]; });
+                base.getContext('2d').drawImage(disp, 0, 0);
+                v = _fogView[mapId] = { base, ver: 0 };
+            } else { try { v.unwatch && v.unwatch(); } catch (e) { } }
+            v.uid = uid;
+            v.unwatch = window.APXFog.watch(_fogCode(), uid, mapId, () => _fogRecompose(mapId));
+            _fogRecompose(mapId);
+        }
+        _fogForStyle(mapId);
+        window.APXBattle?.refreshRooms && window.APXBattle.refreshRooms('omWin_' + mapId);
+    };
+    // Covering fog for everyone also re-hides what any player had revealed there
+    function _fogHideForAll(mapId, fn) {
+        if (mapId === 'worldmap' || !window.APXFog) return;
+        let fc = _fogCanvas(mapId); if (!fc || !fc.width) return;
+        _fogPlayers(mapId).forEach(p => fn(p.uid, fc.width, fc.height));
+    }
+    // Reveal a room (or the squares around a spot outside any room) for one player, from the GM's side:
+    // a portal they came out of, or a token you moved for them
+    window._gmFogRevealAt = function(mapId, uid, gx, gy, size) {
+        let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId), fc = _fogCanvas(mapId);
+        if (!map || !uid || !fc || !fc.width || !window.APXFog) return;
+        let k = fc._k || 1, room = window.APXBattle.roomAt(map.walls || [], gx, gy);
+        if (room) { window.APXFog.polys(_fogCode(), uid, mapId, fc.width, fc.height, window.APXFog.roomRings(room, map.battleGrid, k), true); return; }
+        let G = window.APXBattle.grid(map.battleGrid), o = window.APXBattle.origin(G), s = window.APXBattle.span(size || 'medium');
+        let x0 = (o.ox + (gx - 1) * G.cellSize) * k, y0 = (o.oy + (gy - 1) * G.cellSize) * k, w = (s + 2) * G.cellSize * k;
+        window.APXFog.polys(_fogCode(), uid, mapId, fc.width, fc.height, [[{x:x0,y:y0},{x:x0+w,y:y0},{x:x0+w,y:y0+w},{x:x0,y:y0+w}]], true);
+    };
+    // A player token's Vision cone, from the GM's side (a token you moved, or sent through a portal)
+    window._gmFogVision = function(mapId, tok, from, to) {
+        let fr = tok && tok.fogReveal, map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId), fc = _fogCanvas(mapId);
+        if (!fr || fr.mode !== 'cone' || !tok.playerUid || !map || !fc || !fc.width || !window.APXFog) return;
+        let s = window.APXBattle.span(tok.size || 'medium'), cx = to.gridX + s / 2, cy = to.gridY + s / 2;
+        let facing = from && (from.gridX !== to.gridX || from.gridY !== to.gridY) ? Math.atan2(to.gridY - from.gridY, to.gridX - from.gridX) : (tok._facing ?? Math.PI / 2);
+        tok._facing = facing;
+        let pts = window.APXBattle.visionPoly(map.walls || [], cx, cy, facing, fr.angle || 90, fr.dist || 6);
+        window.APXFog.polys(_fogCode(), tok.playerUid, mapId, fc.width, fc.height, [window.APXFog.gridRing(pts, map.battleGrid, fc._k || 1)], true);
+    };
 
     // F toggles fog painting on the map under the mouse (or turns off the active one)
     let _fogHoverMap = null;
@@ -6457,6 +6692,11 @@ document.addEventListener('DOMContentLoaded', () => {
         let cy = (e.clientY - rect.top  - offY) / scale * k;
         // Brush radius: screen pixels ÷ scale = image pixels
         let brushR = (_fogBrushSize||40) / scale * k;
+        // One player's fog: erasing reveals for them, painting re-hides what was revealed just for them
+        let fv = _fogView[mapId];
+        if (fv && window.APXFog) { window.APXFog.circle(_fogCode(), fv.uid, mapId, fc.width, fc.height, cx, cy, brushR, !!_fogErase); return; }
+        // Everyone's: covering also re-hides it for every player
+        if (!_fogErase) _fogHideForAll(mapId, (uid, w, h) => window.APXFog.circle(_fogCode(), uid, mapId, w, h, cx, cy, brushR, false));
         let ctx = fc.getContext('2d');
         ctx.globalCompositeOperation = _fogErase ? 'destination-out' : 'source-over';
         ctx.fillStyle = 'rgba(0,0,0,1)';
@@ -6493,6 +6733,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.clearRect(0,0,fc.width,fc.height);
             ctx.drawImage(img, 0, 0, fc.width, fc.height);
             fc._fogReady = true;
+            if (_fogView[mapId]) _fogRecompose(mapId);   // (a player's view is drawn from it)
         };
         img.onerror = () => { fc._fogReady = true; };
         img.src = base64png;
@@ -6503,6 +6744,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // so strokes are batched: the save runs once you pause painting for a moment.
     let _fogSaveTimers = {}, _fogTmp = null;
     function _fogSave(mapId) {
+        if (_fogView[mapId]) return Promise.resolve();   // (looking at a player's fog: the shared fog wasn't touched)
         clearTimeout(_fogSaveTimers[mapId]);
         _fogSaveTimers[mapId] = setTimeout(() => _fogSaveNow(mapId), 700);
         return Promise.resolve();
@@ -6635,8 +6877,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </script>
     <div id="floatingWindowContainer"></div>
 
-    <script src="js/apx-chat.js?v=202610101710"></script>
-    <script src="js/apx-extras.js?v=202610101710"></script>
-    <script src="js/apx-theme-light.js?v=202610101710"></script>
+    <script src="js/apx-chat.js?v=202610101737"></script>
+    <script src="js/apx-extras.js?v=202610101737"></script>
+    <script src="js/apx-theme-light.js?v=202610101737"></script>
 </body>
 </html>

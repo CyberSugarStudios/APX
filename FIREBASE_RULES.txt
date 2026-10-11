@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// APX FIRESTORE RULES  (v2026.10.1)
+// APX FIRESTORE RULES  (v2026.10.10)
 // Paste into: Firebase Console > Firestore Database > Rules tab
 // ─────────────────────────────────────────────────────────────────────────────
 // No Firebase Storage or Blaze plan required.
@@ -99,6 +99,16 @@ service cloud.firestore {
           && !(request.auth.uid in get(/databases/$(database)/documents/worldCodes/$(inviteCode)).data.get('kicked', []));
       // A player may always remove their own record (leaving a world, deleting their account)
       allow delete: if request.auth != null && request.auth.uid == playerId;
+    }
+
+    // ── Per-player Fog of War ────────────────────────────────────────────────
+    // Each player's own reveals on a battle map (players/{uid}/fog/{mapId}). Everyone in the world can read
+    // them (the GM views a player's fog); the player writes their own, and the GM writes anyone's.
+    match /worldCodes/{inviteCode}/players/{playerId}/fog/{mapId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+          && (request.auth.uid == playerId
+              || get(/databases/$(database)/documents/worldCodes/$(inviteCode)).data.gmUid == request.auth.uid);
     }
 
   }

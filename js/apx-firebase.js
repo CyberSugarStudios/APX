@@ -44,7 +44,7 @@
             setActiveCharId: () => {}, setGmCondition: () => Promise.resolve(), setGmWound: () => Promise.resolve(),
             addXpGrant: () => Promise.resolve(), ackXpGrants: () => Promise.resolve(), addXpToPlayer: () => Promise.resolve(),
             loadBattleImageForPlayer: () => Promise.resolve(null), deleteBattleImage: () => Promise.resolve(),
-            saveFogData: () => Promise.resolve(),
+            saveFogData: () => Promise.resolve(), saveFogMask: () => Promise.resolve(), listenFogMask: () => (() => {}),
             loadFogData: () => Promise.resolve(null),
             loadFogDataForPlayer: () => Promise.resolve(null),
             writeBattlePosition: () => Promise.resolve(), writeBattleMeasure: () => Promise.resolve(), writePlayerBattle: () => Promise.resolve(), writeGmPing: () => Promise.resolve(),
@@ -445,12 +445,13 @@
     // NOTE: uses update() with a FieldPath. The old code used set({'a.b.c': v}, {merge:true}),
     // which Firestore stores as ONE literal field literally named "battlePositions.map.tok" —
     // nobody ever read that field, which is why moves stopped syncing.
-    async function writeBattlePosition(inviteCode, playerUid, mapId, tokenId, gridX, gridY) {
+    // extra: more fields for the position record ({ sq: 'medium' } while a big creature squeezes)
+    async function writeBattlePosition(inviteCode, playerUid, mapId, tokenId, gridX, gridY, extra) {
         let user = currentUser();
         if (!user || !inviteCode || !playerUid || !mapId || !tokenId) return;
         let code = inviteCode.toUpperCase().trim();
         let ref = db.collection('worldCodes').doc(code).collection('players').doc(playerUid);
-        let val = { gridX, gridY, by: user.uid, at: firebase.firestore.FieldValue.serverTimestamp() };
+        let val = Object.assign({ gridX, gridY, by: user.uid, at: firebase.firestore.FieldValue.serverTimestamp() }, apxClean(extra || {}) || {});
         try {
             await ref.update(new firebase.firestore.FieldPath('battlePositions', mapId, tokenId), val);
         } catch (e) {
@@ -499,6 +500,8 @@
                         battleMeasure: data.battleMeasure || null,   // the player's shared Measure (map, geometry)
                         battlePing: data.battlePing || null,         // the player's last ping { map, x, y, t, who }
                         battleDraw: data.battleDraw || null,         // the player's drawings, per map { mapId: [strokes] }
+                        portalReq: data.portalReq || null,           // a portal the player stepped into, waiting on the GM { id, map, tok, portal, end, t }
+                        portalAns: data.portalAns || null,           // the GM's answer { id, ok }
                         charPortrait: cs.charPortrait || '',
                         // Basic public info for the players' Party view (no stats)
                         profile: {
@@ -514,6 +517,24 @@
                     };
                 }));
             }, err => console.warn('Battle position listener:', err.message));
+    }
+
+    // ── Per-player Fog of War ─────────────────────────────────────────
+    // Each player's reveals on a map (the GM's fog minus these is what they see):
+    // worldCodes/{code}/players/{uid}/fog/{mapId} = { mask: PNG data URL (alpha = revealed), uid, t }
+    // The player writes their own; the GM writes anyone's (reveals for one player, re-hiding for everyone).
+    function _fogMaskRef(inviteCode, uid, mapId) {
+        return db.collection('worldCodes').doc(String(inviteCode).toUpperCase().trim()).collection('players').doc(uid).collection('fog').doc(mapId);
+    }
+    async function saveFogMask(inviteCode, uid, mapId, png) {
+        if (!currentUser() || !inviteCode || !uid || !mapId) return;
+        await _fogMaskRef(inviteCode, uid, mapId).set({ mask: png || null, uid, t: Date.now() });
+    }
+    function listenFogMask(inviteCode, uid, mapId, callback) {
+        if (!inviteCode || !uid || !mapId) return () => {};
+        return _fogMaskRef(inviteCode, uid, mapId).onSnapshot(
+            snap => callback(snap.exists ? (snap.data().mask || null) : null, snap.metadata && snap.metadata.hasPendingWrites),
+            err => { console.warn('Fog mask listener:', err.message); callback(null, false, err); });
     }
 
     // Back-compat wrappers
@@ -881,6 +902,9 @@
             let cref = db.collection('worldCodes').doc(code);
             let cdoc = await cref.get().catch(() => null);
             if (cdoc && cdoc.exists && cdoc.data().gmUid === uid) {
+                // each player's own Fog of War reveals (players/{uid}/fog) go first
+                let ps = await cref.collection('players').get().catch(() => ({ docs: [] }));
+                for (let d of ps.docs) await _purgeCollection(d.ref.collection('fog'));
                 for (let sub of WORLD_PUBLIC_SUBCOLLECTIONS) await _purgeCollection(cref.collection(sub));
                 await cref.delete().catch(() => {});
             }
@@ -992,6 +1016,8 @@
         if (!user || !inviteCode) return;
         let code = String(inviteCode).trim();
         _forgetWrite('wplayer:' + code + ':' + user.uid);
+        // (their own Fog of War reveals go with them)
+        try { await _purgeCollection(db.collection('worldCodes').doc(code).collection('players').doc(user.uid).collection('fog')); } catch (e) { }
         await db.collection('worldCodes').doc(code)
             .collection('players').doc(user.uid).delete()
             .catch(e => console.warn('Leave world:', e.message));
@@ -1083,7 +1109,7 @@
         saveBattleImage, loadBattleImage, loadBattleImageForPlayer, deleteBattleImage,
         addXpGrant, ackXpGrants, setGmCondition, setGmWound, publishCombatLog, writeRollLog, setGmCompanionHp,
         gmGiveToPlayer, ackGmGifts, writeOutbox, clearOutbox, ackGift, publishLootRequest, askLuck, claimLuck,
-        saveFogData, loadFogData, loadFogDataForPlayer, listenFogDataForPlayer,
+        saveFogData, loadFogData, loadFogDataForPlayer, listenFogDataForPlayer, saveFogMask, listenFogMask,
         listenWorldPlayers, listenPublicWorldNotes, kickWorldPlayer, leaveWorldAsPlayer,
         scheduleAutoSave, setActiveCharId,
         renderAuthBar,

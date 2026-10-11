@@ -78,7 +78,7 @@
         for (let o of (tokens || [])) {
             if (!o || o.id === moving.id || o.swarm || o._down || o.down) continue;   // a dead, downed or Prone creature can be stood over
             let p = posOf(o);
-            if (collides(moving.size, gx, gy, o.size, p.gridX, p.gridY)) return o;
+            if (collides(moving.size, gx, gy, p.sq || o.size, p.gridX, p.gridY)) return o;   // (a squeezed creature takes the smaller space)
         }
         return null;
     }
@@ -100,7 +100,7 @@
     }
 
     // ── Player-position store (live from Firestore) ─────────────
-    const store = { byUid: {}, portraits: {}, profiles: {}, mail: {}, measures: {}, pings: {}, draws: {} };
+    const store = { byUid: {}, portraits: {}, profiles: {}, mail: {}, measures: {}, pings: {}, draws: {}, portalReq: {}, portalAns: {} };
     const changeHandlers = new Set();
     let _unsub = null, _code = null;
 
@@ -111,9 +111,10 @@
     function posOf(mapId, tok) {
         if (tok && (tok.type === 'player' || tok.type === 'companion') && tok.playerUid) {   // players move their own (and their companion's) tokens
             let p = store.byUid[tok.playerUid]?.[mapId]?.[tok.id];
-            if (p && _num(p.gridX) && _num(p.gridY)) return { gridX: p.gridX, gridY: p.gridY };
+            if (p && _num(p.gridX) && _num(p.gridY)) return { gridX: p.gridX, gridY: p.gridY, sq: p.sq || null };
         }
-        return { gridX: parseInt(tok?.gridX, 10) || 0, gridY: parseInt(tok?.gridY, 10) || 0 };
+        // (sq: the smaller size a big creature is squeezed into, where it came out of a portal)
+        return { gridX: parseInt(tok?.gridX, 10) || 0, gridY: parseInt(tok?.gridY, 10) || 0, sq: (tok && tok.squeeze) || null };
     }
     // Players' measurements on a map (each player shares theirs): [{ uid, who, g }]
     function measuresFor(mapId, exceptUid) {
@@ -178,6 +179,8 @@
                 if (d.battleMeasure && d.battleMeasure.map && d.battleMeasure.g) measures[d.uid] = d.battleMeasure;
                 if (d.battlePing && d.battlePing.map) store.pings[d.uid] = d.battlePing;
                 store.draws[d.uid] = d.battleDraw || {};
+                store.portalReq[d.uid] = d.portalReq || null;
+                store.portalAns[d.uid] = d.portalAns || null;
                 if (d.charPortrait) store.portraits[d.uid] = d.charPortrait;
                 if (d.profile) profiles[d.uid] = Object.assign({ uid: d.uid, portrait: d.charPortrait || '' }, d.profile);
                 store.mail[d.uid] = { outbox: d.outbox || {}, giftAcks: d.giftAcks || {} };
@@ -196,15 +199,16 @@
     // Move a PLAYER token: update locally at once, then write the authority.
     // Firestore applies the write to its local cache immediately, so the
     // listener confirms it on this client within the same tick.
-    function move(inviteCode, playerUid, mapId, tokenId, gridX, gridY) {
+    // extra: { sq: 'medium' } (squeezed into a smaller space); a plain move ends any squeezing
+    function move(inviteCode, playerUid, mapId, tokenId, gridX, gridY, extra) {
         if (!playerUid || !mapId || !tokenId) return Promise.resolve();
         if (!store.byUid[playerUid]) store.byUid[playerUid] = {};
         if (!store.byUid[playerUid][mapId]) store.byUid[playerUid][mapId] = {};
-        store.byUid[playerUid][mapId][tokenId] = { gridX, gridY };
+        store.byUid[playerUid][mapId][tokenId] = Object.assign({ gridX, gridY }, extra || {});
         _notify();
         let code = (inviteCode || _code || '').toUpperCase().trim();
         if (!code || typeof window.apxAuth?.writeBattlePosition !== 'function') return Promise.resolve();
-        return window.apxAuth.writeBattlePosition(code, playerUid, mapId, tokenId, gridX, gridY)
+        return window.apxAuth.writeBattlePosition(code, playerUid, mapId, tokenId, gridX, gridY, extra)
             .catch(e => console.warn('Battle position write failed:', e.message));
     }
 
@@ -1879,7 +1883,8 @@
         let draws = (o.drawings || []).concat(tool && tool.kind === 'draw' && tool.stroke ? [tool.stroke] : []);
         let walls = tool && tool.kind === 'walls' ? tool.walls : (o.walls || []);
         let showWalls = !!(tool && tool.kind === 'walls');
-        if (!diff.length && !draws.length && !showWalls) {
+        let portals = tool && tool.kind === 'portal' ? tool.portals : (o.portals || []);
+        if (!diff.length && !draws.length && !showWalls && !portals.length && !(tool && tool.kind === 'portal')) {
             let old = layer.querySelector('[data-bt-ui="marks"]'); if (old) old.innerHTML = '';
         } else {
             let svg = _marksSvg(layer), pid = 'apxHatch_' + layer.id;
@@ -1913,6 +1918,20 @@
                 let col = String(d.c || '#f43f5e').replace(/[^#a-zA-Z0-9(),.%\s]/g, '');
                 html += `<path d="${dd}" fill="none" stroke="${col}" stroke-width="${Math.max(1, (d.w || 4) * s)}" stroke-linecap="round" stroke-linejoin="round"/>`;
             });
+            // Portals: a violet ring on each end, numbered by pair (a "?" when the GM is asked first)
+            let sq = (gx, gy) => { let a = scr(gx, gy), b = scr(gx + 1, gy + 1); return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, r: (b.x - a.x) / 2 }; };
+            portals.forEach((pt, i) => {
+                if (!pt || !Array.isArray(pt.a) || !Array.isArray(pt.b)) return;
+                let A = sq(pt.a[0], pt.a[1]), B = sq(pt.b[0], pt.b[1]);
+                if (tool && tool.kind === 'portal') html += `<line x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}" stroke="#c084fc" stroke-opacity=".55" stroke-width="2" stroke-dasharray="5 5"/>`;
+                [A, B].forEach(c => {
+                    let r = Math.max(5, c.r * 0.82);
+                    html += `<circle cx="${c.x}" cy="${c.y}" r="${r}" fill="rgba(88,28,135,.35)" stroke="#c084fc" stroke-width="${Math.max(1.5, r / 6)}"/>
+                        <circle cx="${c.x}" cy="${c.y}" r="${r * 0.55}" fill="none" stroke="#e9d5ff" stroke-width="${Math.max(1, r / 9)}" stroke-dasharray="${r * 0.5} ${r * 0.35}"/>
+                        <text x="${c.x}" y="${c.y + r * 0.22}" text-anchor="middle" font-size="${Math.max(8, r * 0.62)}" font-weight="900" fill="#f5f3ff" style="paint-order:stroke" stroke="#3b0764" stroke-width="2">${i + 1}${o.isGM && pt.ask ? '?' : ''}</text>`;
+                });
+            });
+            if (tool && tool.kind === 'portal' && tool.pending) { let c = sq(tool.pending[0], tool.pending[1]); html += `<circle cx="${c.x}" cy="${c.y}" r="${c.r}" fill="rgba(192,132,252,.35)" stroke="#f5d0fe" stroke-width="2" stroke-dasharray="4 3"/>`; }
             // Walls and doors: only while editing them (red walls; doors amber when closed, green when open)
             if (showWalls) {
                 walls.forEach(w => {
@@ -2229,10 +2248,21 @@
                 + tip('Draw: drag on the map, freehand · Snap (or hold Alt) for straight lines between squares · everyone at the table sees it · Esc, right-click or the button to stop');
         } else if (kind === 'ping') {
             bar.innerHTML = tip('Click where you want everyone to look (or press P with your mouse there, any time)');
+        } else if (kind === 'portal') {
+            T.portals = JSON.parse(JSON.stringify(o.portals || []));
+            T.ask = !!_DRAW_PREFS.portalAsk;
+            bar.innerHTML = `<button data-pask style="${chip}">New portals: ${T.ask ? 'ask me first' : 'open'}</button>`
+                + tip('Portals: click a square, then the square it leads to · a token that steps into one comes out at the other · Shift+click a portal to switch "ask me first" · right-click a portal to delete the pair · Esc or the button to stop');
         }
         ov.appendChild(bar); layer.appendChild(ov);
         bar.addEventListener('mousedown', e => e.stopPropagation());
         bar.addEventListener('pointerdown', e => e.stopPropagation());
+        if (kind === 'portal') {
+            let pb = bar.querySelector('[data-pask]'), paint = () => { pb.textContent = 'New portals: ' + (T.ask ? 'ask me first' : 'open'); pb.style.background = T.ask ? '#7e22ce' : 'rgba(15,23,42,.92)'; pb.style.color = '#fff'; };
+            paint();
+            pb.title = 'Ask me first: a player who steps in waits for you to allow it (this time, always, or not this time)';
+            pb.addEventListener('click', e => { e.stopPropagation(); T.ask = !T.ask; _DRAW_PREFS.portalAsk = T.ask; try { localStorage.setItem('apxDrawPrefs', JSON.stringify(_DRAW_PREFS)); } catch (er) { } paint(); });
+        }
         if (kind === 'draw') {
             let save = () => { _DRAW_PREFS.c = T.color; _DRAW_PREFS.w = T.size; try { localStorage.setItem('apxDrawPrefs', JSON.stringify(_DRAW_PREFS)); } catch (e) { } };
             bar.querySelector('[data-dcol]').addEventListener('input', e => { T.color = e.target.value; save(); });
@@ -2274,6 +2304,20 @@
             if (e.button !== 0) return;
             let oo = layer._opts;
             if (kind === 'ping') { let p = _imgPoint(layer, e); _sendPing(layer, { x: Math.round(p.x), y: Math.round(p.y) }); exitTool(winId); return; }
+            if (kind === 'portal') {
+                let c = cellOf(e), hit = portalAt(T.portals, 'medium', c.gx, c.gy);
+                let out = () => { if (oo.onPortalsChange) oo.onPortalsChange(JSON.parse(JSON.stringify(T.portals))); };
+                if (hit) {
+                    if (e.shiftKey) { hit.portal.ask = !hit.portal.ask; out(); toast(oo.area, hit.portal.ask ? 'This portal asks you first.' : 'This portal opens without asking.', 'info'); }
+                    else toast(oo.area, 'Shift+click a portal to switch "ask me first"; right-click it to delete the pair.', 'info');
+                } else if (!T.pending) T.pending = [c.gx, c.gy];
+                else if (T.pending[0] === c.gx && T.pending[1] === c.gy) T.pending = null;
+                else {
+                    T.portals.push({ id: 'pt' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), a: T.pending, b: [c.gx, c.gy], ask: !!T.ask });
+                    T.pending = null; out();
+                }
+                _layoutMarks(layer); return;
+            }
             if (kind === 'terrain') { let c = cellOf(e); T.down = true; T.mode = T.set.has(c.gx + ',' + c.gy) ? 'remove' : 'add'; T.last = c.gx + ',' + c.gy; paint(c); _layoutMarks(layer); return; }
             if (kind === 'walls') {
                 if (e.shiftKey) { let w = nearWall(e); if (w) { w.door = !w.door; w.open = false; wallsOut(); _layoutMarks(layer); } return; }
@@ -2344,6 +2388,11 @@
         ov.addEventListener('contextmenu', e => {
             e.preventDefault(); e.stopPropagation();
             if (kind === 'walls') { let w = nearWall(e); if (w) { T.walls = T.walls.filter(x => x !== w); wallsOut(); _layoutMarks(layer); return; } }
+            if (kind === 'portal') {
+                let c = cellOf(e), hit = portalAt(T.portals, 'medium', c.gx, c.gy);
+                if (hit) { T.portals = T.portals.filter(x => x !== hit.portal); let oo = layer._opts; if (oo.onPortalsChange) oo.onPortalsChange(JSON.parse(JSON.stringify(T.portals))); _layoutMarks(layer); return; }
+                if (T.pending) { T.pending = null; _layoutMarks(layer); return; }
+            }
             exitTool(winId);
         });
         if (o.onToolChange) o.onToolChange(kind);
@@ -2534,7 +2583,101 @@
         });
     }
 
+
+    // ── Portals: linked pairs of squares ─────────────────────────
+    // portals: [{ id, a: [gx, gy], b: [gx, gy], ask (the GM is asked first), always: { uid: true } }]
+    // A token whose footprint covers one end comes out at the other.
+    function portalAt(portals, size, gx, gy) {
+        let s = span(size);
+        for (let p of (portals || [])) {
+            if (!p || !Array.isArray(p.a) || !Array.isArray(p.b)) continue;
+            for (let end of ['a', 'b']) {
+                let c = p[end];
+                if (c[0] >= gx && c[0] < gx + s && c[1] >= gy && c[1] < gy + s) return { portal: p, end, dest: end === 'a' ? p.b : p.a };
+            }
+        }
+        return null;
+    }
+    // Does a token of this size fit with its top-left square at gx, gy? (on the map, no same-size token
+    // there, and no wall or closed door running through the squares it covers)
+    function fitsAt(o, size, gx, gy) {
+        let s = span(size);
+        if (gx < 0 || gy < 0 || (o.cols && gx + s > o.cols) || (o.rows && gy + s > o.rows)) return false;
+        if (findBlocker(o.tokens || [], { id: o.id, size }, gx, gy, o.posOf || (t => ({ gridX: t.gridX, gridY: t.gridY })))) return false;
+        if (s > 1) {
+            let ws = (o.walls || []).filter(w => w && !(w.door && w.open)), e = 0.02;
+            let x0 = gx + e, y0 = gy + e, x1 = gx + s - e, y1 = gy + s - e;
+            let edges = [[x0, y0, x1, y0], [x1, y0, x1, y1], [x1, y1, x0, y1], [x0, y1, x0, y0]];
+            for (let w of ws) {
+                let inside = (x, y) => x > x0 && x < x1 && y > y0 && y < y1;
+                if (inside(w.x1, w.y1) || inside(w.x2, w.y2)) return false;
+                for (let [ax, ay, bx, by] of edges) if (_segHits(ax, ay, bx, by, w, false)) return false;
+            }
+        }
+        return true;
+    }
+    // Where a token comes out at a square: covering it if it fits, else as near as it can; a Large or bigger
+    // creature that can't fit anywhere near squeezes into the next size down (down to Medium).
+    // o: { tokens, id, size, target: [gx, gy], walls, cols, rows, posOf } -> { gridX, gridY, sq } or null
+    function fitNear(o) {
+        let sizes = [o.size || 'medium'], i = SIZE_LIST.indexOf(o.size || 'medium');
+        while (i > SIZE_LIST.indexOf('medium')) sizes.push(SIZE_LIST[--i]);
+        let [tx, ty] = o.target;
+        // Every square it would cover can be reached from the portal's square without crossing a wall or closed door
+        let ws = (o.walls || []).filter(w => w && !(w.door && w.open));
+        let reach = (ax, ay, s) => {
+            for (let x = ax; x < ax + s; x++) for (let y = ay; y < ay + s; y++)
+                for (let w of ws) if (_segHits(tx + 0.5, ty + 0.5, x + 0.5, y + 0.5, w, true)) return false;
+            return true;
+        };
+        for (let k = 0; k < sizes.length; k++) {
+            let size = sizes[k], s = span(size), best = null, bd = Infinity;
+            for (let r = 0; r <= 3 && !best; r++) {
+                for (let ax = tx - (s - 1) - r; ax <= tx + r; ax++) for (let ay = ty - (s - 1) - r; ay <= ty + r; ay++) {
+                    if (!fitsAt(o, size, ax, ay)) continue;
+                    if (!reach(ax, ay, s)) continue;   // (never out the far side of a wall)
+                    let cx = ax + s / 2, cy = ay + s / 2, d = Math.hypot(cx - (tx + 0.5), cy - (ty + 0.5));
+                    if (d < bd) { bd = d; best = { gridX: ax, gridY: ay }; }
+                }
+            }
+            if (best) return Object.assign(best, { sq: k ? size : null });
+        }
+        return null;
+    }
+    // The room (closed loop of walls) a square sits in, or null
+    function roomAt(walls, gx, gy) {
+        let pt = { x: gx + 0.5, y: gy + 0.5 };
+        let inside = (poly) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { let a = poly[i], b = poly[j]; if ((a.y > pt.y) !== (b.y > pt.y) && pt.x < (b.x - a.x) * (pt.y - a.y) / (b.y - a.y) + a.x) c = !c; } return c; };
+        let best = null;
+        rooms(walls).forEach(r => { if (inside(r.poly) && !r.holes.some(h => inside(h)) && (!best || polyArea(r.poly) < polyArea(best.poly))) best = r; });
+        return best;
+    }
+    function polyArea(poly) { let A = 0; for (let k = 0; k < poly.length; k++) { let a = poly[k], b = poly[(k + 1) % poly.length]; A += a.x * b.y - b.x * a.y; } return Math.abs(A / 2); }
+    // ── Vision: what a creature sees from (cx, cy), in grid units ──
+    // A fan of rays (a full circle at 360°, else a cone of that angle around facing, radians), each stopped by
+    // the first wall or closed door it meets, out to dist squares. Returns the outline [{x, y}] (grid units).
+    function visionPoly(walls, cx, cy, facing, angleDeg, dist) {
+        let ws = (walls || []).filter(w => w && !(w.door && w.open));
+        let full = !(angleDeg < 360), half = (full ? 360 : Math.max(10, angleDeg)) * Math.PI / 360;
+        let n = Math.max(24, Math.ceil((full ? 360 : angleDeg) / 2)), out = full ? [] : [{ x: cx, y: cy }];
+        for (let i = 0; i <= n; i++) {
+            if (full && i === n) break;
+            let a = (full ? 0 : facing - half) + (full ? 2 * Math.PI : 2 * half) * i / n;
+            let dx = Math.cos(a), dy = Math.sin(a), t = dist;
+            ws.forEach(w => {
+                // ray (cx,cy)+u(dx,dy) against the wall segment
+                let ex = w.x2 - w.x1, ey = w.y2 - w.y1, den = dx * ey - dy * ex;
+                if (Math.abs(den) < 1e-12) return;
+                let u = ((w.x1 - cx) * ey - (w.y1 - cy) * ex) / den, v = ((w.x1 - cx) * dy - (w.y1 - cy) * dx) / den;
+                if (u > 1e-6 && v >= -1e-6 && v <= 1 + 1e-6 && u < t) t = u;
+            });
+            out.push({ x: cx + dx * t, y: cy + dy * t });
+        }
+        return out;
+    }
     window.APXBattle = {
+        portalAt, fitsAt, fitNear, roomAt, visionPoly,
+        portalRequests: () => store.portalReq, portalAnswers: () => store.portalAns,
         outlineResize,
         sizeFogCanvas, styleGrid,
         SIZES, SIZE_LIST,
