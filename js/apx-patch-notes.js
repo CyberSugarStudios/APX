@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.10.1815',
-        released: '2026-10-10T18:15:00',
-        releasedText: 'October 10, 2026 · 6:15 PM',
+        version: 'v2026.10.10.1955',
+        released: '2026-10-10T19:55:00',
+        releasedText: 'October 10, 2026 · 7:55 PM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs with loot of their own, apart from their stat blocks, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, area powers placed right on the battle map with every save in them rolled for you, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -96,6 +96,7 @@
                 'Portals: the GM links two squares, and a token that steps into one comes out at the other, squeezing to fit if it must and opening the fog where it lands. A portal can ask the GM first.',
                 'Players\' tokens can reveal fog themselves when the GM turns it on: Room reveal (step into a fogged room to reveal it) or a Vision cone that reveals what the token sees as it moves. C shows the cone, R turns it while you hold your token, and opening a door updates everyone\'s fog at once.',
                 'Battle maps have new tools. Terrain (GM): squares of difficult terrain, drawn with diagonal lines under the fog, cost 2 squares to move into. Walls (GM): lines drawn anywhere, at any angle, that only the GM sees (while editing them) and players\' tokens can\'t cross, and doors the GM opens and closes by clicking a small, faint door icon on the door itself (amber bar when closed, green and swung open when open), which only the GM sees, for secret doors too. A token dragged around a wall\'s corner bends around it instead of clipping it. Draw: everyone can draw freehand on the map in any colour and size, smooth at any zoom, with a Snap option (or Alt) for straight lines between squares. Ping (P): a pulse, a chime and your character\'s name (or "GM") wherever your mouse is; holding P sends just one, and you get 3 in a row with one back every 3 seconds. A ping off screen shows on the edge of your view with an arrow pointing to it. GMs can cover a whole walled room in fog with one click, and walls block area powers (a Burst still spreads around corners).',
+                'Token sizes follow the map\'s squares on any map: Tiny, Small and Medium creatures are each their own size, however small the squares, and Shrink and Grow always show the change.',
                 'A dead, downed or Prone creature\'s square can be moved through or stood in, as difficult terrain; when it gets up, whoever is standing over it moves to the nearest open square.',
                 'Special Map Markers are larger and bright yellow with a dark outline (magenta for the GM while hidden), stay readable when zoomed out, and can hold loot.',
                 'Area Circles stay about the same size on screen at any zoom, every marker shows its name the instant your mouse is over it, and a linked NPC\'s name opens that NPC\'s full window.',
@@ -381,6 +382,7 @@
                 'Ask your players to sign in at playapx.com and update their bookmarks.'
             ]],
             ['Your Account, the Tutorial and the Library', [
+                'The GM Tools sit on one side of the screen, leaving the rest for maps, stat blocks and other windows, which open in that free space. ⇆ beside the title moves them to the other side (remembered in this browser).',
                 'The GM Tools need a free APX account.',
                 'A tutorial walks through worlds, NPCs, combat, maps, loot and notes, plus what the tools can and can\'t do. Settings → Show Tutorial reopens it.',
                 'Everything you make (Loot Maker items, forged weapons and armor, consumables and powers) goes into your Library, tagged with the world you made it in. Reuse it from the Loot Maker\'s Library view and the NPC power picker, tick "All worlds" to see what you made elsewhere, or tag an entry with more worlds.',

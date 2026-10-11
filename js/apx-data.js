@@ -956,7 +956,10 @@
             let vw = window.innerWidth || 1200, vh = window.innerHeight || 800;
             w = Math.min(w, vw - 16); h = Math.min(h, vh - 16);
             let step = ((n || 0) % 6) * 28;
-            let left = Math.round((vw - w) / 2) + step, top = Math.round((vh - h) / 2.4) + step;
+            // A page can leave part of the screen free (the GM Tools, docked to one side): open there when it fits
+            let fa = window.apxFreeArea ? window.apxFreeArea() : null, x0 = 0, cw = vw;
+            if (fa && fa.x1 - fa.x0 >= Math.min(w, 420)) { x0 = fa.x0; cw = fa.x1 - fa.x0; w = Math.min(w, Math.max(380, cw - 16)); }
+            let left = Math.round(x0 + (cw - w) / 2) + step, top = Math.round((vh - h) / 2.4) + step;
             left = Math.max(8, Math.min(left, vw - w - 8)); top = Math.max(8, Math.min(top, vh - h - 8));
             return { left, top, w, h };
         }

@@ -48,7 +48,9 @@
     }
     function diameter(g, size) {
         let m = mult(size);
-        return Math.max(12, g.cellSize * (m <= 1 ? m * 0.85 : m * 0.9));
+        // (relative to the square only: a fixed floor in map pixels made Tiny, Small and Medium the same size,
+        // bigger than a square, on maps with small squares)
+        return g.cellSize * (m <= 1 ? m * 0.85 : m * 0.9);
     }
     // Image-pixel point -> top-left grid cell, keeping the token centred on the pointer
     function pointToCell(g, x, y, size) {

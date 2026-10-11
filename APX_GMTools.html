@@ -450,16 +450,34 @@
                 }
                 .apx-tb-btn:hover { filter: brightness(1.18); }
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=202610101815">
-    <link rel="stylesheet" href="css/tailwind.css?v=202610101815">
+    <link rel="stylesheet" href="css/apx-themes.css?v=202610101955">
+    <link rel="stylesheet" href="css/tailwind.css?v=202610101955">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
 
-    <div class="w-full max-w-[1400px] mx-auto p-4">
+    <!-- Docked to one side (⇆ swaps it), so maps, stat blocks and other windows have the rest of the screen -->
+    <div id="gmMain" class="w-full max-w-[1400px] p-4" style="margin-left:0;margin-right:auto">
+    <script>
+    (function () {
+        let side = 'left'; try { side = localStorage.getItem('apxGmDock') === 'right' ? 'right' : 'left'; } catch (e) {}
+        let el = document.getElementById('gmMain');
+        el.style.marginLeft = side === 'right' ? 'auto' : '0'; el.style.marginRight = side === 'right' ? '0' : 'auto';
+        window.gmToggleDock = function () {
+            let right = el.style.marginLeft !== 'auto';
+            el.style.marginLeft = right ? 'auto' : '0'; el.style.marginRight = right ? '0' : 'auto';
+            try { localStorage.setItem('apxGmDock', right ? 'right' : 'left'); } catch (e) {}
+        };
+        // The part of the screen the tools leave free: new windows (maps …) open there when it's wide enough
+        window.apxFreeArea = function () {
+            let r = el.getBoundingClientRect(), vw = window.innerWidth;
+            return el.style.marginLeft === 'auto' ? { x0: 0, x1: Math.max(0, r.left) } : { x0: Math.min(vw, r.right), x1: vw };
+        };
+    })();
+    </script>
         <div class="flex items-center justify-between mb-4">
             <div>
-                <h1 class="text-2xl font-black text-white">APX GM Tools</h1>
+                <h1 class="text-2xl font-black text-white">APX GM Tools <button onclick="window.gmToggleDock()" title="Move the GM tools to the other side of the screen" style="vertical-align:middle;font-size:0.8rem;font-weight:800;padding:0.05rem 0.4rem;border-radius:0.25rem;background:#1e293b;border:1px solid #334155;color:#94a3b8;cursor:pointer;">⇆</button></h1>
                 <p class="text-xs text-slate-500">GM Screen -- party overview and initiative tracker.</p>
             </div>
             <div class="flex gap-2">
@@ -1563,39 +1581,39 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=202610101815"></script>
-    <script src="js/apx-patch-notes.js?v=202610101815"></script>
-    <script src="js/apx-dice.js?v=202610101815"></script>
-    <script src="js/apx-data.js?v=202610101815"></script>
-    <script src="js/apx-item-effects.js?v=202610101815"></script>
-    <script src="js/apx-exo.js?v=202610101815"></script>
-    <script src="js/apx-perks-db.js?v=202610101815"></script>
-    <script src="js/apx-migrations.js?v=202610101815"></script>
-    <script src="js/apx-state.js?v=202610101815"></script>
-    <script src="js/apx-craft-shared.js?v=202610101815"></script>
-    <script src="js/apx-armor-forge.js?v=202610101815"></script>
-    <script src="js/apx-weapon-forge.js?v=202610101815"></script>
-    <script src="js/apx-consumable-crafter.js?v=202610101815"></script>
-    <script src="js/apx-perks-ui.js?v=202610101815"></script>
-    <script src="js/apx-power-crafter.js?v=202610101815"></script>
-    <script src="js/apx-npc-crafter.js?v=202610101815"></script>
-    <script src="js/apx-inventory-ui.js?v=202610101815"></script>
-    <script src="js/apx-ancestry-wizard.js?v=202610101815"></script>
-    <script src="js/apx-gm-screen.js?v=202610101815"></script>
-    <script src="js/apx-loot-maker.js?v=202610101815"></script>
-    <script src="js/apx-library.js?v=202610101815"></script>
-    <script src="js/apx-gm-content.js?v=202610101815"></script>
-    <script src="js/apx-gmtools-main.js?v=202610101815"></script>
+    <script src="js/apx-dialogs.js?v=202610101955"></script>
+    <script src="js/apx-patch-notes.js?v=202610101955"></script>
+    <script src="js/apx-dice.js?v=202610101955"></script>
+    <script src="js/apx-data.js?v=202610101955"></script>
+    <script src="js/apx-item-effects.js?v=202610101955"></script>
+    <script src="js/apx-exo.js?v=202610101955"></script>
+    <script src="js/apx-perks-db.js?v=202610101955"></script>
+    <script src="js/apx-migrations.js?v=202610101955"></script>
+    <script src="js/apx-state.js?v=202610101955"></script>
+    <script src="js/apx-craft-shared.js?v=202610101955"></script>
+    <script src="js/apx-armor-forge.js?v=202610101955"></script>
+    <script src="js/apx-weapon-forge.js?v=202610101955"></script>
+    <script src="js/apx-consumable-crafter.js?v=202610101955"></script>
+    <script src="js/apx-perks-ui.js?v=202610101955"></script>
+    <script src="js/apx-power-crafter.js?v=202610101955"></script>
+    <script src="js/apx-npc-crafter.js?v=202610101955"></script>
+    <script src="js/apx-inventory-ui.js?v=202610101955"></script>
+    <script src="js/apx-ancestry-wizard.js?v=202610101955"></script>
+    <script src="js/apx-gm-screen.js?v=202610101955"></script>
+    <script src="js/apx-loot-maker.js?v=202610101955"></script>
+    <script src="js/apx-library.js?v=202610101955"></script>
+    <script src="js/apx-gm-content.js?v=202610101955"></script>
+    <script src="js/apx-gmtools-main.js?v=202610101955"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=202610101815"></script>
-    <script src="js/apx-firebase.js?v=202610101815"></script>
-    <script src="js/apx-battlemap.js?v=202610101815"></script>
-    <script src="js/apx-fog.js?v=202610101815"></script>
-    <script src="js/apx-map-tiles.js?v=202610101815"></script>
+    <script src="js/firebase-config.js?v=202610101955"></script>
+    <script src="js/apx-firebase.js?v=202610101955"></script>
+    <script src="js/apx-battlemap.js?v=202610101955"></script>
+    <script src="js/apx-fog.js?v=202610101955"></script>
+    <script src="js/apx-map-tiles.js?v=202610101955"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -6926,8 +6944,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </script>
     <div id="floatingWindowContainer"></div>
 
-    <script src="js/apx-chat.js?v=202610101815"></script>
-    <script src="js/apx-extras.js?v=202610101815"></script>
-    <script src="js/apx-theme-light.js?v=202610101815"></script>
+    <script src="js/apx-chat.js?v=202610101955"></script>
+    <script src="js/apx-extras.js?v=202610101955"></script>
+    <script src="js/apx-theme-light.js?v=202610101955"></script>
 </body>
 </html>

@@ -150,6 +150,7 @@
         ['Welcome', 'Welcome to the APX GM Tools', `
             <p>Everything you need to run APX: worlds, players, NPCs, combat, maps, loot and notes. It all saves to your account and syncs to your players live.</p>
             <ul><li>Start with <b>+ New World</b>, or <b>Load World</b> to open one you made.</li>
+            <li>The GM Tools sit on one side of the screen so maps, stat blocks and other windows have the rest; new windows open in that free space. <b>⇆</b> (beside the title) moves them to the other side.</li>
             <li>Every world has an <b>invite code</b> (in the <b>World</b> screen; click it to copy). Players join with it from their Character Sheet, and their characters show up in your party on their own.</li>
             <li><b>World Settings</b> (World screen): Starting XP, Max GP, starting Cu and the attribute method for everyone. <b>Give a player more</b> sends one player extra GP (their Ancestry budget), Cu or Starting XP. <b>Allow Exo-Suits</b> adds the Exo-Suit slot and Forge to your players' sheets; turning it off switches off suits they already own in your world.</li>
             <li>The World screen's player list is also where you kick a player (with or without a ban).</li></ul>`],
