@@ -53,7 +53,7 @@
         // Immune to Damage (Master Utility) can't take the Damage Interrupt duration modifier: rebuild without it, free
         7: [
             { id: 'immuneNoDmgInt', test: d => !!(d.durationMods && d.durationMods.dmgInterrupt) && !!window.apxNoDmgInterrupt && window.apxNoDmgInterrupt(d).length > 0,
-              text: 'Damage Interrupt can no longer be taken on a power with the Immune to Damage Utility (its target never takes damage, so it never triggered). Rebuild it without Damage Interrupt (Step 6), free.' }
+              text: 'Damage Interrupt can no longer be taken on a power with the Immune to Damage Utility (the interrupt for a beneficial Utility comes when you take damage, and while it lasts you never do). Rebuild it without Damage Interrupt (Step 6), free.' }
         ],
         // Saving throws name their Core Attribute; lasting effects get an Escape Save the target can pass
         3: ['save', 'cond', 'escape', 'actionInt'].map(k => ({

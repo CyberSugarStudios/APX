@@ -629,7 +629,7 @@
             { key: "permanent", label: "Permanent", cost: 50, desc: "Lasts until dispelled, cured, countered, or destroyed. Ending it is a Free Action." }
         ];
         const POWER_DURATION_MODS = [
-            { key: "dmgInterrupt", label: "Damage Interrupt", cost: -5, desc: "Whenever the target takes damage, it immediately makes its Escape Save, ending the effect on a success. (An effect with no Escape Save ends outright when the target takes damage.)" },
+            { key: "dmgInterrupt", label: "Damage Interrupt", cost: -5, desc: "Whenever the target of a negative Utility takes damage, it immediately makes its Escape Save, ending the effect on a success. If the target is gaining a beneficial Utility then this interrupt occurs when you take damage." },
             { key: "actionInterrupt", label: "Action Interrupt", cost: -10, desc: "The power ends the moment the target spends AP to attack or use a harmful power or ability. A target that can spend AP can also spend 3 AP on its turn to repeat an Escape Save, potentially ending the power. Can't be taken on a power that inflicts Stunned, Paralyzed, or Unconscious." }
         ];
 
@@ -1033,7 +1033,8 @@
                     <span class="text-slate-300 truncate" title="${t2}">${k}${st} ${t2}</span></div>`;
             }).join('');
         };
-        // Utilities that rule out the Damage Interrupt duration modifier (Immune to Damage: its target never takes damage)
+        // Utilities that rule out the Damage Interrupt duration modifier (Immune to Damage: a beneficial Utility's interrupt
+        // comes when you take damage, and while it lasts you never do)
         window.apxNoDmgInterrupt = function(draft) {
             let u = (draft && draft.utility) || {};
             return Object.keys(POWER_UTILITY).filter(t => u[t]).flatMap(t => POWER_UTILITY[t].filter(x => x.noDmgInterrupt && (u[t][x.key] || 0) > 0).map(x => x.label.split(';')[0].replace(/ for the duration$/, '')));
