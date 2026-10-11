@@ -287,7 +287,7 @@
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.4rem;margin-bottom:.7rem">
                 ${sourceBtn('wforge', 'Weapon Forge', 'Build a weapon step by step', '#fca5a5')}
                 ${sourceBtn('aforge', 'Armor Forge', 'Build armor from mods', '#93c5fd')}
-                ${sourceBtn('consumable', 'Consumable', 'Potions, grenades, scrolls…', '#f0abfc')}
+                ${sourceBtn('consumable', 'Consumable', 'Stims, potions, grenades, charges…', '#f0abfc')}
                 ${sourceBtn('gear', 'Adventuring Gear', 'Pick from the gear list', '#fde68a')}
                 ${sourceBtn('mats', 'Crafting Materials', 'Common, Uncommon and Rare', '#6ee7b7')}
                 ${sourceBtn('library', 'Library', 'Reuse anything you made before', '#5eead4')}

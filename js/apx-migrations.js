@@ -50,6 +50,11 @@
         6: [
             { id: 'xpCap', test: d => typeof window.pcCalcXP === 'function' && window.pcCalcXP(d).total > (window.APX_POWER_MAX_XP || 200), text: 'Powers now cap at the top of Level 5 (200 XP for a character\'s power; Level 5\'s TP for an NPC\'s), and this one is built past it. Rebuild it to fit (free): a character gets back any XP paid over the new cost, and can\'t use it until then.' }
         ],
+        // Immune to Damage (Master Utility) can't take the Damage Interrupt duration modifier: rebuild without it, free
+        7: [
+            { id: 'immuneNoDmgInt', test: d => !!(d.durationMods && d.durationMods.dmgInterrupt) && !!window.apxNoDmgInterrupt && window.apxNoDmgInterrupt(d).length > 0,
+              text: 'Damage Interrupt can no longer be taken on a power with the Immune to Damage Utility (its target never takes damage, so it never triggered). Rebuild it without Damage Interrupt (Step 6), free.' }
+        ],
         // Saving throws name their Core Attribute; lasting effects get an Escape Save the target can pass
         3: ['save', 'cond', 'escape', 'actionInt'].map(k => ({
             id: 'powerSaves_' + k,

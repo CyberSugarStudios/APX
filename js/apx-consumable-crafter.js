@@ -102,7 +102,10 @@ window.ccMaxXp = ccMaxXp;
 function ccSaveInfo() { return window.apxPowerSaveInfo ? window.apxPowerSaveInfo(ccDraft) : { problems: [], forbid: [], why: {}, inflicts: [], incap: [] }; }
 function ccProblems() {
     let i = ccSaveInfo();
-    return i.problems.map(k => window.apxPowerSaveProblemText ? window.apxPowerSaveProblemText(i, k).replace(/power/g, 'item') : k);
+    let out = i.problems.map(k => window.apxPowerSaveProblemText ? window.apxPowerSaveProblemText(i, k).replace(/power/g, 'item') : k);
+    let noDi = window.apxNoDmgInterrupt ? window.apxNoDmgInterrupt(ccDraft) : [];
+    if (ccDraft.durationMods && ccDraft.durationMods.dmgInterrupt && noDi.length) out.push(`Damage Interrupt can't be taken on an item with the ${noDi.join(' or ')} Utility: remove it (Step 6).`);
+    return out;
 }
 function ccSeg(on, onclick, label, tip) { return `<button type="button" onclick="${onclick}" ${tip ? `title="${tip}"` : ''} class="px-2 py-1 text-[10px] font-bold rounded border transition ${on ? 'bg-purple-700 border-purple-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}">${label}</button>`; }
 function ccAttrButtons(cur, fn, forbid, why) {
@@ -246,6 +249,10 @@ window.ccSetUtilityCount = function(tier, key, delta) {
     let entry = POWER_UTILITY[tier].find(u => u.key === key);
     let max = entry.rep ? 20 : 1;
     let next = Math.max(0, Math.min(max, cur + delta));
+    if (next > 0 && (entry || {}).noDmgInterrupt && ccDraft.durationMods && ccDraft.durationMods.dmgInterrupt) {
+        ccDraft.durationMods.dmgInterrupt = false;
+        window.APXDice?.notify('Damage Interrupt was taken off: it can\'t go on an item with that Utility.', { kind: 'note' });
+    }
     if (next === 0) delete ccDraft.utility[tier][key];
     else ccDraft.utility[tier][key] = next;
     ccRenderAll();
@@ -262,6 +269,7 @@ window.ccSetDuration = function(val) {
 function ccDurationAllowsInterrupts(durationKey) { return durationKey !== 'instant'; }
 window.ccToggleDurationMod = function(key, checked) {
     if (checked && key === 'actionInterrupt' && ccSaveInfo().incap.length) return;
+    if (checked && key === 'dmgInterrupt' && window.apxNoDmgInterrupt(ccDraft).length) return;
     if (checked && !ccDurationAllowsInterrupts(ccDraft.duration)) return;
     ccDraft.durationMods[key] = checked;
     ccRenderAll();
@@ -400,11 +408,12 @@ function ccRenderStep6() {
         </label>
     `).join('');
     let interruptsAllowed = ccDurationAllowsInterrupts(ccDraft.duration);
-    let incap = ccSaveInfo().incap.length > 0;
+    let incap = ccSaveInfo().incap.length > 0, noDi = window.apxNoDmgInterrupt(ccDraft);
+    let modOk = m => interruptsAllowed && !(incap && m.key === 'actionInterrupt') && !(noDi.length && m.key === 'dmgInterrupt');
     document.getElementById('ccStep6Mods').innerHTML = POWER_DURATION_MODS.map(m => `
-        <label class="flex items-start gap-2 bg-slate-900 border border-slate-700 rounded p-2 ${interruptsAllowed && !(incap && m.key === 'actionInterrupt') ? 'cursor-pointer' : 'opacity-40'}">
-            <input type="checkbox" class="mt-1" ${ccDraft.durationMods[m.key] ? 'checked' : ''} ${interruptsAllowed && !(incap && m.key === 'actionInterrupt') ? '' : 'disabled'} onchange="window.ccToggleDurationMod('${m.key}', this.checked)">
-            <div><div class="text-xs font-bold text-slate-200">${m.label} <span class="text-emerald-400">[${m.cost} XP]</span></div><div class="text-[10px] text-slate-500 leading-tight">${m.desc}</div></div>
+        <label class="flex items-start gap-2 bg-slate-900 border border-slate-700 rounded p-2 ${modOk(m) ? 'cursor-pointer' : 'opacity-40'}">
+            <input type="checkbox" class="mt-1" ${ccDraft.durationMods[m.key] ? 'checked' : ''} ${modOk(m) ? '' : 'disabled'} onchange="window.ccToggleDurationMod('${m.key}', this.checked)">
+            <div><div class="text-xs font-bold text-slate-200">${m.label} <span class="text-emerald-400">[${m.cost} XP]</span></div><div class="text-[10px] text-slate-500 leading-tight">${m.desc}</div>${m.key === 'dmgInterrupt' && noDi.length ? `<div class="text-[10px] text-amber-400 leading-tight">Not on an item with the ${noDi.join(' or ')} Utility (Step 5).</div>` : ''}</div>
         </label>
     `).join('') + (!interruptsAllowed ? '<div class="text-[10px] text-amber-400 mt-1">Interrupts require a Duration of 1 Minute or longer.</div>' : '');
 }

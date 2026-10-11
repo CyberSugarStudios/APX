@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.10.0349',
-        released: '2026-10-10T03:49:00',
-        releasedText: 'October 10, 2026 · 3:49 AM',
+        version: 'v2026.10.10.1704',
+        released: '2026-10-10T17:04:00',
+        releasedText: 'October 10, 2026 · 5:04 PM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs with loot of their own, apart from their stat blocks, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, area powers placed right on the battle map with every save in them rolled for you, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -28,7 +28,7 @@
                 'World Settings fix Starting XP, Max GP, starting Cu, and Point Buy or Standard Array for everyone in your world, give one player extra GP, Cu or Starting XP, and can allow Exo-Suits. The Party panel lists powers by name and shrinks each card down to its portrait and + Initiative.',
                 'The Loot Maker builds loot with the players\' own forges and crafters, or as custom items you can edit later, for an NPC, an Area Circle, a Special Map Marker or the Loot list. Make several at once, and change any row\'s count with − and +.',
                 'Give hands over one item from a stack ("Black Cloak ×3" becomes ×2) and keeps your chosen player selected; All hands over the lot.',
-                'Magic items can change nearly anything on a sheet and grant powers.',
+                'Equippable items (enchanted rings, cybernetic implants, power armor, whatever your setting has) can change nearly anything on a sheet and grant powers.',
                 'The party list keeps itself current: a player who deletes their character, moves it out of your world or leaves the world drops off it at once, and each world lists only its own players.',
                 'Type damage in full. The tracker takes off DR or ER by damage type, plus resistances and immunities, shows its working, and counts a hit that deals 0. Whenever nothing says what kind of damage it was, a chooser lists every damage type with the target\'s defences against it, plus a Bypass resistances button.',
                 'NPC stat blocks roll their powers with a click, have a SAVE button under each Core Attribute, and suffer conditions just as players do. A stat block tagged with a world appears only in that world.',
@@ -58,7 +58,7 @@
                 'Identical items stack: three Leather Armors from three bandits make one "Leather Armor ×3" row. Equipping takes one from the stack, taking it off puts it back, and older inventories are joined up the first time you open the character.',
                 'A new character starts in the world you choose, or in none, and a character with no world sees only Join World, never another world\'s maps, notes or fog.',
                 'Leaving a world takes one step: delete the character, move it out of the world folder, or press × on the world folder. You come off the GM\'s player list, and your character stays yours.',
-                'Powers roll like weapons, powers from equipped magic items join your list without using a Power Slot, and a power can be built as a Reaction with a trigger of its own.',
+                'Powers roll like weapons, powers from equipped items join your list without using a Power Slot, and a power can be built as a Reaction with a trigger of its own.',
                 'Power Crafter Step 3 (Targeting) crafts areas to the exact size: an AoE (x3) is a Line (0.5 XP per square), Cone (3 XP per square of length) or Burst (10 XP per square of radius), sized with − and + while a preview shows the squares it hits and the XP. Powers with the old fixed-size areas need rebuilding.',
                 'Power Crafter Step 7 is reworked: set the AP cost with − and + (each AP below 4 costs 10 XP, each AP over 4 refunds 5 XP, up to twice the AP you gain at the start of your turn), or make it a Reaction (15 XP, with a set trigger) or pick a Lengthy Cast Time from 1 Minute (-15 XP) to 24 Hours (-60 XP). Steps 1 and 3 are now called Delivery and Targeting, and every power costs at least 5 XP. Step 4 can let you choose the damage type each time you use the power (+10 XP; both types with a second one).',
                 'Powers show the real number from their Core Attribute instead of "+Attr", and the Consumable Crafter follows the Power Crafter\'s save rules, with Artisan raising its XP limit by 5 per rank. No power can cost more than 200 XP (free ones included): any over it are rebuilt for free. NPC and companion powers stop at the top of Level 5 too, shown in TP.',
@@ -139,9 +139,9 @@
                 'Kawaii is a true light theme everywhere: windows that used to stay dark now turn pastel, and no text is left white on pale. Cyber Sigil is Kawaii\'s dark twin: midnight magenta with hot neon pink, lavender and mint (Settings → Theme).'
             ]],
             ['Inventory Stacks', [
-                'Identical items share one row with a count: armor, shields, helmets, weapons, magic items, consumables and everyday gear. Loot from your GM, gifts from other players and gear you take off all join a matching stack.',
+                'Identical items share one row with a count: armor, shields, helmets, weapons, equippable items, consumables and everyday gear. Loot from your GM, gifts from other players and gear you take off all join a matching stack.',
                 'Equipping takes one item from the stack and leaves the rest in your pack; taking it off puts it back. This works the same for armor, shields, helmets and weapons.',
-                'The magic item you\'re wearing gets a row of its own marked Equipped, so it\'s clear which bonuses and powers are in use. Take it off and it rejoins its stack.',
+                'The equippable item you\'re wearing gets a row of its own marked Equipped, so it\'s clear which bonuses and powers are in use. Take it off and it rejoins its stack.',
                 'Unused consumables stack. The first in the stack shows its charges, and when it runs dry the next full one takes over. A part-used consumable keeps its own row, and when you give away part of a stack, the part-used one stays with you.',
                 'Inventories from before this update have their matching rows joined the next time you open the character, with nothing lost.'
             ]],
@@ -179,6 +179,7 @@
                 'Saving throws name a Core Attribute: Save Negates and Save Halves powers choose which one targets roll (Power Crafter Step 1), and the card and your GM\'s log say "Targets make an AGI saving throw against DC 13".',
                 '"Inflict or end" utilities choose which Condition, and whether the power inflicts or ends it (Step 5).',
                 'Escape Saves (Step 6): a power that leaves a lasting effect on its target (a Condition for 1 Minute or more, a command, a polymorph, a banishment) names the save the target makes at the end of each of its turns to break free. Saves the effect makes it automatically fail are greyed out: an AGI save can dodge a paralysis, but it can\'t end one. The Escape Save shows on the power, its card and your GM\'s tracker.',
+                'Damage Interrupt can\'t be taken on a power with the Immune to Damage Master Utility (its target never takes damage, so it would never trigger): the Power and Consumable Crafters grey it out, adding that Utility takes it off, and powers that already have both are listed to rebuild for free.',
                 'Action Interrupt can\'t be taken on a power that inflicts Stunned, Paralyzed or Unconscious, and the Teleport utilities say they don\'t provoke Attacks of Opportunity.',
                 'Powers built before these rules show a Powers to rebuild list when your sheet opens. Rebuild opens each one in the Power Crafter for free; the list updates as you go and goes away once they\'re all done.',
                 'Powers cap at 200 XP (the top of Level 5), free powers included. A power already over it shows in Powers to rebuild and can\'t be used until it\'s rebuilt to 200 XP or less: free, and any XP paid over the new cost comes back.',
@@ -194,7 +195,7 @@
                 'Choose the damage type when you use it (Step 4, +10 XP): using the power asks which type (both types, for a power with a second one), and that\'s the type it deals. Your companion\'s powers ask whoever uses them.',
                 'Powers built with 1 AP, the old 1 AP / Reaction option or a Lengthy Cast Time show in the Powers to rebuild list. Rebuilding is optional: it refunds any XP the power now costs less (a Reaction gets 20 back), and anything else keeps its cost.',
                 'Damage that adds your Power Attribute shows the number ("2d6 Fire +3") instead of "+Attr", and rolls it too.',
-                'Powers from magic items: equip an item that grants powers and they join your Powers, labelled with the item and how often they can be used ("Once per Full Rest", "3 charges per Full Rest"…). They cost AP but no Power Slot, and they leave your list when you unequip the item.',
+                'Powers from equippable items: equip an item that grants powers and they join your Powers, labelled with the item and how often they can be used ("Once per Full Rest", "3 charges per Full Rest"…). They cost AP but no Power Slot, and they leave your list when you unequip the item.',
                 'Every power has its own Core Attribute, picked in the Power Crafter, and its card shows its attack bonus and DC.',
                 'Full Rest Powers (formerly INT Powers) give Power Slots that come back after a Full Rest, and a power can use a slot of its Level or higher. Short Rest Powers (formerly CHA Powers) give uses that come back after a Short Rest. Each power belongs to one pool, and when that pool is empty you\'re offered the other.',
                 'Existing powers keep the attribute and pool they used before.',
@@ -207,7 +208,7 @@
                 'Safe Zone: Shift+click any creature in your area while placing it to keep it safe (it gets a green outline), and the GM\'s tracker leaves it out.',
                 '"Add a second damage type, splitting the dice" lets you choose which dice deal which type: each die size has its own ◀ ▶ to move its dice between the two, so 2d4 + 2d6 can be 2d6 Piercing + 2d4 Poison as easily as 2d4 Piercing + 2d6 Poison (each type needs at least one die). The power shows as "2d6 Fire + 1d8 Cold", and using it rolls each type separately with the total underneath. A martial power rolls its weapon\'s damage and its own damage as separate types too.'
             ]],
-            ['Magic and Custom Items', [
+            ['Equippable and Custom Items', [
                 'Equippable items can carry any number of bonuses, or penalties if cursed: Core Attributes, skills, AC, DR, ER, one energy resistance, Max HP, Max AP, Speed, Initiative, Wound Threshold, Max Rest Dice, Max Luck Points, Carry Capacity, attack and damage rolls, power attack and DC, saves, checks and extra Power Slots.',
                 'Make your own with Add Item (tick Equippable), and edit them later from their details. Items from your GM keep the bonuses and powers they came with: the details list both, and the inventory row shows "Powers: …".',
                 'Bonuses and powers work only while the item is equipped, and an item handed to you always arrives unequipped.',
@@ -241,7 +242,7 @@
                 'Whenever you type "-X" without a damage type, a chooser asks first, even right after your GM rolls an attack (that attack is offered as the first button, in case it\'s what hit you): a button for every damage type (Bludgeoning, Piercing and Slashing each have their own) showing what your defences do against it (DR 3, ER 2, +5 res, Immune), and a Bypass resistances button that takes the damage in full, with no DR, ER, resistance or immunity reducing it.',
                 'The Temp HP box works the same way: "-6" is damage (Temp HP takes it first), and a plain number still sets your Temp HP.',
                 'A hit that comes to 0 still counts, so its effects (a Stunning save, for example) still happen, and your sheet sends the damage and its working to your GM.',
-                'Your GM sees the same AC, DR, ER, Wound Threshold and resistances your sheet shows, with shields, helmet, perks and magic items included.',
+                'Your GM sees the same AC, DR, ER, Wound Threshold and resistances your sheet shows, with shields, helmet, perks and equipped items included.',
                 'Defensive Rank 4: while you\'re unarmored, the line under DR and ER gives your DR and ER against traps, hazards and falling.',
                 'The damage type chooser also asks for damage taken on your own turn, and a power that deals half damage on a save uses its own damage type, never an earlier attack\'s.',
                 'When your GM has you fall, your tray asks for the AGI (Acrobatics) Reaction: every 5 you roll takes off 1d10.',
@@ -297,7 +298,7 @@
             ]],
             ['Party and Trading', [
                 'The Party tab lists everyone in your world, with each companion beside its owner.',
-                'Give moves an item, or several from a stack, to a party member, where it joins their matching stack. Gear, magic items and Cu from your GM arrive with a notice.',
+                'Give moves an item, or several from a stack, to a party member, where it joins their matching stack. Gear, equippable items and Cu from your GM arrive with a notice.',
                 'Crafting Materials your GM gives you join your Common, Uncommon and Rare Crafting Materials rows.'
             ]],
             ['Action Points', [

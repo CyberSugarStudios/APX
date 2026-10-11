@@ -633,6 +633,11 @@ window.pcSetUtilityCount = function(tier, key, delta) {
     if (delta > 0 && tier !== 'mythic' && pcMythic(pcDraft)) return;   // a Mythic power can't have other utilities
     let next = Math.max(0, Math.min(max, cur + delta));
     if (delta > 0 && key === 'summonCreature' && pcSummonBlock()) { window.showConfirm(pcSummonBlock(), null, true); return; }
+    // Immune to Damage (Master): no Damage Interrupt on the same power
+    if (next > 0 && (entry || {}).noDmgInterrupt && pcDraft.durationMods && pcDraft.durationMods.dmgInterrupt) {
+        pcDraft.durationMods.dmgInterrupt = false;
+        window.APXDice?.notify('Damage Interrupt was taken off: it can\'t go on a power with that Utility.', { kind: 'note' });
+    }
     if (tier === 'mythic' && next > 0) {
         // Taking a Mythic Utility replaces everything else in Step 5
         Object.keys(pcDraft.utility).forEach(t => { pcDraft.utility[t] = {}; });
@@ -658,6 +663,7 @@ function pcDurationAllowsInterrupts(durationKey) {
 window.pcToggleDurationMod = function(key, checked) {
     if (checked && !pcDurationAllowsInterrupts(pcDraft.duration)) return; // guard, mirrors disabled UI state
     if (checked && key === 'actionInterrupt' && pcSaveInfo().incap.length) return;
+    if (checked && key === 'dmgInterrupt' && window.apxNoDmgInterrupt(pcDraft).length) return;
     pcDraft.durationMods[key] = checked;
     pcRenderAll();
 };
@@ -824,6 +830,8 @@ function pcRulesProblems() {
     let out = info.problems.map(k => window.apxPowerSaveProblemText ? window.apxPowerSaveProblemText(info, k) : k);
     if ((window.apxPowerApKey ? window.apxPowerApKey(pcDraft) : pcDraft.apMod) === 'reaction' && !pcStepSkipped(7) && !String(pcDraft.reactionTrigger || '').trim())
         out.push('A Reaction power needs its trigger: the specific condition for using it (Step 7).');
+    if (pcDraft.durationMods && pcDraft.durationMods.dmgInterrupt && window.apxNoDmgInterrupt(pcDraft).length)
+        out.push(`Damage Interrupt can't be taken on a power with the ${window.apxNoDmgInterrupt(pcDraft).join(' or ')} Utility: remove it (Step 6).`);
     // A second damage type needs dice of its own, and so does the first
     if (pcDraft.addSecondType && !pcDraft.isHealing && pcDiceTotal(pcDraft) >= 2 && window.apxDmgSplit && !window.apxDmgSplit(pcDraft))
         out.push('Each damage type needs at least one die: move a die to each side in Step 4\'s split.');
@@ -996,10 +1004,11 @@ function pcRenderStep6() {
         </label>
     `).join('');
     let interruptsAllowed = pcDurationAllowsInterrupts(pcDraft.duration);
-    let incap = pcSaveInfo().incap;
+    let incap = pcSaveInfo().incap, noDi = window.apxNoDmgInterrupt(pcDraft);
     document.getElementById('pcStep6Mods').innerHTML = POWER_DURATION_MODS.map(m => {
-        let ok = interruptsAllowed && !(m.key === 'actionInterrupt' && incap.length);
-        let why = m.key === 'actionInterrupt' && incap.length ? `<div class="text-[10px] text-amber-400 leading-tight">Not with ${incap.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(' or ')}: an Incapacitated creature can't spend AP.</div>` : '';
+        let ok = interruptsAllowed && !(m.key === 'actionInterrupt' && incap.length) && !(m.key === 'dmgInterrupt' && noDi.length);
+        let why = m.key === 'actionInterrupt' && incap.length ? `<div class="text-[10px] text-amber-400 leading-tight">Not with ${incap.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(' or ')}: an Incapacitated creature can't spend AP.</div>`
+            : m.key === 'dmgInterrupt' && noDi.length ? `<div class="text-[10px] text-amber-400 leading-tight">Not on a power with the ${noDi.join(' or ')} Utility (Step 5).</div>` : '';
         return `
         <label class="flex items-start gap-2 bg-slate-900 border border-slate-700 rounded p-2 ${ok ? 'cursor-pointer' : 'opacity-40'}">
             <input type="checkbox" class="mt-1" ${pcDraft.durationMods[m.key] ? 'checked' : ''} ${ok ? '' : 'disabled'} onchange="window.pcToggleDurationMod('${m.key}', this.checked)">

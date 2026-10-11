@@ -216,7 +216,7 @@ function computeCharSummary(state) {
         envLines, envTypes: envByType,
     };
     // The player's own sheet saves the numbers it shows: those are the real ones (shield, helmet,
-    // perks, magic items…), so they win over this reconstruction
+    // perks, equipped items…), so they win over this reconstruction
     let d = state.derived;
     if (d && typeof d === 'object') {
         ['ac', 'dr', 'er', 'maxHp', 'ap', 'speed'].forEach(k => { if (typeof d[k] === 'number') out[k] = d[k]; });

@@ -600,7 +600,7 @@
             ],
             master: [
                 { key: "massTeleport", label: "Teleport yourself and any number of willing creatures to a known/visible location.", cost: 50 },
-                { key: "dmgImmuneReflect", label: "Immune to damage for the duration; half of damage you'd take is reflected at the attacker.", cost: 50 },
+                { key: "dmgImmuneReflect", label: "Immune to damage for the duration; half of damage you'd take is reflected at the attacker. You can't take the Damage Interrupt duration modifier on a power with this Utility.", cost: 50, noDmgInterrupt: true },
                 { key: "revive", label: "Revive a dead target to 1 HP (dead no longer than 1 minute, unless GM rules otherwise).", cost: 50 },
                 { key: "banish", label: "Teleport the target to a harmless location (up to 1 mile/Power Level) for the duration; permanent if extradimensional.", cost: 50 },
                 { key: "polymorph", label: "Change a target's physical form entirely into another creature/object (CR <= Power's Level).", cost: 50 },
@@ -1032,6 +1032,11 @@
                     ${btn(st, -1, k > 0, '◀', `One ${st} back to ${t1}`)}${btn(st, 1, k < c, '▶', `One more ${st} to ${t2}`)}
                     <span class="text-slate-300 truncate" title="${t2}">${k}${st} ${t2}</span></div>`;
             }).join('');
+        };
+        // Utilities that rule out the Damage Interrupt duration modifier (Immune to Damage: its target never takes damage)
+        window.apxNoDmgInterrupt = function(draft) {
+            let u = (draft && draft.utility) || {};
+            return Object.keys(POWER_UTILITY).filter(t => u[t]).flatMap(t => POWER_UTILITY[t].filter(x => x.noDmgInterrupt && (u[t][x.key] || 0) > 0).map(x => x.label.split(';')[0].replace(/ for the duration$/, '')));
         };
         window.apxDmgSplitText = parts => (parts || []).map(p => `${p.formula} ${p.type}`).join(' + ');
         window.apxPowerIsReaction = p => !!(p && p.draft && apxPowerApKey(p.draft) === 'reaction');
