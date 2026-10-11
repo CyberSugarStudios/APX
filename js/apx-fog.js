@@ -82,6 +82,13 @@
         if (e.loaded) run(); else e.queue.push(run);
     }
 
+    function pathRings(ctx, rings, reveal) {
+        ctx.beginPath();
+        rings.forEach(r => { r.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.closePath(); });
+        ctx.fill('evenodd');
+        if (rings._stroke > 0) { ctx.lineJoin = 'round'; ctx.lineWidth = reveal ? rings._stroke : rings._stroke * 1.6 + 2; ctx.stroke(); }
+    }
+
     window.APXFog = {
         // Follow a player's mask (fires when it loads or changes, from either side). Returns unsubscribe.
         watch(code, uid, mapId, fn) {
@@ -93,14 +100,14 @@
         mask(code, uid, mapId) { let e = masks[keyOf(code, uid, mapId)]; return e && e.loaded ? e : null; },
         // Masks this page has open for a map (GM: to re-hide areas for every player)
         masksFor(code, mapId) { return Object.values(masks).filter(e => e.code === String(code || '').toUpperCase().trim() && e.mapId === mapId); },
-        // Polygons are in fog-canvas pixels: [[{x, y}…], …] (evenodd, so later rings cut holes)
+        // Polygons are in fog-canvas pixels: [[{x, y}…], …] (evenodd, so later rings cut holes).
+        // rings._stroke (a room's, from roomRings): its outline is stroked too, out to the middle of its walls,
+        // and covering strokes a little wider than revealing, so revealing then re-hiding a room leaves no
+        // faint ring along its walls (a fill's soft edge never quite cancels out)
         polys(code, uid, mapId, w, h, rings, reveal) {
-            edit(code, uid, mapId, w, h, ctx => {
-                ctx.beginPath();
-                rings.forEach(r => { r.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.closePath(); });
-                ctx.fill('evenodd');
-            }, reveal);
+            edit(code, uid, mapId, w, h, ctx => { pathRings(ctx, rings, reveal); }, reveal);
         },
+        pathRings,
         circle(code, uid, mapId, w, h, x, y, r, reveal) {
             edit(code, uid, mapId, w, h, ctx => { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }, reveal);
         },
@@ -124,7 +131,9 @@
         roomRings(room, g, k) {
             let G = window.APXBattle.grid(g), o = window.APXBattle.origin(G), cs = G.cellSize;
             let tp = p => ({ x: (o.ox + p.x * cs) * k, y: (o.oy + p.y * cs) * k });
-            return [room.poly.map(tp)].concat((room.holes || []).map(h => h.map(tp)));
+            let rings = [room.poly.map(tp)].concat((room.holes || []).map(h => h.map(tp)));
+            rings._stroke = Math.max(1, cs * 0.12 * k);
+            return rings;
         },
         // A vision fan (grid units) -> fog-canvas pixels
         gridRing(pts, g, k) {

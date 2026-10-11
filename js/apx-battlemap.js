@@ -111,10 +111,10 @@
     function posOf(mapId, tok) {
         if (tok && (tok.type === 'player' || tok.type === 'companion') && tok.playerUid) {   // players move their own (and their companion's) tokens
             let p = store.byUid[tok.playerUid]?.[mapId]?.[tok.id];
-            if (p && _num(p.gridX) && _num(p.gridY)) return { gridX: p.gridX, gridY: p.gridY, sq: p.sq || null };
+            if (p && _num(p.gridX) && _num(p.gridY)) return { gridX: p.gridX, gridY: p.gridY, sq: p.sq || null, f: _num(p.f) ? p.f : null };   // (f: the way its Vision cone faces)
         }
         // (sq: the smaller size a big creature is squeezed into, where it came out of a portal)
-        return { gridX: parseInt(tok?.gridX, 10) || 0, gridY: parseInt(tok?.gridY, 10) || 0, sq: (tok && tok.squeeze) || null };
+        return { gridX: parseInt(tok?.gridX, 10) || 0, gridY: parseInt(tok?.gridY, 10) || 0, sq: (tok && tok.squeeze) || null, f: tok && _num(tok._facing) ? tok._facing : null };
     }
     // Players' measurements on a map (each player shares theirs): [{ uid, who, g }]
     function measuresFor(mapId, exceptUid) {
@@ -464,6 +464,75 @@
         _layoutArea(layer);
         _layoutShared(layer);
         layer.querySelectorAll('[data-bt]').forEach(el => { if (el._drag && el._drag.path) _drawPath(layer, el); });
+        _layoutCones(layer);
+    }
+
+    // ── Vision cones ─────────────────────────────────────────────
+    // opts.vision(vm) -> { angle, dist, facing (radians) } for a token whose Fog of War opens with a Vision cone.
+    // Shown while that token is held (R / Shift+R turns it), for every such token while C is on, and for
+    // a preview the page asks for (previewCone: the GM's cone settings as they change).
+    function _coneFacing(d, v) {
+        if (d.facing != null) return d.facing;
+        if (d.gx !== d.sx || d.gy !== d.sy) return Math.atan2(d.gy - d.sy, d.gx - d.sx);
+        return v.facing == null ? Math.PI / 2 : v.facing;
+    }
+    function _layoutCones(layer) {
+        let o = layer._opts, svg = layer.querySelector('[data-bt-ui="cones"]');
+        let list = [];
+        if (o) {
+            let vis = o.vision;
+            layer.querySelectorAll('[data-bt]').forEach(el => {
+                let vm = el._vm; if (!vm || !vis) return;
+                let v = vis(vm); if (!v) return;
+                if (el._drag) list.push({ gx: el._drag.gx, gy: el._drag.gy, size: vm.size, angle: v.angle, dist: v.dist, facing: _coneFacing(el._drag, v), held: true });
+                else if (layer._showCones) list.push({ gx: vm.gridX, gy: vm.gridY, size: vm.size, angle: v.angle, dist: v.dist, facing: v.facing == null ? Math.PI / 2 : v.facing });
+            });
+            if (layer._conePreview) list.push(Object.assign({ held: true }, layer._conePreview));
+        }
+        if (!list.length) { if (svg) svg.remove(); return; }
+        if (!svg) {
+            svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('data-bt-ui', 'cones');
+            svg.setAttribute('width', '100%'); svg.setAttribute('height', '100%');
+            svg.style.cssText = `position:absolute;inset:0;pointer-events:none;overflow:visible;z-index:${Z_ABOVE_FOG + 50};`;
+            layer.appendChild(svg);
+        }
+        let g = o.grid, gg = origin(g), cs = g.cellSize, win = o.win, sc = win._scale || 1, ox = win._offX || 0, oy = win._offY || 0;
+        let sx = x => ox + (gg.ox + x * cs) * sc, sy = y => oy + (gg.oy + y * cs) * sc;
+        svg.innerHTML = list.map(c => {
+            let sp = span(c.size || 'medium'), cx = c.gx + sp / 2, cy = c.gy + sp / 2;
+            let pts = visionPoly(o.walls || [], cx, cy, c.facing, c.angle || 90, c.dist || 6);
+            let path = pts.map((p, i) => (i ? 'L' : 'M') + sx(p.x).toFixed(1) + ',' + sy(p.y).toFixed(1)).join('') + 'Z';
+            let ax = sx(cx + Math.cos(c.facing) * Math.min(1.4, c.dist || 6)), ay = sy(cy + Math.sin(c.facing) * Math.min(1.4, c.dist || 6));
+            return `<path d="${path}" fill="rgba(250,204,21,${c.held ? .2 : .12})" stroke="#facc15" stroke-opacity=".85" stroke-width="${c.held ? 2 : 1.5}" stroke-dasharray="${c.held ? '' : '6 4'}" stroke-linejoin="round"/>`
+                + (c.angle < 360 ? `<line x1="${sx(cx)}" y1="${sy(cy)}" x2="${ax}" y2="${ay}" stroke="#facc15" stroke-width="3" stroke-linecap="round"/>` : '');
+        }).join('');
+    }
+    function previewCone(winId, c) {
+        let layer = document.getElementById(winId + '_btScreen'); if (!layer) return;
+        layer._conePreview = c || null;
+        _layoutCones(layer);
+    }
+    function toggleCones(winId, on) {
+        let layer = document.getElementById(winId + '_btScreen'); if (!layer || !layer._opts || !layer._opts.vision) return null;
+        layer._showCones = on == null ? !layer._showCones : !!on;
+        _layoutCones(layer);
+        return layer._showCones;
+    }
+    // R / Shift+R while holding a token with a Vision cone: turn it 45°
+    function _rotateHeldCone(dir) {
+        let done = false;
+        document.querySelectorAll('[id$="_btScreen"]').forEach(layer => {
+            let o = layer._opts; if (!o || !o.vision) return;
+            layer.querySelectorAll('[data-bt]').forEach(el => {
+                if (!el._drag || !el._vm) return;
+                let v = o.vision(el._vm); if (!v) return;
+                el._drag.facing = _coneFacing(el._drag, v) + dir * Math.PI / 4;
+                done = true;
+            });
+            if (done) _layoutCones(layer);
+        });
+        return done;
     }
 
     // ── Swarms under other creatures ─────────────────────────────
@@ -685,6 +754,7 @@
             el.style.transition = 'none';
             el.style.cursor = 'grabbing';
             el.style.zIndex = String(Z_DRAG);
+            _layoutCones(layer);   // (a Vision cone shows while it's held)
         };
 
         el.addEventListener('pointermove', e => {
@@ -727,6 +797,8 @@
             _drawPath(layer, el);   // (clears the path)
             el.style.opacity = String(el._vm.opacity == null ? 1 : el._vm.opacity);
             if (!o) return;
+            // Turned its Vision cone (R) and put it back down where it stood: it just looks the new way
+            if (!cancelled && d.facing != null && d.gx === d.sx && d.gy === d.sy && o.onFacing) { layout(o.winId); o.onFacing(el._vm, d.facing, true); return; }
             if (cancelled || (d.gx === d.sx && d.gy === d.sy)) { layout(o.winId); return; }
             // A wall (or a closed door) in the way: back to the last spot
             if (d.trail && wallBlocking(o.walls, el._vm.size, d.trail)) { toast(o.area, 'A wall is in the way.'); _glideBack(layer, [el]); return; }
@@ -737,6 +809,7 @@
             if (pinfo && o.beforeMove && o.beforeMove(el._vm, dest.gridX, dest.gridY, pinfo) === false) { _glideBack(layer, [el]); return; }
             el._vm.gridX = dest.gridX; el._vm.gridY = dest.gridY;
             layout(o.winId);
+            if (d.facing != null && o.onFacing) o.onFacing(el._vm, d.facing, false);   // (looks the way it was turned, not the way it walked)
             o.onMove(el._vm, dest.gridX, dest.gridY, pinfo);
         };
         el.addEventListener('pointerup',     () => finish(false));
@@ -2447,6 +2520,13 @@
             let win = _hoverWin && document.getElementById(_hoverWin + '_btScreen') ? _hoverWin : null;
             let l = win ? document.getElementById(win + '_btScreen') : [...document.querySelectorAll('[id$="_btScreen"]')].find(x => x._opts && x._opts.measureShare === 'toggle');
             if (l && _toggleShow(l)) e.preventDefault();
+        } else if (e.key === 'c' || e.key === 'C') {
+            // Show / hide the Vision cones of the tokens you move
+            let win = _hoverWin && document.getElementById(_hoverWin + '_btScreen') ? _hoverWin : null;
+            if (!win) { let live = [...document.querySelectorAll('[id$="_btScreen"]')].filter(l => l._opts && l._opts.vision); if (live.length === 1) win = live[0].id.replace(/_btScreen$/, ''); }
+            if (win && !e.repeat) { let on = toggleCones(win); if (on != null) { e.preventDefault(); if (on && !document.getElementById(win + '_btScreen').querySelector('[data-bt-ui="cones"]')) toast(null, 'None of your tokens here has a Vision cone.', 'info'); } }
+        } else if (e.key === 'r' || e.key === 'R') {
+            if (_rotateHeldCone(e.shiftKey ? -1 : 1)) e.preventDefault();
         } else if (e.key === 'p' || e.key === 'P') {
             let win = _hoverWin && document.getElementById(_hoverWin + '_btScreen') ? _hoverWin : null;
             if (win && e.repeat && document.getElementById(win + '_btScreen')?._opts?.onPing) { e.preventDefault(); return; }   // held down: one ping
@@ -2652,6 +2732,16 @@
         rooms(walls).forEach(r => { if (inside(r.poly) && !r.holes.some(h => inside(h)) && (!best || polyArea(r.poly) < polyArea(best.poly))) best = r; });
         return best;
     }
+    // The room on the far side of a door from the room a square is in (null: that room has no such door)
+    function roomBeyond(walls, door, gx, gy) {
+        let here = roomAt(walls, gx, gy); if (!here || !door) return null;
+        let mx = (door.x1 + door.x2) / 2, my = (door.y1 + door.y2) / 2, L = Math.hypot(door.x2 - door.x1, door.y2 - door.y1) || 1;
+        let nx = -(door.y2 - door.y1) / L * 0.4, ny = (door.x2 - door.x1) / L * 0.4;
+        let sides = [[mx + nx, my + ny], [mx - nx, my - ny]].map(([x, y]) => roomAt(walls, x - 0.5, y - 0.5));
+        let i = sides.findIndex(r => r && r.id === here.id);
+        let other = i < 0 ? null : sides[1 - i];
+        return other && other.id !== here.id ? other : null;
+    }
     function polyArea(poly) { let A = 0; for (let k = 0; k < poly.length; k++) { let a = poly[k], b = poly[(k + 1) % poly.length]; A += a.x * b.y - b.x * a.y; } return Math.abs(A / 2); }
     // ── Vision: what a creature sees from (cx, cy), in grid units ──
     // A fan of rays (a full circle at 360°, else a cone of that angle around facing, radians), each stopped by
@@ -2676,7 +2766,7 @@
         return out;
     }
     window.APXBattle = {
-        portalAt, fitsAt, fitNear, roomAt, visionPoly,
+        portalAt, fitsAt, fitNear, roomAt, roomBeyond, visionPoly, previewCone, toggleCones,
         portalRequests: () => store.portalReq, portalAnswers: () => store.portalAns,
         outlineResize,
         sizeFogCanvas, styleGrid,
