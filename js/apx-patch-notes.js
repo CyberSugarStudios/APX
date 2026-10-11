@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.10.1706',
-        released: '2026-10-10T17:06:00',
-        releasedText: 'October 10, 2026 · 5:06 PM',
+        version: 'v2026.10.10.1710',
+        released: '2026-10-10T17:10:00',
+        releasedText: 'October 10, 2026 · 5:10 PM',
         title: 'Playtest Update',
         intro: 'APX has a home of its own now, playapx.com, and this release gathers up everything our playtest tables asked for. The tools now use your APX account, with a short tutorial to get new players and GMs started. GMs get world rules, a Library of everything they make, loot they can stock anywhere and hand out a piece at a time (openly or in secret), NPCs with loot of their own, apart from their stat blocks, NPC Wound Thresholds, caster slots and damaging auras, fall damage, and grids styled the way they like. Players get reworked powers (each with its own Core Attribute, drawn from Full Rest or Short Rest pools), stacking inventories, Luck and Looting, trading, Omen dice to share, Loyal Companions who take their own turns, forges that roll in the dice tray, and a one-screen Origin Builder. Everyone gets maps that stay sharp at any zoom, movement paths priced in AP, Cone and Burst measuring, area powers placed right on the battle map with every save in them rolled for you, and one dice tray that doubles as the combat log and the table chat. Type damage in full into any HP box and DR, ER, resistances and immunities come off on their own. Characters and worlds bring themselves up to date when opened, and nothing is lost.',
         index: [
@@ -107,7 +107,7 @@
                 'NPCs: +1 AP costs 6 TP, at most +1 per Tier (Tier 0 counts as 1).',
                 'A Medium weapon used two-handed steps its die size up (2d8 becomes 2d10), Brute\'s carry capacity stacks with your race\'s size, and attributes bought with XP stay separate from your base attributes.',
                 'Escape Saves: a power that leaves a lasting negative effect on an unwilling creature (anything longer than Instant / End of Next Turn) names an Escape Save the creature makes at the end of each of its turns. It can\'t be a save the power\'s own Conditions make it automatically fail (not STR or AGI against Paralyzed, Stunned or Unconscious; not PER against Blinded). The save to avoid the power can still be any attribute.',
-                'Damage Interrupt: whenever the target of a negative Utility takes damage, it makes its Escape Save at once, ending the effect on a success; when the target is gaining a beneficial Utility, the interrupt comes when you (the power\'s user) take damage instead. Action Interrupt: the power ends when the target attacks or uses a harmful power or ability, and a target that can spend AP can spend 3 AP to repeat its Escape Save; it can\'t be taken with Stunned, Paralyzed or Unconscious. Guaranteed Hit still allows Escape Saves.',
+                'Damage Interrupt: whenever the target of a negative Utility takes damage, it makes its Escape Save at once, ending the effect on a success; when the target is gaining a beneficial Utility, the interrupt comes when you (the power\'s user) take damage instead, ending the effect at once (no save). Action Interrupt: the power ends when the target attacks or uses a harmful power or ability, and a target that can spend AP can spend 3 AP to repeat its Escape Save; it can\'t be taken with Stunned, Paralyzed or Unconscious. Guaranteed Hit still allows Escape Saves.',
                 'Teleportation does not provoke Attacks of Opportunity.',
                 'Step 4: for 10 more XP, a power\'s damage type is chosen each time it\'s used (with a second damage type, both are).',
                 'Step 7: each AP below 4 costs 10 XP (1 AP is 30 XP), each AP over 4 refunds 5 XP (up to twice the AP the caster gains at the start of its turn: banking AP for a big power is fine, but no further), or choose Reaction (15 XP, with a specific trigger that can\'t change without making a new power) or a Lengthy Cast Time: 1 Minute (-15 XP), 10 Minutes (-20), 1 Hour (-30), 8 Hours (-40), 12 Hours (-50) or 24 Hours (-60). A distraction while casting calls for a CON save (DC 10 or more) as if Concentrating, or the power must start over.',

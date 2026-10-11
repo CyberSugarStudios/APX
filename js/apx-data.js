@@ -629,7 +629,7 @@
             { key: "permanent", label: "Permanent", cost: 50, desc: "Lasts until dispelled, cured, countered, or destroyed. Ending it is a Free Action." }
         ];
         const POWER_DURATION_MODS = [
-            { key: "dmgInterrupt", label: "Damage Interrupt", cost: -5, desc: "Whenever the target of a negative Utility takes damage, it immediately makes its Escape Save, ending the effect on a success. If the target is gaining a beneficial Utility then this interrupt occurs when you take damage." },
+            { key: "dmgInterrupt", label: "Damage Interrupt", cost: -5, desc: "Whenever the target of a negative Utility takes damage, it immediately makes its Escape Save, ending the effect on a success. However, if the target is gaining a beneficial Utility then this interrupt occurs when you take damage, immediately ending the effects." },
             { key: "actionInterrupt", label: "Action Interrupt", cost: -10, desc: "The power ends the moment the target spends AP to attack or use a harmful power or ability. A target that can spend AP can also spend 3 AP on its turn to repeat an Escape Save, potentially ending the power. Can't be taken on a power that inflicts Stunned, Paralyzed, or Unconscious." }
         ];
 
