@@ -498,16 +498,13 @@ window.gmOpenCompanionStatBlock = function(uid) {
     window.openFloatingStatBlockRaw('comp_' + uid, `${csb.name} (${p.summary?.name || 'player'}'s companion)`, _gmSbImageHtml(c.tokenImg || c.portrait, c.tokenImgFull || c.portraitFull || c.portrait || c.tokenImg, csb.name) + window.buildStatBlockHtml(csb, false));
 };
 // A creature's picture at the top of its stat block window: its token image (on a battle map, the picture
-// its token there shows). Click it for the full image.
+// its token there shows)
 window._gmSbImgs = window._gmSbImgs || {};
 function _gmSbImageHtml(src, full, title) {
     if (!src) return '';
-    let id = 'sbi' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-    window._gmSbImgs[id] = { full: full || src, title: title || '' };
-    return `<div style="display:flex;justify-content:center;margin:.1rem 0 .45rem"><img src="${String(src).replace(/"/g, '&quot;')}" alt="" title="Click to see the full image" onclick="window._gmSbImgOpen('${id}')" style="width:88px;height:88px;border-radius:50%;object-fit:cover;border:2px solid #a78bfa;cursor:zoom-in;box-shadow:0 4px 14px rgba(0,0,0,.6)"></div>`;
+    return `<div style="display:flex;justify-content:center;margin:.1rem 0 .45rem"><img src="${String(src).replace(/"/g, '&quot;')}" alt="" style="width:88px;height:88px;border-radius:50%;object-fit:cover;border:2px solid #a78bfa;box-shadow:0 4px 14px rgba(0,0,0,.6)"></div>`;
 }
 window._gmSbImageHtml = _gmSbImageHtml;
-window._gmSbImgOpen = function(id) { let x = window._gmSbImgs[id]; if (x && window.apxShowImage) window.apxShowImage(x.full, x.title); };
 // The picture for a creature in the tracker: its token's on a battle map (a named NPC's portrait there), else
 // its stat block's token image -> { src, full }
 function _gmEntryImage(entry) {

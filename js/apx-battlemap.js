@@ -523,21 +523,21 @@
         return layer._showCones;
     }
     // R / Shift+R while holding a token with a Vision cone: turn it 45°
-    // F while dragging a token with other speeds: its next movement mode (Walk → Fly → …)
+    // S while dragging a token with other speeds: its next movement mode (Walk → Fly → …)
     function _cycleHeldMode() {
         let done = false;
         document.querySelectorAll('[id$="_btScreen"]').forEach(layer => {
             layer.querySelectorAll('[data-bt]').forEach(el => {
                 let d = el._drag; if (!d || !d.path || !d.mp || !(d.mp.modes || []).length || d.mp.modes.length < 2) return;
-                d.modeIdx = ((d.modeIdx || 0) + 1) % d.mp.modes.length;
+                d.modeIdx = (_modeIdx(d) + 1) % d.mp.modes.length;
                 _drawPath(layer, el); done = true;
             });
         });
         return done;
     }
     document.addEventListener('keydown', e => {
-        if ((e.key !== 'f' && e.key !== 'F') || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
-        if (_cycleHeldMode()) { e.preventDefault(); e.stopImmediatePropagation(); e.stopPropagation(); }   // (not the GM's fog key)
+        if ((e.key !== 's' && e.key !== 'S') || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+        if (_cycleHeldMode()) { e.preventDefault(); e.stopImmediatePropagation(); e.stopPropagation(); }
     }, true);
     function _rotateHeldCone(dir) {
         let done = false;
@@ -1205,10 +1205,11 @@
         }
         return null;
     }
-    // How it's moving: mp.modes = [{ type: 'Walk', speed }, { type: 'Fly', speed, noDiff: true }, …] (F cycles them
-    // while dragging). Flying (and a creature that Hovers, mp.hover) ignores difficult terrain; each mode
-    // moves at its own speed.
-    function _moveMode(d) { let m = d && d.mp && d.mp.modes; return m && m.length ? m[(d.modeIdx || 0) % m.length] : null; }
+    // How it's moving: mp.modes = [{ type: 'Walk', speed }, { type: 'Fly', speed, noDiff: true }, …] (S cycles them
+    // while dragging; it starts on the faster of Walk and Fly). Flying and burrowing (and a creature that
+    // Hovers, mp.hover) ignore difficult terrain; each mode moves at its own speed.
+    function _modeIdx(d) { let m = d && d.mp && d.mp.modes; return d.modeIdx != null ? d.modeIdx : (m && m.def) || 0; }
+    function _moveMode(d) { let m = d && d.mp && d.mp.modes; return m && m.length ? m[_modeIdx(d) % m.length] : null; }
     function _pathInfo(d) {
         if (!d || !d.path) return null;
         let mode = _moveMode(d), noDiff = !!(d.mp && d.mp.hover) || !!(mode && mode.noDiff);
@@ -1283,7 +1284,7 @@
         let col = d.alt ? '#a5b4fc' : over ? '#f87171' : '#4ade80';
         let sqTxt = info.difficult ? `${info.squares} sq (difficult terrain)` : `${info.squares} sq`;
         let modes = (d.mp && d.mp.modes) || [];
-        if (modes.length > 1 || (d.mp && d.mp.hover)) sqTxt += ` · ${info.mode || 'Walk'}${d.mp && d.mp.hover ? ' (Hover)' : ''}${modes.length > 1 ? ' [F]' : ''}`;
+        if (modes.length > 1 || (d.mp && d.mp.hover)) sqTxt += ` · ${info.mode || 'Walk'}${d.mp && d.mp.hover ? ' (Hover)' : ''}${modes.length > 1 ? ' [S]' : ''}`;
         let label = info.squares === 0 ? 'Drag to move' : d.alt ? `${sqTxt} · free move (Alt)` : cost.stuck ? `${sqTxt} · Speed 0` : `${sqTxt} · ${cost.ap} AP${have != null ? ` (of ${have})` : ''}`;
         let end = pts[pts.length - 1];
         svg.innerHTML = (pts.length > 1 ? `<polyline points="${pts.map(p => p.x + ',' + p.y).join(' ')}" fill="none" stroke="#000" stroke-opacity=".55" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>
@@ -2852,10 +2853,14 @@
     }
     window.APXBattle = {
         moveModes: (speed, alt) => {
-            // Walk, then each other speed (a stat block's Fly / Swim / Climb / Burrow, doubled or not); Fly ignores difficult terrain
+            // Walk, then each other speed (a stat block's Fly / Swim / Climb / Burrow, doubled or not). Fly and Burrow ignore
+            // difficult terrain. It starts on Fly when that's at least as fast as walking (.def); the rest are picked with S.
             let list = (alt || []).filter(l => l && l.type);
             if (!list.length) return null;
-            return [{ type: 'Walk', speed }].concat(list.map(l => ({ type: l.type, speed: speed * (l.doubled ? 2 : 1), noDiff: /fly/i.test(l.type) })));
+            let modes = [{ type: 'Walk', speed }].concat(list.map(l => ({ type: l.type, speed: speed * (l.doubled ? 2 : 1), noDiff: /fly|burrow/i.test(l.type) })));
+            let fi = modes.findIndex(m => /fly/i.test(m.type));
+            modes.def = fi > 0 && modes[fi].speed >= speed ? fi : 0;
+            return modes;
         },
         portalAt, fitsAt, fitNear, squeezeFit, roomAt, visionPoly, previewCone, toggleCones,
         portalRequests: () => store.portalReq, portalAnswers: () => store.portalAns,

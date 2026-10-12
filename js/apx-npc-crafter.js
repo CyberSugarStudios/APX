@@ -1471,25 +1471,14 @@ function ncShrinkImg(src, side) {
         im.onerror = () => res(src); im.src = src;
     });
 }
-// The picture as it is (not cropped), at most `side` px on its long side: a token image's full-size view
-function ncFitImg(src, side) {
-    return new Promise(res => {
-        let im = new Image();
-        im.onload = () => { try { let s = Math.min(1, side / Math.max(im.naturalWidth, im.naturalHeight)); let cv = document.createElement('canvas'); cv.width = Math.round(im.naturalWidth * s); cv.height = Math.round(im.naturalHeight * s);
-            let x = cv.getContext('2d'); x.fillStyle = '#0f172a'; x.fillRect(0, 0, cv.width, cv.height); x.drawImage(im, 0, 0, cv.width, cv.height); res(cv.toDataURL('image/jpeg', 0.85)); } catch (e) { res(null); } };
-        im.onerror = () => res(null); im.src = src;
-    });
-}
 window.ncSetTokenImg = function(input) {
     let c = ncActiveCompanion(); if (!c) return;
     if (!input) { delete c.tokenImg; delete c.tokenImgFull; ncRenderAll(); return; }
     let file = input.files && input.files[0]; input.value = '';
     if (!file) return;
-    let full = null;   // the whole picture too (a stat block's token image opens it full size)
-    let keep = async circle => { let cc = ncActiveCompanion(); if (!cc) return; cc.tokenImg = await ncShrinkImg(circle, 128); if (full) cc.tokenImgFull = full; else delete cc.tokenImgFull; ncRenderAll(); };
+    let keep = async circle => { let cc = ncActiveCompanion(); if (!cc) return; cc.tokenImg = await ncShrinkImg(circle, 128); delete cc.tokenImgFull; ncRenderAll(); };
     let reader = new FileReader();
-    reader.onload = async ev => {
-        full = await ncFitImg(ev.target.result, 800);
+    reader.onload = ev => {
         if (typeof window._npcCropUI === 'function') window._npcCropUI(ev.target.result, null, keep);
         else if (typeof window._cpfShowCropUI === 'function') window._cpfShowCropUI(ev.target.result, { title: 'Adjust Token Image', saveLabel: 'Save Token', onSave: circle => keep(circle) });
         else keep(ev.target.result);

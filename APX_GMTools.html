@@ -450,8 +450,8 @@
                 }
                 .apx-tb-btn:hover { filter: brightness(1.18); }
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=202610111809">
-    <link rel="stylesheet" href="css/tailwind.css?v=202610111809">
+    <link rel="stylesheet" href="css/apx-themes.css?v=202610112216">
+    <link rel="stylesheet" href="css/tailwind.css?v=202610112216">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
@@ -1565,39 +1565,39 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=202610111809"></script>
-    <script src="js/apx-patch-notes.js?v=202610111809"></script>
-    <script src="js/apx-dice.js?v=202610111809"></script>
-    <script src="js/apx-data.js?v=202610111809"></script>
-    <script src="js/apx-item-effects.js?v=202610111809"></script>
-    <script src="js/apx-exo.js?v=202610111809"></script>
-    <script src="js/apx-perks-db.js?v=202610111809"></script>
-    <script src="js/apx-migrations.js?v=202610111809"></script>
-    <script src="js/apx-state.js?v=202610111809"></script>
-    <script src="js/apx-craft-shared.js?v=202610111809"></script>
-    <script src="js/apx-armor-forge.js?v=202610111809"></script>
-    <script src="js/apx-weapon-forge.js?v=202610111809"></script>
-    <script src="js/apx-consumable-crafter.js?v=202610111809"></script>
-    <script src="js/apx-perks-ui.js?v=202610111809"></script>
-    <script src="js/apx-power-crafter.js?v=202610111809"></script>
-    <script src="js/apx-npc-crafter.js?v=202610111809"></script>
-    <script src="js/apx-inventory-ui.js?v=202610111809"></script>
-    <script src="js/apx-ancestry-wizard.js?v=202610111809"></script>
-    <script src="js/apx-gm-screen.js?v=202610111809"></script>
-    <script src="js/apx-loot-maker.js?v=202610111809"></script>
-    <script src="js/apx-library.js?v=202610111809"></script>
-    <script src="js/apx-gm-content.js?v=202610111809"></script>
-    <script src="js/apx-gmtools-main.js?v=202610111809"></script>
+    <script src="js/apx-dialogs.js?v=202610112216"></script>
+    <script src="js/apx-patch-notes.js?v=202610112216"></script>
+    <script src="js/apx-dice.js?v=202610112216"></script>
+    <script src="js/apx-data.js?v=202610112216"></script>
+    <script src="js/apx-item-effects.js?v=202610112216"></script>
+    <script src="js/apx-exo.js?v=202610112216"></script>
+    <script src="js/apx-perks-db.js?v=202610112216"></script>
+    <script src="js/apx-migrations.js?v=202610112216"></script>
+    <script src="js/apx-state.js?v=202610112216"></script>
+    <script src="js/apx-craft-shared.js?v=202610112216"></script>
+    <script src="js/apx-armor-forge.js?v=202610112216"></script>
+    <script src="js/apx-weapon-forge.js?v=202610112216"></script>
+    <script src="js/apx-consumable-crafter.js?v=202610112216"></script>
+    <script src="js/apx-perks-ui.js?v=202610112216"></script>
+    <script src="js/apx-power-crafter.js?v=202610112216"></script>
+    <script src="js/apx-npc-crafter.js?v=202610112216"></script>
+    <script src="js/apx-inventory-ui.js?v=202610112216"></script>
+    <script src="js/apx-ancestry-wizard.js?v=202610112216"></script>
+    <script src="js/apx-gm-screen.js?v=202610112216"></script>
+    <script src="js/apx-loot-maker.js?v=202610112216"></script>
+    <script src="js/apx-library.js?v=202610112216"></script>
+    <script src="js/apx-gm-content.js?v=202610112216"></script>
+    <script src="js/apx-gmtools-main.js?v=202610112216"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=202610111809"></script>
-    <script src="js/apx-firebase.js?v=202610111809"></script>
-    <script src="js/apx-battlemap.js?v=202610111809"></script>
-    <script src="js/apx-fog.js?v=202610111809"></script>
-    <script src="js/apx-map-tiles.js?v=202610111809"></script>
+    <script src="js/firebase-config.js?v=202610112216"></script>
+    <script src="js/apx-firebase.js?v=202610112216"></script>
+    <script src="js/apx-battlemap.js?v=202610112216"></script>
+    <script src="js/apx-fog.js?v=202610112216"></script>
+    <script src="js/apx-map-tiles.js?v=202610112216"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -5501,15 +5501,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // to its OWN entry directly (no name guessing).
     window._btAddAllToInitiative = function(mapId) {
         let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return;
-        let todo = (map.battleTokens||[]).filter(t => t.revealed !== false && !t._explicitDead && !_btIsLiveEntry(t.initiativeId));
+        let rank = t => t.type === 'player' ? 0 : t.type === 'companion' ? 1 : 2;   // (a companion joins after its owner, on their initiative)
+        let todo = (map.battleTokens||[]).filter(t => t.revealed !== false && !t._explicitDead && !_btIsLiveEntry(t.initiativeId)).sort((a, b) => rank(a) - rank(b));
         let added = 0, skipped = [];
         todo.forEach(t => {
             let entry = null;
             if (t.type === 'player') {
                 let partyIdx = (window.gmParty||[]).findIndex(p=>p.fileName===t.playerUid);
                 if (partyIdx < 0) { skipped.push(`${t.name} (player not loaded)`); return; }
+                if ((window.gmInitiative||[]).some(e => e.playerUid === t.playerUid && e.faction === 'player' && !e.companionOf && !e.summonOf)) return;   // already in
                 window._pendingTokenInitLink = { mapId, tokenId: t.id };
                 entry = window.addToInitiative(partyIdx, 'party');
+            } else if (t.type === 'companion') {
+                // A player's Loyal Companion: it shares its owner's turn
+                let partyIdx = (window.gmParty||[]).findIndex(p=>p.fileName===t.playerUid);
+                if (partyIdx < 0 || !window.gmParty[partyIdx]?.state?.companion) { skipped.push(`${t.name} (companion not loaded)`); return; }
+                if ((window.gmInitiative||[]).some(e => e.companionOf === t.playerUid)) return;   // already in
+                window._pendingTokenInitLink = { mapId, tokenId: t.id };
+                entry = window.addToInitiative(partyIdx, 'companion');
             } else {
                 let wn = (_wNotes.npcs||[]).find(n=>n.id===t.worldNpcId);
                 let npcIdx = wn?.statBlockId ? (window.gmNpcs||[]).findIndex(g=>g.id===wn.statBlockId) : -1;
@@ -7052,8 +7061,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </script>
     <div id="floatingWindowContainer"></div>
 
-    <script src="js/apx-chat.js?v=202610111809"></script>
-    <script src="js/apx-extras.js?v=202610111809"></script>
-    <script src="js/apx-theme-light.js?v=202610111809"></script>
+    <script src="js/apx-chat.js?v=202610112216"></script>
+    <script src="js/apx-extras.js?v=202610112216"></script>
+    <script src="js/apx-theme-light.js?v=202610112216"></script>
 </body>
 </html>
