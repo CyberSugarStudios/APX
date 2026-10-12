@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.11.2216',
-        released: '2026-10-11T22:16:00',
-        releasedText: 'October 11, 2026 · 10:16 PM',
+        version: 'v2026.10.12.0225',
+        released: '2026-10-12T02:25:00',
+        releasedText: 'October 12, 2026 · 2:25 AM',
         title: 'Companions, Channeling & Consumables',
         intro: 'Loyal Companions now take their turn with you, as a second token you move and act with. Channeling powers get a Channel button, and crafted consumables can be used straight from your inventory. Big creatures squeeze past walls on the battle map, maps reopen just as you left them, and Area Circles can show a picture. Both the sheet and the GM Tools can be pinned to one side and resized. A few rules are tidied up too: Choke, Innate Weapons and Room reveal.',
         index: [
@@ -67,7 +67,8 @@
                 'A Loyal Companion shares its owner\'s turn: one block in the order holding both entries, each with its own HP, AP, Moves and conditions. Both are highlighted on that turn, and both get their AP (and start-of-turn effects) when it starts. Next Turn and Prev Turn pass over it. On the battle map both tokens show as on turn, and you can move the companion\'s token during its owner\'s turn.',
                 'The creature on turn shows its Moves: the Move actions it has used this turn, starting from 0. A player\'s and their companion\'s come from their sheet; a creature you move counts from its token\'s path.',
                 'Other speeds: a creature you drag on its turn moves with the faster of its Walk and Fly speeds (a doubled Fly 6 over its walking 3, say). Press S while dragging to switch how it moves, through Walk, Fly, Swim, Climb and Burrow (the path label shows which). It moves at that speed, and flying or burrowing ignores difficult terrain. A creature with Hover always ignores difficult terrain.',
-                'All to Init (battle map bar) adds players\' Loyal Companions too, joined to their owner\'s turn, and never adds anyone who\'s already in the order.'
+                'All to Init (battle map bar) adds players\' Loyal Companions too, joined to their owner\'s turn, and never adds anyone who\'s already in the order.',
+                'A creature that dies always stays dead on the battle map, even when its map was closed at the time (closing a map lets go of its tokens\' links to the tracker, and a death used to miss a token that wasn\'t linked). All to Init never brings a dead token back; only Revive does. A creature still in the fight gets its own token back when its map reopens, rather than a second place in the order. Your saved worlds aren\'t changed by this: any creature that came back this way can simply be killed again, and it stays dead.'
             ]],
             ['Pop-ups', [
                 'A player\'s pop-out (click their token or name) now has their whole sheet: conditions, weapons (innate ones marked), what they wear, inventory with charges and Currency, perks, Ancestry traits and flaws, Origin, their Loyal Companion, and their notes.',

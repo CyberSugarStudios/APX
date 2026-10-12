@@ -450,8 +450,8 @@
                 }
                 .apx-tb-btn:hover { filter: brightness(1.18); }
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=202610112216">
-    <link rel="stylesheet" href="css/tailwind.css?v=202610112216">
+    <link rel="stylesheet" href="css/apx-themes.css?v=202610120225">
+    <link rel="stylesheet" href="css/tailwind.css?v=202610120225">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
@@ -1565,39 +1565,39 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=202610112216"></script>
-    <script src="js/apx-patch-notes.js?v=202610112216"></script>
-    <script src="js/apx-dice.js?v=202610112216"></script>
-    <script src="js/apx-data.js?v=202610112216"></script>
-    <script src="js/apx-item-effects.js?v=202610112216"></script>
-    <script src="js/apx-exo.js?v=202610112216"></script>
-    <script src="js/apx-perks-db.js?v=202610112216"></script>
-    <script src="js/apx-migrations.js?v=202610112216"></script>
-    <script src="js/apx-state.js?v=202610112216"></script>
-    <script src="js/apx-craft-shared.js?v=202610112216"></script>
-    <script src="js/apx-armor-forge.js?v=202610112216"></script>
-    <script src="js/apx-weapon-forge.js?v=202610112216"></script>
-    <script src="js/apx-consumable-crafter.js?v=202610112216"></script>
-    <script src="js/apx-perks-ui.js?v=202610112216"></script>
-    <script src="js/apx-power-crafter.js?v=202610112216"></script>
-    <script src="js/apx-npc-crafter.js?v=202610112216"></script>
-    <script src="js/apx-inventory-ui.js?v=202610112216"></script>
-    <script src="js/apx-ancestry-wizard.js?v=202610112216"></script>
-    <script src="js/apx-gm-screen.js?v=202610112216"></script>
-    <script src="js/apx-loot-maker.js?v=202610112216"></script>
-    <script src="js/apx-library.js?v=202610112216"></script>
-    <script src="js/apx-gm-content.js?v=202610112216"></script>
-    <script src="js/apx-gmtools-main.js?v=202610112216"></script>
+    <script src="js/apx-dialogs.js?v=202610120225"></script>
+    <script src="js/apx-patch-notes.js?v=202610120225"></script>
+    <script src="js/apx-dice.js?v=202610120225"></script>
+    <script src="js/apx-data.js?v=202610120225"></script>
+    <script src="js/apx-item-effects.js?v=202610120225"></script>
+    <script src="js/apx-exo.js?v=202610120225"></script>
+    <script src="js/apx-perks-db.js?v=202610120225"></script>
+    <script src="js/apx-migrations.js?v=202610120225"></script>
+    <script src="js/apx-state.js?v=202610120225"></script>
+    <script src="js/apx-craft-shared.js?v=202610120225"></script>
+    <script src="js/apx-armor-forge.js?v=202610120225"></script>
+    <script src="js/apx-weapon-forge.js?v=202610120225"></script>
+    <script src="js/apx-consumable-crafter.js?v=202610120225"></script>
+    <script src="js/apx-perks-ui.js?v=202610120225"></script>
+    <script src="js/apx-power-crafter.js?v=202610120225"></script>
+    <script src="js/apx-npc-crafter.js?v=202610120225"></script>
+    <script src="js/apx-inventory-ui.js?v=202610120225"></script>
+    <script src="js/apx-ancestry-wizard.js?v=202610120225"></script>
+    <script src="js/apx-gm-screen.js?v=202610120225"></script>
+    <script src="js/apx-loot-maker.js?v=202610120225"></script>
+    <script src="js/apx-library.js?v=202610120225"></script>
+    <script src="js/apx-gm-content.js?v=202610120225"></script>
+    <script src="js/apx-gmtools-main.js?v=202610120225"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=202610112216"></script>
-    <script src="js/apx-firebase.js?v=202610112216"></script>
-    <script src="js/apx-battlemap.js?v=202610112216"></script>
-    <script src="js/apx-fog.js?v=202610112216"></script>
-    <script src="js/apx-map-tiles.js?v=202610112216"></script>
+    <script src="js/firebase-config.js?v=202610120225"></script>
+    <script src="js/apx-firebase.js?v=202610120225"></script>
+    <script src="js/apx-battlemap.js?v=202610120225"></script>
+    <script src="js/apx-fog.js?v=202610120225"></script>
+    <script src="js/apx-map-tiles.js?v=202610120225"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -3381,6 +3381,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!t.initiativeId) return;
                 let e = (window.gmInitiative||[]).find(x=>x.id===t.initiativeId);
                 if (e && t.type !== 'player' && (t.conditions||[]).length) { e.conditions = [...new Set([...(e.conditions||[]), ...t.conditions])]; }
+                t._lastEntryId = t.initiativeId;   // (still its creature: if that dies while the map is closed, its token does too)
                 t.initiativeId = null; any = true;
             });
             if (any) saveWorldNotes();
@@ -4761,6 +4762,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let openFirst = window._btMapsInUse(onlyMapId);
         openFirst.forEach(m => (m.battleTokens||[]).forEach(t => {
             if (t._explicitDead || _btIsLiveEntry(t.initiativeId)) return;
+            if (t._lastEntryId && t._lastEntryId !== entry.id && _btIsLiveEntry(t._lastEntryId)) return;   // another creature in the fight's token
             if (entry.faction === 'player' && entry.playerUid) {
                 if (t.type === 'player' && t.playerUid === entry.playerUid) cands.push(t);
             } else if (entry.sourceNpcId && t.type === 'npc' && t.worldNpcId) {
@@ -4770,7 +4772,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }));
         if (!cands.length) return false;
         let pick = entry.faction === 'player' ? cands
-                 : [cands.find(t => t.name === entry.name) || cands[0]];
+                 : [cands.find(t => t._lastEntryId === entry.id) || cands.find(t => t.name === entry.name) || cands[0]];   // its own token first
         pick.forEach(t => {
             t.initiativeId = entry.id; t._explicitDead = false;
             if (entry.conditions?.length && t.type !== 'player') { t.conditions = [...new Set([...(t.conditions||[]), ...entry.conditions])]; entry.conditions = []; }
@@ -5502,6 +5504,13 @@ document.addEventListener('DOMContentLoaded', () => {
     window._btAddAllToInitiative = function(mapId) {
         let map = (_wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return;
         let rank = t => t.type === 'player' ? 0 : t.type === 'companion' ? 1 : 2;   // (a companion joins after its owner, on their initiative)
+        // A token whose creature is still in the fight (its map was closed in between) goes back to it, not in again
+        let relinked = 0;
+        (map.battleTokens||[]).forEach(t => {
+            if (t._explicitDead || t.initiativeId || !t._lastEntryId || !_btIsLiveEntry(t._lastEntryId)) return;
+            if ((map.battleTokens||[]).some(o => o !== t && o.initiativeId === t._lastEntryId)) return;
+            t.initiativeId = t._lastEntryId; relinked++;
+        });
         let todo = (map.battleTokens||[]).filter(t => t.revealed !== false && !t._explicitDead && !_btIsLiveEntry(t.initiativeId)).sort((a, b) => rank(a) - rank(b));
         let added = 0, skipped = [];
         todo.forEach(t => {
@@ -5529,6 +5538,7 @@ document.addEventListener('DOMContentLoaded', () => {
             window._pendingTokenInitLink = null;
             if (entry?.id) added++;
         });
+        if (!added && relinked) { saveWorldNotes(); _btRenderTokens(mapId, 'omWin_'+mapId); if (typeof window.renderInitiativeTracker === 'function') window.renderInitiativeTracker(); return; }
         if (!added) {
             alert('No new tokens to add.' + (skipped.length ? '\nSkipped: ' + skipped.join(', ') : ' All revealed tokens are already in initiative.'));
             return;
@@ -5546,19 +5556,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Killed (0 HP / bled out): token goes grey. Remember the XP it paid out so a
     // Revive can take it back out of the pending pool.
+    // Its token is found even when it isn't linked to the tracker right now (its map was closed in between:
+    // closing a map lets go of the link, and the token remembers the creature it was, _lastEntryId), so a
+    // creature that dies always stays dead on the map, and All to Init never brings it back.
     window._gmMarkTokenDead = function(entryId) {
         let entry = (window.gmInitiative||[]).find(e=>e.id===entryId);
+        let hit = 0;
         (_wNotes.otherMaps||[]).forEach(m => (m.battleTokens||[]).forEach(t => {
-            if (t.initiativeId !== entryId) return;
+            if (t.initiativeId !== entryId && !(!t.initiativeId && t._lastEntryId === entryId)) return;
             t._explicitDead = true;
             t._deathXp = (entry && entry.faction !== 'player') ? (window._gmEntryXp ? window._gmEntryXp(entry) : (entry.tpValue || 0)) : 0;
-            t.initiativeId = null;
+            t.initiativeId = null; t._lastEntryId = entryId; hit++;
         }));
+        // A player (or their companion) has one token: it's theirs even if it was never linked
+        if (!hit && entry && entry.playerUid && entry.faction === 'player' && !entry.companionOf) {
+            (_wNotes.otherMaps||[]).forEach(m => (m.battleTokens||[]).forEach(t => {
+                if (t.type === 'player' && t.playerUid === entry.playerUid && !t._explicitDead && !t.initiativeId) { t._explicitDead = true; t._deathXp = 0; t._lastEntryId = entryId; }
+            }));
+        }
+        if (typeof saveWorldNotes === 'function') saveWorldNotes();   // (a death is saved right away)
     };
     // Removed from combat (not killed): token stays alive, just unlinked
     window._gmUnlinkEntry = function(entryId) {
         (_wNotes.otherMaps||[]).forEach(m => (m.battleTokens||[]).forEach(t => {
-            if (t.initiativeId === entryId) t.initiativeId = null;
+            if (t.initiativeId === entryId) { t.initiativeId = null; t._lastEntryId = null; }   // (out of the fight alive: not that creature any more)
         }));
     };
 
@@ -7061,8 +7082,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </script>
     <div id="floatingWindowContainer"></div>
 
-    <script src="js/apx-chat.js?v=202610112216"></script>
-    <script src="js/apx-extras.js?v=202610112216"></script>
-    <script src="js/apx-theme-light.js?v=202610112216"></script>
+    <script src="js/apx-chat.js?v=202610120225"></script>
+    <script src="js/apx-extras.js?v=202610120225"></script>
+    <script src="js/apx-theme-light.js?v=202610120225"></script>
 </body>
 </html>
