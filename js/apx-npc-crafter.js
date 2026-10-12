@@ -1471,14 +1471,25 @@ function ncShrinkImg(src, side) {
         im.onerror = () => res(src); im.src = src;
     });
 }
+// The picture as it is (not cropped), at most `side` px on its long side: a token image's full-size view
+function ncFitImg(src, side) {
+    return new Promise(res => {
+        let im = new Image();
+        im.onload = () => { try { let s = Math.min(1, side / Math.max(im.naturalWidth, im.naturalHeight)); let cv = document.createElement('canvas'); cv.width = Math.round(im.naturalWidth * s); cv.height = Math.round(im.naturalHeight * s);
+            let x = cv.getContext('2d'); x.fillStyle = '#0f172a'; x.fillRect(0, 0, cv.width, cv.height); x.drawImage(im, 0, 0, cv.width, cv.height); res(cv.toDataURL('image/jpeg', 0.85)); } catch (e) { res(null); } };
+        im.onerror = () => res(null); im.src = src;
+    });
+}
 window.ncSetTokenImg = function(input) {
     let c = ncActiveCompanion(); if (!c) return;
-    if (!input) { delete c.tokenImg; ncRenderAll(); return; }
+    if (!input) { delete c.tokenImg; delete c.tokenImgFull; ncRenderAll(); return; }
     let file = input.files && input.files[0]; input.value = '';
     if (!file) return;
-    let keep = async circle => { let cc = ncActiveCompanion(); if (!cc) return; cc.tokenImg = await ncShrinkImg(circle, 128); ncRenderAll(); };
+    let full = null;   // the whole picture too (a stat block's token image opens it full size)
+    let keep = async circle => { let cc = ncActiveCompanion(); if (!cc) return; cc.tokenImg = await ncShrinkImg(circle, 128); if (full) cc.tokenImgFull = full; else delete cc.tokenImgFull; ncRenderAll(); };
     let reader = new FileReader();
-    reader.onload = ev => {
+    reader.onload = async ev => {
+        full = await ncFitImg(ev.target.result, 800);
         if (typeof window._npcCropUI === 'function') window._npcCropUI(ev.target.result, null, keep);
         else if (typeof window._cpfShowCropUI === 'function') window._cpfShowCropUI(ev.target.result, { title: 'Adjust Token Image', saveLabel: 'Save Token', onSave: circle => keep(circle) });
         else keep(ev.target.result);
@@ -1701,7 +1712,7 @@ window.openFloatingNpcStatBlockById = function(gmNpcId, npcDisplayName) {
     if (!window.openFloatingStatBlockRaw) return;
     let sb = ncStatBlockFor(gmNpcId), n = entry.npc || {};
     // its token image at the top (click it for the full picture)
-    let pic = window._gmSbImageHtml ? window._gmSbImageHtml(n.tokenImg || n.portrait, n.portraitFull || n.portrait || n.tokenImg, title) : '';
+    let pic = window._gmSbImageHtml ? window._gmSbImageHtml(n.tokenImg || n.portrait, n.tokenImgFull || n.portraitFull || n.portrait || n.tokenImg, title) : '';
     window.openFloatingStatBlockRaw(winId, title, pic + window.buildStatBlockHtml(sb, false));
 };
 
@@ -2044,7 +2055,7 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
         if (sb._isCompanion) {
             if (!d.summonNpc) APXDice.notify(`${p.name || 'This power'} summons a creature, but it hasn't been built yet: edit the power in the NPC Crafter.`, { kind: 'warn', open: true });
             else window.apxOnRollEvent?.({ id: 'pw' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), kind: 'power', label: p.name || 'Power', companion: true,
-                text: `${whoPub} uses ${p.name || 'a power'}.`, summon: { npc: (n => { delete n.portraitFull; return n; })(JSON.parse(JSON.stringify(d.summonNpc))), count: sumN, tier: d.summonTier || 1, power: p.name || 'Power' } });
+                text: `${whoPub} uses ${p.name || 'a power'}.`, summon: { npc: (n => { delete n.portraitFull; delete n.tokenImgFull; return n; })(JSON.parse(JSON.stringify(d.summonNpc))), count: sumN, tier: d.summonTier || 1, power: p.name || 'Power' } });
         } else if (typeof window._gmSpawnNpcSummon === 'function') window._gmSpawnNpcSummon(actor, p);
     }
     // Martial Improvement: the power rides one of the creature's own attacks (that attack's bonus, its

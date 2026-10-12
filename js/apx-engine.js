@@ -1880,7 +1880,7 @@
             let isAoe = !!(p.draft && p.draft.aoe && !['single', 'split'].includes(p.draft.aoe));
             // Summon a Creature: the GM's map gets the creature(s), next to you
             let sumN = (p.draft && p.draft.utility && p.draft.utility.major && p.draft.utility.major.summonCreature) || 0;
-            let summon = sumN && p.draft.summonNpc ? { npc: (n => { delete n.portraitFull; return n; })(JSON.parse(JSON.stringify(p.draft.summonNpc))), count: sumN, tier: p.draft.summonTier || 1, power: name } : null;
+            let summon = sumN && p.draft.summonNpc ? { npc: (n => { delete n.portraitFull; delete n.tokenImgFull; return n; })(JSON.parse(JSON.stringify(p.draft.summonNpc))), count: sumN, tier: p.draft.summonTier || 1, power: name } : null;
             if (sumN && !summon) APXDice.notify(`${name} summons a creature, but it hasn't been built yet: edit the power and build it in the NPC Crafter.`, { kind: 'warn', open: true });
             let areaNote = areaRes ? `In the area: ${areaRes.names.length ? areaRes.names.join(', ') : 'no one'}${areaRes.safeIds.length ? ` (${areaRes.safeIds.length} kept safe)` : ''}.` : '';
             let tell = (text, extra) => { if (typeof window.apxOnRollEvent === 'function') window.apxOnRollEvent(Object.assign({ id: 'pw' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), kind: 'power', label: name, text: areaNote ? text + ' ' + areaNote : text }, extra || {}, summon ? { summon } : {}, isAoe ? { aoe: true } : {}, fxInfo ? { fx: fxInfo } : {}, areaRes ? { area: { mapId: areaRes.mapId, tokenIds: areaRes.tokenIds, safeIds: areaRes.safeIds } } : {})); };

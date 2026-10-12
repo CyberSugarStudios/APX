@@ -523,6 +523,22 @@
         return layer._showCones;
     }
     // R / Shift+R while holding a token with a Vision cone: turn it 45°
+    // F while dragging a token with other speeds: its next movement mode (Walk → Fly → …)
+    function _cycleHeldMode() {
+        let done = false;
+        document.querySelectorAll('[id$="_btScreen"]').forEach(layer => {
+            layer.querySelectorAll('[data-bt]').forEach(el => {
+                let d = el._drag; if (!d || !d.path || !d.mp || !(d.mp.modes || []).length || d.mp.modes.length < 2) return;
+                d.modeIdx = ((d.modeIdx || 0) + 1) % d.mp.modes.length;
+                _drawPath(layer, el); done = true;
+            });
+        });
+        return done;
+    }
+    document.addEventListener('keydown', e => {
+        if ((e.key !== 'f' && e.key !== 'F') || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+        if (_cycleHeldMode()) { e.preventDefault(); e.stopImmediatePropagation(); e.stopPropagation(); }   // (not the GM's fog key)
+    }, true);
     function _rotateHeldCone(dir) {
         let done = false;
         document.querySelectorAll('[id$="_btScreen"]').forEach(layer => {
@@ -1189,10 +1205,16 @@
         }
         return null;
     }
+    // How it's moving: mp.modes = [{ type: 'Walk', speed }, { type: 'Fly', speed, noDiff: true }, …] (F cycles them
+    // while dragging). Flying (and a creature that Hovers, mp.hover) ignores difficult terrain; each mode
+    // moves at its own speed.
+    function _moveMode(d) { let m = d && d.mp && d.mp.modes; return m && m.length ? m[(d.modeIdx || 0) % m.length] : null; }
     function _pathInfo(d) {
         if (!d || !d.path) return null;
-        let plain = pathSquares(d.path), squares = d.diff ? pathCost(d.path, d.diff) : plain;
-        return { squares, plain, difficult: squares > plain, path: d.path.slice(), free: !!d.alt, mp: d.mp, cost: moveCost(d.mp, squares) };
+        let mode = _moveMode(d), noDiff = !!(d.mp && d.mp.hover) || !!(mode && mode.noDiff);
+        let plain = pathSquares(d.path), squares = d.diff && !noDiff ? pathCost(d.path, d.diff) : plain;
+        let mp = mode && mode.speed != null ? Object.assign({}, d.mp, { speed: mode.speed }) : d.mp;
+        return { squares, plain, difficult: squares > plain, path: d.path.slice(), free: !!d.alt, mp: d.mp, mode: mode ? mode.type : null, cost: moveCost(mp, squares) };
     }
     // Squares of movement along a path, where each step into difficult terrain counts double (2 squares for 1)
     function pathCost(cells, isDiff) {
@@ -1260,6 +1282,8 @@
         let over = !d.alt && have != null && cost.ap > have;
         let col = d.alt ? '#a5b4fc' : over ? '#f87171' : '#4ade80';
         let sqTxt = info.difficult ? `${info.squares} sq (difficult terrain)` : `${info.squares} sq`;
+        let modes = (d.mp && d.mp.modes) || [];
+        if (modes.length > 1 || (d.mp && d.mp.hover)) sqTxt += ` · ${info.mode || 'Walk'}${d.mp && d.mp.hover ? ' (Hover)' : ''}${modes.length > 1 ? ' [F]' : ''}`;
         let label = info.squares === 0 ? 'Drag to move' : d.alt ? `${sqTxt} · free move (Alt)` : cost.stuck ? `${sqTxt} · Speed 0` : `${sqTxt} · ${cost.ap} AP${have != null ? ` (of ${have})` : ''}`;
         let end = pts[pts.length - 1];
         svg.innerHTML = (pts.length > 1 ? `<polyline points="${pts.map(p => p.x + ',' + p.y).join(' ')}" fill="none" stroke="#000" stroke-opacity=".55" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>
@@ -2827,6 +2851,12 @@
         return out;
     }
     window.APXBattle = {
+        moveModes: (speed, alt) => {
+            // Walk, then each other speed (a stat block's Fly / Swim / Climb / Burrow, doubled or not); Fly ignores difficult terrain
+            let list = (alt || []).filter(l => l && l.type);
+            if (!list.length) return null;
+            return [{ type: 'Walk', speed }].concat(list.map(l => ({ type: l.type, speed: speed * (l.doubled ? 2 : 1), noDiff: /fly/i.test(l.type) })));
+        },
         portalAt, fitsAt, fitNear, squeezeFit, roomAt, visionPoly, previewCone, toggleCones,
         portalRequests: () => store.portalReq, portalAnswers: () => store.portalAns,
         outlineResize,

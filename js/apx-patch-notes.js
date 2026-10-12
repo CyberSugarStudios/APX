@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.11.1300',
-        released: '2026-10-11T13:00:00',
-        releasedText: 'October 11, 2026 · 1:00 PM',
+        version: 'v2026.10.11.1809',
+        released: '2026-10-11T18:09:00',
+        releasedText: 'October 11, 2026 · 6:09 PM',
         title: 'Companions, Channeling & Consumables',
         intro: 'Loyal Companions now take their turn with you, as a second token you move and act with. Channeling powers get a Channel button, and crafted consumables can be used straight from your inventory. Big creatures squeeze past walls on the battle map, maps reopen just as you left them, and Area Circles can show a picture. Both the sheet and the GM Tools can be pinned to one side and resized. A few rules are tidied up too: Choke, Innate Weapons and Room reveal.',
         index: [
@@ -27,18 +27,21 @@
             ]],
             ['Battle Maps', [
                 'Large and bigger tokens squeeze into a smaller space where walls leave no room, and grow back where they fit.',
+                'Creatures can move with their other speeds: press F while dragging to fly (over difficult terrain) or use a Fly, Swim, Climb or Burrow speed, and a creature that Hovers ignores difficult terrain.',
                 'Room reveal only opens a room when your token steps into it. A Vision cone still sees through a door the moment it opens.',
                 'Maps reopen where you left them: the same place, size, zoom and view.',
                 'An Area Circle can have a picture: in Image mode, clicking it shows just the picture (with its description above it, if it has one).'
             ]],
             ['Your Screen', [
-                'The character sheet and the GM Tools can be centred or pinned to the left or right of the screen (⇆), and squashed or stretched with the handle on their inner edge, leaving room for maps and pop-ups.'
+                'The character sheet and the GM Tools can be centred or pinned to the left or right of the screen (⇆), and squashed or stretched with the handle on their inner edge, leaving room for maps and pop-ups. Squashed, their sections stack like on a phone, never too narrow to read.',
+                'Pop-up windows come to the front cleanly when you click them, with no flash of what\'s behind.'
             ]]
         ],
         sheet: [
             ['Your Turn', [
                 'Your Loyal Companion shares your turn: when it comes up, you both get your AP, and you and your companion can act in any order. Both tokens light up on your turn. Drag either one and it shows its own path and AP cost, paid from its own AP, like controlling two characters.',
                 'On your turn, a small note on your battle map shows how many Move actions you (and your companion) have used. It\'s back to 0 when your next turn starts.',
+                'Flying: with the Flight trait, press F while dragging your token on your turn and it flies. The path shows Walk or Fly, and flying, difficult terrain doesn\'t slow you. Your Loyal Companion can use its own Fly, Swim, Climb or Burrow speeds the same way (at their speed), and one that Hovers is never slowed by difficult terrain.',
                 'Choke (2 AP) ignores the Pinned creature\'s DR, ER and resistances. It counts as an attack, so Fight Defensively gives +2 AC (not +4) on a turn you Choke.'
             ]],
             ['Powers & Consumables', [
@@ -56,21 +59,24 @@
                 'An Area Circle your GM gave a picture opens straight to it, with the description above it when there is one.'
             ]],
             ['Your Sheet', [
-                '⇆ (top left, beside Settings) centres the sheet or pins it to the left or right of the screen. While it\'s pinned, drag the handle on its inner edge to make it narrower or wider, and double-click the handle for full width. New map and pop-up windows open in the space it leaves free. Remembered in this browser.'
+                '⇆ (top left, beside Settings) centres the sheet or pins it to the left or right of the screen. While it\'s pinned, drag the handle on its inner edge to make it narrower or wider, and double-click the handle for full width. Made narrow, its sections stack one under another as they do on a phone screen, instead of squeezing their text and buttons; it won\'t go narrower than a phone screen. New map and pop-up windows open in the space it leaves free. Remembered in this browser.'
             ]]
         ],
         gm: [
             ['Initiative', [
                 'A Loyal Companion shares its owner\'s turn: one block in the order holding both entries, each with its own HP, AP, Moves and conditions. Both are highlighted on that turn, and both get their AP (and start-of-turn effects) when it starts. Next Turn and Prev Turn pass over it. On the battle map both tokens show as on turn, and you can move the companion\'s token during its owner\'s turn.',
-                'The creature on turn shows its Moves: the Move actions it has used this turn, starting from 0. A player\'s and their companion\'s come from their sheet; a creature you move counts from its token\'s path.'
+                'The creature on turn shows its Moves: the Move actions it has used this turn, starting from 0. A player\'s and their companion\'s come from their sheet; a creature you move counts from its token\'s path.',
+                'Other speeds: dragging a creature with a Fly, Swim, Climb or Burrow speed on its turn, press F to switch how it moves (the path label shows Walk, Fly…). It moves at that speed (a doubled Fly speed, say 6 to its walking 3), and flying ignores difficult terrain. A creature with Hover always ignores difficult terrain.'
             ]],
             ['Pop-ups', [
                 'A player\'s pop-out (click their token or name) now has their whole sheet: conditions, weapons (innate ones marked), what they wear, inventory with charges and Currency, perks, Ancestry traits and flaws, Origin, their Loyal Companion, and their notes.',
-                'A creature\'s stat block window shows its token image: the picture its token has on the battle map (a named NPC\'s portrait), or its stat block\'s token image. Click it to see the full picture.',
+                'A creature\'s stat block window shows its token image: the picture its token has on the battle map (a named NPC\'s portrait), or its stat block\'s token image. Click it to see the full picture, full size: the NPC Crafter keeps the whole picture you choose for a token image, not just its round crop.',
                 'Area Circles and markers can have an image: Edit → + Add Image (it\'s stored with your world like a battle map image). Turn on Image mode and a player clicking it sees just the picture, with the description above it when you\'ve written one. You see the picture in its pop-up too.'
             ]],
             ['Your Screen', [
-                '⇆ beside the title centres the GM Tools or pins them left or right, and the handle on their inner edge squashes or stretches them (double-click: full width). New windows open in the space they leave.',
+                '⇆ beside the title centres the GM Tools or pins them left or right, and the handle on their inner edge squashes or stretches them (double-click: full width); narrow, their sections stack instead of squeezing. New windows open in the space they leave.',
+                'With tokens selected on a battle map, clicking the map just lets go of them: the next click places an Area Circle.',
+                'Pop-ups (a player\'s pop-out, stat blocks, map pop-ups) come to the front cleanly when clicked, with no flash of what\'s behind them.',
                 'Maps reopen where you left them: the same place and size, zoomed and panned as they were (in this browser).'
             ]],
             ['Rules', [

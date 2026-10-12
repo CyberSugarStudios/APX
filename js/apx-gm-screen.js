@@ -495,7 +495,7 @@ window.gmOpenCompanionStatBlock = function(uid) {
     let p = (window.gmParty || []).find(x => x.fileName === uid); if (!p) return;
     let csb = gmCompanionSb(p); if (!csb || !window.openFloatingStatBlockRaw) return;
     let c = ((p.state || p.charState) || {}).companion || {};
-    window.openFloatingStatBlockRaw('comp_' + uid, `${csb.name} (${p.summary?.name || 'player'}'s companion)`, _gmSbImageHtml(c.tokenImg || c.portrait, c.portraitFull || c.portrait || c.tokenImg, csb.name) + window.buildStatBlockHtml(csb, false));
+    window.openFloatingStatBlockRaw('comp_' + uid, `${csb.name} (${p.summary?.name || 'player'}'s companion)`, _gmSbImageHtml(c.tokenImg || c.portrait, c.tokenImgFull || c.portraitFull || c.portrait || c.tokenImg, csb.name) + window.buildStatBlockHtml(csb, false));
 };
 // A creature's picture at the top of its stat block window: its token image (on a battle map, the picture
 // its token there shows). Click it for the full image.
@@ -521,7 +521,7 @@ function _gmEntryImage(entry) {
     let sid = (tok && window._btSbImgId && window._btSbImgId(tok, entry)) || entry.sourceNpcId;
     let g = (window.gmNpcs || []).find(n => n.id === sid) || (window.gmNpcs || []).find(n => n.id === entry.sourceNpcId);
     let npc = g && g.npc;
-    if (npc && (npc.tokenImg || npc.portrait)) return { src: npc.tokenImg || npc.portrait, full: npc.portraitFull || npc.portrait || npc.tokenImg };
+    if (npc && (npc.tokenImg || npc.portrait)) return { src: npc.tokenImg || npc.portrait, full: npc.tokenImgFull || npc.portraitFull || npc.portrait || npc.tokenImg };
     if (tok && tok.portrait) return { src: tok.portrait, full: tok.portrait };
     return null;
 }
@@ -4506,7 +4506,7 @@ window.openFloatingStatBlockRaw = function(winId, title, bodyHtml) {
     else container.appendChild(win);
     window.gmFloatingWindows[winId] = win;
 
-    win.addEventListener('mousedown', () => { window.apxFloatingZTop++; win.style.zIndex = window.apxFloatingZTop; });
+    win.addEventListener('mousedown', ()=>{ if (window.apxFront) window.apxFront(win); else { window.apxFloatingZTop++; win.style.zIndex=window.apxFloatingZTop; } });
     let header = win.querySelector('.floating-stat-window-header');
     let dragging = false, offsetX = 0, offsetY = 0;
     function onMouseDown(e) {

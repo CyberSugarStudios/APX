@@ -450,21 +450,21 @@
                 }
                 .apx-tb-btn:hover { filter: brightness(1.18); }
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=202610111300">
-    <link rel="stylesheet" href="css/tailwind.css?v=202610111300">
+    <link rel="stylesheet" href="css/apx-themes.css?v=202610111809">
+    <link rel="stylesheet" href="css/tailwind.css?v=202610111809">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
 
     <!-- Docked to one side (⇆: centred, left, right; the handle on its inner edge resizes it), so maps, stat blocks
          and other windows have the rest of the screen (js/apx-dialogs.js apxDock) -->
-    <div id="gmMain" class="w-full max-w-[1400px] p-4" data-apx-dock="gm" data-dock-default="left" style="margin-left:0;margin-right:auto">
-        <div class="flex items-center justify-between mb-4">
+    <div id="gmMain" class="w-full max-w-[1400px] p-4" data-apx-dock="gm" data-dock-default="left" data-dock-min="460" style="margin-left:0;margin-right:auto">
+        <div class="flex items-center justify-between mb-4" style="flex-wrap:wrap;gap:0.5rem;">
             <div>
-                <h1 class="text-2xl font-black text-white">APX GM Tools <button onclick="window.apxDockCycle('gm')" data-apx-dock-btn="gm" title="Centre the GM Tools, or pin them to the left or right" style="vertical-align:middle;font-size:0.8rem;font-weight:800;padding:0.05rem 0.4rem;border-radius:0.25rem;background:#1e293b;border:1px solid #334155;color:#94a3b8;cursor:pointer;">⇆</button></h1>
+                <h1 class="text-2xl font-black text-white" style="white-space:nowrap;">APX GM Tools <button onclick="window.apxDockCycle('gm')" data-apx-dock-btn="gm" title="Centre the GM Tools, or pin them to the left or right" style="vertical-align:middle;font-size:0.8rem;font-weight:800;padding:0.05rem 0.4rem;border-radius:0.25rem;background:#1e293b;border:1px solid #334155;color:#94a3b8;cursor:pointer;">⇆</button></h1>
                 <p class="text-xs text-slate-500">GM Screen -- party overview and initiative tracker.</p>
             </div>
-            <div class="flex gap-2">
+            <div class="flex gap-2" style="flex-wrap:wrap;">
                 <button onclick="window.openModal('settingsModal')" title="Settings" class="px-3 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold shadow">Settings</button>
                 <button onclick="window.openGrantXpModal()" class="px-3 py-2 rounded bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shadow" title="Give XP to the party for discovery or role play">Grant XP</button>
                 <button onclick="window.openGmRaceRosterModal()" class="px-3 py-2 rounded bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-bold shadow">Race Templates</button>
@@ -1565,39 +1565,39 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=202610111300"></script>
-    <script src="js/apx-patch-notes.js?v=202610111300"></script>
-    <script src="js/apx-dice.js?v=202610111300"></script>
-    <script src="js/apx-data.js?v=202610111300"></script>
-    <script src="js/apx-item-effects.js?v=202610111300"></script>
-    <script src="js/apx-exo.js?v=202610111300"></script>
-    <script src="js/apx-perks-db.js?v=202610111300"></script>
-    <script src="js/apx-migrations.js?v=202610111300"></script>
-    <script src="js/apx-state.js?v=202610111300"></script>
-    <script src="js/apx-craft-shared.js?v=202610111300"></script>
-    <script src="js/apx-armor-forge.js?v=202610111300"></script>
-    <script src="js/apx-weapon-forge.js?v=202610111300"></script>
-    <script src="js/apx-consumable-crafter.js?v=202610111300"></script>
-    <script src="js/apx-perks-ui.js?v=202610111300"></script>
-    <script src="js/apx-power-crafter.js?v=202610111300"></script>
-    <script src="js/apx-npc-crafter.js?v=202610111300"></script>
-    <script src="js/apx-inventory-ui.js?v=202610111300"></script>
-    <script src="js/apx-ancestry-wizard.js?v=202610111300"></script>
-    <script src="js/apx-gm-screen.js?v=202610111300"></script>
-    <script src="js/apx-loot-maker.js?v=202610111300"></script>
-    <script src="js/apx-library.js?v=202610111300"></script>
-    <script src="js/apx-gm-content.js?v=202610111300"></script>
-    <script src="js/apx-gmtools-main.js?v=202610111300"></script>
+    <script src="js/apx-dialogs.js?v=202610111809"></script>
+    <script src="js/apx-patch-notes.js?v=202610111809"></script>
+    <script src="js/apx-dice.js?v=202610111809"></script>
+    <script src="js/apx-data.js?v=202610111809"></script>
+    <script src="js/apx-item-effects.js?v=202610111809"></script>
+    <script src="js/apx-exo.js?v=202610111809"></script>
+    <script src="js/apx-perks-db.js?v=202610111809"></script>
+    <script src="js/apx-migrations.js?v=202610111809"></script>
+    <script src="js/apx-state.js?v=202610111809"></script>
+    <script src="js/apx-craft-shared.js?v=202610111809"></script>
+    <script src="js/apx-armor-forge.js?v=202610111809"></script>
+    <script src="js/apx-weapon-forge.js?v=202610111809"></script>
+    <script src="js/apx-consumable-crafter.js?v=202610111809"></script>
+    <script src="js/apx-perks-ui.js?v=202610111809"></script>
+    <script src="js/apx-power-crafter.js?v=202610111809"></script>
+    <script src="js/apx-npc-crafter.js?v=202610111809"></script>
+    <script src="js/apx-inventory-ui.js?v=202610111809"></script>
+    <script src="js/apx-ancestry-wizard.js?v=202610111809"></script>
+    <script src="js/apx-gm-screen.js?v=202610111809"></script>
+    <script src="js/apx-loot-maker.js?v=202610111809"></script>
+    <script src="js/apx-library.js?v=202610111809"></script>
+    <script src="js/apx-gm-content.js?v=202610111809"></script>
+    <script src="js/apx-gmtools-main.js?v=202610111809"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=202610111300"></script>
-    <script src="js/apx-firebase.js?v=202610111300"></script>
-    <script src="js/apx-battlemap.js?v=202610111300"></script>
-    <script src="js/apx-fog.js?v=202610111300"></script>
-    <script src="js/apx-map-tiles.js?v=202610111300"></script>
+    <script src="js/firebase-config.js?v=202610111809"></script>
+    <script src="js/apx-firebase.js?v=202610111809"></script>
+    <script src="js/apx-battlemap.js?v=202610111809"></script>
+    <script src="js/apx-fog.js?v=202610111809"></script>
+    <script src="js/apx-map-tiles.js?v=202610111809"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -2263,7 +2263,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ${_npcLootBox(n)}
         </div>`;
         document.getElementById('floatingWindowContainer').appendChild(win);
-        win.addEventListener('mousedown',()=>{ window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; win.style.zIndex=window.apxFloatingZTop; });
+        win.addEventListener('mousedown', ()=>{ if (window.apxFront) window.apxFront(win); else { window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; win.style.zIndex=window.apxFloatingZTop; } });
         let hdr=document.getElementById(winId+'_hdr'), wDrag=false, wOX=0, wOY=0;
         hdr.addEventListener('mousedown',e=>{ if(e.target.closest&&e.target.closest('button,input,select,textarea,option'))return; wDrag=true; let r=win.getBoundingClientRect(); wOX=e.clientX-r.left; wOY=e.clientY-r.top; e.preventDefault(); });
         document.addEventListener('mousemove',e=>{ if(!wDrag)return; win.style.right='auto'; win.style.left=Math.max(0,e.clientX-wOX)+'px'; win.style.top=Math.max(0,e.clientY-wOY)+'px'; });
@@ -2328,7 +2328,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>`;
                 document.getElementById('floatingWindowContainer').appendChild(win);
         _loadFullPortrait(winId);
-        win.addEventListener('mousedown', ()=>{ window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; win.style.zIndex=window.apxFloatingZTop; });
+        win.addEventListener('mousedown', ()=>{ if (window.apxFront) window.apxFront(win); else { window.apxFloatingZTop=(window.apxFloatingZTop||2000)+1; win.style.zIndex=window.apxFloatingZTop; } });
 
         // Header drag
         let hdr=document.getElementById(winId+'_hdr'), wDrag=false, wOX=0, wOY=0;
@@ -2980,7 +2980,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${!loc.description&&!linkedMapBtns&&!snHtml?'<div style="font-size:0.65rem;color:#475569;">No details yet. Click Edit to add.</div>':''}
             </div>`;
         document.getElementById('floatingWindowContainer').appendChild(win);
-        win.addEventListener('mousedown', ()=>{ window.apxFloatingZTop++; win.style.zIndex=window.apxFloatingZTop; });
+        win.addEventListener('mousedown', ()=>{ if (window.apxFront) window.apxFront(win); else { window.apxFloatingZTop++; win.style.zIndex=window.apxFloatingZTop; } });
         let hdr=document.getElementById(winId+'_hdr'), wDrag=false, wOX=0, wOY=0;
         hdr.addEventListener('mousedown', e=>{ if(e.target.closest&&e.target.closest('button,input,select,textarea,option'))return; wDrag=true; let r=win.getBoundingClientRect(); wOX=e.clientX-r.left; wOY=e.clientY-r.top; e.preventDefault(); });
         document.addEventListener('mousemove', e=>{ if(!wDrag)return; win.style.left=Math.max(0,e.clientX-wOX)+'px'; win.style.top=Math.max(0,e.clientY-wOY)+'px'; win.style.right='auto'; });
@@ -3253,7 +3253,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => { win._justOpened = false; }, 350);
 
         // Bring to front on any click
-        win.addEventListener('mousedown', () => { window.apxFloatingZTop++; win.style.zIndex=window.apxFloatingZTop; });
+        win.addEventListener('mousedown', ()=>{ if (window.apxFront) window.apxFront(win); else { window.apxFloatingZTop++; win.style.zIndex=window.apxFloatingZTop; } });
         // Whose fog: the party is listed from the start (also for the keyboard)
         setTimeout(() => { try { window._gmFogForOpts(mapId, document.getElementById(winId+'_fogFor')); } catch (e) {} }, 0);
 
@@ -3287,6 +3287,8 @@ document.addEventListener('DOMContentLoaded', () => {
             win._dragSX=e.clientX; win._dragSY=e.clientY; win._dragOX=win._offX; win._dragOY=win._offY;
             area.style.cursor='grabbing';
         });
+        // (before the battle map lets go of a selection on the same press)
+        area.addEventListener('pointerdown', e => { win._selAtDown = e.button === 0 && (_btSelFor(mapId).size > 0 || !!document.getElementById('btContextMenu')); }, true);
         area.addEventListener('mousemove', e => {
             if (!win._dragging) return;
             // Show crosshair cursor during pan override (not hidden fog cursor)
@@ -3303,6 +3305,8 @@ document.addEventListener('DOMContentLoaded', () => {
             area.style.cursor = (_fogMode === mapId) ? 'none' : 'crosshair';
             // Skip place-token if the click started on an existing token circle
             let wasOnToken = win._clickTarget?.closest?.('[data-om-token]');
+            // A click off selected tokens (or closing a token's menu) just lets go of them: no Area Circle
+            if (win._selAtDown) { win._selAtDown = false; if (_btSelFor(mapId).size) _btSelect(mapId, winId, [], false); return; }
             if (!win._didDrag && !wasOnToken) _omClick(mapId, winId, win, e);
         });
         area.addEventListener('mouseleave', () => { win._dragging=false; area.style.cursor='crosshair'; });
@@ -4111,15 +4115,17 @@ document.addEventListener('DOMContentLoaded', () => {
         // a Loyal Companion moves on its owner's turn
         if (cur && cur.id !== t.initiativeId && window._gmTurnMates) cur = window._gmTurnMates(cur).find(m => m.id === t.initiativeId) || cur;
         if (!cur || cur.id !== t.initiativeId || cur.faction === 'player') return null;
-        let speed = 3;
-        if (cur.sourceNpcId && typeof ncStatBlockFor === 'function' && (window.gmNpcs||[]).some(g=>g.id===cur.sourceNpcId)) { try { speed = ncStatBlockFor(cur.sourceNpcId).speed; } catch (e) {} }
-        else if (cur.companionOf) { let pm = (window.gmParty||[]).find(p=>p.fileName===cur.companionOf); let csb = pm && typeof gmCompanionSb === 'function' ? gmCompanionSb(pm) : null; if (csb) speed = csb.speed; }
+        let speed = 3, sbm = null;   // (its stat block: other speeds, Hover)
+        if (cur.sourceNpcId && typeof ncStatBlockFor === 'function' && (window.gmNpcs||[]).some(g=>g.id===cur.sourceNpcId)) { try { sbm = ncStatBlockFor(cur.sourceNpcId); speed = sbm.speed; } catch (e) {} }
+        else if (cur.companionOf) { let pm = (window.gmParty||[]).find(p=>p.fileName===cur.companionOf); let csb = pm && typeof gmCompanionSb === 'function' ? gmCompanionSb(pm) : null; if (csb) { speed = csb.speed; sbm = csb; } }
         let key = cur.id + ':' + window.gmTurnNumber;
         let tm = cur._moves && cur._moves.key === key ? cur._moves : { key, n: 0, left: 0 };
         let conds = window._gmEntryConditions ? window._gmEntryConditions(cur.id) : (cur.conditions || []);
         let eff = window.apxEffectiveConditions ? window.apxEffectiveConditions(conds).map(c => c.id) : conds;
         let apHave = cur.apCur == null ? (parseInt(cur.ap) || 0) : Math.max(0, Math.floor(Number(cur.apCur) || 0));
-        return { speed, moves: tm.n, left: tm.left, mobile: 0, staggered: eff.includes('staggered'), apHave, key, entryId: cur.id };
+        // F while dragging: Walk, Fly (its fly speed, over difficult terrain), Swim…; a creature that Hovers ignores difficult terrain
+        return { speed, moves: tm.n, left: tm.left, mobile: 0, staggered: eff.includes('staggered'), apHave, key, entryId: cur.id,
+            modes: window.APXBattle.moveModes(speed, sbm && sbm.altLocomotion), hover: !!(sbm && sbm.hover) };
     }
     function _btPayMove(info) {
         let e = (window.gmInitiative||[]).find(x=>x.id===info.mp.entryId); if (!e) return;
@@ -7046,8 +7052,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </script>
     <div id="floatingWindowContainer"></div>
 
-    <script src="js/apx-chat.js?v=202610111300"></script>
-    <script src="js/apx-extras.js?v=202610111300"></script>
-    <script src="js/apx-theme-light.js?v=202610111300"></script>
+    <script src="js/apx-chat.js?v=202610111809"></script>
+    <script src="js/apx-extras.js?v=202610111809"></script>
+    <script src="js/apx-theme-light.js?v=202610111809"></script>
 </body>
 </html>

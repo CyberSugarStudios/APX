@@ -247,6 +247,9 @@ window.apxToday = function (d) {
     }
     // (after the window's own handlers, which may set a z-index of their own)
     document.addEventListener('mousedown', e => { let w = floatingOf(e.target); if (w) setTimeout(() => window.apxFront(w), 0); }, true);
+    // …and again as the click reaches the page, right after the window's own handlers (some still hand out an
+    // old, lower layer): in the same moment, so it never flashes behind what's around it
+    document.addEventListener('mousedown', e => { let w = floatingOf(e.target); if (w && (parseInt(w.style.zIndex) || 0) < FRONT_BASE) window.apxFront(w); });
     document.addEventListener('touchstart', e => { let w = floatingOf(e.target); if (w) setTimeout(() => window.apxFront(w), 0); }, { capture: true, passive: true });
     // ── New popups open on top ───────────────────────────────────────────
     // A modal that opens takes the next layer of the same stacking order as the floating windows (maps,
@@ -424,6 +427,10 @@ window.apxShowImage = function (src, title, text) {
     document.addEventListener('keydown', onKey, true);
     back.addEventListener('click', e => { if (e.target === back) close(); });
     back.querySelector('[data-x]').onclick = close;
+    // a small picture (an older token image) is shown large too, not at its few pixels
+    let im = back.querySelector('img');
+    let grow = () => { if (im.naturalWidth && Math.max(im.naturalWidth, im.naturalHeight) < 500) { let h = Math.min(window.innerHeight * (text ? 0.6 : 0.7), window.innerWidth * 0.8 * im.naturalHeight / im.naturalWidth); im.style.height = Math.round(h) + 'px'; im.style.width = 'auto'; } };
+    if (im.complete) grow(); else im.onload = grow;
     document.body.appendChild(back);
     if (window.apxFront) window.apxFront(back);
     return back;
@@ -462,7 +469,8 @@ window.apxShowImage = function (src, title, text) {
             let s = d.st.side;
             el.style.marginLeft = s === 'left' ? '0' : 'auto';
             el.style.marginRight = s === 'right' ? '0' : 'auto';
-            el.style.maxWidth = s !== 'center' && d.st.w ? d.st.w + 'px' : '';
+            let min = parseInt(el.getAttribute('data-dock-min')) || 400;
+            el.style.maxWidth = s !== 'center' && d.st.w ? Math.max(Math.min(min, window.innerWidth - 40), d.st.w) + 'px' : '';
             document.querySelectorAll(`[data-apx-dock-btn="${key}"]`).forEach(b => { b.title = `The ${key === 'sheet' ? 'sheet' : 'GM Tools'} are ${NAMES[s]}: click to ${s === 'center' ? 'pin them to the left' : s === 'left' ? 'pin them to the right' : 'centre them'}`; });
             requestAnimationFrame(place);
         };
@@ -475,7 +483,9 @@ window.apxShowImage = function (src, title, text) {
             if (!handle._drag) return;
             let r = el.getBoundingClientRect(), vw = window.innerWidth;
             let w = d.st.side === 'left' ? e.clientX - r.left : r.right - e.clientX;
-            d.st.w = Math.round(Math.max(Math.min(420, vw - 40), Math.min(vw - 40, w)));
+            // no narrower than a phone screen: it stacks, but nothing gets cramped or cut off
+            let min = parseInt(el.getAttribute('data-dock-min')) || 400;
+            d.st.w = Math.round(Math.max(Math.min(min, vw - 40), Math.min(vw - 40, w)));
             d.apply();
         });
         let end = () => { if (!handle._drag) return; handle._drag = false; handle.firstChild.style.background = 'var(--c-border2,#475569)'; save(key, d.st); };
@@ -497,6 +507,36 @@ window.apxShowImage = function (src, title, text) {
         let r = d.el.getBoundingClientRect(), vw = window.innerWidth;
         return d.st.side === 'right' ? { x0: 0, x1: Math.max(0, r.left) } : { x0: Math.min(vw, r.right), x1: vw };
     };
-    let go = () => document.querySelectorAll('[data-apx-dock]').forEach(init);
+    // Squashed, the panel lays itself out the way it does on a narrower screen (sections stack, like on a
+    // phone) instead of shrinking what's in it: inside it, Tailwind's sm: / md: / lg: / xl: layouts follow the
+    // panel's own width, not the window's (they become container queries there; everywhere else they stay
+    // media queries). Done once, on the page's compiled tailwind.css.
+    let responsiveDone = false;
+    function containerResponsive() {
+        if (responsiveDone || typeof CSS === 'undefined' || !CSS.supports || !CSS.supports('container-type', 'inline-size')) return;
+        let sheet = [...document.styleSheets].find(sh => /tailwind/i.test(sh.href || ''));
+        let rules; try { rules = sheet && sheet.cssRules; } catch (e) { return; }
+        if (!rules) return;
+        responsiveDone = true;
+        const OUT = ':not(:where([data-apx-dock] *))', IN = ':where([data-apx-dock]) ';
+        let blocks = [];
+        [...rules].forEach(r => {
+            if (!(r instanceof CSSMediaRule)) return;
+            let cond = (r.conditionText || r.media.mediaText || '').trim();
+            if (!/^\(min-width:\s*[\d.]+(px|em|rem)\)$/.test(cond)) return;
+            let inner = [];
+            [...r.cssRules].forEach(sr => {
+                if (!(sr instanceof CSSStyleRule) || /::/.test(sr.selectorText)) return;
+                let parts = sr.selectorText.split(',').map(x => x.trim()).filter(Boolean);
+                let body = sr.style.cssText;
+                try { sr.selectorText = parts.map(x => x + OUT).join(', '); } catch (e) { return; }
+                inner.push(parts.map(x => IN + x).join(', ') + ' { ' + body + ' }');
+            });
+            if (inner.length) blocks.push('@container apxdock ' + cond + ' { ' + inner.join('\n') + ' }');
+        });
+        try { sheet.insertRule('[data-apx-dock] { container-type: inline-size; container-name: apxdock; }', sheet.cssRules.length); } catch (e) { }
+        blocks.forEach(b => { try { sheet.insertRule(b, sheet.cssRules.length); } catch (e) { console.warn('Dock layout:', e.message); } });
+    }
+    let go = () => { let els = document.querySelectorAll('[data-apx-dock]'); if (els.length) containerResponsive(); els.forEach(init); };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
 })();
