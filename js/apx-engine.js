@@ -8,7 +8,47 @@
         }
         window.apxRollAttr = apxRollAttr;
 
+        // ── Vitality (Rank 4) ──
+        // Dropping to 0 HP, you drop to 1 instead, then may spend up to your Rank in Rest Dice to heal (Rank 3 heals their
+        // most; Rank 1 adds your CON modifier). Once per Full Rest. Damage from your GM's tracker is caught there and
+        // arrives as 1 HP; anything that takes this sheet to 0 is caught here.
+        window.apxVitalityHeal = async function() {
+            let st = window.state; if (!st || !window.APXDice) return;
+            let rank = window.apxPerkRank ? window.apxPerkRank(st, 'con_vitality') : ((st.perks || {}).con_vitality || 0);
+            let have = Math.max(0, parseInt(st.restDice) || 0), most = Math.min(rank, have);
+            window.APXDice.notify('Vitality: you drop to 1 HP instead of 0.' + (most ? ' You can spend Rest Dice to heal.' : ''), { kind: 'note', open: true });
+            if (!most || !APXDice.ask) return;
+            let choices = [];
+            for (let n = most; n >= 1; n--) choices.push([String(n), `Spend ${n}`, n === most ? 'pri' : '']);
+            choices.push(['0', 'None']);
+            let ans = await APXDice.ask('Vitality', `You're at 1 HP. Spend up to ${most} Rest ${most === 1 ? 'Die' : 'Dice'} (${have} left) to heal?`, choices);
+            let n = parseInt(ans) || 0; if (n <= 0) return;
+            let step = (typeof calc !== 'undefined' && calc.restDieStep) || 'd6', m = String(step).match(/(\d*)d(\d+)/), sides = m ? +m[2] : 6, per = m ? (parseInt(m[1]) || 1) : 1;
+            let maxed = rank >= 3, rolls = [];
+            for (let i = 0; i < n * per; i++) rolls.push(maxed ? sides : 1 + Math.floor(Math.random() * sides));
+            let con = (typeof calc !== 'undefined' && calc.mods && calc.mods.CON) || 0, bonus = rank >= 1 ? Math.max(0, con) : 0;
+            let heal = rolls.reduce((a, b) => a + b, 0) + bonus;
+            let maxHp = (typeof calc !== 'undefined' && calc.maxHp) || st.currentHp + heal;
+            st.restDice = have - n;
+            st.currentHp = Math.min(maxHp, (st.currentHp || 0) + heal);
+            window.recalculateMath(); window.apxRefreshHpInputs && window.apxRefreshHpInputs();
+            APXDice.info({ label: 'Vitality', who: st.name || '', text: `${n} Rest ${n === 1 ? 'Die' : 'Dice'} (${n * per}${step.replace(/^\d*/, '')}${maxed ? ', each at its most (Rank 3)' : ''}) [${rolls.join('+')}]${bonus ? ` + ${bonus} CON (Rank 1)` : ''} = ${heal} HP. Now ${st.currentHp} HP, ${st.restDice} Rest Dice left.` });
+        };
+        window.apxVitalityCheck = function(prevHp) {
+            let st = window.state; if (!st || !(prevHp > 0) || (st.currentHp || 0) > 0) return false;
+            let rank = window.apxPerkRank ? window.apxPerkRank(st, 'con_vitality') : ((st.perks || {}).con_vitality || 0);
+            if (rank < 4 || st.vitalityUsed) return false;
+            st.currentHp = 1; st.vitalityUsed = true;
+            setTimeout(() => { window.recalculateMath(); window.apxRefreshHpInputs && window.apxRefreshHpInputs(); window.apxVitalityHeal(); }, 0);
+            return true;
+        };
         window.recalculateMath = function() {
+            // Vitality Rank 4: this sheet just went from above 0 HP to 0
+            {
+                let who = (window.state && (window.state.id || window.state.name)) || '';
+                if (window._apxHpSeenFor === who && window.apxVitalityCheck) window.apxVitalityCheck(window._apxHpSeen);
+                window._apxHpSeenFor = who; window._apxHpSeen = window.state ? (window.state.currentHp || 0) : 0;
+            }
             // Bring older saves up to the current rules (non-destructive, runs once per character)
             if (typeof window.apxMigrateCharacter === 'function') window.apxMigrateCharacter(window.state);
             // Powers built under older Power Crafting rules: a list to rebuild them (once per launch)
@@ -303,6 +343,21 @@
                 armorEr += window.state.equippedHelmet.er;
                 armorWt += window.state.equippedHelmet.wt;
             }
+            // ── Overburdened (Encumbrance and Storage) ──
+            // Carrying more than your Carrying Capacity: Speed 1, no Jumping or Climbing (swimming, you sink), and
+            // Disadvantage on all attack rolls, attribute checks and saving throws. A worn Backpack counts your STR
+            // as 2 higher for this (a Bandolier or Utility Belt, 1); only the best one worn counts.
+            {
+                let items = window.state.items || [];
+                calc.carried = armorWt + items.reduce((t, it) => t + (it && (!it.isLocked || window.state.craftingMatWeightEnabled) ? (parseFloat(it.wt) || 0) * (parseInt(it.ct) || 0) : 0), 0);
+                let worn = items.filter(it => it && it.storageWorn && (parseInt(it.ct) || 0) > 0 && window.apxStorageBonus(it) > 0)
+                    .sort((a, b) => window.apxStorageBonus(b) - window.apxStorageBonus(a))[0] || null;
+                calc.storageBonus = worn ? window.apxStorageBonus(worn) : 0;
+                calc.storageName = worn ? worn.name : '';
+                calc.obCap = calc.carryCap + calc.storageBonus * sizeMult;
+                calc.overburdened = calc.carried > calc.obCap;
+                if (calc.overburdened) applyEffectSource('Overburdened', { atkDisadvantage: 'general', saveDisadvantage: 'all', checkDisadvantage: 'all' });
+            }
             // Override syncDOM's earlier armorWt display (which only knew
             // about the armor piece itself) with the combined total,
             // including Shield/Helmet, now that it's fully computed -- so
@@ -388,6 +443,9 @@
                 applyEffectSource('All Legs Wounded (Prone)', { atkDisadvantage: 'melee', rangedAtkAdvantage: true });
             }
 
+            // Squeezing into a smaller space on a battle map (a Large or bigger creature): Disadvantage on attacks and AGI saves
+            { let sq = typeof window._pwSqueezed === 'function' ? window._pwSqueezed('player') : null;
+              calc.squeezing = sq; if (sq) applyEffectSource(`Squeezing (into a ${sq} space)`, { atkDisadvantage: 'general', saveDisadvantage: ['AGI'] }); }
             // This turn's maneuvers (Fight Defensively, Fight Offensively…): see js/apx-actions.js
             if (window.apxTurnFxApply) { try { window.apxTurnFxApply(calc); } catch (e) { console.warn('Turn effects:', e); } }
 
@@ -597,6 +655,7 @@
             if (exo && exo.speedFixed) calc.speed = exo.speedFixed;
             if (exo && exo.speedPlus) calc.speed += exo.speedPlus;
             if (window.apxExoOverburdened && window.apxExoOverburdened(window.state, calc.scores.STR)) calc.speed = Math.min(calc.speed, 1);
+            if (calc.overburdened) calc.speed = Math.min(calc.speed, 1);   // Overburdened: Speed 1
             document.getElementById('dispSpeed').innerText = calc.speedForcedZero ? 0 : Math.max(0, calc.speed);
             document.getElementById('dispMaxRest').innerText = calc.maxRestDice;
             document.getElementById('dispRestDieStep').innerText = calc.restDieStep;
@@ -760,6 +819,18 @@
             document.getElementById('attrSkillContainer').innerHTML = html;
         }
 
+        // Storage gear (Encumbrance and Storage): how much higher a worn one counts your STR for carrying
+        window.apxStorageBonus = function(it) {
+            if (!it || it.isWeapon || it.isArmor) return 0;
+            if (it.storageStr != null) return parseInt(it.storageStr) || 0;
+            let n = String(it.name || '');
+            return /backpack/i.test(n) ? 2 : /bandolier|utility belt/i.test(n) ? 1 : 0;
+        };
+        window.apxToggleStorage = function(idx) {
+            let it = (window.state.items || [])[idx]; if (!it) return;
+            it.storageWorn = !it.storageWorn;
+            window.recalculateMath();
+        };
         function renderInventory(armorWt) {
             let html = '';
             let totWt = 0;
@@ -770,6 +841,7 @@
             // popping up wherever they happen to sit in the array.
             let giveTargets = [];
             try { giveTargets = (typeof window.apxGiveTargets === 'function' && window.apxGiveTargets()) || []; } catch (e) { }
+            let giveComp = !!(window.state.companion && window.apxCompGive);   // (your Loyal Companion can carry things too)
             let sortedIndices = window.state.items.map((_, i) => i).sort((a, b) => {
                 let aIsMats = window.state.items[a].name.endsWith('Crafting Materials');
                 let bIsMats = window.state.items[b].name.endsWith('Crafting Materials');
@@ -794,7 +866,7 @@
 
                 let delBtn = item.isLocked ? '' : `<button onclick="window.deleteItem(${idx})" class="text-red-500 font-bold hover:text-red-400">&times;</button>`;
                 // Give to a party member (only for characters in a world with other players)
-                let giveSel = giveTargets.length ? `<button onclick="window.apxGiveMenu(${idx}, this)" title="Give to a party member" class="text-[9px] text-emerald-400 hover:text-emerald-300 font-bold mr-1">Give</button>` : '';
+                let giveSel = giveTargets.length || giveComp ? `<button onclick="window.apxGiveMenu(${idx}, this)" title="Give to ${giveComp ? 'your companion or ' : ''}a party member" class="text-[9px] text-emerald-400 hover:text-emerald-300 font-bold mr-1">Give</button>` : '';
                 let equipBtn = item.isArmor ? `<button onclick="window.equipArmorFromInventory(${idx})" class="text-[9px] text-cyan-400 hover:text-cyan-300 font-bold mr-1" title="Equip this armor">Equip</button>` : '';
                 if (item.isWeapon) {
                     equipBtn = `<button onclick="window.equipWeaponFromInventory(${idx})" class="text-[9px] text-cyan-400 hover:text-cyan-300 font-bold mr-1" title="Equip this weapon">Equip</button>`;
@@ -804,6 +876,11 @@
                 }
                 if (item.isHelmet) {
                     equipBtn = `<button onclick="window.toggleEquipHelmet()" class="text-[9px] text-cyan-400 hover:text-cyan-300 font-bold mr-1" title="Equip this helmet">Equip</button>`;
+                }
+                // A Backpack, Bandolier or Utility Belt: worn, it raises what you can carry before you're Overburdened
+                if (window.apxStorageBonus(item) > 0) {
+                    let on = !!item.storageWorn;
+                    equipBtn = `<button onclick="window.apxToggleStorage(${idx})" class="text-[9px] ${on ? 'text-emerald-400 hover:text-emerald-300' : 'text-cyan-400 hover:text-cyan-300'} font-bold mr-1" title="${on ? 'Worn: your STR counts as ' + window.apxStorageBonus(item) + ' higher before you\'re Overburdened (only your best storage gear counts). Click to take it off.' : 'Wear it: your STR counts as ' + window.apxStorageBonus(item) + ' higher before you\'re Overburdened'}">${on ? 'Worn' : 'Wear'}</button>`;
                 }
                 if (item.isCustomEquippable) {
                     equipBtn = `<button onclick="window.toggleCustomItemEquip(${idx})" class="text-[9px] ${item.equipped ? 'text-emerald-400 hover:text-emerald-300' : 'text-cyan-400 hover:text-cyan-300'} font-bold mr-1" title="${item.equipped ? 'Currently equipped -- click to unequip' : 'Equip this item'}">${item.equipped ? 'Equipped' : 'Equip'}</button>`;
@@ -854,10 +931,12 @@
 
             totWt += armorWt;
             document.getElementById('dispTotalWeight').innerHTML = `${totWt.toFixed(1).replace(/\.0$/, '')} <span class="text-[10px] text-slate-500 font-normal">lbs</span>`;
-            document.getElementById('dispCarryCap').innerHTML = `${calc.carryCap} <span class="text-[10px] text-slate-500 font-normal">lbs</span>`;
+            document.getElementById('dispCarryCap').innerHTML = `${calc.obCap ?? calc.carryCap} <span class="text-[10px] text-slate-500 font-normal">lbs</span>`
+                + (calc.storageBonus ? `<div class="text-[9px] text-emerald-400 font-bold" title="A worn Backpack counts your STR as 2 higher for carrying (a Bandolier or Utility Belt, 1); only the best one counts">${calc.storageName}: STR +${calc.storageBonus}</div>` : '');
 
             let obWarn = document.getElementById('overburdenedWarning');
-            if (totWt > calc.carryCap) {
+            if (obWarn) obWarn.title = 'Overburdened: Speed 1, you can\'t Jump or Climb (and sink if you Swim), and you have Disadvantage on all attack rolls, attribute checks and saving throws. Drop some weight, or wear a Backpack.';
+            if (calc.overburdened ?? totWt > calc.carryCap) {
                 obWarn.style.display = 'block';
                 document.getElementById('dispTotalWeight').classList.replace('text-white', 'text-red-500');
             } else {
@@ -882,7 +961,7 @@
                     }
                     if (window.state.ancestry.traits.includes('t_fly')) {
                         let armorClassLocal = armorWt === 0 ? null : (calc.armorClassWt > 70 ? 'Heavily' : (calc.armorClassWt > 30 ? 'Moderately' : 'Lightly'));
-                        let flyBlocked = armorClassLocal === 'Heavily' || totWt > calc.carryCap;
+                        let flyBlocked = armorClassLocal === 'Heavily' || (calc.overburdened ?? totWt > calc.carryCap);
                         lines.push(flyBlocked ? 'Fly Speed: 0 (Encumbered/Heavy Armor)' : `Fly Speed: ${walkSpeed}`);
                     }
                     specialSpeedsEl.innerHTML = lines.join('<br>');
@@ -1168,6 +1247,9 @@
                 let cost = Math.max(0, (o.apCost === 0 || o.apCost === "0") ? 0 : (parseInt(o.apCost) || 3)), have = window.apxCompApCurrent();
                 if (have < cost) return { note: `Not enough AP: ${window.state.companion.name || 'your companion'} has ${have}, needs ${cost}`, warn: true };
                 window.apxCompSpendAp(cost);
+                // Its maneuvers: next-attack ones are used up, Block ends, Fight Defensively drops to +2
+                let cf = window.state.companion.turnFx;
+                if (Array.isArray(cf) && cf.length) { window.state.companion.turnFx = cf.filter(f => !f.next && !f.untilAttack); window.state.companion.turnFx.forEach(f => { if (f.key === 'defensive') f.attacked = true; }); setTimeout(() => window.recalculateMath && window.recalculateMath(), 0); }
                 return { note: `${window.state.companion.name || 'Companion'}: −${cost} AP (${window.apxCompApCurrent()} left)` };
             }
             if (!o || !o.pcAttack || typeof window.apxApCurrent !== 'function') return null;

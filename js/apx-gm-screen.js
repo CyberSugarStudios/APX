@@ -1320,14 +1320,14 @@ window.gmAskLootCheck = function() {
 };
 
 // Push the tracker's HP + Temp HP for a party member to their character sheet
-function _syncHpToPlayer(entry) {
+function _syncHpToPlayer(entry, extra) {
     if (!entry || entry.faction !== 'player' || !entry.playerUid) return;
     entry._gmHpSetAt = Date.now();   // for a few seconds, the sheet's older HP (saved before it got this) is ignored
     let worlds = typeof _gmWorlds !== 'undefined' ? _gmWorlds : [];
     let activeWorld = worlds.find(w => (w.worldId||w.id) === (typeof _activeWorldId !== 'undefined' ? _activeWorldId : null));
     let inviteCode = activeWorld?.inviteCode;
     if (inviteCode && window.apxAuth?.enabled && typeof window.apxAuth.setGmHpOverride === 'function') {
-        window.apxAuth.setGmHpOverride(inviteCode, entry.playerUid, entry.currentHp, entry.tempHp || 0)
+        window.apxAuth.setGmHpOverride(inviteCode, entry.playerUid, entry.currentHp, entry.tempHp || 0, extra)
             .catch(e => console.warn('HP sync to player:', e.message));
     }
 }
@@ -2157,15 +2157,32 @@ function _gmIsStunned(e) {
 // NPCs' and companions' conditions change their rolls, as a player's do on their sheet:
 // Disadvantage (Poisoned, Frightened, Prone melee…), Advantage (Prone ranged), auto-fails
 // (Paralyzed STR/AGI…), and a warning before an Incapacitated creature attacks
+// Squeezing (a Large or bigger creature in a smaller space, on a battle map): Disadvantage on attack rolls and AGI saves
+function _gmEntrySqueezed(e) {
+    if (!e || typeof _wNotes === 'undefined' || !window.APXBattle) return null;
+    for (let m of (_wNotes.otherMaps || [])) for (let t of (m.battleTokens || [])) {
+        let mine = t.initiativeId === e.id || (e.companionOf && t.type === 'companion' && t.playerUid === e.companionOf);
+        if (!mine || t._explicitDead) continue;
+        let p = window.APXBattle.posOf(m.id, t);
+        if (p && p.sq) return p.sq;
+    }
+    return null;
+}
+window._gmEntrySqueezed = _gmEntrySqueezed;
 window.apxRollConditions = function(o, kind) {
     let init = window.gmInitiative || []; if (!init.length || !o) return null;
     let e = _gmAttackerFor(o, kind);
     if (!e || e.faction === 'player') return null;
     let conds = _gmEffConds(e), wdis = _gmWoundRollMods(e, kind, o.attr);
-    if (!conds.length && !wdis.length) return null;
+    let sq = _gmEntrySqueezed(e);
+    if (sq && ((kind || 'attack') === 'attack' || (kind === 'save' && o.attr === 'AGI'))) wdis = wdis.concat([`Squeezing (into a ${sq} space)`]);
+    let fm = _gmFxRollMods(e, kind);
+    wdis = wdis.concat(fm.dis);
+    if (!conds.length && !wdis.length && !fm.adv.length) return null;
     let m = conds.length && window.apxConditionRollMods ? window.apxConditionRollMods(conds, kind, o.attr, !!o.ranged) : null;
     m = m || { dis: [], adv: [], autoFail: [] };
     if (wdis.length) m.dis = (m.dis || []).concat(wdis);
+    if (fm.adv.length) m.adv = (m.adv || []).concat(fm.adv);
     return m;
 };
 // NPC saves from the GM's dice tray button (the log message asks for them)
@@ -2627,6 +2644,19 @@ function _afterHpChange(entry, wasAboveZero) {
         return;
     }
     if (entry.currentHp !== null && entry.currentHp <= 0 && wasAboveZero) {
+        // Vitality Rank 4: a player who would drop to 0 HP drops to 1 instead (once per Full Rest); their sheet
+        // then offers to spend Rest Dice to heal
+        if (entry.faction === 'player' && entry.playerUid && ko !== 'ko') {
+            let pm = (window.gmParty || []).find(p => p.fileName === entry.playerUid), st = pm && (pm.state || pm.charState);
+            let rank = window.apxPerkRank ? window.apxPerkRank(st || {}, 'con_vitality') : ((st && st.perks) || {}).con_vitality || 0;
+            if (st && rank >= 4 && !st.vitalityUsed && !entry._vitalityUsed) {
+                entry.currentHp = 1; entry._vitalityUsed = true; st.vitalityUsed = true;
+                gmLog({ text: `${_gmPublicName(entry)} refuses to fall: Vitality keeps them at 1 HP.`, kind: 'info', force: true });
+                _syncHpToPlayer(entry, { vitality: true });
+                window.renderInitiativeTracker();
+                return;
+            }
+        }
         if (entry.faction === 'player') {
             _syncHpToPlayer(entry);
             _gmQueueBleed(entry);
@@ -3921,7 +3951,9 @@ function gmStartTurnAp(e) {
     let first = e._apTurns === 0 || (e._apTurns == null && e.apCur == null);   // older saved combats: only brand-new entries
     e._apTurns = (e._apTurns || 0) + 1;
     e._apFirstSurprised = !!(first && e.surprised);
+    if (Array.isArray(e._fx)) e._fx = e._fx.filter(f => f.keep);   // its maneuvers last until the start of its next turn
     if (e.faction === 'player') return;   // players' sheets add their own AP when their turn starts
+    if (_gmCompSheetAp(e) !== null) return;   // (and their Loyal Companion's, on the same sheet)
     // A creature summoned by a power: a hard 3 AP, gained fresh each turn (nothing banked)
     if (e.summoned) e.apCur = e._apFirstSurprised ? 1 : 3;
     else e.apCur = gmApCurrent(e) + (e._apFirstSurprised ? 1 : gmApMax(e));
@@ -3968,10 +4000,20 @@ window._gmStandUpAp = function(entryId) {
     e.apCur = Math.max(0, have - cost);
     gmLog({ text: `${e.name} stands up.`, gmText: `${e.name} stands up (−${Math.min(have, cost)} AP${have < cost ? `, had only ${have}` : ''}, ${e.apCur} left).`, kind: 'info' });
 };
+// A player's Loyal Companion: its AP lives on its owner's sheet (they spend it there) -> that number, or null
+function _gmCompSheetAp(e) {
+    if (!e || !e.companionOf) return null;
+    let pm = (window.gmParty || []).find(p => p.fileName === e.companionOf);
+    let c = pm && pm.state && pm.state.companion;
+    if (!c) return null;
+    return c.apCurrent === undefined || c.apCurrent === null ? gmApMax(e) : Math.max(0, Math.floor(Number(c.apCurrent) || 0));
+}
+window._gmCompSheetAp = _gmCompSheetAp;
 function gmApPipsHtml(e) {
     let max = gmApMax(e);
-    let cur, isPlayer = e.faction === 'player' && e.playerUid;
-    if (isPlayer) {
+    let cur, compAp = _gmCompSheetAp(e), isPlayer = (e.faction === 'player' && e.playerUid) || compAp !== null;
+    if (compAp !== null) cur = compAp;
+    else if (isPlayer) {
         let pm = (window.gmParty || []).find(p => p.fileName === e.playerUid || p.summary?.playerUid === e.playerUid);
         let st = pm?.state || {};
         cur = st.apCurrent !== undefined && st.apCurrent !== null ? st.apCurrent : max - (st.apUsed || 0);
@@ -3983,7 +4025,7 @@ function gmApPipsHtml(e) {
         return isPlayer ? `<span style="${st}"></span>`
             : `<button onclick="window.gmClickApPip('${e.id}', ${i})" title="${filled ? 'Spend' : 'Add'} AP" style="${st}cursor:pointer"></button>`;
     }).join('');
-    return `<span class="flex items-center gap-0.5 flex-wrap" title="${isPlayer ? 'Tracked on the player\'s sheet' : 'AP now (gains its AP at the start of each turn; unspent AP carries over, no cap)'}"><b class="${cur === 0 ? 'text-red-400' : 'text-blue-300'}">AP ${cur}/${max}</b>${pips}</span>`;
+    return `<span class="flex items-center gap-0.5 flex-wrap" title="${isPlayer ? (compAp !== null ? 'Tracked on its owner\'s sheet (they spend it there)' : 'Tracked on the player\'s sheet') : 'AP now (gains its AP at the start of each turn; unspent AP carries over, no cap)'}"><b class="${cur === 0 ? 'text-red-400' : 'text-blue-300'}">AP ${cur}/${max}</b>${pips}</span>`;
 }
 // NPC attack rolls from a stat block spend that creature's AP. When several
 // initiative entries share the stat block, the one whose turn it is pays
@@ -4006,6 +4048,7 @@ window._gmSwarmDice = _gmSwarmDice;
 window.apxBeforeAttack = function(o) {
     let sw = _gmSwarmDice(o);
     let r = _gmBeforeAttackAp(o);
+    if (o && window.gmCombatStarted) { try { let att = _gmAttackerFor(o, 'attack'); if (att && (att.faction !== 'player' || att.companionOf) && _gmFx(att).length) { _gmFxAttacked(att); window.renderInitiativeTracker(); } } catch (err) { console.warn('Maneuvers:', err); } }
     if (sw) { r = r || {}; r.note = [r.note, sw].filter(Boolean).join(' · '); }
     return r;
 };
@@ -4014,7 +4057,10 @@ function _gmBeforeAttackAp(o) {
     if (o && o.companion && o.compOwner && window.gmCombatStarted) {
         let e = (window.gmInitiative || []).find(x => x.companionOf === o.compOwner);
         if (!e) return null;
-        let cost = Math.max(0, (o.apCost === 0 || o.apCost === "0") ? 0 : (parseInt(o.apCost) || 3)), have = gmApCurrent(e);
+        let cost = Math.max(0, (o.apCost === 0 || o.apCost === "0") ? 0 : (parseInt(o.apCost) || 3));
+        let sheetAp = _gmCompSheetAp(e);
+        if (sheetAp !== null) return sheetAp < cost ? { note: `${e.name} has ${sheetAp} AP on its owner's sheet, needs ${cost}`, warn: true } : { note: `${e.name}: ${cost} AP (tracked on its owner's sheet)` };
+        let have = gmApCurrent(e);
         if (have < cost) return { note: `Not enough AP: ${e.name} has ${have}, needs ${cost}`, warn: true };
         e.apCur = have - cost; window.renderInitiativeTracker();
         return { note: `${e.name}: -${cost} AP (${e.apCur} left)` };
@@ -4037,6 +4083,67 @@ function _gmBeforeAttackAp(o) {
     window.renderInitiativeTracker();
     return { note: `${e.name}: -${cost} AP (${e.apCur} left)${flurryNote}`, tip: flurryTip };
 };
+
+// ── Creature actions (js/apx-creature-actions.js): maneuvers and standard actions for NPCs,
+// summoned creatures and Loyal Companions. Effects live on the entry (e._fx) until the start
+// of its next turn; Fight Defensively/Offensively and next-attack maneuvers change its rolls.
+function _gmFx(e) { return (e && Array.isArray(e._fx)) ? e._fx : []; }
+function _gmFxAcBonus(e) { let d = _gmFx(e).find(f => f.key === 'defensive'); return d ? (d.attacked ? 2 : 4) : 0; }
+window._gmFxAcBonus = _gmFxAcBonus;
+function _gmActionCtx(e) {
+    let compAp = _gmCompSheetAp(e);
+    let G = () => (window.gmInitiative || []).find(x => x.id === e.id) || e;
+    return {
+        name: e.name,
+        note: compAp !== null ? 'Its AP is on its owner\'s sheet: they spend it there (effects still apply here).' : (e.ap == null ? 'No AP tracked for it.' : ''),
+        have: () => compAp !== null ? _gmCompSheetAp(G()) : (G().ap == null ? null : gmApCurrent(G())),
+        spend: compAp !== null || e.ap == null ? null : n => { let x = G(); x.apCur = Math.max(0, gmApCurrent(x) - n); },
+        moveCost: () => { let x = G(), n = _gmMovesThisTurn(x) + 1, eff = window.apxEffectiveConditions ? window.apxEffectiveConditions(window._gmEntryConditions ? window._gmEntryConditions(x.id) : (x.conditions || [])).map(c => c.id) : []; return eff.includes('staggered') ? n * 2 : n; },
+        move: () => { let x = G(), key = x.id + ':' + window.gmTurnNumber; x._moves = { key, n: _gmMovesThisTurn(x) + 1, left: 0 }; },
+        conds: () => window._gmEntryConditions ? window._gmEntryConditions(e.id) : (e.conditions || []),
+        addCond: id => { let x = G(); if (x.faction === 'player' && !x.companionOf) return; x._noStandCost = false; window._gmAddEntryCondition ? window._gmAddEntryCondition(x.id, id) : _gmAddCondition(x, id); },
+        removeCond: id => { let x = G(); if (window._gmRemoveEntryCondition && (window._gmEntryConditions ? window._gmEntryConditions(x.id) : []).includes(id)) window._gmRemoveEntryCondition(x.id, id); },
+        standUpCharges: compAp === null && window.gmCombatStarted,
+        addFx: f => { let x = G(); x._fx = _gmFx(x).filter(o => o.key !== f.key).concat([f]); },
+        endFx: key => { let x = G(), had = _gmFx(x).some(o => o.key === key); x._fx = _gmFx(x).filter(o => o.key !== key); return had; },
+        log: text => { gmLog({ text, kind: 'info', force: true }); window.renderInitiativeTracker(); }
+    };
+}
+window.gmOpenEntryActions = function(id, ev) {
+    let e = (window.gmInitiative || []).find(x => x.id === id);
+    if (!e || !window.apxOpenCreatureActions) return;
+    window.apxOpenCreatureActions(ev, _gmActionCtx(e));
+};
+// From a stat block window: the creature it belongs to (the one taking its turn, when several share it)
+window.gmOpenSbActions = function(o, ev) {
+    let e = _gmAttackerFor(o || {}, 'attack');
+    if (!e || (e.faction === 'player' && !e.companionOf)) { window.APXDice?.notify('Add this creature to the initiative tracker to use its actions there.', { kind: 'warn', open: true }); return; }
+    window.gmOpenEntryActions(e.id, ev);
+};
+window.gmEndEntryFx = function(id, fxId) {
+    let e = (window.gmInitiative || []).find(x => x.id === id); if (!e) return;
+    let f = _gmFx(e).find(x => x.id === fxId);
+    e._fx = _gmFx(e).filter(x => x.id !== fxId);
+    if (f && f.key === 'grappling' && window._gmRemoveEntryCondition && (window._gmEntryConditions ? window._gmEntryConditions(id) : []).includes('staggered')) window._gmRemoveEntryCondition(id, 'staggered');
+    window.renderInitiativeTracker();
+};
+// Its rolls: Disadvantage / Advantage from its maneuvers (attacks only)
+function _gmFxRollMods(e, kind) {
+    let out = { dis: [], adv: [] };
+    if ((kind || 'attack') !== 'attack') return out;
+    _gmFx(e).forEach(f => {
+        if (f.atkDis || (f.next && f.next.dis)) out.dis.push(f.name || f.label);
+        if (f.atkAdv || (f.next && f.next.adv)) out.adv.push(f.name || f.label);
+    });
+    return out;
+}
+// It attacked: next-attack maneuvers are used up, Block ends, Fight Defensively drops to +2
+function _gmFxAttacked(e) {
+    if (!e || !_gmFx(e).length) return;
+    e._fx = _gmFx(e).filter(f => !f.next && !f.untilAttack);
+    e._fx.forEach(f => { if (f.key === 'defensive') f.attacked = true; });
+}
+window._gmFxAttacked = _gmFxAttacked;
 
 window.gmClickApPip = function(id, i) {
     let e = window.gmInitiative.find(x => x.id === id); if (!e) return;
@@ -4252,7 +4359,8 @@ window.renderInitiativeTracker = function() {
                     <span>${fs.label}</span>
                     ${isCurrent ? (n => `<span title="Move actions used this turn (back to 0 when its turn starts)" style="border:1px solid #38bdf8;border-radius:.25rem;padding:0 .3rem;color:#bae6fd;font-weight:800">Moves ${n}</span>`)(_gmMovesThisTurn(e)) : ''}
                     ${e.ap !== undefined && e.ap !== null ? gmApPipsHtml(e) : ''}
-                    ${(e.ac !== undefined && e.ac !== null) ? `<span>AC <b class="text-white">${e.ac}</b></span>` : ''}
+                    ${(e.ac !== undefined && e.ac !== null) ? (b => `<span ${b ? 'title="Fight Defensively"' : ''}>AC <b class="text-white">${(parseInt(e.ac) || 0) + b}</b>${b ? `<b class="text-cyan-300"> (+${b})</b>` : ''}</span>`)(_gmFxAcBonus(e)) : ''}
+                    ${(e.faction !== 'player' || e.companionOf) && window.apxOpenCreatureActions ? `<button onclick="window.gmOpenEntryActions('${e.id}', event)" title="Combat maneuvers and standard actions: spends its AP" class="text-[9px] font-bold text-cyan-300 hover:text-white border border-cyan-700 rounded px-1">⚔ Actions</button>` : ''}
                     ${e.faction !== 'player' && !e.companionOf ? (() => { let wt = _gmNpcWt(e); return wt != null ? `<span title="Wound Threshold: a single hit of more damage than this (after DR/ER) calls for a CON save or a limb is Wounded">WT <b class="text-white">${wt}</b></span>` : ''; })() : ''}
                     ${(() => {
                         // The DR and ER damage is actually reduced by (live: stat block, the player's own sheet…)
@@ -4269,6 +4377,7 @@ window.renderInitiativeTracker = function() {
                     ` : ''}
                 </div>
                 ${e.lairTraitNote ? `<div class="text-[9px] text-amber-400 font-bold">${e.lairTraitNote}</div>` : ''}
+                ${_gmFx(e).length ? `<div class="flex items-center gap-1 flex-wrap">${_gmFx(e).map(f => `<span class="apx-cond-chip" style="border-color:#38bdf8;color:#bae6fd" title="${String(f.name || '').replace(/"/g, '&quot;')}${f.keep ? '' : ': until the start of its next turn'}${f.next ? ' (or its next attack)' : ''}">${f.key === 'defensive' ? `Fight Defensively: +${f.attacked ? 2 : 4} AC` : f.label}<button onclick="window.gmEndEntryFx('${e.id}','${f.id}')" title="End it now">&times;</button></span>`).join('')}</div>` : ''}
                 ${e.lastHit && Date.now() - e.lastHit.t < 1800000 ? `<div class="text-[9px] text-rose-300/90 font-bold truncate" title="${String(e.lastHit.text).replace(/"/g, '&quot;')}">Last hit: ${String(e.lastHit.text).replace(/</g, '&lt;')}</div>` : ''}
                 ${e.faction !== 'player' ? (() => {
                     let conds = window._gmEntryConditions ? window._gmEntryConditions(e.id) : (e.conditions || []);

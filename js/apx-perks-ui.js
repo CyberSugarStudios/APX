@@ -98,6 +98,11 @@
                                 <span class="text-[10px] font-bold text-blue-300 uppercase">AP</span>
                                 <div class="flex items-center gap-1.5 flex-wrap justify-end text-xs" data-comp-ap>${window.apxCompApPipsHtml()}</div>
                             </div>` : ''}
+                            ${window.apxCompOpenActions ? `<div class="flex items-center gap-1 flex-wrap mt-1">
+                                <button onclick="window.apxCompOpenActions(event)" title="Combat maneuvers and standard actions (Fight Defensively, Grapple, Shove…): spends its AP" class="text-[9px] font-bold px-1.5 py-0.5 rounded border border-cyan-700 bg-slate-800 hover:bg-slate-700 text-cyan-300">⚔ Actions</button>
+                                ${window.apxCompFxChipsHtml ? window.apxCompFxChipsHtml() : ''}
+                            </div>` : ''}
+                            ${window.apxCompGearHtml ? window.apxCompGearHtml() : ''}
                             ${sb.powerCards.length ? `
                             <details class="mt-1.5">
                                 <summary class="text-[10px] font-bold text-purple-400 cursor-pointer select-none">Powers (${sb.powerCards.length})</summary>

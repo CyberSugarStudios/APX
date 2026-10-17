@@ -95,7 +95,7 @@
                 "Rank 1. Regain additional HP equal to CON mod when healed.",
                 "Rank 2. Bleed Out timer uses full CON (Survive) check result, not half.",
                 "Rank 3. Healing dice automatically grant maximum possible value.",
-                "Rank 4. Dropping to 0 HP drops to 1 HP instead (Once/Full Rest).",
+                "Rank 4. Dropping to 0 HP drops to 1 HP instead; then spend up to your Rank in Rest Dice to heal (Once/Full Rest).",
                 "Rank 5. Immune to diseases/poisons, no longer age."
             ], effect: (c, r) => {  } },
             { id: "con_defensive", name: "Defensive", attr: "CON", max: 5, baseDesc: "While unarmored, +1 AC, DR, ER per rank.", ranks: [

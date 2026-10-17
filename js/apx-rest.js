@@ -249,6 +249,7 @@
             (s2.traitPowers || []).forEach(tp => { tp.used = 0; });
             s2.luckPts = maxLuck;
             s2.recoverUsed = {};
+            s2.vitalityUsed = false;   // Vitality Rank 4 can save you again
             s2.apCurrent = (typeof calc !== 'undefined' && calc.maxAp) || 6; delete s2.apUsed;
             if (s2.companion) {
                 restoreCompanionSlots(true);

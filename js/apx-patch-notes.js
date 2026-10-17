@@ -11,6 +11,61 @@
     'use strict';
 
     const NOTES = [{
+        version: 'v2026.10.17.0127',
+        released: '2026-10-17T01:27:00',
+        releasedText: 'October 17, 2026 · 1:27 AM',
+        title: 'Playtest 4: Maneuvers, Gear & Burdens',
+        intro: 'Straight from our fourth playtest: NPCs and companions get the full list of maneuvers and actions, Loyal Companions can carry your gear, and carrying too much finally weighs you down. Squeezing costs what it should, and Vitality\'s top rank keeps you on your feet.',
+        index: [
+            ['Combat', [
+                'NPCs, summoned creatures and Loyal Companions have an Actions button with every Combat Maneuver and Standard Action, spending their own AP. Fight Defensively, Fight Offensively and next-attack maneuvers change their rolls (and AC) until their next turn.',
+                'A Large or bigger creature squeezed into a smaller space on a battle map has Disadvantage on attack rolls and AGI saves, applied for you.',
+                'Vitality Rank 4: the first time you\'d drop to 0 HP you\'re left at 1 HP, and spend up to your Rank in Rest Dice to heal. Once per Full Rest.',
+                'A Loyal Companion added to the tracker by hand keeps its AP on its owner\'s sheet, where it\'s spent.'
+            ]],
+            ['Gear', [
+                'Overburdened rules apply: carrying more than your capacity drops you to Speed 1 with Disadvantage on every attack, check and save.',
+                'Backpacks, Bandoliers and Utility Belts have a Wear button and raise what you can carry before you\'re Overburdened.',
+                'Loyal Companions carry gear: Give an item to your companion from your inventory, Take it back from its card, and Wield a weapon you gave it.'
+            ]],
+            ['NPC Crafter', [
+                'Raising an NPC\'s Core Attribute above 10 costs 2 TP per point. Creatures you already built keep their price until you move them over.'
+            ]]
+        ],
+        sheet: [
+            ['Carrying', [
+                'Overburdened: carry more than your carrying capacity and you\'re Overburdened: Speed 1, you can\'t jump or climb, you sink when swimming, and you have Disadvantage on every attack, check and save. The warning beside your carry limit shows it, and the penalties are added to your rolls for you.',
+                'Storage gear: a Backpack, Bandolier or Utility Belt in your inventory has a Wear button. Worn, a Backpack makes your STR count as 2 higher for your carry limit (a Bandolier or Utility Belt, 1 higher). They don\'t stack: only your best one counts, and your carry limit in Inventory shows it.'
+            ]],
+            ['Loyal Companion', [
+                'Actions: your companion\'s card (and its full stat block) has an Actions button with every Combat Maneuver and Standard Action. Each spends its AP. Fight Defensively, Fight Offensively and next-attack maneuvers (Sweeping Strike, Charge, Feint…) change its rolls, show as chips on its card, and end when its next turn starts (✕ ends one early). Your GM keeps its conditions, so Fall Prone and the like remind you to ask them.',
+                'Gear: in your Inventory, Give an item and pick your companion. It shows under Gear on its card, with the weight it carries; Take moves it back. Give it a weapon and Wield it, and the weapon is on its stat block like its own (no TP).',
+                'Squeezed into a smaller space on a battle map, your companion has Disadvantage on its attack rolls and AGI saves.'
+            ]],
+            ['Perks & Rules', [
+                'Vitality Rank 4 is reworked: if you would be reduced to 0 HP, you\'re reduced to 1 HP instead, and you can spend up to your Rank in Rest Dice to heal that much at once (at Rank 3 they roll their maximum). It can\'t happen again until you finish a Full Rest. It works from your GM\'s tracker too.',
+                'Squeezing: when your Large or bigger token squeezes into a smaller space (a narrow gap, a portal), you have Disadvantage on attack rolls and AGI saves until you\'re back in the open.'
+            ]]
+        ],
+        gm: [
+            ['Initiative', [
+                'Every NPC, summoned creature and Loyal Companion in the tracker has an Actions button (and its stat block a Maneuvers & Actions button) listing every Combat Maneuver and Standard Action with its AP. Picking one spends that creature\'s AP and applies what it can: Fight Defensively\'s AC (shown on its card) and Disadvantage, Fight Offensively\'s Advantage, next-attack maneuvers on its next attack, Fall Prone and Stand Up, a won Grapple\'s Staggered (Let Go ends it), a won Escape. Effects show as chips on the card until the creature\'s next turn; ✕ ends one early.',
+                'Contests (Grapple, Escape) ask whether the creature won, so roll them from its stat block first.',
+                'A Loyal Companion added to the tracker by hand shows the AP from its owner\'s sheet (they spend it there), and doesn\'t get a second helping at the start of the turn.',
+                'Players with Vitality Rank 4 who hit 0 HP from your tracker stay at 1 HP (once per Full Rest), and their sheet asks how many Rest Dice to heal with.'
+            ]],
+            ['Battle Maps', [
+                'Squeezing has teeth: a Large or bigger creature squeezed into a smaller space has Disadvantage on attack rolls and AGI saves, added to its rolls (NPCs in your tracker, players and companions on their sheets).'
+            ]],
+            ['NPC Crafter', [
+                'Core Attributes cost 1 TP per point up to a score of 10 and 2 TP per point above it. NPCs and companions built before this keep their old price, so nothing you\'ve made changes on its own; Step 1 shows a button to move one over (a companion only if it still fits its budget). A creature with nothing above 10 moves over by itself.'
+            ]],
+            ['Players\' Gear', [
+                'Players can be Overburdened now (Speed 1, Disadvantage on attacks, checks and saves), and wear Backpacks, Bandoliers and Utility Belts to carry more.',
+                'Loyal Companions carry gear their owners give them, and can wield the weapons: you\'ll see those on the companion\'s stat block.'
+            ]]
+        ]
+    }, {
         version: 'v2026.10.12.0225',
         released: '2026-10-12T02:25:00',
         releasedText: 'October 12, 2026 · 2:25 AM',

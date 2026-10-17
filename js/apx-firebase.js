@@ -550,10 +550,11 @@
     // Stored in worldCodes/{inviteCode}/players/{uid} as { _gmHp: { hp, tempHp, at } }.
     // The player never writes this field — only the GM does. Both sides compare _gmHp.at
     // with the doc's updatedAt (the player's last save) to know which value is newer.
-    async function setGmHpOverride(inviteCode, uid, hp, tempHp) {
+    async function setGmHpOverride(inviteCode, uid, hp, tempHp, extra) {
         if (!inviteCode || !uid) return;
         let v = { hp, at: firebase.firestore.FieldValue.serverTimestamp() };
         if (tempHp !== undefined && tempHp !== null) v.tempHp = tempHp;
+        if (extra && extra.vitality) v.vitality = true; else v.vitality = firebase.firestore.FieldValue.delete();   // (Vitality Rank 4 just saved them)
         await db.collection('worldCodes').doc(inviteCode)
             .collection('players').doc(uid)
             .set({ _gmHp: v }, { merge: true });

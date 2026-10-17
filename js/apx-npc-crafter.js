@@ -117,6 +117,7 @@ window.ncInnateWeaponTp = ncInnateWeaponTp;
 function getBlankCompanion() {
     return {
         name: "New NPC",
+        attrRule: 2,   // Core Attributes above 10 cost 2 TP per point
         currentHp: null, // null = not yet set, defaults to computed Max HP
         extraTpPurchased: 0,
         weapons: [], // manufactured weapons, built via the same Weapon Forge as the player (target: 'companion')
@@ -220,11 +221,33 @@ window.companionGearTp = function(c) {
     return out;
 };
 
+// A Core Attribute's TP: 1 per point raised (or refunded, below 5), and 2 per point above 10 (score 11+).
+// Creatures built before that price (attrRule unset) keep theirs until the GM moves them to it (Step 1),
+// so no saved NPC or companion changes on its own; one with nothing above 10 simply moves over.
+function npcAttrTp(b, c) {
+    b = parseInt(b) || 0;
+    if (!c || c.attrRule !== 2 || b <= 5) return b;
+    return 5 + 2 * (b - 5);
+}
+window.npcAttrTp = npcAttrTp;
+function ncAttrRuleCheck(c) { if (c && !c.attrRule && !ATTRIBUTES.some(a => (c.attrBonuses[a] || 0) > 5)) c.attrRule = 2; }
+window.ncUseNewAttrPrices = function() {
+    let c = ncActiveCompanion(); if (!c) return;
+    let before = window.companionTpSpent();
+    c.attrRule = 2;
+    let after = window.companionTpSpent();
+    if (ncTarget !== 'gm' && after > window.companionTotalTp() && after > before) {   // (a companion pays from its budget)
+        c.attrRule = undefined;
+        window.apxAlert ? window.apxAlert(`The new prices cost ${after - before} TP more than this companion has. Lower an attribute above 10 first.`, { title: 'Attribute Prices' }) : null;
+        return;
+    }
+    ncRenderAll();
+};
 window.companionTpSpent = function() {
     let c = ncActiveCompanion();
     if (!c) return 0;
     let spent = 0;
-    ATTRIBUTES.forEach(a => { spent += c.attrBonuses[a]; }); // negative bonuses refund automatically via sum
+    ATTRIBUTES.forEach(a => { spent += npcAttrTp(c.attrBonuses[a], c); }); // negative bonuses refund automatically via sum
     spent += c.hpTierBonus;
     // Manufactured gear (Sept 23, 2026 rule): priced like the innate equivalent -- see npcWeaponTp / npcArmorTp in apx-data.js
     spent += window.companionGearTp(c).total;
@@ -384,7 +407,9 @@ function ncSpend(delta, applyFn) {
 // ---- Step 1: Attributes & Vitals ----
 window.ncAdjustAttr = function(attr, delta) {
     let c = ncActiveCompanion();
-    let cost = delta; // +1 costs 1 TP, -1 refunds 1 TP
+    ncAttrRuleCheck(c);
+    let b = c.attrBonuses[attr] || 0;
+    let cost = npcAttrTp(b + delta, c) - npcAttrTp(b, c); // +1 costs 1 TP (2 above 10), -1 refunds the same
     ncSpend(cost, () => { c.attrBonuses[attr] += delta; });
 };
 window.ncAdjustHpTier = function(delta) {
@@ -1313,7 +1338,9 @@ window.companionStatBlock = function() {
         if (want) handsUsed.add(want);
         return want || null;
     };
-    (c.weapons || []).forEach((w, wIdx) => {
+    // Weapons its owner gave it (Gear on its card, wielded): no TP, they're carried gear
+    let givenW = (Array.isArray(c.gear) ? c.gear : []).filter(g => g && g.isWeapon && g.wielded && g.weaponData).map(g => Object.assign({}, g.weaponData, { _given: true }));
+    (c.weapons || []).concat(givenW).forEach((w, wIdx) => {
         let hand = handOf(w);
         let rngd = w.category === 'ranged';
         let dmgMod = companionWeaponDamageModifier(w, mods) + ist(rngd ? 'rangedDmg' : 'meleeDmg') + (rngd ? 0 : hugeMelee);
@@ -1330,7 +1357,7 @@ window.companionStatBlock = function() {
             range: w.range || (w.properties && w.properties.thrown ? `${5 + (mods.STR || 0)}/${2 * (5 + (mods.STR || 0))}` : null),
             hand, handLabel: hand === 'both' ? 'Both Hands' : hand === 'main' ? 'Main Hand' : hand === 'off' ? 'Off Hand' : 'No free hand',
             hands: w.weightClass === 'heavy' ? 2 : 1,
-            tooBig: !!sizeFx.noHeavy && w.weightClass === 'heavy'
+            tooBig: !!sizeFx.noHeavy && w.weightClass === 'heavy', given: !!w._given
         });
         // Medium melee weapons can also be wielded 2-handed: STR only,
         // +1 AP, +1 die step -- shown as a second linked row, same as the
@@ -1597,7 +1624,11 @@ window.apxCompClickPip = function(i) { let cur = compApCur(); window.apxCompSetA
 window.apxCompSpendAp = function(n) { window.apxCompSetAp(compApCur() - n); };
 // Its turn: gain its AP on top of what it saved (Surprised on the first turn: just 1)
 window.apxCompFillAp = function() { window.apxCompSetAp(compApMax()); };
-window.apxCompStartTurn = function(surprised) { window.apxCompSetAp(surprised ? 1 : compApCur() + compApMax()); };
+window.apxCompStartTurn = function(surprised) {
+    let c = window.state && window.state.companion;
+    if (c && Array.isArray(c.turnFx) && c.turnFx.length) { c.turnFx = c.turnFx.filter(f => f.keep); setTimeout(() => window.recalculateMath && window.recalculateMath(), 0); }   // its maneuvers end as its turn starts
+    window.apxCompSetAp(surprised ? 1 : compApCur() + compApMax());
+};
 window.apxCompApPipsHtml = function() {
     let max = compApMax(), cur = compApCur();
     let pips = Array.from({ length: Math.min(200, Math.max(max, cur) + 1) }, (_, i) => {
@@ -1608,6 +1639,92 @@ window.apxCompApPipsHtml = function() {
 };
 window.apxRenderCompAp = function() {
     document.querySelectorAll('[data-comp-ap]').forEach(el => { el.innerHTML = window.apxCompApPipsHtml(); });
+};
+// Its maneuvers and standard actions (js/apx-creature-actions.js): AP from its pips, effects on
+// state.companion.turnFx until its next turn (Fight Defensively/Offensively, next-attack maneuvers)
+function compFx() { let c = window.state && window.state.companion; if (!c) return []; if (!Array.isArray(c.turnFx)) c.turnFx = []; return c.turnFx; }
+window.apxCompFx = compFx;
+window.apxCompOpenActions = function(ev) {
+    let c = window.state && window.state.companion; if (!c || !window.apxOpenCreatureActions) return;
+    let after = () => { window.apxRenderCompAp(); window.refreshCompanionDetail && window.refreshCompanionDetail(); window.recalculateMath && window.recalculateMath(); window.scheduleAutoSave?.(); };
+    window.apxOpenCreatureActions(ev, {
+        name: c.name || 'Companion',
+        have: compApCur, spend: n => window.apxCompSpendAp(n),
+        // (a Move from here counts like one on the map; its conditions are kept on the GM's tracker)
+        moveCost: () => { let tm = window.state.compTurnMoves, key = window._pwTurnKey ? window._pwTurnKey() : null; return (tm && key && tm.key === key ? (parseInt(tm.n) || 0) : 0) + 1; },
+        move: () => { let key = window._pwTurnKey ? window._pwTurnKey() : null; if (!key) return; let tm = window.state.compTurnMoves; window.state.compTurnMoves = { key, n: (tm && tm.key === key ? (parseInt(tm.n) || 0) : 0) + 1, left: 0 }; window._pwMoveNotes && window._pwMoveNotes(); },
+        addFx: f => { c.turnFx = compFx().filter(o => o.key !== f.key).concat([f]); },
+        endFx: key => { let had = compFx().some(o => o.key === key); c.turnFx = compFx().filter(o => o.key !== key); return had; },
+        log: (text, a) => { window.APXDice?.notify(text + (a && (a.cond || a.uncond || a.endFx === 'grappling') ? ` Your GM tracks its conditions: ask them to update it${a.cond ? ` (${a.cond === 'prone' ? 'Prone' : 'Staggered'})` : ''}.` : ''), { kind: 'note' }); after(); }
+    });
+};
+window.apxCompEndFx = function(id) {
+    let c = window.state && window.state.companion; if (!c) return;
+    c.turnFx = compFx().filter(x => x.id !== id);
+    window.recalculateMath && window.recalculateMath(); window.refreshCompanionDetail && window.refreshCompanionDetail(); window.scheduleAutoSave?.();
+};
+window.apxCompFxChipsHtml = function() {
+    return compFx().map(f => `<span class="apx-cond-chip" style="border-color:#38bdf8;color:#bae6fd" title="${String(f.name || '').replace(/"/g, '&quot;')}${f.keep ? '' : ': until the start of its next turn'}">${f.key === 'defensive' ? `Fight Defensively: +${f.attacked ? 2 : 4} AC` : f.label}<button onclick="window.apxCompEndFx('${f.id}')" title="End it now">&times;</button></span>`).join('');
+};
+// ── Loyal Companion gear (character sheet) ───────────────────
+// Things you hand your companion from your Inventory (Give → your companion) go to
+// state.companion.gear (inventory items, as they were). Take moves one back. A weapon
+// it carries can be wielded: it shows on its stat block like its own weapons (no TP).
+function compGearRefresh() { if (typeof window.recalculateMath === 'function') window.recalculateMath(); window.refreshCompanionDetail && window.refreshCompanionDetail(); window.scheduleAutoSave?.(); }
+window.apxCompGive = async function(idx) {
+    let st = window.state, c = st && st.companion, item = st && st.items && st.items[idx];
+    if (!c || !item) return;
+    let ct = parseInt(item.ct) || 1, qty = 1;
+    if (ct > 1) {
+        let ans = window.apxPrompt ? await window.apxPrompt(`Give how many ${item.name} to ${c.name || 'your companion'}? (you have ${ct})`, String(ct), { title: 'Give to companion', okLabel: 'Give' }) : String(ct);
+        if (ans === null) return;
+        qty = Math.max(0, Math.min(ct, parseInt(ans) || 0));
+        if (!qty) return;
+    }
+    if (st.items[idx] !== item) return;   // inventory changed meanwhile
+    let moved = JSON.parse(JSON.stringify(item)); moved.ct = qty;
+    if (moved.isCustomEquippable) moved.equipped = false;
+    if (moved.storageWorn) moved.storageWorn = false;
+    if (moved.isConsumable && qty < ct) moved.chargesRemaining = moved.charges;   // the part-used one stays with you
+    if (qty >= ct) st.items.splice(idx, 1); else item.ct = ct - qty;
+    if (!Array.isArray(c.gear)) c.gear = [];
+    let same = !moved.isWeapon && !moved.isArmor && !moved.isConsumable && !moved.isCustomEquippable && c.gear.find(g => g.name === moved.name && g.wt === moved.wt && !g.isWeapon && !g.isArmor && !g.isConsumable && !g.isCustomEquippable);
+    if (same) same.ct = (parseInt(same.ct) || 1) + qty; else c.gear.push(moved);
+    window.APXDice?.notify(`${c.name || 'Your companion'} carries ${qty > 1 ? qty + '× ' : ''}${item.name} (its Gear, on its card).`, { kind: 'note' });
+    compGearRefresh();
+};
+window.apxCompTake = function(gi) {
+    let st = window.state, c = st && st.companion, g = c && Array.isArray(c.gear) ? c.gear[gi] : null;
+    if (!g) return;
+    c.gear.splice(gi, 1);
+    let back = JSON.parse(JSON.stringify(g)); delete back.wielded;
+    if (!Array.isArray(st.items)) st.items = [];
+    let same = !back.isWeapon && !back.isArmor && !back.isConsumable && !back.isCustomEquippable && st.items.find(i => i.name === back.name && i.wt === back.wt && !i.isWeapon && !i.isArmor && !i.isConsumable && !i.isCustomEquippable && !i.storageWorn);
+    if (same) same.ct = (parseInt(same.ct) || 1) + (parseInt(back.ct) || 1); else st.items.push(back);
+    compGearRefresh();
+};
+window.apxCompWield = function(gi) {
+    let c = window.state && window.state.companion, g = c && Array.isArray(c.gear) ? c.gear[gi] : null;
+    if (!g || !g.isWeapon) return;
+    g.wielded = !g.wielded;
+    compGearRefresh();
+};
+window.apxCompGearHtml = function() {
+    let c = window.state && window.state.companion; if (!c) return '';
+    let gear = Array.isArray(c.gear) ? c.gear : [];
+    let e = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    let wt = gear.reduce((a, g) => a + (Number(g.wt) || 0) * (parseInt(g.ct) || 1), 0);
+    return `<details class="mt-1.5" ${c._gearOpen ? 'open' : ''} ontoggle="window.state.companion && (window.state.companion._gearOpen = this.open)">
+        <summary class="text-[10px] font-bold text-orange-300 cursor-pointer select-none">Gear (${gear.length})${wt ? ` · ${Math.round(wt * 10) / 10} lb` : ''}</summary>
+        <div class="mt-1 space-y-0.5">
+            ${gear.length ? gear.map((g, i) => `<div class="flex items-center gap-1 bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-[10px]">
+                <span class="flex-1 min-w-0 truncate text-slate-200 font-bold" title="${e(g.desc || g.name)}">${e(g.name)}${(parseInt(g.ct) || 1) > 1 ? ` <span class="text-slate-500">×${parseInt(g.ct)}</span>` : ''}</span>
+                <span class="text-slate-500">${Number(g.wt) || 0} lb</span>
+                ${g.isWeapon ? `<button onclick="window.apxCompWield(${i})" title="${g.wielded ? 'Wielded: on its stat block. Click to stow it.' : 'Wield it: it shows on its stat block (no TP)'}" class="font-bold px-1 rounded border ${g.wielded ? 'border-emerald-600 text-emerald-300' : 'border-cyan-700 text-cyan-300'}">${g.wielded ? 'Wielded' : 'Wield'}</button>` : ''}
+                <button onclick="window.apxCompTake(${i})" title="Take it back into your Inventory" class="font-bold px-1 rounded border border-slate-600 text-slate-300 hover:text-white">Take</button>
+            </div>`).join('') : '<div class="text-[9px] text-slate-500">Nothing yet. In your Inventory, click <b>Give</b> on an item and pick your companion.</div>'}
+        </div>
+    </details>`;
 };
 // "Use" on a companion power: spends its AP
 window.apxCompUsePower = function(ap, name) {
@@ -1825,6 +1942,7 @@ function buildStatBlockHtml(sb, editable) {
         </div>
         ${sb._isCompanion && editable ? `<div class="flex items-center gap-1.5 bg-slate-900 border border-blue-800/50 rounded p-2 mb-3 text-xs">
             <span class="text-[10px] font-bold text-blue-300 uppercase mr-1">AP</span><span class="flex items-center gap-1.5 flex-wrap" data-comp-ap>${window.apxCompApPipsHtml()}</span></div>` : ''}
+        ${window.apxOpenCreatureActions && ((sb._isCompanion && editable && window.apxCompOpenActions) || (!(sb._isCompanion && editable) && window.gmOpenSbActions && (sb._npcId || sb._initId || sb._compOwner))) ? `<div class="mb-3"><button type="button" onclick='${sb._isCompanion && editable ? 'window.apxCompOpenActions(event)' : `window.gmOpenSbActions(${JSON.stringify(sb._isCompanion ? { companion: true, compOwner: sb._compOwner || null } : { npcId: sb._npcId || undefined, initId: sb._initId || undefined }).replace(/'/g, '')}, event)`}' title="Combat maneuvers and standard actions (Fight Defensively, Grapple, Shove, Fall Prone…): spends its AP" class="w-full text-[10px] font-black uppercase tracking-wide rounded border border-cyan-700 bg-slate-800 hover:bg-slate-700 text-cyan-300 py-1">⚔ Maneuvers &amp; Actions</button></div>` : ''}
         <div class="flex items-center justify-between bg-slate-900 border border-red-800/50 rounded p-2 mb-3">
             <span class="text-xs font-bold text-slate-200">Hit Points</span>
             ${hpControls}
@@ -1846,7 +1964,7 @@ function buildStatBlockHtml(sb, editable) {
             ${sb.equippedWeapons.length ? sb.equippedWeapons.map(w => {
                 // Two-handed attacks need 2 free hands: with a shield held they're listed but can't be rolled
                 let blocked = (w.hands || 1) > sb.freeHands;
-                let handTag = w.handLabel ? ` <span class="text-[9px] font-bold text-cyan-300/80">(${w.handLabel}${!w.isTwoHanded && (w.hand === 'main' || w.hand === 'off') ? `<button type="button" title="Switch hands" onclick="window.npcSwapWeaponHand(${sb._npcId ? `'${sb._npcId}'` : 'null'}, ${w.weaponIdx})" class="ml-0.5 text-cyan-400 hover:text-white">⇄</button>` : ''})</span>` : '';
+                let handTag = w.handLabel ? ` <span class="text-[9px] font-bold text-cyan-300/80">(${w.handLabel}${!w.isTwoHanded && !w.given && (w.hand === 'main' || w.hand === 'off') ? `<button type="button" title="Switch hands" onclick="window.npcSwapWeaponHand(${sb._npcId ? `'${sb._npcId}'` : 'null'}, ${w.weaponIdx})" class="ml-0.5 text-cyan-400 hover:text-white">⇄</button>` : ''})</span>` : '';
                 if (w.tooBig) handTag += ` <span class="text-[9px] font-bold text-red-400">(Tiny: can't wield Heavy weapons)</span>`;
                 return `<div class="text-xs ${blocked ? 'text-slate-500' : 'text-slate-200'}" data-roll-label="${esc(w.name)} damage">${esc(w.name)}${handTag}: ${blocked
                     ? `<span data-no-roll title="Needs ${w.hands} free hands. Stow the shield to use it.">+${w.atk} to hit, ${w.dmg} damage</span>, ${w.ap} AP${w.range ? `, Range ${esc(String(w.range))} sq` : ''} <span class="text-[10px] text-amber-500/80">(needs ${w.hands} free hands)</span>`
@@ -2246,14 +2364,17 @@ function ncRenderStep1() {
     let rows = ATTRIBUTES.map(a => `
         <div class="flex items-center justify-between bg-slate-900 border border-slate-700 rounded px-2 py-1.5">
             <span class="text-xs font-bold text-white w-10">${a}</span>
-            <span class="text-[10px] text-slate-500">5 ${c.attrBonuses[a] >= 0 ? '+' : ''}${c.attrBonuses[a]} = ${5 + c.attrBonuses[a]}</span>
+            <span class="text-[10px] text-slate-500">5 ${c.attrBonuses[a] >= 0 ? '+' : ''}${c.attrBonuses[a]} = ${5 + c.attrBonuses[a]}${c.attrRule === 2 && c.attrBonuses[a] >= 5 ? ' <span class="text-amber-500" title="Each point above 10 costs 2 TP">(2 TP/pt)</span>' : ''}</span>
             <div class="flex items-center gap-1">
                 <button onclick="window.ncAdjustAttr('${a}', -1)" class="w-6 h-6 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">-</button>
                 <button onclick="window.ncAdjustAttr('${a}', 1)" class="w-6 h-6 rounded bg-amber-700 hover:bg-amber-600 text-white font-bold">+</button>
             </div>
         </div>
     `).join('');
-    document.getElementById('ncStep1Attrs').innerHTML = rows;
+    ncAttrRuleCheck(c);
+    // Built before attributes above 10 cost 2 TP each: kept as it was until you move it over
+    let oldPrices = !c.attrRule && ATTRIBUTES.some(a => (c.attrBonuses[a] || 0) > 5);
+    document.getElementById('ncStep1Attrs').innerHTML = rows + (oldPrices ? `<div class="col-span-full text-[10px] text-amber-300 bg-amber-950/40 border border-amber-700/60 rounded px-2 py-1.5 leading-tight">Core Attributes above 10 now cost 2 TP per point. This creature was built before, and keeps its old prices (nothing about it changes) until you <button onclick="window.ncUseNewAttrPrices()" class="underline font-bold text-amber-200 hover:text-white">use the new prices</button>.</div>` : '');
     document.getElementById('ncStep1Extras').innerHTML = `
         <div class="flex items-center justify-between bg-slate-900 border border-slate-700 rounded px-2 py-1.5">
             <span class="text-xs font-bold text-white">Max HP (+5/Tier per purchase): x${c.hpTierBonus}</span>
