@@ -450,8 +450,8 @@
                 }
                 .apx-tb-btn:hover { filter: brightness(1.18); }
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=202610200443">
-    <link rel="stylesheet" href="css/tailwind.css?v=202610200443">
+    <link rel="stylesheet" href="css/apx-themes.css?v=202610200845">
+    <link rel="stylesheet" href="css/tailwind.css?v=202610200845">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
@@ -1565,40 +1565,40 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=202610200443"></script>
-    <script src="js/apx-patch-notes.js?v=202610200443"></script>
-    <script src="js/apx-dice.js?v=202610200443"></script>
-    <script src="js/apx-data.js?v=202610200443"></script>
-    <script src="js/apx-item-effects.js?v=202610200443"></script>
-    <script src="js/apx-exo.js?v=202610200443"></script>
-    <script src="js/apx-perks-db.js?v=202610200443"></script>
-    <script src="js/apx-migrations.js?v=202610200443"></script>
-    <script src="js/apx-state.js?v=202610200443"></script>
-    <script src="js/apx-craft-shared.js?v=202610200443"></script>
-    <script src="js/apx-armor-forge.js?v=202610200443"></script>
-    <script src="js/apx-weapon-forge.js?v=202610200443"></script>
-    <script src="js/apx-consumable-crafter.js?v=202610200443"></script>
-    <script src="js/apx-perks-ui.js?v=202610200443"></script>
-    <script src="js/apx-power-crafter.js?v=202610200443"></script>
-    <script src="js/apx-npc-crafter.js?v=202610200443"></script>
-    <script src="js/apx-creature-actions.js?v=202610200443"></script>
-    <script src="js/apx-inventory-ui.js?v=202610200443"></script>
-    <script src="js/apx-ancestry-wizard.js?v=202610200443"></script>
-    <script src="js/apx-gm-screen.js?v=202610200443"></script>
-    <script src="js/apx-loot-maker.js?v=202610200443"></script>
-    <script src="js/apx-library.js?v=202610200443"></script>
-    <script src="js/apx-gm-content.js?v=202610200443"></script>
-    <script src="js/apx-gmtools-main.js?v=202610200443"></script>
+    <script src="js/apx-dialogs.js?v=202610200845"></script>
+    <script src="js/apx-patch-notes.js?v=202610200845"></script>
+    <script src="js/apx-dice.js?v=202610200845"></script>
+    <script src="js/apx-data.js?v=202610200845"></script>
+    <script src="js/apx-item-effects.js?v=202610200845"></script>
+    <script src="js/apx-exo.js?v=202610200845"></script>
+    <script src="js/apx-perks-db.js?v=202610200845"></script>
+    <script src="js/apx-migrations.js?v=202610200845"></script>
+    <script src="js/apx-state.js?v=202610200845"></script>
+    <script src="js/apx-craft-shared.js?v=202610200845"></script>
+    <script src="js/apx-armor-forge.js?v=202610200845"></script>
+    <script src="js/apx-weapon-forge.js?v=202610200845"></script>
+    <script src="js/apx-consumable-crafter.js?v=202610200845"></script>
+    <script src="js/apx-perks-ui.js?v=202610200845"></script>
+    <script src="js/apx-power-crafter.js?v=202610200845"></script>
+    <script src="js/apx-npc-crafter.js?v=202610200845"></script>
+    <script src="js/apx-creature-actions.js?v=202610200845"></script>
+    <script src="js/apx-inventory-ui.js?v=202610200845"></script>
+    <script src="js/apx-ancestry-wizard.js?v=202610200845"></script>
+    <script src="js/apx-gm-screen.js?v=202610200845"></script>
+    <script src="js/apx-loot-maker.js?v=202610200845"></script>
+    <script src="js/apx-library.js?v=202610200845"></script>
+    <script src="js/apx-gm-content.js?v=202610200845"></script>
+    <script src="js/apx-gmtools-main.js?v=202610200845"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=202610200443"></script>
-    <script src="js/apx-firebase.js?v=202610200443"></script>
-    <script src="js/apx-battlemap.js?v=202610200443"></script>
-    <script src="js/apx-fog.js?v=202610200443"></script>
-    <script src="js/apx-map-tiles.js?v=202610200443"></script>
+    <script src="js/firebase-config.js?v=202610200845"></script>
+    <script src="js/apx-firebase.js?v=202610200845"></script>
+    <script src="js/apx-battlemap.js?v=202610200845"></script>
+    <script src="js/apx-fog.js?v=202610200845"></script>
+    <script src="js/apx-map-tiles.js?v=202610200845"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -1922,8 +1922,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         apGain1: !!_ct?._apFirstSurprised,
                         // Flurry: the player on turn hit with this weapon, so their next attacks with it cost 1 less AP
                         flurry: (() => { let f = _ct && (window._gmFlurry || {})[_ct.id]; return f && f.turn === window.gmTurnNumber && _ct.playerUid ? { uid: _ct.playerUid, weapon: f.weapon, target: f.targetName } : null; })(),
+                        // The player on turn's weapon hits this turn (their Flurry perk)
+                        wpnHits: (() => { let f = _ct && (window._gmWpnHits || {})[_ct.id]; return f && f.turn === window.gmTurnNumber && _ct.playerUid ? { uid: _ct.playerUid, n: f.n } : null; })(),
                         // Cleave: the player on turn dropped a creature with this weapon: one attack with it for 0 AP
-                        cleave: (() => { let c = _ct && (window._gmCleave || {})[_ct.id]; return c && c.turn === window.gmTurnNumber && _ct.playerUid && !c.used ? { uid: _ct.playerUid, weapon: c.weapon, key: c.key } : null; })()
+                        cleave: (() => { let c = _ct && (window._gmCleave || {})[_ct.id]; return c && c.turn === window.gmTurnNumber && _ct.playerUid && !c.used ? { uid: _ct.playerUid, weapon: c.weapon, key: c.key } : null; })(),
+                        // Creatures Fighting Offensively (attacks against them have Advantage): their public names
+                        fo: window._gmFoTargets ? window._gmFoTargets(null).map(f => { let e = (window.gmInitiative || []).find(x => x.id === f.id); return e && window._gmPublicName ? window._gmPublicName(e) : f.name; }) : []
                     } : { id: null, ended: true },
                     publicNotes: {
                         worldMapTiles: w.notesV2.worldMapTiles || null,
@@ -4122,6 +4126,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let speed = 3, sbm = null;   // (its stat block: other speeds, Hover)
         if (cur.sourceNpcId && typeof ncStatBlockFor === 'function' && (window.gmNpcs||[]).some(g=>g.id===cur.sourceNpcId)) { try { sbm = ncStatBlockFor(cur.sourceNpcId); speed = sbm.speed; } catch (e) {} }
         else if (cur.companionOf) { let pm = (window.gmParty||[]).find(p=>p.fileName===cur.companionOf); let csb = pm && typeof gmCompanionSb === 'function' ? gmCompanionSb(pm) : null; if (csb) { speed = csb.speed; sbm = csb; } }
+        if ((cur._fx || []).some(f => f.key === 'chilled')) speed = Math.max(0, speed - 1);   // (Cold Elemental Critical)
         let key = cur.id + ':' + window.gmTurnNumber;
         let tm = cur._moves && cur._moves.key === key ? cur._moves : { key, n: 0, left: 0 };
         let conds = window._gmEntryConditions ? window._gmEntryConditions(cur.id) : (cur.conditions || []);
@@ -5017,6 +5022,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }).join('');
         panel.innerHTML=`<div id="btPickerPanelHdr" title="Drag to move" style="background:#065f46;padding:0.5rem 0.75rem;font-size:0.75rem;font-weight:700;color:#6ee7b7;display:flex;align-items:center;justify-content:space-between;">Add Token <button onclick="document.getElementById('btPickerPanel').remove()" style="background:none;border:none;color:#6ee7b7;font-size:1rem;cursor:pointer;">X</button></div>
             ${partyRows ? `<button onclick="window._btAddParty('${mapId}','${winId}')" title="Add every party member who isn't on this map yet" style="width:100%;background:#1e3a8a;border:none;border-bottom:1px solid #334155;color:#bfdbfe;font-size:0.72rem;font-weight:800;padding:0.45rem 0.6rem;cursor:pointer;">+ Add Party</button>` : ''}
+            <div id="btPickerStatus" style="display:none;background:#022c22;color:#6ee7b7;font-size:0.65rem;font-weight:700;padding:0.3rem 0.6rem;border-bottom:1px solid #065f46;"></div>
             <div style="max-height:60vh;overflow-y:auto;">${partyRows||'<div style="padding:0.5rem;font-size:0.65rem;color:#475569;">No party members found</div>'}${npcRows||'<div style="padding:0.5rem;font-size:0.65rem;color:#475569;">No world NPCs</div>'}</div>`;
         document.body.appendChild(panel);
         window.apxMakeDraggable(panel, document.getElementById('btPickerPanelHdr'));
@@ -5085,7 +5091,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Returns the created token object
     window._btAddToken = function(mapId,winId,name,type,color,worldNpcId,playerUid,faction) {
-        document.getElementById('btPickerPanel')?.remove();
+        // (the Add Token list stays open, so several can be added in a row; its X closes it)
         if (worldNpcId === 'null' || worldNpcId === '') worldNpcId = null;
         let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); if(!map) return null;
         if(!map.battleTokens) map.battleTokens=[];
@@ -5124,6 +5130,8 @@ document.addEventListener('DOMContentLoaded', () => {
         window._gmRenumber();
         if (typeof window.renderInitiativeTracker === 'function') window.renderInitiativeTracker();
         saveWorldNotes(); _btRenderTokens(mapId,winId);
+        let stEl = document.getElementById('btPickerStatus');
+        if (stEl) { stEl._n = (stEl._n || 0) + 1; stEl.style.display = ''; stEl.textContent = `✓ Added ${tok.name}${stEl._n > 1 ? ` (${stEl._n} added)` : ''}`; }
         return tok;
     };
 
@@ -5153,7 +5161,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window._btPickFactionThenAdd = function(mapId, winId, name, type, worldNpcId, playerUid) {
-        document.getElementById('btPickerPanel')?.remove();
+        document.getElementById('btFactionPick2')?.remove();
         let fo = document.createElement('div');
         fo.id = 'btFactionPick2';
         fo.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;';
@@ -7085,8 +7093,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </script>
     <div id="floatingWindowContainer"></div>
 
-    <script src="js/apx-chat.js?v=202610200443"></script>
-    <script src="js/apx-extras.js?v=202610200443"></script>
-    <script src="js/apx-theme-light.js?v=202610200443"></script>
+    <script src="js/apx-chat.js?v=202610200845"></script>
+    <script src="js/apx-extras.js?v=202610200845"></script>
+    <script src="js/apx-theme-light.js?v=202610200845"></script>
 </body>
 </html>

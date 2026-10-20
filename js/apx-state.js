@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.10.20.0443';
+window.APX_VERSION = 'v2026.10.20.0845';
 
         window.state = getInitialState();
 
@@ -336,6 +336,9 @@ window.APX_VERSION = 'v2026.10.20.0443';
             (st.ancestryEnvVulnerabilities || []).forEach(e => { if (e.type) def.res[N(e.type)] = (def.res[N(e.type)] || 0) - 5; });
             ((typeof calc !== 'undefined' && calc.customItemErBonuses) || []).forEach(b => { if (b.type) def.res[N(b.type)] = (def.res[N(b.type)] || 0) + (b.amount || 0); });
             def.halfBypass = ((st.perks || {}).con_ironclad || 0) >= 4;
+            // A Conduit Exo-Suit's Breach: +5 ER against each of its Energy types
+            let ex = (typeof calc !== 'undefined' && calc.exo) || null;
+            ((ex && ex.breach) || []).forEach(t => { def.res[N(t)] = (def.res[N(t)] || 0) + 5; });
             return def;
         };
         window.handleMathInput = function(stateKey, inputEl) {
@@ -365,6 +368,12 @@ window.APX_VERSION = 'v2026.10.20.0443';
                             useAtk = !!(t.fromSuggest && fresh);
                             let eff = window.apxEffectiveConditions ? window.apxEffectiveConditions(window.state.conditions || [], window.state).map(c => c.id) : [];
                             let res = (window.APXDamage.throughTemp ? window.APXDamage.throughTemp.bind(null, raw, window.state.tempHp || 0) : window.APXDamage.mitigate.bind(null, raw))(t, def, { ignore: useAtk ? window.APXDamage.ignoreOf(atk) : null, bypassRes: eff.includes('incapacitated'), halfBypass: def.halfBypass });
+                            // Tearing (the attack's weapon): at least 2 damage per damage die, whatever DR/ER take off
+                            if (useAtk && (atk.props || []).includes('tearing')) {
+                                let nd = 0; String(atk.dice || '').replace(/(\d*)d\d+/gi, (m, k) => { nd += parseInt(k || '1', 10); return m; });
+                                let fl = 2 * Math.max(1, nd);
+                                if (res.dmg < fl) res = Object.assign({}, res, { dmg: fl, text: `${res.text}, raised to ${fl} (Tearing: at least 2 per damage die)` });
+                            }
                             if (useAtk) (window._pwUsedAtk = window._pwUsedAtk || {})[atk.id] = true;
                             let r2 = window.apxApplyHpInput('-' + res.dmg, window.state.currentHp, window.state.tempHp, maxHp);
                             if (!r2) return;

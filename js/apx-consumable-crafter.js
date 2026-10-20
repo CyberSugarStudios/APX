@@ -127,12 +127,13 @@ window.ccSetCondPick = function(key, field, val) {
     if (ccSaveInfo().incap.length) ccDraft.durationMods.actionInterrupt = false;
     ccRenderAll();
 };
-function ccCondPickRow(key) {
-    let conds = (window.APX_POWER_COND_UTILS || {})[key], p = (ccDraft.condPicks || {})[key] || {};
+function ccCondPickRows(key, count) { return window.apxCondPickKeys(key, count).map((pk, i) => ccCondPickRow(pk, count > 1 ? i + 1 : 0)).join(''); }
+function ccCondPickRow(key, nth) {
+    let conds = (window.APX_POWER_COND_UTILS || {})[key.split('#')[0]], p = (ccDraft.condPicks || {})[key] || {};
     let name = id => ((typeof CONDITIONS !== 'undefined' ? CONDITIONS : []).find(c => c.id === id) || {}).name || id;
     let done = p.mode && (!conds || conds.includes(p.cond));
     return `<div class="flex flex-wrap items-center gap-1 bg-slate-950 border ${done ? 'border-purple-700/60' : 'border-red-500/70'} rounded px-2 py-1.5 ml-3" data-cc-condpick="${key}">
-        ${ccSeg(p.mode === 'inflict', `window.ccSetCondPick('${key}','mode','inflict')`, 'Inflict')}${ccSeg(p.mode === 'end', `window.ccSetCondPick('${key}','mode','end')`, 'End')}
+        ${nth ? `<span class="text-[10px] font-black text-purple-300 mr-1">#${nth}</span>` : ''}${ccSeg(p.mode === 'inflict', `window.ccSetCondPick('${key}','mode','inflict')`, 'Inflict')}${ccSeg(p.mode === 'end', `window.ccSetCondPick('${key}','mode','end')`, 'End')}
         ${conds ? `<select onchange="window.ccSetCondPick('${key}','cond',this.value)" class="bg-slate-800 border-slate-600 text-[10px] py-0.5"><option value="">Which Condition?</option>${conds.map(c => `<option value="${c}" ${p.cond === c ? 'selected' : ''}>${name(c)}</option>`).join('')}</select>` : '<span class="text-[10px] text-slate-400">the Wounded condition on one limb</span>'}</div>`;
 }
 function ccEscapeHtml() {
@@ -379,14 +380,14 @@ function ccRenderUtilityTier(tier, label, colorClass) {
         let count = ccDraft.utility[tier][u.key] || 0;
         return `
             <div class="flex items-center justify-between bg-slate-900 border border-slate-700 rounded px-2 py-1.5 gap-2">
-                <div class="flex-1 text-[10px] text-slate-300 leading-tight">${u.label}${u.rep ? ' <span class="text-slate-600">(repeatable)</span>' : ''}</div>
+                <div class="flex-1 text-[10px] text-slate-300 leading-tight">${u.rep ? '<b class="text-amber-400">*</b>' : ''}${u.label}${u.rep ? ' <span class="text-slate-500">(repeatable)</span>' : ''}</div>
                 <div class="flex items-center gap-1 shrink-0">
                     <button onclick="window.ccSetUtilityCount('${tier}','${u.key}', -1)" ${count<=0?'disabled':''} class="w-5 h-5 rounded ${count<=0?'bg-slate-800 text-slate-600':'bg-slate-700 hover:bg-slate-600 text-white'} text-xs font-bold">-</button>
                     <span class="w-5 text-center text-xs font-bold text-white">${count}</span>
                     <button onclick="window.ccSetUtilityCount('${tier}','${u.key}', 1)" ${(!u.rep && count>=1)?'disabled':''} class="w-5 h-5 rounded ${(!u.rep && count>=1)?'bg-slate-800 text-slate-600':'bg-amber-700 hover:bg-amber-600 text-white'} text-xs font-bold">+</button>
                 </div>
             </div>
-        ` + (count > 0 && ((window.APX_POWER_COND_UTILS || {})[u.key] || u.key === 'woundOneLimb') ? ccCondPickRow(u.key) : '');
+        ` + (count > 0 && ((window.APX_POWER_COND_UTILS || {})[u.key] || u.key === 'woundOneLimb') ? ccCondPickRows(u.key, count) : '');
     }).join('');
     return `<div class="mb-3"><div class="text-xs font-black ${colorClass} mb-1.5">${label}</div><div class="space-y-1">${rows}</div></div>`;
 }
@@ -518,10 +519,14 @@ function ccBuildTextSummary(draftOverride) {
             let entry = POWER_UTILITY[tier].find(u => u.key === key);
             let count = d.utility[tier][key];
             if (!count || !entry) return;
-            let pick = (d.condPicks || {})[key];
-            if (pick && pick.mode && ((window.APX_POWER_COND_UTILS || {})[key] || key === 'woundOneLimb')) {
-                let cn = key === 'woundOneLimb' ? 'Wounded (one limb)' : (((typeof CONDITIONS !== 'undefined' ? CONDITIONS : []).find(c => c.id === pick.cond) || {}).name || pick.cond);
-                utilityBits.push((pick.mode === 'end' ? 'Ends ' : 'Inflicts ') + cn); return;
+            if ((window.APX_POWER_COND_UTILS || {})[key] || key === 'woundOneLimb') {
+                window.apxCondPickKeys(key, count).forEach(pk => {
+                    let pick = (d.condPicks || {})[pk];
+                    if (!(pick && pick.mode)) { utilityBits.push(entry.label); return; }
+                    let cn = key === 'woundOneLimb' ? 'Wounded (one limb)' : (((typeof CONDITIONS !== 'undefined' ? CONDITIONS : []).find(c => c.id === pick.cond) || {}).name || pick.cond);
+                    utilityBits.push((pick.mode === 'end' ? 'Ends ' : 'Inflicts ') + cn);
+                });
+                return;
             }
             utilityBits.push(count > 1 ? `${entry.label} (x${count})` : entry.label);
         });

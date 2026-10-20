@@ -796,6 +796,7 @@ function pcSaveAttrRow() {
 window.pcSetSaveAttr = function(a) { pcDraft.saveAttr = a; pcRenderAll(); };
 window.pcSetEscapeAttr = function(a) { pcDraft.escapeAttr = a; pcRenderAll(); };
 // Step 5: an "Inflict or end …" utility says which Condition, and whether it inflicts or ends it
+// (key: the utility's key, or 'key#2', 'key#3'… for a second or third copy of it)
 window.pcSetCondPick = function(key, field, val) {
     pcDraft.condPicks = pcDraft.condPicks || {};
     let p = pcDraft.condPicks[key] = Object.assign({}, pcDraft.condPicks[key] || {});
@@ -804,13 +805,15 @@ window.pcSetCondPick = function(key, field, val) {
     if (pcSaveInfo().incap.length && pcDraft.durationMods && pcDraft.durationMods.actionInterrupt) pcDraft.durationMods.actionInterrupt = false;
     pcRenderAll();
 };
-function pcCondPickRow(key) {
-    let conds = (window.APX_POWER_COND_UTILS || {})[key];
+function pcCondPickRows(key, count) { return window.apxCondPickKeys(key, count).map((pk, i) => pcCondPickRow(pk, count > 1 ? i + 1 : 0)).join(''); }
+function pcCondPickRow(key, nth) {
+    let conds = (window.APX_POWER_COND_UTILS || {})[key.split('#')[0]];
     let p = (pcDraft.condPicks || {})[key] || {};
     let seg = (on, onclick, label) => `<button type="button" onclick="${onclick}" class="px-2 py-0.5 text-[10px] font-bold rounded border transition ${on ? 'bg-purple-700 border-purple-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}">${label}</button>`;
     let name = id => ((typeof CONDITIONS !== 'undefined' ? CONDITIONS : []).find(c => c.id === id) || {}).name || id;
     let done = p.mode && (!conds || conds.includes(p.cond));
     return `<div class="flex flex-wrap items-center gap-1 bg-slate-950 border ${done ? 'border-purple-700/60' : 'border-red-500/70'} rounded px-2 py-1.5 ml-3" data-pc-condpick="${key}">
+        ${nth ? `<span class="text-[10px] font-black text-purple-300 mr-1">#${nth}</span>` : ''}
         ${seg(p.mode === 'inflict', `window.pcSetCondPick('${key}','mode','inflict')`, 'Inflict')}
         ${seg(p.mode === 'end', `window.pcSetCondPick('${key}','mode','end')`, 'End')}
         ${conds ? `<select onchange="window.pcSetCondPick('${key}','cond',this.value)" class="bg-slate-800 border-slate-600 text-[10px] py-0.5">
@@ -952,14 +955,14 @@ function pcRenderUtilityTier(tier, label, colorClass) {
         let blocked = (mythicOn && tier !== 'mythic') || !!sumBlock;
         return `
             <div class="flex items-center justify-between bg-slate-900 border ${count && tier === 'mythic' ? 'border-amber-400' : 'border-slate-700'} rounded px-2 py-1.5 gap-2 ${blocked ? 'opacity-40' : ''}">
-                <div class="flex-1 text-[10px] text-slate-300 leading-tight">${u.label}${u.rep ? ' <span class="text-slate-600">(repeatable)</span>' : ''}${sumBlock ? `<div class="text-red-400">${sumBlock}</div>` : ''}${pcIsNpc() && (u.rep || count < 1) ? ` <span class="text-yellow-500 font-bold">[${pcCost(0, d => { d.utility[tier][u.key] = (d.utility[tier][u.key] || 0) + 1; })}]</span>` : ''}</div>
+                <div class="flex-1 text-[10px] text-slate-300 leading-tight">${u.rep ? '<b class="text-amber-400">*</b>' : ''}${u.label}${u.rep ? ' <span class="text-slate-500">(repeatable)</span>' : ''}${sumBlock ? `<div class="text-red-400">${sumBlock}</div>` : ''}${pcIsNpc() && (u.rep || count < 1) ? ` <span class="text-yellow-500 font-bold">[${pcCost(0, d => { d.utility[tier][u.key] = (d.utility[tier][u.key] || 0) + 1; })}]</span>` : ''}</div>
                 <div class="flex items-center gap-1 shrink-0">
                     <button onclick="window.pcSetUtilityCount('${tier}','${u.key}', -1)" ${count<=0?'disabled':''} class="w-5 h-5 rounded ${count<=0?'bg-slate-800 text-slate-600':'bg-slate-700 hover:bg-slate-600 text-white'} text-xs font-bold">-</button>
                     <span class="w-5 text-center text-xs font-bold text-white">${count}</span>
                     <button onclick="window.pcSetUtilityCount('${tier}','${u.key}', 1)" ${((!u.rep && count>=1) || blocked)?'disabled':''} class="w-5 h-5 rounded ${((!u.rep && count>=1) || blocked)?'bg-slate-800 text-slate-600':'bg-amber-700 hover:bg-amber-600 text-white'} text-xs font-bold" ${sumBlock ? `title="${sumBlock.replace(/"/g, '&quot;')}"` : blocked ? 'title="A power with a Mythic Utility can\'t contain any other utilities"' : tier === 'mythic' && !count ? 'title="Replaces any other utilities in this power"' : ''}>+</button>
                 </div>
             </div>
-        ` + (count > 0 && ((window.APX_POWER_COND_UTILS || {})[u.key] || u.key === 'woundOneLimb') ? pcCondPickRow(u.key) : '') + (u.key === 'summonCreature' && count > 0 ? `
+        ` + (count > 0 && ((window.APX_POWER_COND_UTILS || {})[u.key] || u.key === 'woundOneLimb') ? pcCondPickRows(u.key, count) : '') + (u.key === 'summonCreature' && count > 0 ? `
             <div class="flex items-center justify-between bg-slate-950 border border-purple-700/60 rounded px-2 py-1.5 gap-2 ml-3">
                 <div class="flex-1 text-[10px] text-purple-200 leading-tight">Creature Tier <span class="text-slate-500">(+15 XP per Tier above 1, per creature${pcSummonOwnerTier() !== null ? `; up to this creature's own Tier, ${pcSummonMaxTier()}` : ''})</span>${pcDraft.summonNpc ? `<div class="text-emerald-400">${pcDraft.summonFromId ? 'Summons' : 'Built'}: ${String(pcDraft.summonNpc.name || 'Creature').replace(/</g, '&lt;')} <button onclick="window.pcEditSummon()" class="underline text-purple-300 hover:text-white">Edit creature</button></div>` : '<div class="text-slate-500">' + (pcSummonPickable().length ? 'Pick one of your NPCs below, or build' : 'You build') + ' the creature in the NPC Crafter when you save this power.</div>'}${pcSummonPickHtml()}</div>
                 <div class="flex items-center gap-1 shrink-0">
@@ -1340,10 +1343,14 @@ function pcBuildTextSummary() {
             if (!entry) return;
             let count = pcDraft.utility[tier][key];
             if (!count) return;
-            let pick = (pcDraft.condPicks || {})[key];
-            if (pick && pick.mode && ((window.APX_POWER_COND_UTILS || {})[key] || key === 'woundOneLimb')) {
-                let cn = key === 'woundOneLimb' ? 'Wounded (one limb)' : (((typeof CONDITIONS !== 'undefined' ? CONDITIONS : []).find(c => c.id === pick.cond) || {}).name || pick.cond);
-                utilityBits.push((pick.mode === 'end' ? 'Ends ' : 'Inflicts ') + cn);
+            if ((window.APX_POWER_COND_UTILS || {})[key] || key === 'woundOneLimb') {
+                // each copy: what it inflicts or ends
+                window.apxCondPickKeys(key, count).forEach(pk => {
+                    let pick = (pcDraft.condPicks || {})[pk];
+                    if (!(pick && pick.mode)) { utilityBits.push(entry.label); return; }
+                    let cn = key === 'woundOneLimb' ? 'Wounded (one limb)' : (((typeof CONDITIONS !== 'undefined' ? CONDITIONS : []).find(c => c.id === pick.cond) || {}).name || pick.cond);
+                    utilityBits.push((pick.mode === 'end' ? 'Ends ' : 'Inflicts ') + cn);
+                });
                 return;
             }
             utilityBits.push(count > 1 ? `${entry.label} (x${count})` : entry.label);

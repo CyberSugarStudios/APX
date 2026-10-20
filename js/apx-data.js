@@ -469,10 +469,15 @@
             { key: "brutal", name: "Brutal", cost: 100, desc: "When you roll damage with this weapon, reroll any die that comes up as a 1. You must take the new result, even if it is also a 1.", reqLabel: "Heavy Weapon", reqCheck: (ctx) => ctx.weightClass === 'heavy' },
             { key: "sunder", name: "Sunder", cost: 200, desc: "This weapon deals double damage to objects, structures, and vehicles.", reqLabel: "Heavy Melee Weapon", reqCheck: (ctx) => ctx.weightClass === 'heavy' && ctx.category === 'melee' },
             { key: "cleave", name: "Cleave", cost: 300, desc: "When you reduce a creature to 0 HP with this weapon, you can make one attack with it for 0 AP before the end of your turn.", reqLabel: "Heavy Melee Weapon", reqCheck: (ctx) => ctx.weightClass === 'heavy' && ctx.category === 'melee' },
-            // A drawback that lowers the price
-            { key: "loading", name: "Loading", cost: -100, desc: "After each attack, you must spend 2 AP to reload this weapon (Reload) before you can attack with it again. Reloading needs ammo to load.", reqLabel: "Ranged Weapon", reqCheck: (ctx) => ctx.category === 'ranged' },
-            // Elemental's on-crit effect (shown under it once the weapon is Elemental)
-            { key: "elemCrit", name: "Elemental Critical", cost: 100, desc: "On a Critical Hit, the weapon's Energy adds an effect: Fire sets the target Burning, Cold reduces its Speed by 1 until the end of its next turn, Poison leaves it Poisoned until the end of its next turn, Electric leaves it Staggered until the end of its next turn, Acid lowers its DR by 1 until its armor is repaired.", reqLabel: "Elemental", reqCheck: (ctx) => !!ctx.elemental }
+            { key: "finesse", name: "Finesse", cost: 150, desc: "You can use your STR or AGI for this weapon's attack and damage rolls.", reqLabel: "Medium Melee Weapon", reqCheck: (ctx) => ctx.weightClass === 'medium' && ctx.category === 'melee' },
+            { key: "quickdraw", name: "Quickdraw", cost: 50, desc: "Draw or Stow this weapon for 0 AP.", reqLabel: "One-Handed Light Weapon", reqCheck: (ctx) => ctx.weightClass === 'light' },
+            { key: "unwieldy", name: "Unwieldy", cost: -100, desc: "Disadvantage on attack rolls against creatures within 1 square of you.", reqLabel: "Reach", reqCheck: (ctx) => !!(ctx.props && (Number(ctx.props.reach) || 0) > 0) },
+            // Ranged weapons' own (drawn with the Range Increments): how it fires
+            { key: "loading", name: "Loading", cost: -100, section: 'range', desc: "After each attack, you must spend 2 AP to reload this weapon before you can attack with it again. You need ammunition to load it.", reqLabel: "Ranged Weapon", reqCheck: (ctx) => ctx.category === 'ranged' },
+            { key: "scatter", name: "Scatter", cost: 300, section: 'range', desc: "This ranged weapon loses its Range Increments and doesn't impose Disadvantage on attack rolls against targets within 1 square of you. When you attack with it, compare your attack roll against each creature in a 3-square Cone in front of you.", reqLabel: "Medium or Heavy Ranged Weapon (not Repeating)", reqCheck: (ctx) => ctx.category === 'ranged' && (ctx.weightClass === 'medium' || ctx.weightClass === 'heavy') && !(ctx.props && ctx.props.repeating) },
+            { key: "repeating", name: "Repeating", cost: 400, section: 'range', desc: "This ranged weapon costs +2 AP to fire and expends 3 ammo with each attack. When you attack with it, compare your attack roll against each creature in a 2x2 square. Attacks made at Long Range deal half damage.", reqLabel: "Ranged Weapon (not Scatter)", reqCheck: (ctx) => ctx.category === 'ranged' && !(ctx.props && ctx.props.scatter) },
+            // Elemental's on-crit effect (at the top of the list, only once the weapon is Elemental)
+            { key: "elemCrit", name: "Elemental Critical", cost: 100, top: true, desc: "On a Critical Hit, the weapon's Energy adds an effect until the end of the target's next turn: Fire sets it Burning, Cold reduces its Speed by 1, Poison leaves it Poisoned, Electric leaves it Staggered, Acid lowers its DR by 1.", reqLabel: "Elemental", reqCheck: (ctx) => !!ctx.elemental }
         ];
 
         const WEAPON_ELEMENTAL_COST = 300;
@@ -634,7 +639,7 @@
                 { key: "plus1Roll", label: "+1 bonus to a specific roll type (Atk/Save/Skill) for the duration.", cost: 5, rep: true },
                 { key: "plus1Ac", label: "+1 bonus to the target's AC for the duration.", cost: 5, rep: true },
                 { key: "speed2", label: "Increase the target's movement speed by 2 squares.", cost: 5, rep: true },
-                { key: "condInflictMinor", label: "Inflict or end Staggered, Burning, Deafened, Poisoned, or Prone.", cost: 5 },
+                { key: "condInflictMinor", label: "Inflict or end Staggered, Burning, Deafened, Poisoned, or Prone.", cost: 5, rep: true },
                 { key: "endBleedInfect", label: "End the Bleeding Out or Infected condition.", cost: 5 },
                 { key: "revealOutlines", label: "Reveal outlines of chosen creatures/items in range (works through walls).", cost: 5 },
                 { key: "summonGear", label: "Summon any mundane piece of general equipment or a tool.", cost: 5, rep: true },
@@ -652,11 +657,11 @@
                 { key: "illusion", label: "Create an illusion or hologram to attempt to deceive.", cost: 15 },
                 { key: "wall", label: "Create a solid/hazardous wall up to 4 sq long, 1 sq thick (Step 4 dice = pass-through damage).", cost: 15, rep: true },
                 { key: "drEr2", label: "Increase the target's DR or ER by 2 for the duration.", cost: 15, rep: true },
-                { key: "condInflictMod", label: "Inflict or end Restrained, Blinded, Freezing, Provoked, Frightened, or Charmed.", cost: 15 },
+                { key: "condInflictMod", label: "Inflict or end Restrained, Blinded, Freezing, Provoked, Frightened, or Charmed.", cost: 15, rep: true },
                 { key: "noRegainHp", label: "The target can't regain Hit Points (it can still gain Temporary Hit Points).", cost: 15 },
                 { key: "telekinesis", label: "Telekinesis: act on one object or willing creature you can see in range as if with an invisible hand, spending the AP the action would normally cost (Use/Manipulate 3 AP); fine work uses your Power Attribute; 1 AP moves what you hold 2 squares; hurl it to deal Step 4 damage to it and what it hits. (Holding an unwilling creature needs Restrained.)", cost: 15 },
                 { key: "fatigueDisease", label: "Reduce Fatigue by one level, or end the Diseased condition.", cost: 15 },
-                { key: "woundOneLimb", label: "Inflict or end the Wounded condition on one specific limb.", cost: 15 },
+                { key: "woundOneLimb", label: "Inflict or end the Wounded condition on one specific limb.", cost: 15, rep: true },
                 { key: "telepathy", label: "Allow targets to telepathically communicate for the duration.", cost: 15 },
                 { key: "resizeOne", label: "Change a target's physical size by one category (grow or shrink).", cost: 15 },
                 { key: "readSurfaceThoughts", label: "Read the surface thoughts and immediate intentions of the target.", cost: 15 },
@@ -669,7 +674,7 @@
                 { key: "dmgHeals", label: "Step 4 damage also heals you or another target for half (rounded down).", cost: 30 },
                 { key: "dispel", label: "End an ongoing Power of lower level affecting the target (Reaction: prevent it from being used).", cost: 30 },
                 { key: "invisible", label: "Turn the target Invisible.", cost: 30 },
-                { key: "condInflictMajor", label: "Inflict or end Stunned, Paralyzed, or Unconscious.", cost: 30 },
+                { key: "condInflictMajor", label: "Inflict or end Stunned, Paralyzed, or Unconscious.", cost: 30, rep: true },
                 { key: "fatigueZeroWoundAll", label: "Reduce Fatigue to zero, or end the Wounded condition on all limbs.", cost: 30 },
                 { key: "complexCommand", label: "Issue a complex, multi-step command the target must follow to the best of its ability.", cost: 30 },
                 { key: "memory", label: "Alter, erase, read, or implant a memory in the target's mind.", cost: 30 },
@@ -870,6 +875,7 @@
             return { tp: Math.max(0, parts.reduce((s, p) => s + p.tp, 0)), parts };
         }
         window.npcWeaponTp = npcWeaponTp;
+        window.NPC_GEAR_CRIT_TP = NPC_GEAR_CRIT_TP;
         window.npcArmorTp = npcArmorTp;
         // Shield and helmet for NPCs / companions: the player versions, priced like armor
         // (1 TP per AC + 1 TP per 2 DR/ER): Shield +2 AC/DR/ER = 4 TP (1 hand), Helmet +1 = 2 TP.
@@ -966,6 +972,10 @@
         // fails saves that rely on sight)
         const APX_ESCAPE_FORBID = { blinded: ['PER'] };
         const APX_INCAP_CONDS = ['stunned', 'paralyzed', 'unconscious'];
+        // The "Inflict or end …" utilities can be taken more than once: each copy has its own pick
+        // (condPicks[key] for the first, condPicks['key#2'], 'key#3'… for the others)
+        function apxCondPickKeys(key, count) { let out = []; for (let i = 0; i < Math.max(0, parseInt(count) || 0); i++) out.push(i ? `${key}#${i + 1}` : key); return out; }
+        window.apxCondPickKeys = apxCondPickKeys;
         function apxPowerSaveInfo(d) {
             d = d || {};
             let all = {};
@@ -973,17 +983,17 @@
             let picks = d.condPicks || {};
             let saveKind = d.step1 === 'saveHalves' ? 'halves' : (d.step1 === 'atkSave' && d.atkMode === 'save') ? 'negates' : null;
             let inflicts = [], ends = [], unpicked = [];
-            Object.keys(APX_POWER_COND_UTILS).forEach(k => {
-                if (!(all[k] > 0)) return;
-                let p = picks[k];
-                if (!p || !p.mode || !APX_POWER_COND_UTILS[k].includes(p.cond)) { unpicked.push(k); return; }
-                (p.mode === 'end' ? ends : inflicts).push(p.cond);
+            Object.keys(APX_POWER_COND_UTILS).forEach(k => apxCondPickKeys(k, all[k]).forEach(pk => {
+                let p = picks[pk];
+                if (!p || !p.mode || !APX_POWER_COND_UTILS[k].includes(p.cond)) { unpicked.push(pk); return; }
+                let list = p.mode === 'end' ? ends : inflicts;
+                if (!list.includes(p.cond)) list.push(p.cond);
+            }));
+            apxCondPickKeys('woundOneLimb', all.woundOneLimb).forEach(pk => {
+                let p = picks[pk];
+                if (!p || !p.mode) unpicked.push(pk);
+                else if (p.mode === 'inflict' && !inflicts.includes('wounded')) inflicts.push('wounded');
             });
-            if (all.woundOneLimb > 0) {
-                let p = picks.woundOneLimb;
-                if (!p || !p.mode) unpicked.push('woundOneLimb');
-                else if (p.mode === 'inflict') inflicts.push('wounded');
-            }
             if (all.noRegainHp > 0 && d.step1 !== 'friendly') inflicts.push('noheal');   // Can't Regain HP: tracked as a condition
             let negOther = APX_POWER_LASTING_NEG.filter(k => all[k] > 0);
             let mythic = (POWER_UTILITY.mythic || []).find(m => all[m.key] > 0);
@@ -1307,15 +1317,20 @@
             let flo = shares.map(x => Math.floor((x || 0) * raw / sum)), left = raw - flo.reduce((a, b) => a + b, 0);
             return flo[i] + (i === 0 ? left : 0);
         };
+        // A Conduit Exo-Suit's Powers: Breach ignores Resistance to its types; Nullifier treats Immunity to them as Resistance
+        let breach = Array.isArray(opts.breach) ? opts.breach : [];
         types.forEach((t, i) => {
             let part = shareOf(i);
             if (!part && raw) { bits.push(`0 ${label(t)}`); return; }
             let immune = (def.immune || []).some(x => x === t || (t === 'Physical' && PHYS.includes(x)));
-            if (immune) { bits.push(`${part} ${label(t)} → 0 (Immune)`); return; }
+            let nullified = immune && opts.nullify && breach.includes(t);
+            if (immune && !nullified) { bits.push(`${part} ${label(t)} → 0 (Immune)`); return; }
             let energy = isEnergy(t);
             let pool = Math.max(0, energy ? (def.er || 0) : (def.dr || 0));
             let res = (def.res || {})[t] || 0;
             let why = [];
+            if (nullified) { res = 5; why.push('Immunity treated as Resistance (Nullifier)'); }
+            else if (breach.includes(t) && res > 0) { why.push(`Resistance ignored (Breach)`); res = 0; }
             if (opts.bypassRes) { if (pool) why.push(`${energy ? 'ER' : 'DR'} bypassed`); pool = 0; res = Math.min(0, res); }
             let ign = 0;
             if (opts.ignore === 'all') ign = pool;

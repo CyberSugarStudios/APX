@@ -599,6 +599,8 @@ function companionWeaponTypeLabel(w) {
 function companionWeaponGoverningAttrs(w, twoHanded) {
     if (w.category === 'ranged') return ['AGI'];
     if (w.weightClass === 'heavy' || twoHanded) return ['STR'];
+    // A Medium melee weapon forged since Finesse uses STR, unless it has Finesse (older ones keep both)
+    if (w.weightClass === 'medium' && (w.wRule || 0) >= 2 && !(w.properties && w.properties.finesse)) return ['STR'];
     return ['STR', 'AGI'];
 }
 function companionWeaponBestAttr(w, mods, twoHanded) {
@@ -1348,14 +1350,14 @@ window.companionStatBlock = function() {
         let dmgText = dmgMod !== 0 ? `${w.dmg} ${dmgMod >= 0 ? '+' : '-'} ${Math.abs(dmgMod)}` : w.dmg;
         let atkInfo = companionWeaponAttackBonus(c, w, mods);
         equippedWeapons.push({
-            name: w.name, dmg: dmgText, ap: w.ap, weaponIdx: wIdx,
+            name: w.name, dmg: dmgText, ap: (parseInt(w.ap) || 0) + (w.properties && w.properties.repeating ? 2 : 0), weaponIdx: wIdx,   // (Repeating: +2 AP to fire)
             atk: atkInfo.bonus + ist(rngd ? 'rangedAtk' : 'meleeAtk'), trained: atkInfo.trained, attr: atkInfo.attr,
             typeLabel: companionWeaponTypeLabel(w), category: w.category, aimed: !!w.aimed, flurry: !!(w.properties && w.properties.flurry),
             props: Object.keys(w.properties || {}).filter(k => { let v = w.properties[k]; return typeof v === 'number' ? v > 0 : !!v; }), elemental: w.elemental || null,
             dmgType: w.elemental || w.dmgType || '',
             ammo: w.category === 'ranged' && !(w.properties && w.properties.thrown) ? (w.weightClass || null) : null,
             // Effective / Long Range in squares (Thrown: STR score / double it)
-            range: w.range || (w.properties && w.properties.thrown ? `${5 + (mods.STR || 0)}/${2 * (5 + (mods.STR || 0))}` : null),
+            range: w.properties && w.properties.scatter ? '3-sq Cone' : (w.range || (w.properties && w.properties.thrown ? `${5 + (mods.STR || 0)}/${2 * (5 + (mods.STR || 0))}` : null)),
             hand, handLabel: hand === 'both' ? 'Both Hands' : hand === 'main' ? 'Main Hand' : hand === 'off' ? 'Off Hand' : 'No free hand',
             hands: w.weightClass === 'heavy' ? 2 : 1,
             tooBig: !!sizeFx.noHeavy && w.weightClass === 'heavy', given: !!w._given
@@ -1573,6 +1575,12 @@ window.setCompanionHp = function(val) {
             if (!t) { redraw(); return; }
             useAtk = !!(t.fromSuggest && fresh);
             let res = D.mitigate(pe.raw, t, def, { ignore: useAtk ? D.ignoreOf(atk) : null });
+            // Tearing (the attack's weapon): at least 2 damage per damage die, whatever DR/ER take off
+            if (useAtk && (atk.props || []).includes('tearing')) {
+                let nd = 0; String(atk.dice || '').replace(/(\d*)d\d+/gi, (m, k) => { nd += parseInt(k || '1', 10); return m; });
+                let fl = 2 * Math.max(1, nd);
+                if (res.dmg < fl) res = Object.assign({}, res, { dmg: fl, text: `${res.text}, raised to ${fl} (Tearing: at least 2 per damage die)` });
+            }
             if (useAtk) (window._pwUsedAtk = window._pwUsedAtk || {})[atk.id] = true;
             let cc = ncActiveCompanion(), now = window.companionStatBlock();
             if (!cc || !now) return;
@@ -1656,6 +1664,8 @@ window.apxCompOpenActions = function(ev) {
         move: () => { let key = window._pwTurnKey ? window._pwTurnKey() : null; if (!key) return; let tm = window.state.compTurnMoves; window.state.compTurnMoves = { key, n: (tm && tm.key === key ? (parseInt(tm.n) || 0) : 0) + 1, left: 0 }; window._pwMoveNotes && window._pwMoveNotes(); },
         addFx: f => { c.turnFx = compFx().filter(o => o.key !== f.key).concat([f]); },
         endFx: key => { let had = compFx().some(o => o.key === key); c.turnFx = compFx().filter(o => o.key !== key); return had; },
+        sb: () => window.companionStatBlock(), rollFlags: { omen: true, companion: true, compOwner: (window.companionStatBlock() || {})._compOwner || null },
+        attacked: () => { c.turnFx = compFx().filter(f => !f.next && !f.untilAttack); c.turnFx.forEach(f => { if (f.key === 'defensive') f.attacked = true; }); },
         log: (text, a) => { window.APXDice?.notify(text + (a && (a.cond || a.uncond || a.endFx === 'grappling') ? ` Your GM tracks its conditions: ask them to update it${a.cond ? ` (${a.cond === 'prone' ? 'Prone' : 'Staggered'})` : ''}.` : ''), { kind: 'note' }); after(); }
     });
 };
@@ -1907,6 +1917,7 @@ function npcCarriedBox(sb, esc) {
         ${rows}${sb.carriedCu ? `<div class="text-xs text-yellow-300 mt-1" data-no-roll>${sb.carriedCu} Cu</div>` : ''}</div>`;
 }
 function buildStatBlockHtml(sb, editable) {
+    if (sb && sb._initId && typeof window._gmEntrySbAdjust === 'function') sb = window._gmEntrySbAdjust(sb);   // (this creature in the fight: a broken helmet…)
     if (!sb) return '';
     let esc = v => String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;');
     let hpControls = editable ? `
@@ -1931,7 +1942,7 @@ function buildStatBlockHtml(sb, editable) {
     let compFlags = sb._isCompanion ? { omen: true, companion: true, compOwner: sb._compOwner || null } : { npcId: sb._npcId || undefined, initId: sb._initId || undefined };
     let R = o => window.APXDice ? ` data-apx-roll='${window.APXDice.attr(Object.assign({ who: sb.name, perks: false, gambleAllowed: false }, compFlags, o))}' title="Click to roll"` : '';
     // What a hit with this weapon can do (Crushing, Stunning, Flurry…): read by the GM's tracker
-    let hitOf = w => ({ weapon: w.name, props: w.props || [], die: (String(w.dmgText || w.dmg || '').match(/\d*d(\d+)/) || [0, 6])[1] ? '1d' + (String(w.dmgText || w.dmg || '').match(/\d*d(\d+)/) || [0, 6])[1] : '1d6',
+    let hitOf = w => ({ weapon: w.name, props: w.props || [], range: w.range || null, die: (String(w.dmgText || w.dmg || '').match(/\d*d(\d+)/) || [0, 6])[1] ? '1d' + (String(w.dmgText || w.dmg || '').match(/\d*d(\d+)/) || [0, 6])[1] : '1d6',
         strMod: sb.mods.STR || 0, intMod: sb.mods.INT || 0, elec: w.elemental === 'Electric', dmgType: w.typeText || w.dmgType || '', tier: sb.tier || 0, ammo: w.ammo || null });
     return `<div class="apx-dice-scope" data-roll-who="${esc(sb.name)}" data-sb-npc="${sb._npcId || ''}" data-sb-init="${sb._initId || ''}">
         <div class="grid grid-cols-5 gap-2 mb-3 bg-slate-900 border border-purple-800/50 rounded-lg p-2">
@@ -1960,21 +1971,22 @@ function buildStatBlockHtml(sb, editable) {
                 ${w.propNames.length ? `<div class="text-[10px] text-slate-500 -mt-0.5 mb-1">${w.propNames.map(esc).join(', ')}</div>` : ''}`).join('')
               : '<div class="text-[10px] text-slate-600">No innate weapons</div>'}
         </div>
-        ${(sb.equippedWeapons.length || sb.equippedArmorName || sb.hasShield || sb.hasHelmet) ? `<div class="bg-slate-900 border border-orange-800/50 rounded p-2 mb-2">
+        ${(sb.equippedWeapons.length || sb.equippedArmorName || sb.hasShield || sb.hasHelmet || sb.helmetBroken) ? `<div class="bg-slate-900 border border-orange-800/50 rounded p-2 mb-2">
             <div class="text-[10px] font-black text-orange-400 uppercase mb-1 flex items-center gap-2">Equipped Gear <span class="text-slate-500 normal-case font-bold">(${sb.freeHands} of ${sb.hands} hands free)</span></div>
             ${sb.equippedWeapons.length ? sb.equippedWeapons.map(w => {
                 // Two-handed attacks need 2 free hands: with a shield held they're listed but can't be rolled
                 let blocked = (w.hands || 1) > sb.freeHands;
                 let handTag = w.handLabel ? ` <span class="text-[9px] font-bold text-cyan-300/80">(${w.handLabel}${!w.isTwoHanded && !w.given && (w.hand === 'main' || w.hand === 'off') ? `<button type="button" title="Switch hands" onclick="window.npcSwapWeaponHand(${sb._npcId ? `'${sb._npcId}'` : 'null'}, ${w.weaponIdx})" class="ml-0.5 text-cyan-400 hover:text-white">⇄</button>` : ''})</span>` : '';
                 if (w.tooBig) handTag += ` <span class="text-[9px] font-bold text-red-400">(Tiny: can't wield Heavy weapons)</span>`;
+                let propLine = (w.props || []).length ? `<div class="text-[10px] text-slate-500 -mt-0.5 mb-1">${(w.props || []).map(k => { let d = (typeof WEAPON_PROPERTIES !== 'undefined' ? WEAPON_PROPERTIES : []).find(p => p.key === k); return esc(d ? d.name.replace(/\s*\(.*\)$/, '') : k); }).join(', ')}${w.elemental ? ' · ' + esc(w.elemental) : ''}</div>` : '';
                 return `<div class="text-xs ${blocked ? 'text-slate-500' : 'text-slate-200'}" data-roll-label="${esc(w.name)} damage">${esc(w.name)}${handTag}: ${blocked
                     ? `<span data-no-roll title="Needs ${w.hands} free hands. Stow the shield to use it.">+${w.atk} to hit, ${w.dmg} damage</span>, ${w.ap} AP${w.range ? `, Range ${esc(String(w.range))} sq` : ''} <span class="text-[10px] text-amber-500/80">(needs ${w.hands} free hands)</span>`
-                    : `<span class="apxd-atk"${R({ type: 'attack', label: w.name, bonus: w.atk, dice: String(w.dmg), critMult: w.critMult || 2, disSources: sb.armorStrShort ? ['Armor (STR requirement not met)'] : undefined, npcId: sb._npcId || null, initId: sb._initId || null, apCost: parseInt(w.ap) || 3, flurry: w.flurry || undefined, ranged: w.category === 'ranged' || undefined, dmgType: w.dmgType || undefined, hit: hitOf(w) })}>+${w.atk} to hit</span>, ${w.dmg} damage, ${w.ap} AP${w.range ? `, Range ${esc(String(w.range))} sq` : ''} <span class="text-[10px] text-slate-500">(${w.typeLabel})</span>`}</div>`;
+                    : `<span class="apxd-atk"${R({ type: 'attack', label: w.name, bonus: w.atk, dice: String(w.dmg), critMult: w.critMult || 2, disSources: sb.armorStrShort ? ['Armor (STR requirement not met)'] : undefined, npcId: sb._npcId || null, initId: sb._initId || null, apCost: parseInt(w.ap) || 3, flurry: w.flurry || undefined, ranged: w.category === 'ranged' || undefined, dmgType: w.dmgType || undefined, hit: hitOf(w) })}>+${w.atk} to hit</span>, ${w.dmg} damage, ${w.ap} AP${w.range ? `, Range ${esc(String(w.range))} sq` : ''} <span class="text-[10px] text-slate-500">(${w.typeLabel})</span>`}</div>${propLine}`;
             }).join('') : ''}
             ${sb.equippedArmorName ? `<div class="text-xs text-slate-200 mt-1">Armor: ${esc(sb.equippedArmorName)} <span class="text-[10px] text-slate-400">(${sb.armorClass}, ${sb.armorWt} lb worn, STR ${sb.armorReqStr} needed)</span>${sb.armorStrShort ? ' <span class="text-[10px] text-red-400 font-bold">STR not met: no AGI to AC, -2 Speed, Disadvantage on attacks</span>' : ''}</div>` : ''}
             ${sb.hasShield ? `<div class="text-xs text-slate-200 mt-1 flex items-center gap-2">Shield (+2 AC/DR/ER, 1 hand): <b class="${sb.shieldOn ? 'text-emerald-400' : 'text-slate-500'}">${sb.shieldOn ? 'held' : 'stowed'}</b>
                 <button type="button" onclick="window.npcToggleShieldEquipped(${sb._npcId ? `'${sb._npcId}'` : 'null'})" class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-white">${sb.shieldOn ? 'Stow' : 'Equip'}</button></div>` : ''}
-            ${sb.hasHelmet ? `<div class="text-xs text-slate-200 mt-1">Helmet (+1 AC/DR/ER)</div>` : ''}
+            ${sb.hasHelmet ? `<div class="text-xs text-slate-200 mt-1">Helmet (+1 AC/DR/ER)</div>` : sb.helmetBroken ? `<div class="text-xs text-red-400 mt-1">Helmet: destroyed this fight</div>` : ''}
         </div>` : ''}
         <div class="bg-slate-900 border border-emerald-800/50 rounded p-2 mb-2">
             <div class="text-[10px] font-black text-emerald-400 uppercase mb-1">Skills <span class="text-slate-500 normal-case font-bold">(Training +${sb.trainingBonus}; others roll the plain attribute check)</span></div>
@@ -2124,6 +2136,8 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
         actor.powerUsage[p.name] = Math.min(max, used + 1);
         if (typeof window.renderInitiativeTracker === 'function') window.renderInitiativeTracker();
     }
+    // Overexertion (Step 8): using it costs the creature a level of Fatigue
+    if (actor && !sb._isCompanion && d && d.refunds && d.refunds.overexertion && window._gmAddFatigue) window._gmAddFatigue(actor.id, 1, `Overexertion: ${p.name || 'a power'}`);
     // Damage type chosen each time it's used: whoever uses it (the GM, or the player with a companion) picks
     let chosen = window.apxPowerChooseTypes ? await window.apxPowerChooseTypes(d, p.name) : null;
     if (chosen === false) return;

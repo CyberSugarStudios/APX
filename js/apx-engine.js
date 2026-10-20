@@ -212,7 +212,7 @@
                 hasArmorDisadvantage: false, maxHpPenalty: 0,
                 speedForcedZero: false, apForcedZero: false,
                 disadv: {
-                    atkGeneral: [], atkMelee: [], atkRangedAdv: [], atkAdv: [],
+                    atkGeneral: [], atkMelee: [], atkRangedAdv: [], atkAdv: [], atkNotMelee: [], atkMeleeAdv: [],
                     saveByAttr: { STR: [], AGI: [], CON: [], PER: [], INT: [], CHA: [], LUC: [] },
                     checkByAttr: { STR: [], AGI: [], CON: [], PER: [], INT: [], CHA: [], LUC: [] },
                     autoFailSaveByAttr: { STR: [], AGI: [], CON: [], PER: [], INT: [], CHA: [], LUC: [] },
@@ -280,14 +280,15 @@
 
             // Items that set a score to a total ("STR 15 unless higher"), after every bonus and perk
             if (window.apxApplyItemAttrSets) window.apxApplyItemAttrSets(calc.scores, itemFx);
-            // A worn, powered Exo-Suit (js/apx-exo.js): STR or AGI 15 (20 with Powerful) unless already higher
+            // A worn, powered Exo-Suit (js/apx-exo.js): Juggernaut STR / Phantom AGI +4 to a maximum of 16
+            // (Powerful: +6, to 18), never lowering a score that's already higher
             let exo = calc.exo = window.apxExoActive ? window.apxExoActive(window.state) : null;
-            if (exo) calc.scores[exo.attr] = Math.max(calc.scores[exo.attr], exo.attrFloor);
+            if (exo && exo.attr) calc.scores[exo.attr] = window.apxExoScore(calc.scores[exo.attr], exo);
             ATTRIBUTES.forEach(a => {
                 calc.mods[a] = calc.scores[a] - 5;
             });
             if (exo) {
-                (calc.skillAdv[exo.skill] = calc.skillAdv[exo.skill] || []).push('Exo-Suit');
+                if (exo.skill) (calc.skillAdv[exo.skill] = calc.skillAdv[exo.skill] || []).push('Exo-Suit');
                 if (exo.sys.has('forceMult')) calc.bonusMeleeDmg += Math.max(0, calc.mods.STR);   // STR modifier twice on melee damage
             }
 
@@ -514,8 +515,8 @@
             let turnAc = window.apxTurnFxAc ? window.apxTurnFxAc() : 0;   // Fight Defensively, Block… (until your next turn)
             armorAc += turnAc;
             calc.ac += allowedAgi + armorAc;
-            // Juggernaut Plating: the suit's defenses instead of your own (this turn's maneuvers still count)
-            if (exo && exo.plating) calc.ac = exo.plating.ac + turnAc;
+            // Juggernaut Plating: added to your own defenses
+            if (exo && exo.plating) calc.ac += exo.plating.ac;
             document.getElementById('dispAc').innerText = calc.ac;
             // Update AC label tooltip dynamically
             {
@@ -576,7 +577,8 @@
             calc.dr += Math.max(0, calc.mods.CON) + armorDr;
             let baseErMods = [calc.mods.AGI, calc.mods.PER, calc.mods.INT, calc.mods.CHA, calc.mods.LUC].map(v => Math.max(v, 0));
             calc.er += Math.max(...baseErMods) + armorEr;
-            if (exo && exo.plating) { calc.dr = exo.plating.dr; calc.er = exo.plating.er; }
+            if (exo && exo.plating) { calc.dr += exo.plating.dr; calc.er += exo.plating.er; }
+            if (exo && exo.er) calc.er += exo.er;   // a Conduit: +5 ER
             // Acid (an Elemental Critical): each one lowers your DR by 1 until your armor is repaired
             calc.acidDr = Math.max(0, parseInt(window.state.armorAcid) || 0);
             if (calc.acidDr) calc.dr = Math.max(0, calc.dr - calc.acidDr);
@@ -669,7 +671,7 @@
             document.getElementById('dispAp').innerText = calc.maxAp;
             window.apxRenderApPips && window.apxRenderApPips();
             document.getElementById('dispInit').innerText = calc.init;
-            // Exo-Suits: a Juggernaut's Speed is fixed (3, or 2 with Dreadnought Plating); a Phantom adds 1.
+            // Exo-Suits: a Juggernaut's Speed is set (4; Assault Plating 3, Dreadnought 2); a Phantom adds 1.
             // A shut-down Juggernaut weighs on anyone with STR 14 or less: Speed 1.
             if (exo && exo.speedFixed) calc.speed = exo.speedFixed;
             if (exo && exo.speedPlus) calc.speed += exo.speedPlus;
@@ -688,7 +690,7 @@
             }
             window.state.lastKnownMaxRestDice = calc.maxRestDice;
             calc.woundThreshold = (calc.scores.CON * 2) + calc.wtBoost + fxStat('wt');
-            if (exo && exo.plating) calc.woundThreshold = exo.plating.wt;
+            if (exo && exo.plating) calc.woundThreshold += exo.plating.wt;
             document.getElementById('dispWt').innerText = calc.woundThreshold;
             // The numbers this sheet shows, saved with the character: the GM's party panel and damage
             // math use exactly these (DR/ER with shield, helmet, perks and items; resistances by type)
@@ -702,8 +704,10 @@
                     unarmored: armorWt === 0, defensive: (window.state.perks || {}).con_defensive || 0, helmet: !!(h.equipped && !h.broken) };
                 // changed (first time on this version, or new gear): save it so the GM has it (after things settle)
                 if (prevDerived !== JSON.stringify(window.state.derived)) {
+                    // an AC change (Fight Defensively, Block, Mobile…) goes out quickly so the GM's tracker shows it
+                    let acMoved = !prevDerived || (JSON.parse(prevDerived) || {}).ac !== calc.ac;
                     clearTimeout(window._apxDerivedT);
-                    window._apxDerivedT = setTimeout(() => { try { window.scheduleAutoSave && window.scheduleAutoSave(); } catch (e) { } }, 5000);
+                    window._apxDerivedT = setTimeout(() => { try { window.scheduleAutoSave && window.scheduleAutoSave(); } catch (e) { } }, acMoved ? 400 : 5000);
                 }
             }
             let newMaxLuck = Math.max(0, Math.max(1, calc.mods.LUC) + fxStat('maxLuck'));
@@ -975,9 +979,10 @@
                 if (specialSpeedsEl) {
                     let walkSpeed = calc.speedForcedZero ? 0 : Math.max(0, calc.speed);
                     let lines = [];
-                    if (window.state.ancestry.traits.includes('t_vert')) {
-                        lines.push(`Climb Speed: ${walkSpeed}`);
+                    if (window.state.ancestry.traits.includes('t_vert') || (calc.exo && calc.exo.climb)) {
+                        lines.push(`Climb Speed: ${walkSpeed}${!window.state.ancestry.traits.includes('t_vert') ? ' (Exo-Suit)' : ''}`);
                     }
+                    if (calc.exo && calc.exo.fly && !window.state.ancestry.traits.includes('t_fly')) lines.push(`Fly Speed: ${walkSpeed} (Exo-Suit)`);
                     if (window.state.ancestry.traits.includes('t_fly')) {
                         let armorClassLocal = armorWt === 0 ? null : (calc.armorClassWt > 70 ? 'Heavily' : (calc.armorClassWt > 30 ? 'Moderately' : 'Lightly'));
                         let flyBlocked = armorClassLocal === 'Heavily' || (calc.overburdened ?? totWt > calc.carryCap);
@@ -994,6 +999,7 @@
         // double that"), so it must recompute whenever STR changes rather
         // than being baked into the weapon at forge time.
         function effectiveWeaponRange(w) {
+            if (w.properties && w.properties.scatter) return '3-sq Cone';   // Scatter: no Range Increments
             if (w.range) return w.range; // genuine ranged weapon with a purchased range tier
             if (w.properties && w.properties.thrown) {
                 let str = calc.scores.STR || 0;
@@ -1282,13 +1288,18 @@
             let mods = [];
             let ma = perks['str_martialarts'] || 0;
             if (o.unarmed && ma >= 1) mods.push({ id: 'ma', label: 'Martial Arts: unarmed attacks cost 1 AP', set: 1, on: true });
+            // Two different things share the name: the Flurry PERK (any weapon hit makes your next weapon attack
+            // cheaper) and the Flurry weapon PROPERTY (after a hit, more attacks on that same target are cheaper).
+            // The GM's tracker says which apply: your weapon hits this turn, and the target your Flurry weapon hit.
             let fl = perks['agi_flurry'] || 0;
-            if (fl >= 1) mods.push({ id: 'flurry', label: 'Flurry perk: your last weapon attack hit', delta: -1, stack: fl >= 3 ? 2 : 1, on: false,
-                tip: fl >= 3 ? 'Rank 3: the reduction stacks up to 2 times (one per consecutive hit).' : 'Rank 1: a weapon hit reduces the AP of your next attack by 1 (min 1).' });
+            let whGm = window._pwCombatTurn && window._pwCombatTurn.wpnHits;
+            let nHits = whGm && whGm.uid === window.apxAuth?.user?.uid ? (parseInt(whGm.n) || 0) : 0;
+            if (fl >= 1 && o.hit && o.hit.wpn !== false) mods.push({ id: 'flurry', label: `Flurry perk (Rank ${fl}): your last weapon attack hit${nHits ? ` (your GM's tracker saw ${nHits} weapon hit${nHits > 1 ? 's' : ''} this turn)` : ''}`, delta: -1, stack: fl >= 3 ? 2 : 1, on: nHits > 0, n: Math.min(fl >= 3 ? 2 : 1, nHits),
+                tip: 'The Flurry PERK (any weapon, any target): ' + (fl >= 3 ? 'Rank 3: each weapon hit in a row takes 1 AP off your next weapon attack, up to 2 times (min 1 AP).' : 'Rank 1: a weapon hit takes 1 AP off your next weapon attack (min 1 AP).') + (fl >= 4 ? ' Rank 4: a miss doesn\'t reset it.' : ' A miss resets it.') });
             let flGm = window._pwCombatTurn && window._pwCombatTurn.flurry;
             let flOn = !!(flGm && flGm.uid === window.apxAuth?.user?.uid && o.hit && flGm.weapon === o.hit.weapon);
-            if (o.wFlurry) mods.push({ id: 'wflurry', label: flOn ? `Flurry: you hit ${flGm.target || 'them'} with this weapon this turn (attacking them again?)` : 'Flurry weapon: you already hit this target this turn', delta: -1, on: flOn,
-                tip: 'Flurry property: each attack after a hit on the same target costs 1 less AP (min 1) until you miss or your turn ends.' });
+            if (o.wFlurry) mods.push({ id: 'wflurry', label: flOn ? `Flurry property (${o.hit.weapon}): you hit ${flGm.target || 'them'} with it this turn (attacking them again?)` : `Flurry property (${(o.hit && o.hit.weapon) || 'this weapon'}): you already hit this target with it this turn`, delta: -1, on: flOn,
+                tip: 'The Flurry weapon PROPERTY (this weapon, the same target): each attack after a hit on that creature costs 1 less AP (min 1) until you miss or your turn ends.' });
             // Cleave: the GM's tracker saw this weapon drop a creature this turn: one attack with it for 0 AP
             let clGm = window._pwCombatTurn && window._pwCombatTurn.cleave;
             if (clGm && clGm.uid === window.apxAuth?.user?.uid && o.hit && clGm.weapon === o.hit.weapon && window.state.cleaveUsed !== clGm.key)
@@ -1323,9 +1334,10 @@
                 let back = document.createElement('div');
                 back.className = 'apxd-ask';
                 back.setAttribute('data-ap-popup', '1');
-                let modRows = mods.map(m => m.stack > 1
-                    ? `<label style="display:flex;align-items:center;gap:.4rem;font-size:.72rem;margin:.25rem 0" title="${esc(m.tip || '')}"><select data-m="${m.id}" style="background:var(--c-surface2,#0f172a);color:inherit;border:1px solid var(--c-border2,#475569);border-radius:.3rem;font-size:.7rem"><option value="0">No hits</option><option value="1">1 hit (-1 AP)</option><option value="2">2 hits (-2 AP)</option></select>${esc(m.label)}</label>`
-                    : `<label style="display:flex;align-items:center;gap:.4rem;font-size:.72rem;margin:.25rem 0;cursor:pointer" title="${esc(m.tip || '')}"><input type="checkbox" data-m="${m.id}" ${m.on ? 'checked' : ''}> ${esc(m.label)}</label>`).join('');
+                let modRows = mods.map(m => (m.stack > 1
+                    ? `<label style="display:flex;align-items:center;gap:.4rem;font-size:.72rem;margin:.25rem 0" title="${esc(m.tip || '')}"><select data-m="${m.id}" style="background:var(--c-surface2,#0f172a);color:inherit;border:1px solid var(--c-border2,#475569);border-radius:.3rem;font-size:.7rem"><option value="0">No hits</option><option value="1" ${m.n === 1 ? 'selected' : ''}>1 hit (-1 AP)</option><option value="2" ${m.n === 2 ? 'selected' : ''}>2 hits (-2 AP)</option></select>${esc(m.label)}</label>`
+                    : `<label style="display:flex;align-items:center;gap:.4rem;font-size:.72rem;margin:.25rem 0;cursor:pointer" title="${esc(m.tip || '')}"><input type="checkbox" data-m="${m.id}" ${m.on ? 'checked' : ''}> ${esc(m.label)}</label>`)
+                    + (m.id === 'flurry' || m.id === 'wflurry' ? `<div style="font-size:.6rem;color:var(--c-text-muted,#94a3b8);margin:-.15rem 0 .25rem 1.4rem;line-height:1.3">${esc(m.tip || '')}</div>` : '')).join('');
                 back.innerHTML = `<div data-ap-box>
                     <h4>${esc(o.label || 'Attack')}: AP</h4>
                     <p style="margin:0 0 .5rem">Attack cost: <b>${base} AP</b>. You have <b>${have} AP</b>.</p>
@@ -1385,6 +1397,8 @@
                 let inCombat = !!window._pwCombatCode;
                 if (!type || !inCombat) return inner(o);
                 let stack = window.apxAmmoStack(type);
+                let per = (o.hit.props || []).includes('repeating') ? 3 : 1;   // Repeating: 3 rounds an attack
+                if (stack && per > 1 && (parseInt(stack.ct) || 0) < per) { window.APXDice?.notify(`${(o.hit && o.hit.weapon) || 'This weapon'} is Repeating: each attack fires ${per} rounds of ${AMMO[type]}, and you have ${parseInt(stack.ct) || 0}.`, { kind: 'warn', open: true }); return false; }
                 if (!stack) {
                     window.APXDice?.notify(`${(o.hit && o.hit.weapon) || 'This weapon'} fires ${AMMO[type]}, and you have none left. Buy or find some (Adventuring Gear → Ammo) to use it.`, { kind: 'warn', open: true });
                     return false;
@@ -1392,11 +1406,11 @@
                 let after = res => {
                     if (res === false) return res;
                     let st2 = window.apxAmmoStack(type); if (!st2) return res;
-                    st2.ct = (parseInt(st2.ct) || 0) - 1;
+                    st2.ct = (parseInt(st2.ct) || 0) - per;
                     if (st2.ct <= 0) window.state.items = window.state.items.filter(i => i !== st2);
                     let left = st2.ct > 0 ? st2.ct : 0;
                     window.recalculateMath?.(); window.scheduleAutoSave?.();
-                    let note = `−1 ${AMMO[type]} (${left} left)`;
+                    let note = `−${per} ${AMMO[type]} (${left} left)`;
                     if (res && typeof res === 'object') return Object.assign({}, res, { note: res.note ? res.note + ' · ' + note : note });
                     return { note };
                 };
@@ -1439,13 +1453,50 @@
             };
         })();
 
+        // Before the roll: who you're attacking matters for Unwieldy (Disadvantage within 1 square) and for a creature
+        // Fighting Offensively (Advantage against it); a Scatter or Repeating weapon places its area (a 3-square Cone
+        // from you, a 2x2 square in range) and your GM's tracker compares the roll against each creature in it.
+        (function () {
+            let inner = window.apxBeforeAttack;
+            window.apxBeforeAttack = async function (o) {
+                let props = (o && o.pcAttack && !o.companion && o.hit && o.hit.props) || [];
+                let inFight = !!window._pwCombatCode, ask = window.APXDice && APXDice.ask;
+                if (o && o.pcAttack && !o.companion && ask && inFight) {
+                    if (props.includes('unwieldy')) {
+                        let a = await APXDice.ask(o.label || 'Attack', 'Unwieldy: Disadvantage against a creature within 1 square of you. Is your target that close?', [['far', 'Farther away', 'pri'], ['near', 'Within 1 square (Disadvantage)']]);
+                        if (!a) return false;
+                        if (a === 'near') o.disSources = (o.disSources || []).concat(['Unwieldy (target within 1 square)']);
+                    }
+                    let area = props.includes('scatter') ? { mode: 'cone', size: 3, range: 0 } : props.includes('repeating') ? { mode: 'square', size: 2, range: null } : null;
+                    if (area && window._pwAreaMap && window.APXBattle && window.APXBattle.placeArea) {
+                        let am = window._pwAreaMap(false);
+                        if (am) {
+                            let rng = String((o.hit && o.hit.range) || '').split('/').map(Number);
+                            if (area.mode === 'square') area.range = rng[1] || rng[0] || Infinity;
+                            let res = await window.APXBattle.placeArea(am.winId, Object.assign({ casterId: am.tokenId, label: o.label || 'Attack', key: (o.label || 'Attack') + '|wpn', goLabel: 'Attack' }, area));
+                            if (res === null) return false;
+                            if (res !== 'skip') o.areaHit = { mapId: am.mapId, tokenIds: res.tokenIds, names: res.names, half: area.mode === 'square' && rng[0] && res.reach > rng[0] };
+                        }
+                    }
+                    let fo = ((window._pwCombatTurn && window._pwCombatTurn.fo) || []).filter(n => n !== window.state.name);
+                    if (!o.areaHit && fo.length) {
+                        let a = await APXDice.ask(o.label || 'Attack', `Fighting Offensively, so attacks against them have Advantage: ${fo.join(', ')}. Are you attacking one of them?`, fo.map((n, i) => ['t' + i, n + ' (Advantage)', i ? '' : 'pri']).concat([['other', 'Someone else']]));
+                        if (!a) return false;
+                        if (a !== 'other') o.advSources = (o.advSources || []).concat([`${fo[+a.slice(1)]} is Fighting Offensively`]);
+                    }
+                }
+                return inner(o);
+            };
+        })();
+
         function renderWeaponRow(w, idx, opts) {
             let dmgMod = weaponDmgModifier(w, opts.attr);
             let atk = weaponAtkBonus(w, opts.attr);
             let dmgText = fmtDmg(opts.dice, dmgMod);
             let cat = weaponCategory(w);
-            let disadvSources = calc.disadv.atkGeneral.concat(cat === 'melee' ? calc.disadv.atkMelee : []);
-            let advSources = (calc.disadv.atkAdv || []).concat(cat === 'ranged' ? calc.disadv.atkRangedAdv : []);
+            // (atkNotMelee: Disadvantage a melee weapon attack doesn't have, e.g. Fight Defensively with Melee Prowess R3)
+            let disadvSources = calc.disadv.atkGeneral.concat(cat === 'melee' ? calc.disadv.atkMelee : (calc.disadv.atkNotMelee || []));
+            let advSources = (calc.disadv.atkAdv || []).concat(cat === 'ranged' ? calc.disadv.atkRangedAdv : (calc.disadv.atkMeleeAdv || []));
             // Fortunate Fighter Rank 4: crit multiplier +1
             let critMult = (w.critMult || 2) + ((window.state.perks['luc_fortunatefighter'] || 0) >= 4 ? 1 : 0);
             let rollName = (w.name || 'Weapon') + (opts.label ? (opts.attr === 'STR' && /2-Handed/.test(opts.label) ? ' (2-Handed)' : /Aimed/.test(opts.label) ? ' (Aimed)' : '') : '');
@@ -1455,9 +1506,10 @@
             // Thrown, Returning and Grappling are melee-only (a ranged weapon forged with them before keeps no effect)
             let meleeOnly = k => w.category === 'ranged' && ['thrown', 'returning', 'grappling'].includes(k);
             let hitMeta = { weapon: w.name || 'Weapon', props: Object.keys(w.properties || {}).filter(k => { let v = w.properties[k]; if (k === 'stunning' && medStun1H) return false; if (k === 'reach' && w.weightClass === 'medium' && !/2-Handed/.test(opts.label || '')) return false; if (meleeOnly(k)) return false; return typeof v === 'number' ? v > 0 : !!v; }),
-                die: '1d' + ((String(opts.dice || '').match(/\d*d(\d+)/) || [0, 6])[1]), dmgType: apxWeaponDmgType(w), strMod: calc.mods.STR || 0, intMod: calc.mods.INT || 0, elec: w.elemental === 'Electric',
+                die: '1d' + ((String(opts.dice || '').match(/\d*d(\d+)/) || [0, 6])[1]), wpn: true, dmgType: apxWeaponDmgType(w), strMod: calc.mods.STR || 0, intMod: calc.mods.INT || 0, elec: w.elemental === 'Electric',
                 // Ranged weapons fire Light / Medium / Heavy Ammo by weight (its effect shows in the roller)
-                ammo: cat === 'ranged' && !(w.properties && w.properties.thrown && w.category !== 'ranged') && ['light', 'medium', 'heavy'].includes(w.weightClass) ? w.weightClass : null };
+                ammo: cat === 'ranged' && !(w.properties && w.properties.thrown && w.category !== 'ranged') && ['light', 'medium', 'heavy'].includes(w.weightClass) ? w.weightClass : null,
+                range: cat === 'ranged' ? effectiveWeaponRange(w) : null };
             // pcAttack/apCost/aimed: the sheet's AP hook (apxBeforeAttack) spends AP for this attack
             let atkRoll = apxRollAttr({ type: 'attack', label: rollName, bonus: atk, dice: opts.dice, dmgMod, critMult, dmgType: apxWeaponDmgType(w), disSources: disadvSources, advSources,
                 pcAttack: true, wcat: cat, apCost: parseInt(opts.ap) || 0, ranged: cat === 'ranged', aimed: cat === 'ranged' && !!w.aimed, unarmed: !!w.isUnarmed,
@@ -1531,7 +1583,8 @@
                                     return `<select onchange="window.updateWeaponAttr(${idx}, this.value)" class="bg-slate-900 border-slate-700 text-[10px] font-bold p-1 h-7 w-14">${ATTRIBUTES.map(a=>`<option value="${a}" ${a===w.attr?'selected':''}>${a}</option>`).join('')}</select>`;
                                 }
                                 let ffRank = window.state.perks['luc_fortunatefighter'] || 0;
-                                let meleeAttrs = ['STR','AGI'];
+                                // A Medium melee weapon forged since Finesse uses STR, unless it has Finesse (older ones keep their choice)
+                                let meleeAttrs = w.weightClass === 'medium' && (w.wRule || 0) >= 2 && !(w.properties && w.properties.finesse) ? ['STR'] : ['STR','AGI'];
                                 if (ffRank >= 3 && !isTrained) meleeAttrs.push('LUC');
                                 if (!meleeAttrs.includes(w.attr)) { w.attr = 'STR'; }
                                 return `<select onchange="window.updateWeaponAttr(${idx}, this.value)" class="bg-slate-900 border-slate-700 text-[10px] font-bold p-1 h-7 w-14">${meleeAttrs.map(a=>`<option value="${a}" ${a===w.attr?'selected':''}>${a}</option>`).join('')}</select>`;
@@ -1565,7 +1618,8 @@
                 // alone isn't enough once a weapon can cost more than 1.
                 let handsFreeForThis = window.calcTotalHands() - window.calcHandsUsed(idx);
                 let couldGoTwoHanded = handsFreeForThis >= 2;
-                html += renderWeaponRow(w, idx, { attr: w.attr, dice: w.dmg, ap: w.ap, editable: true });
+                let rep2 = w.properties && w.properties.repeating ? 2 : 0;   // Repeating: +2 AP to fire
+                html += renderWeaponRow(w, idx, { attr: w.attr, dice: w.dmg, ap: (parseInt(w.ap) || 0) + rep2, editable: true });
                 if (isMediumMelee && couldGoTwoHanded) {
                     let twoHDice = dieStepUp(w.dmg);
                     let reachVal = w.properties?.reach;
@@ -1577,7 +1631,7 @@
                     // Temporarily enable twoHanded for the calc, then restore — do NOT mutate permanently
                     let wasTwo = w.twoHanded;
                     w.twoHanded = true;
-                    html += renderWeaponRow(w, idx, { label: '↳ Aimed (AGI, 2-Handed, 2× PER bonus)', attr: 'AGI', dice: w.dmg, ap: w.ap, editable: false });
+                    html += renderWeaponRow(w, idx, { label: '↳ Aimed (AGI, 2-Handed, 2× PER bonus)', attr: 'AGI', dice: w.dmg, ap: (parseInt(w.ap) || 0) + rep2, editable: false });
                     w.twoHanded = wasTwo;
                 }
                 // Notes row AFTER all 2H rows so it never covers the 2H preview
@@ -1703,12 +1757,25 @@
 
         // Power Slots. Levels 1-5: Full Rest Powers (3/2/2/1/1 slots per purchase of that Rank).
         // 'CHA': the Short Rest Powers pool (uses per Short Rest = your Rank). Items can add more.
-        function getMaxSlotsForLevel(lvl) {
+        function baseSlotsForLevel(lvl) {
             let fx = (typeof calc !== 'undefined' && calc && calc.itemFx && calc.itemFx.stat) || {};
             if (lvl === 'CHA') return Math.max(0, (window.state.perks["pwr_cha"] || 0) + (fx.slot_CHA || 0));
             let timesBought = (window.state.pwrIntRanks && window.state.pwrIntRanks[lvl]) ? window.state.pwrIntRanks[lvl] : 0;
             let per = { 1: 3, 2: 2, 3: 2, 4: 1, 5: 1 }[lvl] || 0;
             return Math.max(0, per * timesBought + (fx['slot_' + lvl] || 0));   // + items that grant extra slots
+        }
+        function getMaxSlotsForLevel(lvl) {
+            let n = baseSlotsForLevel(lvl);
+            // A Conduit Exo-Suit: one more Short Rest slot (if you have any), and one more Long Rest slot of a
+            // Level below your highest (Level 1 when 1 is your highest)
+            if (typeof calc !== 'undefined' && calc && calc.exo && calc.exo.extraSlot) {
+                if (lvl === 'CHA') { if (n > 0) n += 1; }
+                else {
+                    let top = 0; for (let l = 1; l <= 5; l++) if (baseSlotsForLevel(l) > 0) top = l;
+                    if (top && +lvl === Math.max(1, top - 1)) n += 1;
+                }
+            }
+            return n;
         }
         window.apxMaxPowerSlots = getMaxSlotsForLevel;
         // A power's own Attack Bonus and Save DC: its Core Attribute + Training Bonus (attack) + the
@@ -1719,7 +1786,8 @@
             let pfx = k => (calc.itemFx && calc.itemFx.stat && calc.itemFx.stat[k]) || 0;
             // An Ancestry Trait's power: its DC is 10 + the attribute modifier chosen for it
             if (p && (p.trait || p.consumable)) return { attr, mod, atk: mod + window.state.trainingBonus, dc: 10 + mod };   // (a consumable's too)
-            return { attr, mod, atk: mod + window.state.trainingBonus + top + pfx('powerAtk'), dc: 10 + mod + top + pfx('powerDc') };
+            let ex = (typeof calc !== 'undefined' && calc.exo && calc.exo.power) || 0;   // a Conduit Exo-Suit: +2 (Capacitor +4)
+            return { attr, mod, atk: mod + window.state.trainingBonus + top + pfx('powerAtk') + ex, dc: 10 + mod + top + pfx('powerDc') + ex };
         }
         window.apxPowerNums = apxPowerNums;
 
@@ -1784,7 +1852,7 @@
                 } else {
                     atkWrap.removeAttribute('data-apx-blocked');
                     atkWrap.setAttribute('data-apx-roll', JSON.stringify({ type: 'check', kind: 'attack', label: `Power Attack (${attr})`, who: window.state?.name || '', bonus: atk, omen: true,
-                        disSources: (calc.disadv && calc.disadv.atkGeneral) || [] }));
+                        disSources: (calc.disadv && calc.disadv.atkGeneral.concat(calc.disadv.atkNotMelee || [])) || [] }));
                     atkWrap.title = `Roll a power attack with ${attr} (d20 ${atk >= 0 ? '+' : ''}${atk})`;
                 }
             }
@@ -1857,7 +1925,7 @@
             if (info.kind === 'none' || info.kind === 'save') return esc(info.text);
             let blocked = calc.cantAct ? ` data-no-roll data-apx-blocked="${calc.cantActLabel}"` : '';
             let roll = info.kind === 'power'
-                ? apxRollAttr({ type: 'check', kind: 'attack', label: (p.name || 'Power') + ': Power Attack', bonus: info.bonus, omen: true, disSources: (calc.disadv && calc.disadv.atkGeneral) || [] })
+                ? apxRollAttr({ type: 'check', kind: 'attack', label: (p.name || 'Power') + ': Power Attack', bonus: info.bonus, omen: true, disSources: (calc.disadv && calc.disadv.atkGeneral.concat(calc.disadv.atkNotMelee || [])) || [] })
                 : info.w ? apxRollAttr({ type: 'check', kind: 'attack', label: (p.name || 'Power') + ': ' + info.w.label + ' attack', bonus: info.w.bonus, omen: true, disSources: info.w.disSources, advSources: info.w.advSources }) : '';
             let span = `<span class="apx-rollable" style="text-decoration:underline dotted;text-underline-offset:2px;cursor:pointer" title="Roll the attack (d20)"${blocked || roll}>${esc(info.text)}</span>`;
             if (info.kind !== 'martial') return span;
@@ -1936,6 +2004,7 @@
             // An area power with a battle map open: place its area first (its shape and size are the power's).
             // The GM's tracker then rolls everyone's saves in it and deals the damage.
             let areaRes = null, areaSpec = window.apxPowerAreaSpec ? window.apxPowerAreaSpec(p) : null;
+            if (areaSpec && window.apxExoRange) areaSpec = Object.assign({}, areaSpec, { range: window.apxExoRange(areaSpec.range) });   // (an Emitter's reach)
             if (areaSpec && !chan && window._pwAreaMap && window.APXBattle && window.APXBattle.placeArea) {
                 let am = window._pwAreaMap(false);
                 if (am) {
@@ -1994,6 +2063,8 @@
             else if (slot && slot.free) { notes.push(slot.label); if (traitSrc) traitSrc.used = (traitSrc.used || 0) + 1; }
             else if (slot) { window.state.usedPowerSlots[slot.key] = slot.used + 1; notes.push(`-1 ${slot.label} (${Math.max(0, slot.max - slot.used - 1)} left)`); }
             else notes.push(`no ${poolName} left`);
+            // Overexertion (Step 8): a level of Fatigue for using it (not again for each Channel)
+            if (!chan && p.draft && p.draft.refunds && p.draft.refunds.overexertion) { window.state.fatigue = (parseInt(window.state.fatigue) || 0) + 1; notes.push(`Overexertion: +1 Fatigue (now ${window.state.fatigue})`); }
             // A Channeling power: channeling starts (Channel buttons above your Powers and Attacks, up to 1 Minute)
             let chStep = !chan && window.apxChannelStep ? window.apxChannelStep(p.draft) : null;
             if (!chan && p.draft && p.draft.duration === 'channel') {
@@ -2034,9 +2105,12 @@
                 let bonus = info.kind === 'power' ? pnums.atk : (info.w ? info.w.bonus : pnums.atk);
                 let via = info.kind === 'martial' && info.w ? ` (${info.w.label})` : '';
                 let o = { label: name + via, who, bonus, perks: true, gambleAllowed: false, omen: true, power: true, useNote, useWarn: !pay, flavor,
-                    disSources: info.kind === 'martial' && info.w ? info.w.disSources : ((calc.disadv && calc.disadv.atkGeneral) || []),
+                    disSources: info.kind === 'martial' && info.w ? info.w.disSources : ((calc.disadv && calc.disadv.atkGeneral.concat(calc.disadv.atkNotMelee || [])) || []),
                     advSources: info.kind === 'martial' && info.w ? info.w.advSources : [],
                     hit: info.kind === 'martial' && info.w ? info.w.hit : { weapon: name, props: [] } };
+                // A Conduit Exo-Suit: Breach (ignores Resistance to its types), Nullifier, Amplifier (maximum damage)
+                let exf = dmg && !dmg.heal && window.apxExoPowerFx ? window.apxExoPowerFx(dmg.type) : null;
+                if (exf) { o.hit = Object.assign({}, o.hit, { breach: exf.breach, nullify: exf.nullify || undefined }); if (exf.max) o.maxDmg = exf.max; }
                 // A martial improvement rides a normal weapon attack: the weapon's damage plus the power's
                 let wpn = info.kind === 'martial' && info.w && info.w.dice ? info.w : null;
                 let wf = wpn ? String(wpn.dice) + (wpn.dmgMod ? (wpn.dmgMod > 0 ? '+' : '') + wpn.dmgMod : '') : '';
@@ -2055,8 +2129,9 @@
             let saveKind = saveKind0;
             let sAttr = sInfo && sInfo.saveAttr ? sInfo.saveAttr + ' ' : '';
             let saveText = saveKind ? `Targets make a${/^[AEIOU]/.test(sAttr) ? 'n' : ''} ${sAttr}saving throw against DC ${dc}: a success ${saveKind === 'halves' ? 'halves it' : 'negates it'}.` : '';
+            let exf = dmg && !dmg.heal && window.apxExoPowerFx ? window.apxExoPowerFx(dmg.type) : null;   // (a Conduit Exo-Suit)
             if (dmg) {
-                let dcard = APXDice.damage({ label: name + (dmg.heal ? ' healing' : ' damage'), who, formula: dmg.formula, dmgType: dmg.heal ? '' : dmg.type, heal: dmg.heal || undefined, wcat: 'power',
+                let dcard = APXDice.damage({ label: name + (dmg.heal ? ' healing' : ' damage'), who, formula: dmg.formula, dmgType: dmg.heal ? '' : dmg.type, heal: dmg.heal || undefined, wcat: 'power', maxDmg: exf && exf.max ? exf.max : undefined,
                     apNote: useNote, apWarn: !pay, note: [saveText, areaNote].filter(Boolean).join(' ') || null, flavor, split: dmg.split || undefined });
                 // a split roll: the GM's tracker divides the damage between the types as rolled
                 if (dmg.split && dcard && Array.isArray(dcard.parts)) dmg.parts = dcard.parts.filter(x => x.kind === 'dmg').map((x, i) => ({ type: (dmg.split[i] || {}).type, dmg: x.total }));
@@ -2067,7 +2142,7 @@
             }
             let saveEv = saveKind ? { dc, kind: saveKind, attr: sInfo && sInfo.saveAttr || null } : null;
             tell((saveText ? `${who || 'A player'} uses ${name}. ${saveText}` : `${who || 'A player'} uses ${name}.`) + (escLine ? ` ${escLine}.` : ''),
-                dmg && !dmg.heal ? { dmgType: dmg.type, dice: dmg.formula, save: saveEv, dmgParts: dmg.parts || undefined, dmgTotal: dmg.total }
+                dmg && !dmg.heal ? Object.assign({ dmgType: dmg.type, dice: dmg.formula, save: saveEv, dmgParts: dmg.parts || undefined, dmgTotal: dmg.total }, exf ? { breach: exf.breach, nullify: exf.nullify || undefined } : {})
                     : Object.assign(saveEv ? { save: saveEv } : {}, dmg && dmg.heal ? { heal: true, dmgTotal: dmg.total } : {}));
         };
 
@@ -2095,7 +2170,7 @@
                         return bits.length ? `<div class="text-[9px] font-bold mb-1 text-purple-300/90" title="${si.lasting ? 'A target under its lasting effect makes this save at the end of each of its turns, ending it on a success' : 'The saving throw targets make against it'}">${bits.join(' · ')}</div>` : ''; })()}
                     <div class="grid grid-cols-3 gap-1 mb-1 text-[10px] text-slate-400">
                         <div><span class="text-slate-500">A/S:</span> ${apxPowerAtkHtml(p, idx)}</div>
-                        <div><span class="text-slate-500">R/A:</span> ${p.rng}</div>
+                        <div><span class="text-slate-500">R/A:</span> ${p.rng}${window.apxExoRangeNote ? window.apxExoRangeNote(p) : ''}</div>
                         <div><span class="text-slate-500">D/H:</span> ${apxPowerDmgHtml(p)}</div>
                     </div>
                     <div class="text-[10px] text-slate-500 leading-tight font-medium">${p.desc}</div>

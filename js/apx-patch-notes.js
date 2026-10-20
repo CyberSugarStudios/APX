@@ -11,17 +11,20 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.20.0443',
-        released: '2026-10-20T04:43:00',
-        releasedText: 'October 20, 2026 · 4:43 AM',
+        version: 'v2026.10.20.0845',
+        released: '2026-10-20T08:45:00',
+        releasedText: 'October 20, 2026 · 8:45 AM',
         title: 'Playtest 4: Maneuvers, Gear & Burdens',
-        intro: 'Straight from our fourth playtest: NPCs and companions get the full list of maneuvers and actions, Loyal Companions can carry your gear, and carrying too much finally weighs you down. Squeezing costs what it should, and Vitality\'s top rank keeps you on your feet.',
+        intro: 'Straight from our fourth playtest: NPCs and companions get the full list of maneuvers and actions, Loyal Companions can carry your gear, and carrying too much finally weighs you down. Squeezing costs what it should, and Vitality\'s top rank keeps you on your feet. Since then: NPC maneuvers roll themselves, five new weapon properties (two of them fire into an area), readable buttons in every theme, and Exo-Suits rebuilt in three frameworks, including the new Conduit.',
         index: [
             ['Combat', [
                 'NPCs, summoned creatures and Loyal Companions have an Actions button with every Combat Maneuver and Standard Action, spending their own AP. Fight Defensively, Fight Offensively and next-attack maneuvers change their rolls (and AC) until their next turn.',
                 'A Large or bigger creature squeezed into a smaller space on a battle map has Disadvantage on attack rolls and AGI saves, applied for you.',
                 'Vitality Rank 4: the first time you\'d drop to 0 HP you\'re left at 1 HP, and spend up to your Rank in Rest Dice to heal. Once per Full Rest.',
-                'A Loyal Companion added to the tracker by hand keeps its AP on its owner\'s sheet, where it\'s spent.'
+                'A Loyal Companion added to the tracker by hand keeps its AP on its owner\'s sheet, where it\'s spent.',
+                'NPC maneuvers roll themselves (Grapple, Pin, Escape, Feint, Vault, Shove, Shield Bash), and NPCs can Recover with Shake It Off and Shrug It Off. Fight Offensively gives attacks against the creature Advantage, and Fight Defensively is +2 once it has attacked.',
+                'The GM\'s tracker shows live AC (Fight Defensively, Block, Mobile), NPC helmets can break on a Critical Hit, and NPCs take wounds by hand and gain fatigue (Overexertion adds it for you).',
+                'Melee Prowess, Mobile and Flurry work as written: Prowess removes a maneuver\'s Disadvantage (Rank 3) and adds Advantage (Rank 4), Mobile adds AC when you move, and the Flurry perk and the Flurry weapon property are told apart.'
             ]],
             ['Gear', [
                 'Overburdened rules apply: carrying more than your capacity drops you to Speed 1 with Disadvantage on every attack, check and save.',
@@ -32,18 +35,26 @@
                 'Raising an NPC\'s Core Attribute above 10 costs 2 TP per point. Creatures you already built keep their price until you move them over.'
             ]],
             ['Your Screen', [
-                'Pickers and pop-ups always open on top of what they\'re changing: the NPC Crafter\'s Condition and Damage Immunities no longer hide behind it, and the same goes for every other picker, panel and prompt.'
+                'Pickers and pop-ups always open on top of what they\'re changing: the NPC Crafter\'s Condition and Damage Immunities no longer hide behind it, and the same goes for every other picker, panel and prompt.',
+                'Button text stays readable in every theme, hovered or not.',
+                'The battle map\'s Add Token list stays open, so you can add several tokens in a row.'
             ]],
             ['Powers & Consumables', [
                 'Power ranges are bought by the square: Touch/Self is free, 1 XP per 5 squares, or Line of Sight for 15 XP. Older powers keep their range and cost.',
                 'Powers use one die size. New Utilities: Charmed, Can\'t Regain HP and Telekinesis (Influence is retired); moving a target can be taken more than once.',
                 'Consumables are priced against a Cu cap, and can be Thrown or fired as Ammunition from your ranged weapon.',
-                'Short Rest Powers\' free upgrade keeps the lower-Level power too.'
+                'Short Rest Powers\' free upgrade keeps the lower-Level power too.',
+                'The Inflict or end a Condition Utilities (marked *) can be taken more than once, each copy with its own Inflict / End pick.'
             ]],
             ['Weapons', [
                 'Medium weapons top out at 3d8 (3d10 two-handed) with no Heavy properties. Crit upgrades cost 300 / 900 Cu, Sturdy 50 Cu.',
                 'New properties: Brutal, Sunder and Cleave for Heavy weapons, Loading (a cheaper weapon you Reload), and Elemental Critical. Tearing now sets a minimum damage on every swing.',
-                'Jump is an action costed like a Move, and a worn Bandolier or Utility Belt halves Draw / Stow.'
+                'Jump is an action costed like a Move, and a worn Bandolier or Utility Belt halves Draw / Stow.',
+                'New properties: Finesse, Quickdraw and Unwieldy, plus a Ranged section with Loading, Scatter (a 3-square Cone) and Repeating (a 2x2 square), both resolved on the battle map. Elemental Critical sits under Elemental, and every Elemental Critical lasts until the end of the target\'s next turn.',
+                'Tearing shows its minimum on the roll and applies against NPC and player targets alike, even on a miss.'
+            ]],
+            ['Exo-Suits', [
+                'Exo-Suits are rebuilt: 3,000 Currency, worn with your armor, in three frameworks. A Juggernaut adds its Plating to your defenses, a Phantom hides in plain sight, and the new Conduit amplifies your Powers (Capacitor, Breach, Nullifier, Amplifier, Emitter). Everything a suit does is applied for you.'
             ]]
         ],
         sheet: [
@@ -57,7 +68,8 @@
                 'Squeezed into a smaller space on a battle map, your companion has Disadvantage on its attack rolls and AGI saves.'
             ]],
             ['Your Screen', [
-                'Pickers and pop-ups open on top of what they\'re changing: your companion\'s Condition and Damage Immunities in the NPC Crafter, trait and Exo-Suit panels, the world character picker, and any other popup that used to open behind the window you opened it from.'
+                'Pickers and pop-ups open on top of what they\'re changing: your companion\'s Condition and Damage Immunities in the NPC Crafter, trait and Exo-Suit panels, the world character picker, and any other popup that used to open behind the window you opened it from.',
+                'Button text is checked against its background in every theme (and on hover) and darkened or lightened until it reads clearly.'
             ]],
             ['Powers', [
                 'Step 2 (Range) is bought by the square: Touch/Self is free, every 5 squares cost 1 XP (set it with − and + or type it), and Line of Sight is 15 XP. A power made with Short, Long or Extreme Range keeps that range and its cost; choose a new range only if you want to.',
@@ -65,7 +77,8 @@
                 'A power uses one die size for its damage or healing (8d6, not 4d4 + 3d6). Powers that mix sizes still work, and show Recraft (Free) if you want to change them.',
                 'New Moderate Utilities: Charmed (in the Inflict-or-end list), Can\'t Regain HP, and Telekinesis. Influence (friendly acquaintances) is gone from new powers; powers that have it keep it. Moving a target 2 squares (Minor) can be taken more than once for 2 more squares each time.',
                 'Vehicle Scale (Mythic) areas keep their shape on the battle map, each square a 5x5 block.',
-                'Short Rest Powers: the free upgrade at Rank 2+ now makes a new copy at the higher Level, so you keep the lower-Level power as well.'
+                'Short Rest Powers: the free upgrade at Rank 2+ now makes a new copy at the higher Level, so you keep the lower-Level power as well.',
+                'Inflict or end a Condition Utilities (and Wounded on one limb) are marked * and can be taken more than once: each copy gets its own Inflict / End buttons and Condition list (#1, #2…), so one power can inflict Prone and end Poisoned.'
             ]],
             ['Consumables', [
                 'The Consumable Crafter shows its price against the cap: 150 Cu for one charge, +25 Cu per Artisan rank.',
@@ -76,13 +89,29 @@
                 'Crit upgrades are cheaper (x3 300 Cu, x4 900 Cu), and Sturdy is 50 Cu.',
                 'New properties: Brutal (Heavy: reroll 1s once on damage, done by the roller), Sunder (Heavy melee: double damage to objects), Cleave (Heavy melee: dropping a creature makes your next attack with it this turn 0 AP; your sheet shows "Cleave: next attack 0 AP"), Loading (Ranged, −100 Cu: Reload (2 AP) under its name after each attack in combat, and you need ammo to load it), and Elemental Critical (+100 Cu: a crit adds its Energy\'s effect).',
                 'Tearing: the weapon always deals at least 2 damage per damage die, hit or miss.',
-                'Acid crits lower your DR by 1 until your armor is repaired: a Repair button appears under your DR.',
+                'Acid crits lower your DR by 1 until the end of your next turn (older Acid damage still shows a Repair button under your DR).',
                 'Can\'t Regain HP (and Suffocating) stop healing in your HP box; Temp HP still works.',
-                'Jump (Standard Actions) costs AP like a Move: your STR modifier in squares, further with an Athletics roll. Draw / Stow is 1 AP for an item on a Bandolier or Utility Belt you wear.'
+                'Jump (Standard Actions) costs AP like a Move: your STR modifier in squares, further with an Athletics roll. Draw / Stow is 1 AP for an item on a Bandolier or Utility Belt you wear.',
+                'New properties: Finesse (Medium melee: STR or AGI; other Medium melee weapons you forge now use STR), Quickdraw (Light, one-handed: Draw / Stow for 0 AP), and Unwieldy (−100 Cu, with Reach: Disadvantage within 1 square; you\'re asked when you attack).',
+                'The Ranged section, under the range increments, has Loading (reworded: after each attack), Scatter (Medium or Heavy: no range increments, no Disadvantage up close, and your roll is compared with each creature in a 3-square Cone) and Repeating (+2 AP and 3 ammo per attack, every creature in a 2x2 square, half damage at Long Range). With a battle map open you place the area, and your GM\'s tracker does the rest.',
+                'Elemental Critical appears under Elemental once you\'ve picked an Energy, and every effect lasts until the end of the target\'s next turn.',
+                'A Tearing weapon\'s roll shows its minimum (2 per damage die, hit or miss), and an NPC\'s Tearing weapon applies it to the damage you take.',
+                'Shove and Shield Bash roll their STR attack for you (Shove asks whether the target is larger) and count as attacks for Fight Defensively and Block.',
+                'Melee Prowess Rank 3 removes the Disadvantage combat maneuvers give your melee attacks (Fight Defensively, Sweeping Strike, Charge, Shove…), and Rank 4 gives a maneuver\'s melee attack Advantage.',
+                'Mobile: moving in combat (your token, Move or Jump) gives you +1 AC per rank until the start of your next turn, once per round.',
+                'Flurry: the perk (any weapon hit makes your next weapon attack cheaper) and the weapon property (cheaper attacks on the creature you just hit) are separate lines in the AP pop-up, each saying what it is, and your GM\'s tracker ticks them when it saw the hit.',
+                'Draw / Stow asks what you\'re drawing when it can cost less: a Quickdraw weapon for 0 AP, or an item on your belt for 1.',
+                'Block, Fight Defensively and your other actions reach your GM\'s dice tray and notifications, and your AC on their tracker follows them within a second.'
             ]],
             ['Perks & Rules', [
                 'Vitality Rank 4 is reworked: if you would be reduced to 0 HP, you\'re reduced to 1 HP instead, and you can spend up to your Rank in Rest Dice to heal that much at once (at Rank 3 they roll their maximum). It can\'t happen again until you finish a Full Rest. It works from your GM\'s tracker too.',
                 'Squeezing: when your Large or bigger token squeezes into a smaller space (a narrow gap, a portal), you have Disadvantage on attack rolls and AGI saves until you\'re back in the open.'
+            ]],
+            ['Exo-Suits', [
+                'Rebuilt from the rulebook: a Base Suit costs 3,000 Currency, is worn with your armor, and holds up to 3 Integrated Systems. Suits you already own keep their systems.',
+                'Juggernaut: STR +4 (to a maximum of 16; Powerful +6, to 18), Advantage on Athletics, Speed 4, one Size larger, and Plating added to your own AC, DR, ER and WT: Standard +5/+2, Assault Plating (2,000) +10/+4 at Speed 3, Dreadnought Plating (6,000) +15/+6 at Speed 2. New system: Bulwark (2,500), 2 AP for Temp HP equal to your AC, your STR modifier in uses per Short Rest. Kinetic Impactors are no longer sold.',
+                'Phantom: AGI +4 (to a maximum of 16), Advantage on Stealth, Speed +1 and Active Camouflage. Mirage Weave is 1,500 and the Flight Module 2,000; Climbing Grips and the Flight Module show their Climb and Fly speeds, and the Flight Module flies on the battle map.',
+                'Conduit (new): Power Attack Bonus and Save DC +2, +5 ER, one more Short Rest Power Slot, and one more Long Rest Power Slot of a Level below your highest. Capacitor adds +2 more; Breach (pick an Energy type, again for another) makes your Powers ignore Resistance to it and gives you +5 ER against it; Nullifier treats Immunity as Resistance; Amplifier deals maximum damage with those Powers; Emitter adds 10 squares to ranged Powers and gives Touch Powers a range of 3. Overloading it also ends your Concentration Powers.'
             ]]
         ],
         gm: [
@@ -90,30 +119,44 @@
                 'Every NPC, summoned creature and Loyal Companion in the tracker has an Actions button (and its stat block a Maneuvers & Actions button) listing every Combat Maneuver and Standard Action with its AP. Picking one spends that creature\'s AP and applies what it can: Fight Defensively\'s AC (shown on its card) and Disadvantage, Fight Offensively\'s Advantage, next-attack maneuvers on its next attack, Fall Prone and Stand Up, a won Grapple\'s Staggered (Let Go ends it), a won Escape. Effects show as chips on the card until the creature\'s next turn; ✕ ends one early.',
                 'Contests (Grapple, Escape) ask whether the creature won, so roll them from its stat block first.',
                 'A Loyal Companion added to the tracker by hand shows the AP from its owner\'s sheet (they spend it there), and doesn\'t get a second helping at the start of the turn.',
-                'Players with Vitality Rank 4 who hit 0 HP from your tracker stay at 1 HP (once per Full Rest), and their sheet asks how many Rest Dice to heal with.'
+                'Players with Vitality Rank 4 who hit 0 HP from your tracker stay at 1 HP (once per Full Rest), and their sheet asks how many Rest Dice to heal with.',
+                'NPC maneuvers roll themselves from the stat block: Grapple, Pin and Escape its Athletics (or Acrobatics), Feint its Deceive, Vault its Acrobatics, Shove and Shield Bash its STR melee attack (Shove asks whether the target is larger). Then you say whether it won.',
+                'Recover is in every NPC\'s Actions: Shake It Off (1 AP, half its Rest Dice: its CON score in d6, each + CON) and Shrug It Off (3 AP, one Wounded limb healed), once each per fight.',
+                'Fight Offensively gives attacks against that creature Advantage (an attacker is asked which creature it\'s attacking), and an NPC that already attacked this turn gets +2 from Fight Defensively, not +4.',
+                'Tracker cards show live AC: a player\'s Fight Defensively, Block and Mobile come from their sheet within a second, an NPC\'s from its maneuvers.',
+                '+ Wound on an NPC\'s card wounds a limb by hand, and Fatigue − / + tracks its fatigue (less AP each turn; past its limit it dies). Overexertion powers add a level for you, NPCs and players alike.',
+                'A Critical Hit on an NPC with a helmet asks whether it breaks its helmet for a normal hit; a broken helmet comes off its stat block for the fight.',
+                'Players\' actions (Block, Fight Defensively, Disengage…) show up in your dice tray and notifications.'
             ]],
             ['Battle Maps', [
-                'Squeezing has teeth: a Large or bigger creature squeezed into a smaller space has Disadvantage on attack rolls and AGI saves, added to its rolls (NPCs in your tracker, players and companions on their sheets).'
+                'Squeezing has teeth: a Large or bigger creature squeezed into a smaller space has Disadvantage on attack rolls and AGI saves, added to its rolls (NPCs in your tracker, players and companions on their sheets).',
+                'The Add Token list stays open while you add tokens, counting them, until you close it.'
             ]],
             ['NPC Crafter', [
                 'Core Attributes cost 1 TP per point up to a score of 10 and 2 TP per point above it. NPCs and companions built before this keep their old price, so nothing you\'ve made changes on its own; Step 1 shows a button to move one over (a companion only if it still fits its budget). A creature with nothing above 10 moves over by itself.'
             ]],
             ['Your Screen', [
-                'Every picker and pop-up opens on top of what it\'s changing. In the NPC Crafter, Condition Immunities, Damage Immunities, Resistances and Vulnerabilities no longer open behind it, and neither do world tags, the Weapon and Armor Forges, the kick/ban prompt or any other panel. A picker that\'s reused comes back on top too.'
+                'Every picker and pop-up opens on top of what it\'s changing. In the NPC Crafter, Condition Immunities, Damage Immunities, Resistances and Vulnerabilities no longer open behind it, and neither do world tags, the Weapon and Armor Forges, the kick/ban prompt or any other panel. A picker that\'s reused comes back on top too.',
+                'Button text stays readable in every theme, hovered or not.'
             ]],
             ['NPC Crafter & Forges', [
                 'Editing an NPC you\'ve already saved, Save NPC is on every step (and Save Creature, editing a summoned creature).',
                 'The Armor Forge says what equipping costs: Equip on NPC (X TP), and the Weapon Forge Add to NPC (X TP). Armor\'s other mods (Stealth, Athletics, lighter, heavier, Speed) now count toward its TP: 1 TP per 100 Cu they\'d cost a player, and penalties take TP off. Armor an NPC already wears keeps its old price until you forge it again.',
                 'Manufactured crits cost 3 TP (x3) and 6 TP (x4). A 3d8 weapon is 8 TP.',
-                'Powers: ranges by the square (1 XP / 5 squares, Line of Sight 15), one die size, Charmed, Can\'t Regain HP and Telekinesis, as for players. A Mythic sentient being is an NPC you run: no 3 AP summon limit, but it can\'t summon.'
+                'Powers: ranges by the square (1 XP / 5 squares, Line of Sight 15), one die size, Charmed, Can\'t Regain HP and Telekinesis, as for players. A Mythic sentient being is an NPC you run: no 3 AP summon limit, but it can\'t summon.',
+                'The Weapon Forge prices an NPC\'s dice steps, critical multipliers and properties in TP, and they stay put when you pick one. Elemental Critical sits under Elemental, and the new properties (Finesse, Quickdraw, Unwieldy, Scatter, Repeating) work for NPCs too.'
             ]],
             ['Tracker', [
-                'Tearing raises a hit to at least 2 damage per damage die, after DR/ER.',
+                'Tearing raises a hit to at least 2 damage per damage die, after DR/ER (and an area attack\'s misses take it too).',
                 'Cleave: a hit that drops a creature gives its attacker one 0 AP attack with that weapon this turn ("Cleave ready" on its card; a player sees it on their sheet).',
                 'Loading: an NPC\'s Loading weapon needs Reload (2 AP), a button on its card, after each attack.',
-                'Elemental Critical: a crit sets Burning (Fire), Poisoned (Poison) or Staggered (Electric), slows the target (Cold), or lowers its DR by 1 until repaired (Acid; on a player, their sheet shows a Repair button). Sunder notes double damage to objects.',
+                'Elemental Critical: until the end of the target\'s next turn, a crit sets Burning (Fire), Poisoned (Poison) or Staggered (Electric), slows the target (Cold), or lowers its DR by 1 (Acid; on a player, their sheet).',
                 'Charmed and Can\'t Regain HP are conditions; healing a creature that can\'t regain HP (or is Suffocating) does nothing.',
-                'Jump is in every creature\'s Actions, costed like a Move.'
+                'Jump is in every creature\'s Actions, costed like a Move.',
+                'Every Elemental Critical ends at the end of the target\'s next turn, Acid included (a player gets their DR back on their sheet).',
+                'Recharge rolls show their d6 in your dice tray.',
+                'Scatter and Repeating weapons (an NPC\'s or a player\'s) have you place a 3-square Cone or a 2x2 square on the battle map, and the roll is compared with each creature\'s AC there (Repeating at Long Range: half damage). Unwieldy asks whether the target is within 1 square.',
+                'NPC stat blocks list each weapon\'s properties under it, and a Tearing weapon\'s attack card shows its minimum damage.'
             ]],
             ['Players\' Gear', [
                 'Players can be Overburdened now (Speed 1, Disadvantage on attacks, checks and saves), and wear Backpacks, Bandoliers and Utility Belts to carry more.',

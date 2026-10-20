@@ -25,6 +25,14 @@
         heavy:  { name: 'Heavy Ammo', hit: 'on a hit, you can push the target up to 2 squares away; double damage to objects, structures and vehicles', crit: 'the target is also Staggered', tip: 'Heavy Ammo: massive rounds that physically move what they hit.' }
     };
 
+    // Tearing: a weapon that always deals at least 2 damage for every damage die it has, hit or miss
+    function tearingBadge(o, formula, total) {
+        if (!(o.hit && (o.hit.props || []).includes('tearing'))) return null;
+        let n = 0; String(formula || o.hit.die || '').replace(/(\d*)d\d+/gi, (m, k) => { n += parseInt(k || '1', 10); return m; });
+        let floor = 2 * Math.max(1, n);
+        return ['info', `Tearing: at least ${floor} damage (2 per damage die, whatever DR/ER take off), hit or miss${typeof total === 'number' && total < floor ? ` · this roll counts as ${floor}` : ''}`, 'Tearing: the minimum damage this weapon deals is 2 for every damage die it has, ignoring DR/ER, whether it hits or misses'];
+    }
+
     // Critical hits multiply the NUMBER of damage dice rolled: 2d4 at x2 rolls 4d4,
     // 4d12 at x3 rolls 12d12. Flat modifiers are added once.
     const CRIT_MODE = 'count';
@@ -811,7 +819,7 @@
             // More than one damage type (a split power, a martial power on a weapon): each type is its own roll
             let extra = o.split && o.split.length > 1 ? o.split.slice(1).map(sp => ({ sp, dm: makeDamage(sp.formula, { reroll12: usePerks && hr >= 2, brutal, critMult }), p: { kind: 'dmg', title: (sp.type || 'Damage') + ' damage', mult: critMult } })) : [];
             let gambleBonus = gamble ? (hr >= 4 ? 10 : 5) : 0;   // High Roller: +5 on a Gamble that hits (+10 from Rank 4)
-            let dst = { crit: false, inst: false, maxed: false };
+            let dst = { crit: false, inst: false, maxed: !!o.maxDmg };   // (maxDmg: an effect that deals maximum damage, e.g. an Amplifier)
             let dmg = { kind: 'dmg', title: extra.length ? (o.split[0].type || 'Damage') + ' damage' : 'Damage', gamble: gambleBonus, mult: critMult };
             let c = { label: o.label || 'Attack', who: o.who, parts: [atk, dmg].concat(extra.map(x => x.p)).concat(o.flavor ? [{ kind: 'text', html: '<i style="font-weight:500;line-height:1.35">' + esc(o.flavor) + '</i>' }] : []), perks: usePerks, omenOk: !!o.omen && !!(window.state?.perks), gamble };
             c.id = 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -844,6 +852,9 @@
                     let fx = AMMO_FX[ammo];
                     c.badges.push([atk.crit && fx.crit ? 'crit' : 'info', `${fx.name}: ${fx.hit}${atk.crit && fx.crit ? ' · Critical: ' + fx.crit : ''}`, fx.tip]);
                 }
+                if (o.maxDmg) c.badges.push(['crit', String(o.maxDmg)]);
+                let tear = tearingBadge(o, o.split && o.split.length > 1 ? o.split[0].formula : o.dice, dmg.total);
+                if (tear) c.badges.push(tear);
                 if (gamble && !atk.fumble) c.badges.push(['info', `Gamble: +${gambleBonus} is included, only if it hits` + (hr >= 4 ? '. Hit = +1 AP' : '')]);
                 if (res.other) c.badges.push(['info', `${dp.keepSrc}: rolled damage twice, kept ${res.roll.diceTotal + flat} (other ${res.other.diceTotal + flat})`, 'Rank 2: roll damage twice and keep the highest total']);
                 if (dm.rerolled()) c.badges.push(['info', brutal && !(usePerks && hr >= 2) ? 'Brutal: rerolled 1s once (*)' : 'High Roller: rerolled 1s & 2s, and any 1 again (*)']);
@@ -901,7 +912,7 @@
             let splitOn = !o.heal && o.split && o.split.length > 1;
             let brutal = !o.heal && !!(o.brutal || (o.hit && (o.hit.props || []).includes('brutal')));
             let dm = makeDamage(splitOn ? o.split[0].formula : o.formula, { reroll12: !o.heal && usePerks && hr >= 2, brutal, explode, critMult: mult, keepBest: dp.keepBest, instig: dp.instig });
-            let dst = { crit: !!(o.mult && o.mult > 1), inst: false, maxed: false };
+            let dst = { crit: !!(o.mult && o.mult > 1), inst: false, maxed: !o.heal && !!o.maxDmg };
             let p = { kind: 'dmg', title: o.heal ? 'Heal' : splitOn ? (o.split[0].type || 'Damage') + ' damage' : 'Damage' };
             // More than one damage type: each type is its own roll
             let extra = splitOn ? o.split.slice(1).map(sp => ({ sp, dm: makeDamage(sp.formula, { reroll12: usePerks && hr >= 2, critMult: mult }), p: { kind: 'dmg', title: (sp.type || 'Damage') + ' damage' } })) : [];
@@ -920,10 +931,13 @@
                 if (extra.length) c.badges.push(['info', 'Total: ' + [p.total].concat(extra.map(x => x.p.total)).reduce((a, b) => a + b, 0) + ' (' + [`${p.total} ${o.split[0].type}`].concat(extra.map(x => `${x.p.total} ${x.sp.type}`)).join(' + ') + ')']);
                 // Ammo (Ch.8): what a hit (and a critical hit) does
                 let ammo = o.ammo || (o.hit && o.hit.ammo);
-                if (ammo && AMMO_FX[ammo] && !atk.fumble) {
+                if (ammo && AMMO_FX[ammo]) {
                     let fx = AMMO_FX[ammo];
-                    c.badges.push([atk.crit && fx.crit ? 'crit' : 'info', `${fx.name}: ${fx.hit}${atk.crit && fx.crit ? ' · Critical: ' + fx.crit : ''}`, fx.tip]);
+                    c.badges.push([dst.crit && fx.crit ? 'crit' : 'info', `${fx.name}: ${fx.hit}${dst.crit && fx.crit ? ' · Critical: ' + fx.crit : ''}`, fx.tip]);
                 }
+                if (o.maxDmg && !o.heal) c.badges.push(['crit', String(o.maxDmg)]);
+                let tear = tearingBadge(o, splitOn ? o.split[0].formula : o.formula, p.total);
+                if (tear) c.badges.push(tear);
                 if (res.other) c.badges.push(['info', `${dp.keepSrc}: rolled damage twice, kept ${p.total} (other ${res.other.diceTotal + dm.parsed.flat})`]);
                 if (dm.rerolled()) c.badges.push(['info', brutal && !(usePerks && hr >= 2) ? 'Brutal: rerolled 1s once (*)' : 'High Roller: rerolled 1s & 2s, and any 1 again (*)']);
                 if (explode) c.badges.push(['info', 'Dice Explosion: max rolls rolled again and added']);

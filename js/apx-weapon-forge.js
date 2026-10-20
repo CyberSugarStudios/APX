@@ -28,7 +28,7 @@ function getBlankWeaponDraft() {
         category: 'melee', weightClass: 'light', dmgType: 'Bludgeoning',
         dmgTier: 0, critTier: 0, rangeTier: 0,
         elemental: null,
-        properties: { concealed: false, reach: false, thrown: false, returning: false, sturdy: false, grappling: false, tearing: false, crushing: false, flurry: false, stunning: false, brutal: false, sunder: false, cleave: false, loading: false, elemCrit: false }
+        properties: { concealed: false, reach: false, thrown: false, returning: false, sturdy: false, grappling: false, tearing: false, crushing: false, flurry: false, stunning: false, brutal: false, sunder: false, cleave: false, loading: false, elemCrit: false, finesse: false, quickdraw: false, unwieldy: false, scatter: false, repeating: false }
     };
 }
 
@@ -241,6 +241,7 @@ window.toggleWeaponProperty = function(key, checked) {
         if (propDef && !propDef.reqCheck(weaponForgeCtx())) return;
     }
     weaponForgeDraft.properties[key] = checked;
+    if (key === 'scatter' && checked) weaponForgeDraft.rangeTier = 0;   // (Scatter loses the Range Increments)
     revalidateWeaponProperties();   // e.g. unticking Thrown also removes Returning
     renderWeaponForgeStep3();
     renderWeaponForgeSummary();
@@ -268,6 +269,17 @@ window.setWeaponForgeRangeTier = function(idx) {
     renderWeaponForgeSummary();
 };
 
+// What an option costs: Currency for a player's weapon, Threat Points (the change it makes) for an NPC's or a
+// companion's. sel: the option is the one chosen now (it shows what it costs in the build).
+function wpnIsNpc() { return weaponForgeTarget === 'companion' || weaponForgeTarget === 'gm'; }
+function wpnPrice(cu, mutate, sel) {
+    if (!wpnIsNpc()) return cu === 0 ? 'Free' : `${cu} Cu`;
+    if (!window.npcWeaponTp || !mutate) return '';
+    let tpOf = d => window.npcWeaponTp(weaponDraftAsObject(d)).tp;
+    let cur = tpOf(weaponForgeDraft), d = JSON.parse(JSON.stringify(weaponForgeDraft)); mutate(d);
+    let dl = sel ? cur - tpOf(d) : tpOf(d) - cur;
+    return sel ? `${dl} TP` : dl > 0 ? `+${dl} TP` : dl < 0 ? `${dl} TP` : '+0 TP';
+}
 function renderWeaponForgeWeightClassOptions() {
     let locked = weaponForgeEditIndex !== null && weaponForgeTarget !== 'gm' && weaponForgeTarget !== 'loot';   // (a GM's NPC and Library weapons can be reshaped any time)
     let html = Object.keys(WEAPON_WEIGHT_CLASSES).map(key => {
@@ -296,7 +308,7 @@ function renderWeaponForgeStep2() {
         return `
             <label class="flex items-center justify-between bg-slate-900 border border-slate-700 rounded px-2 py-1.5 ${disabled ? 'opacity-40' : 'cursor-pointer'}">
                 <span class="flex items-center gap-2 text-xs font-bold text-white"><input type="radio" name="wpnDmgTier" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''} onchange="window.setWeaponForgeDmgTier(${idx})"> ${t.label}</span>
-                <span class="text-[10px] text-yellow-400 font-bold">${idx === 0 ? 'Free' : cumCost + ' Cu'}</span>
+                <span class="text-[10px] text-yellow-400 font-bold">${wpnIsNpc() ? (checked ? (window.npcWeaponTp ? window.npcWeaponTp(weaponDraftAsObject(weaponForgeDraft)).parts.filter(p => /^Damage/.test(p.label)).reduce((a, p) => a + p.tp, 0) + ' TP' : '') : wpnPrice(0, d => { d.dmgTier = idx; })) : (idx === 0 ? 'Free' : cumCost + ' Cu')}</span>
             </label>
         `;
     }).join('');
@@ -309,7 +321,7 @@ function renderWeaponForgeStep2() {
         return `
             <label class="flex items-center justify-between bg-slate-900 border border-slate-700 rounded px-2 py-1.5 cursor-pointer">
                 <span class="flex items-center gap-2 text-xs font-bold text-white"><input type="radio" name="wpnCritTier" ${checked ? 'checked' : ''} onchange="window.setWeaponForgeCritTier(${idx})"> ${t.label}</span>
-                <span class="text-[10px] text-yellow-400 font-bold">${idx === 0 ? 'Free' : cumCost + ' Cu'}</span>
+                <span class="text-[10px] text-yellow-400 font-bold">${wpnIsNpc() ? (checked ? (((window.NPC_GEAR_CRIT_TP || {})[t.mult] || 0) + ' TP') : wpnPrice(0, d => { d.critTier = idx; })) : (idx === 0 ? 'Free' : cumCost + ' Cu')}</span>
             </label>
         `;
     }).join('');
@@ -320,23 +332,33 @@ function renderWeaponForgeStep3() {
     let isRanged = weaponForgeDraft.category === 'ranged';
     document.getElementById('wpnRangeSection').style.display = isRanged ? 'block' : 'none';
 
+    let ctx = weaponForgeCtx();
     if (isRanged) {
         let wc = WEAPON_WEIGHT_CLASSES[weaponForgeDraft.weightClass];
+        let scatter = !!weaponForgeDraft.properties.scatter;   // (a Scatter weapon has no Range Increments: it covers a 3-square Cone)
         let rangeHtml = WEAPON_RANGE_TIERS.map((t, idx) => {
-            let disabled = idx > wc.maxRangeTier;
+            let disabled = idx > wc.maxRangeTier || (scatter && idx > 0);
             let checked = weaponForgeDraft.rangeTier === idx;
             return `
                 <label class="flex items-center justify-between bg-slate-900 border border-slate-700 rounded px-2 py-1.5 ${disabled ? 'opacity-40' : 'cursor-pointer'}">
-                    <span class="flex items-center gap-2 text-xs font-bold text-white"><input type="radio" name="wpnRangeTier" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''} onchange="window.setWeaponForgeRangeTier(${idx})"> ${t.label}</span>
-                    <span class="text-[10px] text-yellow-400 font-bold">${idx === 0 ? 'Free' : t.cost + ' Cu'}</span>
+                    <span class="flex items-center gap-2 text-xs font-bold text-white"><input type="radio" name="wpnRangeTier" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''} onchange="window.setWeaponForgeRangeTier(${idx})"> ${scatter && idx === 0 ? '3-sq Cone (Scatter)' : t.label}</span>
+                    <span class="text-[10px] text-yellow-400 font-bold">${wpnPrice(idx === 0 ? 0 : t.cost, d => { d.rangeTier = idx; }, checked)}</span>
                 </label>
             `;
         }).join('');
         document.getElementById('wpnRangeTierOptions').innerHTML = rangeHtml;
+        // Loading, Scatter and Repeating: how the ranged weapon fires, drawn with its Range Increments
+        let rp = document.getElementById('wpnRangeProps');
+        if (!rp) { rp = document.createElement('div'); rp.id = 'wpnRangeProps'; rp.className = 'grid grid-cols-1 sm:grid-cols-2 gap-1.5 mt-1.5'; document.getElementById('wpnRangeTierOptions').after(rp); }
+        rp.innerHTML = WEAPON_PROPERTIES.filter(p => p.section === 'range').map(p => wpnPropCard(p, ctx)).join('');
     }
-
-    let ctx = weaponForgeCtx();
-    let propsHtml = WEAPON_PROPERTIES.map(p => {
+    // Elemental Critical: right under Elemental, only once the weapon is Elemental
+    {
+        let host = document.getElementById('wpnElemCritHost'), sel = document.getElementById('wpnElementalType');
+        if (!host && sel) { host = document.createElement('div'); host.id = 'wpnElemCritHost'; host.className = 'mt-1.5'; sel.after(host); }
+        if (host) host.innerHTML = WEAPON_PROPERTIES.filter(p => p.top && p.reqCheck(ctx)).map(p => wpnPropCard(p, ctx)).join('');
+    }
+    let propsHtml = WEAPON_PROPERTIES.filter(p => !p.section && !p.top).map(p => {
         let meetsReq = p.reqCheck(ctx);
         // Reach (and any future p.max > 1 property) uses a stepper; others use checkbox
         if (p.max && p.max > 1) {
@@ -349,7 +371,7 @@ function renderWeaponForgeStep3() {
                     <button onclick="window.stepWeaponProperty('${p.key}',1)" ${count >= p.max || !meetsReq ? 'disabled' : ''} class="w-5 h-5 rounded bg-amber-700 hover:bg-amber-600 text-white text-xs font-bold ${count >= p.max || !meetsReq ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}">+</button>
                 </div>
                 <div class="flex-1">
-                    <div class="text-[11px] font-bold text-slate-200">${p.name} <span class="text-yellow-500">[${p.cost} Cu each, max ${p.max}]</span></div>
+                    <div class="text-[11px] font-bold text-slate-200">${p.name} <span class="text-yellow-500">[${wpnIsNpc() ? wpnPrice(0, d => { d.properties[p.key] = Math.min(p.max, (Number(d.properties[p.key]) || 0) + 1); }) + ' each' : p.cost + ' Cu each'}, max ${p.max}]</span></div>
                     <div class="text-[9px] text-slate-500 leading-tight">${p.desc}</div>
                     ${!meetsReq ? `<div class="text-[9px] text-red-400 font-bold">Requires: ${p.reqLabel}</div>` : ''}
                 </div>
@@ -363,7 +385,7 @@ function renderWeaponForgeStep3() {
             let on = !!weaponForgeDraft.properties[ad.key], ok = ad.reqCheck(ctx);
             return `<label class="flex items-start gap-2 mt-1.5 pt-1.5 border-t border-slate-700 ${!ok ? 'opacity-50' : 'cursor-pointer'}" onclick="event.stopPropagation()">
                     <input type="checkbox" class="mt-0.5" ${on ? 'checked' : ''} ${!ok ? 'disabled' : ''} onchange="window.toggleWeaponProperty('${ad.key}', this.checked)">
-                    <div class="flex-1"><div class="text-[11px] font-bold text-slate-200">${ad.name.replace(/\s*\(.*\)$/, '')} <span class="text-yellow-500">[+${ad.cost} Cu]</span></div>
+                    <div class="flex-1"><div class="text-[11px] font-bold text-slate-200">${ad.name.replace(/\s*\(.*\)$/, '')} <span class="text-yellow-500">[${wpnIsNpc() ? wpnPrice(0, d => { d.properties[ad.key] = !on; }, on) : '+' + ad.cost + ' Cu'}]</span></div>
                     <div class="text-[9px] text-slate-500 leading-tight">${ad.desc}</div></div></label>`;
         }).join('') : '';
         return `
@@ -371,7 +393,7 @@ function renderWeaponForgeStep3() {
                 <label class="flex items-start gap-2 ${meetsReq ? 'cursor-pointer' : ''}">
                     <input type="checkbox" class="mt-0.5" ${checked ? 'checked' : ''} ${!meetsReq ? 'disabled' : ''} onchange="window.toggleWeaponProperty('${p.key}', this.checked)">
                     <div class="flex-1">
-                        <div class="text-[11px] font-bold text-slate-200">${p.name} <span class="text-yellow-500">[${p.cost} Cu]</span></div>
+                        <div class="text-[11px] font-bold text-slate-200">${p.name} <span class="text-yellow-500">[${wpnIsNpc() ? wpnPrice(0, d => { d.properties[p.key] = !checked; }, checked) : p.cost + ' Cu'}]</span></div>
                         <div class="text-[9px] text-slate-500 leading-tight">${p.desc}</div>
                         ${!meetsReq ? `<div class="text-[9px] text-red-400 font-bold">Requires: ${p.reqLabel}</div>` : ''}
                     </div>
@@ -383,6 +405,17 @@ function renderWeaponForgeStep3() {
     document.getElementById('wpnPropertiesList').innerHTML = propsHtml;
 }
 
+// A property's checkbox card (the range section's and Elemental Critical)
+function wpnPropCard(p, ctx) {
+    let ok = p.reqCheck(ctx), on = !!weaponForgeDraft.properties[p.key];
+    return `<div class="bg-slate-900 border ${on ? 'border-orange-600' : 'border-slate-700'} rounded p-2 ${!ok ? 'opacity-50' : ''}">
+        <label class="flex items-start gap-2 ${ok ? 'cursor-pointer' : ''}">
+            <input type="checkbox" class="mt-0.5" ${on ? 'checked' : ''} ${!ok ? 'disabled' : ''} onchange="window.toggleWeaponProperty('${p.key}', this.checked)">
+            <div class="flex-1"><div class="text-[11px] font-bold text-slate-200">${p.name} <span class="text-yellow-500">[${wpnPrice(p.cost, d => { d.properties[p.key] = !on; }, on)}]</span></div>
+                <div class="text-[9px] text-slate-500 leading-tight">${p.desc}</div>
+                ${!ok ? `<div class="text-[9px] text-red-400 font-bold">Requires: ${p.reqLabel}</div>` : ''}</div>
+        </label></div>`;
+}
 function renderWeaponForgeSummary() {
     let t = window.weaponForgeCalcTotals();
     let delta = Math.max(0, t.cost - weaponForgeBasePaid);
@@ -420,7 +453,7 @@ function wpnStripCu() {
     if (paid) paid.parentElement.parentElement.style.display = noCu ? 'none' : '';
     let el = document.getElementById('wpnElementalCheck');
     let lbl = el && el.nextElementSibling;
-    if (lbl) lbl.textContent = noCu ? 'Elemental' : 'Elemental (300 Cu)';
+    if (lbl) lbl.textContent = noCu ? 'Elemental (+2 TP)' : 'Elemental (300 Cu)';
     if (!noCu) return;
     modal.querySelectorAll('span,div').forEach(n => {
         if (n.children.length) return;
@@ -538,6 +571,7 @@ function applyWeaponForgeFinal(finalDraft, batches) {
         dmgType: finalDraft.dmgType, critMult: totals.critMult, range: totals.range,
         elemental: finalDraft.elemental, properties: { ...finalDraft.properties },
         weight: totals.weight, paidCost: totals.cost,
+        wRule: 2,   // forged under the Finesse rule: a Medium melee weapon uses STR unless it's Finesse
         craftBatches: batches
     };
 

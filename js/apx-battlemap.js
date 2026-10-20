@@ -1800,8 +1800,10 @@
         let fa = _areaFoot(layer, P); if (!fa) return null;
         let cx = (fa.x0 + fa.x1 + 1) / 2, cy = (fa.y0 + fa.y1 + 1) / 2, D = Math.max(20, P.size * 3);
         let b = { gx: Math.floor(cx + Math.cos(P.ang) * D), gy: Math.floor(cy + Math.sin(P.ang) * D) };
-        let cells = P.mode === 'line' ? lineCells(fa, b, P.size) : areaCells(fa, b, P.mode, P.size > 120 ? 3 : P.size > 40 ? 5 : 12, P.size).cells;
-        cells = _areaWalls(layer, P, fa, cells, b);
+        let cells = P.mode === 'square'
+            ? (() => { let out = []; for (let x = fa.x0; x < fa.x0 + P.size; x++) for (let y = fa.y0; y < fa.y0 + P.size; y++) out.push({ gx: x, gy: y }); return out; })()   // (a Repeating weapon's 2x2 square)
+            : P.mode === 'line' ? lineCells(fa, b, P.size) : areaCells(fa, b, P.mode, P.size > 120 ? 3 : P.size > 40 ? 5 : 12, P.size).cells;
+        if (P.mode !== 'square') cells = _areaWalls(layer, P, fa, cells, b);
         // A wide Line (Vehicle Scale: each of its squares is 5x5): widen it across its direction
         if (P.mode === 'line' && (P.width || 1) > 1 && cells.length) {
             let cx2 = (fa.x0 + fa.x1 + 1) / 2, cy2 = (fa.y0 + fa.y1 + 1) / 2, horiz = Math.abs(b.gx + 0.5 - cx2) >= Math.abs(b.gy + 0.5 - cy2);
@@ -1841,14 +1843,14 @@
         // A grab ring on its start, once it's placed
         let c0 = scr((A.fa.x0 + A.fa.x1 + 1) / 2, (A.fa.y0 + A.fa.y1 + 1) / 2);
         if (P.placed) html += `<circle cx="${c0.x}" cy="${c0.y}" r="${Math.max(9, (A.fa.x1 - A.fa.x0 + 1) * cs * s * 0.5 + 3)}" fill="none" stroke="#fde68a" stroke-width="1.5" stroke-dasharray="3 3"/>`;
-        let shape = P.label2 || (P.mode === 'burst' ? `${P.size}-sq Burst` : `${P.size}-sq ${P.mode === 'line' ? 'Line' : 'Cone'}`);
+        let shape = P.label2 || (P.mode === 'square' ? `${P.size}x${P.size} square` : P.mode === 'burst' ? `${P.size}-sq Burst` : `${P.size}-sq ${P.mode === 'line' ? 'Line' : 'Cone'}`);
         html += _measureLabel(c0.x + 16, c0.y - 18, `${P.label}: ${shape} · ${hitN} creature${hitN === 1 ? '' : 's'}${P.safe.size ? ` (${P.safe.size} safe)` : ''}`, edge, '#f5f3ff');
         if (!ok) html += _measureLabel(c0.x + 16, c0.y + 8, !_areaSight(layer, P) ? 'A wall is in the way: you can\'t see that spot' : P.range === 0 ? 'Too far: it starts from you (or the square next to you)' : `Out of range: ${reach} of ${P.range} squares`, '#f87171', '#fecaca');
         P.svg.innerHTML = html;
         if (go) { go.style.opacity = P.placed && ok ? '1' : '.5'; }
         if (tip) {
             let t = !P.placed ? `Move to aim, click to place it${P.range && P.range !== Infinity ? ` (range ${P.range} squares)` : ''}`
-                : `Drag its start to move it${P.mode === 'burst' ? ' · click a square to move it there' : ' · scroll to turn it (Alt+scroll: finer) · click a square to point it there'}`;
+                : `Drag its start to move it${P.mode === 'burst' || P.mode === 'square' ? ' · click a square to move it there' : ' · scroll to turn it (Alt+scroll: finer) · click a square to point it there'}`;
             if (P.safeZone) t += ' · Shift+click a creature to keep it safe (Safe Zone)';
             tip.textContent = t + ' · Enter to use it, Esc or right-click to cancel';
         }
@@ -1862,7 +1864,7 @@
     }
     function placeArea(winId, opts) {
         let layer = document.getElementById(winId + '_btScreen');
-        if (!layer || !layer._opts || !opts || !['line', 'cone', 'burst'].includes(opts.mode)) return Promise.resolve('skip');
+        if (!layer || !layer._opts || !opts || !['line', 'cone', 'burst', 'square'].includes(opts.mode)) return Promise.resolve('skip');
         if (layer._measure) exitMeasure(winId);
         if (layer._area) layer._area.finish(null);
         return new Promise(resolve => {
@@ -1875,7 +1877,7 @@
             let bar = document.createElement('div');
             bar.style.cssText = 'position:absolute;left:8px;right:8px;bottom:8px;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:4px;pointer-events:none;cursor:default;';
             let btn = (attr, txt, bg, bd) => `<button ${attr} style="pointer-events:auto;border:1px solid ${bd};border-radius:5px;font-size:11px;font-weight:800;padding:3px 10px;cursor:pointer;background:${bg};color:#fff">${txt}</button>`;
-            bar.innerHTML = btn('data-ago', 'Use power', '#7e22ce', '#c084fc') + btn('data-askip', 'Use without the map', 'rgba(15,23,42,.92)', '#64748b') + btn('data-acancel', 'Cancel', 'rgba(15,23,42,.92)', '#64748b')
+            bar.innerHTML = btn('data-ago', opts.goLabel || 'Use power', '#7e22ce', '#c084fc') + btn('data-askip', 'Use without the map', 'rgba(15,23,42,.92)', '#64748b') + btn('data-acancel', 'Cancel', 'rgba(15,23,42,.92)', '#64748b')
                 + `<span data-atip style="background:rgba(15,23,42,.92);border:1px solid #c084fc;color:#f5f3ff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:5px;white-space:normal;max-width:100%;text-align:center;pointer-events:none"></span>`;
             ov.appendChild(svg); ov.appendChild(bar);
             layer.appendChild(ov);
@@ -1910,8 +1912,8 @@
                 let A = _areaCalc(layer, P); if (!A) return;
                 let hit = A.hits.filter(h => !P.safe.has(h.vm.id));
                 let res = { tokenIds: hit.map(h => h.vm.id), safeIds: A.hits.filter(h => P.safe.has(h.vm.id)).map(h => h.vm.id),
-                    names: hit.map(h => h.vm.name || String(h.vm.title || '').split(' (')[0] || 'Token'), squares: A.cells.length };
-                if (P.mode !== 'burst') _areaAng(angKey, P.ang);
+                    names: hit.map(h => h.vm.name || String(h.vm.title || '').split(' (')[0] || 'Token'), squares: A.cells.length, reach: _areaReach(layer, P) };
+                if (P.mode !== 'burst' && P.mode !== 'square') _areaAng(angKey, P.ang);
                 // Everyone sees where it landed for a few seconds (as this window's shared measurement)
                 let o = layer._opts;
                 if (o.onMeasureShare && !layer._measure) {
@@ -1943,7 +1945,7 @@
                 if (e.shiftKey && P.safeZone && P.placed) { toggleSafe(c); return; }   // Safe Zone: Shift+click a creature in it
                 if (!P.placed) { setStart(c); P.placed = true; }
                 else if (onStart(c)) P.drag = true;
-                else if (P.mode === 'burst') setStart(c);
+                else if (P.mode === 'burst' || P.mode === 'square') setStart(c);
                 else aim(c);
                 _layoutArea(layer);
             });
@@ -1958,7 +1960,7 @@
             });
             // Scroll turns a Line or Cone (Shift+scroll, or a Burst, still zooms the map)
             ov.addEventListener('wheel', e => {
-                if (P.mode === 'burst' || e.shiftKey) return;
+                if (P.mode === 'burst' || P.mode === 'square' || e.shiftKey) return;
                 e.preventDefault(); e.stopPropagation();
                 P.ang += (e.deltaY > 0 ? 1 : -1) * (e.altKey ? Math.max(Math.PI / 48, Math.min(Math.PI / 12, 1 / P.size)) : Math.PI / 12);   // 15° a notch; Alt for a square at a time
                 _layoutArea(layer);
