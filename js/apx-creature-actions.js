@@ -37,6 +37,7 @@
         { g: 'Combat Maneuvers', name: 'Escape', cost: 4, tip: 'Break free of a grapple: contested STR (Athletics) or AGI (Acrobatics) against the grappler\'s STR (Athletics). On a win, the Grapple and any Pin end.', ask: 'Escape won?', uncond: ['pinned', 'grappled', 'grabbed'] },
         { g: 'Combat Maneuvers', name: 'Let Go', cost: 0, tip: 'Release the creature it\'s grappling (a Free Action). Its Staggered from the grapple ends.', endFx: 'grappling' },
         { g: 'Standard Actions', name: 'Move', cost: null, tip: 'Move up to its Speed. Costs 1 AP the first time this turn, 2 the second, 3 the third… (dragging its token on a battle map in combat pays this for you).', move: true },
+        { g: 'Standard Actions', name: 'Jump', cost: null, tip: 'A Jump counts as moving for its AP (1 AP the first time this turn, 2 the second…). It jumps up to its STR modifier in squares (minimum 1); further takes a STR (Athletics) check, DC 5 per extra square.', move: true },
         { g: 'Standard Actions', name: 'Draw / Stow', cost: 2, tip: 'Draw a weapon or stow an item it\'s holding.' },
         { g: 'Standard Actions', name: 'Use / Manipulate', cost: 3, tip: 'Open a door, pull a lever, pass an item, drink a potion, activate a terminal.' },
         { g: 'Standard Actions', name: 'Drop', cost: 0, tip: 'Drop an item in its square (a Free Action).' },

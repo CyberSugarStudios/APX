@@ -61,6 +61,12 @@
             { id: 'channelStep', test: d => d.duration === 'channel' && !d.channelStep,
               text: 'Channeling now chooses, when the power is crafted, whether channeling repeats its Damage (Step 4) or its Utility (Step 5), and gives you a Channel button (half the power\'s AP) while it lasts. Rebuild it to choose (free). It can\'t be channeled until then.' }
         ],
+        // A power uses one die size (no more 4d4 + 2d6). Ranges are bought by the square now, but a power
+        // with an older range (Short / Long / Extreme) keeps it, and its cost, until it's rebuilt: no flag for that
+        9: [
+            { id: 'oneDieStep', test: d => (window.POWER_DIE_STEPS || ['d4', 'd6', 'd8', 'd10', 'd12']).filter(s => ((d.dmg || {})[s] || 0) > 0).length > 1,
+              text: 'A power now uses one die size for its damage or healing (no more mixing, like 4d4 + 2d6). It still works as it is; rebuild it (free) to pick one die size.' }
+        ],
         // Saving throws name their Core Attribute; lasting effects get an Escape Save the target can pass
         3: ['save', 'cond', 'escape', 'actionInt'].map(k => ({
             id: 'powerSaves_' + k,

@@ -555,6 +555,7 @@
         let v = { hp, at: firebase.firestore.FieldValue.serverTimestamp() };
         if (tempHp !== undefined && tempHp !== null) v.tempHp = tempHp;
         if (extra && extra.vitality) v.vitality = true; else v.vitality = firebase.firestore.FieldValue.delete();   // (Vitality Rank 4 just saved them)
+        if (extra && extra.acid) v.acid = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), n: extra.acid }; else v.acid = firebase.firestore.FieldValue.delete();   // (an Acid Elemental Critical: −DR until repaired)
         await db.collection('worldCodes').doc(inviteCode)
             .collection('players').doc(uid)
             .set({ _gmHp: v }, { merge: true });

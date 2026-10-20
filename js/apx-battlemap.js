@@ -1802,6 +1802,15 @@
         let b = { gx: Math.floor(cx + Math.cos(P.ang) * D), gy: Math.floor(cy + Math.sin(P.ang) * D) };
         let cells = P.mode === 'line' ? lineCells(fa, b, P.size) : areaCells(fa, b, P.mode, P.size > 120 ? 3 : P.size > 40 ? 5 : 12, P.size).cells;
         cells = _areaWalls(layer, P, fa, cells, b);
+        // A wide Line (Vehicle Scale: each of its squares is 5x5): widen it across its direction
+        if (P.mode === 'line' && (P.width || 1) > 1 && cells.length) {
+            let cx2 = (fa.x0 + fa.x1 + 1) / 2, cy2 = (fa.y0 + fa.y1 + 1) / 2, horiz = Math.abs(b.gx + 0.5 - cx2) >= Math.abs(b.gy + 0.5 - cy2);
+            let half = Math.floor((P.width - 1) / 2), seen = new Set(), wide = [];
+            cells.forEach(c => { for (let k = -half; k <= P.width - 1 - half; k++) { let n = horiz ? { gx: c.gx, gy: c.gy + k } : { gx: c.gx + k, gy: c.gy }, key = n.gx + ',' + n.gy;
+                if (fa.token && n.gx >= fa.x0 && n.gx <= fa.x1 && n.gy >= fa.y0 && n.gy <= fa.y1) continue;
+                if (!seen.has(key)) { seen.add(key); wide.push(n); } } });
+            cells = wide;
+        }
         let set = new Set(cells.map(c => c.gx + ',' + c.gy)), hits = [];
         (layer._opts.tokens || []).forEach(vm => {
             let p = _tokPos(layer, vm.id) || { gx: vm.gridX, gy: vm.gridY }, sp = span(vm.size), inside = false;
@@ -1832,7 +1841,7 @@
         // A grab ring on its start, once it's placed
         let c0 = scr((A.fa.x0 + A.fa.x1 + 1) / 2, (A.fa.y0 + A.fa.y1 + 1) / 2);
         if (P.placed) html += `<circle cx="${c0.x}" cy="${c0.y}" r="${Math.max(9, (A.fa.x1 - A.fa.x0 + 1) * cs * s * 0.5 + 3)}" fill="none" stroke="#fde68a" stroke-width="1.5" stroke-dasharray="3 3"/>`;
-        let shape = P.mode === 'burst' ? `${P.size}-sq Burst` : `${P.size}-sq ${P.mode === 'line' ? 'Line' : 'Cone'}`;
+        let shape = P.label2 || (P.mode === 'burst' ? `${P.size}-sq Burst` : `${P.size}-sq ${P.mode === 'line' ? 'Line' : 'Cone'}`);
         html += _measureLabel(c0.x + 16, c0.y - 18, `${P.label}: ${shape} · ${hitN} creature${hitN === 1 ? '' : 's'}${P.safe.size ? ` (${P.safe.size} safe)` : ''}`, edge, '#f5f3ff');
         if (!ok) html += _measureLabel(c0.x + 16, c0.y + 8, !_areaSight(layer, P) ? 'A wall is in the way: you can\'t see that spot' : P.range === 0 ? 'Too far: it starts from you (or the square next to you)' : `Out of range: ${reach} of ${P.range} squares`, '#f87171', '#fecaca');
         P.svg.innerHTML = html;
@@ -1875,6 +1884,7 @@
             // A Line or Cone points the way it last did for this power (no turning it back around every time)
             let angKey = (opts.key || opts.label || 'Power') + '|' + opts.mode;
             let P = layer._area = { ov, svg, bar, mode: opts.mode, size, range, casterId: opts.casterId || null, label: opts.label || 'Power', safeZone: !!opts.safeZone,
+                width: Math.max(1, parseInt(opts.width) || 1), label2: opts.shapeLabel || '',
                 safe: new Set(), anchor: false, a: null, ang: _areaAng(angKey), placed: false, drag: false };
             // Self / Touch: it starts from its user, pointing away from the map's middle-ish (right)
             let cf = _casterFoot(layer, P);

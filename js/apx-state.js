@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.10.20.0108';
+window.APX_VERSION = 'v2026.10.20.0443';
 
         window.state = getInitialState();
 
@@ -303,7 +303,13 @@ window.APX_VERSION = 'v2026.10.20.0108';
         //   "+N"  → healing: HP only, capped at max. Temp HP untouched.
         //   "N"   → set HP to N (capped). Temp HP untouched.
         // Returns {currentHp, tempHp} or null if the input doesn't parse.
-        window.apxApplyHpInput = function(raw, cur, temp, max) {
+        // Can't regain Hit Points (the Can't Regain HP condition, Suffocating): the condition's name, or ''
+        window.apxNoHealCond = function(ids) {
+            ids = ids || [];
+            let c = ['noheal', 'suffocating'].find(x => ids.includes(x));
+            return c ? (c === 'noheal' ? "Can't Regain HP" : 'Suffocating') : '';
+        };
+                window.apxApplyHpInput = function(raw, cur, temp, max) {
             let clean = String(raw ?? '').replace(/[\u2212\u2012\u2013\u2014\uFE63\uFF0D]/g, '-').replace(/\uFF0B/g, '+').replace(/[^0-9\+\-\s]/g, '').trim();   // (phone keyboards' dashes are minus signs)
             if (clean === '') return null;
             cur = Number(cur) || 0; temp = Math.max(0, Number(temp) || 0);
@@ -385,6 +391,9 @@ window.APX_VERSION = 'v2026.10.20.0108';
                     }
                     let r = window.apxApplyHpInput(val, window.state.currentHp, window.state.tempHp, maxHp);
                     if (!r) throw new Error('unparseable');
+                    // Can't regain Hit Points: healing does nothing (Temp HP still works, in its own box)
+                    let nh = r.currentHp > (window.state.currentHp || 0) && window.apxNoHealCond(window.apxEffectiveConditions ? window.apxEffectiveConditions(window.state.conditions || [], window.state).map(c => c.id) : (window.state.conditions || []));
+                    if (nh) { window.APXDice?.notify(`You're ${nh === 'Suffocating' ? 'Suffocating' : 'under Can\'t Regain HP'}: you can't regain Hit Points.`, { kind: 'warn', open: true }); window.apxRefreshHpInputs?.(); return; }
                     window.state.tempHp = r.tempHp;
                     window.updateState('currentHp', r.currentHp);
                     window.apxRefreshHpInputs?.();

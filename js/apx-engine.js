@@ -8,7 +8,14 @@
         }
         window.apxRollAttr = apxRollAttr;
 
-        // ── Vitality (Rank 4) ──
+        // Armor eaten by Acid (an Elemental Critical): repaired, its DR is back
+        window.apxRepairAcid = async function() {
+            let st = window.state; if (!st || !st.armorAcid) return;
+            let ok = window.apxConfirm ? await window.apxConfirm(`Repair your armor? It gets back the ${st.armorAcid} DR Acid took (repairs need a workbench or a toolkit and some time, as your GM rules).`, { title: 'Repair armor', okLabel: 'Repaired' }) : true;
+            if (!ok) return;
+            st.armorAcid = 0; window.recalculateMath(); window.scheduleAutoSave?.();
+        };
+                // ── Vitality (Rank 4) ──
         // Dropping to 0 HP, you drop to 1 instead, then may spend up to your Rank in Rest Dice to heal (Rank 3 heals their
         // most; Rank 1 adds your CON modifier). Once per Full Rest. Damage from your GM's tracker is caught there and
         // arrives as 1 HP; anything that takes this sheet to 0 is caught here.
@@ -18,6 +25,7 @@
             let have = Math.max(0, parseInt(st.restDice) || 0), most = Math.min(rank, have);
             window.APXDice.notify('Vitality: you drop to 1 HP instead of 0.' + (most ? ' You can spend Rest Dice to heal.' : ''), { kind: 'note', open: true });
             if (!most || !APXDice.ask) return;
+            if (window.apxNoHealCond && window.apxNoHealCond(st.conditions || [])) { window.APXDice.notify('You can\'t regain Hit Points right now, so Vitality\'s Rest Dice can\'t heal you (you stay at 1 HP).', { kind: 'warn', open: true }); return; }
             let choices = [];
             for (let n = most; n >= 1; n--) choices.push([String(n), `Spend ${n}`, n === most ? 'pri' : '']);
             choices.push(['0', 'None']);
@@ -569,8 +577,19 @@
             let baseErMods = [calc.mods.AGI, calc.mods.PER, calc.mods.INT, calc.mods.CHA, calc.mods.LUC].map(v => Math.max(v, 0));
             calc.er += Math.max(...baseErMods) + armorEr;
             if (exo && exo.plating) { calc.dr = exo.plating.dr; calc.er = exo.plating.er; }
+            // Acid (an Elemental Critical): each one lowers your DR by 1 until your armor is repaired
+            calc.acidDr = Math.max(0, parseInt(window.state.armorAcid) || 0);
+            if (calc.acidDr) calc.dr = Math.max(0, calc.dr - calc.acidDr);
 
             document.getElementById('dispDr').innerText = calc.dr;
+            {
+                let host = document.getElementById('dispDr').parentElement, el = document.getElementById('apxAcidDr');
+                if (calc.acidDr) {
+                    if (!el) { el = document.createElement('button'); el.id = 'apxAcidDr'; el.type = 'button'; el.onclick = () => window.apxRepairAcid(); el.className = 'text-[9px] font-bold rounded border border-emerald-600 text-yellow-300 px-1 mt-0.5'; host.appendChild(el); }
+                    el.textContent = `Acid −${calc.acidDr} · Repair`;
+                    el.title = `Acid has eaten into your armor: −${calc.acidDr} DR until it's repaired (at a workbench or with a toolkit, as your GM rules). Click once it's repaired.`;
+                } else if (el) el.remove();
+            }
             document.getElementById('dispEr').innerText = calc.er;
             {
                 let envEl = document.getElementById('dispEnvResistances');
@@ -894,7 +913,7 @@
                 // free-stat-edit exploit that isLocked exists to close).
                 let nameHtml = `<div class="text-xs ${item.isLocked ? 'text-slate-400' : 'text-slate-200'} font-bold px-1 truncate" title="${item.name}">${item.name}${item.isLocked && !window.state.craftingMatWeightEnabled ? ' <span class="text-[9px] text-slate-600">(wt off)</span>' : ''}</div>`
                     // A crafted consumable: Use runs its effect (3 AP, one charge), like a power
-                    + (item.isConsumable && item.draft ? `<button onclick="window.apxUsePower('c${idx}')" ${(item.chargesRemaining ?? item.charges ?? 1) <= 0 ? 'disabled' : ''} class="ml-1 text-[9px] font-bold px-1.5 rounded border border-purple-600 text-purple-200 bg-purple-900/40 hover:bg-purple-800/60" title="Use it: 3 AP and one charge; rolls its attack, save, damage or healing">Use (3 AP)</button>` : '')
+                    + (item.isConsumable && item.draft ? (cp => `<button onclick="window.apxUsePower('c${idx}')" ${(item.chargesRemaining ?? item.charges ?? 1) <= 0 ? 'disabled' : ''} class="ml-1 text-[9px] font-bold px-1.5 rounded border border-purple-600 text-purple-200 bg-purple-900/40 hover:bg-purple-800/60" title="${cp && cp.ammo ? (cp.ammoMissing ? cp.ammoMissing.replace(/"/g, '&quot;') : 'Fire it: your weapon\'s AP and one charge; rolls your weapon\'s attack, and its effects land on a hit') : 'Use it: 3 AP and one charge; rolls its attack, save, damage or healing'}">${cp && cp.ammo ? `Fire (${cp.ammoMissing ? '-' : cp.ap} AP)` : 'Use (3 AP)'}</button>`)(window.ccPowerOf ? window.ccPowerOf(item) : null) : '')
                     + (item.isCustomEquippable && item.bonuses && window.apxItemBonusText && window.apxItemBonusText(item.bonuses)
                         ? `<div class="text-[9px] ${item.equipped ? 'text-cyan-400' : 'text-slate-500'} px-1 truncate" title="${window.apxItemBonusText(item.bonuses).replace(/"/g, '&quot;')}">${window.apxItemBonusText(item.bonuses)}</div>` : '')
                     + (item.isCustomEquippable && Array.isArray(item.powers) && item.powers.length
@@ -1270,6 +1289,10 @@
             let flOn = !!(flGm && flGm.uid === window.apxAuth?.user?.uid && o.hit && flGm.weapon === o.hit.weapon);
             if (o.wFlurry) mods.push({ id: 'wflurry', label: flOn ? `Flurry: you hit ${flGm.target || 'them'} with this weapon this turn (attacking them again?)` : 'Flurry weapon: you already hit this target this turn', delta: -1, on: flOn,
                 tip: 'Flurry property: each attack after a hit on the same target costs 1 less AP (min 1) until you miss or your turn ends.' });
+            // Cleave: the GM's tracker saw this weapon drop a creature this turn: one attack with it for 0 AP
+            let clGm = window._pwCombatTurn && window._pwCombatTurn.cleave;
+            if (clGm && clGm.uid === window.apxAuth?.user?.uid && o.hit && clGm.weapon === o.hit.weapon && window.state.cleaveUsed !== clGm.key)
+                mods.push({ id: 'cleave', label: 'Cleave: you dropped a creature with this weapon this turn (this attack is free)', set: 0, on: true, tip: 'Cleave property: when you reduce a creature to 0 HP with it, you can make one attack with it for 0 AP before the end of your turn.' });
             let needPopup = mods.length > 0 || o.aimed;
             let compute = (sel, aim, extra) => {
                 let cost = base;
@@ -1278,10 +1301,12 @@
                 if (setTo != null) cost = setTo;
                 mods.forEach(m => { if (!sel[m.id] || m.delta == null) return; cost += m.delta * (typeof sel[m.id] === 'number' ? sel[m.id] : 1); });
                 if (mods.some(m => sel[m.id] && m.delta != null)) cost = Math.max(1, cost);
+                if (sel.cleave) cost = 0;   // (Cleave: free, whatever else would change it)
                 cost = Math.max(0, cost + (parseInt(extra) || 0));
-                return { atk: cost, aim: staggered ? 0 : aim, total: cost + (staggered ? 0 : aim) };
+                return { atk: cost, aim: staggered ? 0 : aim, total: cost + (staggered ? 0 : aim), cleave: !!sel.cleave };
             };
             let finish = (c, spend) => {
+                if (c.cleave && clGm) { window.state.cleaveUsed = clGm.key; setTimeout(() => window.recalculateMath?.(), 0); }
                 let parts = c.aim ? ` (${c.atk} attack + ${c.aim} Aim)` : '';
                 if (!spend) return { note: c.total > have ? `Not enough AP: had ${have}, needed ${c.total}${parts}` : `AP not spent (${c.total} AP${parts})`, warn: c.total > have };
                 window.apxSpendAp(c.total);
@@ -1379,6 +1404,40 @@
                 return r && typeof r.then === 'function' ? r.then(after) : after(r);
             };
         })();
+        // Loading (weapon property): in combat, after each attack it must be Reloaded (2 AP, with ammo to load)
+        // before it can attack again. state.unloaded: { weapon name: true }
+        (function () {
+            let inner = window.apxBeforeAttack;
+            window.apxBeforeAttack = function (o) {
+                let w = o && o.pcAttack && !o.companion && o.hit && (o.hit.props || []).includes('loading') ? (o.hit.weapon || 'Weapon') : null;
+                if (!w || !window._pwCombatCode) return inner(o);
+                let st = window.state; st.unloaded = st.unloaded || {};
+                if (st.unloaded[w]) { window.APXDice?.notify(`${w} needs reloading first: Reload (2 AP), under its name in Weapons & Attacks.`, { kind: 'warn', open: true }); return false; }
+                let after = res => {
+                    if (res === false) return res;
+                    st.unloaded[w] = true; setTimeout(() => window.recalculateMath?.(), 0); window.scheduleAutoSave?.();
+                    let note = 'Loading: Reload (2 AP) before its next attack';
+                    return res && typeof res === 'object' ? Object.assign({}, res, { note: res.note ? res.note + ' · ' + note : note }) : { note };
+                };
+                let r = inner(o);
+                return r && typeof r.then === 'function' ? r.then(after) : after(r);
+            };
+            window.apxReloadWeapon = async function (idx) {
+                let w = (window.state.weapons || [])[idx]; if (!w) return;
+                let name = w.name || 'Weapon', st = window.state;
+                let type = w.category === 'ranged' && ['light', 'medium', 'heavy'].includes(w.weightClass) ? w.weightClass : null;
+                if (type && window.apxAmmoStack && !window.apxAmmoStack(type)) { window.APXDice?.notify(`You have no ${type[0].toUpperCase() + type.slice(1)} Ammo to load into ${name}.`, { kind: 'warn', open: true }); return; }
+                let have = window.apxApCurrent ? window.apxApCurrent() : 2;
+                if (window._pwCombatCode && have < 2) {
+                    let ok = window.apxConfirm ? await window.apxConfirm(`Reloading costs 2 AP and you have ${have}. Reload anyway?`, { title: 'Reload', okLabel: 'Reload anyway', cancelLabel: 'Cancel' }) : false;
+                    if (!ok) return;
+                }
+                if (window._pwCombatCode && have > 0) window.apxSpendAp(Math.min(2, have));
+                if (st.unloaded) delete st.unloaded[name];
+                window.recalculateMath(); window.scheduleAutoSave?.();
+                window.APXDice?.notify(`${name} reloaded${window._pwCombatCode ? ` (−2 AP, ${window.apxApCurrent ? window.apxApCurrent() : '?'} left)` : ''}.`, { kind: 'note' });
+            };
+        })();
 
         function renderWeaponRow(w, idx, opts) {
             let dmgMod = weaponDmgModifier(w, opts.attr);
@@ -1445,6 +1504,10 @@
                             : `<input type="text" value="${(w.name||'').replace(/"/g,'&quot;')}" onchange="window.updateWeaponName(${idx}, this.value)" placeholder="Weapon Name" class="bg-slate-900 border-slate-700 text-xs font-bold w-full h-7">`}
                         ${forgedWeaponBadge(w, w.weightClass === 'medium')}
                         ${w.forged ? `<button onclick="window.openWeaponForge(${idx})" class="text-[9px] text-orange-400 hover:text-orange-300 font-bold mt-0.5">Return to Forge</button>` : ''}
+                        ${w.properties && w.properties.loading ? ((window.state.unloaded || {})[w.name || 'Weapon'] && window._pwCombatCode
+                            ? `<button onclick="window.apxReloadWeapon(${idx})" title="Loading: spend 2 AP to reload it (needs ammo)" class="block text-[9px] font-bold mt-0.5 px-1.5 rounded border border-amber-600 text-amber-200 bg-amber-900/40 hover:bg-amber-700">Reload (2 AP)</button>`
+                            : `<div class="text-[9px] text-emerald-400/80 mt-0.5" title="Loading: after each attack in combat, Reload (2 AP) before it attacks again">Loaded</div>`) : ''}
+                        ${(c => c && c.uid === window.apxAuth?.user?.uid && c.weapon === (w.name || 'Weapon') && window.state.cleaveUsed !== c.key ? `<div class="text-[9px] font-black mt-0.5 px-1.5 rounded border border-red-600 text-red-200 bg-red-900/40" title="Cleave: you dropped a creature with it this turn, so your next attack with it costs 0 AP (before the end of your turn)">Cleave: next attack 0 AP</div>` : '')(window._pwCombatTurn && window._pwCombatTurn.cleave)}
                         ${w.category === 'melee' && w.weightClass === 'medium' ? '<div class="text-[9px] text-slate-500 mt-0.5">1-Handed (2H row below)</div>' : ''}
                         ${opts.editable ? dmgTypeSelectHtml(w, idx) + handSelectHtml(w, idx) : ''}
                         ${cat === 'ranged' && opts.editable ? `<label class="flex items-center gap-1 mt-0.5 cursor-pointer"><input type="checkbox" ${w.aimed ? 'checked' : ''} onchange="window.toggleWeaponAim(${idx}, this.checked)" class="w-3 h-3"><span class="text-[9px] ${w.aimed ? 'text-amber-400 font-bold' : 'text-slate-500'}">Aimed (+PER)</span></label>` : ''}
@@ -1864,6 +1927,7 @@
             // A consumable: a flat 3 AP and one of its charges, no Power Slot
             let consIdx = /^c\d+$/.test(String(idx)) ? +String(idx).slice(1) : null, consItem = consIdx != null ? (window.state.items || [])[consIdx] : null;
             if (consItem && (consItem.chargesRemaining ?? consItem.charges ?? 1) <= 0) { APXDice.notify(`${consItem.name || 'That item'} is used up.`, { kind: 'warn', open: true }); return; }
+            if (consItem && p.ammoMissing) { APXDice.notify(p.ammoMissing, { kind: 'warn', open: true }); return; }
             let name = (p.name || 'Power') + (chan ? ' (Channel)' : ''), who = window.state.name || '';
             // Damage type chosen each time it's used (both, with a second type): asked before anything is spent
             // (channeled: the type it was first used with)

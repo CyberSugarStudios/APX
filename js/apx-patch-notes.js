@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.20.0108',
-        released: '2026-10-20T01:08:00',
-        releasedText: 'October 20, 2026 · 1:08 AM',
+        version: 'v2026.10.20.0443',
+        released: '2026-10-20T04:43:00',
+        releasedText: 'October 20, 2026 · 4:43 AM',
         title: 'Playtest 4: Maneuvers, Gear & Burdens',
         intro: 'Straight from our fourth playtest: NPCs and companions get the full list of maneuvers and actions, Loyal Companions can carry your gear, and carrying too much finally weighs you down. Squeezing costs what it should, and Vitality\'s top rank keeps you on your feet.',
         index: [
@@ -33,6 +33,17 @@
             ]],
             ['Your Screen', [
                 'Pickers and pop-ups always open on top of what they\'re changing: the NPC Crafter\'s Condition and Damage Immunities no longer hide behind it, and the same goes for every other picker, panel and prompt.'
+            ]],
+            ['Powers & Consumables', [
+                'Power ranges are bought by the square: Touch/Self is free, 1 XP per 5 squares, or Line of Sight for 15 XP. Older powers keep their range and cost.',
+                'Powers use one die size. New Utilities: Charmed, Can\'t Regain HP and Telekinesis (Influence is retired); moving a target can be taken more than once.',
+                'Consumables are priced against a Cu cap, and can be Thrown or fired as Ammunition from your ranged weapon.',
+                'Short Rest Powers\' free upgrade keeps the lower-Level power too.'
+            ]],
+            ['Weapons', [
+                'Medium weapons top out at 3d8 (3d10 two-handed) with no Heavy properties. Crit upgrades cost 300 / 900 Cu, Sturdy 50 Cu.',
+                'New properties: Brutal, Sunder and Cleave for Heavy weapons, Loading (a cheaper weapon you Reload), and Elemental Critical. Tearing now sets a minimum damage on every swing.',
+                'Jump is an action costed like a Move, and a worn Bandolier or Utility Belt halves Draw / Stow.'
             ]]
         ],
         sheet: [
@@ -47,6 +58,27 @@
             ]],
             ['Your Screen', [
                 'Pickers and pop-ups open on top of what they\'re changing: your companion\'s Condition and Damage Immunities in the NPC Crafter, trait and Exo-Suit panels, the world character picker, and any other popup that used to open behind the window you opened it from.'
+            ]],
+            ['Powers', [
+                'Step 2 (Range) is bought by the square: Touch/Self is free, every 5 squares cost 1 XP (set it with − and + or type it), and Line of Sight is 15 XP. A power made with Short, Long or Extreme Range keeps that range and its cost; choose a new range only if you want to.',
+                'A Martial Improvement on a ranged weapon uses the weapon\'s range: Step 2 is skipped and free.',
+                'A power uses one die size for its damage or healing (8d6, not 4d4 + 3d6). Powers that mix sizes still work, and show Recraft (Free) if you want to change them.',
+                'New Moderate Utilities: Charmed (in the Inflict-or-end list), Can\'t Regain HP, and Telekinesis. Influence (friendly acquaintances) is gone from new powers; powers that have it keep it. Moving a target 2 squares (Minor) can be taken more than once for 2 more squares each time.',
+                'Vehicle Scale (Mythic) areas keep their shape on the battle map, each square a 5x5 block.',
+                'Short Rest Powers: the free upgrade at Rank 2+ now makes a new copy at the higher Level, so you keep the lower-Level power as well.'
+            ]],
+            ['Consumables', [
+                'The Consumable Crafter shows its price against the cap: 150 Cu for one charge, +25 Cu per Artisan rank.',
+                'Step 2 has two new options. Thrown: your STR score / twice it, like a Thrown weapon. Ammunition (Light, Medium or Heavy): fired from your ranged weapon of that ammo type with its AP, range and attack roll; its effects land on a hit on top of the weapon\'s damage. Its inventory button reads Fire (X AP).'
+            ]],
+            ['Weapons & Actions', [
+                'Medium weapons now top out at 3d8 (3d10 two-handed) and don\'t gain Heavy properties two-handed (Stunning needs a Heavy weapon or Electric). Weapons you already have keep their damage.',
+                'Crit upgrades are cheaper (x3 300 Cu, x4 900 Cu), and Sturdy is 50 Cu.',
+                'New properties: Brutal (Heavy: reroll 1s once on damage, done by the roller), Sunder (Heavy melee: double damage to objects), Cleave (Heavy melee: dropping a creature makes your next attack with it this turn 0 AP; your sheet shows "Cleave: next attack 0 AP"), Loading (Ranged, −100 Cu: Reload (2 AP) under its name after each attack in combat, and you need ammo to load it), and Elemental Critical (+100 Cu: a crit adds its Energy\'s effect).',
+                'Tearing: the weapon always deals at least 2 damage per damage die, hit or miss.',
+                'Acid crits lower your DR by 1 until your armor is repaired: a Repair button appears under your DR.',
+                'Can\'t Regain HP (and Suffocating) stop healing in your HP box; Temp HP still works.',
+                'Jump (Standard Actions) costs AP like a Move: your STR modifier in squares, further with an Athletics roll. Draw / Stow is 1 AP for an item on a Bandolier or Utility Belt you wear.'
             ]],
             ['Perks & Rules', [
                 'Vitality Rank 4 is reworked: if you would be reduced to 0 HP, you\'re reduced to 1 HP instead, and you can spend up to your Rank in Rest Dice to heal that much at once (at Rank 3 they roll their maximum). It can\'t happen again until you finish a Full Rest. It works from your GM\'s tracker too.',
@@ -68,6 +100,20 @@
             ]],
             ['Your Screen', [
                 'Every picker and pop-up opens on top of what it\'s changing. In the NPC Crafter, Condition Immunities, Damage Immunities, Resistances and Vulnerabilities no longer open behind it, and neither do world tags, the Weapon and Armor Forges, the kick/ban prompt or any other panel. A picker that\'s reused comes back on top too.'
+            ]],
+            ['NPC Crafter & Forges', [
+                'Editing an NPC you\'ve already saved, Save NPC is on every step (and Save Creature, editing a summoned creature).',
+                'The Armor Forge says what equipping costs: Equip on NPC (X TP), and the Weapon Forge Add to NPC (X TP). Armor\'s other mods (Stealth, Athletics, lighter, heavier, Speed) now count toward its TP: 1 TP per 100 Cu they\'d cost a player, and penalties take TP off. Armor an NPC already wears keeps its old price until you forge it again.',
+                'Manufactured crits cost 3 TP (x3) and 6 TP (x4). A 3d8 weapon is 8 TP.',
+                'Powers: ranges by the square (1 XP / 5 squares, Line of Sight 15), one die size, Charmed, Can\'t Regain HP and Telekinesis, as for players. A Mythic sentient being is an NPC you run: no 3 AP summon limit, but it can\'t summon.'
+            ]],
+            ['Tracker', [
+                'Tearing raises a hit to at least 2 damage per damage die, after DR/ER.',
+                'Cleave: a hit that drops a creature gives its attacker one 0 AP attack with that weapon this turn ("Cleave ready" on its card; a player sees it on their sheet).',
+                'Loading: an NPC\'s Loading weapon needs Reload (2 AP), a button on its card, after each attack.',
+                'Elemental Critical: a crit sets Burning (Fire), Poisoned (Poison) or Staggered (Electric), slows the target (Cold), or lowers its DR by 1 until repaired (Acid; on a player, their sheet shows a Repair button). Sunder notes double damage to objects.',
+                'Charmed and Can\'t Regain HP are conditions; healing a creature that can\'t regain HP (or is Suffocating) does nothing.',
+                'Jump is in every creature\'s Actions, costed like a Move.'
             ]],
             ['Players\' Gear', [
                 'Players can be Overburdened now (Speed 1, Disadvantage on attacks, checks and saves), and wear Backpacks, Bandoliers and Utility Belts to carry more.',

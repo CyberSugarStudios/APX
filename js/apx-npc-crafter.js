@@ -309,6 +309,7 @@ window.openNpcCrafter = function() {
 // a fresh NPC and open straight into the builder for it.
 window.openGmNpcBuilder = function(npcId, opts) {
     ncTarget = 'gm';
+    window._ncEditingSaved = !!npcId;   // an NPC already saved: Save NPC is on every step
     if (npcId) {
         ncActiveGmNpcId = npcId;
     } else {
@@ -2264,10 +2265,11 @@ function ncRenderAll() {
     // but with potentially many NPCs to juggle, an explicit "done" action
     // at the last step gives a clear moment to wrap up and go back to the
     // list -- rather than an unlabeled Close being the only way out.
-    document.getElementById('ncBtnFinishGm').style.display = (ncTarget === 'gm' && ncStep >= unlocked) ? 'block' : 'none';
+    // (an NPC that's already saved, or a summoned creature already built: Save is on every step, no need to page through)
+    document.getElementById('ncBtnFinishGm').style.display = (ncTarget === 'gm' && (ncStep >= unlocked || window._ncEditingSaved)) ? 'block' : 'none';
     let companionFinishBtn = document.getElementById('ncBtnFinishCompanion');
     if (companionFinishBtn) {
-        companionFinishBtn.style.display = ((ncTarget === 'companion' || ncTarget === 'summon') && ncStep >= unlocked) ? 'block' : 'none';
+        companionFinishBtn.style.display = ((ncTarget === 'companion' || ncTarget === 'summon') && (ncStep >= unlocked || (ncTarget === 'summon' && window._ncSummon && window._ncSummon.existing))) ? 'block' : 'none';
         companionFinishBtn.innerText = ncTarget === 'summon' ? 'Save Creature' : 'Confirm & Close';
     }
     // Step 8 (Legendary) is GM-NPC-only: a summoned creature never reaches it, so don't show it as a locked step
@@ -2856,7 +2858,7 @@ window.openSummonCrafter = function(opts) {
     npc.isSummon = true;   // a hard 3 AP, and it can't summon creatures of its own
     let modal = document.getElementById('npcCrafterModal');
     let outer = { target: ncTarget, gmId: ncActiveGmNpcId, step: ncStep, open: !!(modal && modal.classList.contains('active')) && ncTarget !== 'summon' };
-    window._ncSummon = { npc, tier, done: opts.done, outer };
+    window._ncSummon = { npc, tier, done: opts.done, outer, existing: !!opts.npc };
     ncTarget = 'summon';
     ncActiveGmNpcId = null;
     ncStep = 1;

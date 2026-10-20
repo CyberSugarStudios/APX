@@ -32,7 +32,8 @@
             { id: "blinded", name: "Blinded", desc: "Auto-fail checks/saves relying on sight. Disadvantage on your own attack rolls; attacks against you have Advantage.",
               atkDisadvantage: 'general' },
             { id: "burning", name: "Burning", desc: "1d10 Fire damage at the start of each of your turns, bypassing ER. 3 AP to extinguish (yourself or an adjacent ally)." },
-            { id: "deafened", name: "Deafened", desc: "Auto-fail hearing-based checks; can't perceive spoken language without another means." },
+            { id: "charmed", name: "Charmed", desc: "Regards its charmer as a trusted friend: can't attack its charmer or target them with harmful powers, abilities or areas, and the charmer has Advantage on CHA checks against it. Ends at once if the charmer or one of their allies damages it or targets it with a harmful power. When it ends, the creature knows it was charmed." },
+                        { id: "deafened", name: "Deafened", desc: "Auto-fail hearing-based checks; can't perceive spoken language without another means." },
             { id: "dehydrated", name: "Dehydrated", desc: "Past 3x your CON score in hours without water: DC 10+ CON save each hour (DC +2/hour) or gain 1 Fatigue." },
             { id: "diseased", name: "Diseased", desc: "Also Infected. Disadvantage on all attack rolls and attribute checks. Symptoms/progression vary by disease.",
               atkDisadvantage: 'general', checkDisadvantage: 'all' },
@@ -58,7 +59,8 @@
             { id: "starving", name: "Starving", desc: "Past your CON mod in days without food (min 1 day): DC 10+ CON save each day (DC +2/day) or gain 1 Fatigue." },
             { id: "stunned", name: "Stunned", desc: "Also Incapacitated. Can't spend AP to move; can only speak brief, confused sentences. Auto-fail STR/AGI saves. Attacks against you have Advantage.",
               autoFailSaves: ['STR','AGI'], speedZero: true },
-            { id: "suffocating", name: "Suffocating", desc: "Can't regain HP. Gain 2 levels of Fatigue at the start of each of your turns." },
+            { id: "noheal", name: "Can't Regain HP", desc: "Can't regain Hit Points from any source. Temporary Hit Points can still be gained." },
+                        { id: "suffocating", name: "Suffocating", desc: "Can't regain HP. Gain 2 levels of Fatigue at the start of each of your turns." },
             { id: "unconscious", name: "Unconscious", desc: "Drops held items, falls Prone. Also Incapacitated. Auto-fail STR/AGI saves. Melee hits within 1 square are automatic Critical Hits.",
               apZero: true, autoFailSaves: ['STR','AGI'], autoFailChecks: ['STR','AGI','PER','INT','CHA'] }
         ];
@@ -422,14 +424,15 @@
             { label: "2d4 (Base)", dice: "2d4", cost: 0,    wt: 0 },
             { label: "2d6",        dice: "2d6", cost: 100,  wt: 1 },
             { label: "2d8",        dice: "2d8", cost: 250,  wt: 1 },
-            { label: "3d10",       dice: "3d10", cost: 500,  wt: 1 },
+            { label: "3d8",        dice: "3d8", cost: 300,  wt: 1 },   // Medium's cap (3d10 when wielded in two hands)
+            { label: "3d10",       dice: "3d10", cost: 200,  wt: 1 },   // (3d8 + this = the old 500 to reach 3d10)
             { label: "4d12",       dice: "4d12", cost: 1000, wt: 1 }
         ];
 
         const WEAPON_CRIT_TIERS = [
             { label: "x2 (Base)", mult: 2, cost: 0,    wt: 0 },
-            { label: "x3",        mult: 3, cost: 1000, wt: 1 },
-            { label: "x4",        mult: 4, cost: 3000, wt: 1 }
+            { label: "x3",        mult: 3, cost: 300, wt: 1 },
+            { label: "x4",        mult: 4, cost: 900, wt: 1 }
         ];
 
         // Not cumulative -- pick the single best tier you qualify for/can afford.
@@ -443,8 +446,8 @@
 
         const WEAPON_WEIGHT_CLASSES = {
             light:  { label: "Light",  apCost: 2, wtChange: 0, hands: 1, maxDmgTier: 2, maxRangeTier: 1, ammo: "Light Ammo" },
-            medium: { label: "Medium", apCost: 3, wtChange: 2, hands: 1, maxDmgTier: 3, maxRangeTier: 3, ammo: "Medium Ammo" },
-            heavy:  { label: "Heavy",  apCost: 4, wtChange: 4, hands: 2, maxDmgTier: 4, maxRangeTier: 4, ammo: "Heavy Ammo" }
+            medium: { label: "Medium", apCost: 3, wtChange: 2, hands: 1, maxDmgTier: 3, maxRangeTier: 3, ammo: "Medium Ammo" },   // 3d8 (one step more, 3d10, in two hands)
+            heavy:  { label: "Heavy",  apCost: 4, wtChange: 4, hands: 2, maxDmgTier: 5, maxRangeTier: 4, ammo: "Heavy Ammo" }
         };
 
         // reqCheck(ctx) receives { category, weightClass, effectiveDmgType }
@@ -456,12 +459,20 @@
             { key: "thrown", name: "Thrown", cost: 50, desc: "You can throw this weapon to make a ranged attack. For 300 additional Currency, it returns to you after your attack (Returning).", reqLabel: "One-Handed Melee Weapon", reqCheck: (ctx) => ctx.category === 'melee' && ctx.weightClass !== 'heavy' },
             // Add-on for Thrown (shown under it in the forge)
             { key: "returning", name: "Returning (Thrown)", cost: 300, addonOf: "thrown", desc: "This weapon returns to you after your attack.", reqLabel: "Thrown", reqCheck: (ctx) => !!(ctx.props && ctx.props.thrown) && ctx.category === 'melee' && ctx.weightClass !== 'heavy' },
-            { key: "sturdy", name: "Sturdy", cost: 150, desc: "You can perform the Block Combat Maneuver with this weapon, rolling one damage die as your AC bonus.", reqLabel: "Medium Weapon or heavier", reqCheck: (ctx) => ctx.weightClass === 'medium' || ctx.weightClass === 'heavy' },
+            { key: "sturdy", name: "Sturdy", cost: 50, desc: "You can perform the Block Combat Maneuver with this weapon, rolling one damage die as your AC bonus.", reqLabel: "Medium Weapon or heavier", reqCheck: (ctx) => ctx.weightClass === 'medium' || ctx.weightClass === 'heavy' },
             { key: "grappling", name: "Grappling", cost: 200, desc: "When you hit a creature, they are automatically Grappled. The weapon can only attack that creature until the Grapple ends.", reqLabel: "Melee Weapon, Piercing damage", reqCheck: (ctx) => ctx.category === 'melee' && ctx.effectiveDmgType === 'Piercing' },
-            { key: "tearing", name: "Tearing", cost: 200, desc: "When you miss, you still deal 2 damage per damage die (ignoring DR/ER).", reqLabel: "Non-Bludgeoning damage", reqCheck: (ctx) => ctx.effectiveDmgType === 'Piercing' || ctx.effectiveDmgType === 'Slashing' },
+            { key: "tearing", name: "Tearing", cost: 200, desc: "The minimum damage you can deal with this weapon is 2 damage for every damage die it has (ignoring DR/ER), whether you hit or miss.", reqLabel: "Non-Bludgeoning damage", reqCheck: (ctx) => ctx.effectiveDmgType === 'Piercing' || ctx.effectiveDmgType === 'Slashing' },
             { key: "crushing", name: "Crushing", cost: 300, desc: "On a hit, the creature must make a STR saving throw (DC 10 + your STR modifier) or be knocked Prone. If the target is already Prone, you deal an additional die of damage on a hit instead.", reqLabel: "Bludgeoning damage", reqCheck: (ctx) => ctx.effectiveDmgType === 'Bludgeoning' },
             { key: "flurry", name: "Flurry", cost: 300, desc: "When you hit a creature with this weapon, each subsequent attack you make against them costs 1 AP less (minimum 1 AP). You lose this AP reduction on a miss, or at the end of your turn.", reqLabel: "Slashing damage", reqCheck: (ctx) => ctx.effectiveDmgType === 'Slashing' },
-            { key: "stunning", name: "Stunning", cost: 400, desc: "On a hit, the target must succeed on a CON saving throw (DC 10 + your STR modifier) or become Stunned until the end of your next turn. If you crafted this weapon to deal Energy (Electric) damage, you can use your INT modifier for the attack roll, damage roll, and DC. On a Medium weapon, Stunning only applies when wielded two-handed (unless it deals Energy (Electric) damage).", reqLabel: "Two-Handed Weapon (Heavy, or Medium when 2H) or Energy (Electric)", reqCheck: (ctx) => ctx.weightClass === 'heavy' || (ctx.category === 'melee' && ctx.weightClass === 'medium') || ctx.elemental === 'Electric' }
+            { key: "stunning", name: "Stunning", cost: 400, desc: "On a hit, the target must succeed on a CON saving throw (DC 10 + your STR modifier) or become Stunned until the end of your next turn. If you crafted this weapon to deal Energy (Electric) damage, you can use your INT modifier for the attack roll, damage roll, and DC. ", reqLabel: "Heavy Weapon or Energy (Electric)", reqCheck: (ctx) => ctx.weightClass === 'heavy' || ctx.elemental === 'Electric' },
+            // Heavy weapons' own properties
+            { key: "brutal", name: "Brutal", cost: 100, desc: "When you roll damage with this weapon, reroll any die that comes up as a 1. You must take the new result, even if it is also a 1.", reqLabel: "Heavy Weapon", reqCheck: (ctx) => ctx.weightClass === 'heavy' },
+            { key: "sunder", name: "Sunder", cost: 200, desc: "This weapon deals double damage to objects, structures, and vehicles.", reqLabel: "Heavy Melee Weapon", reqCheck: (ctx) => ctx.weightClass === 'heavy' && ctx.category === 'melee' },
+            { key: "cleave", name: "Cleave", cost: 300, desc: "When you reduce a creature to 0 HP with this weapon, you can make one attack with it for 0 AP before the end of your turn.", reqLabel: "Heavy Melee Weapon", reqCheck: (ctx) => ctx.weightClass === 'heavy' && ctx.category === 'melee' },
+            // A drawback that lowers the price
+            { key: "loading", name: "Loading", cost: -100, desc: "After each attack, you must spend 2 AP to reload this weapon (Reload) before you can attack with it again. Reloading needs ammo to load.", reqLabel: "Ranged Weapon", reqCheck: (ctx) => ctx.category === 'ranged' },
+            // Elemental's on-crit effect (shown under it once the weapon is Elemental)
+            { key: "elemCrit", name: "Elemental Critical", cost: 100, desc: "On a Critical Hit, the weapon's Energy adds an effect: Fire sets the target Burning, Cold reduces its Speed by 1 until the end of its next turn, Poison leaves it Poisoned until the end of its next turn, Electric leaves it Staggered until the end of its next turn, Acid lowers its DR by 1 until its armor is repaired.", reqLabel: "Elemental", reqCheck: (ctx) => !!ctx.elemental }
         ];
 
         const WEAPON_ELEMENTAL_COST = 300;
@@ -486,12 +497,71 @@
             { key: "guaranteed", label: "Guaranteed Hit", cost: 10, desc: "The power always hits -- no attack roll, no saving throw to avoid it, and it can never critically hit (the target still gets Escape Saves against lasting effects). The base XP cost per damage die (Step 4) is doubled." }
         ];
 
+        // Step 2: Range. Touch/Self (0 XP), 1 XP for every 5 squares of range (bought as many times as you like),
+        // or Line of Sight (15 XP). Powers built before this (Short 10 sq / Long 30 sq / Extreme) keep their
+        // range and cost until they're recrafted: those keys are `legacy` and not offered for new powers.
         const POWER_STEP2_RANGE = [
             { key: "touch", label: "Touch/Self", cost: 0, desc: "Must target a creature within 1 square of you, or your square is the AoE origin." },
-            { key: "short", label: "Short Range", cost: 2, desc: "Can target at a range of up to 10 squares." },
-            { key: "long", label: "Long Range", cost: 5, desc: "Can target at a range of up to 30 squares." },
-            { key: "extreme", label: "Extreme Range", cost: 10, desc: "You can place the target or origin point anywhere you can see." }
+            { key: "range", label: "Range", cost: 1, perSq: 5, desc: "1 XP for every 5 squares of range: place the target or origin point up to that many squares away." },
+            { key: "los", label: "Line of Sight", cost: 15, desc: "You can place the target or origin point anywhere you can see." },
+            { key: "short", label: "Short Range", cost: 2, legacy: true, sq: 10, desc: "Can target at a range of up to 10 squares." },
+            { key: "long", label: "Long Range", cost: 5, legacy: true, sq: 30, desc: "Can target at a range of up to 30 squares." },
+            { key: "extreme", label: "Extreme Range", cost: 10, legacy: true, sq: Infinity, desc: "You can place the target or origin point anywhere you can see." }
         ];
+        const POWER_RANGE_MAX_SQ = 1000;
+        // A draft's range: { key, sq (Infinity = anywhere you can see), cost, label, legacy, weapon }
+        // A Martial Improvement on a ranged weapon uses that weapon's range: Step 2 is skipped (0 XP)
+        function apxPowerRange(d) {
+            d = d || {};
+            if (d.step1 === 'atkSave' && d.atkMode !== 'save' && d.atkKind === 'martial' && d.martialRanged)
+                return { key: 'weapon', sq: null, cost: 0, label: "Weapon's range", weapon: true };
+            let def = POWER_STEP2_RANGE.find(s => s.key === d.step2) || POWER_STEP2_RANGE[0];
+            if (def.key === 'range') {
+                let sq = Math.max(5, Math.min(POWER_RANGE_MAX_SQ, Math.round((parseInt(d.rangeSq) || 5) / 5) * 5));
+                return { key: 'range', sq, cost: sq / 5, label: `Range ${sq} sq` };
+            }
+            if (def.key === 'los') return { key: 'los', sq: Infinity, cost: def.cost, label: 'Line of Sight' };
+            if (d.step2 === 'thrown') return { key: 'thrown', sq: null, cost: 0, label: 'Thrown (STR / 2x STR)', thrown: true };
+            if (d.step2 === 'ammo') { let a = d.ammoClass || 'light'; return { key: 'ammo', sq: null, cost: 0, label: `Ammunition (${a[0].toUpperCase() + a.slice(1)} Ammo: weapon's range)`, ammo: a }; }
+            if (def.key === 'touch') return { key: 'touch', sq: 0, cost: 0, label: 'Touch/Self' };
+            return { key: def.key, sq: def.sq, cost: def.cost, label: def.label, legacy: true };
+        }
+        window.apxPowerRange = apxPowerRange;
+        // Step 2 for the Power and Consumable Crafters. o: { pre: 'pc'|'cc' (window[pre+'SetStep2'], window[pre+'RangeSq']),
+        // price(xp, mutate, selected) → the cost text, consumable: also offer Ammunition and Thrown, martialNote }
+        window.apxStep2Html = function(d, o) {
+            let R = apxPowerRange(d), pre = o.pre, cur = d.step2;
+            if (R.weapon) return `<div class="bg-slate-900 border border-purple-500 rounded p-2 text-xs text-slate-200"><b>Weapon's range</b> <span class="text-yellow-500">[0]</span>
+                <div class="text-[10px] text-slate-500 leading-tight">This power is a Martial Improvement on a ranged weapon: it uses the weapon's range to reach its target, so Step 2 is skipped.</div></div>`;
+            let opt = (key, label, cost, desc, extra) => `<label class="flex items-start gap-2 bg-slate-900 border ${cur === key ? 'border-purple-500' : 'border-slate-700'} rounded p-2 cursor-pointer">
+                <input type="radio" name="${pre}Step2" class="mt-1" ${cur === key ? 'checked' : ''} onchange="window.${pre}SetStep2('${key}')">
+                <div class="flex-1 min-w-0"><div class="text-xs font-bold text-slate-200">${label} <span class="text-yellow-500">[${cost}]</span></div><div class="text-[10px] text-slate-500 leading-tight">${desc}</div>${extra || ''}</div></label>`;
+            let price = (xp, mut, sel) => o.price(xp, mut, sel);
+            let html = '';
+            if (R.legacy) html += opt(cur, `${R.label} (older rules)`, price(R.cost, null, true), 'Built before ranges were bought by the square. It keeps this range and cost until you pick a new range below.');
+            html += opt('touch', 'Touch/Self', price(0, x => { x.step2 = 'touch'; }, cur === 'touch'), POWER_STEP2_RANGE[0].desc);
+            let sq = cur === 'range' ? R.sq : 10;
+            html += opt('range', cur === 'range' ? `Range: ${sq} squares` : 'Range', price(cur === 'range' ? R.cost : 2, x => { x.step2 = 'range'; x.rangeSq = 10; }, cur === 'range'),
+                'For every 5 squares of range, the power costs 1 more XP.',
+                cur === 'range' ? `<div class="flex items-center gap-1 mt-1" onclick="event.preventDefault()">
+                    <button type="button" onclick="window.${pre}RangeSq(-5)" class="w-6 h-6 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">-</button>
+                    <input type="number" min="5" step="5" value="${sq}" onclick="event.stopPropagation()" onchange="window.${pre}RangeSq(null, this.value)" class="w-16 text-center bg-slate-800 border-slate-600 text-white text-xs font-bold h-6 px-1">
+                    <button type="button" onclick="window.${pre}RangeSq(5)" class="w-6 h-6 rounded bg-amber-700 hover:bg-amber-600 text-white font-bold">+</button>
+                    <span class="text-[10px] text-slate-400">squares (${sq * 5} ft)</span></div>` : '');
+            html += opt('los', 'Line of Sight', price(15, x => { x.step2 = 'los'; }, cur === 'los'), POWER_STEP2_RANGE[2].desc);
+            if (o.consumable) {
+                html += opt('thrown', 'Thrown', price(0, x => { x.step2 = 'thrown'; }, cur === 'thrown'), 'Thrown like a Thrown weapon: Effective Range equal to your STR score, Long Range double that (Disadvantage beyond Effective Range; an area\'s targets have Advantage on their saves instead).');
+                html += opt('ammo', 'Ammunition', price(0, x => { x.step2 = 'ammo'; }, cur === 'ammo'), 'Loaded and fired from a ranged weapon that uses this ammo type: it uses the weapon\'s range, attack roll and AP cost, and its effects land on a hit, on top of the weapon\'s damage.',
+                    cur === 'ammo' ? `<div class="flex items-center gap-1 mt-1">${['light', 'medium', 'heavy'].map(w => `<button type="button" onclick="event.preventDefault();window.${pre}SetOpt('ammoClass','${w}')" class="px-2 py-0.5 text-[10px] font-bold rounded border ${(d.ammoClass || 'light') === w ? 'bg-purple-700 border-purple-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-400'}">${w[0].toUpperCase() + w.slice(1)} Ammo</button>`).join('')}</div>` : '');
+            }
+            return html;
+        };
+        window.apxRangeSqMutate = function(d, delta, val) {
+            let cur = d.step2 === 'range' ? (parseInt(d.rangeSq) || 10) : 10;
+            let n = val != null ? parseInt(val) || 5 : cur + delta;
+            d.step2 = 'range'; d.rangeSq = Math.max(5, Math.min(POWER_RANGE_MAX_SQ, Math.round(n / 5) * 5));
+        };
+        window.POWER_RANGE_MAX_SQ = POWER_RANGE_MAX_SQ;
 
         // Step 3: Targeting. AoE (x3) is crafted to an exact size in one of three shapes.
         const POWER_STEP3_AOE = [
@@ -531,8 +601,15 @@
         window.apxPowerAreaSpec = function(p) {
             let d = p && p.draft; if (!d) return null;
             let A = apxPowerAoe(d); if (A.key !== 'aoe') return null;
-            let rng = { touch: 0, short: 10, long: 30, extreme: Infinity }[d.step2];
-            return { mode: A.shape || 'burst', size: Math.max(1, A.size || 1), range: rng == null ? Infinity : rng };
+            let rng = p.thrownRange != null ? p.thrownRange : apxPowerRange(d).sq;
+            let out = { mode: A.shape || 'burst', size: Math.max(1, A.size || 1), range: rng == null ? Infinity : rng };
+            // Vehicle Scale (Mythic): the same shape, with each of its squares a 5x5 block of the battle map
+            if (((d.utility || {}).mythic || {}).vehicleScale) {
+                let n = out.size;
+                out.size = n * 5; if (out.mode === 'line') out.width = 5;
+                out.shapeLabel = `${n}-sq ${out.mode === 'burst' ? 'Burst' : out.mode === 'line' ? 'Line' : 'Cone'} (Vehicle Scale: ${out.size} squares${out.mode === 'line' ? ', 5 wide' : ''})`;
+            }
+            return out;
         };
 
         const POWER_DIE_COSTS = { d4: 1, d6: 2, d8: 3, d10: 5, d12: 8 };
@@ -545,7 +622,7 @@
         // Capacity Pool discount (Step 1) is applied.
         const POWER_UTILITY = {
             minor: [
-                { key: "move2", label: "Move the target (creature/object) up to 2 squares.", cost: 5 },
+                { key: "move2", label: "Move the target (creature/object) up to 2 squares (each time you take it: 2 more squares).", cost: 5, rep: true },
                 { key: "teleport3", label: "Teleport yourself or a willing target up to 3 squares (teleporting doesn't provoke Attacks of Opportunity).", cost: 5, rep: true },
                 { key: "featherFall", label: "Target falls slowly, immune to fall damage for the duration.", cost: 5 },
                 { key: "hover", label: "Target can float horiz./vert., 1 sq per AP spent.", cost: 5 },
@@ -575,13 +652,15 @@
                 { key: "illusion", label: "Create an illusion or hologram to attempt to deceive.", cost: 15 },
                 { key: "wall", label: "Create a solid/hazardous wall up to 4 sq long, 1 sq thick (Step 4 dice = pass-through damage).", cost: 15, rep: true },
                 { key: "drEr2", label: "Increase the target's DR or ER by 2 for the duration.", cost: 15, rep: true },
-                { key: "condInflictMod", label: "Inflict or end Restrained, Blinded, Freezing, Provoked, or Frightened.", cost: 15 },
+                { key: "condInflictMod", label: "Inflict or end Restrained, Blinded, Freezing, Provoked, Frightened, or Charmed.", cost: 15 },
+                { key: "noRegainHp", label: "The target can't regain Hit Points (it can still gain Temporary Hit Points).", cost: 15 },
+                { key: "telekinesis", label: "Telekinesis: act on one object or willing creature you can see in range as if with an invisible hand, spending the AP the action would normally cost (Use/Manipulate 3 AP); fine work uses your Power Attribute; 1 AP moves what you hold 2 squares; hurl it to deal Step 4 damage to it and what it hits. (Holding an unwilling creature needs Restrained.)", cost: 15 },
                 { key: "fatigueDisease", label: "Reduce Fatigue by one level, or end the Diseased condition.", cost: 15 },
                 { key: "woundOneLimb", label: "Inflict or end the Wounded condition on one specific limb.", cost: 15 },
                 { key: "telepathy", label: "Allow targets to telepathically communicate for the duration.", cost: 15 },
                 { key: "resizeOne", label: "Change a target's physical size by one category (grow or shrink).", cost: 15 },
                 { key: "readSurfaceThoughts", label: "Read the surface thoughts and immediate intentions of the target.", cost: 15 },
-                { key: "influenceOpinion", label: "Influence a target's opinion of you (friendly acquaintance) for the duration.", cost: 15 },
+                { key: "influenceOpinion", label: "Influence a target's opinion of you (friendly acquaintance) for the duration.", cost: 15, legacy: true },   // replaced by Charmed: kept for powers built with it
                 { key: "loseAp1", label: "Target immediately loses 1 AP.", cost: 15, rep: true },
                 { key: "hazardTerrain", label: "Terrain in the AoE deals damage per square walked through (max 2 dice in Step 4).", cost: 15 },
                 { key: "sensor", label: "Create an invisible Sensor / hack a camera / project your mind to a location in range.", cost: 15 }
@@ -611,9 +690,9 @@
             // for Duration and AP Modifications. `skip` = steps it replaces (their cost is 0).
             mythic: [
                 { key: "dominate", label: "Gain absolute, direct control of a target. You choose exactly how it moves and what actions it takes on its turn. If the creature takes damage, or is commanded to do something that would obviously cause its death, the power ends. Lasts 10 minutes (skips Step 6).", cost: 130, skip: [6], durationText: "10 Minutes" },
-                { key: "vehicleScale", label: "This power uses Vehicle Scale instead of Player Scale. It deals double damage to vehicles, objects, and structures, and AoEs purchased for it are measured in 5x5 squares. It takes 1 full minute to cast (skips Step 7).", cost: 130, skip: [7], castText: "1 full minute to cast" },
+                { key: "vehicleScale", label: "This power uses Vehicle Scale instead of Player Scale. It deals double damage to vehicles, objects, and structures, and AoEs purchased for it keep their shape, with each of their squares a 5x5 block of squares on the battle map. It takes 1 full minute to cast (skips Step 7).", cost: 130, skip: [7], castText: "1 full minute to cast" },
                 { key: "wish", label: "State a desire to your GM. The GM determines how the universe bends to accommodate your request, completely or partially. Your GM may decide that after using this power, you can never do so again.", cost: 130 },
-                { key: "sentientBeing", label: "Create a permanent, truly sentient being (an AI, Homunculus, Mutant...). It develops its own desires and personality, but begins completely loyal to you. Create it as a Tier 3 NPC with 50 TP. Afterwards you can spend XP to buy it more TP (1 TP = 20 XP); the creature (your GM) chooses how to spend it.", cost: 130 },
+                { key: "sentientBeing", label: "Create a permanent, truly sentient being (an AI, Homunculus, Mutant...). It develops its own desires and personality, but begins completely loyal to you. Create it as a Tier 3 NPC with 50 TP. Afterwards you can spend XP to buy it more TP (1 TP = 20 XP); the creature (your GM) chooses how to spend it. It's an NPC your GM runs, not a summon: it isn't held to a summoned creature's 3 AP, but it can't summon creatures of its own.", cost: 130 },
                 { key: "timeStop", label: "Stop time entirely for 1 round. Only you can move and take actions (skips Step 6).", cost: 130, skip: [6], durationText: "1 Round (time stopped)" }
             ]
         };
@@ -734,18 +813,18 @@
         // Gear Threat Points (NPCs and Loyal Companions)
         // Manufactured gear is priced like the innate weapon it imitates, so a
         // creature with a 2d6 sword is exactly as threatening as one with 2d6 claws.
-        //   Damage:   2d4 = 2, 2d6 = 5, 2d8 = 6, 3d10 = 11, 4d12 = 19 TP
-        //   Critical: x3 = +4, x4 = +8 TP
+        //   Damage:   2d4 = 2, 2d6 = 5, 2d8 = 6, 3d8 = 8, 3d10 = 11, 4d12 = 19 TP
+        //   Critical: x3 = +3, x4 = +6 TP
         //   Properties that innate weapons can have use the innate price
         //   (Grappling 2, Tearing 2, Crushing 4, Flurry 4, Stunning 4)
         //   Elemental: +2 TP (same as an innate weapon's energy damage)
-        //   Anything else (Concealed, Reach, Thrown, Sturdy, range upgrades):
-        //   1 TP per full 100 Currency of its price
+        //   Anything else (Concealed, Reach, Thrown, Sturdy, Brutal, Cleave, Sunder, range upgrades):
+        //   1 TP per full 100 Currency of its price (Loading takes 1 TP off)
         //   Items not built in a forge: 1 TP per full 100 Currency of their value
         //   Armor: 1 TP per point of AC, +1 TP per 2 points of DR and ER combined
         // ------------------------------------------------------------------
-        const NPC_GEAR_DMG_TP = { '2d4': 2, '2d6': 5, '2d8': 6, '3d10': 11, '4d12': 19 };
-        const NPC_GEAR_CRIT_TP = { 2: 0, 3: 4, 4: 8 };
+        const NPC_GEAR_DMG_TP = { '2d4': 2, '2d6': 5, '2d8': 6, '3d8': 8, '3d10': 11, '4d12': 19 };
+        const NPC_GEAR_CRIT_TP = { 2: 0, 3: 3, 4: 6 };
         const NPC_GEAR_INNATE_PROPS = { grappling: 2, tearing: 2, crushing: 4, flurry: 4, stunning: 4 };
         function npcWeaponTp(w) {
             let parts = [];
@@ -773,13 +852,22 @@
             if (cuTp) parts.push({ label: 'Other upgrades (' + cu + ' Cu)', tp: cuTp });
             return { tp: parts.reduce((a, p) => a + p.tp, 0), parts };
         }
+        // Armor: 1 TP per AC, +1 TP per 2 DR/ER. Its other mods (Stealth or Athletics bonuses, lighter or heavier, the
+        // penalties) are 1 TP per full 100 Currency they'd cost a player (penalties take TP off), for armor forged
+        // since that rule (tpRule 2): armor an NPC already wore keeps its old price.
         function npcArmorTp(a) {
             if (!a || !a.name) return { tp: 0, parts: [] };
             let parts = [];
             let ac = Math.max(0, a.ac || 0), drEr = Math.max(0, a.dr || 0) + Math.max(0, a.er || 0);
             if (ac) parts.push({ label: 'AC +' + ac, tp: ac });
             if (Math.floor(drEr / 2)) parts.push({ label: 'DR/ER +' + drEr, tp: Math.floor(drEr / 2) });
-            return { tp: parts.reduce((s, p) => s + p.tp, 0), parts };
+            if (a.tpRule === 2 && a.mods) {
+                let cu = 0;
+                ARMOR_MODS.forEach(m => { if (['ac', 'dr', 'er'].includes(m.field)) return; cu += m.cost * Math.max(0, parseInt(a.mods[m.key]) || 0); });
+                let t = Math.trunc(cu / 100);
+                if (t) parts.push({ label: `Other mods (${cu} Cu)`, tp: t });
+            }
+            return { tp: Math.max(0, parts.reduce((s, p) => s + p.tp, 0)), parts };
         }
         window.npcWeaponTp = npcWeaponTp;
         window.npcArmorTp = npcArmorTp;
@@ -869,11 +957,11 @@
         // "Inflict or end …" utilities: which Conditions each one can inflict or end
         const APX_POWER_COND_UTILS = {
             condInflictMinor: ['staggered', 'burning', 'deafened', 'poisoned', 'prone'],
-            condInflictMod: ['restrained', 'blinded', 'freezing', 'provoked', 'frightened'],
+            condInflictMod: ['restrained', 'blinded', 'freezing', 'provoked', 'frightened', 'charmed'],
             condInflictMajor: ['stunned', 'paralyzed', 'unconscious']
         };
         // Other utilities that leave a lasting negative effect on a creature (when it isn't willing)
-        const APX_POWER_LASTING_NEG = ['complexCommand', 'influenceOpinion', 'polymorph', 'banish', 'dominate'];
+        const APX_POWER_LASTING_NEG = ['complexCommand', 'influenceOpinion', 'noRegainHp', 'polymorph', 'banish', 'dominate'];
         // Escape Saves a Condition rules out beyond its automatic save failures (a Blinded creature
         // fails saves that rely on sight)
         const APX_ESCAPE_FORBID = { blinded: ['PER'] };
@@ -896,6 +984,7 @@
                 if (!p || !p.mode) unpicked.push('woundOneLimb');
                 else if (p.mode === 'inflict') inflicts.push('wounded');
             }
+            if (all.noRegainHp > 0 && d.step1 !== 'friendly') inflicts.push('noheal');   // Can't Regain HP: tracked as a condition
             let negOther = APX_POWER_LASTING_NEG.filter(k => all[k] > 0);
             let mythic = (POWER_UTILITY.mythic || []).find(m => all[m.key] > 0);
             let dur = mythic && (mythic.skip || []).includes(6) ? 'mythic' : (d.duration || 'instant');

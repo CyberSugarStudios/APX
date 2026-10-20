@@ -28,7 +28,7 @@ function getBlankWeaponDraft() {
         category: 'melee', weightClass: 'light', dmgType: 'Bludgeoning',
         dmgTier: 0, critTier: 0, rangeTier: 0,
         elemental: null,
-        properties: { concealed: false, reach: false, thrown: false, returning: false, sturdy: false, grappling: false, tearing: false, crushing: false, flurry: false, stunning: false }
+        properties: { concealed: false, reach: false, thrown: false, returning: false, sturdy: false, grappling: false, tearing: false, crushing: false, flurry: false, stunning: false, brutal: false, sunder: false, cleave: false, loading: false, elemCrit: false }
     };
 }
 
@@ -59,7 +59,7 @@ window.weaponForgeCalcTotals = function(draftOverride) {
     let elementalCost = d.elemental ? WEAPON_ELEMENTAL_COST : 0;
 
     let totalWeight = baseWt + wc.wtChange + dmgCumWt + critCumWt;
-    let totalCost = baseCost + dmgCumCost + critCumCost + rangeCost + propsCost + elementalCost;
+    let totalCost = Math.max(0, baseCost + dmgCumCost + critCumCost + rangeCost + propsCost + elementalCost);   // (Loading takes 100 off)
 
     return {
         weight: totalWeight, cost: totalCost,
@@ -404,6 +404,10 @@ function renderWeaponForgeSummary() {
         let r = window.npcWeaponTp(weaponDraftAsObject(weaponForgeDraft));
         tpEl.style.display = '';
         tpEl.textContent = `Threat Point cost for this ${weaponForgeTarget === 'gm' ? 'NPC' : 'companion'}: ${r.tp} TP` + (r.parts.length ? ` (${r.parts.map(p => p.label + ' ' + p.tp).join(', ')})` : '');
+        // The equip button says what it costs
+        let gb = document.getElementById('wpnBtnGmAdd'), pb = document.getElementById('wpnBtnPurchase');
+        if (gb && weaponForgeTarget === 'gm' && !weaponForgeLootDone) gb.textContent = `Add to NPC (${r.tp} TP)`;
+        if (pb && weaponForgeTarget === 'companion') pb.textContent = `Equip (${r.tp} TP)`;
     } else if (tpEl) tpEl.style.display = 'none';
     setTimeout(wpnStripCu, 0);
 }

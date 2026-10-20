@@ -145,11 +145,10 @@ window.pcSetPool = function(v) { pcDraft.pool = v === 'short' ? 'short' : 'full'
 // ------------------------------------------------------------------
 window.pcCalcXP = function(draft) {
     let step1Def = POWER_STEP1.find(s => s.key === draft.step1);
-    let step2Def = POWER_STEP2_RANGE.find(s => s.key === draft.step2);
     let aoeDef = window.apxPowerAoe(draft);   // { mult, cost (the AoE shape's XP), ... }
 
     let step1Cost = step1Def.cost;
-    let step2Cost = step2Def.cost;
+    let step2Cost = window.apxPowerRange(draft).cost;   // Touch 0, 1 XP per 5 squares, Line of Sight 15 (older ranges keep their cost)
     let step3Cost = aoeDef.cost;   // Line 0.5 XP per square, Cone 3 XP per square of length, Burst 10 XP per square of radius
 
     // Step 4: Damage or Healing. Only the die-table cost and Step 5 Utility
@@ -407,7 +406,7 @@ function pcRenderFreeBanner() {
         if (power.wasFree) {
             banner.classList.remove('hidden');
             let alsoUpgrade = window.state.chaFreeUpgrades.some(u => u.fromLevel === power.lvl && u.toLevel === computedLevel);
-            banner.innerHTML = `<div class="text-center">This Power was originally free -- Saving Changes to it will never cost XP, no matter what you change.${alsoUpgrade ? ' (This will also spend your free Charisma Powers upgrade credit.)' : ''}</div>`;
+            banner.innerHTML = `<div class="text-center">This Power was originally free -- Saving Changes to it will never cost XP, no matter what you change.${alsoUpgrade ? ` (This also spends your free Short Rest Powers upgrade: the Level ${power.lvl} version stays too.)` : ''}</div>`;
             return;
         }
         // A free Charisma Powers upgrade only matches if this power's
@@ -421,7 +420,7 @@ function pcRenderFreeBanner() {
             banner.innerHTML = `
                 <label class="flex items-center justify-center gap-2 cursor-pointer">
                     <input type="checkbox" ${pcChaFreeCreditDeclined ? '' : 'checked'} onchange="window.pcToggleChaFreeCredit(this.checked)">
-                    Use your free Short Rest Powers upgrade (Level ${power.lvl} -> ${computedLevel}) -- no XP will be spent.
+                    Use your free Short Rest Powers upgrade (Level ${power.lvl} -> ${computedLevel}): no XP will be spent, and you keep the Level ${power.lvl} version too.
                 </label>
             `;
             return;
@@ -508,12 +507,16 @@ window.pcSetStep1 = function(val) {
     }
     pcRenderAll();
 };
-window.pcSetStep2 = function(val) { pcDraft.step2 = val; pcRenderAll(); };
+window.pcSetStep2 = function(val) { if (val === 'range' && pcDraft.step2 !== 'range') pcDraft.rangeSq = 10; pcDraft.step2 = val; pcRenderAll(); };
+window.pcRangeSq = function(delta, val) { window.apxRangeSqMutate(pcDraft, delta, val); pcRenderAll(); };
 window.pcSetAoe = function(val) { window.apxAoeMutate(pcDraft, 'aoe', val); pcRenderAll(); };
 window.pcSetAoeShape = function(val) { window.apxAoeMutate(pcDraft, 'shape', val); pcRenderAll(); };
 window.pcAoeSize = function(d, val) { window.apxAoeMutate(pcDraft, val != null ? 'size' : 'step', val != null ? val : d); pcRenderAll(); };
 window.pcSetDie = function(step, delta) {
     let cur = pcDraft.dmg[step] || 0;
+    // One die size per power: another size already in it can't be added to
+    let other = POWER_DIE_STEPS.find(st => st !== step && (pcDraft.dmg[st] || 0) > 0);
+    if (delta > 0 && other) { window.APXDice?.notify(`A power uses one die size: remove its ${other} dice first.`, { kind: 'warn' }); return; }
     // Max 8 dice per die step. A power built under the old 12-dice rule can
     // still step DOWN from above 8, it just can't go up.
     let next = delta > 0 ? Math.min(POWER_MAX_DICE_PER_STEP, cur + delta) : Math.max(0, cur + delta);
@@ -750,6 +753,7 @@ function pcStep1Extra() {
             let opts = pcMartialOptions();
             let cur = opts.find(o => o.key === pcDraft.atkWeapon) ? pcDraft.atkWeapon : (opts[0] && opts[0].key) || '';
             if (cur && pcDraft.atkWeapon !== cur) pcDraft.atkWeapon = cur;
+            pcSyncMartialRanged(opts);
             html += `<div class="flex items-center gap-1"><span class="text-[10px] text-slate-400 font-bold mr-1 w-20 shrink-0">Weapon</span>
                 ${opts.length ? `<select onchange="window.pcSetAtkOpt('atkWeapon', this.value)" class="flex-1 min-w-0 bg-slate-800 border-slate-600 text-[10px] py-0.5">${opts.map(o => `<option value="${esc(o.key)}" ${o.key === cur ? 'selected' : ''}>${esc(o.label)} (${o.bonus >= 0 ? '+' : ''}${o.bonus})${o.unarmed ? ' · unarmed' : o.innate ? ' · innate' : ''}</option>`).join('')}</select>`
                     : `<span class="text-[10px] text-slate-500 italic">${npc ? 'This creature has no weapons or innate attacks yet. Add one in the NPC Crafter (it rolls as a Power Attack until then).' : 'No weapons equipped. Add one in Weapons and Attacks.'}</span>`}</div>
@@ -760,8 +764,16 @@ function pcStep1Extra() {
 }
 window.pcSetAtkOpt = function(key, val) {
     pcDraft[key] = val;
+    pcSyncMartialRanged();
     pcRenderAll();
 };
+// A Martial Improvement on a ranged weapon uses the weapon's range (Step 2 skipped): remember which kind it rides
+function pcSyncMartialRanged(opts) {
+    if (pcDraft.step1 !== 'atkSave' || pcDraft.atkMode === 'save' || pcDraft.atkKind !== 'martial') { delete pcDraft.martialRanged; return; }
+    opts = opts || pcMartialOptions();
+    let o = opts.find(x => x.key === pcDraft.atkWeapon) || opts[0];
+    if (o && (o.ranged || o.wcat === 'ranged')) pcDraft.martialRanged = true; else delete pcDraft.martialRanged;
+}
 // ── Saving throws and Escape Saves ──────────────────────────────
 function pcSaveInfo() { return window.apxPowerSaveInfo ? window.apxPowerSaveInfo(pcDraft) : { problems: [], forbid: [], why: {}, inflicts: [], incap: [] }; }
 // A row of Core Attribute buttons. forbid: attributes that can't be picked (with why[attr] = reasons)
@@ -866,12 +878,7 @@ function pcRenderStep1() {
 }
 
 function pcRenderStep2() {
-    document.getElementById('pcStep2Options').innerHTML = POWER_STEP2_RANGE.map(s => `
-        <label class="flex items-start gap-2 bg-slate-900 border ${pcDraft.step2 === s.key ? 'border-purple-500' : 'border-slate-700'} rounded p-2 cursor-pointer">
-            <input type="radio" name="pcStep2" class="mt-1" ${pcDraft.step2 === s.key ? 'checked' : ''} onchange="window.pcSetStep2('${s.key}')">
-            <div><div class="text-xs font-bold text-slate-200">${s.label} <span class="text-yellow-500">[${pcCost(s.cost, d => { d.step2 = s.key; }, pcDraft.step2 === s.key)}]</span></div><div class="text-[10px] text-slate-500 leading-tight">${s.desc}</div></div>
-        </label>
-    `).join('');
+    document.getElementById('pcStep2Options').innerHTML = window.apxStep2Html(pcDraft, { pre: 'pc', price: (xp, mut, sel) => pcCost(xp, mut, sel) });
 }
 
 function pcRenderStep3() {
@@ -888,7 +895,7 @@ function pcRenderStep4() {
             <div class="flex items-center gap-2">
                 <button onclick="window.pcSetDie('${step}', -1)" class="w-6 h-6 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">-</button>
                 <span class="w-6 text-center font-bold text-sm ${pcDraft.dmg[step] > POWER_MAX_DICE_PER_STEP ? 'text-red-400' : 'text-white'}" ${pcDraft.dmg[step] > POWER_MAX_DICE_PER_STEP ? `data-tip="Max ${POWER_MAX_DICE_PER_STEP} dice per die step. Lower this to save."` : ''}>${pcDraft.dmg[step]}</span>
-                <button onclick="window.pcSetDie('${step}', 1)" class="w-6 h-6 rounded bg-amber-700 hover:bg-amber-600 text-white font-bold">+</button>
+                ${(o => o ? `<button disabled title="A power uses one die size: remove its ${o} dice first" class="w-6 h-6 rounded bg-slate-800 text-slate-600 font-bold">+</button>` : `<button onclick="window.pcSetDie('${step}', 1)" class="w-6 h-6 rounded bg-amber-700 hover:bg-amber-600 text-white font-bold">+</button>`)(POWER_DIE_STEPS.find(st => st !== step && (pcDraft.dmg[st] || 0) > 0))}
             </div>
         </div>
     `).join('');
@@ -938,7 +945,7 @@ function pcRenderUtilityTier(tier, label, colorClass) {
     if (!(POWER_UTILITY[tier] || []).length) return '';
     if (!pcDraft.utility[tier]) pcDraft.utility[tier] = {};
     let mythicOn = !!pcMythic(pcDraft);
-    let rows = POWER_UTILITY[tier].map(u => {
+    let rows = POWER_UTILITY[tier].filter(u => !u.legacy || ((pcDraft.utility[tier] || {})[u.key] || 0) > 0).map(u => {
         let count = pcDraft.utility[tier][u.key] || 0;
         let sumBlock = u.key === 'summonCreature' ? pcSummonBlock() : '';
         if (u.key === 'summonCreature' && count > 0 && (parseInt(pcDraft.summonTier) || 1) > pcSummonMaxTier()) pcDraft.summonTier = pcSummonMaxTier();
@@ -1142,6 +1149,9 @@ function pcRenderSummaryCore() {
     let t = window.pcCalcXP(pcDraft);
     let maxLevel = pcTarget !== 'player' ? 5 : pcMaxUnlockedLevel();
     let diceOver = POWER_DIE_STEPS.filter(st => (pcDraft.dmg[st] || 0) > POWER_MAX_DICE_PER_STEP);
+    // One die size per power (no more 4d4 + 2d6)
+    let mixed = POWER_DIE_STEPS.filter(st => (pcDraft.dmg[st] || 0) > 0);
+    if (mixed.length > 1) diceOver.push('mixed');
     // AP cost over twice the caster's turn AP (Step 7) blocks saving too
     let apMatch = /^ap(\d+)$/.exec(String(window.apxPowerApKey ? window.apxPowerApKey(pcDraft) : pcDraft.apMod || ''));
     let apOver = apMatch && parseInt(apMatch[1]) > pcCasterApCap() ? parseInt(apMatch[1]) : 0;
@@ -1187,8 +1197,9 @@ function pcRenderSummaryCore() {
     let capNote = document.getElementById('pcCapNote');
     if (diceOver.length) {
         capNote.classList.remove('hidden');
-        let dOver = diceOver.filter(st => st !== 'ap');
+        let dOver = diceOver.filter(st => st !== 'ap' && st !== 'mixed');
         capNote.innerText = [dOver.length ? `Max ${POWER_MAX_DICE_PER_STEP} dice per die step. Lower ${dOver.map(st => pcDraft.dmg[st] + st).join(', ')} in Step 4 to save this power.` : '',
+            diceOver.includes('mixed') ? `A power uses one die size. It has ${mixed.map(st => pcDraft.dmg[st] + st).join(' + ')}: keep one of them in Step 4 to save this power.` : '',
             apOver ? `This power costs ${apOver} AP; the most is ${pcCasterApCap()} AP (twice the ${pcTurnAp()} AP gained each turn). Lower it in Step 7 to save this power.` : ''].filter(Boolean).join(' ');
     } else if (overCap) {
         capNote.classList.remove('hidden');
@@ -1294,7 +1305,6 @@ function pcRenderSummaryCore() {
 function pcBuildTextSummary() {
     let t = window.pcCalcXP(pcDraft);
     let step1Def = POWER_STEP1.find(s => s.key === pcDraft.step1);
-    let step2Def = POWER_STEP2_RANGE.find(s => s.key === pcDraft.step2);
     let aoeDef = window.apxPowerAoe(pcDraft);
 
     let atk = step1Def.label;
@@ -1308,7 +1318,7 @@ function pcBuildTextSummary() {
         } else atk = pcIsNpc() && !pcDraft.atkMode ? step1Def.label : 'Attack Roll (Power Attack)';
     }
 
-    let rng = step2Def.label;
+    let rng = window.apxPowerRange(pcDraft).label;
     if (aoeDef.key !== 'single') rng += ' / ' + aoeDef.label;
 
     let dmg = '-';
@@ -1534,9 +1544,12 @@ window.savePowerChanges = function() {
     // the same way the other free-credit types do.
     let matchesUpgrade = window.state.chaFreeUpgrades.some(u => u.fromLevel === oldLevel && u.toLevel === t.level);
     let useChaFreeUpgrade = matchesUpgrade && (power.wasFree || !pcChaFreeCreditDeclined);
+    // The free Short Rest upgrade makes a new, higher-Level copy: the lower-Level power stays as it was
+    let keptOriginal = null;
     if (useChaFreeUpgrade) {
         let idx = window.state.chaFreeUpgrades.findIndex(u => u.fromLevel === oldLevel && u.toLevel === t.level);
         window.state.chaFreeUpgrades.splice(idx, 1);
+        keptOriginal = JSON.parse(JSON.stringify(power));
     }
 
     if (power.wasFree) {
@@ -1556,6 +1569,7 @@ window.savePowerChanges = function() {
     power.attr = pcDraft.coreAttr || power.attr || pcDefaultAttr(); power.pool = pcDraft.pool || power.pool || pcDefaultPool();
     power.draft = pcSavedDraft();
     power.rulesRev = window.APX_POWER_RULES_REV || 1;
+    if (keptOriginal) targetPowers.splice(pcEditIndex, 0, keptOriginal);
 
     window.closeModal('powerCrafterModal');
     window.recalculateMath();

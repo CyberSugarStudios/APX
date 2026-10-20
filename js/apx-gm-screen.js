@@ -1475,6 +1475,7 @@ window._gmLogHpChange = _gmLogHpChange;
 //   Grappling - noted (the GM applies the grapple)
 window._gmLastAttack = null;
 window._gmFlurry = {};    // attacker entry id -> { weapon, targetId, targetName, turn }
+window._gmCleave = {};    // attacker entry id -> { weapon, turn, key }: one 0 AP attack with that weapon this turn (Cleave)
 function _gmRecordAttack(a) {
     if (!a || !a.attacker) return;
     let prev = window._gmLastAttack;
@@ -1629,6 +1630,8 @@ window._gmAreaResolve = function(attacker, info) {
             if (heal) {
                 if (!total) return;
                 let wasAboveZero = r.e.currentHp === null || r.e.currentHp > 0, before = (r.e.currentHp || 0) + (r.e.tempHp || 0);
+                let nh = window.apxNoHealCond && window.apxNoHealCond(r.e.faction === 'player' && r.e.playerUid ? _gmPlayerCondList(r.e) : _gmEffConds(r.e));
+                if (nh) { gmLog({ text: `${_gmPublicName(r.e)} can't regain Hit Points (${nh}): ${label} doesn't heal it.`, kind: 'info' }); return; }
                 let res = window.apxApplyHpInput('+' + total, r.e.currentHp, r.e.tempHp, r.e.maxHp);
                 if (res) { r.e.currentHp = res.currentHp; r.e.tempHp = res.tempHp; }
                 _gmLogHpChange(r.e, before, (r.e.currentHp || 0) + (r.e.tempHp || 0), wasAboveZero, 0, null, label);
@@ -1895,6 +1898,21 @@ function _gmHitEffects(target, hit, extras) {
         gmLog({ text: `${_gmPublicName(a)} can push ${_gmPublicName(target)} up to 2 squares away (Heavy Ammo).${hit.crit ? ` Critical Hit: ${_gmPublicName(target)} is Staggered.` : ''}`, kind: 'info' });
         if (hit.crit) _gmAddCondition(target, 'staggered');
     }
+    // Elemental Critical: the weapon's Energy adds an effect on a Critical Hit
+    if (props.includes('elemCrit') && hit.crit) {
+        let el = String(h.dmgType || '').split(/[\s+,]+/).find(t => ['Fire', 'Cold', 'Poison', 'Electric', 'Acid'].includes(t));
+        let tn = _gmPublicName(target);
+        if (el === 'Fire') { _gmAddCondition(target, 'burning'); gmLog({ text: `Critical Hit (Fire): ${tn} is set Burning.`, kind: 'info' }); }
+        else if (el === 'Cold') gmLog({ text: `Critical Hit (Cold): ${tn}'s Speed is 1 lower until the end of its next turn.`, kind: 'info' });
+        else if (el === 'Poison') { _gmAddCondition(target, 'poisoned'); gmLog({ text: `Critical Hit (Poison): ${tn} is Poisoned until the end of its next turn.`, kind: 'info' }); }
+        else if (el === 'Electric') { _gmAddCondition(target, 'staggered'); gmLog({ text: `Critical Hit (Electric): ${tn} is Staggered until the end of its next turn.`, kind: 'info' }); }
+        else if (el === 'Acid') {
+            if (target.faction === 'player' && target.playerUid) _syncHpToPlayer(target, { acid: 1 });
+            else target.acidDr = (parseInt(target.acidDr) || 0) + 1;
+            gmLog({ text: `Critical Hit (Acid): ${tn}'s DR is 1 lower until its armor is repaired.`, kind: 'info' });
+        }
+    }
+    if (props.includes('sunder')) gmLog({ gmOnly: true, kind: 'info', text: `Sunder: ${h.weapon || 'this weapon'} deals double damage to objects, structures and vehicles (double it if ${_gmGmName(target)} is one).` });
     if (props.includes('flurry')) {
         window._gmFlurry[a.id] = { weapon: h.weapon, targetId: target.id, targetName: _gmPublicName(target), turn: window.gmTurnNumber };
         gmLog({ text: `Flurry: ${_gmPublicName(a)}'s next attacks on ${_gmPublicName(target)} with ${h.weapon || 'that weapon'} cost 1 less AP this turn.`, gmOnly: a.faction !== 'player', kind: 'info' });
@@ -2527,7 +2545,7 @@ window._gmCombatSnapshot = function() {
         extraTurn: _gmPlain(window._gmExtraTurn || null),
         log: _gmPlain((window.gmCombatLog || []).slice(-80)), logSession: _gmLogSession || null,
         pendingSaves: _gmSaveQueue(window._gmPendingSaves), condSaves: _gmSaveQueue(window._gmCondSaves),
-        npcWtAsks: _gmPlain(window._gmNpcWtAsks || {}), flurry: _gmPlain(window._gmFlurry || {}),
+        npcWtAsks: _gmPlain(window._gmNpcWtAsks || {}), flurry: _gmPlain(window._gmFlurry || {}), cleave: _gmPlain(window._gmCleave || {}),
         lastNpcAtk: _gmPlain(window._gmLastNpcAtk || null)
     });
     // (stamped when the fight last changed, so an unchanged fight isn't written again)
@@ -2552,7 +2570,7 @@ window._gmRestoreCombat = function(json) {
         window.gmLairSharedTraitKey = s.lairKey || null; window.gmInLair = !!s.inLair;
         window._gmExtraTurn = s.extraTurn || null;
         window._gmPendingSaves = sets(s.pendingSaves); window._gmCondSaves = sets(s.condSaves);
-        window._gmNpcWtAsks = s.npcWtAsks || {}; window._gmFlurry = s.flurry || {};
+        window._gmNpcWtAsks = s.npcWtAsks || {}; window._gmFlurry = s.flurry || {}; window._gmCleave = s.cleave || {};
         window._gmLastNpcAtk = s.lastNpcAtk || null;
         _gmLogSession = s.logSession || _gmLogSession;
         // Players' rolls from before the save were already handled: only newer ones count (no damage twice)
@@ -3023,6 +3041,15 @@ function _gmDefenseOf(entry) {
     } else { def.dr = parseInt(entry.dr) || 0; def.er = parseInt(entry.er) || 0; def.src = 'tracker'; }
     return def;
 }
+// Acid (an Elemental Critical) lowers a creature's DR by 1 until its armor is repaired (NPCs and companions: on the
+// tracker entry; players: on their sheet, which the defense above already reads)
+const _gmDefenseOfBase = _gmDefenseOf;
+_gmDefenseOf = function(entry) {
+    let d = _gmDefenseOfBase(entry);
+    let a = entry && !(entry.faction === 'player' && entry.playerUid) ? Math.max(0, parseInt(entry.acidDr) || 0) : 0;
+    if (a) { d.dr = Math.max(0, d.dr - a); d.src = (d.src || 'tracker') + `, −${a} DR from Acid`; }
+    return d;
+};
 window._gmDefenseOf = _gmDefenseOf;
 function _gmDefText(def) {
     let bits = [`DR ${def.dr}`, `ER ${def.er}`];
@@ -3078,6 +3105,12 @@ function _gmDamage(entry, opts) {
             res.text = `${res.text}, ${mode === 'single' ? 'halved' : 'doubled'} (Swarm, ${mode === 'single' ? 'single target' : 'area'}) = ${res.dmg}`;
         }
     }
+    // Tearing: at least 2 damage per damage die, whatever DR/ER take off
+    if (hit && hit.hit && (hit.hit.props || []).includes('tearing')) {
+        let nDice = 0; String(hit.dice || hit.hit.die || '').replace(/(\d*)d\d+/gi, (m, n) => { nDice += parseInt(n || '1', 10); return m; });
+        let floor = 2 * Math.max(1, nDice);
+        if (res.dmg < floor) { res = Object.assign({}, res, { dmg: floor }); res.text = `${res.text}, raised to ${floor} (Tearing: at least 2 per damage die)`; }
+    }
     let before = (entry.currentHp || 0) + (entry.tempHp || 0);
     let dmg = res.dmg;
     // The Wound Threshold looks only at what gets past Temp HP into Hit Points
@@ -3110,6 +3143,13 @@ function _gmDamage(entry, opts) {
     _gmCheckWoundThreshold(entry, woundDmg, defId);                       // Wound Threshold (damage past Temp HP), then the hit's own saves, then Bleed Out
     if (entry.faction !== 'player' && !entry.companionOf) _gmNpcWoundCheck(entry, woundDmg, hit);   // NPCs have a Wound Threshold too
     if (hit) _gmHitEffects(entry, hit, extras);
+    // Cleave: the hit that drops a creature to 0 HP gives its attacker one more attack with that weapon for 0 AP this turn
+    if (hit && hit.attacker && hit.hit && (hit.hit.props || []).includes('cleave') && wasAboveZero && (entry.currentHp || 0) <= 0 && window.gmCombatStarted) {
+        let a = hit.attacker;
+        window._gmCleave[a.id] = { weapon: hit.hit.weapon || 'weapon', turn: window.gmTurnNumber, key: a.id + ':' + window.gmTurnNumber + ':' + Date.now().toString(36) };
+        gmLog({ text: `Cleave: ${_gmPublicName(a)} drops ${_gmPublicName(entry)} and can attack again with ${hit.hit.weapon || 'that weapon'} for 0 AP before the end of the turn.`, kind: 'info' });
+        if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();   // the player's sheet picks it up
+    }
     // Undead / Unalive Structure traits
     let tsb = _gmTraitSb(entry);
     if (tsb && tsb.undead) {
@@ -3224,6 +3264,9 @@ window.updateInitiativeHp = function(id, value, pre) {
     let wasAboveZero = entry.currentHp === null || entry.currentHp > 0;
     let r = window.apxApplyHpInput(value, entry.currentHp, entry.tempHp, entry.maxHp);
     if (!r) { window.renderInitiativeTracker(); return; }
+    // Can't regain Hit Points (Can't Regain HP, Suffocating): healing does nothing
+    let nh = r.currentHp > (entry.currentHp || 0) && window.apxNoHealCond && window.apxNoHealCond(entry.faction === 'player' && entry.playerUid ? _gmPlayerCondList(entry) : _gmEffConds(entry));
+    if (nh) { window.renderInitiativeTracker(); window.APXDice?.notify(`${_gmGmName(entry)} can't regain Hit Points (${nh}).`, { kind: 'warn', open: true }); return; }
     // Unalive Structure: only mechanical repairs (3 AP, Xd6 HP) heal it
     if (!(pre && pre.repair) && r.currentHp > (entry.currentHp || 0) && _gmTraitSb(entry)?.unalive && window.APXDice && APXDice.ask) {
         window.renderInitiativeTracker();
@@ -4074,6 +4117,19 @@ function _gmBeforeAttackAp(o) {
         : (o.initId && list.find(x => x.id === o.initId)) || (list.length === 1 ? list[0] : null);
     if (!e) return { note: `AP not spent: ${list.length} creatures use this stat block and none is taking its turn`, warn: true };
     let have = gmApCurrent(e);
+    let wName = o.hit && o.hit.weapon, wProps = (o.hit && o.hit.props) || [];
+    // Loading: it has to be Reloaded (2 AP, its card's Reload button) after each attack
+    e._unloaded = e._unloaded || {};
+    if (wName && wProps.includes('loading')) {
+        if (e._unloaded[wName]) return { note: `${wName} needs reloading first (Reload, 2 AP, on ${e.name}'s tracker card)`, warn: true };
+        e._unloaded[wName] = true;
+    }
+    // Cleave: it dropped a creature with this weapon this turn: this attack is free
+    let cl = window._gmCleave[e.id];
+    if (cl && cl.turn === window.gmTurnNumber && wName && cl.weapon === wName && !cl.used) {
+        cl.used = true; window.renderInitiativeTracker();
+        return { note: `${e.name}: Cleave, 0 AP (${have} left)` };
+    }
     // Flurry: this creature hit with this weapon earlier this turn
     let fl = window._gmFlurry[e.id], flurryNote = '';
     if (fl && fl.turn === window.gmTurnNumber && o.hit && fl.weapon === o.hit.weapon && cost > 1) { cost -= 1; flurryNote = ` · Flurry −1 AP (if attacking ${fl.targetName} again)`; }
@@ -4145,6 +4201,15 @@ function _gmFxAttacked(e) {
 }
 window._gmFxAttacked = _gmFxAttacked;
 
+window.gmReloadEntry = function(id, weapon) {
+    let e = (window.gmInitiative || []).find(x => x.id === id); if (!e || !e._unloaded) return;
+    let key = Object.keys(e._unloaded).find(k => String(k).replace(/[\\'"<>]/g, '') === weapon); if (!key) return;
+    let have = gmApCurrent(e), cost = window.gmCombatStarted ? 2 : 0;
+    e.apCur = Math.max(0, have - cost);
+    delete e._unloaded[key];
+    gmLog({ gmOnly: true, kind: 'info', text: `${e.name} reloads ${key}${cost ? ` (−${Math.min(have, cost)} AP${have < cost ? `, had only ${have}` : ''}, ${e.apCur} left)` : ''}.` });
+    window.renderInitiativeTracker();
+};
 window.gmClickApPip = function(id, i) {
     let e = window.gmInitiative.find(x => x.id === id); if (!e) return;
     let cur = gmApCurrent(e);
@@ -4360,6 +4425,8 @@ window.renderInitiativeTracker = function() {
                     ${isCurrent ? (n => `<span title="Move actions used this turn (back to 0 when its turn starts)" style="border:1px solid #38bdf8;border-radius:.25rem;padding:0 .3rem;color:#bae6fd;font-weight:800">Moves ${n}</span>`)(_gmMovesThisTurn(e)) : ''}
                     ${e.ap !== undefined && e.ap !== null ? gmApPipsHtml(e) : ''}
                     ${(e.ac !== undefined && e.ac !== null) ? (b => `<span ${b ? 'title="Fight Defensively"' : ''}>AC <b class="text-white">${(parseInt(e.ac) || 0) + b}</b>${b ? `<b class="text-cyan-300"> (+${b})</b>` : ''}</span>`)(_gmFxAcBonus(e)) : ''}
+                    ${Object.keys(e._unloaded || {}).filter(k => e._unloaded[k]).map(k => `<button onclick="window.gmReloadEntry('${e.id}', '${String(k).replace(/[\\'"<>]/g, '')}')" title="Loading: spend 2 AP to reload it" class="text-[9px] font-bold text-amber-300 hover:text-white border border-amber-700 rounded px-1">Reload ${String(k).replace(/</g, '&lt;')} (2 AP)</button>`).join('')}
+                    ${(c => c && c.turn === window.gmTurnNumber && !c.used ? `<span class="text-[9px] font-black text-rose-300 border border-red-700 rounded px-1" title="Cleave: its next attack with ${String(c.weapon).replace(/"/g, '&quot;')} this turn costs 0 AP">Cleave ready</span>` : '')((window._gmCleave || {})[e.id])}
                     ${(e.faction !== 'player' || e.companionOf) && window.apxOpenCreatureActions ? `<button onclick="window.gmOpenEntryActions('${e.id}', event)" title="Combat maneuvers and standard actions: spends its AP" class="text-[9px] font-bold text-cyan-300 hover:text-white border border-cyan-700 rounded px-1">⚔ Actions</button>` : ''}
                     ${e.faction !== 'player' && !e.companionOf ? (() => { let wt = _gmNpcWt(e); return wt != null ? `<span title="Wound Threshold: a single hit of more damage than this (after DR/ER) calls for a CON save or a limb is Wounded">WT <b class="text-white">${wt}</b></span>` : ''; })() : ''}
                     ${(() => {

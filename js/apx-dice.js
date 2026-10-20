@@ -64,6 +64,8 @@
             // High Roller R2: a 1 or 2 is rolled again, and a 1 keeps being rolled again (never below 2)
             let fix = x => { if (x <= 2) { x = rnd(s); while (x === 1 && s > 1) x = rnd(s); } return x; };
             if (opt.reroll12 && v <= 2) { d.from = v; d.v = fix(v); }
+            // Brutal (Heavy weapons): a 1 is rolled again once, and the new result stands (even another 1)
+            else if (opt.brutal && v === 1 && s > 1) { d.from = v; d.v = rnd(s); }
             if (opt.explode && d.v === s) {                                       // High Roller R5: max → roll it again, add it
                 // (and again, for as long as the new die is also a max)
                 d.boom = [];
@@ -803,10 +805,11 @@
             let dp = damagePerks(o, usePerks);
             // The crit dice are rolled now and only shown if the attack turns out to crit
             // (it can become a crit later, e.g. by using a stored Omen 20).
-            let dm = makeDamage(o.split && o.split.length > 1 ? o.split[0].formula : o.dice, { reroll12: usePerks && hr >= 2, explode, critMult, keepBest: dp.keepBest, instig: dp.instig });
+            let brutal = !!(o.brutal || (o.hit && (o.hit.props || []).includes('brutal')));
+            let dm = makeDamage(o.split && o.split.length > 1 ? o.split[0].formula : o.dice, { reroll12: usePerks && hr >= 2, brutal, explode, critMult, keepBest: dp.keepBest, instig: dp.instig });
             let flat = (dm.parsed.flat || 0) + (o.dmgMod || 0);
             // More than one damage type (a split power, a martial power on a weapon): each type is its own roll
-            let extra = o.split && o.split.length > 1 ? o.split.slice(1).map(sp => ({ sp, dm: makeDamage(sp.formula, { reroll12: usePerks && hr >= 2, critMult }), p: { kind: 'dmg', title: (sp.type || 'Damage') + ' damage', mult: critMult } })) : [];
+            let extra = o.split && o.split.length > 1 ? o.split.slice(1).map(sp => ({ sp, dm: makeDamage(sp.formula, { reroll12: usePerks && hr >= 2, brutal, critMult }), p: { kind: 'dmg', title: (sp.type || 'Damage') + ' damage', mult: critMult } })) : [];
             let gambleBonus = gamble ? (hr >= 4 ? 10 : 5) : 0;   // High Roller: +5 on a Gamble that hits (+10 from Rank 4)
             let dst = { crit: false, inst: false, maxed: false };
             let dmg = { kind: 'dmg', title: extra.length ? (o.split[0].type || 'Damage') + ' damage' : 'Damage', gamble: gambleBonus, mult: critMult };
@@ -843,7 +846,7 @@
                 }
                 if (gamble && !atk.fumble) c.badges.push(['info', `Gamble: +${gambleBonus} is included, only if it hits` + (hr >= 4 ? '. Hit = +1 AP' : '')]);
                 if (res.other) c.badges.push(['info', `${dp.keepSrc}: rolled damage twice, kept ${res.roll.diceTotal + flat} (other ${res.other.diceTotal + flat})`, 'Rank 2: roll damage twice and keep the highest total']);
-                if (dm.rerolled()) c.badges.push(['info', 'High Roller: rerolled 1s & 2s, and any 1 again (*)']);
+                if (dm.rerolled()) c.badges.push(['info', brutal && !(usePerks && hr >= 2) ? 'Brutal: rerolled 1s once (*)' : 'High Roller: rerolled 1s & 2s, and any 1 again (*)']);
                 if (explode) c.badges.push(['info', 'Dice Explosion: max rolls rolled again and added']);
                 if (dst.inst) c.badges.push(['info', 'Instigator: +1 damage die' + (atk.crit ? ', crit ×' + dmg.mult : '')]);
                 if (dst.confirm) c.badges.push([dst.maxed ? 'crit' : 'info', `${dp.confirmSrc} R5 second attack roll: ${dst.confirm.total} (d20 ${dst.confirm.nat})` + (dst.maxed ? ' · max critical damage' : '')]);
@@ -896,7 +899,8 @@
             let dp = o.heal ? {} : damagePerks(o, usePerks);
             let mult = (o.mult && o.mult > 1) ? o.mult : 2;
             let splitOn = !o.heal && o.split && o.split.length > 1;
-            let dm = makeDamage(splitOn ? o.split[0].formula : o.formula, { reroll12: !o.heal && usePerks && hr >= 2, explode, critMult: mult, keepBest: dp.keepBest, instig: dp.instig });
+            let brutal = !o.heal && !!(o.brutal || (o.hit && (o.hit.props || []).includes('brutal')));
+            let dm = makeDamage(splitOn ? o.split[0].formula : o.formula, { reroll12: !o.heal && usePerks && hr >= 2, brutal, explode, critMult: mult, keepBest: dp.keepBest, instig: dp.instig });
             let dst = { crit: !!(o.mult && o.mult > 1), inst: false, maxed: false };
             let p = { kind: 'dmg', title: o.heal ? 'Heal' : splitOn ? (o.split[0].type || 'Damage') + ' damage' : 'Damage' };
             // More than one damage type: each type is its own roll
@@ -921,7 +925,7 @@
                     c.badges.push([atk.crit && fx.crit ? 'crit' : 'info', `${fx.name}: ${fx.hit}${atk.crit && fx.crit ? ' · Critical: ' + fx.crit : ''}`, fx.tip]);
                 }
                 if (res.other) c.badges.push(['info', `${dp.keepSrc}: rolled damage twice, kept ${p.total} (other ${res.other.diceTotal + dm.parsed.flat})`]);
-                if (dm.rerolled()) c.badges.push(['info', 'High Roller: rerolled 1s & 2s, and any 1 again (*)']);
+                if (dm.rerolled()) c.badges.push(['info', brutal && !(usePerks && hr >= 2) ? 'Brutal: rerolled 1s once (*)' : 'High Roller: rerolled 1s & 2s, and any 1 again (*)']);
                 if (explode) c.badges.push(['info', 'Dice Explosion: max rolls rolled again and added']);
                 if (dst.inst) c.badges.push(['info', 'Instigator: +1 damage die']);
                 if (o.apNote) c.badges.push([o.apWarn ? 'fum' : 'info', o.apNote]);

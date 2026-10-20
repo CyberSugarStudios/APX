@@ -251,8 +251,11 @@ window.renderArmorForge = function() {
         ${armorForgeTarget === 'player' ? craftBuyOrCraftHtml(delta, armorForgeCraftMath()) : ''}
     `;
     if (armorForgeTarget !== 'player' && armorForgeTarget !== 'loot' && window.npcArmorTp) {
-        let tpNow = window.npcArmorTp({ name: 'x', ac: totals.ac, dr: totals.dr, er: totals.er }).tp;
-        html = `<div class="text-[11px] font-bold rounded border px-2 py-1 mb-2" style="border-color:#a16207;color:#fde68a;background:rgba(161,98,7,.12)">Threat Point cost for this ${armorForgeTarget === 'gm' ? 'NPC' : 'companion'}: <b>${tpNow} TP</b> <span style="font-weight:600;opacity:.8">(1 per AC, +1 per 2 DR/ER)</span></div>` + html;
+        let tpNow = window.npcArmorTp({ name: 'x', ac: totals.ac, dr: totals.dr, er: totals.er, mods: armorForgeDraft.mods, tpRule: 2 }).tp;
+        html = `<div class="text-[11px] font-bold rounded border px-2 py-1 mb-2" style="border-color:#a16207;color:#fde68a;background:rgba(161,98,7,.12)">Threat Point cost for this ${armorForgeTarget === 'gm' ? 'NPC' : 'companion'}: <b>${tpNow} TP</b> <span style="font-weight:600;opacity:.8">(1 per AC, +1 per 2 DR/ER; other mods 1 per 100 Cu they'd cost, penalties take TP off)</span></div>` + html;
+        // The equip button says what it costs
+        if (armorForgeTarget === 'gm' && !armorForgeLootDone) document.getElementById('armorBtnGmAdd').textContent = `Equip on NPC (${tpNow} TP)`;
+        if (armorForgeTarget === 'companion') document.getElementById('armorBtnPurchase').textContent = `Equip (${tpNow} TP)`;
     }
     document.getElementById('armorForgeBody').innerHTML = html;
 };
@@ -286,6 +289,7 @@ function applyArmorForgeFinal(finalMods) {
     getTargetArmor().speedMod = totals.speed;
     getTargetArmor().mods = { ...finalMods };
     getTargetArmor().paidCost = totals.cost;
+    if (armorForgeTarget === 'gm' || armorForgeTarget === 'companion') getTargetArmor().tpRule = 2;   // its other mods count toward its TP
     window.closeModal('armorCraftModal');
     window.closeModal('armorForgeModal');
     // GM Loot Maker: hand the finished armor over as a loot item
@@ -305,7 +309,7 @@ function applyArmorForgeFinal(finalMods) {
 function armorGearFitsCompanion() {
     if (armorForgeTarget !== 'companion' || !window.npcArmorTp || !window.companionRemainingTp) return true;
     let t = window.armorForgeCalcTotals(armorForgeDraft);
-    let newTp = window.npcArmorTp({ name: 'x', ac: t.ac, dr: t.dr, er: t.er }).tp;
+    let newTp = window.npcArmorTp({ name: 'x', ac: t.ac, dr: t.dr, er: t.er, mods: armorForgeDraft.mods, tpRule: 2 }).tp;
     let oldTp = window.npcArmorTp(getTargetArmor()).tp;
     let need = newTp - oldTp, left = window.companionRemainingTp();
     if (need > left) { window.showConfirm(`Not enough Threat Points: this armor costs ${newTp} TP (${need} more than now), and your companion has ${left} TP left. Buy more TP in the NPC Crafter, or pick fewer upgrades.`, null, true); return false; }

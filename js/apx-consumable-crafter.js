@@ -33,11 +33,10 @@ function getBlankConsumableDraft() {
 
 window.ccCalcXP = function(draft) {
     let step1Def = POWER_STEP1.find(s => s.key === draft.step1);
-    let step2Def = POWER_STEP2_RANGE.find(s => s.key === draft.step2);
     let aoeDef = window.apxPowerAoe(draft);
 
     let step1Cost = step1Def.cost;
-    let step2Cost = step2Def.cost;
+    let step2Cost = window.apxPowerRange(draft).cost;   // Touch 0, 1 XP per 5 squares, Line of Sight 15; Thrown and Ammunition 0
     let step3Cost = aoeDef.cost;   // the AoE shape's own XP
 
     let totalDiceCount = POWER_DIE_STEPS.reduce((s, step) => s + (draft.dmg[step] || 0), 0);
@@ -82,7 +81,7 @@ window.ccCalcXP = function(draft) {
 
     return {
         step1Cost, step2Cost, step3Cost, step4Cost, step5Cost, step6Cost, step7Cost, total,
-        totalDiceCount, overCap: total > ccMaxXp(), maxXp: ccMaxXp(), firstChargeCost, perAdditionalCharge, charges, totalCost, weight, ap: 3
+        totalDiceCount, overCap: total > ccMaxXp(), maxXp: ccMaxXp(), maxCu: ccMaxXp() * CC_CU_PER_XP, firstChargeCost, perAdditionalCharge, charges, totalCost, weight, ap: 3
     };
 };
 
@@ -209,12 +208,16 @@ window.jumpToCcStep = function(n) {
 // Field setters (mirrors the Power Crafter's, operating on ccDraft)
 // ------------------------------------------------------------------
 window.ccSetStep1 = function(val) { ccDraft.step1 = val; ccRenderAll(); };
-window.ccSetStep2 = function(val) { ccDraft.step2 = val; ccRenderAll(); };
+window.ccSetStep2 = function(val) { if (val === 'range' && ccDraft.step2 !== 'range') ccDraft.rangeSq = 10; ccDraft.step2 = val; ccRenderAll(); };
+window.ccRangeSq = function(delta, val) { window.apxRangeSqMutate(ccDraft, delta, val); ccRenderAll(); };
 window.ccSetAoe = function(val) { window.apxAoeMutate(ccDraft, 'aoe', val); ccRenderAll(); };
 window.ccSetAoeShape = function(val) { window.apxAoeMutate(ccDraft, 'shape', val); ccRenderAll(); };
 window.ccAoeSize = function(d, val) { window.apxAoeMutate(ccDraft, val != null ? 'size' : 'step', val != null ? val : d); ccRenderAll(); };
 window.ccSetDie = function(step, delta) {
     let cur = ccDraft.dmg[step] || 0;
+    // One die size per item, as for powers
+    let other = POWER_DIE_STEPS.find(st => st !== step && (ccDraft.dmg[st] || 0) > 0);
+    if (delta > 0 && other) { window.APXDice?.notify(`An item uses one die size: remove its ${other} dice first.`, { kind: 'warn' }); return; }
     let next = Math.max(0, Math.min(12, cur + delta));
     ccDraft.dmg[step] = next;
     ccRenderAll();
@@ -314,12 +317,7 @@ function ccRenderStep1() {
     `).join('');
 }
 function ccRenderStep2() {
-    document.getElementById('ccStep2Options').innerHTML = POWER_STEP2_RANGE.map(s => `
-        <label class="flex items-start gap-2 bg-slate-900 border ${ccDraft.step2 === s.key ? 'border-purple-500' : 'border-slate-700'} rounded p-2 cursor-pointer">
-            <input type="radio" name="ccStep2" class="mt-1" ${ccDraft.step2 === s.key ? 'checked' : ''} onchange="window.ccSetStep2('${s.key}')">
-            <div><div class="text-xs font-bold text-slate-200">${s.label} <span class="text-yellow-500">[${s.cost} XP]</span></div><div class="text-[10px] text-slate-500 leading-tight">${s.desc}</div></div>
-        </label>
-    `).join('');
+    document.getElementById('ccStep2Options').innerHTML = window.apxStep2Html(ccDraft, { pre: 'cc', consumable: true, price: xp => (xp * CC_CU_PER_XP) + ' Cu' });
 }
 function ccRenderStep3() {
     let t = window.ccCalcXP(ccDraft);
@@ -377,7 +375,7 @@ function ccRenderStep4() {
     `;
 }
 function ccRenderUtilityTier(tier, label, colorClass) {
-    let rows = POWER_UTILITY[tier].map(u => {
+    let rows = POWER_UTILITY[tier].filter(u => !u.legacy || ((ccDraft.utility[tier] || {})[u.key] || 0) > 0).map(u => {
         let count = ccDraft.utility[tier][u.key] || 0;
         return `
             <div class="flex items-center justify-between bg-slate-900 border border-slate-700 rounded px-2 py-1.5 gap-2">
@@ -451,7 +449,7 @@ function ccRenderStep7() {
     document.getElementById('ccStep7Refunds').innerHTML = minorRestrictionRow + checkboxRows + costlyRow;
 
     let t = window.ccCalcXP(ccDraft);
-    document.getElementById('ccStep7Reference').innerHTML = `A/S: ${POWER_STEP1.find(s=>s.key===ccDraft.step1).label} | R/A: ${POWER_STEP2_RANGE.find(s=>s.key===ccDraft.step2).label}${window.apxPowerAoe(ccDraft).key!=='single' ? ' / ' + window.apxPowerAoe(ccDraft).label : ''} | Duration: ${POWER_DURATION.find(d=>d.key===ccDraft.duration).label}`;
+    document.getElementById('ccStep7Reference').innerHTML = `A/S: ${POWER_STEP1.find(s=>s.key===ccDraft.step1).label} | R/A: ${window.apxPowerRange(ccDraft).label}${window.apxPowerAoe(ccDraft).key!=='single' ? ' / ' + window.apxPowerAoe(ccDraft).label : ''} | Duration: ${POWER_DURATION.find(d=>d.key===ccDraft.duration).label}`;
     let ta = document.getElementById('ccFlavorText');
     if (ta && ta.value !== ccDraft.flavorText) ta.value = ccDraft.flavorText;
     document.getElementById('ccChargesInput').value = ccDraft.charges;
@@ -459,7 +457,10 @@ function ccRenderStep7() {
 
 function ccRenderSummary() {
     let t = window.ccCalcXP(ccDraft);
-    document.getElementById('ccSumXp').innerText = t.total + ' / ' + t.maxXp + ' XP';
+    // Its price is the limit you see: (30 XP, +5 per Artisan rank) x 5 Cu for one charge
+    document.getElementById('ccSumXp').innerText = t.firstChargeCost + ' / ' + t.maxCu + ' Cu';
+    document.getElementById('ccSumXp').title = `${t.total} of ${t.maxXp} XP (5 Cu per XP), for one charge`;
+    { let lbl = document.getElementById('ccSumXp').previousElementSibling; if (lbl) lbl.innerText = 'Cost (1 charge)'; }
     document.getElementById('ccSumXp').className = t.overCap ? 'text-lg font-black text-red-400' : 'text-lg font-black text-white';
     document.getElementById('ccSumWeight').innerText = t.weight + ' lb';
     document.getElementById('ccSumCost').innerText = t.totalCost + ' Cu';
@@ -467,7 +468,10 @@ function ccRenderSummary() {
     let capNote = document.getElementById('ccCapNote');
     if (t.overCap) {
         capNote.classList.remove('hidden');
-        capNote.innerText = `Consumables can spend at most ${t.maxXp} XP total${t.maxXp > 30 ? ` (30, +5 for each of your ${(t.maxXp - 30) / 5} Artisan rank${t.maxXp > 35 ? 's' : ''})` : ''}. Reduce this build by ${t.total - t.maxXp} XP.`;
+        capNote.innerText = `One charge of a consumable can cost at most ${t.maxCu} Cu${t.maxXp > 30 ? ` (150, +25 for each of your ${(t.maxXp - 30) / 5} Artisan rank${t.maxXp > 35 ? 's' : ''})` : ''}. Bring it down by ${t.firstChargeCost - t.maxCu} Cu.`;
+    } else if (ccMixedDice(ccDraft)) {
+        capNote.classList.remove('hidden');
+        capNote.innerText = `An item uses one die size. It has ${POWER_DIE_STEPS.filter(st => (ccDraft.dmg[st] || 0) > 0).map(st => ccDraft.dmg[st] + st).join(' + ')}: keep one of them in Step 4.`;
     } else {
         capNote.classList.add('hidden');
     }
@@ -477,25 +481,25 @@ function ccRenderSummary() {
     if (pn) { pn.style.display = probs.length ? '' : 'none'; pn.innerHTML = probs.map(x => '• ' + String(x).replace(/</g, '&lt;')).join('<br>'); }
 
     let btn = document.getElementById('ccBtnFinish');
-    btn.disabled = t.overCap || probs.length > 0;
+    btn.disabled = t.overCap || probs.length > 0 || ccMixedDice(ccDraft);
     btn.innerText = ccTarget ? `${ccTarget.label || 'Add to Loot'} (${t.weight} lb)` : `Add to Inventory (${t.totalCost} Cu, ${t.weight} lb)`;
     btn.className = btn.disabled
         ? 'px-6 py-2 rounded bg-slate-700 text-slate-500 cursor-not-allowed text-sm font-bold transition'
         : 'px-6 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition shadow-lg';
 }
 
+function ccMixedDice(d) { return POWER_DIE_STEPS.filter(st => ((d.dmg || {})[st] || 0) > 0).length > 1; }
 function ccBuildTextSummary(draftOverride) {
     let d = draftOverride || ccDraft;
     let t = window.ccCalcXP(d);
     let step1Def = POWER_STEP1.find(s => s.key === d.step1);
-    let step2Def = POWER_STEP2_RANGE.find(s => s.key === d.step2);
     let aoeDef = window.apxPowerAoe(d);
 
     let atk = step1Def.label;
     let sA = (window.APX_SAVE_ATTRS || []).includes(d.saveAttr) ? d.saveAttr + ' ' : '';
     if (d.step1 === 'saveHalves') atk = sA + 'Save Halves';
     else if (d.step1 === 'atkSave') atk = d.atkMode === 'save' ? sA + 'Save Negates' : d.atkMode === 'attack' ? 'Attack Roll' : atk;
-    let rng = step2Def.label;
+    let rng = window.apxPowerRange(d).label;
     if (aoeDef.key !== 'single') rng += ' / ' + aoeDef.label;
 
     let dmg = '-';
@@ -543,12 +547,32 @@ window.ccBuildTextSummary = ccBuildTextSummary;
 window.ccPowerOf = function(item) {
     if (!item || !item.isConsumable || !item.draft) return null;
     let s; try { s = ccBuildTextSummary(Object.assign(getBlankConsumableDraft(), JSON.parse(JSON.stringify(item.draft)))); } catch (e) { console.warn('Consumable:', e.message); return null; }
-    return { name: item.name || 'Consumable', lvl: 'Item', ap: 3, atk: s.atk, rng: s.rng, dmg: s.dmg, desc: item.desc || s.desc, draft: item.draft, consumable: true };
+    let out = { name: item.name || 'Consumable', lvl: 'Item', ap: 3, atk: s.atk, rng: s.rng, dmg: s.dmg, desc: item.desc || s.desc, draft: item.draft, consumable: true };
+    // Ammunition: fired from a ranged weapon of its ammo type, with that weapon's AP, range and attack roll
+    // (its effects land on a hit, on top of the weapon's damage: a Martial Improvement on that weapon)
+    if (item.draft.step2 === 'ammo') {
+        let cls = item.draft.ammoClass || 'light';
+        let w = (window.apxWeaponAttackOptions ? window.apxWeaponAttackOptions() : []).find(o => o.wcat === 'ranged' && o.hit && o.hit.ammo === cls && !/Aimed/.test(o.label || ''));
+        out.ammo = cls;
+        if (!w) { out.ammoMissing = `${out.name} is ${cls[0].toUpperCase() + cls.slice(1)} Ammo: equip a ranged weapon that fires ${cls[0].toUpperCase() + cls.slice(1)} Ammo to use it.`; return out; }
+        out.ap = w.ap || 3; out.rng = `${w.label}'s range` + (s.rng.includes(' / ') ? ' / ' + s.rng.split(' / ').slice(1).join(' / ') : '');
+        if (item.draft.step1 === 'atkSave' && item.draft.atkMode !== 'save') {
+            out.draft = Object.assign({}, item.draft, { atkMode: 'attack', atkKind: 'martial', atkWeapon: w.key, martialRanged: true });
+            out.atk = 'Attack Roll (' + w.label + ')';
+        }
+        out.desc = `Fired from your ${w.label}. ` + out.desc;
+    }
+    if (item.draft.step2 === 'thrown') {
+        let str = (typeof calc !== 'undefined' && calc.scores && calc.scores.STR) || 5;
+        out.rng = `Thrown ${str}/${str * 2} sq` + (s.rng.includes(' / ') ? ' / ' + s.rng.split(' / ').slice(1).join(' / ') : '');
+        out.thrownRange = str * 2;
+    }
+    return out;
 };
 
 window.ccDetailLines = function(draft) {
     let step1Def = POWER_STEP1.find(s => s.key === draft.step1);
-    let step2Def = POWER_STEP2_RANGE.find(s => s.key === draft.step2);
+    let step2Def = window.apxPowerRange(draft);
     let aoeDef = window.apxPowerAoe(draft);
     let durationDef = POWER_DURATION.find(d => d.key === draft.duration);
     let t = window.ccCalcXP(draft);

@@ -23,6 +23,8 @@
         (s.extraShields || []).forEach(x => { ac += parseInt(x.ac) || 0; });
         return ac;
     }
+    // A worn Bandolier or Utility Belt: drawing or stowing an item on it takes half the AP
+    function wornBelt() { return (st().items || []).find(i => i && i.storageWorn && /bandolier|utility belt/i.test(i.name || '')) || null; }
     // Weapons with the Sturdy property (and unarmed strikes at Martial Arts Rank 2): they can Block
     const UNARMED = ['1d4', '1d6', '1d8', '1d10', '1d12', '2d6'];
     function sturdyWeapons() {
@@ -277,7 +279,23 @@
             costNow: () => { let s = st(), n = (s.apxMoves || 0) + 1, c = Math.max(0, n - (((s.perks || {}).agi_mobile || 0) >= 1 ? 1 : 0)); let eff = window.apxEffectiveConditions ? window.apxEffectiveConditions(s.conditions || [], s).map(x => x.id) : []; return eff.includes('staggered') ? c * 2 : c; },
             auto: () => { st().apxMoves = (st().apxMoves || 0) + 1; } },
         { g: 'Standard Actions', name: 'Aim', cost: 2, tip: 'Add your PER modifier to your next ranged attack and damage roll this turn. Use your ranged weapon\'s Aimed attack, which spends the Aim AP for you.', info: true },
-        { g: 'Standard Actions', name: 'Draw / Stow', cost: 2, tip: 'Draw a weapon or stow an item you\'re holding.', auto: () => { } },
+        { g: 'Standard Actions', name: 'Jump', cost: null, tip: 'A Jump counts as moving for its AP: your first Move or Jump this turn costs 1 AP, the next 2, and so on. You jump up to your STR modifier in squares (minimum 1); further takes a STR (Athletics) check, DC 5 per extra square.',
+            costNow: () => { let s = st(), n = (s.apxMoves || 0) + 1, c = Math.max(0, n - (((s.perks || {}).agi_mobile || 0) >= 1 ? 1 : 0)); let eff = window.apxEffectiveConditions ? window.apxEffectiveConditions(s.conditions || [], s).map(x => x.id) : []; return eff.includes('staggered') ? c * 2 : c; },
+            requires: () => { let eff = window.apxEffectiveConditions ? window.apxEffectiveConditions(st().conditions || [], st()).map(x => x.id) : (st().conditions || []); return typeof calc !== 'undefined' && calc.overburdened ? 'You\'re Overburdened: you can\'t jump.' : eff.some(c => ['grappled', 'restrained', 'prone'].includes(c)) ? 'You can\'t jump while Grappled, Restrained or Prone.' : ''; },
+            auto: async () => {
+                st().apxMoves = (st().apxMoves || 0) + 1;
+                let sq = Math.max(1, mod('STR'));
+                let far = window.APXDice && APXDice.ask ? await APXDice.ask('Jump', `You can jump ${sq} square${sq === 1 ? '' : 's'} (your STR modifier, minimum 1). Further takes a STR (Athletics) check: DC 5 for every extra square.`, [['ok', `${sq} square${sq === 1 ? '' : 's'}`, 'pri'], ['far', 'Further (roll Athletics)']]) : 'ok';
+                if (far === 'far') rollSkill('Athletics', 'STR', 'Jump: STR (Athletics), DC 5 per extra square');
+            } },
+        { g: 'Standard Actions', name: 'Draw / Stow', cost: 2, tip: 'Draw a weapon or stow an item you\'re holding. An item on a Bandolier or Utility Belt you wear takes half the AP (1).',
+            costNow: () => wornBelt() ? 1 : 2,
+            auto: async () => {
+                if (!wornBelt()) return;
+                let ans = window.APXDice && APXDice.ask ? await APXDice.ask('Draw / Stow', `Is it on your ${wornBelt().name || 'belt'}? Drawing or stowing an item on it takes half the AP.`, [['belt', 'On the belt: 1 AP', 'pri'], ['other', 'Somewhere else: 2 AP']]) : 'belt';
+                if (!ans) return false;
+                return { spend: ans === 'belt' ? 1 : 2 };
+            } },
         { g: 'Standard Actions', name: 'Use / Manipulate', cost: 3, tip: 'Open a door, pull a lever, pass an item, drink a potion, activate a terminal.', auto: () => { } },
         { g: 'Standard Actions', name: 'Drop', cost: 0, tip: 'Drop an item in your square (a Free Action).', auto: () => { } },
         { g: 'Standard Actions', name: 'Fall Prone', cost: 2, tip: 'Drop to the ground: ranged attacks against you have Disadvantage, melee attacks Advantage; your melee attacks have Disadvantage.',
