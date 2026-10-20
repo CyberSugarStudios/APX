@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.17.0127',
-        released: '2026-10-17T01:27:00',
-        releasedText: 'October 17, 2026 · 1:27 AM',
+        version: 'v2026.10.20.0108',
+        released: '2026-10-20T01:08:00',
+        releasedText: 'October 20, 2026 · 1:08 AM',
         title: 'Playtest 4: Maneuvers, Gear & Burdens',
         intro: 'Straight from our fourth playtest: NPCs and companions get the full list of maneuvers and actions, Loyal Companions can carry your gear, and carrying too much finally weighs you down. Squeezing costs what it should, and Vitality\'s top rank keeps you on your feet.',
         index: [
@@ -30,6 +30,9 @@
             ]],
             ['NPC Crafter', [
                 'Raising an NPC\'s Core Attribute above 10 costs 2 TP per point. Creatures you already built keep their price until you move them over.'
+            ]],
+            ['Your Screen', [
+                'Pickers and pop-ups always open on top of what they\'re changing: the NPC Crafter\'s Condition and Damage Immunities no longer hide behind it, and the same goes for every other picker, panel and prompt.'
             ]]
         ],
         sheet: [
@@ -41,6 +44,9 @@
                 'Actions: your companion\'s card (and its full stat block) has an Actions button with every Combat Maneuver and Standard Action. Each spends its AP. Fight Defensively, Fight Offensively and next-attack maneuvers (Sweeping Strike, Charge, Feint…) change its rolls, show as chips on its card, and end when its next turn starts (✕ ends one early). Your GM keeps its conditions, so Fall Prone and the like remind you to ask them.',
                 'Gear: in your Inventory, Give an item and pick your companion. It shows under Gear on its card, with the weight it carries; Take moves it back. Give it a weapon and Wield it, and the weapon is on its stat block like its own (no TP).',
                 'Squeezed into a smaller space on a battle map, your companion has Disadvantage on its attack rolls and AGI saves.'
+            ]],
+            ['Your Screen', [
+                'Pickers and pop-ups open on top of what they\'re changing: your companion\'s Condition and Damage Immunities in the NPC Crafter, trait and Exo-Suit panels, the world character picker, and any other popup that used to open behind the window you opened it from.'
             ]],
             ['Perks & Rules', [
                 'Vitality Rank 4 is reworked: if you would be reduced to 0 HP, you\'re reduced to 1 HP instead, and you can spend up to your Rank in Rest Dice to heal that much at once (at Rank 3 they roll their maximum). It can\'t happen again until you finish a Full Rest. It works from your GM\'s tracker too.',
@@ -59,6 +65,9 @@
             ]],
             ['NPC Crafter', [
                 'Core Attributes cost 1 TP per point up to a score of 10 and 2 TP per point above it. NPCs and companions built before this keep their old price, so nothing you\'ve made changes on its own; Step 1 shows a button to move one over (a companion only if it still fits its budget). A creature with nothing above 10 moves over by itself.'
+            ]],
+            ['Your Screen', [
+                'Every picker and pop-up opens on top of what it\'s changing. In the NPC Crafter, Condition Immunities, Damage Immunities, Resistances and Vulnerabilities no longer open behind it, and neither do world tags, the Weapon and Armor Forges, the kick/ban prompt or any other panel. A picker that\'s reused comes back on top too.'
             ]],
             ['Players\' Gear', [
                 'Players can be Overburdened now (Speed 1, Disadvantage on attacks, checks and saves), and wear Backpacks, Bandoliers and Utility Belts to carry more.',

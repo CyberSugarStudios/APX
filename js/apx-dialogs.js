@@ -330,6 +330,23 @@ window.apxToday = function (d) {
         minimize(w);
     }, true);
 
+    // A popup that sets its own, older layer (a picker at z-index 1600, a panel at 9000…) would open behind a
+    // modal or window that's already up in the stacking order, so it takes the next layer too: whatever it
+    // customizes is open beneath it. Full-screen backdrops count from z-index 50, smaller popups from 1000
+    // (below that: page chrome, like the dock handle). Modals and must-answer dialogs have their own rules.
+    function lowPopup(n) {
+        if (!n || n.nodeType !== 1 || n.parentElement !== document.body) return false;
+        if (n.classList.contains('modal-overlay') || n.classList.contains('apxd-fab') || n.classList.contains('apxd-tray') || n.id === 'apxTabBar') return false;
+        let cs = getComputedStyle(n);
+        if (cs.position !== 'fixed' || cs.display === 'none' || cs.visibility === 'hidden') return false;
+        let z = parseInt(cs.zIndex) || 0;
+        // (one already in the stacking order, shown again: back on top if something rose past it meanwhile)
+        if (z >= FRONT_BASE) return n.hasAttribute('data-apx-front') && z <= FRONT_MAX && z < (window._apxPopZ || 0);
+        let r = n.getBoundingClientRect();
+        let backdrop = r.width >= innerWidth - 2 && r.height >= innerHeight - 2;
+        return backdrop ? z >= 50 : z >= 1000;
+    }
+    window._apxLowPopup = lowPopup;
     // A window that just opened goes on top too
     // (windows opened straight on the page, or in the floating-window container map and NPC windows use)
     let watchNew = () => {
@@ -343,9 +360,20 @@ window.apxToday = function (d) {
                 if (n.parentElement === document.body && n.classList.contains('apxdlg-back')) {
                     let z = parseInt(getComputedStyle(n).zIndex) || 0;
                     if (z <= PANEL_MAX) window.apxFront(n);
+                    return;
                 }
+                if (lowPopup(n)) window.apxFront(n);
             }, 0);
         })));
+        // …and one shown again (a picker kept on the page and hidden between uses)
+        new MutationObserver(list => list.forEach(m => {
+            let n = m.target;
+            if (n.parentElement !== document.body || !n.classList) return;
+            let was = m.oldValue || '';
+            let wasHidden = m.attributeName === 'style' ? /display:\s*none/.test(was) : /(^|\s)hidden(\s|$)/.test(was);
+            if (!wasHidden) return;
+            setTimeout(() => { if (n.isConnected && lowPopup(n)) window.apxFront(n); }, 0);
+        })).observe(document.body, { attributes: true, attributeFilter: ['style', 'class'], attributeOldValue: true, subtree: true });
         mo.observe(document.body, { childList: true });
         let box = document.getElementById('floatingWindowContainer');
         if (box) mo.observe(box, { childList: true });
