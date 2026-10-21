@@ -69,7 +69,7 @@
         ],
         // Summon a Creature: the creature's Tier can't be higher than the power's Level (Tier 5 at most)
         10: [
-            { id: 'summonTierLevel', test: d => { let n = ((d.utility || {}).major || {}).summonCreature || 0; if (!n || typeof window.pcCalcXP !== 'function') return false; let t = parseInt(d.summonTier) || 1; return t > 5 || t > window.pcCalcXP(d).level; },
+            { id: 'summonTierLevel', test: d => { let n = ((d.utility || {}).major || {}).summonCreature || 0; if (!n || typeof window.pcCalcXP !== 'function') return false; let t = Math.max(...(window.apxSummonSlots ? window.apxSummonSlots(d) : [{ tier: d.summonTier }]).map(x => parseInt(x.tier) || 1)); return t > 5 || t > window.pcCalcXP(d).level; },
               text: 'A summoned creature\'s Tier can\'t be higher than the power\'s Level now (Tier 5 at most). This power still works as it is; rebuild it (free) to bring its creature\'s Tier in line.' }
         ],
         // Saving throws name their Core Attribute; lasting effects get an Escape Save the target can pass

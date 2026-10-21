@@ -28,7 +28,7 @@ function getBlankWeaponDraft() {
         category: 'melee', weightClass: 'light', dmgType: 'Bludgeoning',
         dmgTier: 0, critTier: 0, rangeTier: 0,
         elemental: null,
-        properties: { concealed: false, reach: false, thrown: false, returning: false, sturdy: false, grappling: false, tearing: false, crushing: false, flurry: false, stunning: false, brutal: false, sunder: false, cleave: false, loading: false, elemCrit: false, finesse: false, quickdraw: false, unwieldy: false, scatter: false, repeating: false }
+        properties: { concealed: false, reach: false, thrown: false, returning: false, sturdy: false, grappling: false, tearing: false, crushing: false, flurry: false, stunning: false, brutal: false, sunder: false, cleave: false, loading: false, elemCrit: false, finesse: false, quickdraw: false, unwieldy: false, scatter: false, repeating: false, keen: false, parrying: false, suppressed: false }
     };
 }
 

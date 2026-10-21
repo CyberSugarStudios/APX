@@ -1482,6 +1482,12 @@
                             if (res !== 'skip') o.areaHit = { mapId: am.mapId, tokenIds: res.tokenIds, names: res.names, half: area.mode === 'square' && rng[0] && res.reach > rng[0] };
                         }
                     }
+                    // Charmed: you can't attack the creature that charmed you
+                    let effC = window.apxEffectiveConditions ? window.apxEffectiveConditions((window.state.conditions || []).concat(window.state.gmConditions || []), window.state).map(c => c.id) : [];
+                    if (effC.includes('charmed')) {
+                        let a = await APXDice.ask(o.label || 'Attack', 'You\'re Charmed: you can\'t attack the creature that charmed you, or target it with harmful powers.', [['go', 'I\'m attacking someone else', 'pri'], ['no', 'Cancel the attack']]);
+                        if (a !== 'go') return false;
+                    }
                     let fo = ((window._pwCombatTurn && window._pwCombatTurn.fo) || []).filter(n => n !== window.state.name);
                     if (!o.areaHit && fo.length) {
                         let a = await APXDice.ask(o.label || 'Attack', `Fighting Offensively, so attacks against them have Advantage: ${fo.join(', ')}. Are you attacking one of them?`, fo.map((n, i) => ['t' + i, n + ' (Advantage)', i ? '' : 'pri']).concat([['other', 'Someone else']]));
@@ -2101,8 +2107,10 @@
             let isAoe = !!(p.draft && p.draft.aoe && !['single', 'split'].includes(p.draft.aoe));
             // Summon a Creature: the GM's map gets the creature(s), next to you
             let sumN = (p.draft && p.draft.utility && p.draft.utility.major && p.draft.utility.major.summonCreature) || 0;
-            let summon = sumN && p.draft.summonNpc ? { npc: (n => { delete n.portraitFull; delete n.tokenImgFull; return n; })(JSON.parse(JSON.stringify(p.draft.summonNpc))), count: sumN, tier: p.draft.summonTier || 1, power: name } : null;
-            if (sumN && !summon) APXDice.notify(`${name} summons a creature, but it hasn't been built yet: edit the power and build it in the NPC Crafter.`, { kind: 'warn', open: true });
+            // (each copy of the utility its own creature and Tier: one group per different creature)
+            let sg = sumN && window.apxSummonGroups ? window.apxSummonGroups(p.draft) : { groups: [], missing: 0 };
+            let summon = sg.groups.length ? Object.assign({ groups: sg.groups, power: name }, { npc: sg.groups[0].npc, count: sg.groups[0].count, tier: sg.groups[0].tier }) : null;
+            if (sumN && sg.missing) APXDice.notify(`${name} summons ${sg.missing > 1 ? sg.missing + ' creatures that haven\'t' : 'a creature that hasn\'t'} been built yet: use Build Summoned Creature on the power.`, { kind: 'warn', open: true });
             let areaNote = areaRes ? `In the area: ${areaRes.names.length ? areaRes.names.join(', ') : 'no one'}${areaRes.safeIds.length ? ` (${areaRes.safeIds.length} kept safe)` : ''}.` : '';
             let tell = (text, extra) => { if (typeof window.apxOnRollEvent === 'function') window.apxOnRollEvent(Object.assign({ id: 'pw' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), kind: 'power', label: name, text: areaNote ? text + ' ' + areaNote : text }, extra || {}, summon ? { summon } : {}, isAoe ? { aoe: true } : {}, fxInfo ? { fx: fxInfo } : {}, areaRes ? { area: { mapId: areaRes.mapId, tokenIds: areaRes.tokenIds, safeIds: areaRes.safeIds } } : {})); };
             if (info.kind === 'power' || info.kind === 'martial') {
@@ -2151,11 +2159,13 @@
         };
 
         // Summon a Creature: edit the creature on its own, without reopening the Power Crafter
-        window.apxEditSummonCreature = function(idx) {
+        window.apxEditSummonCreature = async function(idx) {
             let p = (window.state.powers || [])[idx]; if (!p || !p.draft || typeof window.openSummonCrafter !== 'function') return;
-            let tier = p.draft.summonTier || 1;
-            window.openSummonCrafter({ npc: p.draft.summonNpc || null, tier, done: npc => {
-                p.draft.summonNpc = JSON.parse(JSON.stringify(npc)); p.draft.summonNpcTier = tier;
+            let i = await window.apxSummonPickSlot(p.draft, p.name); if (i == null) return;
+            let slot = window.apxSummonSlots(p.draft)[i];
+            if (slot.fromId && String(slot.fromId).startsWith('w:')) { APXDice.notify(`That's one of your GM's creatures: pick another in the Power Crafter to change it.`, { kind: 'note', open: true }); return; }
+            window.openSummonCrafter({ npc: slot.npc || null, tier: slot.tier, done: npc => {
+                window.apxSummonSet(p.draft, i, { npc: JSON.parse(JSON.stringify(npc)), npcTier: slot.tier, fromId: null });
                 window.recalculateMath();
             } });
         };
@@ -2179,7 +2189,7 @@
                     </div>
                     <div class="text-[10px] text-slate-500 leading-tight font-medium">${p.desc}</div>
                     ${p.draft ? `<button onclick="window.openPowerEditor(${idx})" class="text-[9px] text-purple-400 hover:text-purple-300 font-bold mt-1">Edit in Power Crafter${p.wasFree ? ' (Free)' : ''}</button>` : ''}
-                    ${p.draft && ((p.draft.utility || {}).major || {}).summonCreature ? `<button onclick="window.apxEditSummonCreature(${idx})" class="text-[9px] text-emerald-400 hover:text-emerald-300 font-bold mt-1 ml-2" title="Build or change the creature this power summons (Tier ${p.draft.summonTier || 1})">${p.draft.summonNpc ? 'Edit Summoned Creature' : 'Build Summoned Creature'}</button>` : ''}
+                    ${p.draft && ((p.draft.utility || {}).major || {}).summonCreature ? (sl => `<button onclick="window.apxEditSummonCreature(${idx})" class="text-[9px] text-emerald-400 hover:text-emerald-300 font-bold mt-1 ml-2" title="Build or change the creature${sl.length > 1 ? 's' : ''} this power summons (${sl.map(x => 'Tier ' + x.tier).join(', ')})">${sl.every(x => x.npc) ? 'Edit Summoned Creature' : 'Build Summoned Creature'}${sl.length > 1 ? 's' : ''}</button>`)(window.apxSummonSlots(p.draft)) : ''}
                     ${window.apxRecraftBadge ? window.apxRecraftBadge(p, `window.openPowerEditor(${idx})`) : ''}
                 </div>
             `).join('');

@@ -22,7 +22,7 @@
     const L = [
         { g: 'Combat Maneuvers', name: 'Fight Defensively', cost: 1, tip: '+2 AC and Disadvantage on its attack rolls until the start of its next turn. If it makes no attacks this turn, the bonus is +4.', fx: { key: 'defensive', label: 'Fight Defensively', atkDis: true, ac: 4 } },
         { g: 'Combat Maneuvers', name: 'Fight Offensively', cost: 1, tip: 'Advantage on its attack rolls until the start of its next turn; attacks against it have Advantage too.', fx: { key: 'offensive', label: 'Fight Offensively', atkAdv: true } },
-        { g: 'Combat Maneuvers', name: 'Block', cost: 2, tip: 'Double its shield\'s AC bonus until the start of its next turn or until it attacks. With a Sturdy weapon instead: roll one of its damage dice and add it to its AC.', fx: { key: 'block', label: 'Block', untilAttack: true } },
+        { g: 'Combat Maneuvers', name: 'Block', cost: 2, tip: 'Double its shield\'s AC bonus until the start of its next turn or until it attacks. With a Sturdy weapon instead: roll one of its damage dice and add it to its AC. A Parrying weapon blocks the same way, as its Reaction (0 AP).', block: true, fx: { key: 'block', label: 'Block', untilAttack: true } },
         { g: 'Combat Maneuvers', name: 'Shield Bash', cost: 3, tip: 'With a shield: a STR melee attack; on a hit, Bludgeoning damage equal to its STR score and the target is Staggered until its next turn.', shield: true, roll: { attack: 'STR', label: 'Shield Bash', hitNote: sb => `Hit: ${5 + ((sb && sb.mods && sb.mods.STR) || 0)} Bludgeoning damage (its STR score) and the target is Staggered until its next turn` } },
         { g: 'Combat Maneuvers', name: 'Disengage', cost: 2, tip: 'Its movement doesn\'t provoke attacks of opportunity until the end of its turn.', fx: { key: 'disengage', label: 'Disengaged' } },
         { g: 'Combat Maneuvers', name: 'Power Attack', cost: 2, extra: '+ attack', tip: 'Declare before its next melee attack (it also costs its own AP): on a hit, add its STR modifier to the damage.', fx: { key: 'power', label: 'Power Attack: +STR dmg', next: {} } },
@@ -162,6 +162,25 @@
             let v = window.apxPrompt ? await window.apxPrompt(`Ready an action for ${who}: how many AP does it cost?`, '3', { title: 'Ready' }) : '3';
             cost = parseInt(v); if (!(cost >= 0)) return;
         }
+        // Block: its shield (+2 more AC), or a Sturdy weapon's damage die; a Parrying weapon does it as its Reaction (0 AP)
+        let blockFx = null;
+        if (a.block) {
+            let sb = null; try { sb = ctx.sb ? ctx.sb() : null; } catch (e) { }
+            let ws = ((sb && sb.equippedWeapons) || []).filter(w => (w.props || []).some(p => p === 'sturdy' || p === 'parrying'));
+            let opts = (sb && sb.hasShield && sb.shieldOn !== false ? [['shield', 'Shield (+2 more AC)', 'pri']] : []).concat(ws.map((w, i) => ['w' + i, `${w.name} (1d${(String(w.dmg || '').match(/d(\d+)/) || [0, 6])[1]})${(w.props || []).includes('sturdy') ? '' : ': Parrying, its Reaction (0 AP)'}`, '']));
+            if (opts[0]) opts[0][2] = 'pri';
+            let pick = opts.length > 1 && window.APXDice && APXDice.ask ? await APXDice.ask('Block with…', `A shield doubles its AC bonus; a Sturdy weapon rolls one of its damage dice as its AC bonus. A Parrying weapon blocks the same way, as its Reaction.`, opts) : (opts[0] || [])[0];
+            if (opts.length > 1 && !pick) return;
+            if (pick === 'shield') blockFx = { ac: 2, label: 'Block (shield): +2 AC' };
+            else if (pick) {
+                let w = ws[+pick.slice(1)], sides = +((String(w.dmg || '').match(/d(\d+)/) || [0, 6])[1]);
+                let roll = window.APXDice && APXDice.rnd ? APXDice.rnd(sides) : 1 + Math.floor(Math.random() * sides);
+                let parry = !(w.props || []).includes('sturdy');
+                blockFx = { ac: roll, label: `Block (${w.name}${parry ? ', Parrying' : ''}): +${roll} AC` };
+                if (parry) cost = 0;
+                window.APXDice?.info?.({ label: 'Block', who, text: `${w.name}: rolled 1d${sides} = ${roll}. +${roll} AC until its next turn or until it attacks.${parry ? ' Parrying: its Reaction, no AP.' : ''}` });
+            }
+        }
         // Draw / Stow: a Quickdraw weapon takes 0 AP
         if (a.quick) {
             let sb = null; try { sb = ctx.sb ? ctx.sb() : null; } catch (e) { }
@@ -193,7 +212,7 @@
         // (standing up: removing Prone already charges its 2 AP where the page does that)
         if (spend > 0 && ctx.spend && !(a.stand && ctx.standUpCharges)) ctx.spend(spend);
         if (won) {
-            if (a.fx && ctx.addFx) ctx.addFx(Object.assign({ id: 'fx' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name: a.name }, JSON.parse(JSON.stringify(a.fx))));
+            if (a.fx && ctx.addFx) ctx.addFx(Object.assign({ id: 'fx' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name: a.name }, JSON.parse(JSON.stringify(a.fx)), blockFx || {}));
             if (a.cond && ctx.addCond) ctx.addCond(a.cond);
             if (a.uncond && ctx.removeCond) a.uncond.forEach(id => ctx.removeCond(id));
             // Letting go: its grapple's Staggered ends (not one it got some other way)

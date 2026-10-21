@@ -184,7 +184,7 @@ window.pcCalcXP = function(draft) {
     });
     // Summon a Creature: +15 XP per Tier above 1, for each creature summoned
     let sumCount = (draft.utility.major || {}).summonCreature || 0;
-    if (sumCount && !pcMythic(draft)) step5Cost += sumCount * 15 * Math.max(0, (parseInt(draft.summonTier) || 1) - 1);
+    if (sumCount && !pcMythic(draft)) (window.apxSummonSlots ? window.apxSummonSlots(draft) : []).forEach(x => { step5Cost += 15 * Math.max(0, (parseInt(x.tier) || 1) - 1); });   // (each copy: its own Tier)
 
     let mythic = pcMythic(draft);
     let durationDef = POWER_DURATION.find(d => d.key === draft.duration);
@@ -560,53 +560,74 @@ function pcSummonBlock() {
     if (t !== null && t < 1) return 'This creature needs to be at least Tier 1 to summon (its summons can\'t be a higher Tier than it).';
     return '';
 }
-// The highest Tier this power can summon: no higher than the power's own Level (each Tier above 1 adds XP, so a
-// higher Tier can lift the power to the Level it needs), never above Tier 5, and for a creature's own power its Tier
-function pcSummonMaxTier() {
+// The highest Tier copy i of this power can summon: no higher than the power's own Level (each Tier above 1 adds
+// XP, so a higher Tier can lift the power to the Level it needs), never above Tier 5, and for a creature's own power
+// its Tier
+const pcSlots = () => window.apxSummonSlots ? window.apxSummonSlots(pcDraft) : [];
+function pcSummonMaxTier(i) {
+    i = i || 0;
     let t = pcSummonOwnerTier(), cap = Math.min(5, t === null ? 5 : Math.max(1, t)), best = 1;
-    for (let k = 1; k <= cap; k++) { let lv = 1; try { lv = window.pcCalcXP(Object.assign({}, pcDraft, { summonTier: k })).level; } catch (e) { } if (lv >= k) best = k; }
+    for (let k = 1; k <= cap; k++) {
+        let lv = 1;
+        try { let d = Object.assign({}, pcDraft, { summonExtra: Array.isArray(pcDraft.summonExtra) ? pcDraft.summonExtra.map(x => Object.assign({}, x)) : pcDraft.summonExtra }); window.apxSummonSet(d, i, { tier: k }); lv = window.pcCalcXP(d).level; } catch (e) { }
+        if (lv >= k) best = k;
+    }
     return best;
 }
-// GM NPC powers: summon one of the GM's saved NPCs instead of building a new creature. Only NPCs the
-// power can summon are listed (its Tier or lower, never one that summons creatures of its own, never itself).
-function pcSummonPickable() {
-    if (!(pcTarget === 'gm' || pcTarget === 'lib') || !Array.isArray(window.gmNpcs) || typeof npcTierForTP !== 'function') return [];
-    let maxT = parseInt(pcDraft.summonTier) || 1;
-    let self = typeof ncActiveGmNpcId !== 'undefined' ? ncActiveGmNpcId : null;
-    let summons = n => (n.powers || []).some(p => ((p.draft && p.draft.utility && p.draft.utility.major) || {}).summonCreature > 0);
-    return window.gmNpcs.filter(e => e && e.npc && e.id !== self && !e.summonOf && !e.npc.isSummon && !summons(e.npc)
-        && npcTierForTP(e.npc.gmTpBudget || 0).tier <= maxT && (typeof window.apxNpcInActiveWorld !== 'function' || window.apxNpcInActiveWorld(e)));
+// NPCs a copy can summon instead of building a new creature: GM powers pick from the GM's saved NPCs; a player's
+// (or their companion's) from the NPCs their GM lets players summon in this world. Only ones at or below the copy's
+// Tier, never one that summons creatures of its own (or the creature itself).
+function pcSummonSource() {
+    if ((pcTarget === 'gm' || pcTarget === 'lib') && Array.isArray(window.gmNpcs) && typeof npcTierForTP === 'function') {
+        let self = typeof ncActiveGmNpcId !== 'undefined' ? ncActiveGmNpcId : null;
+        let summons = n => (n.powers || []).some(p => ((p.draft && p.draft.utility && p.draft.utility.major) || {}).summonCreature > 0);
+        return window.gmNpcs.filter(e => e && e.npc && e.id !== self && !e.summonOf && !e.npc.isSummon && !summons(e.npc) && (typeof window.apxNpcInActiveWorld !== 'function' || window.apxNpcInActiveWorld(e)))
+            .map(e => ({ id: e.id, npc: e.npc, tier: npcTierForTP(e.npc.gmTpBudget || 0).tier, name: e.npc.name || 'Unnamed NPC' }));
+    }
+    if (pcTarget === 'player' || pcTarget === 'companion') {
+        let w = window._playerWorldData;
+        return (w && Array.isArray(w.summonNpcs) ? w.summonNpcs : []).filter(x => x && x.npc)
+            .map(x => ({ id: 'w:' + x.id, npc: x.npc, tier: Number.isFinite(parseInt(x.tier)) ? parseInt(x.tier) : 1, name: x.name || x.npc.name || 'Creature', shared: true }));
+    }
+    return [];
 }
-function pcSummonPickHtml() {
-    let list = pcSummonPickable();
-    if (!list.length) return (pcTarget === 'gm' || pcTarget === 'lib') ? `<div class="text-slate-500">None of your saved NPCs are Tier ${parseInt(pcDraft.summonTier) || 1} or lower (and free of summons of their own).</div>` : '';
+function pcSummonPickable(i) { let t = (pcSlots()[i || 0] || {}).tier || 1; return pcSummonSource().filter(e => e.tier <= t); }
+function pcSummonPickHtml(i) {
+    i = i || 0;
+    let list = pcSummonPickable(i), slot = pcSlots()[i] || {};
+    let gmSide = pcTarget === 'gm' || pcTarget === 'lib';
+    if (!list.length) return gmSide ? `<div class="text-slate-500">None of your saved NPCs are Tier ${slot.tier || 1} or lower (and free of summons of their own).</div>` : '';
     let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
-    return `<select data-pc-summonpick onchange="window.pcPickSummon(this.value)" class="mt-1 w-full bg-slate-800 border-slate-600 text-[10px] py-0.5">
-        <option value="">${pcDraft.summonFromId ? 'Change to another saved NPC…' : 'Summon one of your saved NPCs…'}</option>
-        ${list.map(e => `<option value="${esc(e.id)}" ${pcDraft.summonFromId === e.id ? 'selected' : ''}>${esc(e.npc.name || 'Unnamed NPC')} (Tier ${npcTierForTP(e.npc.gmTpBudget || 0).tier})</option>`).join('')}</select>`;
+    return `<select data-pc-summonpick="${i}" onchange="window.pcPickSummon(this.value, ${i})" class="mt-1 w-full bg-slate-800 border-slate-600 text-[10px] py-0.5">
+        <option value="">${slot.fromId ? (gmSide ? 'Change to another saved NPC…' : 'Change to another of your GM\'s creatures…') : (gmSide ? 'Summon one of your saved NPCs…' : 'Summon one of your GM\'s creatures…')}</option>
+        ${list.map(e => `<option value="${esc(e.id)}" ${slot.fromId === e.id ? 'selected' : ''}>${esc(e.name)} (Tier ${e.tier})</option>`).join('')}</select>`;
 }
-window.pcPickSummon = function(id) {
-    let e = id && (window.gmNpcs || []).find(x => x.id === id); if (!e) return;
+window.pcPickSummon = function(id, i) {
+    i = i || 0;
+    let e = id && pcSummonSource().find(x => x.id === id); if (!e) return;
     let npc = JSON.parse(JSON.stringify(e.npc));
     delete npc.portraitFull;
     npc.isSummon = true;   // a hard 3 AP, and it can't summon creatures of its own
     npc.apBonus = 0;       // (so AP it bought as a standalone NPC doesn't count)
-    pcDraft.summonNpc = npc; pcDraft.summonNpcTier = pcDraft.summonTier || 1; pcDraft.summonFromId = e.id;
+    window.apxSummonSet(pcDraft, i, { npc, npcTier: (pcSlots()[i] || {}).tier || 1, fromId: e.id });
     pcRenderAll();
 };
-window.pcSetSummonTier = function(d) {
-    pcDraft.summonTier = Math.max(1, Math.min(pcSummonMaxTier(), (parseInt(pcDraft.summonTier) || 1) + d));
+window.pcSetSummonTier = function(d, i) {
+    i = i || 0;
+    let slot = pcSlots()[i]; if (!slot) return;
+    let tier = Math.max(1, Math.min(pcSummonMaxTier(i), (slot.tier || 1) + d));
+    window.apxSummonSet(pcDraft, i, { tier });
     // A saved NPC picked to summon: still fine at the new Tier, or it no longer fits
-    if (pcDraft.summonFromId) {
-        let e = (window.gmNpcs || []).find(x => x.id === pcDraft.summonFromId);
-        let t = e && typeof npcTierForTP === 'function' ? npcTierForTP(e.npc.gmTpBudget || 0).tier : 99;
-        if (t <= pcDraft.summonTier) pcDraft.summonNpcTier = pcDraft.summonTier;
-        else { delete pcDraft.summonFromId; delete pcDraft.summonNpc; delete pcDraft.summonNpcTier; }
+    if (slot.fromId) {
+        let e = pcSummonSource().find(x => x.id === slot.fromId);
+        if (e && e.tier <= tier) window.apxSummonSet(pcDraft, i, { npcTier: tier });
+        else window.apxSummonSet(pcDraft, i, { npc: null, npcTier: null, fromId: null });
     }
     pcRenderAll();
 };
-// Opens the NPC Crafter on the draft's summoned creature (at the chosen Tier); cb runs after it closes
-window.pcEditSummon = function(cb) {
+// Opens the NPC Crafter on copy i's summoned creature (at its Tier); cb runs after it closes
+window.pcEditSummon = function(cb, i) {
+    i = i || 0;
     if (typeof window.openSummonCrafter !== 'function') { if (cb) cb(); return; }
     let modal = document.getElementById('powerCrafterModal');
     let wasOpen = modal && modal.classList.contains('active');
@@ -614,25 +635,50 @@ window.pcEditSummon = function(cb) {
     // session aside while it's built, and pick it back up afterward
     let saved = { draft: pcDraft, step: pcStep, free: pcFreeMode, edit: pcEditIndex, target: pcTarget, lair: pcIsLairAction, awake: pcIsAwakened,
         name: (document.getElementById('pcName') || {}).value, cha: pcChaFreeCredit, chaDecl: pcChaFreeCreditDeclined };
+    let slot = (window.apxSummonSlots(saved.draft)[i]) || {};
     if (wasOpen) window.closeModal('powerCrafterModal');
-    window.openSummonCrafter({ npc: saved.draft.summonNpc || null, tier: saved.draft.summonTier || 1, done: npc => {
+    window.openSummonCrafter({ npc: slot.npc || null, tier: slot.tier || 1, done: npc => {
         pcDraft = saved.draft; pcStep = saved.step; pcFreeMode = saved.free; pcEditIndex = saved.edit; pcTarget = saved.target; pcIsLairAction = saved.lair; pcIsAwakened = !!saved.awake;
         pcChaFreeCredit = saved.cha; pcChaFreeCreditDeclined = saved.chaDecl;
-        pcDraft.summonNpc = JSON.parse(JSON.stringify(npc)); pcDraft.summonNpcTier = pcDraft.summonTier || 1;
+        window.apxSummonSet(pcDraft, i, { npc: JSON.parse(JSON.stringify(npc)), npcTier: slot.tier || 1, fromId: null });
         if (cb) cb(npc);
         else if (wasOpen) { window.openModal('powerCrafterModal'); let nm = document.getElementById('pcName'); if (nm && saved.name != null) nm.value = saved.name; pcRenderAll(); }
     } });
 };
-// After a player power with Summon a Creature is saved: build (or rebuild) its creature
+// The per-copy rows under Summon a Creature (Step 5): each copy's Tier, and its creature
+function pcSummonRows() {
+    let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    let slots = pcSlots(), many = slots.length > 1;
+    return slots.map((sl, i) => {
+        let max = pcSummonMaxTier(i);
+        let shared = sl.fromId && String(sl.fromId).startsWith('w:');
+        let who = sl.npc ? `<div class="text-emerald-400">${sl.fromId ? 'Summons' : 'Built'}: ${esc(sl.npc.name || 'Creature')}${shared ? ' <span class="text-slate-500">(your GM\'s creature)</span>' : ` <button onclick="window.pcEditSummon(null, ${i})" class="underline text-purple-300 hover:text-white">Edit creature</button>`}</div>`
+            : '<div class="text-slate-500">' + (pcSummonPickable(i).length ? 'Pick one below, or build' : 'You build') + ' the creature in the NPC Crafter when you save this power.</div>';
+        return `
+            <div class="flex items-center justify-between bg-slate-950 border border-purple-700/60 rounded px-2 py-1.5 gap-2 ml-3" data-pc-summonslot="${i}">
+                <div class="flex-1 text-[10px] text-purple-200 leading-tight">${many ? `<b class="text-purple-300">#${i + 1}</b> ` : ''}Creature Tier <span class="text-slate-500">(+15 XP per Tier above 1; up to this power's Level${pcSummonOwnerTier() !== null ? ' and this creature\'s own Tier' : ''}: Tier ${max} for now)</span>${who}${pcSummonPickHtml(i)}</div>
+                <div class="flex items-center gap-1 shrink-0">
+                    <button onclick="window.pcSetSummonTier(-1, ${i})" class="w-5 h-5 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold">-</button>
+                    <span class="w-5 text-center text-xs font-bold text-white">${sl.tier || 1}</span>
+                    <button onclick="window.pcSetSummonTier(1, ${i})" ${(sl.tier || 1) >= max ? 'disabled' : ''} class="w-5 h-5 rounded ${(sl.tier || 1) >= max ? 'bg-slate-800 text-slate-600' : 'bg-purple-700 hover:bg-purple-600 text-white'} text-xs font-bold">+</button>
+                </div>
+            </div>`;
+    }).join('');
+}
+// After a player power with Summon a Creature is saved: build (or rebuild) each copy's creature that needs it
 function pcAfterSummonSave(power) {
     if (!power || !((power.draft?.utility?.major || {}).summonCreature > 0)) return;
-    let tier = power.draft.summonTier || 1;
-    if (power.draft.summonNpc && power.draft.summonNpcTier === tier) return;
-    setTimeout(() => window.openSummonCrafter && window.openSummonCrafter({ npc: power.draft.summonNpc || null, tier, done: npc => {
-        power.draft.summonNpc = JSON.parse(JSON.stringify(npc)); power.draft.summonNpcTier = tier;
-        window.recalculateMath();
-        if (typeof ncRenderAll === 'function' && document.getElementById('npcCrafterModal')?.classList.contains('active')) ncRenderAll();
-    } }), 50);
+    let todo = window.apxSummonSlots(power.draft).map((x, i) => ({ x, i })).filter(o => !(o.x.npc && o.x.npcTier === o.x.tier));
+    let next = () => {
+        let o = todo.shift(); if (!o) return;
+        setTimeout(() => window.openSummonCrafter && window.openSummonCrafter({ npc: o.x.npc || null, tier: o.x.tier, done: npc => {
+            window.apxSummonSet(power.draft, o.i, { npc: JSON.parse(JSON.stringify(npc)), npcTier: o.x.tier });
+            window.recalculateMath();
+            if (typeof ncRenderAll === 'function' && document.getElementById('npcCrafterModal')?.classList.contains('active')) ncRenderAll();
+            next();
+        } }), 50);
+    };
+    next();
 }
 window.pcSetUtilityCount = function(tier, key, delta) {
     if (!pcDraft.utility[tier]) pcDraft.utility[tier] = {};
@@ -650,6 +696,13 @@ window.pcSetUtilityCount = function(tier, key, delta) {
     if (tier === 'mythic' && next > 0) {
         // Taking a Mythic Utility replaces everything else in Step 5
         Object.keys(pcDraft.utility).forEach(t => { pcDraft.utility[t] = {}; });
+    }
+    // Summon a Creature: each copy has its own Tier and creature. A new copy starts like the one before it.
+    if (key === 'summonCreature' && next !== cur) {
+        let slots = window.apxSummonSlots(pcDraft);
+        let extra = slots.slice(1).map(x => Object.assign({}, x));
+        if (next > cur && cur > 0) for (let k = cur; k < next; k++) { let prev = k === 1 ? slots[0] : extra[k - 2]; extra.push(Object.assign({}, prev)); }
+        pcDraft.summonExtra = extra.slice(0, Math.max(0, next - 1));
     }
     if (next === 0) delete pcDraft.utility[tier][key];
     else pcDraft.utility[tier][key] = next;
@@ -957,7 +1010,7 @@ function pcRenderUtilityTier(tier, label, colorClass) {
     let rows = POWER_UTILITY[tier].filter(u => !u.legacy || ((pcDraft.utility[tier] || {})[u.key] || 0) > 0).map(u => {
         let count = pcDraft.utility[tier][u.key] || 0;
         let sumBlock = u.key === 'summonCreature' ? pcSummonBlock() : '';
-        if (u.key === 'summonCreature' && count > 0 && (parseInt(pcDraft.summonTier) || 1) > pcSummonMaxTier()) pcDraft.summonTier = pcSummonMaxTier();
+        if (u.key === 'summonCreature' && count > 0) pcSlots().forEach((x, i) => { let m = pcSummonMaxTier(i); if ((x.tier || 1) > m) window.apxSummonSet(pcDraft, i, { tier: m }); });
         let blocked = (mythicOn && tier !== 'mythic') || !!sumBlock;
         return `
             <div class="flex items-center justify-between bg-slate-900 border ${count && tier === 'mythic' ? 'border-amber-400' : 'border-slate-700'} rounded px-2 py-1.5 gap-2 ${blocked ? 'opacity-40' : ''}">
@@ -968,15 +1021,7 @@ function pcRenderUtilityTier(tier, label, colorClass) {
                     <button onclick="window.pcSetUtilityCount('${tier}','${u.key}', 1)" ${((!u.rep && count>=1) || blocked)?'disabled':''} class="w-5 h-5 rounded ${((!u.rep && count>=1) || blocked)?'bg-slate-800 text-slate-600':'bg-amber-700 hover:bg-amber-600 text-white'} text-xs font-bold" ${sumBlock ? `title="${sumBlock.replace(/"/g, '&quot;')}"` : blocked ? 'title="A power with a Mythic Utility can\'t contain any other utilities"' : tier === 'mythic' && !count ? 'title="Replaces any other utilities in this power"' : ''}>+</button>
                 </div>
             </div>
-        ` + (count > 0 && ((window.APX_POWER_COND_UTILS || {})[u.key] || u.key === 'woundOneLimb') ? pcCondPickRows(u.key, count) : '') + (u.key === 'summonCreature' && count > 0 ? `
-            <div class="flex items-center justify-between bg-slate-950 border border-purple-700/60 rounded px-2 py-1.5 gap-2 ml-3">
-                <div class="flex-1 text-[10px] text-purple-200 leading-tight">Creature Tier <span class="text-slate-500">(+15 XP per Tier above 1, per creature; up to this power's Level${pcSummonOwnerTier() !== null ? ' and this creature\'s own Tier' : ''}: Tier ${pcSummonMaxTier()} for now)</span>${pcDraft.summonNpc ? `<div class="text-emerald-400">${pcDraft.summonFromId ? 'Summons' : 'Built'}: ${String(pcDraft.summonNpc.name || 'Creature').replace(/</g, '&lt;')} <button onclick="window.pcEditSummon()" class="underline text-purple-300 hover:text-white">Edit creature</button></div>` : '<div class="text-slate-500">' + (pcSummonPickable().length ? 'Pick one of your NPCs below, or build' : 'You build') + ' the creature in the NPC Crafter when you save this power.</div>'}${pcSummonPickHtml()}</div>
-                <div class="flex items-center gap-1 shrink-0">
-                    <button onclick="window.pcSetSummonTier(-1)" class="w-5 h-5 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold">-</button>
-                    <span class="w-5 text-center text-xs font-bold text-white">${pcDraft.summonTier || 1}</span>
-                    <button onclick="window.pcSetSummonTier(1)" class="w-5 h-5 rounded bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold">+</button>
-                </div>
-            </div>` : '');
+        ` + (count > 0 && ((window.APX_POWER_COND_UTILS || {})[u.key] || u.key === 'woundOneLimb') ? pcCondPickRows(u.key, count) : '') + (u.key === 'summonCreature' && count > 0 ? pcSummonRows() : '');
     }).join('');
     return `<div class="mb-3" style="break-inside:avoid-column"><div class="text-xs font-black ${colorClass} mb-1.5">${label}</div><div class="space-y-1">${rows}</div></div>`;
 }

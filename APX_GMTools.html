@@ -450,8 +450,8 @@
                 }
                 .apx-tb-btn:hover { filter: brightness(1.18); }
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=202610201900">
-    <link rel="stylesheet" href="css/tailwind.css?v=202610201900">
+    <link rel="stylesheet" href="css/apx-themes.css?v=202610201959">
+    <link rel="stylesheet" href="css/tailwind.css?v=202610201959">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
@@ -1565,40 +1565,40 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=202610201900"></script>
-    <script src="js/apx-patch-notes.js?v=202610201900"></script>
-    <script src="js/apx-dice.js?v=202610201900"></script>
-    <script src="js/apx-data.js?v=202610201900"></script>
-    <script src="js/apx-item-effects.js?v=202610201900"></script>
-    <script src="js/apx-exo.js?v=202610201900"></script>
-    <script src="js/apx-perks-db.js?v=202610201900"></script>
-    <script src="js/apx-migrations.js?v=202610201900"></script>
-    <script src="js/apx-state.js?v=202610201900"></script>
-    <script src="js/apx-craft-shared.js?v=202610201900"></script>
-    <script src="js/apx-armor-forge.js?v=202610201900"></script>
-    <script src="js/apx-weapon-forge.js?v=202610201900"></script>
-    <script src="js/apx-consumable-crafter.js?v=202610201900"></script>
-    <script src="js/apx-perks-ui.js?v=202610201900"></script>
-    <script src="js/apx-power-crafter.js?v=202610201900"></script>
-    <script src="js/apx-npc-crafter.js?v=202610201900"></script>
-    <script src="js/apx-creature-actions.js?v=202610201900"></script>
-    <script src="js/apx-inventory-ui.js?v=202610201900"></script>
-    <script src="js/apx-ancestry-wizard.js?v=202610201900"></script>
-    <script src="js/apx-gm-screen.js?v=202610201900"></script>
-    <script src="js/apx-loot-maker.js?v=202610201900"></script>
-    <script src="js/apx-library.js?v=202610201900"></script>
-    <script src="js/apx-gm-content.js?v=202610201900"></script>
-    <script src="js/apx-gmtools-main.js?v=202610201900"></script>
+    <script src="js/apx-dialogs.js?v=202610201959"></script>
+    <script src="js/apx-patch-notes.js?v=202610201959"></script>
+    <script src="js/apx-dice.js?v=202610201959"></script>
+    <script src="js/apx-data.js?v=202610201959"></script>
+    <script src="js/apx-item-effects.js?v=202610201959"></script>
+    <script src="js/apx-exo.js?v=202610201959"></script>
+    <script src="js/apx-perks-db.js?v=202610201959"></script>
+    <script src="js/apx-migrations.js?v=202610201959"></script>
+    <script src="js/apx-state.js?v=202610201959"></script>
+    <script src="js/apx-craft-shared.js?v=202610201959"></script>
+    <script src="js/apx-armor-forge.js?v=202610201959"></script>
+    <script src="js/apx-weapon-forge.js?v=202610201959"></script>
+    <script src="js/apx-consumable-crafter.js?v=202610201959"></script>
+    <script src="js/apx-perks-ui.js?v=202610201959"></script>
+    <script src="js/apx-power-crafter.js?v=202610201959"></script>
+    <script src="js/apx-npc-crafter.js?v=202610201959"></script>
+    <script src="js/apx-creature-actions.js?v=202610201959"></script>
+    <script src="js/apx-inventory-ui.js?v=202610201959"></script>
+    <script src="js/apx-ancestry-wizard.js?v=202610201959"></script>
+    <script src="js/apx-gm-screen.js?v=202610201959"></script>
+    <script src="js/apx-loot-maker.js?v=202610201959"></script>
+    <script src="js/apx-library.js?v=202610201959"></script>
+    <script src="js/apx-gm-content.js?v=202610201959"></script>
+    <script src="js/apx-gmtools-main.js?v=202610201959"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=202610201900"></script>
-    <script src="js/apx-firebase.js?v=202610201900"></script>
-    <script src="js/apx-battlemap.js?v=202610201900"></script>
-    <script src="js/apx-fog.js?v=202610201900"></script>
-    <script src="js/apx-map-tiles.js?v=202610201900"></script>
+    <script src="js/firebase-config.js?v=202610201959"></script>
+    <script src="js/apx-firebase.js?v=202610201959"></script>
+    <script src="js/apx-battlemap.js?v=202610201959"></script>
+    <script src="js/apx-fog.js?v=202610201959"></script>
+    <script src="js/apx-map-tiles.js?v=202610201959"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -5316,17 +5316,21 @@ document.addEventListener('DOMContentLoaded', () => {
         let comp = !!ev.companion;
         let ownerEntry = comp ? (window.gmInitiative||[]).find(e=>e.companionOf===uid) : (window.gmInitiative||[]).find(e=>e.playerUid===uid&&!e.companionOf&&!e.summonOf);
         let ownerName = comp ? (ownerEntry?.name || pm?.state?.companion?.name || 'A companion') : (pm?.summary?.name || ev.who || 'A player');
-        window._gmSpawnSummonCore({ ownerEntry, ownerName, summonOf: comp ? null : uid, key: (comp ? 'c_' : '') + uid, faction: 'ally', npc: sm.npc, count: sm.count, power: sm.power, logId: 'sum_' + ev.id,
-            ownerTok: m => (m.battleTokens||[]).find(t => t.type === (comp ? 'companion' : 'player') && t.playerUid === uid) });
+        // (a power whose copies summon different creatures: each group its own stat block, the first under the power's own id)
+        let groups = Array.isArray(sm.groups) && sm.groups.length ? sm.groups : [{ npc: sm.npc, count: sm.count }];
+        groups.forEach((g, gi) => window._gmSpawnSummonCore({ ownerEntry, ownerName, summonOf: comp ? null : uid, key: (comp ? 'c_' : '') + uid + (gi ? '_' + gi : ''), faction: 'ally', npc: g.npc, count: g.count, power: sm.power, logId: 'sum_' + ev.id + (gi ? '_' + gi : ''),
+            ownerTok: m => (m.battleTokens||[]).find(t => t.type === (comp ? 'companion' : 'player') && t.playerUid === uid) }));
     };
     // An NPC in the tracker uses its Summon a Creature power: same faction, next to it
     window._gmSpawnNpcSummon = function(ownerEntry, power) {
         let d = power && power.draft, n = d && d.utility && d.utility.major && d.utility.major.summonCreature;
         if (!n) return false;
-        if (!d.summonNpc) { if (window.APXDice && APXDice.notify) APXDice.notify(`${power.name}: its summoned creature hasn't been built yet (edit the power in the NPC Crafter).`, { kind: 'warn', open: true }); return true; }
-        window._gmSpawnSummonCore({ ownerEntry, ownerName: ownerEntry ? ownerEntry.name : 'An NPC', key: 'n_' + (ownerEntry ? ownerEntry.sourceNpcId || ownerEntry.id : 'npc'), faction: ownerEntry ? ownerEntry.faction : 'enemy',
-            npc: d.summonNpc, count: n, power: power.name, logId: 'sumn_' + Date.now().toString(36),
-            ownerTok: m => ownerEntry ? (m.battleTokens||[]).find(t => t.initiativeId === ownerEntry.id) : null });
+        let sg = window.apxSummonGroups ? window.apxSummonGroups(d) : { groups: d.summonNpc ? [{ npc: d.summonNpc, count: n }] : [], missing: d.summonNpc ? 0 : n };
+        if (sg.missing && window.APXDice && APXDice.notify) APXDice.notify(`${power.name}: ${sg.missing > 1 ? sg.missing + ' of its summoned creatures haven\'t' : 'its summoned creature hasn\'t'} been built yet (edit the power in the NPC Crafter).`, { kind: 'warn', open: true });
+        let base = 'n_' + (ownerEntry ? ownerEntry.sourceNpcId || ownerEntry.id : 'npc'), stamp = Date.now().toString(36);
+        sg.groups.forEach((g, gi) => window._gmSpawnSummonCore({ ownerEntry, ownerName: ownerEntry ? ownerEntry.name : 'An NPC', key: base + (gi ? '_' + gi : ''), faction: ownerEntry ? ownerEntry.faction : 'enemy',
+            npc: g.npc, count: g.count, power: power.name, logId: 'sumn_' + stamp + (gi ? '_' + gi : ''),
+            ownerTok: m => ownerEntry ? (m.battleTokens||[]).find(t => t.initiativeId === ownerEntry.id) : null }));
         return true;
     };
 
@@ -7093,8 +7097,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </script>
     <div id="floatingWindowContainer"></div>
 
-    <script src="js/apx-chat.js?v=202610201900"></script>
-    <script src="js/apx-extras.js?v=202610201900"></script>
-    <script src="js/apx-theme-light.js?v=202610201900"></script>
+    <script src="js/apx-chat.js?v=202610201959"></script>
+    <script src="js/apx-extras.js?v=202610201959"></script>
+    <script src="js/apx-theme-light.js?v=202610201959"></script>
 </body>
 </html>

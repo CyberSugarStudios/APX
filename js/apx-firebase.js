@@ -989,6 +989,7 @@
             races: data.races || [],
             origins: data.origins || [],     // Origin Templates the GM tagged with this world
             gmPowers: data.gmPowers || [],   // powers the GM made for players to learn (Add Power)
+            summonNpcs: data.summonNpcs || [],   // NPCs the GM lets players pick for Summon a Creature powers
             worldSettings: data.worldSettings || null,
             notesV2: {
                 locations: data.publicNotes?.locations || [],

@@ -71,7 +71,8 @@
     // Weapons with the Sturdy property (and unarmed strikes at Martial Arts Rank 2): they can Block
     const UNARMED = ['1d4', '1d6', '1d8', '1d10', '1d12', '2d6'];
     function sturdyWeapons() {
-        let s = st(), out = (s.weapons || []).filter(w => w && w.properties && w.properties.sturdy).map(w => ({ name: w.name || 'Weapon', dmg: String(w.dmg || w.dice || '1d6') }));
+        // (a Parrying weapon blocks as if it were Sturdy, using your Reaction instead of AP)
+        let s = st(), out = (s.weapons || []).filter(w => w && w.properties && (w.properties.sturdy || w.properties.parrying)).map(w => ({ name: w.name || 'Weapon', dmg: String(w.dmg || w.dice || '1d6'), parry: !w.properties.sturdy }));
         let ma = (s.perks || {}).str_martialarts || 0;
         if (ma >= 2) out.push({ name: 'Unarmed (Martial Arts)', dmg: UNARMED[Math.min(5, ma)] });
         return out;
@@ -262,13 +263,14 @@
             auto: () => addFx({ key: 'defensive', label: 'Fight Defensively', attacked: !!st().apxAttackedTurn, until: 'turn', atkDis: true, desc: '+4 AC until your next turn, or +2 on a turn you attack (before or after); Disadvantage on your attacks.' }) },
         { g: 'Combat Maneuvers', name: 'Fight Offensively', cost: 1, tip: 'Advantage on your attack rolls until the start of your next turn; attacks against you have Advantage too.',
             auto: () => addFx({ key: 'offensive', label: 'Fight Offensively', short: 'Fight Offensively: Adv on attacks', until: 'turn', atkAdv: true, desc: 'Advantage on your attacks; attacks against you have Advantage. Until your next turn.' }) },
-        { g: 'Combat Maneuvers', name: 'Block', cost: 2, tip: 'Double your shield\'s AC bonus until the start of your next turn or until you attack. With a Sturdy weapon instead: roll one of its damage dice and add it to your AC.',
-            requires: () => shieldAc() || sturdyWeapons().length ? '' : 'You need a shield or a Sturdy weapon equipped.',
+        { g: 'Combat Maneuvers', name: 'Block', cost: 2, tip: 'Double your shield\'s AC bonus until the start of your next turn or until you attack. With a Sturdy weapon instead: roll one of its damage dice and add it to your AC. A Parrying weapon blocks like a Sturdy one, using your Reaction instead of AP.',
+            costNow: () => !shieldAc() && sturdyWeapons().length && sturdyWeapons().every(w => w.parry) ? 0 : 2,
+            requires: () => shieldAc() || sturdyWeapons().length ? '' : 'You need a shield, or a Sturdy or Parrying weapon, equipped.',
             auto: async () => {
                 let sac = shieldAc(), sw = sturdyWeapons(), pick = sac ? 'shield' : '0';
                 if (sw.length && (sac || sw.length > 1) && window.APXDice && APXDice.ask) {
-                    let ch = (sac ? [['shield', `Shield (+${sac} AC)`, 'pri']] : []).concat(sw.map((w, i) => [String(i), `${w.name} (1d${oneDie(w.dmg)})`, sac || i ? '' : 'pri']));
-                    pick = await APXDice.ask('Block with…', 'A shield doubles its AC bonus; a Sturdy weapon rolls one of its damage dice as your AC bonus.', ch);
+                    let ch = (sac ? [['shield', `Shield (+${sac} AC)`, 'pri']] : []).concat(sw.map((w, i) => [String(i), `${w.name} (1d${oneDie(w.dmg)})${w.parry ? ': Parrying, your Reaction (0 AP)' : ''}`, sac || i ? '' : 'pri']));
+                    pick = await APXDice.ask('Block with…', 'A shield doubles its AC bonus; a Sturdy weapon rolls one of its damage dice as your AC bonus. A Parrying weapon blocks the same way, as your Reaction instead of AP.', ch);
                     if (!pick) return false;
                 }
                 let ac, src;
@@ -277,7 +279,9 @@
                     let w = sw[+pick] || sw[0], sides = oneDie(w.dmg); ac = rollDie(sides); src = w.name;
                     if (window.APXDice && APXDice.info) APXDice.info({ label: 'Block', who: st().name || '', text: `${w.name}: rolled 1d${sides} = ${ac}. +${ac} AC until your next turn or until you attack with it.` });
                 }
-                addFx({ key: 'block', label: 'Block', short: `Block (${src}): +${ac} AC`, ac, until: 'attack', desc: `+${ac} AC until your next turn or until you attack.` });
+                let parry = pick !== 'shield' && (sw[+pick] || sw[0] || {}).parry;
+                addFx({ key: 'block', label: 'Block', short: `Block (${src}${parry ? ', Parrying' : ''}): +${ac} AC`, ac, until: 'attack', desc: `+${ac} AC until your next turn or until you attack.${parry ? ' (Parrying: your Reaction this round.)' : ''}` });
+                if (parry) return { spend: 0 };   // (your Reaction, no AP)
             } },
         { g: 'Combat Maneuvers', name: 'Shield Bash', cost: 3, tip: 'With a shield: a STR melee attack; on a hit, Bludgeoning damage equal to your STR score and the target is Staggered until your next turn.',
             requires: () => shieldAc() ? '' : 'You need a shield equipped.',

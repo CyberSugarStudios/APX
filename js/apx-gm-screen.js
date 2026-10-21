@@ -2037,6 +2037,8 @@ function _gmPfxRecord(o) {
 }
 function _gmPfxResolve(o, t) {
     let fx = o.fx, rec = _gmPfxRecord(o), what = _gmCondNames(fx.conds);
+    // a harmful power from the charmer's side ends Charmed (a power that charms it again doesn't)
+    if (!fx.conds.includes('charmed')) { let src = (window.gmInitiative || []).find(x => x.id === o.casterId); if (src) _gmCharmBroken(t, src, 'targeted it with a harmful power'); }
     if (fx.saveKind && fx.saveAttr) {
         let item = { attr: fx.saveAttr, dc: fx.dc, cond: fx.conds[0] || null, why: o.label, saveKind: fx.saveKind, pfx: rec,
             fail: fx.conds.length ? `is ${what}` : (fx.saveKind === 'halves' ? 'takes the full damage' : 'is affected'),
@@ -2067,6 +2069,20 @@ function _gmRollNpcSave(t, item) {
         } });
 }
 window._gmRollNpcSave = _gmRollNpcSave;
+// Charmed (from a power): who charmed this creature, and is someone on the charmer's side?
+function _gmSide(e) { return !e ? null : (e.faction === 'player' || e.faction === 'ally' || e.companionOf || e.summonOf) ? 'party' : (e.faction || 'enemy'); }
+function _gmCharmRec(entry) { return (entry && entry._powerFx || []).find(f => (f.conds || []).includes('charmed') && f.byId) || null; }
+function _gmCharmer(entry) { let r = _gmCharmRec(entry); return r ? (window.gmInitiative || []).find(x => x.id === r.byId) || null : null; }
+window._gmCharmer = _gmCharmer;
+// "The condition ends immediately if the charmer or one of their allies damages the creature or targets it with a
+// harmful power." src: the creature that did it
+function _gmCharmBroken(entry, src, how) {
+    let rec = _gmCharmRec(entry); if (!rec || !src || src === entry) return;
+    let charmer = (window.gmInitiative || []).find(x => x.id === rec.byId);
+    if (!(src.id === rec.byId || (charmer && _gmSide(src) === _gmSide(charmer)))) return;
+    _gmEndPfx(entry, rec.id, `${src.id === rec.byId ? 'its charmer' : `${_gmPublicName(src)}, an ally of its charmer,`} ${how || 'hurt it'}; it knows it was charmed`);
+}
+window._gmCharmBroken = _gmCharmBroken;
 function _gmApplyPfx(entry, rec) {
     let r = Object.assign({}, rec, { id: 'fx' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), turn: window.gmTurnNumber || 0 });
     entry._powerFx = (entry._powerFx || []).filter(f => f.key !== r.key).concat(r);
@@ -3228,6 +3244,7 @@ function _gmDamage(entry, opts) {
     entry._dmgNl = nonlethal; entry._dmgLethal = !nonlethal && dmg > 0;
     gmLog({ gmOnly: true, kind: 'info', force: true, text: `${_gmGmName(entry)} ← ${who}: ${math}. (${_gmDefText(def)}, from ${def.src || 'tracker'})` });
     _gmLogHpChange(entry, before, after, wasAboveZero, dmg, hit, hit ? null : opts.src);
+    if (dmg > 0 && hit && hit.attacker) _gmCharmBroken(entry, hit.attacker, 'damaged it');   // (Charmed ends)
     let defId = hit ? _gmOfferDefensive(entry, hit, dmg, extras) : null;   // a Reaction to a Critical Hit, before the saves
     _gmCheckWoundThreshold(entry, woundDmg, defId);                       // Wound Threshold (damage past Temp HP), then the hit's own saves, then Bleed Out
     // NPCs have a Wound Threshold too (with a helmet question pending, it's checked once that's answered)
@@ -4190,6 +4207,12 @@ window.apxBeforeAttack = async function(o) {
     // Before the roll: who it's attacking matters for Unwieldy and Fight Offensively; Scatter / Repeating place their area
     if (o && !o.companion && (o.npcId || o.initId) && window.APXDice && APXDice.ask) {
         let att = _gmAttackerFor(o, 'attack'), props = (o.hit && o.hit.props) || [];
+        // Charmed: it can't attack its charmer
+        if (att && _gmFightOn() && _gmEffConds(att).includes('charmed')) {
+            let ch = _gmCharmer(att), chn = ch ? _gmGmName(ch) : 'the creature that charmed it';
+            let ans = await APXDice.ask(o.label || 'Attack', `${_gmGmName(att)} is Charmed: it can't attack ${chn} or target them with harmful powers.`, [['go', `It's attacking someone else`, 'pri'], ['no', 'Cancel the attack']]);
+            if (ans !== 'go') return false;
+        }
         if (props.includes('unwieldy') && _gmFightOn()) {
             let ans = await APXDice.ask(o.label || 'Attack', 'Unwieldy: Disadvantage against a creature within 1 square of it. Is the target that close?', [['far', 'Farther away', 'pri'], ['near', 'Within 1 square (Disadvantage)']]);
             if (!ans) return false;
@@ -4271,7 +4294,8 @@ function _gmBeforeAttackAp(o) {
 // summoned creatures and Loyal Companions. Effects live on the entry (e._fx) until the start
 // of its next turn; Fight Defensively/Offensively and next-attack maneuvers change its rolls.
 function _gmFx(e) { return (e && Array.isArray(e._fx)) ? e._fx : []; }
-function _gmFxAcBonus(e) { let d = _gmFx(e).find(f => f.key === 'defensive'); return d ? (d.attacked ? 2 : 4) : 0; }
+// Its maneuvers' AC: Fight Defensively (+4, or +2 once it has attacked), Block (its shield or a Sturdy/Parrying die)…
+function _gmFxAcBonus(e) { return _gmFx(e).reduce((t, f) => t + (f.key === 'defensive' ? (f.attacked ? 2 : 4) : (parseInt(f.ac) || 0)), 0); }
 window._gmFxAcBonus = _gmFxAcBonus;
 function _gmActionCtx(e) {
     let compAp = _gmCompSheetAp(e);

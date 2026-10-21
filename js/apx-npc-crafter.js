@@ -493,10 +493,10 @@ window.ncAdjustDef = function(field, delta, tpPer) {
 };
 // All text-immunity Add buttons now route to specific pickers by field type.
 const NPC_CONDITION_TYPES = [
-    'Blinded','Burning','Deafened','Diseased','Frightened','Incapacitated',
+    'Blinded','Burning','Charmed','Deafened','Diseased','Frightened','Incapacitated',
     'Paralyzed','Poisoned','Prone','Provoked','Restrained','Staggered',
     'Stunned','Unconscious','Bleeding Out','Dehydrated','Freezing',
-    'Infected','Starving','Suffocating','Grappled','Pinned'
+    'Infected','Starving','Suffocating','Grappled','Pinned',"Can't Regain HP"
 ];
 const NPC_PHYS_DMG_TYPES = ['Bludgeoning','Slashing','Piercing'];
 function ncAllDamageTypes() { return NPC_PHYS_DMG_TYPES.concat(window.NPC_ENERGY_TYPES || NPC_ENERGY_TYPES); }
@@ -710,12 +710,13 @@ window.ncToggleCompanionWeaponAim = function(idx, checked) {
     window.recalculateMath();
 };
 // A Summon a Creature power's creature, edited on its own (without reopening the Power Crafter)
-window.ncEditPowerSummon = function(i) {
+window.ncEditPowerSummon = async function(i) {
     let c = ncActiveCompanion(); let p = c && c.powers && c.powers[i];
     if (!p || !p.draft || typeof window.openSummonCrafter !== 'function') return;
-    let tier = p.draft.summonTier || 1;
-    window.openSummonCrafter({ npc: p.draft.summonNpc || null, tier, done: npc => {
-        p.draft.summonNpc = JSON.parse(JSON.stringify(npc)); p.draft.summonNpcTier = tier;
+    let k = await window.apxSummonPickSlot(p.draft, p.name); if (k == null) return;
+    let slot = window.apxSummonSlots(p.draft)[k];
+    window.openSummonCrafter({ npc: slot.npc || null, tier: slot.tier, done: npc => {
+        window.apxSummonSet(p.draft, k, { npc: JSON.parse(JSON.stringify(npc)), npcTier: slot.tier, fromId: null });
         if (typeof window.recalculateMath === 'function') window.recalculateMath();
         if (ncTarget === 'gm' && window.apxAuth?.enabled && window.apxAuth.saveGmNpcs) window.apxAuth.saveGmNpcs(window.gmNpcs || []).catch(() => {});
     } });
@@ -1058,6 +1059,7 @@ window.renderGmNpcList = function() {
                     ${tagBadges ? `<div class="flex flex-wrap gap-1 mt-1">${tagBadges}</div>` : ''}
                 </div></div>
                 <div class="flex gap-1 flex-wrap justify-end">
+                    ${window.apxNpcSummonable && window.apxNpcSummonable(entry) ? `<button onclick="window.gmToggleNpcSummon('${entry.id}')" class="text-[10px] font-bold px-2 py-1 border rounded ${entry.playerSummon ? 'text-emerald-300 border-emerald-700 bg-emerald-900/30' : 'text-slate-400 border-slate-700'}" title="${entry.playerSummon ? 'Players in its worlds can pick this creature for their Summon a Creature powers (up to the Tier each one allows). Click to stop.' : 'Let players in its worlds pick this creature for their Summon a Creature powers'}">Summon ${entry.playerSummon ? '✓' : '✕'}</button>` : ''}
                     <button onclick="window.openStatBlockWorldTags('${entry.id}')" class="text-[10px] text-amber-400 hover:text-amber-300 font-bold px-2 py-1 border border-amber-800/40 rounded" title="Assign to Worlds">World</button>
                     <button onclick="window.openGmNpcBuilder('${entry.id}')" class="text-[10px] text-purple-400 hover:text-purple-300 font-bold px-2 py-1">Edit</button>
                     <button onclick="window.exportGmNpc('${entry.id}')" class="text-[10px] text-slate-400 hover:text-slate-300 font-bold px-2 py-1">Export</button>
@@ -1069,6 +1071,19 @@ window.renderGmNpcList = function() {
     wtBar();
 };
 
+// Can players be offered this NPC for their Summon a Creature powers? (not a summon itself, and no summons of its own)
+window.apxNpcSummonable = function(entry) {
+    if (!entry || !entry.npc || entry.summonOf || entry.npc.isSummon) return false;
+    return !(entry.npc.powers || []).some(p => ((p.draft && p.draft.utility && p.draft.utility.major) || {}).summonCreature > 0);
+};
+window.gmToggleNpcSummon = function(id) {
+    let e = (window.gmNpcs || []).find(n => n.id === id); if (!e) return;
+    e.playerSummon = !e.playerSummon;
+    if (window.apxAuth?.enabled && window.apxAuth.saveGmNpcs) window.apxAuth.saveGmNpcs(window.gmNpcs || []).catch(() => { });
+    window.apxPublishWorldContent && window.apxPublishWorldContent();
+    window.renderGmNpcList();
+    window.APXDice?.notify(e.playerSummon ? `Players can now pick ${e.npc.name || 'this NPC'} for their Summon a Creature powers, in ${(e.worldTags || []).length ? 'its worlds' : 'every world'}.` : `${e.npc.name || 'This NPC'} is no longer offered to players for summoning.`, { kind: 'note' });
+};
 window.openStatBlockWorldTags = function(npcId) {
     let entry = window.gmNpcs.find(n => n.id === npcId);
     if (!entry) return;
@@ -2175,9 +2190,10 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
     let sumN = ((d.utility || {}).major || {}).summonCreature || 0;
     if (sumN) {
         if (sb._isCompanion) {
-            if (!d.summonNpc) APXDice.notify(`${p.name || 'This power'} summons a creature, but it hasn't been built yet: edit the power in the NPC Crafter.`, { kind: 'warn', open: true });
-            else window.apxOnRollEvent?.({ id: 'pw' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), kind: 'power', label: p.name || 'Power', companion: true,
-                text: `${whoPub} uses ${p.name || 'a power'}.`, summon: { npc: (n => { delete n.portraitFull; delete n.tokenImgFull; return n; })(JSON.parse(JSON.stringify(d.summonNpc))), count: sumN, tier: d.summonTier || 1, power: p.name || 'Power' } });
+            let sg = window.apxSummonGroups(d);
+            if (sg.missing) APXDice.notify(`${p.name || 'This power'} summons ${sg.missing > 1 ? sg.missing + ' creatures that haven\'t' : 'a creature that hasn\'t'} been built yet: edit the power in the NPC Crafter.`, { kind: 'warn', open: true });
+            if (sg.groups.length) window.apxOnRollEvent?.({ id: 'pw' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), kind: 'power', label: p.name || 'Power', companion: true,
+                text: `${whoPub} uses ${p.name || 'a power'}.`, summon: { groups: sg.groups, npc: sg.groups[0].npc, count: sg.groups[0].count, tier: sg.groups[0].tier, power: p.name || 'Power' } });
         } else if (typeof window._gmSpawnNpcSummon === 'function') window._gmSpawnNpcSummon(actor, p);
     }
     // Martial Improvement: the power rides one of the creature's own attacks (that attack's bonus, its

@@ -25,6 +25,8 @@
         heavy:  { name: 'Heavy Ammo', hit: 'on a hit, you can push the target up to 2 squares away; double damage to objects, structures and vehicles', crit: 'the target is also Staggered', tip: 'Heavy Ammo: massive rounds that physically move what they hit.' }
     };
 
+    // Keen: this weapon's attacks are Critical Hits on a natural 19 or 20
+    function critOnOf(o) { return o && (o.critOn || (o.hit && (o.hit.props || []).includes('keen') ? 19 : 0)) || undefined; }
     // Tearing: a weapon that always deals at least 2 damage for every damage die it has, hit or miss
     function tearingBadge(o, formula, total) {
         if (!(o.hit && (o.hit.props || []).includes('tearing'))) return null;
@@ -591,7 +593,7 @@
         p.nat = nat;
         p.total = nat + (p.bonus || 0) + (p.omenAdj || 0);
         p.fumble = nat === 1;
-        p.crit = p.canCrit !== false && (nat === 20 || (!!p.forceCrit && !p.fumble));   // forceCrit: Fortunate Fighter Rank 5
+        p.crit = p.canCrit !== false && (nat >= Math.min(20, p.critOn || 20) || (!!p.forceCrit && !p.fumble));   // forceCrit: Fortunate Fighter Rank 5; critOn: Keen (19)
     }
 
     // Omen + High Roller buttons for any card with a d20 part
@@ -733,7 +735,7 @@
             let r = d20(mode);
             // kind 'attack': a lone attack roll (a power attack, or a weapon attack for a martial power) that can crit
             let isAtk = o.kind === 'attack';
-            let p = { kind: 'd20', title: o.kind === 'save' ? 'Save' : isAtk ? 'Attack' : 'd20', r, bonus: o.bonus || 0, canCrit: isAtk, origMode: mode };
+            let p = { kind: 'd20', title: o.kind === 'save' ? 'Save' : isAtk ? 'Attack' : 'd20', r, bonus: o.bonus || 0, canCrit: isAtk, origMode: mode, critOn: isAtk ? critOnOf(o) : undefined };
             settleD20(p);
             let c = { label: o.label || 'Check', who: o.who, parts: [p], perks: o.perks !== false && !!(window.state?.perks), omenOk: !!o.omen && !!(window.state?.perks), badges: modeBadges(mode, o.advSources, o.disSources) };
             if (o.autoFail) c.badges.push(['fum', 'Auto-fail', o.autoFail]);
@@ -805,7 +807,7 @@
             if ((o.disSources || []).length || o.adv === 'dis') list.push('dis');
             let mode = combineMode(list, gamble ? 'dis' : null);
             let r = d20(mode);
-            let atk = { kind: 'd20', title: 'Attack', r, bonus: o.bonus || 0, origMode: mode };
+            let atk = { kind: 'd20', title: 'Attack', r, bonus: o.bonus || 0, origMode: mode, critOn: critOnOf(o) };
             settleD20(atk);
             let explode = usePerks && tray.explodeNext && hr >= 5 && !S().hrExplodeUsed;
             if (explode) { S().hrExplodeUsed = true; tray.explodeNext = false; refreshPerkBar(); }
@@ -853,6 +855,8 @@
                     c.badges.push([atk.crit && fx.crit ? 'crit' : 'info', `${fx.name}: ${fx.hit}${atk.crit && fx.crit ? ' · Critical: ' + fx.crit : ''}`, fx.tip]);
                 }
                 if (o.maxDmg) c.badges.push(['crit', String(o.maxDmg)]);
+                if (atk.critOn && atk.critOn < 20) c.badges.push([atk.crit && atk.nat < 20 ? 'crit' : 'info', `Keen: a natural ${atk.critOn}-20 is a Critical Hit`]);
+                if (o.hit && (o.hit.props || []).includes('suppressed')) c.badges.push(['info', 'Suppressed: attacking from stealth with it doesn\'t reveal you (you stay in stealth)']);
                 let tear = tearingBadge(o, o.split && o.split.length > 1 ? o.split[0].formula : o.dice, dmg.total);
                 if (tear) c.badges.push(tear);
                 if (gamble && !atk.fumble) c.badges.push(['info', `Gamble: +${gambleBonus} is included, only if it hits` + (hr >= 4 ? '. Hit = +1 AP' : '')]);

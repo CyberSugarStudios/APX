@@ -167,6 +167,17 @@
             return { id: e.id, name: e.name || p.name, lvl: p.lvl, ap: p.ap, atk: p.atk || '', rng: p.rng || '', dmg: p.dmg || '', desc: p.desc || '', draft: p.draft };
         });
     }
+    // NPCs the GM lets players summon (Summon ✓ in NPCs & Enemies), for the worlds they're tagged with (untagged: every
+    // world). Big pictures stay behind (a world's public doc is size-limited); the token picture comes along when small.
+    function pubSummons(id) {
+        return (window.gmNpcs || []).filter(e => e && e.playerSummon && window.apxNpcSummonable && window.apxNpcSummonable(e))
+            .filter(e => { let t = (e.worldTags || []).filter(Boolean); return !t.length || window.apxNpcWorldIds(e).includes(id); })
+            .map(e => {
+                let npc = clone(e.npc); delete npc.portraitFull; delete npc.tokenImgFull;
+                ['portrait', 'tokenImg'].forEach(k => { if (typeof npc[k] === 'string' && npc[k].length > 60000) delete npc[k]; });
+                return { id: e.id, name: npc.name || 'Creature', tier: typeof npcTierForTP === 'function' ? npcTierForTP(npc.gmTpBudget || 0).tier : 1, npc };
+            });
+    }
     function pubOrigins(id) {
         return (window.gmOrigins || []).filter(o => (o.worldTags || []).includes(id)).map(o => { let c = clone(o); delete c.worldTags; return c; });
     }
@@ -176,7 +187,7 @@
             if (!window.apxAuth?.enabled || !window.apxAuth.user) return;
             worlds().forEach(w => {
                 let id = wid(w); if (!id || !w.inviteCode) return;
-                let data = { origins: pubOrigins(id), gmPowers: pubPowers(id) };
+                let data = { origins: pubOrigins(id), gmPowers: pubPowers(id), summonNpcs: pubSummons(id) };
                 let s = JSON.stringify(data);
                 if (pubSig[id] === s) return;
                 pubSig[id] = s;
@@ -184,6 +195,17 @@
             });
         }, now ? 0 : 900);
     };
+
+    // NPCs players can summon go out with the world's content: whenever the GM's NPCs are saved (an edit, a new
+    // stat block, a Summon ✓), the worlds' copies are brought up to date (only ones that changed are written)
+    (function hookNpcSave(tries) {
+        let a = window.apxAuth;
+        if (!a || typeof a.saveGmNpcs !== 'function') { if ((tries || 0) < 50) setTimeout(() => hookNpcSave((tries || 0) + 1), 200); return; }
+        if (a.saveGmNpcs._apxPub) return;
+        let orig = a.saveGmNpcs;
+        let w = function () { let r = orig.apply(this, arguments); try { if ((window.gmNpcs || []).some(e => e && e.playerSummon)) window.apxPublishWorldContent(); } catch (e) { } return r; };
+        w._apxPub = true; a.saveGmNpcs = w;
+    })();
 
     // ── Origin Templates ─────────────────────────────────────────────
     window.gmOrigins = window.gmOrigins || [];

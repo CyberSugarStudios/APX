@@ -471,11 +471,15 @@
             { key: "cleave", name: "Cleave", cost: 300, desc: "When you reduce a creature to 0 HP with this weapon, you can make one attack with it for 0 AP before the end of your turn.", reqLabel: "Heavy Melee Weapon", reqCheck: (ctx) => ctx.weightClass === 'heavy' && ctx.category === 'melee' },
             { key: "finesse", name: "Finesse", cost: 150, desc: "You can use your STR or AGI for this weapon's attack and damage rolls.", reqLabel: "Medium Melee Weapon", reqCheck: (ctx) => ctx.weightClass === 'medium' && ctx.category === 'melee' },
             { key: "quickdraw", name: "Quickdraw", cost: 50, desc: "Draw or Stow this weapon for 0 AP.", reqLabel: "One-Handed Light Weapon", reqCheck: (ctx) => ctx.weightClass === 'light' },
+            // A weapon that can use your AGI: a Light melee weapon, a Medium one with Finesse, or any ranged weapon
+            { key: "keen", name: "Keen", cost: 300, desc: "This weapon scores a Critical Hit on a Natural 19 or 20.", reqLabel: "Ranged Weapon, or a Melee Weapon that uses AGI (Light, or Finesse)", reqCheck: (ctx) => ctx.category === 'ranged' || (ctx.category === 'melee' && (ctx.weightClass === 'light' || !!(ctx.props && ctx.props.finesse))) },
+            { key: "parrying", name: "Parrying", cost: 200, desc: "You can perform the Block Combat Maneuver with this weapon as if it had the Sturdy property, using your Reaction instead of AP.", reqLabel: "Melee Weapon that uses AGI (Light, or Finesse)", reqCheck: (ctx) => ctx.category === 'melee' && (ctx.weightClass === 'light' || !!(ctx.props && ctx.props.finesse)) },
             { key: "unwieldy", name: "Unwieldy", cost: -100, desc: "Disadvantage on attack rolls against creatures within 1 square of you.", reqLabel: "Reach", reqCheck: (ctx) => !!(ctx.props && (Number(ctx.props.reach) || 0) > 0) },
             // Ranged weapons' own (drawn with the Range Increments): how it fires
             { key: "loading", name: "Loading", cost: -100, section: 'range', desc: "After each attack, you must spend 2 AP to reload this weapon before you can attack with it again. You need ammunition to load it.", reqLabel: "Ranged Weapon", reqCheck: (ctx) => ctx.category === 'ranged' },
             { key: "scatter", name: "Scatter", cost: 300, section: 'range', desc: "This ranged weapon loses its Range Increments and doesn't impose Disadvantage on attack rolls against targets within 1 square of you. When you attack with it, compare your attack roll against each creature in a 3-square Cone in front of you.", reqLabel: "Medium or Heavy Ranged Weapon (not Repeating)", reqCheck: (ctx) => ctx.category === 'ranged' && (ctx.weightClass === 'medium' || ctx.weightClass === 'heavy') && !(ctx.props && ctx.props.repeating) },
             { key: "repeating", name: "Repeating", cost: 400, section: 'range', desc: "This ranged weapon costs +2 AP to fire and expends 3 ammo with each attack. When you attack with it, compare your attack roll against each creature in a 2x2 square. Attacks made at Long Range deal half damage.", reqLabel: "Ranged Weapon (not Scatter)", reqCheck: (ctx) => ctx.category === 'ranged' && !(ctx.props && ctx.props.scatter) },
+            { key: "suppressed", name: "Suppressed", cost: 300, section: 'range', desc: "Attacking with this weapon doesn't reveal your position: when you make an attack from stealth with it, you remain in stealth.", reqLabel: "Ranged Weapon", reqCheck: (ctx) => ctx.category === 'ranged' },
             // Elemental's on-crit effect (at the top of the list, only once the weapon is Elemental)
             { key: "elemCrit", name: "Elemental Critical", cost: 100, top: true, desc: "On a Critical Hit, the weapon's Energy adds an effect until the end of the target's next turn: Fire sets it Burning, Cold reduces its Speed by 1, Poison leaves it Poisoned, Electric leaves it Staggered, Acid lowers its DR by 1.", reqLabel: "Elemental", reqCheck: (ctx) => !!ctx.elemental }
         ];
@@ -972,6 +976,58 @@
         // fails saves that rely on sight)
         const APX_ESCAPE_FORBID = { blinded: ['PER'] };
         const APX_INCAP_CONDS = ['stunned', 'paralyzed', 'unconscious'];
+        // Summon a Creature, one entry per copy taken: { tier, npc, npcTier (the Tier it was built for), fromId (a
+        // saved / shared NPC it was picked from) }. The first copy is the draft's own summonTier, summonNpc,
+        // summonNpcTier and summonFromId; the rest are draft.summonExtra. A power made before copies had their own
+        // Tier (no summonExtra) summons every copy like its first.
+        function apxSummonSlots(d) {
+            let n = ((d && d.utility && d.utility.major) || {}).summonCreature || 0; if (!n) return [];
+            let first = { tier: parseInt(d.summonTier) || 1, npc: d.summonNpc || null, npcTier: d.summonNpcTier, fromId: d.summonFromId || null };
+            let out = [first];
+            for (let i = 1; i < n; i++) {
+                let x = Array.isArray(d.summonExtra) ? d.summonExtra[i - 1] : null;
+                out.push(x ? { tier: parseInt(x.tier) || 1, npc: x.npc || null, npcTier: x.npcTier, fromId: x.fromId || null } : Object.assign({}, first));
+            }
+            return out;
+        }
+        // Change copy i (0 = the first) of a draft's summons
+        function apxSummonSet(d, i, patch) {
+            if (!d) return;
+            if (i === 0) {
+                if ('tier' in patch) d.summonTier = patch.tier;
+                if ('npc' in patch) { if (patch.npc) d.summonNpc = patch.npc; else delete d.summonNpc; }
+                if ('npcTier' in patch) { if (patch.npcTier != null) d.summonNpcTier = patch.npcTier; else delete d.summonNpcTier; }
+                if ('fromId' in patch) { if (patch.fromId) d.summonFromId = patch.fromId; else delete d.summonFromId; }
+                return;
+            }
+            let slots = apxSummonSlots(d);
+            d.summonExtra = slots.slice(1).map(x => Object.assign({}, x));
+            let x = d.summonExtra[i - 1]; if (!x) return;
+            Object.assign(x, patch);
+            Object.keys(x).forEach(k => { if (x[k] == null) delete x[k]; });
+        }
+        // What a summon power sends when used: one group per different creature, [{ npc, count, tier }], and the
+        // number of copies that have no creature built yet
+        function apxSummonGroups(d) {
+            let groups = [], missing = 0;
+            apxSummonSlots(d).forEach(s => {
+                if (!s.npc) { missing++; return; }
+                let n = JSON.parse(JSON.stringify(s.npc)); delete n.portraitFull; delete n.tokenImgFull;
+                let key = JSON.stringify(n) + '|' + s.tier;
+                let g = groups.find(x => x._k === key);
+                if (g) g.count++; else groups.push({ _k: key, npc: n, count: 1, tier: s.tier });
+            });
+            groups.forEach(g => delete g._k);
+            return { groups, missing };
+        }
+        // Which copy to edit, when a power summons more than one (asks; resolves to its index, or null)
+        async function apxSummonPickSlot(d, title) {
+            let slots = apxSummonSlots(d);
+            if (slots.length <= 1 || !window.APXDice || !window.APXDice.ask) return slots.length ? 0 : null;
+            let a = await window.APXDice.ask(title || 'Summoned creature', 'Which of this power\'s creatures?', slots.map((x, i) => ['s' + i, `#${i + 1}: Tier ${x.tier}${x.npc ? ', ' + (x.npc.name || 'Creature') : ' (not built yet)'}`, i ? '' : 'pri']));
+            return a ? +a.slice(1) : null;
+        }
+        window.apxSummonSlots = apxSummonSlots; window.apxSummonSet = apxSummonSet; window.apxSummonGroups = apxSummonGroups; window.apxSummonPickSlot = apxSummonPickSlot;
         // The "Inflict or end …" utilities can be taken more than once: each copy has its own pick
         // (condPicks[key] for the first, condPicks['key#2'], 'key#3'… for the others)
         function apxCondPickKeys(key, count) { let out = []; for (let i = 0; i < Math.max(0, parseInt(count) || 0); i++) out.push(i ? `${key}#${i + 1}` : key); return out; }

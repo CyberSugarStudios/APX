@@ -11,11 +11,11 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.20.1900',
-        released: '2026-10-20T19:00:00',
-        releasedText: 'October 20, 2026 · 7:00 PM',
+        version: 'v2026.10.20.1959',
+        released: '2026-10-20T19:59:00',
+        releasedText: 'October 20, 2026 · 7:59 PM',
         title: 'Playtest 4: Maneuvers, Gear & Burdens',
-        intro: 'Straight from our fourth playtest: NPCs and companions get the full list of maneuvers and actions, Loyal Companions can carry your gear, and carrying too much finally weighs you down. Squeezing costs what it should, and Vitality\'s top rank keeps you on your feet. Since then: NPC maneuvers roll themselves, five new weapon properties (two of them fire into an area), readable buttons in every theme, and Exo-Suits rebuilt in three frameworks, including the new Conduit.',
+        intro: 'Straight from our fourth playtest: NPCs and companions get the full list of maneuvers and actions, Loyal Companions can carry your gear, and carrying too much finally weighs you down. Squeezing costs what it should, and Vitality\'s top rank keeps you on your feet. Since then: NPC maneuvers roll themselves, five new weapon properties (two of them fire into an area), readable buttons in every theme, Exo-Suits rebuilt in three frameworks, including the new Conduit, and now Keen, Parrying and Suppressed weapons, summons that mix Tiers, and creatures your GM shares for summoning.',
         index: [
             ['Combat', [
                 'NPCs, summoned creatures and Loyal Companions have an Actions button with every Combat Maneuver and Standard Action, spending their own AP. Fight Defensively, Fight Offensively and next-attack maneuvers change their rolls (and AC) until their next turn.',
@@ -47,14 +47,17 @@
                 'Consumables are priced against a Cu cap, and can be Thrown or fired as Ammunition from your ranged weapon.',
                 'Short Rest Powers\' free upgrade keeps the lower-Level power too.',
                 'The Inflict or end a Condition Utilities (marked *) can be taken more than once, each copy with its own Inflict / End pick.',
-                'Summon a Creature: the creature\'s Tier can\'t be higher than the power\'s Level (Tier 5 at most), and summons act immediately after their summoner in initiative. End a Power now ends powers of an equal or lower Level.'
+                'Summon a Creature: the creature\'s Tier can\'t be higher than the power\'s Level (Tier 5 at most), and summons act immediately after their summoner in initiative. End a Power now ends powers of an equal or lower Level.',
+                'Each copy of Summon a Creature has its own Tier and creature, so one power can summon a Tier 4 and three Tier 1s. GMs can share their NPCs for players to pick as summons.',
+                'Charmed works everywhere it should: NPC Condition Immunities, an attack check against the charmer, and the Charm ends when the charmer\'s side harms the creature.'
             ]],
             ['Weapons', [
                 'Medium weapons top out at 3d8 (3d10 two-handed) with no Heavy properties. Crit upgrades cost 300 / 900 Cu, Sturdy 50 Cu.',
                 'New properties: Brutal, Sunder and Cleave for Heavy weapons, Loading (a cheaper weapon you Reload), and Elemental Critical. Tearing now sets a minimum damage on every swing.',
                 'Jump is an action costed like a Move, and a worn Bandolier or Utility Belt halves Draw / Stow.',
                 'New properties: Finesse, Quickdraw and Unwieldy, plus a Ranged section with Loading, Scatter (a 3-square Cone) and Repeating (a 2x2 square), both resolved on the battle map. Elemental Critical sits under Elemental, and every Elemental Critical lasts until the end of the target\'s next turn.',
-                'Tearing shows its minimum on the roll and applies against NPC and player targets alike, even on a miss.'
+                'Tearing shows its minimum on the roll and applies against NPC and player targets alike, even on a miss.',
+                'New properties: Keen (crit on a 19 or 20), Parrying (Block like a Sturdy weapon, for your Reaction) and Suppressed (attacking doesn\'t reveal you). NPCs\' Block now raises their AC.'
             ]],
             ['Exo-Suits', [
                 'Exo-Suits are rebuilt: 3,000 Currency, worn with your armor, in three frameworks. A Juggernaut adds its Plating to your defenses, a Phantom hides in plain sight, and the new Conduit amplifies your Powers (Capacitor, Breach, Nullifier, Amplifier, Emitter). Everything a suit does is applied for you.'
@@ -83,7 +86,10 @@
                 'Short Rest Powers: the free upgrade at Rank 2+ now makes a new copy at the higher Level, so you keep the lower-Level power as well.',
                 'Inflict or end a Condition Utilities (and Wounded on one limb) are marked * and can be taken more than once: each copy gets its own Inflict / End buttons and Condition list (#1, #2…), so one power can inflict Prone and end Poisoned.',
                 'Summon a Creature: the creature\'s Tier can go no higher than the power\'s Level, Tier 5 at most. The Tier counter in Step 5 shows how high this power can go, and adding XP elsewhere can raise it. Summoned creatures act immediately after you in initiative. A power you already have that\'s over the cap still works and shows a free Recraft.',
-                'End a Power (Major Utility) ends a power of an equal or lower Level, not just a lower one.'
+                'End a Power (Major Utility) ends a power of an equal or lower Level, not just a lower one.',
+                'Summon a Creature, taken more than once: each copy gets its own row (#1, #2…) with its own Tier and creature, so one power can summon a Tier 4 creature and three Tier 1s (the XP is the sum of each copy\'s Tier). A new copy starts as a copy of the one above it. Powers you already have summon exactly what they did.',
+                'Your GM\'s creatures: NPCs your GM shares show in each summon row\'s list (at or below its Tier). One you pick is summoned as your GM built it, and only your GM can change it.',
+                'Charmed: while a power has you Charmed, attacking asks whether your target is someone other than the charmer (or cancels). The Charm ends when the charmer or an ally of theirs damages you or uses a harmful power on you.'
             ]],
             ['Consumables', [
                 'The Consumable Crafter shows its price against the cap: 150 Cu for one charge, +25 Cu per Artisan rank.',
@@ -106,7 +112,8 @@
                 'Mobile: moving in combat (your token, Move or Jump) gives you +1 AC per rank until the start of your next turn, once per round.',
                 'Flurry: the perk (any weapon hit makes your next weapon attack cheaper) and the weapon property (cheaper attacks on the creature you just hit) are separate lines in the AP pop-up, each saying what it is, and your GM\'s tracker ticks them when it saw the hit.',
                 'Draw / Stow asks what you\'re drawing when it can cost less: a Quickdraw weapon for 0 AP, or an item on your belt for 1.',
-                'Block, Fight Defensively and your other actions reach your GM\'s dice tray and notifications, and your AC on their tracker follows them within a second.'
+                'Block, Fight Defensively and your other actions reach your GM\'s dice tray and notifications, and your AC on their tracker follows them within a second.',
+                'New properties: Keen (300 Cu, a Ranged weapon or a melee weapon that uses AGI): Critical Hits on a natural 19 or 20. Parrying (200 Cu, a melee weapon that uses AGI): Block with it as if it were Sturdy, using your Reaction instead of AP (0 AP in the Block pop-up). Suppressed (300 Cu, in the Ranged section): attacking from stealth with it doesn\'t reveal you, noted on the roll.'
             ]],
             ['Perks & Rules', [
                 'Vitality Rank 4 is reworked: if you would be reduced to 0 HP, you\'re reduced to 1 HP instead, and you can spend up to your Rank in Rest Dice to heal that much at once (at Rank 3 they roll their maximum). It can\'t happen again until you finish a Full Rest. It works from your GM\'s tracker too.',
@@ -135,6 +142,9 @@
                 'A Critical Hit on an NPC with a helmet asks whether it breaks its helmet for a normal hit; a broken helmet comes off its stat block for the fight.',
                 'Players\' actions (Block, Fight Defensively, Disengage…) show up in your dice tray and notifications.',
                 'Summoned creatures act immediately after their summoner, and their Tier can\'t be higher than the summoning power\'s Level (Tier 5 at most). Your NPCs\' existing summon powers over the cap still work and show a free Recraft.',
+                'Mixed summons: a power with Summon a Creature taken more than once brings each copy\'s own creature at its own Tier (a Tier 4 and three Tier 1s), players\' and NPCs\' alike, all next to the summoner and acting right after it.',
+                'Charmed by a power: a charmed NPC that attacks is asked whether its target is someone other than its charmer, and the Charm ends by itself (with a log line) when the charmer or the charmer\'s allies damage it or use a harmful power on it.',
+                'NPC Block adds its AC until the creature\'s next turn: +2 with a shield, a Sturdy weapon\'s die (rolled for you), or a Parrying weapon\'s die for its Reaction at 0 AP.',
                 'A player\'s Ground Strike (Brute Rank 5) comes in like an area power: everyone in its 2-square burst makes the AGI save (NPCs from your dice tray, players their own), with the damage and Prone on a failure and half on a success. A creature they used as the weapon takes the maximum, applied on your tracker.'
             ]],
             ['Battle Maps', [
@@ -154,7 +164,10 @@
                 'Manufactured crits cost 3 TP (x3) and 6 TP (x4). A 3d8 weapon is 8 TP.',
                 'Powers: ranges by the square (1 XP / 5 squares, Line of Sight 15), one die size, Charmed, Can\'t Regain HP and Telekinesis, as for players. A Mythic sentient being is an NPC you run: no 3 AP summon limit, but it can\'t summon.',
                 'The Weapon Forge prices an NPC\'s dice steps, critical multipliers and properties in TP, and they stay put when you pick one. Elemental Critical sits under Elemental, and the new properties (Finesse, Quickdraw, Unwieldy, Scatter, Repeating) work for NPCs too.',
-                'End a Power ends powers of an equal or lower Level.'
+                'End a Power ends powers of an equal or lower Level.',
+                'Summon ✓ / ✕ on an NPC\'s row in your NPC list shares it with your players for their Summon a Creature powers, in every world it\'s tagged for (every world, untagged), at its Tier. Players can\'t edit it, and turning it off stops new picks without taking it from powers that already summon it.',
+                'Condition Immunities include Charmed and Can\'t Regain HP.',
+                'Keen, Parrying and Suppressed are in the Weapon Forge for NPCs too, priced in TP: Keen weapons crit on a 19 or 20, and Suppressed attack cards note the attacker stays hidden.'
             ]],
             ['Tracker', [
                 'Tearing raises a hit to at least 2 damage per damage die, after DR/ER (and an area attack\'s misses take it too).',
