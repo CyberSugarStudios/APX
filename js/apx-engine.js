@@ -856,6 +856,9 @@
         };
         function renderInventory(armorWt) {
             let html = '';
+            // Treasure Hunter Rank 5: Found Earlier
+            let thBtn = document.getElementById('thFoundBtn');
+            if (thBtn) { let on = ((window.state.perks || {}).luc_treasurehunter || 0) >= 5; thBtn.classList.toggle('hidden', !on); if (on) thBtn.textContent = window.state.thFoundUsed ? 'Found Earlier (Luck Point)' : 'Found Earlier'; }
             let totWt = 0;
             // Crafting materials are always-present, rarely-interacted-with
             // bulk resources -- pinning them to the bottom keeps armor,
@@ -915,7 +918,7 @@
                 // weapons, and anything forged that's currently sitting
                 // unequipped in inventory -- so this doesn't reopen the
                 // free-stat-edit exploit that isLocked exists to close).
-                let nameHtml = `<div class="text-xs ${item.isLocked ? 'text-slate-400' : 'text-slate-200'} font-bold px-1 truncate" title="${item.name}">${item.name}${item.isLocked && !window.state.craftingMatWeightEnabled ? ' <span class="text-[9px] text-slate-600">(wt off)</span>' : ''}</div>`
+                let nameHtml = `<div class="text-xs ${item.isLocked ? 'text-slate-400' : 'text-slate-200'} font-bold px-1 truncate" title="${item.name}">${item.name}${item.isLocked && !window.state.craftingMatWeightEnabled ? ' <span class="text-[9px] text-slate-600">(wt off)</span>' : ''}${item.noSellCt > 0 ? ` <span class="text-[9px] text-amber-300" title="Found with Treasure Hunter: ${Math.min(item.noSellCt, item.ct || 1)} of these can't be sold">(found${(item.ct || 1) > 1 ? ' ×' + Math.min(item.noSellCt, item.ct || 1) : ''})</span>` : ''}</div>`
                     // A crafted consumable: Use runs its effect (3 AP, one charge), like a power
                     + (item.isConsumable && item.draft ? (cp => `<button onclick="window.apxUsePower('c${idx}')" ${(item.chargesRemaining ?? item.charges ?? 1) <= 0 ? 'disabled' : ''} class="ml-1 text-[9px] font-bold px-1.5 rounded border border-purple-600 text-purple-200 bg-purple-900/40 hover:bg-purple-800/60" title="${cp && cp.ammo ? (cp.ammoMissing ? cp.ammoMissing.replace(/"/g, '&quot;') : 'Fire it: your weapon\'s AP and one charge; rolls your weapon\'s attack, and its effects land on a hit') : 'Use it: 3 AP and one charge; rolls its attack, save, damage or healing'}">${cp && cp.ammo ? `Fire (${cp.ammoMissing ? '-' : cp.ap} AP)` : 'Use (3 AP)'}</button>`)(window.ccPowerOf ? window.ccPowerOf(item) : null) : '')
                     + (item.isCustomEquippable && item.bonuses && window.apxItemBonusText && window.apxItemBonusText(item.bonuses)
@@ -1407,6 +1410,7 @@
                     if (res === false) return res;
                     let st2 = window.apxAmmoStack(type); if (!st2) return res;
                     st2.ct = (parseInt(st2.ct) || 0) - per;
+                    if (st2.noSellCt > 0) st2.noSellCt = Math.max(0, st2.noSellCt - per);   // (found rounds are fired first)
                     if (st2.ct <= 0) window.state.items = window.state.items.filter(i => i !== st2);
                     let left = st2.ct > 0 ? st2.ct : 0;
                     window.recalculateMath?.(); window.scheduleAutoSave?.();

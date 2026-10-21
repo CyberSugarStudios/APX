@@ -11,9 +11,9 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.20.0845',
-        released: '2026-10-20T08:45:00',
-        releasedText: 'October 20, 2026 · 8:45 AM',
+        version: 'v2026.10.20.1900',
+        released: '2026-10-20T19:00:00',
+        releasedText: 'October 20, 2026 · 7:00 PM',
         title: 'Playtest 4: Maneuvers, Gear & Burdens',
         intro: 'Straight from our fourth playtest: NPCs and companions get the full list of maneuvers and actions, Loyal Companions can carry your gear, and carrying too much finally weighs you down. Squeezing costs what it should, and Vitality\'s top rank keeps you on your feet. Since then: NPC maneuvers roll themselves, five new weapon properties (two of them fire into an area), readable buttons in every theme, and Exo-Suits rebuilt in three frameworks, including the new Conduit.',
         index: [
@@ -24,12 +24,14 @@
                 'A Loyal Companion added to the tracker by hand keeps its AP on its owner\'s sheet, where it\'s spent.',
                 'NPC maneuvers roll themselves (Grapple, Pin, Escape, Feint, Vault, Shove, Shield Bash), and NPCs can Recover with Shake It Off and Shrug It Off. Fight Offensively gives attacks against the creature Advantage, and Fight Defensively is +2 once it has attacked.',
                 'The GM\'s tracker shows live AC (Fight Defensively, Block, Mobile), NPC helmets can break on a Critical Hit, and NPCs take wounds by hand and gain fatigue (Overexertion adds it for you).',
-                'Melee Prowess, Mobile and Flurry work as written: Prowess removes a maneuver\'s Disadvantage (Rank 3) and adds Advantage (Rank 4), Mobile adds AC when you move, and the Flurry perk and the Flurry weapon property are told apart.'
+                'Melee Prowess, Mobile and Flurry work as written: Prowess removes a maneuver\'s Disadvantage (Rank 3) and adds Advantage (Rank 4), Mobile adds AC when you move, and the Flurry perk and the Flurry weapon property are told apart.',
+                'Brute Rank 5 is reworked into Ground Strike: 5d8 + twice your STR modifier and Prone in a 2-square burst (DC 10 + STR modifier + Rank), half on a save, resolved on the battle map.'
             ]],
             ['Gear', [
                 'Overburdened rules apply: carrying more than your capacity drops you to Speed 1 with Disadvantage on every attack, check and save.',
                 'Backpacks, Bandoliers and Utility Belts have a Wear button and raise what you can carry before you\'re Overburdened.',
-                'Loyal Companions carry gear: Give an item to your companion from your inventory, Take it back from its card, and Wield a weapon you gave it.'
+                'Loyal Companions carry gear: Give an item to your companion from your inventory, Take it back from its card, and Wield a weapon you gave it.',
+                'Treasure Hunter Rank 5 is reworked into Found Earlier: once per Short Rest (then a Luck Point each), produce gear, ammo or a consumable worth up to 10 Cu × your LUC modifier (minimum 50). It can\'t be sold.'
             ]],
             ['NPC Crafter', [
                 'Raising an NPC\'s Core Attribute above 10 costs 2 TP per point. Creatures you already built keep their price until you move them over.'
@@ -44,7 +46,8 @@
                 'Powers use one die size. New Utilities: Charmed, Can\'t Regain HP and Telekinesis (Influence is retired); moving a target can be taken more than once.',
                 'Consumables are priced against a Cu cap, and can be Thrown or fired as Ammunition from your ranged weapon.',
                 'Short Rest Powers\' free upgrade keeps the lower-Level power too.',
-                'The Inflict or end a Condition Utilities (marked *) can be taken more than once, each copy with its own Inflict / End pick.'
+                'The Inflict or end a Condition Utilities (marked *) can be taken more than once, each copy with its own Inflict / End pick.',
+                'Summon a Creature: the creature\'s Tier can\'t be higher than the power\'s Level (Tier 5 at most), and summons act immediately after their summoner in initiative. End a Power now ends powers of an equal or lower Level.'
             ]],
             ['Weapons', [
                 'Medium weapons top out at 3d8 (3d10 two-handed) with no Heavy properties. Crit upgrades cost 300 / 900 Cu, Sturdy 50 Cu.',
@@ -78,7 +81,9 @@
                 'New Moderate Utilities: Charmed (in the Inflict-or-end list), Can\'t Regain HP, and Telekinesis. Influence (friendly acquaintances) is gone from new powers; powers that have it keep it. Moving a target 2 squares (Minor) can be taken more than once for 2 more squares each time.',
                 'Vehicle Scale (Mythic) areas keep their shape on the battle map, each square a 5x5 block.',
                 'Short Rest Powers: the free upgrade at Rank 2+ now makes a new copy at the higher Level, so you keep the lower-Level power as well.',
-                'Inflict or end a Condition Utilities (and Wounded on one limb) are marked * and can be taken more than once: each copy gets its own Inflict / End buttons and Condition list (#1, #2…), so one power can inflict Prone and end Poisoned.'
+                'Inflict or end a Condition Utilities (and Wounded on one limb) are marked * and can be taken more than once: each copy gets its own Inflict / End buttons and Condition list (#1, #2…), so one power can inflict Prone and end Poisoned.',
+                'Summon a Creature: the creature\'s Tier can go no higher than the power\'s Level, Tier 5 at most. The Tier counter in Step 5 shows how high this power can go, and adding XP elsewhere can raise it. Summoned creatures act immediately after you in initiative. A power you already have that\'s over the cap still works and shows a free Recraft.',
+                'End a Power (Major Utility) ends a power of an equal or lower Level, not just a lower one.'
             ]],
             ['Consumables', [
                 'The Consumable Crafter shows its price against the cap: 150 Cu for one charge, +25 Cu per Artisan rank.',
@@ -105,7 +110,9 @@
             ]],
             ['Perks & Rules', [
                 'Vitality Rank 4 is reworked: if you would be reduced to 0 HP, you\'re reduced to 1 HP instead, and you can spend up to your Rank in Rest Dice to heal that much at once (at Rank 3 they roll their maximum). It can\'t happen again until you finish a Full Rest. It works from your GM\'s tracker too.',
-                'Squeezing: when your Large or bigger token squeezes into a smaller space (a narrow gap, a portal), you have Disadvantage on attack rolls and AGI saves until you\'re back in the open.'
+                'Squeezing: when your Large or bigger token squeezes into a smaller space (a narrow gap, a portal), you have Disadvantage on attack rolls and AGI saves until you\'re back in the open.',
+                'Brute Rank 5, Ground Strike (Actions, 3 AP, once per turn): strike the ground with a Heavy weapon, or the creature you\'re grappling. With a battle map open you place the 2-square burst around you, and every other creature on the ground in it makes an AGI save (DC 10 + your STR modifier + your Rank): 5d8 + twice your STR modifier Bludgeoning and Prone on a failure, half on a success. Strike with a Grappled creature and it takes the maximum. Martial Arts doesn\'t lower its AP.',
+                'Treasure Hunter Rank 5, Found Earlier (a button under + Add Item in your Inventory): once per Short Rest, then a Luck Point each time, produce general equipment, ammunition, or a consumable you build in the Consumable Crafter, worth up to 10 Cu × your LUC modifier (minimum 50). It\'s free, it\'s marked found in your Inventory, and it can\'t be sold (found ammo is fired first).'
             ]],
             ['Exo-Suits', [
                 'Rebuilt from the rulebook: a Base Suit costs 3,000 Currency, is worn with your armor, and holds up to 3 Integrated Systems. Suits you already own keep their systems.',
@@ -126,7 +133,9 @@
                 'Tracker cards show live AC: a player\'s Fight Defensively, Block and Mobile come from their sheet within a second, an NPC\'s from its maneuvers.',
                 '+ Wound on an NPC\'s card wounds a limb by hand, and Fatigue − / + tracks its fatigue (less AP each turn; past its limit it dies). Overexertion powers add a level for you, NPCs and players alike.',
                 'A Critical Hit on an NPC with a helmet asks whether it breaks its helmet for a normal hit; a broken helmet comes off its stat block for the fight.',
-                'Players\' actions (Block, Fight Defensively, Disengage…) show up in your dice tray and notifications.'
+                'Players\' actions (Block, Fight Defensively, Disengage…) show up in your dice tray and notifications.',
+                'Summoned creatures act immediately after their summoner, and their Tier can\'t be higher than the summoning power\'s Level (Tier 5 at most). Your NPCs\' existing summon powers over the cap still work and show a free Recraft.',
+                'A player\'s Ground Strike (Brute Rank 5) comes in like an area power: everyone in its 2-square burst makes the AGI save (NPCs from your dice tray, players their own), with the damage and Prone on a failure and half on a success. A creature they used as the weapon takes the maximum, applied on your tracker.'
             ]],
             ['Battle Maps', [
                 'Squeezing has teeth: a Large or bigger creature squeezed into a smaller space has Disadvantage on attack rolls and AGI saves, added to its rolls (NPCs in your tracker, players and companions on their sheets).',
@@ -144,7 +153,8 @@
                 'The Armor Forge says what equipping costs: Equip on NPC (X TP), and the Weapon Forge Add to NPC (X TP). Armor\'s other mods (Stealth, Athletics, lighter, heavier, Speed) now count toward its TP: 1 TP per 100 Cu they\'d cost a player, and penalties take TP off. Armor an NPC already wears keeps its old price until you forge it again.',
                 'Manufactured crits cost 3 TP (x3) and 6 TP (x4). A 3d8 weapon is 8 TP.',
                 'Powers: ranges by the square (1 XP / 5 squares, Line of Sight 15), one die size, Charmed, Can\'t Regain HP and Telekinesis, as for players. A Mythic sentient being is an NPC you run: no 3 AP summon limit, but it can\'t summon.',
-                'The Weapon Forge prices an NPC\'s dice steps, critical multipliers and properties in TP, and they stay put when you pick one. Elemental Critical sits under Elemental, and the new properties (Finesse, Quickdraw, Unwieldy, Scatter, Repeating) work for NPCs too.'
+                'The Weapon Forge prices an NPC\'s dice steps, critical multipliers and properties in TP, and they stay put when you pick one. Elemental Critical sits under Elemental, and the new properties (Finesse, Quickdraw, Unwieldy, Scatter, Repeating) work for NPCs too.',
+                'End a Power ends powers of an equal or lower Level.'
             ]],
             ['Tracker', [
                 'Tearing raises a hit to at least 2 damage per damage die, after DR/ER (and an area attack\'s misses take it too).',

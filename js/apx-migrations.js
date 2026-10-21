@@ -67,6 +67,11 @@
             { id: 'oneDieStep', test: d => (window.POWER_DIE_STEPS || ['d4', 'd6', 'd8', 'd10', 'd12']).filter(s => ((d.dmg || {})[s] || 0) > 0).length > 1,
               text: 'A power now uses one die size for its damage or healing (no more mixing, like 4d4 + 2d6). It still works as it is; rebuild it (free) to pick one die size.' }
         ],
+        // Summon a Creature: the creature's Tier can't be higher than the power's Level (Tier 5 at most)
+        10: [
+            { id: 'summonTierLevel', test: d => { let n = ((d.utility || {}).major || {}).summonCreature || 0; if (!n || typeof window.pcCalcXP !== 'function') return false; let t = parseInt(d.summonTier) || 1; return t > 5 || t > window.pcCalcXP(d).level; },
+              text: 'A summoned creature\'s Tier can\'t be higher than the power\'s Level now (Tier 5 at most). This power still works as it is; rebuild it (free) to bring its creature\'s Tier in line.' }
+        ],
         // Saving throws name their Core Attribute; lasting effects get an Escape Save the target can pass
         3: ['save', 'cond', 'escape', 'actionInt'].map(k => ({
             id: 'powerSaves_' + k,
@@ -271,7 +276,9 @@
             if (!stacks.length) return;
             let keep = stacks[0];
             let rounds = stacks.reduce((t, i) => t + (parseInt(i.ct) || 0), 0);
+            let found = stacks.reduce((t, i) => t + (parseInt(i.noSellCt) || 0), 0);   // (rounds found with Treasure Hunter: can't be sold)
             keep.name = base; keep.ct = rounds;
+            if (found) keep.noSellCt = Math.min(rounds, found); else delete keep.noSellCt;
             keep.wt = g.wt / 20; keep.val = g.cost / 20;
             s.items = s.items.filter(i => i === keep || !stacks.includes(i));
         });

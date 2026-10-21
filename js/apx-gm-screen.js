@@ -1792,6 +1792,11 @@ async function _gmGrappleEvent(uid, ev) {
         else gmLog({ text: `${who} escapes a grapple.`, kind: 'info', force: true });
     } else if (ev.action === 'release') {
         let t = _gmEntryById(me.grappling); if (t) _gmEndGrapple(t, `${who} lets go`);
+    } else if (ev.action === 'slam') {
+        // Brute Rank 5: the Grappled creature used to strike the ground takes the maximum damage (DR/ER still apply)
+        let t = _gmEntryById(me.grappling);
+        if (t && ev.total != null) _gmDamage(t, { raw: parseInt(ev.total) || 0, types: ['Bludgeoning'], hit: null, src: `${me.name}'s Ground Strike (used as the weapon)` });
+        else gmLog({ text: `${who} slams the creature they're grappling into the ground: ${ev.total} Bludgeoning.`, kind: 'info', force: true });
     } else if (ev.action === 'choke') {
         let t = _gmEntryById(me.grappling);
         if (t && ev.total != null) _gmDamage(t, { raw: parseInt(ev.total) || 0, types: ['Bludgeoning'], hit: null, src: `${me.name}'s Choke`, nonlethal: !!ev.nonlethal, bypassRes: true });   // (a Choke ignores DR, ER and resistances)

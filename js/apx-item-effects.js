@@ -147,7 +147,7 @@
     window.apxItemStackKey = function (it) {
         if (!it) return '';
         let c = JSON.parse(JSON.stringify(it));
-        delete c.ct; delete c.equipped; delete c.id;
+        delete c.ct; delete c.equipped; delete c.id; delete c.noSellCt;   // (how many of a stack can't be sold isn't what the item is)
         if (c.isConsumable) delete c.chargesRemaining;
         if (c.weaponData) ['tr', 'aimed', 'twoHanded', 'hands', 'hand'].forEach(f => delete c.weaponData[f]);
         if (c.armorData) {
@@ -205,6 +205,7 @@
     window.apxTakeOne = function (item) {
         let st = window.state; if (!st || !item) return;
         let i = (st.items || []).indexOf(item); if (i < 0) return;
+        if (item.noSellCt > 0) item.noSellCt -= 1;   // (an item found with Treasure Hunter goes first)
         let n = (parseInt(item.ct) || 1) - 1;
         if (n <= 0) st.items.splice(i, 1); else item.ct = n;
     };

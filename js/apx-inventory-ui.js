@@ -377,9 +377,12 @@
         // Discard removes the whole stack for nothing. Both close the
         // detail popup since the item they were inspecting may no longer
         // exist afterward.
+        // Items found with Treasure Hunter (item.noSellCt of the stack) can't be sold
+        let sellable = item => Math.max(0, (item.ct || 1) - Math.min(item.ct || 1, parseInt(item.noSellCt) || 0));
         window.sellItem = function(idx) {
             let item = window.state.items[idx];
             if (!item) return;
+            if (!sellable(item)) { window.APXDice?.notify(`${item.name} was found with Treasure Hunter: items found that way can't be sold.`, { kind: 'warn', open: true }); return; }
             if ((item.ct || 1) <= 1) {
                 let payout = Math.floor((item.val || 0) / 2);
                 window.showConfirm(`Sell ${item.name} for ${payout} Currency?`, () => {
@@ -397,22 +400,24 @@
             document.getElementById('sellQtyItemName').innerText = item.name;
             document.getElementById('sellQtyMax').innerText = item.ct;
             let qtyInput = document.getElementById('sellQtyInput');
-            qtyInput.value = item.ct;
-            qtyInput.max = item.ct;
+            qtyInput.value = sellable(item);
+            qtyInput.max = sellable(item);
+            document.getElementById('sellQtyMax').innerText = sellable(item) + (sellable(item) < item.ct ? ` (${item.ct - sellable(item)} found with Treasure Hunter can't be sold)` : '');
             window.updateSellQtyPayout();
             window.openModal('sellQuantityModal');
         };
         window.updateSellQtyPayout = function() {
             let item = window.state.items[window._sellQtyIdx];
             if (!item) return;
-            let qty = Math.max(1, Math.min(item.ct, parseInt(document.getElementById('sellQtyInput').value) || 1));
+            let qty = Math.max(1, Math.min(sellable(item), parseInt(document.getElementById('sellQtyInput').value) || 1));
             document.getElementById('sellQtyPayout').innerText = Math.floor((item.val || 0) * qty / 2);
         };
         window.confirmSellQuantity = function() {
             let idx = window._sellQtyIdx;
             let item = window.state.items[idx];
             if (!item) return;
-            let qty = Math.max(1, Math.min(item.ct, parseInt(document.getElementById('sellQtyInput').value) || 1));
+            if (!sellable(item)) return;
+            let qty = Math.max(1, Math.min(sellable(item), parseInt(document.getElementById('sellQtyInput').value) || 1));
             let payout = Math.floor((item.val || 0) * qty / 2);
             window.state.currency = (window.state.currency || 0) + payout;
             if (qty >= item.ct) {
@@ -494,6 +499,86 @@
             payOrGrantCallback = null;
             window.closeModal('payOrGrantModal');
             if (cb) cb(paid);
+        };
+
+        // ── Treasure Hunter Rank 5: an item you "found earlier" ──
+        // Once per Short Rest (then a Luck Point each time): general equipment, ammunition or a consumable worth up
+        // to 10 Cu x your LUC modifier (minimum 50). It's free, and it can't be sold (item.noSellCt).
+        window.apxFoundEarlierCap = function () { let m = (typeof calc !== 'undefined' && calc.mods) ? (calc.mods.LUC || 0) : 0; return Math.max(50, 10 * m); };
+        let foundStash = item => {
+            let n = Math.max(1, parseInt(item.ct) || 1), it = Object.assign({}, item); delete it.noSellCt;
+            let res = window.apxStashItem ? window.apxStashItem(it) : (window.state.items.push(it), it);
+            if (/^(Light|Medium|Heavy) Ammo$/.test(res.name || '')) { window.apxNormalizeAmmo?.(window.state); res = window.state.items.find(i => i.name === res.name && !i.isConsumable) || res; }
+            res.noSellCt = Math.min(parseInt(res.ct) || n, (parseInt(res.noSellCt) || 0) + n);
+            return res;
+        };
+        window.apxFoundEarlier = async function () {
+            let st = window.state; if (!st) return;
+            if (((st.perks || {}).luc_treasurehunter || 0) < 5) return;
+            let cap = window.apxFoundEarlierCap();
+            let luck = !!st.thFoundUsed;
+            if (luck) {
+                if ((st.luckPts || 0) <= 0) { window.APXDice?.notify('You\'ve found your item this Short Rest, and you have no Luck Points to find another.', { kind: 'warn', open: true }); return; }
+                let ok = window.apxConfirm ? await window.apxConfirm(`You've already found something this Short Rest. Spend a Luck Point (you have ${st.luckPts}) to find another?`, { title: 'Found Earlier', okLabel: 'Spend a Luck Point' }) : true;
+                if (!ok) return;
+            }
+            let done = (what, item) => {
+                let s = window.state;
+                if (luck) { s.luckPts = Math.max(0, (s.luckPts || 0) - 1); let li = document.getElementById('luckPtsInput'); if (li) li.value = s.luckPts; } else s.thFoundUsed = true;
+                foundStash(item);
+                window.recalculateMath(); window.scheduleAutoSave?.();
+                window.APXDice?.notify(`Found earlier: ${what}${luck ? ' (1 Luck Point spent)' : ''}. It can't be sold.`, { kind: 'note', open: true });
+                try { window.apxOnRollEvent?.({ id: 'th' + Date.now().toString(36), kind: 'action', label: 'Found Earlier', text: `${s.name || 'A player'} reaches into their bag and produces ${what}, found earlier (Treasure Hunter).` }); } catch (e) { }
+            };
+            document.getElementById('apxFoundPop')?.remove();
+            let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+            let gear = (typeof ADVENTURING_GEAR !== 'undefined' ? ADVENTURING_GEAR : []).filter(g => g.cat !== 'Ammo' && g.cost <= cap);
+            let ammo = (typeof ADVENTURING_GEAR !== 'undefined' ? ADVENTURING_GEAR : []).filter(g => g.cat === 'Ammo').map(g => ({ g, name: g.stack || g.name.replace(/\s*\(20\)\s*$/, ''), per: g.cost / 20, max: Math.floor(cap / (g.cost / 20)) }));
+            let back = document.createElement('div');
+            back.id = 'apxFoundPop';
+            back.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(2,6,23,.6);display:flex;align-items:center;justify-content:center;padding:12px';
+            let btn = 'background:#b45309;border:1px solid #f59e0b;color:#fff;border-radius:.3rem;padding:.15rem .5rem;font-size:.68rem;font-weight:800;cursor:pointer';
+            let inp = 'background:#1e293b;border:1px solid #334155;border-radius:.3rem;color:#e2e8f0;font-size:.72rem;padding:.2rem .35rem';
+            back.innerHTML = `<div style="width:min(520px,100%);max-height:90vh;overflow:auto;background:#0f172a;border:1px solid #b45309;border-radius:.7rem;padding:.9rem;color:#e2e8f0;box-shadow:0 20px 60px rgba(0,0,0,.6)">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem"><div><div style="font-size:.62rem;font-weight:900;text-transform:uppercase;color:#fcd34d">Treasure Hunter · Rank 5</div>
+                <div style="font-size:1rem;font-weight:900">Found Earlier</div>
+                <div style="font-size:.7rem;color:#94a3b8;line-height:1.35">Reach into your bag for something non-unique that fits the container, worth up to <b style="color:#facc15">${cap} Cu</b> (10 × your LUC modifier, minimum 50). It's free, and it can't be sold. ${luck ? '<b style="color:#fca5a5">This one costs a Luck Point.</b>' : 'Once per Short Rest; after that, a Luck Point each time.'}</div></div>
+                <button data-x style="background:none;border:0;color:#94a3b8;font-size:1.05rem;cursor:pointer">✕</button></div>
+                <div style="font-size:.7rem;font-weight:900;margin:.6rem 0 .25rem;color:#fcd34d">General equipment</div>
+                <div style="display:flex;flex-direction:column;gap:.2rem;max-height:30vh;overflow:auto">${gear.map((g, i) => `<div style="display:flex;align-items:center;gap:.4rem;border:1px solid #334155;border-radius:.35rem;padding:.2rem .4rem;background:#0b1220"><div style="flex:1;font-size:.72rem"><b>${esc(g.name)}</b> <span style="color:#94a3b8">(${g.cost} Cu, ${g.wt} lb)</span></div><button data-gear="${i}" style="${btn}">Find</button></div>`).join('') || '<div style="font-size:.66rem;color:#94a3b8">Nothing that cheap.</div>'}</div>
+                <div style="font-size:.7rem;font-weight:900;margin:.6rem 0 .25rem;color:#fcd34d">Ammunition</div>
+                ${ammo.map((a, i) => `<div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.2rem;font-size:.72rem"><b style="flex:1">${esc(a.name)}</b><input data-ammo-n="${i}" type="number" min="1" max="${a.max}" value="${a.max}" style="${inp};width:64px"> <span style="color:#94a3b8">rounds (up to ${a.max})</span><button data-ammo="${i}" style="${btn}">Find</button></div>`).join('')}
+                <div style="font-size:.7rem;font-weight:900;margin:.6rem 0 .25rem;color:#fcd34d">A consumable</div>
+                <div style="display:flex;align-items:center;gap:.4rem;font-size:.7rem"><span style="flex:1;color:#94a3b8">Build it in the Consumable Crafter, worth up to ${cap} Cu.</span><button data-cons style="${btn}">Consumable Crafter</button></div>
+                <div style="font-size:.7rem;font-weight:900;margin:.6rem 0 .25rem;color:#fcd34d">Something else</div>
+                <div style="display:flex;flex-wrap:wrap;align-items:center;gap:.35rem;font-size:.7rem">
+                    <input data-o-name placeholder="Item name" style="${inp};flex:1;min-width:140px">
+                    <label>Value <input data-o-val type="number" min="0" max="${cap}" value="10" style="${inp};width:60px"> Cu</label>
+                    <label>Weight <input data-o-wt type="number" min="0" step="0.25" value="1" style="${inp};width:56px"> lb</label>
+                    <button data-other style="${btn}">Find</button></div>
+            </div>`;
+            document.body.appendChild(back);
+            if (window.apxFront) try { window.apxFront(back); } catch (e) { }
+            let close = () => back.remove();
+            back.addEventListener('mousedown', e => { if (e.target === back) close(); });
+            back.querySelector('[data-x]').onclick = close;
+            back.querySelectorAll('[data-gear]').forEach(b => b.onclick = () => { let g = gear[+b.dataset.gear]; close(); done(g.name, { name: g.name, wt: g.wt, ct: 1, val: g.cost, desc: g.desc }); });
+            back.querySelectorAll('[data-ammo]').forEach(b => b.onclick = () => {
+                let a = ammo[+b.dataset.ammo], n = Math.max(1, Math.min(a.max, parseInt(back.querySelector(`[data-ammo-n="${b.dataset.ammo}"]`).value) || 1));
+                if (!a.max) return;
+                close(); done(`${n} rounds of ${a.name}`, { name: a.name, wt: a.g.wt / 20, ct: n, val: a.per, desc: a.g.desc });
+            });
+            back.querySelector('[data-cons]').onclick = () => {
+                close();
+                window.openConsumableCrafter({ player: true, label: 'Find it', cuCap: cap, capWhy: 'what Treasure Hunter can find', onMade: item => done(item.name || 'a consumable', item) });
+            };
+            back.querySelector('[data-other]').onclick = () => {
+                let name = (back.querySelector('[data-o-name]').value || '').trim();
+                let val = Math.max(0, parseFloat(back.querySelector('[data-o-val]').value) || 0), wt = Math.max(0, parseFloat(back.querySelector('[data-o-wt]').value) || 0);
+                if (!name) { window.APXDice?.notify('Name the item first.', { kind: 'warn' }); return; }
+                if (val > cap) { window.APXDice?.notify(`It's worth more than ${cap} Cu: Treasure Hunter can't find it.`, { kind: 'warn' }); return; }
+                close(); done(name, { name, wt, ct: 1, val, desc: 'Found earlier (Treasure Hunter).' });
+            };
         };
 
         window.addGearItem = function(name) {

@@ -560,7 +560,13 @@ function pcSummonBlock() {
     if (t !== null && t < 1) return 'This creature needs to be at least Tier 1 to summon (its summons can\'t be a higher Tier than it).';
     return '';
 }
-function pcSummonMaxTier() { let t = pcSummonOwnerTier(); return t === null ? 10 : Math.max(1, t); }
+// The highest Tier this power can summon: no higher than the power's own Level (each Tier above 1 adds XP, so a
+// higher Tier can lift the power to the Level it needs), never above Tier 5, and for a creature's own power its Tier
+function pcSummonMaxTier() {
+    let t = pcSummonOwnerTier(), cap = Math.min(5, t === null ? 5 : Math.max(1, t)), best = 1;
+    for (let k = 1; k <= cap; k++) { let lv = 1; try { lv = window.pcCalcXP(Object.assign({}, pcDraft, { summonTier: k })).level; } catch (e) { } if (lv >= k) best = k; }
+    return best;
+}
 // GM NPC powers: summon one of the GM's saved NPCs instead of building a new creature. Only NPCs the
 // power can summon are listed (its Tier or lower, never one that summons creatures of its own, never itself).
 function pcSummonPickable() {
@@ -964,7 +970,7 @@ function pcRenderUtilityTier(tier, label, colorClass) {
             </div>
         ` + (count > 0 && ((window.APX_POWER_COND_UTILS || {})[u.key] || u.key === 'woundOneLimb') ? pcCondPickRows(u.key, count) : '') + (u.key === 'summonCreature' && count > 0 ? `
             <div class="flex items-center justify-between bg-slate-950 border border-purple-700/60 rounded px-2 py-1.5 gap-2 ml-3">
-                <div class="flex-1 text-[10px] text-purple-200 leading-tight">Creature Tier <span class="text-slate-500">(+15 XP per Tier above 1, per creature${pcSummonOwnerTier() !== null ? `; up to this creature's own Tier, ${pcSummonMaxTier()}` : ''})</span>${pcDraft.summonNpc ? `<div class="text-emerald-400">${pcDraft.summonFromId ? 'Summons' : 'Built'}: ${String(pcDraft.summonNpc.name || 'Creature').replace(/</g, '&lt;')} <button onclick="window.pcEditSummon()" class="underline text-purple-300 hover:text-white">Edit creature</button></div>` : '<div class="text-slate-500">' + (pcSummonPickable().length ? 'Pick one of your NPCs below, or build' : 'You build') + ' the creature in the NPC Crafter when you save this power.</div>'}${pcSummonPickHtml()}</div>
+                <div class="flex-1 text-[10px] text-purple-200 leading-tight">Creature Tier <span class="text-slate-500">(+15 XP per Tier above 1, per creature; up to this power's Level${pcSummonOwnerTier() !== null ? ' and this creature\'s own Tier' : ''}: Tier ${pcSummonMaxTier()} for now)</span>${pcDraft.summonNpc ? `<div class="text-emerald-400">${pcDraft.summonFromId ? 'Summons' : 'Built'}: ${String(pcDraft.summonNpc.name || 'Creature').replace(/</g, '&lt;')} <button onclick="window.pcEditSummon()" class="underline text-purple-300 hover:text-white">Edit creature</button></div>` : '<div class="text-slate-500">' + (pcSummonPickable().length ? 'Pick one of your NPCs below, or build' : 'You build') + ' the creature in the NPC Crafter when you save this power.</div>'}${pcSummonPickHtml()}</div>
                 <div class="flex items-center gap-1 shrink-0">
                     <button onclick="window.pcSetSummonTier(-1)" class="w-5 h-5 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold">-</button>
                     <span class="w-5 text-center text-xs font-bold text-white">${pcDraft.summonTier || 1}</span>

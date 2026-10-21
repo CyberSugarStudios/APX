@@ -459,7 +459,7 @@ function ccRenderStep7() {
 function ccRenderSummary() {
     let t = window.ccCalcXP(ccDraft);
     // Its price is the limit you see: (30 XP, +5 per Artisan rank) x 5 Cu for one charge
-    document.getElementById('ccSumXp').innerText = t.firstChargeCost + ' / ' + t.maxCu + ' Cu';
+    document.getElementById('ccSumXp').innerText = t.firstChargeCost + ' / ' + t.maxCu + ' Cu' + (ccTarget && ccTarget.cuCap ? ` · total ${t.totalCost} / ${ccTarget.cuCap} Cu (${ccTarget.capWhy || 'limit'})` : '');
     document.getElementById('ccSumXp').title = `${t.total} of ${t.maxXp} XP (5 Cu per XP), for one charge`;
     { let lbl = document.getElementById('ccSumXp').previousElementSibling; if (lbl) lbl.innerText = 'Cost (1 charge)'; }
     document.getElementById('ccSumXp').className = t.overCap ? 'text-lg font-black text-red-400' : 'text-lg font-black text-white';
@@ -629,6 +629,8 @@ window.ccDetailLines = function(draft) {
 window.finishConsumableCrafter = function() {
     let t = window.ccCalcXP(ccDraft);
     if (t.overCap || ccProblems().length) { ccRenderAll(); return; }
+    // Made for something with its own price limit (Treasure Hunter's "found earlier": worth up to N Cu)
+    if (ccTarget && ccTarget.cuCap && t.totalCost > ccTarget.cuCap) { window.APXDice?.notify(`It's worth ${t.totalCost} Cu: ${ccTarget.capWhy || 'the limit'} is ${ccTarget.cuCap} Cu. Make it smaller (fewer dice, charges or utilities).`, { kind: 'warn', open: true }); return; }
 
     let name = document.getElementById('ccName').value || 'Crafted Consumable';
     let summary = ccBuildTextSummary();

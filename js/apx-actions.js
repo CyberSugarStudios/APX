@@ -24,6 +24,47 @@
         return ac;
     }
     // A worn Bandolier or Utility Belt: drawing or stowing an item on it takes half the AP
+    // Heavy weapons (and a Grappled creature, wielded as a Heavy improvised weapon at Brute Rank 1)
+    function heavyWeapons() { return (st().weapons || []).filter(w => w && w.weightClass === 'heavy'); }
+    function turnKey() { let ct = window._pwCombatTurn; return ct && ct.id ? (ct.session || '') + ':' + (ct.round || 0) + ':' + (ct.turnNo || 0) : null; }
+    function groundStrikeUsed() { let k = turnKey(); return !!(k && st().groundStrikeTurn === k); }
+    // Brute Rank 5: Ground Strike. With a battle map open, a 2-square burst around you picks who's in it; the
+    // GM's tracker rolls their AGI saves and deals the damage (half on a save, Prone on a failure)
+    async function groundStrike() {
+        let s = st(), rank = (s.perks || {}).str_brute || 0, m = mod('STR');
+        let withCreature = false;
+        if (s.grappling && window.APXDice && APXDice.ask) {
+            let hv = heavyWeapons();
+            let ans = await APXDice.ask('Ground Strike', 'Strike the ground with what?', hv.map((w, i) => ['w' + i, w.name || 'Heavy weapon', i ? '' : 'pri']).concat([['grab', 'The creature I\'m grappling (it takes the maximum)', hv.length ? '' : 'pri']]));
+            if (!ans) return false;
+            withCreature = ans === 'grab';
+        }
+        let dc = 10 + m + rank, formula = `5d8${2 * m ? (2 * m > 0 ? '+' : '') + 2 * m : ''}`, maxDmg = 40 + 2 * m;
+        let areaRes = null;
+        if (window._pwAreaMap && window.APXBattle && window.APXBattle.placeArea) {
+            let am = window._pwAreaMap(false);
+            if (am) {
+                let r = await window.APXBattle.placeArea(am.winId, { casterId: am.tokenId, label: 'Ground Strike', mode: 'burst', size: 2, range: 0, shapeLabel: '2-square Burst around you' });
+                if (r === null) return false;
+                if (r !== 'skip') areaRes = { mapId: am.mapId, tokenIds: (r.tokenIds || []).filter(id => id !== am.tokenId), safeIds: r.safeIds || [], names: r.names || [] };
+            }
+        }
+        let k = turnKey(); if (k) s.groundStrikeTurn = k;
+        let card = window.APXDice ? APXDice.damage({ label: 'Ground Strike (Brute)', who: s.name || '', formula, dmgType: 'Bludgeoning', perks: false,
+            note: `Every other creature on the ground within 2 squares: DC ${dc} AGI save, or take this damage and fall Prone (half on a save).${withCreature ? ` The creature you struck with takes ${maxDmg} (maximum).` : ''}` }) : null;
+        let total = card && Array.isArray(card.parts) ? card.parts.filter(x => x.kind === 'dmg').reduce((t, x) => t + (x.total || 0), 0) : null;
+        if (withCreature) grappleEv('slam', { total: maxDmg, text: `${s.name || 'A player'} slams the creature they're grappling into the ground: ${maxDmg} Bludgeoning (maximum).` });
+        if (window.apxOnRollEvent) {
+            let id = 'gs' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+            window.apxOnRollEvent(Object.assign({ id, kind: 'power', label: 'Ground Strike', aoe: true,
+                text: `${s.name || 'A player'} uses Ground Strike (Brute): every other creature on the ground within 2 squares makes a DC ${dc} AGI save, or takes ${total == null ? formula : total} Bludgeoning and falls Prone (half on a save).${areaRes ? ` In the area: ${areaRes.names.length ? areaRes.names.join(', ') : 'no one'}.` : ''}`,
+                dmgType: 'Bludgeoning', dice: formula, dmgTotal: total == null ? undefined : total, save: { dc, kind: 'halves', attr: 'AGI' },
+                fx: { conds: ['prone'], lasting: false, saveAttr: 'AGI', saveKind: 'halves', dc } }, areaRes ? { area: { mapId: areaRes.mapId, tokenIds: areaRes.tokenIds, safeIds: areaRes.safeIds } } : {}));
+        }
+        // it's an attack with your weapon: Fight Defensively drops to +2, Block ends
+        s.apxAttackedTurn = true; fx().forEach(e => { if (e.key === 'defensive') e.attacked = true; }); s.turnFx = fx().filter(e => e.until !== 'attack');
+        refresh();
+    }
     // Weapons with the Quickdraw property (drawn or stowed for 0 AP)
     function quickdrawWeapons() { return (st().weapons || []).filter(w => w && w.properties && w.properties.quickdraw); }
     function wornBelt() { return (st().items || []).find(i => i && i.storageWorn && /bandolier|utility belt/i.test(i.name || '')) || null; }
@@ -38,7 +79,7 @@
     function oneDie(formula) { let m = String(formula).match(/d(\d+)/); return m ? +m[1] : 6; }
     function rollDie(sides) { return window.APXDice && window.APXDice.rnd ? window.APXDice.rnd(sides) : 1 + Math.floor(Math.random() * sides); }
     // Martial Arts Rank 1: combat maneuvers cost 1 AP less (minimum 1)
-    function maneuverCost(a, c) { if (a.g !== 'Combat Maneuvers' || !c) return c; return ((st().perks || {}).str_martialarts || 0) >= 1 ? Math.max(1, c - 1) : c; }
+    function maneuverCost(a, c) { if (a.g !== 'Combat Maneuvers' || !c || a.perk) return c; return ((st().perks || {}).str_martialarts || 0) >= 1 ? Math.max(1, c - 1) : c; }
     function prowess() { return (st().perks || {}).str_meleeprowess || 0; }
     // A combat maneuver that is itself a STR melee attack (Shove, Shield Bash): rolled now, and it counts as an
     // attack (Fight Defensively drops to +2, Block ends). Melee Prowess R3/R4 apply when melee is set.
@@ -241,6 +282,10 @@
         { g: 'Combat Maneuvers', name: 'Shield Bash', cost: 3, tip: 'With a shield: a STR melee attack; on a hit, Bludgeoning damage equal to your STR score and the target is Staggered until your next turn.',
             requires: () => shieldAc() ? '' : 'You need a shield equipped.',
             auto: () => { let s = (typeof calc !== 'undefined' && calc.scores && calc.scores.STR) || 0; return maneuverAttack('Shield Bash', `Hit: ${s} Bludgeoning damage and the target is Staggered until your next turn`); } },
+        { g: 'Combat Maneuvers', name: 'Ground Strike (Brute)', cost: 3, tip: 'Brute Rank 5, once per turn: strike the ground with a Heavy weapon (or the creature you\'re grappling). Every other creature on the ground within 2 squares makes an AGI save (DC 10 + your STR modifier + 5) or takes 5d8 + twice your STR modifier Bludgeoning damage and falls Prone; half damage on a save. A Grappled creature you strike with takes the maximum.',
+            perk: true, hidden: () => ((st().perks || {}).str_brute || 0) < 5,   // (a perk's own action: Martial Arts doesn't make it cheaper)
+            requires: () => groundStrikeUsed() ? 'Already used this turn.' : (heavyWeapons().length || st().grappling) ? '' : 'You need a Heavy weapon (or a creature you\'re grappling).',
+            auto: () => groundStrike() },
         { g: 'Combat Maneuvers', name: 'Disengage', cost: 2, tip: 'Your movement doesn\'t provoke attacks of opportunity until the end of your turn.',
             auto: () => addFx({ key: 'disengage', label: 'Disengage', short: 'Disengaged', until: 'turn', desc: 'Your movement doesn\'t provoke attacks of opportunity this turn.' }) },
         { g: 'Combat Maneuvers', name: 'Power Attack', cost: 2, extra: '+ attack', tip: 'Declare before your next melee attack (it also costs its own AP): on a hit, add your STR modifier to the damage.',
@@ -368,7 +413,7 @@
         pop.innerHTML = `<div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.35rem"><b style="flex:1;font-size:.85rem">Actions</b><span style="font-size:.7rem;color:var(--c-text-muted,#94a3b8)">You have <b style="color:#60a5fa">${have}</b> AP</span><button data-x style="background:none;border:none;color:var(--c-text-muted,#94a3b8);font-weight:900;cursor:pointer">✕</button></div>`
             + `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:.6rem;align-items:start">`
             + groups.map(g => `<div><div style="font-size:.62rem;font-weight:900;text-transform:uppercase;letter-spacing:.05em;color:var(--c-indigo-lt,#a5b4fc);margin:.2rem 0 .2rem">${g}</div>`
-                + A.filter(a => a.g === g).map((a, i) => {
+                + A.filter(a => a.g === g && !(a.hidden && a.hidden())).map((a, i) => {
                     let c = costOf(a);
                     let lbl = a.costLabel || (c == null ? 'X' : String(c)) + (a.extra ? ' ' + a.extra : '');
                     let why = a.requires ? a.requires() : '';

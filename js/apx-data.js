@@ -672,7 +672,7 @@
             ],
             major: [
                 { key: "dmgHeals", label: "Step 4 damage also heals you or another target for half (rounded down).", cost: 30 },
-                { key: "dispel", label: "End an ongoing Power of lower level affecting the target (Reaction: prevent it from being used).", cost: 30 },
+                { key: "dispel", label: "End an ongoing Power of an equal or lower level affecting the target (Reaction: prevent it from being used).", cost: 30 },
                 { key: "invisible", label: "Turn the target Invisible.", cost: 30 },
                 { key: "condInflictMajor", label: "Inflict or end Stunned, Paralyzed, or Unconscious.", cost: 30, rep: true },
                 { key: "fatigueZeroWoundAll", label: "Reduce Fatigue to zero, or end the Wounded condition on all limbs.", cost: 30 },
@@ -680,7 +680,7 @@
                 { key: "memory", label: "Alter, erase, read, or implant a memory in the target's mind.", cost: 30 },
                 { key: "ethereal", label: "Turn the target Ethereal/Intangible -- passes through objects, immune to non-Energy damage.", cost: 30 },
                 { key: "dmgImmunity", label: "Grant the target complete immunity to one specific damage type.", cost: 30 },
-                { key: "summonCreature", label: "Summon a creature (NPC Tier 1) to fight under your control; +15 XP per additional Tier.", cost: 30, rep: true }
+                { key: "summonCreature", label: "Summon a creature (NPC Tier 1) to fight under your control; +15 XP per additional Tier, up to a Tier equal to this power's Level. It acts immediately after you in Initiative.", cost: 30, rep: true }
             ],
             master: [
                 { key: "massTeleport", label: "Teleport yourself and any number of willing creatures to a known/visible location.", cost: 50 },

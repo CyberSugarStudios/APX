@@ -36,7 +36,7 @@
                 "Rank 2. Not Staggered while you grapple a creature. 2 AP to end a grapple by throwing the target.",
                 "Rank 3. Range of thrown/improvised weapons doubled.",
                 "Rank 4. Moving in straight line can auto-break doors/windows, knock enemies Prone.",
-                "Rank 5. 3 AP: Strike ground with Heavy weapon. 2-sq radius AGI save or take STR damage and fall Prone."
+                "Rank 5. Once/turn, 3 AP: strike the ground with a Heavy weapon. Creatures on the ground within 2 sq: AGI save (DC 10 + STR mod + Rank) or 5d8 + 2x STR mod Bludgeoning and Prone (half on a save). A Grappled creature used for it takes maximum damage."
             ], effect: (c, r) => { c.skills.Athletics = (c.skills.Athletics||0)+r; c.sizeMultBoost += 1; } },
 
             // AGI PERKS
@@ -262,7 +262,7 @@
                 "Rank 2. Find bonus Currency = Loot roll result. Crit finds double.",
                 "Rank 3. Crit Loot finds map/note to hidden stash.",
                 "Rank 4. Spend Luck Points to find extra Crafting Materials.",
-                "Rank 5. Once/session: Miraculously pull needed mundane item from bag."
+                "Rank 5. Once/Short Rest (or spend a Luck Point): produce an item you 'found earlier' worth up to 10 Cu x LUC mod (min 50): gear, ammo or a consumable. Can't be sold."
             ], effect: (c, r) => { c.skills.Loot = (c.skills.Loot||0)+r; } },
             { id: "luc_fortunatefighter", name: "Fortunate Fighter", attr: "LUC", max: 5, baseDesc: "Luck keeps you alive.", ranks: [
                 "Rank 1. When determining your AC, you may replace your AGI with your LUC. (The sheet uses whichever is higher.)",
