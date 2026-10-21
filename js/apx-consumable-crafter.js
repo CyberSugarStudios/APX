@@ -549,10 +549,25 @@ window.ccBuildTextSummary = ccBuildTextSummary;
 // A consumable as a power its Use button can run (js/apx-engine.js apxUsePower): a flat 3 AP, no Power Slot,
 // one charge. Its attack and DC are your attribute modifier (+ training for the attack; 10 + it for the DC),
 // like an Ancestry Trait's power: an item doesn't run on your Power perks.
+// Medical: a consumable that heals, or ends a Condition (Bleeding Out, Wounded, Fatigue, Diseased…). Medic Rank 1
+// takes 1 AP off using one (min 1). Worked out from what it does, so items made before this count too.
+window.ccIsMedical = function(draft) {
+    if (!draft) return false;
+    let dice = ['d4', 'd6', 'd8', 'd10', 'd12'].reduce((t, k) => t + (parseInt((draft.dmg || {})[k]) || 0), 0);
+    if (draft.isHealing && dice > 0) return true;
+    let u = draft.utility || {}, has = (tier, key) => ((u[tier] || {})[key] || 0) > 0;
+    if (has('minor', 'endBleedInfect') || has('minor', 'tempHp5') || has('moderate', 'fatigueDisease') || has('major', 'fatigueZeroWoundAll') || has('major', 'dmgHeals')) return true;
+    let picks = draft.condPicks || {};
+    if (Object.keys(picks).some(k => picks[k] && picks[k].mode === 'end')) return true;
+    return false;
+};
 window.ccPowerOf = function(item) {
     if (!item || !item.isConsumable || !item.draft) return null;
     let s; try { s = ccBuildTextSummary(Object.assign(getBlankConsumableDraft(), JSON.parse(JSON.stringify(item.draft)))); } catch (e) { console.warn('Consumable:', e.message); return null; }
-    let out = { name: item.name || 'Consumable', lvl: 'Item', ap: 3, atk: s.atk, rng: s.rng, dmg: s.dmg, desc: item.desc || s.desc, draft: item.draft, consumable: true };
+    let out = { name: item.name || 'Consumable', lvl: 'Item', ap: 3, atk: s.atk, rng: s.rng, dmg: s.dmg, desc: item.desc || s.desc, draft: item.draft, consumable: true, medical: window.ccIsMedical(item.draft) };
+    // Medic Rank 1: Medical items cost 1 AP less to use (min 1)
+    let medic = window.state && window.apxPerkRank ? window.apxPerkRank(window.state, 'int_medic') : (((window.state || {}).perks || {}).int_medic || 0);
+    if (out.medical && medic >= 1) { out.ap = Math.max(1, out.ap - 1); out.medicAp = true; }
     // Ammunition: fired from a ranged weapon of its ammo type, with that weapon's AP, range and attack roll
     // (its effects land on a hit, on top of the weapon's damage: a Martial Improvement on that weapon)
     if (item.draft.step2 === 'ammo') {

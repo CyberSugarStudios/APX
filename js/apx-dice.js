@@ -386,8 +386,10 @@
         tray.open = force === undefined ? !tray.open : !!force;
         tray.el.classList.toggle('open', tray.open);
         if (tray.open) tray.fab.classList.remove('unseen');
-        if (tray.open) refreshPerkBar();
+        if (tray.open) { refreshPerkBar(); raise(); }
     }
+    // Something new in the tray: it comes in front of any other window (when it's open)
+    function raise() { if (tray.open && tray.el && window.apxFront) { try { window.apxFront(tray.el); } catch (e) { } } }
 
     // Omen dice strip + exploding toggle (only when the sheet has those perks)
     function refreshPerkBar() {
@@ -557,7 +559,7 @@
 
     function addCard(c) {
         build();
-        if (!tray.open) toggle(true);
+        if (!tray.open) toggle(true); else raise();
         let empty = tray.log.querySelector('.apxd-empty'); if (empty) empty.remove();
         cards.unshift(c);
         renderCard(c, true);
@@ -807,8 +809,9 @@
             if ((o.disSources || []).length || o.adv === 'dis') list.push('dis');
             let mode = combineMode(list, gamble ? 'dis' : null);
             let r = d20(mode);
-            let atk = { kind: 'd20', title: 'Attack', r, bonus: o.bonus || 0, origMode: mode, critOn: critOnOf(o) };
+            let atk = { kind: 'd20', title: 'Attack', r, bonus: o.bonus || 0, origMode: mode, critOn: critOnOf(o), forceCrit: !!o.forceCrit };   // (forceCrit: Ambusher Rank 5, ticked before the roll)
             settleD20(atk);
+            let dst0 = o.forceCrit ? { ambCrit: true } : null;
             let explode = usePerks && tray.explodeNext && hr >= 5 && !S().hrExplodeUsed;
             if (explode) { S().hrExplodeUsed = true; tray.explodeNext = false; refreshPerkBar(); }
             let critMult = o.critMult || 2;
@@ -828,6 +831,7 @@
             // The page hears about every attack (and every change to it): the GM Tools use it to know
             // who just attacked with what, so a hit applies the weapon's properties to the right target.
             let tell = () => { if (typeof window.apxOnAttackRoll === 'function') { try { window.apxOnAttackRoll(o, { id: c.id, nat: atk.nat, total: atk.total, crit: !!atk.crit, fumble: !!atk.fumble, dmg: dmg.total + extra.reduce((t, x) => t + (x.p.total || 0), 0), dmgParts: extra.length ? [{ type: o.split[0].type, dmg: dmg.total }].concat(extra.map(x => ({ type: x.sp.type, dmg: x.p.total }))) : undefined, bonus: atk.bonus || 0,
+                critIfHit: !!(atk.crit && atk.forceCrit && atk.nat < Math.min(20, atk.critOn || 20)) || undefined,   // (a crit from Ambusher / Fortunate Fighter: only if the total hits)
                 critExtra: atk.crit && dmg.roll ? dmg.roll.groups.filter(g => g.crit).reduce((t, g) => t + g.sign * g.dice.reduce((a, d) => a + dieSum(d), 0), 0) : 0 }); } catch (e) { console.warn('Attack hook:', e); } } };
             let settleDmg = () => {
                 dmg.crit = atk.crit; dmg.none = atk.fumble;
@@ -869,6 +873,8 @@
                 if (o.useNote) c.badges.push([o.useWarn ? 'fum' : 'info', o.useNote]);
                 if (atk.swapNote) c.badges.push(['info', atk.swapNote]);
                 if (dst.ffCrit) c.badges.push(['crit', 'Fortunate Fighter: Luck Point spent, a hit is a critical hit']);
+                if (dst.ambCrit || (dst0 && dst0.ambCrit)) c.badges.push(['crit', 'Ambusher: 2 AP spent, a hit from stealth is a Critical Hit']);
+                if (o.fromStealth) c.badges.push(['info', 'Ambusher: from stealth or against an unaware target' + ((o.ambushRank || 0) >= 2 ? ' (a hit Staggers it' + ((o.ambushRank || 0) >= 3 ? ' and ignores DR and ER' : '') + ')' : '')]);
             };
             let extraActs = () => {
                 let acts = [];
@@ -889,6 +895,13 @@
                             let li = document.getElementById('luckPtsInput'); if (li) li.value = st.luckPts;
                         } });
                 }
+                // Ambusher Rank 5: a hit from stealth can be made a Critical Hit for 2 AP (after the roll)
+                if (usePerks && perk('agi_ambusher') >= 5 && o.pcAttack && !o.companion && !atk.crit && !atk.fumble && !dst.ambCrit && typeof window.apxSpendAp === 'function')
+                    acts.push({ label: 'Ambusher: crit (2 AP)', cls: 'luck', title: 'Ambusher Rank 5: you hit a creature from stealth, so spend 2 AP to turn the hit into a Critical Hit', run: () => {
+                        let have = window.apxApCurrent ? window.apxApCurrent() : 2;
+                        if (have < 2 && !window.confirm(`Ambusher costs 2 AP and you have ${have}. Make it a Critical Hit anyway?`)) return;
+                        window.apxSpendAp(Math.min(2, have)); atk.forceCrit = true; dst.ambCrit = true; settleD20(atk); redo(); save(); refreshAllActions();
+                    } });
                 if (dst.confirm && !dst.maxed) acts.push({ label: 'It hit: max damage', cls: 'luck', title: 'The second attack roll hit: deal maximum critical damage', run: () => { dst.maxed = true; redo(); } });
                 if (gamble && hr >= 4 && !atk.fumble && !dst.apGained && typeof window.apxSetApValue === 'function') acts.push({ label: 'Gamble hit: +1 AP', cls: 'luck', title: 'High Roller Rank 4: landing a Gamble gives you 1 AP', run: () => {
                     dst.apGained = true; window.apxSetApValue((window.apxApCurrent ? window.apxApCurrent() : 0) + 1); redo();
@@ -975,13 +988,15 @@
             let s = parseInt(String(o.dieStep || 'd6').replace(/\D/g, ''), 10) || 6;
             let pairs = [], total = 0;
             for (let i = 0; i < (o.count || 1); i++) {
-                let a = rnd(s);
-                if (o.wellRested) { let b = rnd(s); pairs.push([a, b]); total += Math.max(a, b); }
+                let a = o.max ? s : rnd(s);   // (max: Vitality Rank 3, healing dice roll their maximum)
+                if (o.wellRested && !o.max) { let b = rnd(s); pairs.push([a, b]); total += Math.max(a, b); }
                 else { pairs.push([a]); total += a; }
             }
-            total += (o.flat || 0) * (o.count || 1);
-            let c = { label: o.label || 'Rest Dice', who: o.who, parts: [{ kind: 'best', title: 'Rest', pairs, s, flat: (o.flat || 0) * (o.count || 1), total }], badges: o.wellRested ? [['info', 'Well Rested: rolled twice, kept highest']] : [] };
+            total += (o.flat || 0) * (o.count || 1) + (o.bonus || 0);
+            let c = { label: o.label || 'Rest Dice', who: o.who, parts: [{ kind: 'best', title: 'Rest', pairs, s, flat: (o.flat || 0) * (o.count || 1) + (o.bonus || 0), total }], badges: o.wellRested ? [['info', 'Well Rested: rolled twice, kept highest']] : [] };
             if (o.note) c.badges.push(['info', o.note]);
+            if (o.max) c.badges.push(['info', 'Vitality: healing dice roll their maximum']);
+            if (o.bonus) c.badges.push(['info', o.bonusWhy || `+${o.bonus}`]);
             addCard(c);
             return total;
         },
@@ -1218,7 +1233,7 @@
             let old = cards.splice(i, 1)[0]; old.el?.remove(); if (old.log) delete logCards[old.log.id];
         }
         pinAsks();
-        if (!tray.open) tray.fab.classList.add('unseen');
+        if (!tray.open) tray.fab.classList.add('unseen'); else raise();
     };
     APXDice.hasLogEntry = id => !!logCards[id];
     // Notifications go in the same list (only on this device). open: pop the tray open
@@ -1227,7 +1242,7 @@
         opts = opts || {};
         let e = { id: opts.id || ('n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)), t: Date.now() + 1, text: String(text ?? ''), kind: opts.kind || 'note' };
         APXDice.logEntry(e);
-        if (opts.open && !tray.open) toggle(true);
+        if (opts.open && !tray.open) toggle(true); else raise();
         return e.id;
     };
     APXDice.css = css;

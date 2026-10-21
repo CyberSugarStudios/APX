@@ -11,11 +11,11 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.20.2314',
-        released: '2026-10-20T23:14:00',
-        releasedText: 'October 20, 2026 · 11:14 PM',
+        version: 'v2026.10.21.0432',
+        released: '2026-10-21T04:32:00',
+        releasedText: 'October 21, 2026 · 4:32 AM',
         title: 'Playtest 4: Maneuvers, Gear & Burdens',
-        intro: 'Straight from our fourth playtest: NPCs and companions get the full list of maneuvers and actions, Loyal Companions can carry your gear, and carrying too much finally weighs you down. Squeezing costs what it should, and Vitality\'s top rank keeps you on your feet. Since then: NPC maneuvers roll themselves, five new weapon properties (two of them fire into an area), readable buttons in every theme, Exo-Suits rebuilt in three frameworks, including the new Conduit, Keen, Parrying and Suppressed weapons, summons that mix Tiers, creatures your GM shares for summoning, and now Summon a Weapon built in the Power Crafter, perks you can take back a rank at a time, and character files that show when they\'ve been edited.',
+        intro: 'Straight from our fourth playtest: NPCs and companions get the full list of maneuvers and actions, Loyal Companions can carry your gear, and carrying too much finally weighs you down. Squeezing costs what it should, and Vitality\'s top rank keeps you on your feet. Since then: NPC maneuvers roll themselves, five new weapon properties (two of them fire into an area), readable buttons in every theme, Exo-Suits rebuilt in three frameworks, including the new Conduit, Keen, Parrying and Suppressed weapons, summons that mix Tiers, creatures your GM shares for summoning, and now Summon a Weapon built in the Power Crafter, perks you can take back a rank at a time, character files that show when they\'ve been edited, and now powers that apply their numbers for you, summons you place and command from their own window, and Ambusher, Charge, Relentless and Regenerative working as written.',
         index: [
             ['Combat', [
                 'NPCs, summoned creatures and Loyal Companions have an Actions button with every Combat Maneuver and Standard Action, spending their own AP. Fight Defensively, Fight Offensively and next-attack maneuvers change their rolls (and AC) until their next turn.',
@@ -25,7 +25,12 @@
                 'NPC maneuvers roll themselves (Grapple, Pin, Escape, Feint, Vault, Shove, Shield Bash), and NPCs can Recover with Shake It Off and Shrug It Off. Fight Offensively gives attacks against the creature Advantage, and Fight Defensively is +2 once it has attacked.',
                 'The GM\'s tracker shows live AC (Fight Defensively, Block, Mobile), NPC helmets can break on a Critical Hit, and NPCs take wounds by hand and gain fatigue (Overexertion adds it for you).',
                 'Melee Prowess, Mobile and Flurry work as written: Prowess removes a maneuver\'s Disadvantage (Rank 3) and adds Advantage (Rank 4), Mobile adds AC when you move, and the Flurry perk and the Flurry weapon property are told apart.',
-                'Brute Rank 5 is reworked into Ground Strike: 5d8 + twice your STR modifier and Prone in a 2-square burst (DC 10 + STR modifier + Rank), half on a save, resolved on the battle map.'
+                'Brute Rank 5 is reworked into Ground Strike: 5d8 + twice your STR modifier and Prone in a 2-square burst (DC 10 + STR modifier + Rank), half on a save, resolved on the battle map.',
+                'Powers apply their numbers for you: +1 AC, +2 DR or ER, Temporary HP, Speed, +1 to a roll, AP, a Fly / Swim / Climb speed, Immunity and more land on the target you pick (or everyone in the area), on sheets and on the GM\'s tracker alike.',
+                'Summoned creatures join the initiative right after their summoner on their own, appear where you place them within the power\'s range, and move with you like a Loyal Companion. A Your Summons window tracks their HP, AP and Conditions and rolls their attacks.',
+                'Ambusher, Charge, Relentless, Medic, Regenerative and Melee Prowess (with thrown weapons) work as written, and Ambusher\'s Rank 5 crit is in the attack\'s AP window and on the roll.',
+                'An NPC that wins a Grapple, Pin or Shove asks the GM who it grabbed, and a player\'s sheet gets the Condition.',
+                'Overexertion gives its Fatigue when the power ends, for players and NPCs alike.'
             ]],
             ['Gear', [
                 'Overburdened rules apply: carrying more than your capacity drops you to Speed 1 with Disadvantage on every attack, check and save.',
@@ -39,7 +44,11 @@
             ['Your Screen', [
                 'Pickers and pop-ups always open on top of what they\'re changing: the NPC Crafter\'s Condition and Damage Immunities no longer hide behind it, and the same goes for every other picker, panel and prompt.',
                 'Button text stays readable in every theme, hovered or not.',
-                'The battle map\'s Add Token list stays open, so you can add several tokens in a row.'
+                'The battle map\'s Add Token list stays open, so you can add several tokens in a row.',
+                'The dice and notifications tray comes to the front when something new arrives.',
+                'Add Token on a battle map has search, Tier and sort filters (this world\'s NPCs by default), and offers to add the token to initiative during combat. Smaller tokens always draw over larger ones.',
+                'Fixed: a player\'s burst measurement stayed on everyone\'s map after they turned it off.',
+                'Notifications say "gains Temporary HP" for Temp HP, and players no longer see how much damage NPCs deal each other.'
             ]],
             ['Powers & Consumables', [
                 'Power ranges are bought by the square: Touch/Self is free, 1 XP per 5 squares, or Line of Sight for 15 XP. Older powers keep their range and cost.',
@@ -50,7 +59,9 @@
                 'Summon a Creature: the creature\'s Tier can\'t be higher than the power\'s Level (Tier 5 at most), and summons act immediately after their summoner in initiative. End a Power now ends powers of an equal or lower Level.',
                 'Each copy of Summon a Creature has its own Tier and creature, so one power can summon a Tier 4 and three Tier 1s. GMs can share their NPCs for players to pick as summons.',
                 'Charmed works everywhere it should: NPC Condition Immunities, an attack check against the charmer, and the Charm ends when the charmer\'s side harms the creature.',
-                'Summon a Weapon has its own builder: name the weapon, make it Melee or Ranged, and add Weapon Properties (10 XP each). It deals Step 4\'s damage (1 die per Power Level) with your Power Attack Bonus, costs 3 AP to attack with, and appears in Weapons & Attacks when you use the power.'
+                'Summon a Weapon has its own builder: name the weapon, make it Melee or Ranged, and add Weapon Properties (10 XP each). It deals Step 4\'s damage (1 die per Power Level) with your Power Attack Bonus, costs 3 AP to attack with, and appears in Weapons & Attacks when you use the power.',
+                'Utilities marked * stack up to the power\'s Level (5 times at Level 5). Pinned joins the Moderate Condition list.',
+                'Medical consumables (ones that heal, or end a Condition) are tagged Medical, and Medic\'s AP discount applies to them.'
             ]],
             ['Weapons', [
                 'Medium weapons top out at 3d8 (3d10 two-handed) with no Heavy properties. Crit upgrades cost 300 / 900 Cu, Sturdy 50 Cu.',
@@ -81,7 +92,10 @@
             ]],
             ['Your Screen', [
                 'Pickers and pop-ups open on top of what they\'re changing: your companion\'s Condition and Damage Immunities in the NPC Crafter, trait and Exo-Suit panels, the world character picker, and any other popup that used to open behind the window you opened it from.',
-                'Button text is checked against its background in every theme (and on hover) and darkened or lightened until it reads clearly.'
+                'Button text is checked against its background in every theme (and on hover) and darkened or lightened until it reads clearly.',
+                'The dice and notifications tray comes to the front when a roll or notification lands in it.',
+                'Fixed: a burst you measured stayed on everyone else\'s map after you turned it off (closing the map clears it too).',
+                'Gaining Temporary HP no longer says "Regaining HP".'
             ]],
             ['Powers', [
                 'Step 2 (Range) is bought by the square: Touch/Self is free, every 5 squares cost 1 XP (set it with − and + or type it), and Line of Sight is 15 XP. A power made with Short, Long or Extreme Range keeps that range and its cost; choose a new range only if you want to.',
@@ -96,11 +110,18 @@
                 'Summon a Creature, taken more than once: each copy gets its own row (#1, #2…) with its own Tier and creature, so one power can summon a Tier 4 creature and three Tier 1s (the XP is the sum of each copy\'s Tier). A new copy starts as a copy of the one above it. Powers you already have summon exactly what they did.',
                 'Your GM\'s creatures: NPCs your GM shares show in each summon row\'s list (at or below its Tier). One you pick is summoned as your GM built it, and only your GM can change it.',
                 'Charmed: while a power has you Charmed, attacking asks whether your target is someone other than the charmer (or cancels). The Charm ends when the charmer or an ally of theirs damages you or uses a harmful power on you.',
-                'Summon a Weapon (Moderate Utility): each copy has a row in Step 5 to name its weapon, make it Melee or Ranged (5/20), and add Weapon Properties for 10 XP each (those a Medium weapon of that kind could have; no drawbacks). Step 4\'s dice are its damage, 1 die per Power Level at most. Using the power puts it in Weapons & Attacks: Medium, Trained, 3 AP an attack (Repeating 5), your Power Attack Bonus to hit, Step 4\'s dice + your Power Attribute modifier for damage, and its properties\' saves (Crushing, Stunning) use your Power Save DC. A Conduit Exo-Suit\'s bonus, Breach, Nullifier and Amplifier work on it, and a Sturdy or Parrying one can Block. It fades when the power\'s duration ends (Instant: after your next turn; 1 Minute: 10 rounds), or Dismiss it.'
+                'Summon a Weapon (Moderate Utility): each copy has a row in Step 5 to name its weapon, make it Melee or Ranged (5/20), and add Weapon Properties for 10 XP each (those a Medium weapon of that kind could have; no drawbacks). Step 4\'s dice are its damage, 1 die per Power Level at most. Using the power puts it in Weapons & Attacks: Medium, Trained, 3 AP an attack (Repeating 5), your Power Attack Bonus to hit, Step 4\'s dice + your Power Attribute modifier for damage, and its properties\' saves (Crushing, Stunning) use your Power Save DC. A Conduit Exo-Suit\'s bonus, Breach, Nullifier and Amplifier work on it, and a Sturdy or Parrying one can Block. It fades when the power\'s duration ends (Instant: after your next turn; 1 Minute: 10 rounds), or Dismiss it.',
+                'Utilities marked * can be taken up to the power\'s Level (5 copies at Level 5): + stops there and tells you. Pinned is in the Moderate Inflict or end a Condition list.',
+                'Number Utilities are applied for you: +1 AC, +2 DR or ER, Temporary HP (5 x Level), +2 Speed, +1 to a roll, +1 AP next turn, -1 AP, a Fly / Swim / Climb speed, Hover, no Attacks of Opportunity, Feather Fall, Immunity, Ethereal, and Fatigue or Conditions ended. Each copy with a choice (DR or ER, which roll, which damage type) gets its pick in Step 5.',
+                'Using such a power asks who it targets: you, your Loyal Companion, or a creature on your GM\'s battle map (an area power: everyone in its area). On you it shows above your Powers and Attacks with the turns it has left and an x to end it; on anyone else your GM\'s tracker applies it.',
+                'Overexertion\'s Fatigue comes when the power ends: right away for an Instant power, otherwise when its time runs out, when you click End Power, or when you rest.',
+                'A Summon a Creature power with a range has you place each creature within it on your GM\'s battle map. On their turn you drag their tokens (their AP pays), and the Your Summons window shows their HP, Temp HP, AP, AC, Speed and Conditions with buttons to roll their attacks.',
+                'Building a summoned creature, the NPC Crafter warns about any attack or power over 3 AP: a summoned creature only ever has 3.'
             ]],
             ['Consumables', [
                 'The Consumable Crafter shows its price against the cap: 150 Cu for one charge, +25 Cu per Artisan rank.',
-                'Step 2 has two new options. Thrown: your STR score / twice it, like a Thrown weapon. Ammunition (Light, Medium or Heavy): fired from your ranged weapon of that ammo type with its AP, range and attack roll; its effects land on a hit on top of the weapon\'s damage. Its inventory button reads Fire (X AP).'
+                'Step 2 has two new options. Thrown: your STR score / twice it, like a Thrown weapon. Ammunition (Light, Medium or Heavy): fired from your ranged weapon of that ammo type with its AP, range and attack roll; its effects land on a hit on top of the weapon\'s damage. Its inventory button reads Fire (X AP).',
+                'Consumables that heal or end a Condition are Medical (their Use button says so), and Medic Rank 1 takes 1 AP off using them.'
             ]],
             ['Weapons & Actions', [
                 'Medium weapons now top out at 3d8 (3d10 two-handed) and don\'t gain Heavy properties two-handed (Stunning needs a Heavy weapon or Electric). Weapons you already have keep their damage.',
@@ -120,13 +141,18 @@
                 'Flurry: the perk (any weapon hit makes your next weapon attack cheaper) and the weapon property (cheaper attacks on the creature you just hit) are separate lines in the AP pop-up, each saying what it is, and your GM\'s tracker ticks them when it saw the hit.',
                 'Draw / Stow asks what you\'re drawing when it can cost less: a Quickdraw weapon for 0 AP, or an item on your belt for 1.',
                 'Block, Fight Defensively and your other actions reach your GM\'s dice tray and notifications, and your AC on their tracker follows them within a second.',
-                'New properties: Keen (300 Cu, a Ranged weapon or a melee weapon that uses AGI): Critical Hits on a natural 19 or 20. Parrying (200 Cu, a melee weapon that uses AGI): Block with it as if it were Sturdy, using your Reaction instead of AP (0 AP in the Block pop-up). Suppressed (300 Cu, in the Ranged section): attacking from stealth with it doesn\'t reveal you, noted on the roll.'
+                'New properties: Keen (300 Cu, a Ranged weapon or a melee weapon that uses AGI): Critical Hits on a natural 19 or 20. Parrying (200 Cu, a melee weapon that uses AGI): Block with it as if it were Sturdy, using your Reaction instead of AP (0 AP in the Block pop-up). Suppressed (300 Cu, in the Ranged section): attacking from stealth with it doesn\'t reveal you, noted on the roll.',
+                'Ambusher: tick Ambusher in an attack\'s AP window when you attack from stealth (or an unaware creature): its damage, Advantage, Stagger, DR / ER bypass and crit multiplier are added for you. Rank 5 adds a Critical Hit for 2 AP there, or an Ambusher: crit (2 AP) button on the roll; the crit counts only if the attack hits.',
+                'Charge: the movement is part of its 3 AP (no Move AP for it), and the melee attack after it costs 1 AP.',
+                'Relentless: when your hit drops a creature, you\'re offered your AP back (uses per Short Rest tracked). Ranks 1 and 3 make one non-attack, non-move action free each turn.',
+                'Thrown weapons get Melee Prowess on their Thrown row: a thrown melee weapon is still a melee weapon.'
             ]],
             ['Perks & Rules', [
                 'Vitality Rank 4 is reworked: if you would be reduced to 0 HP, you\'re reduced to 1 HP instead, and you can spend up to your Rank in Rest Dice to heal that much at once (at Rank 3 they roll their maximum). It can\'t happen again until you finish a Full Rest. It works from your GM\'s tracker too.',
                 'Squeezing: when your Large or bigger token squeezes into a smaller space (a narrow gap, a portal), you have Disadvantage on attack rolls and AGI saves until you\'re back in the open.',
                 'Brute Rank 5, Ground Strike (Actions, 3 AP, once per turn): strike the ground with a Heavy weapon, or the creature you\'re grappling. With a battle map open you place the 2-square burst around you, and every other creature on the ground in it makes an AGI save (DC 10 + your STR modifier + your Rank): 5d8 + twice your STR modifier Bludgeoning and Prone on a failure, half on a success. Strike with a Grappled creature and it takes the maximum. Martial Arts doesn\'t lower its AP.',
-                'Treasure Hunter Rank 5, Found Earlier (a button under + Add Item in your Inventory): once per Short Rest, then a Luck Point each time, produce general equipment, ammunition, or a consumable you build in the Consumable Crafter, worth up to 10 Cu × your LUC modifier (minimum 50). It\'s free, it\'s marked found in your Inventory, and it can\'t be sold (found ammo is fired first).'
+                'Treasure Hunter Rank 5, Found Earlier (a button under + Add Item in your Inventory): once per Short Rest, then a Luck Point each time, produce general equipment, ammunition, or a consumable you build in the Consumable Crafter, worth up to 10 Cu × your LUC modifier (minimum 50). It\'s free, it\'s marked found in your Inventory, and it can\'t be sold (found ammo is fired first).',
+                'Regenerative heals like any Rest Die you spend: the roll plus your CON modifier, with Vitality\'s Rank 1 and Rank 3 bonuses. It\'s offered at the start of your turn, once a turn.'
             ]],
             ['Exo-Suits', [
                 'Rebuilt from the rulebook: a Base Suit costs 3,000 Currency, is worn with your armor, and holds up to 3 Integrated Systems. Suits you already own keep their systems.',
@@ -157,14 +183,25 @@
                 'Mixed summons: a power with Summon a Creature taken more than once brings each copy\'s own creature at its own Tier (a Tier 4 and three Tier 1s), players\' and NPCs\' alike, all next to the summoner and acting right after it.',
                 'Charmed by a power: a charmed NPC that attacks is asked whether its target is someone other than its charmer, and the Charm ends by itself (with a log line) when the charmer or the charmer\'s allies damage it or use a harmful power on it.',
                 'NPC Block adds its AC until the creature\'s next turn: +2 with a shield, a Sturdy weapon\'s die (rolled for you), or a Parrying weapon\'s die for its Reaction at 0 AP.',
-                'A player\'s Ground Strike (Brute Rank 5) comes in like an area power: everyone in its 2-square burst makes the AGI save (NPCs from your dice tray, players their own), with the damage and Prone on a failure and half on a success. A creature they used as the weapon takes the maximum, applied on your tracker.'
+                'A player\'s Ground Strike (Brute Rank 5) comes in like an area power: everyone in its 2-square burst makes the AGI save (NPCs from your dice tray, players their own), with the damage and Prone on a failure and half on a success. A creature they used as the weapon takes the maximum, applied on your tracker.',
+                'Summoned creatures join the order right after their summoner by themselves, mid-fight too, with no prompt.',
+                'A token added to a battle map while combat is on asks whether to add it to the initiative.',
+                'Power buffs from players land on the creature they picked: an NPC gets a chip on its row (AC, DR / ER, saves, attack rolls, Speed and Fly all count it) that runs down on its turns; a player gets it on their sheet. An NPC\'s own buff power asks you who gets it.',
+                'Grapple, Pin and Shove (an NPC\'s Actions): after a win you pick who it grabbed, pinned or knocked Prone, and a player\'s sheet gets the Condition.',
+                'An NPC\'s lasting power with Overexertion gives its Fatigue when it ends: its chip counts down, and its x ends it early.',
+                'A crit bought before the roll (Ambusher, Fortunate Fighter) counts only when the total hits.'
             ]],
             ['Battle Maps', [
                 'Squeezing has teeth: a Large or bigger creature squeezed into a smaller space has Disadvantage on attack rolls and AGI saves, added to its rolls (NPCs in your tracker, players and companions on their sheets).',
-                'The Add Token list stays open while you add tokens, counting them, until you close it.'
+                'The Add Token list stays open while you add tokens, counting them, until you close it.',
+                'Add Token: search by name, filter by Tier, sort by Name, Tier or HP. It shows this world\'s NPCs; tick All worlds for every saved stat block. Stat blocks place with their size and portrait.',
+                'Smaller tokens draw on top of larger ones.',
+                'A player\'s summoned creatures are theirs to move on their turns, like a Loyal Companion.',
+                'Fixed: a player\'s burst measurement stayed on your map after they turned it off.'
             ]],
             ['NPC Crafter', [
-                'Core Attributes cost 1 TP per point up to a score of 10 and 2 TP per point above it. NPCs and companions built before this keep their old price, so nothing you\'ve made changes on its own; Step 1 shows a button to move one over (a companion only if it still fits its budget). A creature with nothing above 10 moves over by itself.'
+                'Core Attributes cost 1 TP per point up to a score of 10 and 2 TP per point above it. NPCs and companions built before this keep their old price, so nothing you\'ve made changes on its own; Step 1 shows a button to move one over (a companion only if it still fits its budget). A creature with nothing above 10 moves over by itself.',
+                'A summoned creature with an attack or power over 3 AP gets a warning: it can never use it with its 3 AP.'
             ]],
             ['Your Screen', [
                 'Every picker and pop-up opens on top of what it\'s changing. In the NPC Crafter, Condition Immunities, Damage Immunities, Resistances and Vulnerabilities no longer open behind it, and neither do world tags, the Weapon and Armor Forges, the kick/ban prompt or any other panel. A picker that\'s reused comes back on top too.',
@@ -192,7 +229,9 @@
                 'Every Elemental Critical ends at the end of the target\'s next turn, Acid included (a player gets their DR back on their sheet).',
                 'Recharge rolls show their d6 in your dice tray.',
                 'Scatter and Repeating weapons (an NPC\'s or a player\'s) have you place a 3-square Cone or a 2x2 square on the battle map, and the roll is compared with each creature\'s AC there (Repeating at Long Range: half damage). Unwieldy asks whether the target is within 1 square.',
-                'NPC stat blocks list each weapon\'s properties under it, and a Tearing weapon\'s attack card shows its minimum damage.'
+                'NPC stat blocks list each weapon\'s properties under it, and a Tearing weapon\'s attack card shows its minimum damage.',
+                'Players\' notifications no longer show the damage NPCs deal each other (only that they hit), so DR and ER can\'t be worked out from them. Your log still has the numbers.',
+                'Temporary HP shows as "gains Temporary HP", not "Regaining HP".'
             ]],
             ['Players\' Gear', [
                 'Players can be Overburdened now (Speed 1, Disadvantage on attacks, checks and saves), and wear Backpacks, Bandoliers and Utility Belts to carry more.',

@@ -661,7 +661,7 @@
                 { key: "illusion", label: "Create an illusion or hologram to attempt to deceive.", cost: 15 },
                 { key: "wall", label: "Create a solid/hazardous wall up to 4 sq long, 1 sq thick (Step 4 dice = pass-through damage).", cost: 15, rep: true },
                 { key: "drEr2", label: "Increase the target's DR or ER by 2 for the duration.", cost: 15, rep: true },
-                { key: "condInflictMod", label: "Inflict or end Restrained, Blinded, Freezing, Provoked, Frightened, or Charmed.", cost: 15, rep: true },
+                { key: "condInflictMod", label: "Inflict or end Restrained, Pinned, Blinded, Freezing, Provoked, Frightened, or Charmed.", cost: 15, rep: true },
                 { key: "noRegainHp", label: "The target can't regain Hit Points (it can still gain Temporary Hit Points).", cost: 15 },
                 { key: "telekinesis", label: "Telekinesis: act on one object or willing creature you can see in range as if with an invisible hand, spending the AP the action would normally cost (Use/Manipulate 3 AP); fine work uses your Power Attribute; 1 AP moves what you hold 2 squares; hurl it to deal Step 4 damage to it and what it hits. (Holding an unwilling creature needs Restrained.)", cost: 15 },
                 { key: "fatigueDisease", label: "Reduce Fatigue by one level, or end the Diseased condition.", cost: 15 },
@@ -967,7 +967,7 @@
         // "Inflict or end …" utilities: which Conditions each one can inflict or end
         const APX_POWER_COND_UTILS = {
             condInflictMinor: ['staggered', 'burning', 'deafened', 'poisoned', 'prone'],
-            condInflictMod: ['restrained', 'blinded', 'freezing', 'provoked', 'frightened', 'charmed'],
+            condInflictMod: ['restrained', 'pinned', 'blinded', 'freezing', 'provoked', 'frightened', 'charmed'],
             condInflictMajor: ['stunned', 'paralyzed', 'unconscious']
         };
         // Other utilities that leave a lasting negative effect on a creature (when it isn't willing)

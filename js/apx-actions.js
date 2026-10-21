@@ -233,7 +233,7 @@
         let w = async function (o) {
             let r = await orig.apply(this, arguments);
             if (r === false || !o || !o.pcAttack) return r;
-            let list = fx(), changed = false, melee = o.wcat !== 'ranged';
+            let list = fx(), changed = false, melee = o.wcat !== 'ranged' && !o.thrown;   // (a Thrown weapon's attack is a ranged attack roll: next-melee-attack maneuvers don't ride it)
             if (!st().apxAttackedTurn) { st().apxAttackedTurn = true; changed = true; }   // Fight Defensively: +2, not +4, on a turn you attack
             list.forEach(e => {
                 if (e.key === 'defensive' && !e.attacked) { e.attacked = true; changed = true; }   // +4 AC drops to +2 once you attack
@@ -303,7 +303,7 @@
         { g: 'Combat Maneuvers', name: 'Whirlwind', cost: 3, extra: '+ attack', tip: 'Your next melee attack is rolled with Disadvantage and compared to the AC of every enemy in reach.',
             auto: () => addFx({ key: 'whirl', label: 'Whirlwind', short: 'Whirlwind: next melee attack', until: 'turn', next: { melee: true, dis: true }, desc: 'Next melee attack: Disadvantage; compare it to every enemy in reach.' }) },
         { g: 'Combat Maneuvers', name: 'Charge', cost: 3, tip: 'Move up to your Speed in a straight line (2+ squares). Then 1 AP: a melee attack with Disadvantage that deals an extra damage die, or a tackle (both Prone, STR score damage).',
-            auto: () => addFx({ key: 'charge', label: 'Charge', short: 'Charge: next melee attack +1 die', until: 'turn', next: { melee: true, dis: true, dice: 1 }, desc: 'Your next melee attack (1 AP) has Disadvantage and deals an extra die of damage.' }) },
+            auto: () => { st().chargeMove = { key: typeof _pwTurnKey === 'function' ? _pwTurnKey() : null }; return addFx({ key: 'charge', label: 'Charge', short: 'Charge: next melee attack +1 die', until: 'turn', next: { melee: true, dis: true, dice: 1 }, desc: 'Your next melee attack (1 AP) has Disadvantage and deals an extra die of damage.' }); } },
         { g: 'Combat Maneuvers', name: 'Lunging Attack', cost: 3, tip: 'A melee attack with 1 square more reach, with Disadvantage; it provokes attacks of opportunity.',
             auto: () => addFx({ key: 'lunge', label: 'Lunging Attack', short: 'Lunge: next melee attack', until: 'turn', next: { melee: true, dis: true }, desc: 'Next melee attack: +1 square reach, Disadvantage; provokes attacks of opportunity.' }) },
         { g: 'Combat Maneuvers', name: 'Disarming Attack', cost: 3, tip: 'A melee attack with Disadvantage: on a hit, the target drops an item of your choice (2 AP to catch it).',
@@ -449,6 +449,18 @@
         if (why) { note(`${a.name}: ${why}`, 'warn'); return; }
         if (a.own) { await a.auto(); return; }
         let cost = costOf(a) || 0;
+        // Relentless Rank 1 (Rank 3): once per turn in combat, a non-attack, non-movement action that costs 1 AP
+        // (3 AP or less) costs 0 AP
+        let relFree = false;
+        {
+            let rk = window.apxPerkRank ? window.apxPerkRank(st(), 'agi_relentless') : ((st().perks || {}).agi_relentless || 0);
+            let lim = rk >= 3 ? 3 : rk >= 1 ? 1 : 0, turn = window._pwCombatCode ? (window._pwLastTurnKey || null) : null;
+            let attackish = ['Shove', 'Shield Bash', 'Choke', 'Ground Strike', 'Sweeping Strike', 'Whirlwind', 'Charge', 'Lunging Attack', 'Disarming Attack', 'Power Attack', 'Precision Attack', 'Grapple', 'Pin'];
+            let moving = ['Move', 'Jump', 'Vault', 'Charge'];
+            if (lim && turn && cost > 0 && cost <= lim && !attackish.includes(a.name) && !moving.includes(a.name) && st().relentlessFreeTurn !== turn) {
+                relFree = true; st().relentlessFreeTurn = turn; cost = 0;
+            }
+        }
         let have = window.apxApCurrent ? window.apxApCurrent() : 0;
         if (cost > have) {
             let ok = window.apxConfirm ? await window.apxConfirm(`${a.name} costs ${cost} AP and you have ${have}. Do it anyway?`, { title: 'Not enough AP', okLabel: 'Do it anyway', cancelLabel: 'Cancel' }) : false;
@@ -460,7 +472,7 @@
         if (res && typeof res.spend === 'number') cost = res.spend;
         let spend = Math.min(cost, window.apxApCurrent ? window.apxApCurrent() : cost);
         if (spend > 0 && window.apxSpendAp) window.apxSpendAp(spend);
-        note(`${a.name}${cost ? `: −${cost} AP (${window.apxApCurrent ? window.apxApCurrent() : '?'} left)` : ''}.`);
+        note(`${a.name}${cost ? `: −${cost} AP (${window.apxApCurrent ? window.apxApCurrent() : '?'} left)` : relFree ? ': 0 AP (Relentless, once per turn)' : ''}.`);
         // Your GM sees it in their dice tray and notifications (with what it does: Block's AC, Fight Defensively…)
         let added = fx().filter(e => !before.includes(e.id)).map(e => e.key === 'defensive' ? `Fight Defensively: +${e.attacked || st().apxAttackedTurn ? 2 : 4} AC` : (e.short || e.label));
         if (window.apxOnRollEvent && (a.g !== 'Standard Actions' || ['Fall Prone', 'Help', 'Ready', 'Jump', 'Repair (Unalive)'].includes(a.name))) {

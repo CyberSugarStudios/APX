@@ -260,6 +260,7 @@
             // became a list.
             // Everything equipped custom items add (see js/apx-item-effects.js)
             let itemFx = calc.itemFx = window.apxItemEffects ? window.apxItemEffects(window.state) : { attr: {}, skill: {}, er: [], stat: {} };
+            if (window.apxPowerBuffStats) window.apxPowerBuffStats(window.state, itemFx);   // (buffs from powers on you count like an item's bonuses)
             let fxStat = k => (itemFx.stat && itemFx.stat[k]) || 0;
             ATTRIBUTES.forEach(a => { if (itemFx.attr[a]) calc.scores[a] += itemFx.attr[a]; });
 
@@ -922,7 +923,7 @@
                 // free-stat-edit exploit that isLocked exists to close).
                 let nameHtml = `<div class="text-xs ${item.isLocked ? 'text-slate-400' : 'text-slate-200'} font-bold px-1 truncate" title="${item.name}">${item.name}${item.isLocked && !window.state.craftingMatWeightEnabled ? ' <span class="text-[9px] text-slate-600">(wt off)</span>' : ''}${item.noSellCt > 0 ? ` <span class="text-[9px] text-amber-300" title="Found with Treasure Hunter: ${Math.min(item.noSellCt, item.ct || 1)} of these can't be sold">(found${(item.ct || 1) > 1 ? ' ×' + Math.min(item.noSellCt, item.ct || 1) : ''})</span>` : ''}</div>`
                     // A crafted consumable: Use runs its effect (3 AP, one charge), like a power
-                    + (item.isConsumable && item.draft ? (cp => `<button onclick="window.apxUsePower('c${idx}')" ${(item.chargesRemaining ?? item.charges ?? 1) <= 0 ? 'disabled' : ''} class="ml-1 text-[9px] font-bold px-1.5 rounded border border-purple-600 text-purple-200 bg-purple-900/40 hover:bg-purple-800/60" title="${cp && cp.ammo ? (cp.ammoMissing ? cp.ammoMissing.replace(/"/g, '&quot;') : 'Fire it: your weapon\'s AP and one charge; rolls your weapon\'s attack, and its effects land on a hit') : 'Use it: 3 AP and one charge; rolls its attack, save, damage or healing'}">${cp && cp.ammo ? `Fire (${cp.ammoMissing ? '-' : cp.ap} AP)` : 'Use (3 AP)'}</button>`)(window.ccPowerOf ? window.ccPowerOf(item) : null) : '')
+                    + (item.isConsumable && item.draft ? (cp => `<button onclick="window.apxUsePower('c${idx}')" ${(item.chargesRemaining ?? item.charges ?? 1) <= 0 ? 'disabled' : ''} class="ml-1 text-[9px] font-bold px-1.5 rounded border border-purple-600 text-purple-200 bg-purple-900/40 hover:bg-purple-800/60" title="${cp && cp.ammo ? (cp.ammoMissing ? cp.ammoMissing.replace(/"/g, '&quot;') : 'Fire it: your weapon\'s AP and one charge; rolls your weapon\'s attack, and its effects land on a hit') : `Use it: ${cp ? cp.ap : 3} AP and one charge; rolls its attack, save, damage or healing${cp && cp.medicAp ? ' (Medic: 1 AP less for a Medical item)' : ''}`}">${cp && cp.ammo ? `Fire (${cp.ammoMissing ? '-' : cp.ap} AP)` : `Use (${cp ? cp.ap : 3} AP)`}</button>${cp && cp.medical ? '<span class="ml-1 text-[8px] font-black px-1 rounded border border-emerald-700 text-emerald-300" title="Medical: it heals or ends a Condition (the Medic perk works with it)">Medical</span>' : ''}`)(window.ccPowerOf ? window.ccPowerOf(item) : null) : '')
                     + (item.isCustomEquippable && item.bonuses && window.apxItemBonusText && window.apxItemBonusText(item.bonuses)
                         ? `<div class="text-[9px] ${item.equipped ? 'text-cyan-400' : 'text-slate-500'} px-1 truncate" title="${window.apxItemBonusText(item.bonuses).replace(/"/g, '&quot;')}">${window.apxItemBonusText(item.bonuses)}</div>` : '')
                     + (item.isCustomEquippable && Array.isArray(item.powers) && item.powers.length
@@ -1282,6 +1283,13 @@
                 if (Array.isArray(cf) && cf.length) { window.state.companion.turnFx = cf.filter(f => !f.next && !f.untilAttack); window.state.companion.turnFx.forEach(f => { if (f.key === 'defensive') f.attacked = true; }); setTimeout(() => window.recalculateMath && window.recalculateMath(), 0); }
                 return { note: `${window.state.companion.name || 'Companion'}: −${cost} AP (${window.apxCompApCurrent()} left)` };
             }
+            // A creature you summoned (your Summons panel): its AP is on your GM's tracker
+            if (o && o.summonInit) {
+                let mine = (((window._pwCombatTurn || {}).summons || {})[window.apxAuth?.user?.uid] || []).find(x => x.id === o.summonInit);
+                let cost = Math.max(0, parseInt(o.apCost) || 0);
+                if (mine && window._pwCombatCode && (mine.ap || 0) < cost) return { note: `Not enough AP: ${mine.name} has ${mine.ap}, needs ${cost}`, warn: true };
+                return { note: `${mine ? mine.name : 'Your summon'}: −${cost} AP (on your GM's tracker)` };
+            }
             if (!o || !o.pcAttack || typeof window.apxApCurrent !== 'function') return null;
             let st = window.state || {}, perks = st.perks || {};
             let have = window.apxApCurrent();
@@ -1309,6 +1317,16 @@
             let clGm = window._pwCombatTurn && window._pwCombatTurn.cleave;
             if (clGm && clGm.uid === window.apxAuth?.user?.uid && o.hit && clGm.weapon === o.hit.weapon && window.state.cleaveUsed !== clGm.key)
                 mods.push({ id: 'cleave', label: 'Cleave: you dropped a creature with this weapon this turn (this attack is free)', set: 0, on: true, tip: 'Cleave property: when you reduce a creature to 0 HP with it, you can make one attack with it for 0 AP before the end of your turn.' });
+            // Charge: the attack after your charge costs 1 AP (its move was part of the Charge's 3 AP)
+            if ((st.turnFx || []).some(f => f.key === 'charge') && o.wcat !== 'ranged' && !o.thrown)
+                mods.push({ id: 'charge', label: 'Charge: the melee attack after your charge costs 1 AP', set: 1, on: true, tip: 'Charge (3 AP): you move up to your Speed in a straight line, then 1 AP for a melee attack with Disadvantage that deals an extra die of damage.' });
+            // Ambusher: attacking from stealth (or a creature that's unaware of you); Rank 5 can make the hit a Critical Hit for 2 AP
+            let amb = window.apxPerkRank ? window.apxPerkRank(st, 'agi_ambusher') : (perks.agi_ambusher || 0);
+            if (amb >= 1 && o.hit) {
+                let bits = [`+${amb} damage`].concat(amb >= 1 ? ['Advantage against a Surprised creature or one that hasn\'t acted'] : []).concat(amb >= 2 ? ['a hit Staggers it'] : []).concat(amb >= 3 ? ['ignores DR and ER'] : []).concat(amb >= 4 ? ['critical multiplier +1'] : []);
+                mods.push({ id: 'ambush', label: `Ambusher: from stealth, or against an unaware target (${bits.join(', ')})`, flag: true, on: false, tip: 'Ambusher applies when you attack from stealth or attack a creature that\'s unaware of you.' });
+                if (amb >= 5) mods.push({ id: 'ambushCrit', label: 'Ambusher Rank 5: if it hits from stealth, it\'s a Critical Hit (+2 AP)', add: 2, on: false, tip: 'Rank 5: whenever you hit a creature from stealth, you can spend 2 AP to turn the hit into a Critical Hit. (You can also decide after the roll: the dice tray has an "Ambusher: crit" button.)' });
+            }
             let needPopup = mods.length > 0 || o.aimed;
             let compute = (sel, aim, extra) => {
                 let cost = base;
@@ -1318,11 +1336,24 @@
                 mods.forEach(m => { if (!sel[m.id] || m.delta == null) return; cost += m.delta * (typeof sel[m.id] === 'number' ? sel[m.id] : 1); });
                 if (mods.some(m => sel[m.id] && m.delta != null)) cost = Math.max(1, cost);
                 if (sel.cleave) cost = 0;   // (Cleave: free, whatever else would change it)
+                mods.forEach(m => { if (sel[m.id] && m.add) cost += m.add; });   // (Ambusher Rank 5: +2 AP)
                 cost = Math.max(0, cost + (parseInt(extra) || 0));
-                return { atk: cost, aim: staggered ? 0 : aim, total: cost + (staggered ? 0 : aim), cleave: !!sel.cleave };
+                return { atk: cost, aim: staggered ? 0 : aim, total: cost + (staggered ? 0 : aim), cleave: !!sel.cleave, ambush: !!sel.ambush, ambushCrit: !!sel.ambushCrit };
             };
             let finish = (c, spend) => {
                 if (c.cleave && clGm) { window.state.cleaveUsed = clGm.key; setTimeout(() => window.recalculateMath?.(), 0); }
+                // Ambusher: from stealth / an unaware target (the roll reads these from o)
+                if (c.ambush || c.ambushCrit) {
+                    o.fromStealth = true; o.ambushRank = amb;
+                    o.dmgMod = (o.dmgMod || 0) + amb;
+                    o.advSources = (o.advSources || []).concat(['Ambusher (an unaware target)']);
+                    let props = ((o.hit && o.hit.props) || []).slice();
+                    if (amb >= 2) props.push('ambushStagger');
+                    if (amb >= 3) props.push('ignoreall');
+                    o.hit = Object.assign({}, o.hit || {}, { props });
+                    if (amb >= 4) o.critMult = (o.critMult || 2) + 1;
+                    if (c.ambushCrit) o.forceCrit = true;
+                }
                 let parts = c.aim ? ` (${c.atk} attack + ${c.aim} Aim)` : '';
                 if (!spend) return { note: c.total > have ? `Not enough AP: had ${have}, needed ${c.total}${parts}` : `AP not spent (${c.total} AP${parts})`, warn: c.total > have };
                 window.apxSpendAp(c.total);
@@ -1511,7 +1542,7 @@
             let advSources = (calc.disadv.atkAdv || []).concat(cat === 'ranged' ? calc.disadv.atkRangedAdv : (calc.disadv.atkMeleeAdv || []));
             // Fortunate Fighter Rank 4: crit multiplier +1
             let critMult = (w.critMult || 2) + ((window.state.perks['luc_fortunatefighter'] || 0) >= 4 ? 1 : 0);
-            let rollName = (w.name || 'Weapon') + (opts.label ? (opts.attr === 'STR' && /2-Handed/.test(opts.label) ? ' (2-Handed)' : /Aimed/.test(opts.label) ? ' (Aimed)' : '') : '');
+            let rollName = (w.name || 'Weapon') + (opts.thrown ? ' (Thrown)' : opts.label ? (opts.attr === 'STR' && /2-Handed/.test(opts.label) ? ' (2-Handed)' : /Aimed/.test(opts.label) ? ' (Aimed)' : '') : '');
             // What a hit with it can do (Crushing, Stunning, Flurry…): read by the GM's tracker
             // (a Medium weapon's Stunning only works in its two-handed attack, unless it's Energy (Electric))
             let medStun1H = w.weightClass === 'medium' && w.elemental !== 'Electric' && !/2-Handed/.test(opts.label || '');
@@ -1521,13 +1552,13 @@
                 die: '1d' + ((String(opts.dice || '').match(/\d*d(\d+)/) || [0, 6])[1]), wpn: true, dmgType: apxWeaponDmgType(w), strMod: calc.mods.STR || 0, intMod: calc.mods.INT || 0, elec: w.elemental === 'Electric',
                 // Ranged weapons fire Light / Medium / Heavy Ammo by weight (its effect shows in the roller)
                 ammo: cat === 'ranged' && !(w.properties && w.properties.thrown && w.category !== 'ranged') && ['light', 'medium', 'heavy'].includes(w.weightClass) ? w.weightClass : null,
-                range: cat === 'ranged' ? effectiveWeaponRange(w) : null };
+                range: cat === 'ranged' ? effectiveWeaponRange(w) : opts.thrown ? `${calc.scores.STR || 0}/${(calc.scores.STR || 0) * 2}` : null, thrown: opts.thrown || undefined };
             // pcAttack/apCost/aimed: the sheet's AP hook (apxBeforeAttack) spends AP for this attack
             let atkRoll = apxRollAttr({ type: 'attack', label: rollName, bonus: atk, dice: opts.dice, dmgMod, critMult, dmgType: apxWeaponDmgType(w), disSources: disadvSources, advSources,
-                pcAttack: true, wcat: cat, apCost: parseInt(opts.ap) || 0, ranged: cat === 'ranged', aimed: cat === 'ranged' && !!w.aimed, unarmed: !!w.isUnarmed,
+                pcAttack: true, wcat: cat, apCost: parseInt(opts.ap) || 0, ranged: cat === 'ranged' || !!opts.thrown, thrown: opts.thrown || undefined, aimed: cat === 'ranged' && !!w.aimed, unarmed: !!w.isUnarmed,
                 wFlurry: !!(w.properties && w.properties.flurry) || undefined, hit: hitMeta });
             // Remember each attack option, so martial powers can roll with the weapon they're used through
-            let variant = opts.label ? (/Aimed/.test(opts.label) ? 'aimed' : /2-Handed/.test(opts.label) ? '2h' : '') : '';
+            let variant = opts.thrown ? 'thrown' : opts.label ? (/Aimed/.test(opts.label) ? 'aimed' : /2-Handed/.test(opts.label) ? '2h' : '') : '';
             (calc.weaponAttacks = calc.weaponAttacks || []).push({ key: (w.name || 'Weapon') + '|' + variant, label: rollName, bonus: atk, disSources: disadvSources, advSources,
                 unarmed: !!w.isUnarmed, innate: !!w.isAncestry, wcat: cat, dice: opts.dice, dmgMod, dmgType: apxWeaponDmgType(w), critMult, hit: hitMeta, ap: parseInt(opts.ap) || 0 });
             if (calc.cantAct) {
@@ -1632,6 +1663,12 @@
                 let couldGoTwoHanded = handsFreeForThis >= 2;
                 let rep2 = w.properties && w.properties.repeating ? 2 : 0;   // Repeating: +2 AP to fire
                 html += renderWeaponRow(w, idx, { attr: w.attr, dice: w.dmg, ap: (parseInt(w.ap) || 0) + rep2, editable: true });
+                // Thrown (a melee weapon): a ranged attack roll out to STR / twice STR squares. It's still a melee
+                // weapon, so Melee Prowess (and other melee bonuses) apply to it.
+                if (weaponCategory(w) === 'melee' && w.properties && w.properties.thrown && !w.isUnarmed) {
+                    let str = calc.scores.STR || 0;
+                    html += renderWeaponRow(w, idx, { label: `↳ Thrown (ranged attack, ${str}/${str * 2} sq${w.properties.returning ? ', Returning' : ''})`, attr: w.attr, dice: w.dmg, ap: (parseInt(w.ap) || 0), editable: false, thrown: true });
+                }
                 if (isMediumMelee && couldGoTwoHanded) {
                     let twoHDice = dieStepUp(w.dmg);
                     let reachVal = w.properties?.reach;
@@ -1767,7 +1804,7 @@
             }
 
             document.getElementById('weaponsBody').innerHTML = html;
-            let cb = document.getElementById('channelBarWeapons'); if (cb) cb.innerHTML = apxChannelBarHtml();   // Channel from your Attacks too
+            let cb = document.getElementById('channelBarWeapons'); if (cb) cb.innerHTML = apxChannelBarHtml() + apxActivePowersBarHtml() + (window.apxPowerBuffBarHtml ? window.apxPowerBuffBarHtml() : '');   // Channel from your Attacks too
         }
 
         // Power Slots. Levels 1-5: Full Rest Powers (3/2/2/1/1 slots per purchase of that Rank).
@@ -2079,8 +2116,12 @@
             else if (slot && slot.free) { notes.push(slot.label); if (traitSrc) traitSrc.used = (traitSrc.used || 0) + 1; }
             else if (slot) { window.state.usedPowerSlots[slot.key] = slot.used + 1; notes.push(`-1 ${slot.label} (${Math.max(0, slot.max - slot.used - 1)} left)`); }
             else notes.push(`no ${poolName} left`);
-            // Overexertion (Step 8): a level of Fatigue for using it (not again for each Channel)
-            if (!chan && p.draft && p.draft.refunds && p.draft.refunds.overexertion) { window.state.fatigue = (parseInt(window.state.fatigue) || 0) + 1; notes.push(`Overexertion: +1 Fatigue (now ${window.state.fatigue})`); }
+            // Overexertion (Step 8): a level of Fatigue once the power is over (not again for each Channel). An Instant
+            // power is over as soon as it's used; a lasting one is tracked above your Powers until it ends.
+            if (!chan && p.draft && p.draft.refunds && p.draft.refunds.overexertion) {
+                if (window.apxStartActivePower && window.apxStartActivePower(idx, p)) notes.push('Overexertion: +1 Fatigue when it ends');
+                else { notes.push('Overexertion: +1 Fatigue once it\'s done'); setTimeout(() => window.apxOverexert && window.apxOverexert(p.name || 'Power'), 0); }
+            }
             // A Channeling power: channeling starts (Channel buttons above your Powers and Attacks, up to 1 Minute)
             let chStep = !chan && window.apxChannelStep ? window.apxChannelStep(p.draft) : null;
             if (!chan && p.draft && p.draft.duration === 'channel') {
@@ -2105,6 +2146,9 @@
                 APXDice.notify(`${swNames.join(' and ')} ${swNames.length > 1 ? 'appear' : 'appears'} in your hands: attack with ${swNames.length > 1 ? 'them' : 'it'} from Weapons & Attacks (3 AP, your Power Attack Bonus).`, { kind: 'note', open: true });
                 setTimeout(() => window.recalculateMath(), 0);
             }
+            // Medic: healing from an item or power you use heals twice your Rank more
+            let medicRk = window.apxPerkRank ? window.apxPerkRank(window.state, 'int_medic') : ((window.state.perks || {}).int_medic || 0);
+            if (dmg && dmg.heal && medicRk >= 1) { dmg = Object.assign({}, dmg, { formula: dmg.formula + '+' + (2 * medicRk) }); notes.push(`Medic: +${2 * medicRk} healing`); useNote = notes.join(' · '); }
             let flavor = String(p.desc || '').trim();
             let pnums = apxPowerNums(p), dc = pnums.dc;
             let saveKind0 = info.kind === 'save' ? (/halves/i.test(info.text) ? 'halves' : 'negates') : null;
@@ -2126,8 +2170,43 @@
             let sg = sumN && window.apxSummonGroups ? window.apxSummonGroups(p.draft) : { groups: [], missing: 0 };
             let summon = sg.groups.length ? Object.assign({ groups: sg.groups, power: name }, { npc: sg.groups[0].npc, count: sg.groups[0].count, tier: sg.groups[0].tier }) : null;
             if (sumN && sg.missing) APXDice.notify(`${name} summons ${sg.missing > 1 ? sg.missing + ' creatures that haven\'t' : 'a creature that hasn\'t'} been built yet: use Build Summoned Creature on the power.`, { kind: 'warn', open: true });
+            // A Summon power with a range: with your battle map open, place each creature within it (else they appear next to you)
+            if (summon && !chan && window._pwAreaMap && window.APXBattle && APXBattle.placeArea) {
+                let R = window.apxPowerRange ? window.apxPowerRange(p.draft) : null, rsq = R && R.sq;
+                if (rsq != null && window.apxExoRange) rsq = window.apxExoRange(rsq);   // (an Emitter's reach)
+                let am = rsq && rsq > 0 ? window._pwAreaMap(false) : null;
+                if (am && am.tokenId) {
+                    let total = summon.groups.reduce((t, g) => t + (g.count || 1), 0), nth = 0, stop = false;
+                    for (let g of summon.groups) {
+                        g.spots = [];
+                        for (let k = 0; k < (g.count || 1) && !stop; k++) {
+                            nth++;
+                            let size = String((g.npc && g.npc.size) || 'medium').toLowerCase();
+                            let r = await APXBattle.placeArea(am.winId, { mode: 'square', size: Math.max(1, APXBattle.span(size)), range: rsq, casterId: am.tokenId, key: 'summon|place', goLabel: 'Place it', noShare: true,
+                                label: `Place ${(g.npc && g.npc.name) || 'your creature'}${total > 1 ? ` (${nth} of ${total})` : ''}` });
+                            if (r === null) { stop = true; break; }
+                            g.spots.push(r && r !== 'skip' && r.foot ? { gridX: r.foot.x0, gridY: r.foot.y0 } : null);
+                        }
+                    }
+                    summon.mapId = am.mapId;
+                }
+            }
             let areaNote = areaRes ? `In the area: ${areaRes.names.length ? areaRes.names.join(', ') : 'no one'}${areaRes.safeIds.length ? ` (${areaRes.safeIds.length} kept safe)` : ''}.` : '';
-            let tell = (text, extra) => { if (typeof window.apxOnRollEvent === 'function') window.apxOnRollEvent(Object.assign({ id: 'pw' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), kind: 'power', label: name, text: areaNote ? text + ' ' + areaNote : text }, extra || {}, summon ? { summon } : {}, isAoe ? { aoe: true } : {}, fxInfo ? { fx: fxInfo } : {}, areaRes ? { area: { mapId: areaRes.mapId, tokenIds: areaRes.tokenIds, safeIds: areaRes.safeIds } } : {})); };
+            // Utilities that are numbers (+1 AC, +2 DR/ER, Temp HP, Speed, AP, a Fly speed, Immunity…): applied for you. An area
+            // power's targets are in its area; otherwise you pick the target (you, your companion, a creature on the map).
+            let buffExtra = null;
+            let buff = !chan && p.draft && window.apxPowerBuff ? window.apxPowerBuff(p.draft, lvl) : null;
+            if (buff) {
+                buff = Object.assign(buff, { name: p.name || 'Power', key: 'pw:' + (p.name || idx), dur: p.draft.duration || 'instant', from: who || '' });
+                if (areaRes) buffExtra = { buff };
+                else {
+                    let tgt = window.apxPickBuffTarget ? await window.apxPickBuffTarget(name, buff) : { self: true };
+                    if (tgt && tgt.self) { window.apxApplyBuffToMe(buff, ''); buffExtra = { buff, buffTarget: { self: true } }; }
+                    else if (tgt && tgt !== 'skip') buffExtra = { buff, buffTarget: tgt };
+                    else if (tgt === 'skip') buffExtra = { buff, buffTarget: {} };
+                }
+            }
+            let tell = (text, extra) => { if (typeof window.apxOnRollEvent === 'function') window.apxOnRollEvent(Object.assign({ id: 'pw' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), kind: 'power', label: name, text: areaNote ? text + ' ' + areaNote : text }, extra || {}, summon ? { summon } : {}, isAoe ? { aoe: true } : {}, fxInfo ? { fx: fxInfo } : {}, areaRes ? { area: { mapId: areaRes.mapId, tokenIds: areaRes.tokenIds, safeIds: areaRes.safeIds } } : {}, buffExtra || {})); };
             if (info.kind === 'power' || info.kind === 'martial') {
                 let bonus = info.kind === 'power' ? pnums.atk : (info.w ? info.w.bonus : pnums.atk);
                 let via = info.kind === 'martial' && info.w ? ` (${info.w.label})` : '';
@@ -2204,7 +2283,7 @@
                     </div>
                     <div class="text-[10px] text-slate-500 leading-tight font-medium">${p.desc}</div>
                     ${p.draft ? `<button onclick="window.openPowerEditor(${idx})" class="text-[9px] text-purple-400 hover:text-purple-300 font-bold mt-1">Edit in Power Crafter${p.wasFree ? ' (Free)' : ''}</button>` : ''}
-                    ${p.draft && ((p.draft.utility || {}).major || {}).summonCreature ? (sl => `<button onclick="window.apxEditSummonCreature(${idx})" class="text-[9px] text-emerald-400 hover:text-emerald-300 font-bold mt-1 ml-2" title="Build or change the creature${sl.length > 1 ? 's' : ''} this power summons (${sl.map(x => 'Tier ' + x.tier).join(', ')})">${sl.every(x => x.npc) ? 'Edit Summoned Creature' : 'Build Summoned Creature'}${sl.length > 1 ? 's' : ''}</button>`)(window.apxSummonSlots(p.draft)) : ''}
+                    ${p.draft && ((p.draft.utility || {}).major || {}).summonCreature ? (sl => `<button onclick="window.apxEditSummonCreature(${idx})" class="text-[9px] text-emerald-400 hover:text-emerald-300 font-bold mt-1 ml-2" title="Build or change the creature${sl.length > 1 ? 's' : ''} this power summons (${sl.map(x => 'Tier ' + x.tier).join(', ')})">${sl.every(x => x.npc) ? 'Edit Summoned Creature' : 'Build Summoned Creature'}${sl.length > 1 ? 's' : ''}</button><button onclick="window.apxOpenSummonsPanel && window.apxOpenSummonsPanel()" class="text-[9px] text-violet-300 hover:text-violet-200 font-bold mt-1 ml-2" title="Your summoned creatures in your GM's fight: HP, AP, Conditions and their attacks">Your Summons</button>`)(window.apxSummonSlots(p.draft)) : ''}
                     ${window.apxRecraftBadge ? window.apxRecraftBadge(p, `window.openPowerEditor(${idx})`) : ''}
                 </div>
             `).join('');
@@ -2242,7 +2321,7 @@
                 </div>`).join('');
             let pc = document.getElementById('powersContainer');
             pc.classList.add('apx-dice-scope');
-            pc.innerHTML = apxChannelBarHtml() + html;
+            pc.innerHTML = apxChannelBarHtml() + apxActivePowersBarHtml() + (window.apxPowerBuffBarHtml ? window.apxPowerBuffBarHtml() : '') + html;
         }
 
         // ── Channeling ──────────────────────────────────────────────
@@ -2282,6 +2361,9 @@
             let c = window.state.channeling; if (!c) return;
             window.state.channeling = null;
             window.APXDice && APXDice.notify(`You stop channeling ${c.name}.`, { kind: 'note' });
+            // (an Overexertion power that was channeling is over now)
+            let ap = ((window.state.activePowers) || []).find(a => a.key === String(c.key));
+            if (ap && window.apxEndActivePower) window.apxEndActivePower(ap.id, 'you stopped channeling');
             window.recalculateMath();
         };
         function apxChannelBarHtml() {
@@ -2297,4 +2379,58 @@
                 <button onclick="window.apxStopChanneling()" title="End it now (a Free Action)" style="font-size:.68rem;font-weight:800;padding:.15rem .5rem;border-radius:.25rem;background:#1e293b;border:1px solid #64748b;color:#cbd5e1;cursor:pointer">Stop Channeling</button></div>`;
         }
         window.apxChannelBarHtml = apxChannelBarHtml;
+
+        // ── Lasting powers with Overexertion ──
+        // The Fatigue comes when the power ends: on its own (1 Minute or Channeling: 10 of your turns), when you end it
+        // (End Power, above your Powers and Attacks), or when you rest. state.activePowers: [{ id, key, name, dur, left }]
+        const APX_DUR_TURNS = { '1min': 10, channel: 10 };
+        window.apxOverexert = function (name) {
+            let st = window.state; if (!st) return;
+            st.fatigue = (parseInt(st.fatigue) || 0) + 1;
+            APXDice?.notify(`Overexertion (${name}): +1 Fatigue now that it's over (Fatigue ${st.fatigue}).`, { kind: 'warn', open: true });
+            try { window.apxOnRollEvent?.({ id: 'ox' + Date.now().toString(36), kind: 'action', label: 'Overexertion', text: `${st.name || 'A player'} gains a level of Fatigue: ${name} is over (Overexertion).` }); } catch (e) { }
+            window.recalculateMath(); window.scheduleAutoSave?.();
+        };
+        window.apxStartActivePower = function (key, p) {
+            let dur = (p && p.draft && p.draft.duration) || 'instant';
+            if (dur === 'instant') return false;
+            let st = window.state, inFight = !!window._pwCombatCode;
+            let old = (st.activePowers || []).find(a => a.key === String(key));
+            if (old) window.apxEndActivePower(old.id, 'used again');   // (used again: the old one is over, and its Fatigue lands)
+            st.activePowers = st.activePowers || [];
+            st.activePowers.push({ id: 'ap' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), key: String(key), name: p.name || 'Power', dur, left: inFight && APX_DUR_TURNS[dur] ? APX_DUR_TURNS[dur] : null });
+            return true;
+        };
+        window.apxEndActivePower = function (id, why) {
+            let st = window.state, a = (st.activePowers || []).find(x => x.id === id); if (!a) return;
+            st.activePowers = st.activePowers.filter(x => x !== a);
+            if (!st.activePowers.length) delete st.activePowers;
+            window.apxOverexert(a.name + (why ? ` (${why})` : ''));
+        };
+        // Resting ends them all (before the rest's own recovery)
+        window.apxEndAllActivePowers = function (why) { ((window.state && window.state.activePowers) || []).slice().forEach(a => window.apxEndActivePower(a.id, why)); };
+        function apxActivePowersBarHtml() {
+            let list = (window.state && window.state.activePowers) || []; if (!list.length) return '';
+            let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+            let durText = { '1min': '1 Minute', '10min': '10 Minutes', '1hr': '1 Hour', '8hr': '8 Hours', '24hr': '24 Hours', channel: 'Channeling', permanent: 'Permanent' };
+            return list.map(a => `<div data-active-power="${esc(a.id)}" style="background:rgba(120,53,15,.3);border:1px solid #b45309;border-radius:.4rem;padding:.35rem .5rem;margin-bottom:.4rem;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap">
+                <span style="font-size:.72rem;font-weight:800;color:#fde68a">${esc(a.name)}</span>
+                <span style="font-size:.6rem;color:#fcd34d">${esc(durText[a.dur] || a.dur)}${a.left != null ? ` · ${a.left} more turn${a.left === 1 ? '' : 's'}` : ''} · Overexertion: +1 Fatigue when it ends</span>
+                <span style="flex:1"></span>
+                <button onclick="window.apxEndActivePower('${esc(a.id)}')" title="It's over (you ended it, it was dispelled, or its time ran out): take the Fatigue" style="font-size:.66rem;font-weight:800;padding:.12rem .45rem;border-radius:.25rem;background:#1e293b;border:1px solid #b45309;color:#fde68a;cursor:pointer">End Power</button></div>`).join('');
+        }
+        window.apxActivePowersBarHtml = apxActivePowersBarHtml;
+        // Your turn starts: a 1 Minute (or Channeling) power runs down
+        (function hookActive(tries) {
+            let orig = window.apxResetAp;
+            if (typeof orig !== 'function') { if ((tries || 0) < 50) setTimeout(() => hookActive((tries || 0) + 1), 200); return; }
+            if (orig._apxActive) return;
+            let w = function () {
+                let r = orig.apply(this, arguments);
+                ((window.state && window.state.activePowers) || []).slice().forEach(a => { if (a.left != null) { a.left -= 1; if (a.left <= 0) window.apxEndActivePower(a.id, 'its time is up'); } });
+                return r;
+            };
+            Object.keys(orig).forEach(k => { w[k] = orig[k]; });
+            w._apxActive = true; window.apxResetAp = w;
+        })(0);
 

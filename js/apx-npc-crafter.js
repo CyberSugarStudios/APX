@@ -2123,6 +2123,8 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
     let whoGm = actor ? (window._gmGmName ? window._gmGmName(actor) : actor.name) : sb.name;
     let whoPub = actor ? (window._gmPublicName ? window._gmPublicName(actor) : actor.name) : sb.name;
     if (actor && !sb._isCompanion) flags.initId = actor.id;
+    // Utilities that are numbers (+AC, DR/ER, Temp HP…): once it's used, you pick who gets them
+    if (actor && !sb._isCompanion && window._gmBuffOffer && window.apxPowerBuff && window.apxPowerBuff(d, p.lvl)) setTimeout(() => window._gmBuffOffer(actor, p), 400);
     // An area power with a battle map open: its area is placed first (its shape and size are the power's).
     // Everyone in it then rolls the save and takes the damage (the GM confirms it in the tracker).
     let areaSpec = window.apxPowerAreaSpec ? window.apxPowerAreaSpec(p) : null, areaRes = null;
@@ -2154,8 +2156,12 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
         actor.powerUsage[p.name] = Math.min(max, used + 1);
         if (typeof window.renderInitiativeTracker === 'function') window.renderInitiativeTracker();
     }
-    // Overexertion (Step 8): using it costs the creature a level of Fatigue
-    if (actor && !sb._isCompanion && d && d.refunds && d.refunds.overexertion && window._gmAddFatigue) window._gmAddFatigue(actor.id, 1, `Overexertion: ${p.name || 'a power'}`);
+    // Overexertion (Step 8): using it costs the creature a level of Fatigue, once the power is over
+    // (a lasting one in a fight: when it ends, i.e. 10 of its turns for 1 Minute or Channeling, or its chip's x)
+    if (actor && !sb._isCompanion && d && d.refunds && d.refunds.overexertion && window._gmAddFatigue) {
+        if ((d.duration || 'instant') !== 'instant' && window.gmCombatStarted && window._gmStartOverexert) window._gmStartOverexert(actor, p.name || 'Power', d.duration);
+        else window._gmAddFatigue(actor.id, 1, `Overexertion: ${p.name || 'a power'}`);
+    }
     // Damage type chosen each time it's used: whoever uses it (the GM, or the player with a companion) picks
     let chosen = window.apxPowerChooseTypes ? await window.apxPowerChooseTypes(d, p.name) : null;
     if (chosen === false) return;
@@ -2318,9 +2324,19 @@ function ncRenderPreview() {
     let sb = window.companionStatBlock();
     let nameEl = document.getElementById('ncPreviewName');
     if (nameEl) nameEl.textContent = sb?.name || (ncTarget === 'gm' ? 'New NPC' : 'Companion');
-    el.innerHTML = sb ? buildStatBlockHtml(sb, false) : '';
+    el.innerHTML = sb ? ncSummonApWarning(sb) + buildStatBlockHtml(sb, false) : '';
 }
 window.ncRenderPreview = ncRenderPreview;
+// A summoned creature has a hard 3 AP a turn: an attack or power costing more can never be used
+function ncSummonApWarning(sb) {
+    let c = ncActiveCompanion();
+    if (!c || !(c.isSummon || ncTarget === 'summon')) return '';
+    let over = (sb.equippedWeapons || []).filter(w => (parseInt(w.ap) || 0) > 3).map(w => `${w.name}${w.isTwoHanded ? ' (2-Handed)' : ''}: ${w.ap} AP`)
+        .concat((sb.powerCards || []).filter(p => (parseInt(p.ap) || 0) > 3 && !(window.apxPowerIsReaction && window.apxPowerIsReaction(p))).map(p => `${p.name || 'Power'}: ${p.ap} AP`));
+    if (!over.length) return '';
+    let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    return `<div data-summon-ap-warn class="bg-amber-950/60 border border-amber-600 rounded p-2 mb-2 text-[10px] text-amber-200 leading-tight"><b>⚠ More than 3 AP:</b> a summoned creature gets a hard 3 AP each turn, so it can never use ${over.length === 1 ? 'this' : 'these'}: ${over.map(esc).join(', ')}. Pick a lighter weapon (or its one-handed attack), or a cheaper power.</div>`;
+}
 
 function ncRenderSummary() {
     let c = ncActiveCompanion();

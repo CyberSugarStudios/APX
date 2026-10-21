@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.10.20.2314';
+window.APX_VERSION = 'v2026.10.21.0432';
 
         window.state = getInitialState();
 
@@ -336,6 +336,7 @@ window.APX_VERSION = 'v2026.10.20.2314';
             (st.ancestryEnvVulnerabilities || []).forEach(e => { if (e.type) def.res[N(e.type)] = (def.res[N(e.type)] || 0) - 5; });
             ((typeof calc !== 'undefined' && calc.customItemErBonuses) || []).forEach(b => { if (b.type) def.res[N(b.type)] = (def.res[N(b.type)] || 0) + (b.amount || 0); });
             def.halfBypass = ((st.perks || {}).con_ironclad || 0) >= 4;
+            (window.apxPowerBuffImmune ? window.apxPowerBuffImmune(st) : []).forEach(t => def.immune.push(N(t)));   // (a power made you immune)
             // A Conduit Exo-Suit's Breach: +5 ER against each of its Energy types
             let ex = (typeof calc !== 'undefined' && calc.exo) || null;
             ((ex && ex.breach) || []).forEach(t => { def.res[N(t)] = (def.res[N(t)] || 0) + 5; });

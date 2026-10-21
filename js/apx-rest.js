@@ -83,15 +83,18 @@
         let s = st();
         if ((s.restDice || 0) <= 0) return null;
         let flat = addCon ? conMod() : 0;
+        // Vitality: Rank 1 heals your CON modifier more, Rank 3 rolls healing dice at their maximum
+        let vit = window.apxPerkRank ? window.apxPerkRank(s, 'con_vitality') : ((s.perks || {}).con_vitality || 0);
+        let bonus = vit >= 1 ? Math.max(0, conMod()) : 0;
         let rolled = window.APXDice
-            ? window.APXDice.rest({ label, who: s.name || '', dieStep: dieStep(), count: 1, flat, wellRested: wellRested() })
-            : Math.floor(Math.random() * (parseInt(dieStep().slice(1)) || 6)) + 1 + flat;
+            ? window.APXDice.rest({ label, who: s.name || '', dieStep: dieStep(), count: 1, flat, wellRested: wellRested(), max: vit >= 3, bonus, bonusWhy: bonus ? `Vitality: +${bonus} (your CON modifier)` : '' })
+            : (vit >= 3 ? (parseInt(dieStep().slice(1)) || 6) : Math.floor(Math.random() * (parseInt(dieStep().slice(1)) || 6)) + 1) + flat + bonus;
         let heal = Math.max(0, rolled);
         let before = s.currentHp || 0;
         s.currentHp = Math.min(maxHp(), before + heal);
         s.hpNote = { text: label, t: Date.now() };   // the GM's log says where the healing came from
         s.restDice = (s.restDice || 0) - 1;
-        let comp = healCompanion(rolled - flat, 1);
+        let comp = healCompanion(rolled - flat - bonus, 1);
         refresh();
         return { rolled, healed: s.currentHp - before, comp };
     }
@@ -109,6 +112,7 @@
     // ── Short Rest ───────────────────────────────────────────────
     window.apxShortRest = function () {
         if (!needHp()) return;
+        window.apxEndAllActivePowers?.('you rested');   // (a lasting Overexertion power ends: its Fatigue first)
         let log = [];
         let back = panel('Short Rest', '');
         let draw = () => {
@@ -155,6 +159,7 @@
                 if (s.usedPowerSlots) s.usedPowerSlots.CHA = 0;
                 if (s.exoSuit) { s.exoSuit.camoUsed = 0; s.exoSuit.bulwarkUsed = 0; }   // Active Camouflage and Bulwark uses come back on a Short Rest
                 s.thFoundUsed = false;   // Treasure Hunter Rank 5: another item "found earlier"
+                s.relentlessUsed = 0;    // Relentless: its uses come back
                 (s.traitPowers || []).forEach(tp => { tp.used = 0; });   // Ancestry Trait powers (once per Short Rest)
                 let recBack = recoverUsedList(s);
                 s.recoverUsed = {};
@@ -171,6 +176,7 @@
     // ── Full Rest ────────────────────────────────────────────────
     window.apxFullRest = async function () {
         if (!needHp()) return;
+        window.apxEndAllActivePowers?.('you rested');   // (a lasting Overexertion power ends: its Fatigue first)
         let s = st(), c = C();
         let mh = maxHp();
         let maxDice = c.maxRestDice || s.restDice || 0;
@@ -248,6 +254,7 @@
             if (s2.usedPowerSlots) Object.keys(s2.usedPowerSlots).forEach(k => s2.usedPowerSlots[k] = 0);
             if (s2.exoSuit) { s2.exoSuit.camoUsed = 0; s2.exoSuit.bulwarkUsed = 0; }
             s2.thFoundUsed = false;
+            s2.relentlessUsed = 0;
             (s2.traitPowers || []).forEach(tp => { tp.used = 0; });
             s2.luckPts = maxLuck;
             s2.recoverUsed = {};
@@ -380,12 +387,38 @@
     // ── Regenerative (ancestry trait) ────────────────────────────
     // "At the beginning of your turn in combat you can expend a Rest Die, rolling it,
     //  and healing for an amount equal to the result."
+    // It heals like any Rest Die you spend (the roll + your CON modifier, with Vitality's bonuses), once a turn in combat.
+    function regenTurnKey() { let ct = window._pwCombatTurn; return window._pwCombatCode && ct ? `${ct.session || ct.id || ''}:${ct.round || 0}` : null; }
+    function noHeal() { let s = st(); return window.apxNoHealCond ? window.apxNoHealCond(window.apxEffectiveConditions ? window.apxEffectiveConditions((s.conditions || []).concat(s.gmConditions || []), s).map(c => c.id) : (s.conditions || [])) : ''; }
     window.apxRegenerate = function () {
         let s = st();
         if ((s.restDice || 0) <= 0) { window.apxAlert('No Rest Dice left to expend.', { title: 'Regenerative' }); return; }
-        let r = spendRestDie('Regenerative', false);
-        if (r) toast(`Regenerative: healed ${r.healed} HP (1 Rest Die spent)${r.comp ? '. ' + r.comp : ''}.`);
+        let nh = noHeal(); if (nh) { toast(`You can't regain Hit Points (${nh}).`); return; }
+        let key = regenTurnKey();
+        if (key && s.regenTurn === key) { toast('Regenerative: once per turn (at the start of your turn).'); return; }
+        let r = spendRestDie('Regenerative', true);
+        if (r) { if (key) s.regenTurn = key; window.scheduleAutoSave?.(); toast(`Regenerative: healed ${r.healed} HP (1 Rest Die spent)${r.comp ? '. ' + r.comp : ''}.`); }
     };
+    // The start of your turn in combat: offered (when you're hurt and have Rest Dice)
+    (function hookRegen(tries) {
+        let orig = window.apxResetAp;
+        if (typeof orig !== 'function') { if ((tries || 0) < 50) setTimeout(() => hookRegen((tries || 0) + 1), 200); return; }
+        if (orig._apxRegen) return;
+        let w = function () {
+            let r = orig.apply(this, arguments);
+            let s = st();
+            if (s && window._pwCombatCode && (s.ancestry?.traits || []).includes('t_reg') && (s.restDice || 0) > 0 && (s.currentHp || 0) < maxHp() && !noHeal() && window.APXDice && APXDice.ask) {
+                let key = regenTurnKey();
+                if (key && s.regenTurn !== key) setTimeout(async () => {
+                    let a = await APXDice.ask('Regenerative', `Your turn: spend a Rest Die to heal (its roll + your CON modifier)? You have ${s.restDice}.`, [['yes', 'Spend a Rest Die', 'pri'], ['no', 'Not now']]);
+                    if (a === 'yes') window.apxRegenerate();
+                }, 300);
+            }
+            return r;
+        };
+        Object.keys(orig).forEach(k => { w[k] = orig[k]; });
+        w._apxRegen = true; window.apxResetAp = w;
+    })(0);
     // Show the Regen button only for characters with the trait
     let _orig = window.apxRenderApPips;
     window.apxRenderApPips = function () {

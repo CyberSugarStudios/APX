@@ -32,11 +32,11 @@
         { g: 'Combat Maneuvers', name: 'Charge', cost: 3, tip: 'Move up to its Speed in a straight line (2+ squares). Then 1 AP: a melee attack with Disadvantage that deals an extra damage die, or a tackle (both Prone, STR score damage).', fx: { key: 'charge', label: 'Charge: +1 damage die', next: { dis: true } } },
         { g: 'Combat Maneuvers', name: 'Lunging Attack', cost: 3, tip: 'A melee attack with 1 square more reach, with Disadvantage; it provokes attacks of opportunity.', fx: { key: 'lunge', label: 'Lunge', next: { dis: true } } },
         { g: 'Combat Maneuvers', name: 'Disarming Attack', cost: 3, tip: 'A melee attack with Disadvantage: on a hit, the target drops an item of its choice (2 AP to catch it).', fx: { key: 'disarm', label: 'Disarm', next: { dis: true } } },
-        { g: 'Combat Maneuvers', name: 'Shove', cost: 3, tip: 'A melee attack that deals no damage (Disadvantage against larger creatures): on a hit, push 2 squares or knock Prone.', roll: { attack: 'STR', label: 'Shove', larger: true, hitNote: () => 'No damage. Hit: push the target 2 squares away or knock it Prone' } },
+        { g: 'Combat Maneuvers', name: 'Shove', cost: 3, tip: 'A melee attack that deals no damage (Disadvantage against larger creatures): on a hit, push 2 squares or knock Prone.', roll: { attack: 'STR', label: 'Shove', larger: true, hitNote: () => 'No damage. Hit: push the target 2 squares away or knock it Prone' }, shove: true },
         { g: 'Combat Maneuvers', name: 'Feint', cost: 2, tip: 'CHA (Deceive) against the target\'s PER (Insight). If it wins, its next attack against that target this turn has Advantage.', roll: { skill: 'Deceive', attr: 'CHA', label: 'Feint: CHA (Deceive)' }, ask: 'Feint won?', vs: 'the target\'s PER (Insight)', fx: { key: 'feint', label: 'Feint: Adv on next attack', next: { adv: true } } },
         { g: 'Combat Maneuvers', name: 'Vault', cost: 2, tip: 'AGI (Acrobatics) against the creature\'s STR (Athletics): leap over it, and its first melee attack against it this turn has Advantage.', roll: { skill: 'Acrobatics', attr: 'AGI', label: 'Vault: AGI (Acrobatics)' }, ask: 'Vault won?', vs: 'the creature\'s STR (Athletics)', fx: { key: 'vault', label: 'Vault: Adv on next melee attack', next: { adv: true, melee: true } } },
-        { g: 'Combat Maneuvers', name: 'Grapple', cost: 3, tip: 'A free hand, on a creature no more than one size larger: contested STR (Athletics) against its STR (Athletics) or AGI (Acrobatics). On a win the target is Grappled, and the grappler is Staggered for as long as it holds on.', roll: { skill: 'Athletics', attr: 'STR', label: 'Grapple: STR (Athletics)', push: true }, ask: 'Grapple won?', vs: 'its STR (Athletics) or AGI (Acrobatics)', cond: 'staggered', fx: { key: 'grappling', label: 'Grappling (Staggered)', keep: true } },
-        { g: 'Combat Maneuvers', name: 'Pin', cost: 2, tip: 'On a creature it\'s grappling: contested STR (Athletics) again. On a win the target is Pinned: also Restrained and Prone.', roll: { skill: 'Athletics', attr: 'STR', label: 'Pin: STR (Athletics)', push: true }, ask: 'Pin won?', vs: 'its STR (Athletics)' },
+        { g: 'Combat Maneuvers', name: 'Grapple', cost: 3, tip: 'A free hand, on a creature no more than one size larger: contested STR (Athletics) against its STR (Athletics) or AGI (Acrobatics). On a win the target is Grappled, and the grappler is Staggered for as long as it holds on.', roll: { skill: 'Athletics', attr: 'STR', label: 'Grapple: STR (Athletics)', push: true }, ask: 'Grapple won?', vs: 'its STR (Athletics) or AGI (Acrobatics)', cond: 'staggered', fx: { key: 'grappling', label: 'Grappling (Staggered)', keep: true }, grab: 'grapple' },
+        { g: 'Combat Maneuvers', name: 'Pin', cost: 2, tip: 'On a creature it\'s grappling: contested STR (Athletics) again. On a win the target is Pinned: also Restrained and Prone.', roll: { skill: 'Athletics', attr: 'STR', label: 'Pin: STR (Athletics)', push: true }, ask: 'Pin won?', vs: 'its STR (Athletics)', grab: 'pin' },
         { g: 'Combat Maneuvers', name: 'Choke', cost: 2, tip: 'On a creature it has Pinned: its unarmed strike damage with no attack roll, lethal or non-lethal. It ignores the target\'s DR, ER and resistances, and counts as an attack.' },
         { g: 'Combat Maneuvers', name: 'Escape', cost: 4, tip: 'Break free of a grapple: contested STR (Athletics) or AGI (Acrobatics) against the grappler\'s STR (Athletics). On a win, the Grapple and any Pin end.', roll: { escape: true }, ask: 'Escape won?', vs: 'the grappler\'s STR (Athletics)', uncond: ['pinned', 'grappled', 'grabbed'] },
         { g: 'Combat Maneuvers', name: 'Recover: Shake It Off', cost: 1, recover: 'shake', tip: 'Roll half its Rest Dice (its CON score in d6, rounded down) and add its CON modifier to each die: it regains that much HP. Once per fight (a Short or Full Rest brings it back).' },
@@ -206,6 +206,17 @@
             if (!ans) return;
             won = ans === 'won';
         }
+        // Who it grapples, pins or knocks Prone (the GM's tracker: a player's sheet gets the Condition too)
+        let target = null, shoveProne = false;
+        if (won && a.grab && ctx.pickTarget) {
+            target = a.grab === 'pin' && ctx.grappling ? ctx.grappling() : null;
+            if (!target) { target = await ctx.pickTarget(a.grab === 'pin' ? `Who does ${who} pin?` : `Who does ${who} grapple?`); if (target === undefined) return; }
+        }
+        if (a.shove && ctx.pickTarget && window.APXDice && APXDice.ask) {
+            let ans = await APXDice.ask('Shove', `${who}'s attack roll is in your dice tray. Compare it with the target's AC: did it hit?`, [['prone', 'Hit: knock it Prone', 'pri'], ['push', 'Hit: push it 2 squares'], ['miss', 'Missed']]);
+            if (!ans) return;
+            if (ans === 'prone') { target = await ctx.pickTarget(`Who does ${who} knock Prone?`); if (target === undefined) return; shoveProne = !!target; }
+        }
         if (a.recover) { let ok = await recover(a, ctx); if (!ok) return; }
         if (a.move && ctx.move) ctx.move();
         let spend = have != null ? Math.min(cost, have) : cost;
@@ -213,7 +224,10 @@
         if (spend > 0 && ctx.spend && !(a.stand && ctx.standUpCharges)) ctx.spend(spend);
         if (won) {
             if (a.fx && ctx.addFx) ctx.addFx(Object.assign({ id: 'fx' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name: a.name }, JSON.parse(JSON.stringify(a.fx)), blockFx || {}));
-            if (a.cond && ctx.addCond) ctx.addCond(a.cond);
+            // (a grapple the tracker links up Staggers the grappler itself)
+            if (a.cond && ctx.addCond && !(a.grab && target && ctx.grapple)) ctx.addCond(a.cond);
+            if (a.grab && target && ctx.grapple) ctx.grapple(target, a.grab === 'pin');
+            if (shoveProne && ctx.knockProne) ctx.knockProne(target);
             if (a.uncond && ctx.removeCond) a.uncond.forEach(id => ctx.removeCond(id));
             // Letting go: its grapple's Staggered ends (not one it got some other way)
             if (a.endFx && ctx.endFx && ctx.endFx(a.endFx) && ctx.removeCond) ctx.removeCond('staggered');

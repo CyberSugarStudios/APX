@@ -686,8 +686,11 @@ window.pcSetUtilityCount = function(tier, key, delta) {
     if (!pcDraft.utility[tier]) pcDraft.utility[tier] = {};
     let cur = pcDraft.utility[tier][key] || 0;
     let entry = POWER_UTILITY[tier].find(u => u.key === key);
-    let max = entry.rep ? 20 : 1;
+    // A repeatable (*) Utility can be taken up to the power's Level in times (counting the copy being added,
+    // which can raise the Level: 5 at Level 5)
+    let max = entry.rep ? pcRepMax(tier, key, cur + 1) : 1;
     if (delta > 0 && tier !== 'mythic' && pcMythic(pcDraft)) return;   // a Mythic power can't have other utilities
+    if (delta > 0 && entry.rep && cur >= max) { window.APXDice?.notify(`A power can take a Utility at most as many times as its Level: this one is Level ${max}${max < 5 ? ' (more XP elsewhere raises it)' : ''}.`, { kind: 'warn' }); return; }
     let next = Math.max(0, Math.min(max, cur + delta));
     if (delta > 0 && key === 'summonCreature' && pcSummonBlock()) { window.showConfirm(pcSummonBlock(), null, true); return; }
     // Immune to Damage (Master): no Damage Interrupt on the same power
@@ -713,6 +716,12 @@ window.pcSetUtilityCount = function(tier, key, delta) {
     pcRenderAll();
 };
 
+// How many times a repeatable Utility can be taken: the power's Level with n copies of it
+function pcRepMax(tier, key, n) {
+    let d = JSON.parse(JSON.stringify(pcDraft));
+    d.utility[tier] = d.utility[tier] || {}; d.utility[tier][key] = n;
+    return Math.max(1, window.pcCalcXP(d).level);
+}
 window.pcSetChannelStep = function(val) { pcDraft.channelStep = val; pcRenderAll(); };
 window.pcSetDuration = function(val) {
     pcDraft.duration = val;
@@ -919,6 +928,14 @@ function pcRulesProblems() {
     // A second damage type needs dice of its own, and so does the first
     if (pcDraft.addSecondType && !pcDraft.isHealing && pcDiceTotal(pcDraft) >= 2 && window.apxDmgSplit && !window.apxDmgSplit(pcDraft))
         out.push('Each damage type needs at least one die: move a die to each side in Step 4\'s split.');
+    // Repeatable Utilities: at most as many copies as the power's Level
+    {
+        let lvl = window.pcCalcXP(pcDraft).level;
+        ['minor', 'moderate', 'major', 'master'].forEach(tier => Object.keys(pcDraft.utility[tier] || {}).forEach(key => {
+            let u = (POWER_UTILITY[tier] || []).find(x => x.key === key), n = pcDraft.utility[tier][key] || 0;
+            if (u && u.rep && n > lvl) out.push(`"${String(u.label).replace(/\.$/, '')}" is taken ${n} times: a Level ${lvl} power can take it ${lvl} time${lvl === 1 ? '' : 's'} at most (Step 5).`);
+        }));
+    }
     // Summon a Weapon: damage dice (1 per Power Level), no healing, properties it qualifies for
     if (window.apxSwProblems) out.push(...window.apxSwProblems(pcDraft, window.pcCalcXP(pcDraft).level));
     // No power costs more than 200 XP (the top of Level 5), free or not
@@ -1020,14 +1037,14 @@ function pcRenderUtilityTier(tier, label, colorClass) {
         let blocked = (mythicOn && tier !== 'mythic') || !!sumBlock;
         return `
             <div class="flex items-center justify-between bg-slate-900 border ${count && tier === 'mythic' ? 'border-amber-400' : 'border-slate-700'} rounded px-2 py-1.5 gap-2 ${blocked ? 'opacity-40' : ''}">
-                <div class="flex-1 text-[10px] text-slate-300 leading-tight">${u.rep ? '<b class="text-amber-400">*</b>' : ''}${u.label}${u.rep ? ' <span class="text-slate-500">(repeatable)</span>' : ''}${sumBlock ? `<div class="text-red-400">${sumBlock}</div>` : ''}${pcIsNpc() && (u.rep || count < 1) ? ` <span class="text-yellow-500 font-bold">[${pcCost(0, d => { d.utility[tier][u.key] = (d.utility[tier][u.key] || 0) + 1; })}]</span>` : ''}</div>
+                <div class="flex-1 text-[10px] text-slate-300 leading-tight">${u.rep ? '<b class="text-amber-400">*</b>' : ''}${u.label}${u.rep ? ` <span class="text-slate-500">(repeatable, up to its Level${count ? `: ${count}/${pcRepMax(tier, u.key, count)}` : ''})</span>` : ''}${sumBlock ? `<div class="text-red-400">${sumBlock}</div>` : ''}${pcIsNpc() && (u.rep || count < 1) ? ` <span class="text-yellow-500 font-bold">[${pcCost(0, d => { d.utility[tier][u.key] = (d.utility[tier][u.key] || 0) + 1; })}]</span>` : ''}</div>
                 <div class="flex items-center gap-1 shrink-0">
                     <button onclick="window.pcSetUtilityCount('${tier}','${u.key}', -1)" ${count<=0?'disabled':''} class="w-5 h-5 rounded ${count<=0?'bg-slate-800 text-slate-600':'bg-slate-700 hover:bg-slate-600 text-white'} text-xs font-bold">-</button>
                     <span class="w-5 text-center text-xs font-bold text-white">${count}</span>
                     <button onclick="window.pcSetUtilityCount('${tier}','${u.key}', 1)" ${((!u.rep && count>=1) || blocked)?'disabled':''} class="w-5 h-5 rounded ${((!u.rep && count>=1) || blocked)?'bg-slate-800 text-slate-600':'bg-amber-700 hover:bg-amber-600 text-white'} text-xs font-bold" ${sumBlock ? `title="${sumBlock.replace(/"/g, '&quot;')}"` : blocked ? 'title="A power with a Mythic Utility can\'t contain any other utilities"' : tier === 'mythic' && !count ? 'title="Replaces any other utilities in this power"' : ''}>+</button>
                 </div>
             </div>
-        ` + (count > 0 && ((window.APX_POWER_COND_UTILS || {})[u.key] || u.key === 'woundOneLimb') ? pcCondPickRows(u.key, count) : '') + (u.key === 'summonCreature' && count > 0 ? pcSummonRows() : '') + (u.key === 'summonWeapon' && count > 0 && window.pcSwRowsHtml ? window.pcSwRowsHtml() : '');
+        ` + (count > 0 && ((window.APX_POWER_COND_UTILS || {})[u.key] || u.key === 'woundOneLimb') ? pcCondPickRows(u.key, count) : '') + (u.key === 'summonCreature' && count > 0 ? pcSummonRows() : '') + (u.key === 'summonWeapon' && count > 0 && window.pcSwRowsHtml ? window.pcSwRowsHtml() : '') + (count > 0 && window.pcUtilPickRows ? window.pcUtilPickRows(u.key, count) : '');
     }).join('');
     return `<div class="mb-3" style="break-inside:avoid-column"><div class="text-xs font-black ${colorClass} mb-1.5">${label}</div><div class="space-y-1">${rows}</div></div>`;
 }
@@ -1411,6 +1428,9 @@ function pcBuildTextSummary() {
                 return;
             }
             if (key === 'summonWeapon' && window.apxSwSummaryBits) { utilityBits.push(...window.apxSwSummaryBits(pcDraft)); return; }
+            // (a Utility with a pick for each copy, e.g. DR or ER: what was picked)
+            let pickBits = window.apxUtilPickBits ? window.apxUtilPickBits(pcDraft, key, count) : null;
+            if (pickBits) { utilityBits.push(...pickBits); return; }
             utilityBits.push(count > 1 ? `${entry.label} (x${count})` : entry.label);
         });
     });

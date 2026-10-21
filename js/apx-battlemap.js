@@ -110,9 +110,11 @@
 
     // Effective position of any token. Player tokens read the live
     // authority first; everything else uses the GM's token data.
+    // Whose doc holds a token's live position: a player's own token and companion, and a creature they summoned
+    function ctrlUid(tok) { return tok ? (((tok.type === 'player' || tok.type === 'companion') && tok.playerUid) ? tok.playerUid : (tok.ownerUid || null)) : null; }
     function posOf(mapId, tok) {
-        if (tok && (tok.type === 'player' || tok.type === 'companion') && tok.playerUid) {   // players move their own (and their companion's) tokens
-            let p = store.byUid[tok.playerUid]?.[mapId]?.[tok.id];
+        if (ctrlUid(tok)) {   // players move their own (and their companion's, and their summons') tokens
+            let p = store.byUid[ctrlUid(tok)]?.[mapId]?.[tok.id];
             if (p && _num(p.gridX) && _num(p.gridY)) return { gridX: p.gridX, gridY: p.gridY, sq: p.sq || null, f: _num(p.f) ? p.f : null };   // (f: the way its Vision cone faces)
         }
         // (sq: the smaller size a big creature is squeezed into, where it came out of a portal)
@@ -178,7 +180,8 @@
             docs.forEach(d => {
                 if (!d.uid) return;
                 next[d.uid] = d.battlePositions || {};
-                if (d.battleMeasure && d.battleMeasure.map && d.battleMeasure.g) measures[d.uid] = d.battleMeasure;
+                let mAt = d.battleMeasure && d.battleMeasure.at && d.battleMeasure.at.toMillis ? d.battleMeasure.at.toMillis() : null;
+                if (d.battleMeasure && d.battleMeasure.map && d.battleMeasure.g && !(mAt && Date.now() - mAt > 20 * 60000)) measures[d.uid] = d.battleMeasure;
                 if (d.battlePing && d.battlePing.map) store.pings[d.uid] = d.battlePing;
                 store.draws[d.uid] = d.battleDraw || {};
                 store.portalReq[d.uid] = d.portalReq || null;
@@ -359,13 +362,15 @@
         a.style.zIndex = String(zFor(o && o._minTokLayer != null ? o._minTokLayer : 0, 850));
     }
 
+    function _sizeRank(sz) { let i = SIZE_LIST.indexOf(String(sz || 'medium').toLowerCase()); return i < 0 ? 2 : i; }   // (an unknown size counts as Medium)
     function _tokenZ(el) {
         let vm = el._vm;
         if (el._drag) return Z_DRAG;
         let o = el._layerRef && el._layerRef._opts;
-        if (o && o.aboveFog && o.aboveFog.has(vm.id)) return Z_ABOVE_FOG + SIZE_LIST.length - SIZE_LIST.indexOf(vm.size || 'medium');
+        // (above the fog too: smaller over larger, a Swarm under the rest)
+        if (o && o.aboveFog && o.aboveFog.has(vm.id)) return Z_ABOVE_FOG + (vm.swarm ? 0 : 10) + SIZE_LIST.length - _sizeRank(vm.size);
         // Smaller tokens sit above larger ones on the same layer; a Swarm sits under every other token
-        return zFor(vm.layer == null ? 1 : vm.layer, (vm.swarm ? 100 : 900) + SIZE_LIST.length - SIZE_LIST.indexOf(vm.size || 'medium'));
+        return zFor(vm.layer == null ? 1 : vm.layer, (vm.swarm ? 100 : 900) + SIZE_LIST.length - _sizeRank(vm.size));
     }
 
     function _place(el, g, s, offX, offY, gx, gy) {
@@ -1524,7 +1529,7 @@
         svg.innerHTML = list.map(sm => { try { return sm && sm.g && sm.g.a ? _measureHtml(layer, _mResolve(layer, sm.g), sm.who || 'Someone').html : ''; } catch (e) { return ''; } }).join('');
     }
     // Tell the page about this window's measurement (players share theirs; the GM's is shared when shown)
-    function _mShare(layer) {
+    function _mShare(layer, force) {
         let o = layer._opts, m = layer._measure;
         if (!o || !o.onMeasureShare) return;
         let show = o.measureShare !== 'toggle' || !!layer._mShow;
@@ -1533,7 +1538,7 @@
             let R = _mResolve(layer, m.g);
             g = { mode: m.g.mode, a: R.a, anchor: m.g.anchor || null, rel: m.g.rel || null, vec: m.g.vec, wayRel: m.g.wayRel || [], L: m.g.L || null, n: m.g.n || null };
         }
-        if (!g && !layer._mShared) return;
+        if (!g && !layer._mShared && !force) return;   // (turning Measure off always clears it for everyone)
         layer._mShared = !!g;
         try { o.onMeasureShare(g); } catch (e) { console.warn('Measure share:', e); }
     }
@@ -1710,7 +1715,7 @@
         let layer = document.getElementById(winId + '_btScreen');
         if (!layer || !layer._measure) return false;
         try { layer._measure.ov._ro && layer._measure.ov._ro.disconnect(); } catch (e) { }
-        layer._measure.g = null; _mShare(layer);
+        layer._measure.g = null; _mShare(layer, true);
         layer._measure.ov.remove();
         layer._measure = null;
         if (layer._opts?.onMeasureChange) layer._opts.onMeasureChange(false);
@@ -1912,11 +1917,12 @@
                 let A = _areaCalc(layer, P); if (!A) return;
                 let hit = A.hits.filter(h => !P.safe.has(h.vm.id));
                 let res = { tokenIds: hit.map(h => h.vm.id), safeIds: A.hits.filter(h => P.safe.has(h.vm.id)).map(h => h.vm.id),
-                    names: hit.map(h => h.vm.name || String(h.vm.title || '').split(' (')[0] || 'Token'), squares: A.cells.length, reach: _areaReach(layer, P) };
+                    names: hit.map(h => h.vm.name || String(h.vm.title || '').split(' (')[0] || 'Token'), squares: A.cells.length, reach: _areaReach(layer, P),
+                    foot: A.fa ? { x0: A.fa.x0, y0: A.fa.y0, x1: A.fa.x1, y1: A.fa.y1 } : null };
                 if (P.mode !== 'burst' && P.mode !== 'square') _areaAng(angKey, P.ang);
                 // Everyone sees where it landed for a few seconds (as this window's shared measurement)
                 let o = layer._opts;
-                if (o.onMeasureShare && !layer._measure) {
+                if (o.onMeasureShare && !layer._measure && !opts.noShare) {
                     let g = { mode: P.mode, a: P.anchor ? { gx: A.fa.x0, gy: A.fa.y0 } : P.a, anchor: P.anchor ? P.casterId : null, rel: P.anchor ? { dx: 0, dy: 0 } : null,
                         vec: { dx: A.b.gx - A.fa.x0, dy: A.b.gy - A.fa.y0 }, wayRel: [], L: P.mode === 'line' ? null : P.size, n: P.mode === 'line' ? P.size : null };
                     try { o.onMeasureShare(g); layer._areaShared = g; layer._mShared = true; } catch (e) { }
@@ -2885,7 +2891,7 @@
         party: () => Object.values(store.profiles), companionOf, mail: () => store.mail,
         render, layout, clear, toast,
         numberOf, sizeFromCharState, compressImage,
-        squaresBetween, pathSquares, areaCells, lineCells, measuresFor, writeMeasure, moveCost, auraColor, enterMeasure, exitMeasure, toggleMeasure, isMeasuring,
+        squaresBetween, pathSquares, areaCells, lineCells, measuresFor, writeMeasure, moveCost, ctrlUid, auraColor, enterMeasure, exitMeasure, toggleMeasure, isMeasuring,
         placeArea, isPlacingArea,
         pathCost, wallBlocking, enterTool, exitTool, toggleTool, toolOf, pingHere, rooms, refreshRooms: winId => { let l = document.getElementById(winId + '_btScreen'); if (l) _layoutRoomBtns(l); },
         pingsFor, drawingsFor, myDrawings, writePing, writeDrawings, draws: () => store.draws
