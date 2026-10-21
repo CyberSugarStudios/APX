@@ -185,6 +185,8 @@ window.pcCalcXP = function(draft) {
     // Summon a Creature: +15 XP per Tier above 1, for each creature summoned
     let sumCount = (draft.utility.major || {}).summonCreature || 0;
     if (sumCount && !pcMythic(draft)) (window.apxSummonSlots ? window.apxSummonSlots(draft) : []).forEach(x => { step5Cost += 15 * Math.max(0, (parseInt(x.tier) || 1) - 1); });   // (each copy: its own Tier)
+    // Summon a Weapon: +10 XP for each Weapon Property on each summoned weapon
+    if (!pcMythic(draft) && window.apxSwXp) step5Cost += window.apxSwXp(draft);
 
     let mythic = pcMythic(draft);
     let durationDef = POWER_DURATION.find(d => d.key === draft.duration);
@@ -704,6 +706,8 @@ window.pcSetUtilityCount = function(tier, key, delta) {
         if (next > cur && cur > 0) for (let k = cur; k < next; k++) { let prev = k === 1 ? slots[0] : extra[k - 2]; extra.push(Object.assign({}, prev)); }
         pcDraft.summonExtra = extra.slice(0, Math.max(0, next - 1));
     }
+    // Summon a Weapon: each copy is its own weapon (a new one starts like the one before it)
+    if (key === 'summonWeapon' && next !== cur && window.apxSwResize) { pcDraft.utility[tier][key] = cur; window.apxSwResize(pcDraft, next); }
     if (next === 0) delete pcDraft.utility[tier][key];
     else pcDraft.utility[tier][key] = next;
     pcRenderAll();
@@ -915,6 +919,8 @@ function pcRulesProblems() {
     // A second damage type needs dice of its own, and so does the first
     if (pcDraft.addSecondType && !pcDraft.isHealing && pcDiceTotal(pcDraft) >= 2 && window.apxDmgSplit && !window.apxDmgSplit(pcDraft))
         out.push('Each damage type needs at least one die: move a die to each side in Step 4\'s split.');
+    // Summon a Weapon: damage dice (1 per Power Level), no healing, properties it qualifies for
+    if (window.apxSwProblems) out.push(...window.apxSwProblems(pcDraft, window.pcCalcXP(pcDraft).level));
     // No power costs more than 200 XP (the top of Level 5), free or not
     let tot = window.pcCalcXP(pcDraft).total;
     if (tot > window.APX_POWER_MAX_XP) {
@@ -964,7 +970,7 @@ function pcRenderStep4() {
 
     let verb = pcDraft.isHealing ? 'healing' : 'damage';
     document.getElementById('pcStep4Dice').innerHTML = dieRows;
-    document.getElementById('pcStep4Extras').innerHTML = `
+    document.getElementById('pcStep4Extras').innerHTML = (window.pcSwStep4Note ? window.pcSwStep4Note(t.level) : '') + `
         <label class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white cursor-pointer">
             <input type="checkbox" ${pcDraft.isHealing ? 'checked' : ''} onchange="window.pcSetHealing(this.checked)"> This power Heals instead of dealing Damage
         </label>
@@ -1021,7 +1027,7 @@ function pcRenderUtilityTier(tier, label, colorClass) {
                     <button onclick="window.pcSetUtilityCount('${tier}','${u.key}', 1)" ${((!u.rep && count>=1) || blocked)?'disabled':''} class="w-5 h-5 rounded ${((!u.rep && count>=1) || blocked)?'bg-slate-800 text-slate-600':'bg-amber-700 hover:bg-amber-600 text-white'} text-xs font-bold" ${sumBlock ? `title="${sumBlock.replace(/"/g, '&quot;')}"` : blocked ? 'title="A power with a Mythic Utility can\'t contain any other utilities"' : tier === 'mythic' && !count ? 'title="Replaces any other utilities in this power"' : ''}>+</button>
                 </div>
             </div>
-        ` + (count > 0 && ((window.APX_POWER_COND_UTILS || {})[u.key] || u.key === 'woundOneLimb') ? pcCondPickRows(u.key, count) : '') + (u.key === 'summonCreature' && count > 0 ? pcSummonRows() : '');
+        ` + (count > 0 && ((window.APX_POWER_COND_UTILS || {})[u.key] || u.key === 'woundOneLimb') ? pcCondPickRows(u.key, count) : '') + (u.key === 'summonCreature' && count > 0 ? pcSummonRows() : '') + (u.key === 'summonWeapon' && count > 0 && window.pcSwRowsHtml ? window.pcSwRowsHtml() : '');
     }).join('');
     return `<div class="mb-3" style="break-inside:avoid-column"><div class="text-xs font-black ${colorClass} mb-1.5">${label}</div><div class="space-y-1">${rows}</div></div>`;
 }
@@ -1404,6 +1410,7 @@ function pcBuildTextSummary() {
                 });
                 return;
             }
+            if (key === 'summonWeapon' && window.apxSwSummaryBits) { utilityBits.push(...window.apxSwSummaryBits(pcDraft)); return; }
             utilityBits.push(count > 1 ? `${entry.label} (x${count})` : entry.label);
         });
     });

@@ -11,11 +11,11 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.20.1959',
-        released: '2026-10-20T19:59:00',
-        releasedText: 'October 20, 2026 · 7:59 PM',
+        version: 'v2026.10.20.2314',
+        released: '2026-10-20T23:14:00',
+        releasedText: 'October 20, 2026 · 11:14 PM',
         title: 'Playtest 4: Maneuvers, Gear & Burdens',
-        intro: 'Straight from our fourth playtest: NPCs and companions get the full list of maneuvers and actions, Loyal Companions can carry your gear, and carrying too much finally weighs you down. Squeezing costs what it should, and Vitality\'s top rank keeps you on your feet. Since then: NPC maneuvers roll themselves, five new weapon properties (two of them fire into an area), readable buttons in every theme, Exo-Suits rebuilt in three frameworks, including the new Conduit, and now Keen, Parrying and Suppressed weapons, summons that mix Tiers, and creatures your GM shares for summoning.',
+        intro: 'Straight from our fourth playtest: NPCs and companions get the full list of maneuvers and actions, Loyal Companions can carry your gear, and carrying too much finally weighs you down. Squeezing costs what it should, and Vitality\'s top rank keeps you on your feet. Since then: NPC maneuvers roll themselves, five new weapon properties (two of them fire into an area), readable buttons in every theme, Exo-Suits rebuilt in three frameworks, including the new Conduit, Keen, Parrying and Suppressed weapons, summons that mix Tiers, creatures your GM shares for summoning, and now Summon a Weapon built in the Power Crafter, perks you can take back a rank at a time, and character files that show when they\'ve been edited.',
         index: [
             ['Combat', [
                 'NPCs, summoned creatures and Loyal Companions have an Actions button with every Combat Maneuver and Standard Action, spending their own AP. Fight Defensively, Fight Offensively and next-attack maneuvers change their rolls (and AC) until their next turn.',
@@ -49,7 +49,8 @@
                 'The Inflict or end a Condition Utilities (marked *) can be taken more than once, each copy with its own Inflict / End pick.',
                 'Summon a Creature: the creature\'s Tier can\'t be higher than the power\'s Level (Tier 5 at most), and summons act immediately after their summoner in initiative. End a Power now ends powers of an equal or lower Level.',
                 'Each copy of Summon a Creature has its own Tier and creature, so one power can summon a Tier 4 and three Tier 1s. GMs can share their NPCs for players to pick as summons.',
-                'Charmed works everywhere it should: NPC Condition Immunities, an attack check against the charmer, and the Charm ends when the charmer\'s side harms the creature.'
+                'Charmed works everywhere it should: NPC Condition Immunities, an attack check against the charmer, and the Charm ends when the charmer\'s side harms the creature.',
+                'Summon a Weapon has its own builder: name the weapon, make it Melee or Ranged, and add Weapon Properties (10 XP each). It deals Step 4\'s damage (1 die per Power Level) with your Power Attack Bonus, costs 3 AP to attack with, and appears in Weapons & Attacks when you use the power.'
             ]],
             ['Weapons', [
                 'Medium weapons top out at 3d8 (3d10 two-handed) with no Heavy properties. Crit upgrades cost 300 / 900 Cu, Sturdy 50 Cu.',
@@ -59,8 +60,13 @@
                 'Tearing shows its minimum on the roll and applies against NPC and player targets alike, even on a miss.',
                 'New properties: Keen (crit on a 19 or 20), Parrying (Block like a Sturdy weapon, for your Reaction) and Suppressed (attacking doesn\'t reveal you). NPCs\' Block now raises their AC.'
             ]],
+            ['Characters', [
+                'Perks can be taken back one rank at a time for the XP they cost, along with everything that rank set up. GMs can turn this off in World Settings.',
+                'Exported character files are sealed. Importing one always makes a new character, and a file that was edited after export is marked so the GM can see what changed.'
+            ]],
             ['Exo-Suits', [
-                'Exo-Suits are rebuilt: 3,000 Currency, worn with your armor, in three frameworks. A Juggernaut adds its Plating to your defenses, a Phantom hides in plain sight, and the new Conduit amplifies your Powers (Capacitor, Breach, Nullifier, Amplifier, Emitter). Everything a suit does is applied for you.'
+                'Exo-Suits are rebuilt: 3,000 Currency, worn with your armor, in three frameworks. A Juggernaut adds its Plating to your defenses, a Phantom hides in plain sight, and the new Conduit amplifies your Powers (Capacitor, Breach, Nullifier, Amplifier, Emitter). Everything a suit does is applied for you.',
+                'System Overload: a Critical Hit or a hit over your Wound Threshold shuts the suit down, and a dead Juggernaut leaves anyone with STR 16 or less Overburdened (Speed 1, double move AP, Disadvantage on attacks, checks and saves) until a 6 AP Reboot.'
             ]]
         ],
         sheet: [
@@ -89,7 +95,8 @@
                 'End a Power (Major Utility) ends a power of an equal or lower Level, not just a lower one.',
                 'Summon a Creature, taken more than once: each copy gets its own row (#1, #2…) with its own Tier and creature, so one power can summon a Tier 4 creature and three Tier 1s (the XP is the sum of each copy\'s Tier). A new copy starts as a copy of the one above it. Powers you already have summon exactly what they did.',
                 'Your GM\'s creatures: NPCs your GM shares show in each summon row\'s list (at or below its Tier). One you pick is summoned as your GM built it, and only your GM can change it.',
-                'Charmed: while a power has you Charmed, attacking asks whether your target is someone other than the charmer (or cancels). The Charm ends when the charmer or an ally of theirs damages you or uses a harmful power on you.'
+                'Charmed: while a power has you Charmed, attacking asks whether your target is someone other than the charmer (or cancels). The Charm ends when the charmer or an ally of theirs damages you or uses a harmful power on you.',
+                'Summon a Weapon (Moderate Utility): each copy has a row in Step 5 to name its weapon, make it Melee or Ranged (5/20), and add Weapon Properties for 10 XP each (those a Medium weapon of that kind could have; no drawbacks). Step 4\'s dice are its damage, 1 die per Power Level at most. Using the power puts it in Weapons & Attacks: Medium, Trained, 3 AP an attack (Repeating 5), your Power Attack Bonus to hit, Step 4\'s dice + your Power Attribute modifier for damage, and its properties\' saves (Crushing, Stunning) use your Power Save DC. A Conduit Exo-Suit\'s bonus, Breach, Nullifier and Amplifier work on it, and a Sturdy or Parrying one can Block. It fades when the power\'s duration ends (Instant: after your next turn; 1 Minute: 10 rounds), or Dismiss it.'
             ]],
             ['Consumables', [
                 'The Consumable Crafter shows its price against the cap: 150 Cu for one charge, +25 Cu per Artisan rank.',
@@ -125,7 +132,12 @@
                 'Rebuilt from the rulebook: a Base Suit costs 3,000 Currency, is worn with your armor, and holds up to 3 Integrated Systems. Suits you already own keep their systems.',
                 'Juggernaut: STR +4 (to a maximum of 16; Powerful +6, to 18), Advantage on Athletics, Speed 4, one Size larger, and Plating added to your own AC, DR, ER and WT: Standard +5/+2, Assault Plating (2,000) +10/+4 at Speed 3, Dreadnought Plating (6,000) +15/+6 at Speed 2. New system: Bulwark (2,500), 2 AP for Temp HP equal to your AC, your STR modifier in uses per Short Rest. Kinetic Impactors are no longer sold.',
                 'Phantom: AGI +4 (to a maximum of 16), Advantage on Stealth, Speed +1 and Active Camouflage. Mirage Weave is 1,500 and the Flight Module 2,000; Climbing Grips and the Flight Module show their Climb and Fly speeds, and the Flight Module flies on the battle map.',
-                'Conduit (new): Power Attack Bonus and Save DC +2, +5 ER, one more Short Rest Power Slot, and one more Long Rest Power Slot of a Level below your highest. Capacitor adds +2 more; Breach (pick an Energy type, again for another) makes your Powers ignore Resistance to it and gives you +5 ER against it; Nullifier treats Immunity as Resistance; Amplifier deals maximum damage with those Powers; Emitter adds 10 squares to ranged Powers and gives Touch Powers a range of 3. Overloading it also ends your Concentration Powers.'
+                'Conduit (new): Power Attack Bonus and Save DC +2, +5 ER, one more Short Rest Power Slot, and one more Long Rest Power Slot of a Level below your highest. Capacitor adds +2 more; Breach (pick an Energy type, again for another) makes your Powers ignore Resistance to it and gives you +5 ER against it; Nullifier treats Immunity as Resistance; Amplifier deals maximum damage with those Powers; Emitter adds 10 squares to ranged Powers and gives Touch Powers a range of 3. Overloading it also ends your Concentration Powers.',
+                'System Overload: a Critical Hit from your GM\'s creature, or one hit over your Wound Threshold, overloads the suit on its own, from your sheet or your GM\'s tracker. While a Juggernaut is shut down and your STR is 16 or less (it was 14), you\'re Overburdened: Speed 1, moving costs double AP (on the battle map too), no jumping or climbing, and Disadvantage on attacks, checks and saves, until Reboot Exo-Suit (6 AP).'
+            ]],
+            ['Your Character', [
+                'Remove a perk rank: − Rank beside a perk (or Remove Rank in the Perk Forge) takes off its top rank, one at a time, and refunds the XP it cost (logged in your XP Log). Its choice goes with it, and so does what it set up: Power Slots and a free power you haven\'t made yet (Powers perks), Martial Arts\' unarmed strike, Mobile\'s AC, extra Omen Dice, and on Loyal Companion\'s last rank the TP you bought for it (the companion is kept for later). Uses per rest stay used, and a free power you already made stays: buying the rank again won\'t give a second one. Full Rest Powers asks which rank\'s purchase to remove.',
+                'Export JSON seals the file (a fingerprint of the character, recorded on your account). Import JSON always makes a new character, never over the one you have open or a world\'s. A file you exported from this account and didn\'t change comes in unmarked; one that was changed, came from another account, or was exported before this update comes in marked "Imported file", and the GM of a world it joins sees what changed until they clear it.'
             ]]
         ],
         gm: [
@@ -167,7 +179,8 @@
                 'End a Power ends powers of an equal or lower Level.',
                 'Summon ✓ / ✕ on an NPC\'s row in your NPC list shares it with your players for their Summon a Creature powers, in every world it\'s tagged for (every world, untagged), at its Tier. Players can\'t edit it, and turning it off stops new picks without taking it from powers that already summon it.',
                 'Condition Immunities include Charmed and Can\'t Regain HP.',
-                'Keen, Parrying and Suppressed are in the Weapon Forge for NPCs too, priced in TP: Keen weapons crit on a 19 or 20, and Suppressed attack cards note the attacker stays hidden.'
+                'Keen, Parrying and Suppressed are in the Weapon Forge for NPCs too, priced in TP: Keen weapons crit on a 19 or 20, and Suppressed attack cards note the attacker stays hidden.',
+                'Summon a Weapon for NPCs: build the weapon in the Power Crafter (properties priced in TP), and its stat block lists it under the power with the creature\'s Power Attack Bonus, Step 4 dice + its Power Attribute, and 3 AP. Click it to attack; using the power rolls no damage of its own. Crushing and Stunning on a summoned weapon use the Power Save DC.'
             ]],
             ['Tracker', [
                 'Tearing raises a hit to at least 2 damage per damage die, after DR/ER (and an area attack\'s misses take it too).',
@@ -183,7 +196,12 @@
             ]],
             ['Players\' Gear', [
                 'Players can be Overburdened now (Speed 1, Disadvantage on attacks, checks and saves), and wear Backpacks, Bandoliers and Utility Belts to carry more.',
-                'Loyal Companions carry gear their owners give them, and can wield the weapons: you\'ll see those on the companion\'s stat block.'
+                'Loyal Companions carry gear their owners give them, and can wield the weapons: you\'ll see those on the companion\'s stat block.',
+                'A player\'s Exo-Suit overloads from your tracker too: a Critical Hit, or one hit over their Wound Threshold, shuts it down on their sheet.'
+            ]],
+            ['Worlds & Players', [
+                'World Settings: Players can remove perk ranks (on by default). Each removal refunds that rank\'s XP and shows in your dice tray; untick it and perks can only be bought in your world.',
+                'Imported characters: one made from a file that was edited after export, came from another account, or predates sealing carries a ⚠ Imported file mark on its Party card and in the Players list. Hover it to see what changed (XP, attributes, perks, powers, Currency…), and Clear it once you\'ve checked the character. Importing never overwrites a character already in your world.'
             ]]
         ]
     }, {

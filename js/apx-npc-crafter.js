@@ -2114,6 +2114,9 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
         if (am) split[0].formula += (am > 0 ? '+' : '') + am;
         dmg = { formula: split.map(x => x.formula).join('+'), heal: false, type: split.map(x => x.type).join(' + '), split };
     }
+    // Summon a Weapon: its Step 4 damage is the weapon's (rolled from the weapon's line on the stat block), so using
+    // the power rolls no damage of its own
+    if (window.apxSwCount && window.apxSwCount(d)) { dmg = null; if (step === 'atkSave' && d.atkMode !== 'save') step = 'guaranteed'; }
     let flags = sb._isCompanion ? { companion: true, compOwner: sb._compOwner || null, omen: true } : { npcId: sb._npcId || key, initId: initId || sb._initId || undefined };
     // The creature acting: when several share this stat block, the one taking its turn
     let actor = !sb._isCompanion && typeof window._gmAttackerFor === 'function' ? window._gmAttackerFor(flags) : null;
@@ -2272,6 +2275,7 @@ function powerCardHtml(p, compUse, sb, list, idx) {
                 <div><span class="text-slate-500">D/H:</span> ${window.apxAttrDmgText ? window.apxAttrDmgText(p.dmg, (sb && sb.mods || {})[sb && sb.powerAttrChoice]) : p.dmg}</div>
             </div>
             ${(() => { let l = p.draft && window.apxPowerSaveLines ? window.apxPowerSaveLines(p.draft, sb && sb.powerSaveDc) : null; return l && l.escape && !/Escape Save/.test(p.desc || '') ? `<div class="text-[9px] text-purple-300 font-bold mb-0.5">${l.escape}</div>` : ''; })()}
+            ${window.apxSwNpcHtml ? window.apxSwNpcHtml(p, sb) : ''}
             <div class="text-[9px] text-slate-500 leading-tight" style="white-space:pre-wrap;">${p.desc}</div>
         </div>
     `;

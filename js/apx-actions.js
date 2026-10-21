@@ -73,6 +73,8 @@
     function sturdyWeapons() {
         // (a Parrying weapon blocks as if it were Sturdy, using your Reaction instead of AP)
         let s = st(), out = (s.weapons || []).filter(w => w && w.properties && (w.properties.sturdy || w.properties.parrying)).map(w => ({ name: w.name || 'Weapon', dmg: String(w.dmg || w.dice || '1d6'), parry: !w.properties.sturdy }));
+        // (and a Sturdy or Parrying weapon a power summoned)
+        if (window.apxSwBlockOptions) out = out.concat(window.apxSwBlockOptions(s));
         let ma = (s.perks || {}).str_martialarts || 0;
         if (ma >= 2) out.push({ name: 'Unarmed (Martial Arts)', dmg: UNARMED[Math.min(5, ma)] });
         return out;
@@ -366,11 +368,11 @@
             auto: () => releaseGrapple() },
         // Standard Actions
         { g: 'Standard Actions', name: 'Move', cost: null, tip: 'Move up to your Speed. Costs 1 AP the first time this turn, 2 the second, 3 the third… (dragging your token in combat pays this for you).',
-            costNow: () => { let s = st(), n = (s.apxMoves || 0) + 1, c = Math.max(0, n - (((s.perks || {}).agi_mobile || 0) >= 1 ? 1 : 0)); let eff = window.apxEffectiveConditions ? window.apxEffectiveConditions(s.conditions || [], s).map(x => x.id) : []; return eff.includes('staggered') ? c * 2 : c; },
+            costNow: () => { let s = st(), n = (s.apxMoves || 0) + 1, c = Math.max(0, n - (((s.perks || {}).agi_mobile || 0) >= 1 ? 1 : 0)); let eff = window.apxEffectiveConditions ? window.apxEffectiveConditions(s.conditions || [], s).map(x => x.id) : []; return eff.includes('staggered') || (typeof calc !== 'undefined' && calc.exoDeadWeight) ? c * 2 : c; },
             auto: () => { st().apxMoves = (st().apxMoves || 0) + 1; window.apxMobileMoved && window.apxMobileMoved(); } },
         { g: 'Standard Actions', name: 'Aim', cost: 2, tip: 'Add your PER modifier to your next ranged attack and damage roll this turn. Use your ranged weapon\'s Aimed attack, which spends the Aim AP for you.', info: true },
         { g: 'Standard Actions', name: 'Jump', cost: null, tip: 'A Jump counts as moving for its AP: your first Move or Jump this turn costs 1 AP, the next 2, and so on. You jump up to your STR modifier in squares (minimum 1); further takes a STR (Athletics) check, DC 5 per extra square.',
-            costNow: () => { let s = st(), n = (s.apxMoves || 0) + 1, c = Math.max(0, n - (((s.perks || {}).agi_mobile || 0) >= 1 ? 1 : 0)); let eff = window.apxEffectiveConditions ? window.apxEffectiveConditions(s.conditions || [], s).map(x => x.id) : []; return eff.includes('staggered') ? c * 2 : c; },
+            costNow: () => { let s = st(), n = (s.apxMoves || 0) + 1, c = Math.max(0, n - (((s.perks || {}).agi_mobile || 0) >= 1 ? 1 : 0)); let eff = window.apxEffectiveConditions ? window.apxEffectiveConditions(s.conditions || [], s).map(x => x.id) : []; return eff.includes('staggered') || (typeof calc !== 'undefined' && calc.exoDeadWeight) ? c * 2 : c; },
             requires: () => { let eff = window.apxEffectiveConditions ? window.apxEffectiveConditions(st().conditions || [], st()).map(x => x.id) : (st().conditions || []); return typeof calc !== 'undefined' && calc.overburdened ? 'You\'re Overburdened: you can\'t jump.' : eff.some(c => ['grappled', 'restrained', 'prone'].includes(c)) ? 'You can\'t jump while Grappled, Restrained or Prone.' : ''; },
             auto: async () => {
                 st().apxMoves = (st().apxMoves || 0) + 1;

@@ -364,7 +364,9 @@
                 calc.storageBonus = worn ? window.apxStorageBonus(worn) : 0;
                 calc.storageName = worn ? worn.name : '';
                 calc.obCap = calc.carryCap + calc.storageBonus * sizeMult;
-                calc.overburdened = calc.carried > calc.obCap;
+                // A deactivated Juggernaut Exo-Suit with STR 16 or less counts as Overburdened too (and doubles your move AP)
+                calc.exoDeadWeight = !!(window.apxExoOverburdened && window.apxExoOverburdened(window.state, calc.scores.STR));
+                calc.overburdened = calc.carried > calc.obCap || calc.exoDeadWeight;
                 if (calc.overburdened) applyEffectSource('Overburdened', { atkDisadvantage: 'general', saveDisadvantage: 'all', checkDisadvantage: 'all' });
             }
             // Override syncDOM's earlier armorWt display (which only knew
@@ -672,7 +674,7 @@
             window.apxRenderApPips && window.apxRenderApPips();
             document.getElementById('dispInit').innerText = calc.init;
             // Exo-Suits: a Juggernaut's Speed is set (4; Assault Plating 3, Dreadnought 2); a Phantom adds 1.
-            // A shut-down Juggernaut weighs on anyone with STR 14 or less: Speed 1.
+            // A shut-down Juggernaut weighs on anyone with STR 16 or less: Speed 1 (and Overburdened, above).
             if (exo && exo.speedFixed) calc.speed = exo.speedFixed;
             if (exo && exo.speedPlus) calc.speed += exo.speedPlus;
             if (window.apxExoOverburdened && window.apxExoOverburdened(window.state, calc.scores.STR)) calc.speed = Math.min(calc.speed, 1);
@@ -961,7 +963,7 @@
                 + (calc.storageBonus ? `<div class="text-[9px] text-emerald-400 font-bold" title="A worn Backpack counts your STR as 2 higher for carrying (a Bandolier or Utility Belt, 1); only the best one counts">${calc.storageName}: STR +${calc.storageBonus}</div>` : '');
 
             let obWarn = document.getElementById('overburdenedWarning');
-            if (obWarn) obWarn.title = 'Overburdened: Speed 1, you can\'t Jump or Climb (and sink if you Swim), and you have Disadvantage on all attack rolls, attribute checks and saving throws. Drop some weight, or wear a Backpack.';
+            if (obWarn) obWarn.title = 'Overburdened: Speed 1, you can\'t Jump or Climb (and sink if you Swim), and you have Disadvantage on all attack rolls, attribute checks and saving throws. Drop some weight, or wear a Backpack.' + (calc.exoDeadWeight ? ' (Right now: your overloaded Juggernaut Exo-Suit, with STR 16 or less. Moving also costs double AP until a System Reboot.)' : '');
             if (calc.overburdened ?? totWt > calc.carryCap) {
                 obWarn.style.display = 'block';
                 document.getElementById('dispTotalWeight').classList.replace('text-white', 'text-red-500');
@@ -1655,6 +1657,9 @@
                 }
             });
 
+            // Weapons your powers summoned (Summon a Weapon): until the power's duration ends
+            if (window.apxSwSheetRows) html += window.apxSwSheetRows();
+
             if ((window.state.perks['cha_loyalcompanion'] || 0) >= 1 && window.state.companion && typeof window.companionStatBlock === 'function') {
                 let sb = window.companionStatBlock();
                 if (sb) {
@@ -1787,6 +1792,7 @@
             }
             return n;
         }
+        window.apxMaxSlotsFor = getMaxSlotsForLevel;
         window.apxMaxPowerSlots = getMaxSlotsForLevel;
         // A power's own Attack Bonus and Save DC: its Core Attribute + Training Bonus (attack) + the
         // highest Power Level you can use (+ item bonuses)
@@ -2090,6 +2096,15 @@
             let info = apxPowerAtkInfo(p), dmg = apxPowerDamage(p, chosen);
             // Channeled: just the step it repeats, on the same target (no attack roll or save)
             if (chan) { info = { kind: 'none', text: '' }; if (chan.step === 'util') dmg = null; }
+            // Summon a Weapon: its Step 4 damage is the weapon's, rolled when the weapon attacks. Using the power
+            // puts the weapon(s) in Weapons & Attacks.
+            let swNames = !chan && window.apxSwCount && window.apxSwCount(p.draft) && window.apxSwSummon ? window.apxSwSummon(idx, p, chosen) : null;
+            if (swNames && swNames.length) {
+                dmg = null;
+                if (info.kind === 'power' || info.kind === 'martial') info = { kind: 'none', text: '' };
+                APXDice.notify(`${swNames.join(' and ')} ${swNames.length > 1 ? 'appear' : 'appears'} in your hands: attack with ${swNames.length > 1 ? 'them' : 'it'} from Weapons & Attacks (3 AP, your Power Attack Bonus).`, { kind: 'note', open: true });
+                setTimeout(() => window.recalculateMath(), 0);
+            }
             let flavor = String(p.desc || '').trim();
             let pnums = apxPowerNums(p), dc = pnums.dc;
             let saveKind0 = info.kind === 'save' ? (/halves/i.test(info.text) ? 'halves' : 'negates') : null;

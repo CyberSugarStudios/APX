@@ -115,10 +115,10 @@
         if (!exo || !exo.attr) return score;
         return Math.max(score, Math.min(score + (exo.attrPlus || 0), exo.attrMax || 0));
     };
-    // A deactivated Juggernaut (its Plating) with STR 14 or less: Overburdened (Speed 1, moving costs double AP)
+    // A deactivated Juggernaut (its Plating) with STR 16 or less: Overburdened (Speed 1, moving costs double AP)
     window.apxExoOverburdened = function (st, strScore) {
         let x = st && st.exoSuit;
-        return !!(x && x.worn && x.overloaded && x.frame === 'juggernaut' && strScore <= 14);
+        return !!(x && x.worn && x.overloaded && x.frame === 'juggernaut' && strScore <= 16);
     };
     // Active Camouflage uses per Short Rest
     window.apxExoCamoMax = function (st, agiMod) {
@@ -239,7 +239,7 @@
             if (act.nullifier) now.push(`Nullifier: your Powers treat Immunity to ${act.breach.join(', ')} as Resistance`);
             if (act.amplifier) now.push(`Amplifier: Powers dealing ${act.breach.join(' or ')} damage deal maximum damage`);
             if (act.emitter) now.push('Emitter: ranged Powers +10 squares; Touch Powers reach 3 squares');
-        } else if (x.worn && x.overloaded && window.apxExoOverburdened(st, (c.scores || {}).STR || 0)) now.push('The dead Juggernaut weighs on you: Speed 1, and moving costs double AP');
+        } else if (x.worn && x.overloaded && window.apxExoOverburdened(st, (c.scores || {}).STR || 0)) now.push('The dead Juggernaut weighs on you (STR 16 or less): you\'re Overburdened (Disadvantage on attacks, checks and saves, no jumping or climbing), Speed 1, and moving costs double AP');
         let camo = '';
         if (x.frame === 'juggernaut' && (x.systems || []).includes('bulwark')) {
             let max = window.apxExoBulwarkMax(st, (c.mods || {}).STR), left = Math.max(0, max - (x.bulwarkUsed || 0));
@@ -330,10 +330,11 @@
         window.apxRefreshHpInputs?.();
         save();
     };
-    // A single hit over the Wound Threshold (the suit's, with Plating) overloads the Power Core
-    window.apxExoOnDamage = function (amount, wt) {
+    // A Critical Hit, or a single hit over the Wound Threshold (the suit's, with Plating), overloads the Power Core
+    window.apxExoOnDamage = function (amount, wt, crit) {
         let st = window.state; if (!st || !window.apxExoActive(st)) return;
-        if ((amount || 0) > (wt || 0)) window.apxExoOverload(`${amount} damage, over your WT of ${wt}`);
+        if (crit) window.apxExoOverload('a Critical Hit');
+        else if ((amount || 0) > (wt || 0)) window.apxExoOverload(`${amount} damage, over your WT of ${wt}`);
     };
 
     // ── The Exo-Suit Forge ──

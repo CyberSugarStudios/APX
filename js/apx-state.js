@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.10.20.1959';
+window.APX_VERSION = 'v2026.10.20.2314';
 
         window.state = getInitialState();
 
@@ -385,8 +385,8 @@ window.APX_VERSION = 'v2026.10.20.1959';
                             window.state.tempHp = r2.tempHp;
                             window.updateState('currentHp', r2.currentHp);
                             window.apxRefreshHpInputs?.();
-                            // An Exo-Suit's Power Core overloads when one hit (past Temp HP) is over the Wound Threshold
-                            window.apxExoOnDamage?.(exoHit, calc.woundThreshold);
+                            // An Exo-Suit's Power Core overloads on a Critical Hit, or when one hit (past Temp HP) is over the Wound Threshold
+                            window.apxExoOnDamage?.(exoHit, calc.woundThreshold, !!(useAtk && atk && atk.crit));
                             window.scheduleAutoSave?.();
                             if (nl && r2.currentHp <= 0 && !(window.state.conditions || []).includes('unconscious') && typeof window.toggleCondition === 'function') { window.state.koNonlethal = true; window.toggleCondition('unconscious', true); }
                             window.APXDice?.notify(`Damage${useAtk ? ` from ${atk.by}'s ${atk.label}` : ''}: ${res.text}${nl ? ' (non-lethal)' : ''}.${nl && r2.currentHp <= 0 ? ' You\'re knocked out: Unconscious, not Bleeding Out.' : ''}`, { kind: res.dmg ? 'warn' : 'note' });

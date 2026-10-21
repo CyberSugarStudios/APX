@@ -63,7 +63,7 @@ window.apxToday = function (d) {
             let okLabel = opts.okLabel || (kind === 'confirm' ? (opts.danger ? 'Delete' : 'OK') : 'OK');
             back.innerHTML = `<div class="apxdlg" role="dialog" aria-modal="true">
                 ${opts.title ? `<div class="apxdlg-title">${esc(opts.title)}</div>` : ''}
-                <div class="apxdlg-msg">${esc(msg)}</div>
+                <div class="apxdlg-msg">${opts.html ? msg : esc(msg)}</div>
                 ${kind === 'prompt' ? `<input class="apxdlg-input" type="${opts.password ? 'password' : 'text'}" value="${esc(opts.defaultValue ?? '')}" placeholder="${esc(opts.placeholder || '')}">` : ''}
                 <div class="apxdlg-row">
                     ${kind !== 'alert' ? `<button class="apxdlg-btn apxdlg-cancel" data-act="cancel">${esc(opts.cancelLabel || 'Cancel')}</button>` : ''}

@@ -1,7 +1,7 @@
 // ============================================================
 // APX Character Sheet — Perk Forge UI & XP Spending
 // ============================================================
-        window.renderPerkCard = function(p, currentRank, choiceText = '') {
+        window.renderPerkCard = function(p, currentRank, choiceText = '', removeId = null) {
             let currentDesc = p.ranks[currentRank - 1] || p.baseDesc;
             let ranksHtml = p.ranks.slice(0, currentRank).map((r, i) => `<div class="mb-1"><span class="font-bold text-slate-300">Rank ${i+1}:</span> ${r}</div>`).join('');
             let rankText = (currentRank >= p.max) ? "Maxed" : (p.attr === 'GEN' ? `${currentRank} / ${p.max}` : `Rank ${currentRank}`);
@@ -10,7 +10,7 @@
                 <div class="bg-slate-900 p-2 rounded border border-slate-700 relative shadow-inner mb-2">
                     <div class="flex justify-between items-center mb-1">
                         <span class="font-bold text-sm text-purple-300">${p.name} <span class="text-xs text-purple-400 font-normal">${choiceText}</span></span>
-                        <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded border border-slate-600 text-slate-400 font-bold shadow">${rankText}</span>
+                        <span class="flex items-center"><span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded border border-slate-600 text-slate-400 font-bold shadow">${rankText}</span>${removeId && window.apxPerkRemoveBtn ? window.apxPerkRemoveBtn(removeId, currentRank) : ''}</span>
                     </div>
                     <div class="text-[10px] text-slate-400 leading-tight italic">${currentDesc}</div>
                     
@@ -172,7 +172,7 @@
                         <div class="bg-slate-900 p-2 rounded border border-slate-700 relative shadow-inner mb-2">
                             <div class="flex justify-between items-center mb-1">
                                 <span class="font-bold text-sm text-purple-300">${p.name}</span>
-                                <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded border border-slate-600 text-slate-400 font-bold shadow">${customRankText}</span>
+                                <span class="flex items-center"><span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded border border-slate-600 text-slate-400 font-bold shadow">${customRankText}</span>${window.apxPerkRemoveBtn ? window.apxPerkRemoveBtn(id, currentRank) : ''}</span>
                             </div>
                             <div class="text-[10px] text-slate-400 leading-tight italic">You have multiple power slot upgrades.</div>
                             
@@ -186,7 +186,7 @@
                         </div>
                     `;
                 } else {
-                    html += window.renderPerkCard(p, currentRank, choiceText);
+                    html += window.renderPerkCard(p, currentRank, choiceText, id);
                     if (id === 'luc_omen' && currentRank > 0) html += omenPanelHtml(currentRank);
                     if (id === 'luc_highroller' && currentRank > 0) html += highRollerPanelHtml(currentRank);
                 }
@@ -269,6 +269,7 @@
                         let timesBought = (window.state.pwrIntRanks && window.state.pwrIntRanks[i]) ? window.state.pwrIntRanks[i] : 0;
                         btns += `<button onclick="window.buyPerk('${p.id}', ${rCost}, ${i})" class="w-full px-2 py-1 rounded text-[10px] font-bold transition shadow mb-1 ${rBtnDisabled}" ${!rCanAfford ? 'disabled' : ''}>Buy Rank ${i} (${rCost} XP) [Owned: ${timesBought}]</button>`;
                     }
+                    if ((window.state.perks['pwr_int'] || 0) > 0 && window.apxPerkRemovalAllowed && window.apxPerkRemovalAllowed()) btns += `<button onclick="window.apxRemovePerkRank('pwr_int')" data-perk-remove="pwr_int" class="w-full px-2 py-1 rounded text-[10px] font-bold border border-red-800 text-red-300 hover:bg-red-900/50" title="Remove one purchase and get its XP back">Remove a Rank…</button>`;
                     actionAreaHtml = `<div class="flex flex-col items-end gap-1 ml-4 min-w-[150px]">${btns}</div>`;
                 } else {
                     actionAreaHtml = `<div class="flex flex-col items-end gap-1 ml-4 min-w-[120px]">
@@ -276,6 +277,7 @@
                         <button onclick="window.buyPerk('${p.id}', ${cost}, ${nextRank})" class="w-full px-3 py-1.5 rounded text-xs font-bold transition shadow ${btnDisabled}" ${isDisabled ? 'disabled' : ''}>
                             ${isMaxed ? 'Maxed' : `Buy Rank ${nextRank} (${cost} XP)`}
                         </button>
+                        ${currentRank > 0 && window.apxPerkRemovalAllowed && window.apxPerkRemovalAllowed() ? `<button onclick="window.apxRemovePerkRank('${p.id}')" data-perk-remove="${p.id}" class="w-full px-3 py-1 rounded text-[10px] font-bold border border-red-800 text-red-300 hover:bg-red-900/50" title="Remove your top rank and get its XP back">Remove Rank ${currentRank}</button>` : ''}
                     </div>`;
                 }
 
@@ -429,7 +431,8 @@
                     window.state.pwrIntRanks[rank] = (window.state.pwrIntRanks[rank] || 0) + 1;
                     if ((window.state.perks[id] || 0) < rank) {
                         window.state.perks[id] = rank;
-                        isNewFreePowerRank = true;
+                        // (not twice for the same rank: a rank removed after its free power was made, then bought again)
+                        isNewFreePowerRank = !(window.state.perkFreeGiven || {})['pwr_int:' + rank];
                     }
                 } else {
                     if (id === 'pwr_cha' && (window.state.perks[id] || 0) < rank) {
@@ -468,8 +471,9 @@
                 // has to land on a specific Level to match the rank.
                 if (isNewChaRank !== null && typeof window.openPowerCrafter === 'function') {
                     window.state.powerPoolDefault = 'short';
-                    window.state.chaFreePowerLevels.push(isNewChaRank);
-                    if (isNewChaRank >= 2) window.state.chaFreeUpgrades.push({ fromLevel: isNewChaRank - 1, toLevel: isNewChaRank });
+                    let given = window.state.perkFreeGiven || {};
+                    if (!given['pwr_cha:' + isNewChaRank]) window.state.chaFreePowerLevels.push(isNewChaRank);
+                    if (isNewChaRank >= 2 && !given['pwr_cha_up:' + isNewChaRank]) window.state.chaFreeUpgrades.push({ fromLevel: isNewChaRank - 1, toLevel: isNewChaRank });
                     window.recalculateMath();
                     window.showConfirm(`You unlocked Short Rest Powers Rank ${isNewChaRank}! You have a free Level ${isNewChaRank} Power to create${isNewChaRank >= 2 ? `, plus a free upgrade of a Level ${isNewChaRank - 1} Power to Level ${isNewChaRank}` : ''}. Open the Power Crafter now?`, () => {
                         window.closeModal('perkModal');
@@ -478,6 +482,167 @@
                 }
             }
         }
+
+        // ── Removing a perk rank, one at a time ──
+        // Refunds what the rank cost (from your XP log, or the price table), and undoes what it set up: its choice,
+        // Power Slots and unspent free powers (Powers perks), Martial Arts' unarmed strike, Mobile's AC, extra Omen
+        // Dice, and (its last rank) a Loyal Companion's bought TP. Uses per rest aren't reset, and a free power you
+        // already made stays: buying the rank again won't give that free power twice.
+        function perkRankCost(p, rank) {
+            if (p.attr === 'GEN') return p.baseCost || 10;
+            return [10, 20, 30, 50, 80][Math.max(0, Math.min(4, (rank || 1) - 1))];
+        }
+        function perkPaidFromLog(p, rank) {
+            let name = `${p.name} (Rank ${rank})`;
+            let e = (window.state.xpLog || []).find(x => x && x.type === 'spent' && typeof x.what === 'string' && (x.what === name || x.what.startsWith(name + ':')));
+            return e ? (parseInt(e.amount) || 0) : null;
+        }
+        function omenPerRest(rank) { return rank >= 5 ? 3 : rank >= 4 ? 3 : rank >= 3 ? 2 : rank >= 1 ? 1 : 0; }
+        window.apxPerkRemovalAllowed = function () {
+            let ws = typeof window.apxActiveWorldSettings === 'function' ? window.apxActiveWorldSettings() : null;
+            return !(ws && ws.allowPerkRemoval === false);
+        };
+        window.apxRemovePerkRank = async function (id) {
+            let st = window.state, p = PERKS_DB.find(x => x.id === id);
+            let rank = (st.perks || {})[id] || 0;
+            if (!p || !rank) return;
+            if (!window.apxPerkRemovalAllowed()) { window.APXDice?.notify('Your GM\'s World Settings don\'t allow removing perks in this world.', { kind: 'warn', open: true }); return; }
+            let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+            // Full Rest Powers: one purchase of a rank (asked which, when you've bought more than one rank)
+            let r = rank, intRanks = st.pwrIntRanks || {};
+            if (id === 'pwr_int') {
+                let have = [5, 4, 3, 2, 1].filter(i => (parseInt(intRanks[i]) || 0) > 0);
+                if (!have.length) return;
+                r = have[0];
+                if (have.length > 1 && window.APXDice && APXDice.ask) {
+                    let a = await APXDice.ask('Remove Full Rest Powers', 'Which purchase do you want to remove?', have.map((i, k) => ['r' + i, `Rank ${i} (you have ${intRanks[i]}): +${perkPaidFromLog(p, i) ?? perkRankCost(p, i)} XP`, k ? '' : 'pri']));
+                    if (!a) return;
+                    r = parseInt(String(a).slice(1)) || have[0];
+                }
+            }
+            let cost = perkPaidFromLog(p, r) ?? perkRankCost(p, r);
+            let lines = [`You get <b>${cost} XP</b> back.`], warn = [];
+            let rankText = p.ranks[r - 1] || '';
+            if (rankText) lines.push(`You lose Rank ${r}: <i>${esc(rankText)}</i>`);
+            let choice = (st.perkChoices[id] || {})[r];
+            if (choice) lines.push(`Its choice (${esc(choice)}) goes with it.`);
+            let newRank = r - 1, newIntTop = null, freeGiven = st.perkFreeGiven || {};
+            if (id === 'pwr_int') {
+                let left = Object.assign({}, intRanks, { [r]: Math.max(0, (parseInt(intRanks[r]) || 0) - 1) });
+                newIntTop = [5, 4, 3, 2, 1].find(i => (parseInt(left[i]) || 0) > 0) || 0;
+                let per = { 1: 3, 2: 2, 3: 2, 4: 1, 5: 1 }[r] || 0;
+                lines.push(`You lose ${per} Level ${r} Power Slot${per === 1 ? '' : 's'}.`);
+                if (newIntTop < rank && rank === r) {
+                    if ((st.freePowersOwed || 0) > 0) lines.push('The free power this rank gave you (not made yet) goes with it.');
+                    else warn.push('The free power this rank gave you is already made: it stays, and buying the rank again won\'t give another one.');
+                }
+            } else if (id === 'pwr_cha') {
+                lines.push('You lose one Short Rest Power use.');
+                if ((st.chaFreePowerLevels || []).includes(r)) lines.push(`The free Level ${r} power it gave you (not made yet) goes with it.`);
+                else warn.push(`The free Level ${r} power this rank gave you is already made: it stays, and buying the rank again won't give another one.`);
+                if (r >= 2 && !(st.chaFreeUpgrades || []).some(u => u.fromLevel === r - 1 && u.toLevel === r)) warn.push('Its free upgrade is already used: the upgraded power stays.');
+            }
+            // Powers above the Level you can make once it's gone
+            if (id === 'pwr_int' || id === 'pwr_cha') {
+                let perks2 = Object.assign({}, st.perks, id === 'pwr_int' ? { pwr_int: newIntTop } : { pwr_cha: newRank });
+                let top = Math.max(perks2.pwr_int || 0, perks2.pwr_cha || 0);
+                let high = (st.powers || []).filter(x => (parseInt(x.lvl) || 1) > top);
+                if (high.length) warn.push(`${high.length} of your powers ${high.length === 1 ? 'is' : 'are'} above Level ${top}: ${high.length === 1 ? 'it stays' : 'they stay'} on your sheet, but you have no Power Slots that high.`);
+            }
+            if (id === 'cha_loyalcompanion') {
+                let tbl = { 0: 0, 1: 10, 2: 15, 3: 20, 4: 30, 5: 40 };
+                if (newRank > 0) warn.push(`${esc((st.companion || {}).name || 'Your companion')}'s free TP drops from ${tbl[rank]} to ${tbl[newRank]}: if it's built over its budget now, rebuild it in the NPC Crafter.`);
+                else {
+                    lines.push(`${esc((st.companion || {}).name || 'Your Loyal Companion')} leaves your sheet. It's kept, in case you take the perk again.`);
+                    let extra = (st.companion && st.companion.extraTpPurchased) || 0;
+                    if (extra > 0) {
+                        let spentTp = (st.xpLog || []).filter(x => x && x.type === 'spent' && /^\d+ TP for /.test(x.what || '')).reduce((t, x) => t + (parseInt(x.amount) || 0), 0)
+                            - (st.xpLog || []).filter(x => x && x.type === 'refund' && /^Companion TP/.test(x.what || '')).reduce((t, x) => t + (parseInt(x.amount) || 0), 0);
+                        if (spentTp > 0) lines.push(`The ${extra} TP you bought for it are refunded too (+${spentTp} XP).`);
+                    }
+                }
+            }
+            if (id === 'str_martialarts') lines.push(`Your Unarmed Strike goes back to ${['1d4, 2 AP', '1d6, 1 AP', '1d8, 1 AP', '1d10, 1 AP', '1d12, 1 AP'][Math.max(0, newRank)]}.`);
+            if (id === 'luc_omen' && (st.omenDice || []).length > omenPerRest(newRank)) lines.push(`You keep ${omenPerRest(newRank)} of your ${(st.omenDice || []).length} Omen Dice.`);
+            if (id === 'gen_latentpot' && choice && typeof calc !== 'undefined') {
+                let sc = (calc.scores[choice] || 0) - 1;
+                let broken = PERKS_DB.filter(x => x.attr === choice && ((st.perks || {})[x.id] || 0) * 2 > sc).map(x => `${x.name} Rank ${st.perks[x.id]} (needs ${choice} ${st.perks[x.id] * 2})`);
+                lines.push(`Your ${choice} score drops to ${sc}.`);
+                if (broken.length) warn.push(`Perks you bought with a higher ${choice}: ${broken.join(', ')}. They stay, but you can't add ranks until ${choice} is high enough again.`);
+            }
+            if (id === 'gen_expertise' && choice) lines.push(`Your bonus XP for ${esc(choice)} ends.`);
+            let msg = `<div style="text-align:left;line-height:1.45">${lines.map(l => `<div>${l}</div>`).join('')}${warn.length ? `<div style="margin-top:.4rem;color:#fbbf24">${warn.map(esc).join('<br>')}</div>` : ''}<div style="margin-top:.4rem;font-size:.85em;opacity:.8">Uses per rest stay as they are.</div></div>`;
+            let ok = window.apxConfirm ? await window.apxConfirm(msg, { title: `Remove ${p.name} Rank ${r}?`, okLabel: `Remove (+${cost} XP)`, cancelLabel: 'Keep it', danger: true, html: true }) : window.confirm(`Remove ${p.name} Rank ${r}? (+${cost} XP)`);
+            if (!ok) return;
+
+            // ── Apply ──
+            let refund = (amt, what) => {
+                let u = parseInt(st.unspentXp) || 0, s = parseInt(st.spentXp) || 0;
+                let ue = document.getElementById('unspentXp'), se = document.getElementById('spentXp');
+                if (ue) ue.value = u + amt; if (se) se.value = Math.max(0, s - amt);
+                window.updateState('unspentXp', u + amt);
+                window.updateState('spentXp', Math.max(0, s - amt));
+                window.apxLogXpSpend?.(-amt, what);
+            };
+            refund(cost, `Removed ${p.name} (Rank ${r})${choice ? ': ' + choice : ''}`);
+            if (st.perkChoices[id]) { delete st.perkChoices[id][r]; if (!Object.keys(st.perkChoices[id]).length) delete st.perkChoices[id]; }
+            let setRank = n => { if (n > 0) st.perks[id] = n; else delete st.perks[id]; };
+            if (id === 'pwr_int') {
+                st.pwrIntRanks = Object.assign({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }, intRanks);
+                st.pwrIntRanks[r] = Math.max(0, (parseInt(st.pwrIntRanks[r]) || 0) - 1);
+                if (newIntTop < rank && rank === r) {
+                    if ((st.freePowersOwed || 0) > 0) { st.freePowersOwed -= 1; delete freeGiven['pwr_int:' + r]; }
+                    else freeGiven['pwr_int:' + r] = true;
+                }
+                setRank(newIntTop);
+            } else {
+                if (id === 'pwr_cha') {
+                    let i = (st.chaFreePowerLevels || []).indexOf(r);
+                    if (i >= 0) { st.chaFreePowerLevels.splice(i, 1); delete freeGiven['pwr_cha:' + r]; } else freeGiven['pwr_cha:' + r] = true;
+                    if (r >= 2) {
+                        let j = (st.chaFreeUpgrades || []).findIndex(u => u.fromLevel === r - 1 && u.toLevel === r);
+                        if (j >= 0) { st.chaFreeUpgrades.splice(j, 1); delete freeGiven['pwr_cha_up:' + r]; } else freeGiven['pwr_cha_up:' + r] = true;
+                    }
+                }
+                setRank(newRank);
+            }
+            if (Object.keys(freeGiven).length) st.perkFreeGiven = freeGiven;
+            if (!st.perks.pwr_int && !st.perks.pwr_cha) delete st.powerPoolDefault;
+            else if (!st.perks.pwr_int && st.perks.pwr_cha) st.powerPoolDefault = 'short';
+            else if (st.perks.pwr_int && !st.perks.pwr_cha) st.powerPoolDefault = 'full';
+            if (id === 'cha_loyalcompanion' && newRank === 0 && st.companion && (st.companion.extraTpPurchased || 0) > 0) {
+                let spentTp = (st.xpLog || []).filter(x => x && x.type === 'spent' && /^\d+ TP for /.test(x.what || '')).reduce((t, x) => t + (parseInt(x.amount) || 0), 0)
+                    - (st.xpLog || []).filter(x => x && x.type === 'refund' && /^Companion TP/.test(x.what || '')).reduce((t, x) => t + (parseInt(x.amount) || 0), 0);
+                if (spentTp > 0) refund(spentTp, `Companion TP (${st.companion.extraTpPurchased} TP for ${st.companion.name || 'your companion'})`);
+                st.companion.extraTpPurchased = 0;
+            }
+            if (id === 'str_martialarts') window.updateUnarmedStrike(newRank);
+            if (id === 'agi_mobile') {
+                st.turnFx = (st.turnFx || []).map(f => f.key === 'mobile' ? (newRank > 0 ? Object.assign({}, f, { ac: Math.min(f.ac || 0, newRank), short: `Mobile: +${Math.min(f.ac || 0, newRank)} AC` }) : null) : f).filter(Boolean);
+                if (!newRank) delete st.mobileRound;
+            }
+            if (id === 'luc_omen') {
+                if (!newRank) { delete st.omenDice; delete st.omenRollPending; }
+                else if ((st.omenDice || []).length > omenPerRest(newRank)) st.omenDice = st.omenDice.slice(0, omenPerRest(newRank));
+            }
+            window.recalculateMath();
+            // Power Slots you'd used beyond the new maximum
+            if ((id === 'pwr_int' || id === 'pwr_cha') && typeof window.apxMaxSlotsFor === 'function') {
+                ['CHA', 1, 2, 3, 4, 5].forEach(L => { let mx = window.apxMaxSlotsFor(L), u = (st.usedPowerSlots || {})[L] || 0; if (u > mx) st.usedPowerSlots[L] = mx; });
+                window.recalculateMath();
+            }
+            if (document.getElementById('perkListContainer') && typeof window.renderPerkList === 'function') {
+                let c = document.getElementById('perkListContainer'), pos = c.scrollTop; window.renderPerkList(); c.scrollTop = pos;
+            }
+            window.scheduleAutoSave?.();
+            window.APXDice?.notify(`Removed ${p.name} Rank ${r}: +${cost} XP.`, { kind: 'note' });
+            try { window.apxOnRollEvent?.({ id: 'pk' + Date.now().toString(36), kind: 'action', label: 'Perk removed', text: `${st.name || 'A player'} removes ${p.name} Rank ${r} (${cost} XP refunded).` }); } catch (e) { }
+        };
+        // The small "− Rank" button on a perk you bought
+        window.apxPerkRemoveBtn = function (id, rank) {
+            if (!window.apxPerkRemovalAllowed()) return '';
+            return `<button type="button" data-perk-remove="${id}" onclick="window.apxRemovePerkRank('${id}')" title="Remove Rank ${rank} and get its XP back" class="text-[9px] font-bold px-1.5 py-0.5 rounded border border-red-800 text-red-300 hover:bg-red-900/50 hover:text-red-200 ml-1">− Rank</button>`;
+        };
 
         window.updateUnarmedStrike = function(rank) {
             let dmgDice = "1d4";

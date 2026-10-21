@@ -554,7 +554,7 @@ window.renderGmScreen = function() {
                     ${sb.portrait}
                     <div style="flex:1;min-width:0;cursor:pointer;" onclick="window._btOpenPlayerSummary && window._btOpenPlayerSummary('${String(s.name).replace(/'/g, '')}','${uid}')" title="Open in its own window">
                         <div style="font-size:0.85rem;font-weight:900;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${sb.name}</div>
-                        <div style="font-size:0.58rem;color:#818cf8;">${sb.subtitle}${s.hasArmorDisadvantage ? ' <span style="color:#f87171;font-weight:700">(Armor STR not met)</span>' : ''}</div>
+                        <div style="font-size:0.58rem;color:#818cf8;">${sb.subtitle}${s.hasArmorDisadvantage ? ' <span style="color:#f87171;font-weight:700">(Armor STR not met)</span>' : ''}${window.apxImportFlagBadge ? window.apxImportFlagBadge(p.state, p.fileName) : ''}</div>
                     </div>
                     <button onclick="window.addToInitiative(${idx}, 'party')" class="text-[9px] px-2 py-1 rounded bg-indigo-700 hover:bg-indigo-600 text-white font-bold">+ Initiative</button>
                 </div>
@@ -568,7 +568,7 @@ window.renderGmScreen = function() {
                 <div class="flex justify-between items-center mb-2">
                     <div>
                         <div class="text-sm font-black text-emerald-300">${s.name}</div>
-                        <div class="text-[9px] text-slate-500">${s.ancestryName}${s.hasArmorDisadvantage ? ' <span class="text-red-400 font-bold">(Armor STR not met)</span>' : ''}</div>
+                        <div class="text-[9px] text-slate-500">${s.ancestryName}${s.hasArmorDisadvantage ? ' <span class="text-red-400 font-bold">(Armor STR not met)</span>' : ''}${window.apxImportFlagBadge ? window.apxImportFlagBadge(p.state, p.fileName) : ''}</div>
                     </div>
                     <button onclick="window.addToInitiative(${idx}, 'party')" class="text-[9px] px-2 py-1 rounded bg-indigo-700 hover:bg-indigo-600 text-white font-bold">+ Initiative</button>
                 </div>
@@ -1323,6 +1323,7 @@ window.gmAskLootCheck = function() {
 function _syncHpToPlayer(entry, extra) {
     if (!entry || entry.faction !== 'player' || !entry.playerUid) return;
     entry._gmHpSetAt = Date.now();   // for a few seconds, the sheet's older HP (saved before it got this) is ignored
+    if (entry._exoHit) { extra = Object.assign({}, extra || {}, { exo: entry._exoHit }); entry._exoHit = null; }   // (the hit, for their Exo-Suit)
     let worlds = typeof _gmWorlds !== 'undefined' ? _gmWorlds : [];
     let activeWorld = worlds.find(w => (w.worldId||w.id) === (typeof _activeWorldId !== 'undefined' ? _activeWorldId : null));
     let inviteCode = activeWorld?.inviteCode;
@@ -1875,10 +1876,11 @@ function _gmHitEffects(target, hit, extras) {
     (extras || []).forEach(x => gmLog({ text: x.pub, gmText: x.gm, kind: 'dmg' }));
     let h = hit.hit || {}, props = h.props || [], a = hit.attacker;
     let str = h.strMod || 0, int = h.intMod || 0;
+    let pdc = parseInt(h.propDc) || 0;   // (a summoned weapon: its power's Save DC)
     if (props.includes('crushing') && !hit._crushedProne)
-        _gmAskSave(target, { attr: 'STR', dc: 10 + str, cond: 'prone', why: 'Crushing', failInf: 'be knocked Prone', fail: 'is knocked Prone' });
+        _gmAskSave(target, { attr: 'STR', dc: pdc || 10 + str, cond: 'prone', why: 'Crushing', failInf: 'be knocked Prone', fail: 'is knocked Prone' });
     if (props.includes('stunning'))
-        _gmAskSave(target, { attr: 'CON', dc: 10 + (h.elec ? Math.max(str, int) : str), cond: 'stunned', why: 'Stunning', byId: a && a.id, turn: window.gmTurnNumber, failInf: `be Stunned until the end of ${_gmPublicName(a)}'s next turn`, fail: `is Stunned until the end of ${_gmPublicName(a)}'s next turn` });
+        _gmAskSave(target, { attr: 'CON', dc: pdc || 10 + (h.elec ? Math.max(str, int) : str), cond: 'stunned', why: 'Stunning', byId: a && a.id, turn: window.gmTurnNumber, failInf: `be Stunned until the end of ${_gmPublicName(a)}'s next turn`, fail: `is Stunned until the end of ${_gmPublicName(a)}'s next turn` });
     if (props.includes('grappling') && a) _gmStartGrapple(a, target, false, { via: `${h.weapon || 'weapon'}, Grappling` });
     // A weapon hit by a player on their turn: their Flurry perk (if they have it) makes the next one cheaper
     if (a && h.wpn && a.faction === 'player' && a.playerUid && !a.companionOf && window.gmCombatStarted && (window.gmInitiative || [])[window.gmCurrentTurnIdx] === a) {
@@ -3234,6 +3236,8 @@ function _gmDamage(entry, opts) {
         dmg = base + more;
     } else {
         woundDmg = dmg - Math.min(Math.max(0, entry.tempHp || 0), dmg);
+        // A player's Exo-Suit overloads on a Critical Hit, or a hit over their Wound Threshold (their sheet decides)
+        if (entry.faction === 'player' && entry.playerUid && !entry.companionOf && dmg > 0) entry._exoHit = { n: woundDmg, crit: !!(hit && hit.crit) };
         let r = window.apxApplyHpInput('-' + dmg, entry.currentHp, entry.tempHp, entry.maxHp);
         if (r) { entry.currentHp = r.currentHp; entry.tempHp = r.tempHp; }
     }
