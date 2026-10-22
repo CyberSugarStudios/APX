@@ -58,7 +58,7 @@
                 { id: 'capacitor', name: 'Capacitor', cost: 3000, desc: 'Another +2 to your Power Attack Bonus and Save DC.' },
                 { id: 'breach', name: 'Breach', cost: 2500, typed: true, desc: 'Choose an Energy damage type: your Powers ignore a target\'s Resistance to it, and you gain +5 ER against it. Take it again for another type.' },
                 { id: 'nullifier', name: 'Nullifier', cost: 5000, req: 'breach', desc: 'Requires Breach. Your Powers treat Immunity as Resistance against your Breach types.' },
-                { id: 'amplifier', name: 'Amplifier', cost: 10000, req: 'nullifier', desc: 'Requires Nullifier. A Power that deals Energy damage of a Breach type deals maximum damage instead of rolling.' },
+                { id: 'amplifier', name: 'Amplifier', cost: 5000, req: 'nullifier', desc: 'Requires Nullifier. Whenever you would roll for damage with a Power that deals Energy damage of your chosen type from Breach, you may spend an additional 3 AP to deal maximum damage instead.' },
                 { id: 'emitter', name: 'Emitter', cost: 1500, desc: 'Your ranged Powers reach 10 squares farther, and your Touch Powers have a range of 3 squares.' }
             ]
         }
@@ -130,14 +130,26 @@
         let x = st && st.exoSuit; if (!x || x.frame !== 'juggernaut' || !(x.systems || []).includes('bulwark')) return 0;
         return Math.max(1, strMod || 0);
     };
-    // A Conduit's effect on a Power: { breach: [types it ignores Resistance to], nullify, max: 'why' | '' }
+    // A Conduit's effect on a Power: { breach: [types it ignores Resistance to], nullify, hits: [its Breach types this power
+    // deals], amp (Amplifier can max it, for 3 more AP), note: the roller's line, max: '' (set once Amplifier's AP is paid) }
     // (dmgType: the power's damage type text, e.g. "Fire" or "Fire + Cold")
     window.apxExoPowerFx = function (dmgType) {
         let ex = window.apxExoActive(window.state);
         if (!ex || ex.frame !== 'conduit' || !ex.breach || !ex.breach.length) return null;
         let types = window.APXDamage && window.APXDamage.parts ? window.APXDamage.parts(dmgType || '') : String(dmgType || '').split(/[^A-Za-z]+/).filter(Boolean);
         let hits = ex.breach.filter(t => types.includes(t));
-        return { breach: ex.breach.slice(), nullify: !!ex.nullifier, max: ex.amplifier && hits.length ? `Amplifier (${hits.join(', ')}): maximum damage` : '' };
+        return { breach: ex.breach.slice(), nullify: !!ex.nullifier, hits, amp: !!(ex.amplifier && hits.length), max: '',
+            note: hits.length ? `Breach (Exo-Suit): ignores the target's Resistance to ${hits.join(' and ')}${ex.nullifier ? ', and treats Immunity to it as Resistance (Nullifier)' : ''}` : '' };
+    };
+    // Amplifier: as the damage is about to be rolled, spend 3 more AP for maximum damage? → the roller's line, or ''
+    window.apxExoAmplify = async function (exf, name) {
+        if (!exf || !exf.amp || !window.APXDice || !APXDice.ask) return '';
+        let have = window.apxApCurrent ? window.apxApCurrent() : 0, t = exf.hits.join(' and ');
+        let a = await APXDice.ask('Amplifier', `${name || 'This power'} deals ${t} damage (your Breach). Spend 3 more AP to deal maximum damage instead of rolling? You have ${have} AP.`,
+            have >= 3 ? [['max', 'Spend 3 AP: maximum damage', 'pri'], ['roll', 'Roll it']] : [['roll', 'Roll it', 'pri'], ['max', 'Spend 3 AP anyway']]);
+        if (a !== 'max') return '';
+        if (window.apxSpendAp) window.apxSpendAp(Math.min(3, have));
+        return `Amplifier (${t}): 3 AP spent, maximum damage`;
     };
     // A Conduit's Emitter: ranged Powers +10 squares, Touch Powers 3 squares (range in squares; 0 = Touch/Self)
     window.apxExoRange = function (range) {
@@ -237,7 +249,7 @@
             if (act.extraSlot) now.push('One more Power Slot: a Long Rest slot of a Level below your highest, and/or a Short Rest slot');
             if (act.breach && act.breach.length) now.push(`Breach: your Powers ignore Resistance to ${act.breach.join(', ')}; +5 ER against ${act.breach.length > 1 ? 'each' : 'it'}`);
             if (act.nullifier) now.push(`Nullifier: your Powers treat Immunity to ${act.breach.join(', ')} as Resistance`);
-            if (act.amplifier) now.push(`Amplifier: Powers dealing ${act.breach.join(' or ')} damage deal maximum damage`);
+            if (act.amplifier) now.push(`Amplifier: when a Power deals ${act.breach.join(' or ')} damage, you can spend 3 more AP to deal maximum damage (asked as you use it)`);
             if (act.emitter) now.push('Emitter: ranged Powers +10 squares; Touch Powers reach 3 squares');
         } else if (x.worn && x.overloaded && window.apxExoOverburdened(st, (c.scores || {}).STR || 0)) now.push('The dead Juggernaut weighs on you (STR 16 or less): you\'re Overburdened (Disadvantage on attacks, checks and saves, no jumping or climbing), Speed 1, and moving costs double AP');
         let camo = '';

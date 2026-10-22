@@ -2552,7 +2552,7 @@ function _gmHandleRollEvent(uid, ev) {
     if (ev.kind === 'powerEnd') { if (firstSeen && window._gmEndPi) { try { window._gmEndPi(ev.pi, ev.why || 'it ended', { fromPlayer: uid }); } catch (e) { console.warn('Power end:', e); } } return; }
     // Overexertion's Fatigue on someone else (the power's target, or the player's Loyal Companion)
     if (ev.kind === 'oxFatigue') { if (firstSeen && (ev.t || Date.now()) > Date.now() - 600000) _gmOxFatigueEvent(uid, ev); return; }
-    // A buff they lost on their own (Invisible: a failed Concentration check)
+    // A buff they lost on their own (Invisible: a hostile action without the 2 AP to stay hidden)
     if (ev.kind === 'buffDrop') { if (firstSeen && window._gmBuffDropped) window._gmBuffDropped(uid, ev); return; }
     // Out of combat, a power still does what it does on an open battle map (a zone, a wall, a teleport…)
     if (ev.kind === 'power' && !_gmFightOn() && firstSeen && window._gmPowerWorldEvent && (ev.t || Date.now()) > Date.now() - 600000) {
@@ -2653,10 +2653,12 @@ function _gmHandleRollEvent(uid, ev) {
         if (en) gmLog({ id: 'cres_' + ev.id, text: _gmCondResult(en, cdone.item, ev, true) + ' (rerolled)', kind: 'wt' });
         return;
     }
-    let wtFirst = ev.attr === 'CON' && ((window._gmPendingSaves[entry?.id] || [])[0] || {}).type === 'wt';
+    // (Lucky: a LUC save made in place of the one asked for answers that one)
+    let evAttr = ev.luckyFor || ev.attr;
+    let wtFirst = evAttr === 'CON' && ((window._gmPendingSaves[entry?.id] || [])[0] || {}).type === 'wt';
     if (firstSeen && entry && ev.kind === 'save' && !wtFirst) {
         let cq = window._gmCondSaves[entry.id] || [];
-        let ci = cq.findIndex(x => x.attr === ev.attr && !x.known.has(ev.id));
+        let ci = cq.findIndex(x => x.attr === evAttr && !x.known.has(ev.id));
         if (ci >= 0) {
             let item = cq.splice(ci, 1)[0];
             window._gmCondResolved[ev.id] = { entryId: entry.id, item };
@@ -2668,7 +2670,7 @@ function _gmHandleRollEvent(uid, ev) {
     let q = window._gmPendingSaves[entry.id];
     if (!q || !q.length) return;
     let head = q[0];
-    if (head.known.has(ev.id) || ev.attr !== 'CON') return;
+    if (head.known.has(ev.id) || evAttr !== 'CON') return;
     let fits = head.type === 'wt' ? ev.kind === 'save' : (ev.kind === 'save' || ev.skill === 'Survive');
     if (!fits) return;
     q.shift();
@@ -4446,6 +4448,7 @@ function _gmActionCtx(e) {
         spend: compAp !== null || e.ap == null ? null : n => { let x = G(); x.apCur = Math.max(0, gmApCurrent(x) - n); },
         // (a power's AP for movement only: Move and Jump use it first)
         moveAp: () => compAp !== null ? 0 : Math.max(0, parseInt(G()._apMove) || 0),
+        hostile: () => { if (window._gmNpcHostile) window._gmNpcHostile(G()); },
         spendMove: compAp !== null || e.ap == null ? null : n => { let x = G(), mv = Math.min(n, Math.max(0, parseInt(x._apMove) || 0)); if (mv) { x._apMove -= mv; if (x._apMove <= 0) delete x._apMove; } if (n - mv > 0) x.apCur = Math.max(0, gmApCurrent(x) - (n - mv)); },
         moveCost: () => { let x = G(), n = _gmMovesThisTurn(x) + 1, eff = window.apxEffectiveConditions ? window.apxEffectiveConditions(window._gmEntryConditions ? window._gmEntryConditions(x.id) : (x.conditions || [])).map(c => c.id) : []; return eff.includes('staggered') ? n * 2 : n; },
         move: () => { let x = G(), key = x.id + ':' + window.gmTurnNumber; x._moves = { key, n: _gmMovesThisTurn(x) + 1, left: 0 }; },

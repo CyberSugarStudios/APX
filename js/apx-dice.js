@@ -748,7 +748,7 @@
                 try {
                     window.apxOnRollEvent({ id: c.id, kind: o.kind === 'save' ? 'save' : 'check', attr: o.attr || '', skill: o.skill || '', label: c.label, who: o.who || '',
                         nat: p.nat, total: p.total, bonus: p.bonus || 0, mode: p.badgeMode || mode, luck: !!p.luckUsed, omen: p.omenAt !== undefined, autoFail: !!o.autoFail,
-                        purpose: o.purpose || '', extra: c.resultExtra || null });
+                        purpose: o.purpose || '', extra: c.resultExtra || null, luckyFor: o.luckyFor || undefined });   // (Lucky: a LUC save made in place of another)
                 } catch (e) { }
             };
             // o.onResult(result) → optional text shown on the card (e.g. what a Loot check found);
@@ -859,6 +859,7 @@
                     c.badges.push([atk.crit && fx.crit ? 'crit' : 'info', `${fx.name}: ${fx.hit}${atk.crit && fx.crit ? ' · Critical: ' + fx.crit : ''}`, fx.tip]);
                 }
                 if (o.maxDmg) c.badges.push(['crit', String(o.maxDmg)]);
+                if (o.breachNote) c.badges.push(['info', String(o.breachNote)]);   // (a Conduit Exo-Suit's Breach)
                 if (atk.critOn && atk.critOn < 20) c.badges.push([atk.crit && atk.nat < 20 ? 'crit' : 'info', `Keen: a natural ${atk.critOn}-20 is a Critical Hit`]);
                 if (o.hit && (o.hit.props || []).includes('suppressed')) c.badges.push(['info', 'Suppressed: attacking from stealth with it doesn\'t reveal you (you stay in stealth)']);
                 let tear = tearingBadge(o, o.split && o.split.length > 1 ? o.split[0].formula : o.dice, dmg.total);
@@ -960,6 +961,7 @@
                 if (explode) c.badges.push(['info', 'Dice Explosion: max rolls rolled again and added']);
                 if (dst.inst) c.badges.push(['info', 'Instigator: +1 damage die']);
                 if (o.apNote) c.badges.push([o.apWarn ? 'fum' : 'info', o.apNote]);
+                if (o.breachNote) c.badges.push(['info', String(o.breachNote)]);   // (a Conduit Exo-Suit's Breach)
                 if (o.note) c.badges.push(['info', o.note]);
                 c.actions = dp.instig ? [{ label: dst.inst ? 'Instigator: on' : 'Target Frightened/Provoked?', cls: dst.inst ? 'luck' : '', title: 'Instigator Rank 3: a Frightened or Provoked target takes an extra damage die', run: () => { dst.inst = !dst.inst; settle(); renderCard(c); } }] : [];
             };

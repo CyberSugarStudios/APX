@@ -73,7 +73,7 @@
         if (count(d, 'endBleedInfect')) { b.endConds.push(pickOf(d, 'endBleedInfect', 'endBleedInfect')); any = true; }
         if (count(d, 'fatigueDisease')) { if (pickOf(d, 'fatigueDisease', 'fatigueDisease') === 'diseased') b.endConds.push('diseased'); else b.fatigue -= 1; any = true; }
         if (count(d, 'fatigueZeroWoundAll')) { if (pickOf(d, 'fatigueZeroWoundAll', 'fatigueZeroWoundAll') === 'wounds') b.endWounds = true; else b.fatigueZero = true; any = true; }
-        if (count(d, 'invisible')) { b.invisible = true; any = true; }   // (Concentration checks for each hostile action: js/apx-power-world.js)
+        if (count(d, 'invisible')) { b.invisible = true; any = true; }   // (2 AP for each hostile action to stay hidden: js/apx-power-world.js)
         if (!any) return null;
         b.immune = [...new Set(b.immune)];
         b.lasting = !!(b.ac || b.dr || b.er || b.speed || b.atk || b.save || b.skill || b.fly || b.swim || b.climb || b.hover || b.noAoO || b.featherFall || b.immune.length || b.invisible || b.apMove || b.apTurn || b.apLoseTurn);
@@ -163,14 +163,16 @@
         window.recalculateMath?.(); window.scheduleAutoSave?.();
         window.APXDice?.notify(`${b.name || 'A power'}${from ? ` (${from})` : ''}: ${window.apxPowerBuffText(b)}${notes.length ? ' · ' + notes.join(', ') : ''}.`, { kind: 'note', open: true });
     };
-    window.apxEndBuff = function (id, why) {
+    window.apxEndBuff = function (id, why, o) {
+        o = o || {};
         let st = window.state; if (!st) return;
         let b = (st.powerBuffs || []).find(x => x.id === id);
         st.powerBuffs = (st.powerBuffs || []).filter(x => x.id !== id);
         if (!st.powerBuffs.length) delete st.powerBuffs;
         if (b) window.APXDice?.notify(`${b.name || 'A power'} on you ends${why ? ` (${why})` : ''}.`, { kind: 'note' });
         // (Invisible no more: your GM's map shows your token again)
-        if (b && b.invisible) { try { window.apxOnRollEvent?.({ id: 'bd' + Date.now().toString(36), kind: 'buffDrop', label: b.name || 'Power', pi: b.pi || null, invisible: true }); } catch (e) { } }
+        // (a hostile action broke it without its 2 AP: the whole power ends, o.endPower)
+        if (b && b.invisible) { try { window.apxOnRollEvent?.({ id: 'bd' + Date.now().toString(36), kind: 'buffDrop', label: b.name || 'Power', pi: b.pi || null, invisible: true, endPower: !!o.endPower || undefined, why: why || '' }); } catch (e) { } }
         // (your own lasting power whose only effect this was: it's over too)
         let a = b && b.pi && window.apxMyInstance ? window.apxMyInstance(b.pi) : null;
         if (a && !a.onOthers && !(st.powerBuffs || []).some(x => x.pi === a.id) && why && window.apxEndActivePower) window.apxEndActivePower(a.id, why);
@@ -330,8 +332,9 @@
             let pre = await orig.apply(this, arguments);
             if (pre === false || !o || o.pcAttack) return pre;
             let a = null; try { a = window._gmAttackerFor(o); } catch (e) { }
-            // (an attack is a hostile action: Invisible from a power, a Concentration check; Action Interrupt ends a buff)
-            if (a && !o._hostileDone && window._gmNpcHostile) { o._hostileDone = true; try { window._gmNpcHostile(a); } catch (e) { } }
+            // (an attack is a hostile action: Invisible from a power, 2 AP to stay hidden; Action Interrupt ends a buff)
+            // (a power is one only when it harms: damage, Conditions, a debuff; o.hostile from apxNpcUsePower)
+            if (a && !o._hostileDone && window._gmNpcHostile && (!o.power || o.hostile !== false)) { o._hostileDone = true; try { window._gmNpcHostile(a); } catch (e) { } }
             // A power on it makes its weapons deal extra damage (a weapon attack, not a power)
             let wd = a && !o.power && o.dice ? (Array.isArray(a._fx) ? a._fx : []).filter(f => f.powerBuff && f.wpnDmg && f.wpnDmg.formula) : [];
             if (wd.length && !o._wpnDmgDone) {

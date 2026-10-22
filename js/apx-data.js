@@ -683,7 +683,7 @@
             major: [
                 { key: "dmgHeals", label: "Damage purchased in Step 4 of this power heals the user or another target for half the damage dealt (rounded down).", cost: 30 },
                 { key: "dispel", label: "You end an ongoing Power affecting the target as long as that power is of an equal or lower level than this one. If this is made into a Reaction Power, you can prevent the Power from ever being used.", cost: 30 },
-                { key: "invisible", label: "Turn the target Invisible (requires the Concentration refund from Step 8). Each time the target takes a hostile action, they must succeed on a Concentration check (a CON saving throw). The DC starts at 10 and increases by 5 for each additional time they take a hostile action before this Power ends.", cost: 30 },
+                { key: "invisible", label: "Turn the target Invisible for the duration of the Power. Each time the target takes a hostile action, they must spend 2 AP to remain Invisible, otherwise the Power ends.", cost: 30 },
                 { key: "condInflictMajor", label: "Inflict or end Stunned, Paralyzed, or Unconscious.", cost: 30, rep: true },
                 { key: "fatigueZeroWoundAll", label: "Reduce Fatigue to zero, or end the Wounded condition on all limbs.", cost: 30 },
                 { key: "complexCommand", label: "Issue a complex, multi-step command the target must follow to the best of its ability.", cost: 30 },

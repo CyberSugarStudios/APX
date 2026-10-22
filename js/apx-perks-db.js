@@ -290,7 +290,7 @@
             { id: "gen_agile", name: "Agile", attr: "GEN", max: 1, baseCost: 10, baseDesc: "+1 bonus to AC.", ranks: ["+1 bonus to AC."], effect: (c) => { c.ac += 1; } },
             { id: "gen_educated", name: "Educated", attr: "GEN", max: 1, baseCost: 10, baseDesc: "Gain 1 extra XP whenever you gain XP.", ranks: ["Gain 1 extra XP whenever you gain XP."] },
             { id: "gen_expertise", name: "Expertise", attr: "GEN", max: 1, baseCost: 10, baseDesc: "Bonus XP choice.", ranks: ["Choice of: +2 XP combat, +2 XP discovery, or +2 XP role play."], choiceOptions: ['+2 XP Combat', '+2 XP Discovery', '+2 XP Role Play'] },
-            { id: "gen_lucky", name: "Lucky", attr: "GEN", max: 1, baseCost: 10, baseDesc: "Once/Full Rest: Use LUC save instead.", ranks: ["Once/Full Rest: Use LUC save instead."] },
+            { id: "gen_lucky", name: "Lucky", attr: "GEN", max: 1, baseCost: 10, baseDesc: "Once per Short Rest, when you are forced to make a saving throw, you can use your LUC saving throw instead.", ranks: ["Once per Short Rest, when you are forced to make a saving throw, you can use your LUC saving throw instead."] },
             { id: "gen_sacrificial", name: "Sacrificial", attr: "GEN", max: 1, baseCost: 10, baseDesc: "Reaction: Swap places with attacked ally.", ranks: ["Reaction: Swap places with attacked ally."] },
             { id: "gen_safezone", name: "Safe Zone", attr: "GEN", max: 1, baseCost: 10, baseDesc: "Designate safe targets in your AoE.", ranks: ["Designate safe targets in your AoE."] },
             { id: "gen_tacticalmind", name: "Tactical Mind", attr: "GEN", max: 1, baseCost: 10, baseDesc: "Use INT for Initiative.", ranks: ["Use INT for Initiative."], effect: (c) => { c.useIntInit = true; } },

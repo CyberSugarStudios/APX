@@ -283,6 +283,8 @@
         let changed = false;
         maps().forEach(m => (m.battleTokens || []).forEach(t => { if (t.type === 'player' && t.playerUid === uid && t.invisible && (!ev.pi || t.invisible === ev.pi)) { delete t.invisible; changed = true; } }));
         if (changed) { log({ text: `${ev.who || 'A player'} is visible again.` }); save(); redraw(); }
+        // (Invisible, a hostile action without the 2 AP to stay hidden: the power ends, for its user too)
+        if (ev.endPower && ev.pi && window._gmCastReg[ev.pi]) window._gmEndPi(ev.pi, ev.why || 'its target took a hostile action');
     };
     // ── What's active on each creature (to end one: published with the fight for players' Dispel) ──
     window._gmPowersOn = function () {
@@ -394,16 +396,22 @@
                 onResult: r => { if (!first) return; first = false; if (r.total >= dc) return `${gmn(e)} keeps ${c.name} up.`; window._gmEndPi(c.pi, `Concentration lost (${r.total} vs DC ${dc})`); return `Concentration lost: ${c.name} ends.`; } });
         });
     };
-    // An Invisible NPC (a power) attacking: a Concentration check, DC 10 +5 for each hostile action before
-    window._gmNpcHostile = function (e) {
+    // An Invisible NPC (a power) taking a hostile action (an attack, a harmful power, a maneuver against a creature):
+    // 2 AP to stay Invisible, or the power ends. Action Interrupt ends a beneficial power on it.
+    window._gmNpcHostile = async function (e) {
         if (!e) return;
-        (Array.isArray(e._fx) ? e._fx : []).filter(f => f.powerBuff && (f.invisible || f.actInt)).forEach(f => {
-            if (f.actInt && !f.harmful) { e._fx = e._fx.filter(x => x !== f); log({ text: `${f.name} on ${pub(e)} ends (it attacked: Action Interrupt).` }); return; }
-            let n = parseInt(f.invisN) || 0, dc = 10 + 5 * n; f.invisN = n + 1;
-            let sb = e.sourceNpcId && typeof ncStatBlockFor === 'function' ? ncStatBlockFor(e.sourceNpcId) : null;
-            let bonus = sb ? ((sb.saves || {}).CON ?? ((sb.mods || {}).CON || 0)) : 0, first = true;
-            if (window.APXDice) APXDice.check({ kind: 'save', attr: 'CON', label: `Stay Invisible: Concentration (DC ${dc})`, who: gmn(e), bonus, perks: false, initId: e.id,
-                onResult: r => { if (!first) return; first = false; if (r.total >= dc) return `${gmn(e)} stays Invisible.`; e._fx = (e._fx || []).filter(x => x !== f); maps().forEach(m => (m.battleTokens || []).forEach(t => { if (t.initiativeId === e.id && t.invisible) delete t.invisible; })); save(); redraw(); return `${gmn(e)} is visible again.`; } });
-        });
+        let now = Date.now(); if (e._hostileAt && now - e._hostileAt < 1200) return; e._hostileAt = now;   // (one action, one check)
+        for (let f of (Array.isArray(e._fx) ? e._fx : []).filter(f => f.powerBuff && (f.invisible || f.actInt))) {
+            if (f.actInt && !f.harmful) { e._fx = e._fx.filter(x => x !== f); log({ text: `${f.name} on ${pub(e)} ends (it attacked: Action Interrupt).` }); continue; }
+            if (!(e._fx || []).includes(f)) continue;
+            let have = typeof gmApCurrent === 'function' ? gmApCurrent(e) : 0, ans = 'end';
+            if (have >= 2 && window.APXDice && APXDice.ask)
+                ans = await APXDice.ask(`${gmn(e)}: stay Invisible?`, `${gmn(e)} takes a hostile action while Invisible (${f.name || 'a power'}). Spend 2 of its AP to stay Invisible, or the power ends. It has ${have} AP.`, [['keep', 'Spend 2 AP: stay Invisible', 'pri'], ['end', 'Let it end']]);
+            if (ans === 'keep') { e.apCur = Math.max(0, have - 2); log({ gmOnly: true, text: `${gmn(e)} spends 2 AP to stay Invisible (${e.apCur} left).` }); continue; }
+            let why = have < 2 ? 'a hostile action, without 2 AP to stay Invisible' : 'a hostile action';
+            if (f.pi && window._gmCastReg[f.pi]) window._gmEndPi(f.pi, why);
+            else { e._fx = (e._fx || []).filter(x => x !== f); maps().forEach(m => (m.battleTokens || []).forEach(t => { if (t.initiativeId === e.id && t.invisible) delete t.invisible; })); log({ text: `${pub(e)} is visible again (${why}).`, gmText: `${gmn(e)} is visible again: ${f.name || 'its Invisibility'} ends (${why}).` }); }
+        }
+        save(); redraw();
     };
 })();

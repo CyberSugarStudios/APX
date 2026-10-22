@@ -231,7 +231,7 @@
             let parts = window.apxSplitParts(dice, { flat: o.flat, attr: first ? (o.extraFirst || 0) : 0, crit: o.crit, critMult: o.critMult });
             let nm = (o.names || {})[tid] || 'a target';
             let card = window.APXDice ? APXDice.damage({ label: `${o.name || 'Power'} → ${nm} (${dice.length} ${dice.length === 1 ? 'die' : 'dice'})`, who: o.who, formula: parts.map(x => x.formula).join('+'),
-                dmgType: o.heal ? '' : parts.map(x => x.type).filter(Boolean).join(' + '), heal: o.heal || undefined, wcat: 'power', maxDmg: o.maxDmg || undefined, crit: o.crit || undefined,
+                dmgType: o.heal ? '' : parts.map(x => x.type).filter(Boolean).join(' + '), heal: o.heal || undefined, wcat: 'power', maxDmg: o.maxDmg || undefined, breachNote: o.breachNote || undefined, crit: o.crit || undefined,
                 split: parts.length > 1 ? parts : undefined, apNote: first ? o.apNote : undefined, apWarn: first ? o.apWarn : undefined, note: first ? (o.note || null) : null, flavor: first ? o.flavor : undefined }) : null;
             let dp = card && Array.isArray(card.parts) ? card.parts.filter(x => x.kind === 'dmg') : [];
             let tot = dp.reduce((t, x) => t + (x.total || 0), 0);
@@ -449,28 +449,33 @@
                 }
             });
         };
-        // A hostile action (an attack, a harmful power) while you're Invisible from a power: a Concentration check
-        // (CON save), DC 10 +5 for each hostile action before; failing ends the Invisibility. Action Interrupt
-        // ends a beneficial power on you as you attack.
-        window.apxHostileAction = function (what) {
+        // A hostile action while you're Invisible from a power: an attack roll, a power that deals damage or inflicts
+        // Conditions (or otherwise harms), a maneuver against a creature (Shove, Grapple, Pin, Choke, Shield Bash, Feint,
+        // Ground Strike). Not Fight Defensively or Offensively, Disengage, Vault, Block, Escape, or a Standard Action; a
+        // maneuver that only sets up your next attack (Power Attack, Charge…) counts when that attack is made. Each one:
+        // spend 2 AP to stay Invisible, or the power ends. Action Interrupt ends a beneficial power on you as you attack.
+        window.apxHostileAction = async function (what) {
             let st = window.state; if (!st) return;
+            // (one action, one check: a maneuver and the roll it makes don't count twice)
+            let now = Date.now(); if (window._apxHostileAt && now - window._apxHostileAt < 1200) return; window._apxHostileAt = now;
+            let inv = [];
             (st.powerBuffs || []).slice().forEach(b => {
                 if (b.actInt && !b.harmful) { if (window.apxEndBuff) window.apxEndBuff(b.id, 'you attacked (Action Interrupt)'); return; }
-                if (!b.invisible) return;
-                let n = parseInt(b.invisN) || 0, dc = 10 + 5 * n;
-                b.invisN = n + 1;
-                if (!window.APXDice) return;
-                let first = true;
-                APXDice.check(Object.assign({ kind: 'save', attr: 'CON', label: `Stay Invisible: Concentration (DC ${dc})`, who: st.name || '' }, window.apxSaveOpts ? window.apxSaveOpts('CON') : {}, {
-                    onResult: r => {
-                        if (!first) return; first = false;
-                        if (r.total >= dc) return `Still Invisible (the next hostile action: DC ${dc + 5}).`;
-                        let mine = b.pi && window.apxMyInstance(b.pi);
-                        if (mine && mine.invisibleOnly) window.apxEndActivePower(b.pi, 'Concentration check failed'); else if (window.apxEndBuff) window.apxEndBuff(b.id, 'its Concentration check failed');
-                        return `You're visible again (${r.total} vs DC ${dc}).`;
-                    } }));
-                window.scheduleAutoSave?.();
+                if (b.invisible) inv.push(b);
             });
+            for (let b of inv) {
+                if (!(st.powerBuffs || []).includes(b)) continue;
+                let have = window.apxApCurrent ? window.apxApCurrent() : 0, ans = 'end';
+                if (have >= 2 && window.APXDice && APXDice.ask)
+                    ans = await APXDice.ask(`Stay Invisible: ${b.name || 'Invisible'}`, `${what || 'That'} is a hostile action. Spend 2 AP to stay Invisible, or ${b.name || 'the power'} ends. You have ${have} AP.`, [['keep', 'Spend 2 AP: stay Invisible', 'pri'], ['end', 'Let it end']]);
+                if (ans === 'keep') { window.apxSpendAp && window.apxSpendAp(2); window.APXDice?.notify(`${b.name || 'Invisible'}: 2 AP to stay Invisible (${window.apxApCurrent ? window.apxApCurrent() : '?'} AP left).`, { kind: 'note' }); continue; }
+                let why = have < 2 ? `a hostile action, and not 2 AP to stay Invisible` : 'a hostile action';
+                let mine = b.pi && window.apxMyInstance(b.pi);
+                if (mine) window.apxEndActivePower(b.pi, why);
+                else if (window.apxEndBuff) window.apxEndBuff(b.id, why, { endPower: true });
+                window.APXDice?.notify(`You're visible again: ${b.name || 'the power'} ends (${why}).`, { kind: 'warn', open: true });
+            }
+            window.scheduleAutoSave?.();
         };
         // Concentration at the start of your turn: 2 AP to keep each one up
         (function hookConc(tries) {

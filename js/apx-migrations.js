@@ -72,11 +72,8 @@
             { id: 'summonTierLevel', test: d => { let n = ((d.utility || {}).major || {}).summonCreature || 0; if (!n || typeof window.pcCalcXP !== 'function') return false; let t = Math.max(...(window.apxSummonSlots ? window.apxSummonSlots(d) : [{ tier: d.summonTier }]).map(x => parseInt(x.tier) || 1)); return t > 5 || t > window.pcCalcXP(d).level; },
               text: 'A summoned creature\'s Tier can\'t be higher than the power\'s Level now (Tier 5 at most). This power still works as it is; rebuild it (free) to bring its creature\'s Tier in line.' }
         ],
-        // Turn the target Invisible needs the Concentration refund (Step 8)
-        11: [
-            { id: 'invisibleConc', test: d => ((((d.utility || {}).major || {}).invisible) || 0) > 0 && !(d.refunds && d.refunds.concentration),
-              text: 'Turn the target Invisible now needs the Concentration refund (Step 8): keeping it up costs 2 AP each turn, and taking damage calls for a CON save. It still works as it is; rebuild it (free) to add Concentration.' }
-        ],
+        // (Turn the target Invisible needed the Concentration refund for a while: no longer, see 13)
+        11: [],
         // Split Target buys how many creatures its Utilities reach (5 XP per target beyond the first) and splits its dice
         // die by die; Overexertion can give its Fatigue to the target; the AP Utilities work on each of the target's turns
         12: [
@@ -86,6 +83,12 @@
               text: 'Overexertion can now give its level of Fatigue to the power\'s target instead of you, on a power with beneficial Utilities or healing. It still gives it to you; rebuild it (free) to choose (Step 8).' },
             { id: 'apUtil', test: d => { let u = d.utility || {}; return !!((u.minor || {}).bonusAp1 || (u.moderate || {}).loseAp1); },
               text: 'The AP Utilities changed: +1 AP now comes at the start of each of the target\'s turns for the power\'s duration and can only be spent on movement, and -1 AP now means the target starts each of its turns with 1 less AP while the power lasts (a new Moderate Utility gives +1 AP each turn for anything). It works the new way already; rebuild it (free) if you want to change it.' }
+        ],
+        // Turn the target Invisible: each hostile action costs 2 AP to stay Invisible (or the power ends), instead of a
+        // Concentration check; it no longer needs the Concentration refund
+        13: [
+            { id: 'invisible2ap', test: d => ((((d.utility || {}).major || {}).invisible) || 0) > 0,
+              text: 'Turn the target Invisible changed: it lasts for the power\'s duration, and each time the target takes a hostile action (an attack, a power that harms, a maneuver against a creature) they spend 2 AP to stay Invisible, or the power ends. There\'s no Concentration check any more, and it doesn\'t need the Concentration refund: rebuild it (free) to take Concentration off if you only had it for this.' }
         ],
         // Saving throws name their Core Attribute; lasting effects get an Escape Save the target can pass
         3: ['save', 'cond', 'escape', 'actionInt'].map(k => ({
@@ -264,6 +267,24 @@
                     if (n.date === utc && window.apxToday) n.date = window.apxToday(t);
                 });
                 return [];
+            }
+        },
+        {
+            v: 12, label: 'Conduit, Invisibility, Lucky and free powers (Oct 22, 2026)',
+            run(s) {
+                // Nothing changes on the character: the notices say what works differently now
+                let notes = [], x = s.exoSuit;
+                if (x && x.frame === 'conduit') {
+                    let sys = (x.systems || []).concat(x.owned || []), breach = [...new Set(sys.filter(id => String(id).split(':')[0] === 'breach').map(id => String(id).split(':')[1]).filter(Boolean))];
+                    let amp = sys.some(id => String(id).split(':')[0] === 'amplifier');
+                    notes.push({ title: 'Conduit Exo-Suit', text: `${breach.length ? `Breach (${breach.join(', ')}) now shows on your Power rolls (they ignore the target's Resistance to it) and in Armor & Defenses (+5 ER against it), and both are counted in combat. ` : 'Breach now shows on your Power rolls (they ignore Resistance to its type) and in Armor & Defenses (+5 ER against it), counted in combat. '}Amplifier now costs 5,000 Currency (was 10,000) and isn't automatic: when a Power would roll damage of your Breach type, you're asked whether to spend 3 more AP to deal maximum damage instead.${amp ? ' Your suit has Amplifier from before: ask your GM about the price difference.' : ''}` });
+                }
+                let inv = [].concat((s.powers || []).map(p => p && p.name && p.draft && (((p.draft.utility || {}).major || {}).invisible || 0) > 0 ? p.name : null),
+                    ((s.companion && s.companion.powers) || []).map(p => p && p.draft && (((p.draft.utility || {}).major || {}).invisible || 0) > 0 ? `${p.name} (${s.companion.name || 'companion'})` : null)).filter(Boolean);
+                if (inv.length) notes.push({ title: 'Turn the target Invisible', text: `Changed (${inv.join(', ')}): it lasts for the power's duration, and each time the Invisible creature takes a hostile action (an attack roll, a power that deals damage or inflicts Conditions, a maneuver against a creature like Shove or Grapple) it spends 2 AP to stay Invisible, or the power ends. Your sheet asks each time. There's no Concentration check any more, and the power doesn't need the Concentration refund: rebuild it (free) if you only took Concentration for this.` });
+                if ((s.perks || {}).gen_lucky) notes.push({ title: 'Lucky', text: 'Now once per Short Rest (was once per Full Rest): when you\'re forced to make a saving throw, you can use your LUC saving throw instead. Your sheet offers it whenever you roll a saving throw while it\'s unused.' });
+                if ((s.powers || []).some(p => p && p.wasFree)) notes.push({ title: 'Free powers', text: 'A power you got for free is free up to the top of the Level it was free at (a free Level 1 power: 25 XP). Editing it past that costs the XP over it. Your free powers count from the Level they\'re at now.' });
+                return notes;
             }
         }
     ];
@@ -453,7 +474,7 @@
         rbShownFor = key;
         window.apxRebuildList({
             id: 'sheet', title: 'Powers to rebuild',
-            intro: `The Power Crafting rules changed in ways that affect ${s.name || 'this character'}'s powers. Rebuild each one in the Power Crafter: it's free, and nothing is lost in the meantime (each one says what changed). Latest: Split Target buys how many creatures its Utilities reach and splits its dice die by die, Overexertion can give its Fatigue to the target, and the AP Utilities work on each of the target's turns. Earlier changes: areas are crafted to an exact shape and size, Step 7's AP options were reworked (rebuild or keep), and powers cap at 200 XP (one over it can't be used until it's rebuilt).`,
+            intro: `The Power Crafting rules changed in ways that affect ${s.name || 'this character'}'s powers. Rebuild each one in the Power Crafter: it's free, and nothing is lost in the meantime (each one says what changed). Latest: Turn the target Invisible costs 2 AP for each hostile action instead of a Concentration check (and doesn't need Concentration), Split Target buys how many creatures its Utilities reach and splits its dice die by die, Overexertion can give its Fatigue to the target, and the AP Utilities work on each of the target's turns. Earlier changes: areas are crafted to an exact shape and size, Step 7's AP options were reworked (rebuild or keep), and powers cap at 200 XP (one over it can't be used until it's rebuilt).`,
             busy: ['powerCrafterModal', 'npcCrafterModal'],
             doneText: 'All your powers are rebuilt.',
             rows: () => {
@@ -497,7 +518,7 @@
         rbGmShown[wk] = true;
         window.apxRebuildList({
             id: 'gm', title: 'NPCs to rebuild',
-            intro: `The Power Crafting rules changed (latest: Split Target buys how many creatures its Utilities reach and splits its dice die by die, Overexertion can give its Fatigue to the target, and the AP Utilities work on each of the target's turns; earlier: saving throws name a Core Attribute, lasting effects give an Escape Save, Step 3 crafts each area's exact shape and size, and Step 7's AP options were reworked). These NPCs${w && w.name ? ' in ' + w.name : ''} have powers to rebuild. Rebuild opens each NPC and walks you through its powers; finished NPCs drop off this list. Powers listed only for the Step 7 changes can be kept as they are.`,
+            intro: `The Power Crafting rules changed (latest: Turn the target Invisible costs 2 AP for each hostile action instead of a Concentration check, Split Target buys how many creatures its Utilities reach and splits its dice die by die, Overexertion can give its Fatigue to the target, and the AP Utilities work on each of the target's turns; earlier: saving throws name a Core Attribute, lasting effects give an Escape Save, Step 3 crafts each area's exact shape and size, and Step 7's AP options were reworked). These NPCs${w && w.name ? ' in ' + w.name : ''} have powers to rebuild. Rebuild opens each NPC and walks you through its powers; finished NPCs drop off this list. Powers listed only for the Step 7 changes can be kept as they are.`,
             busy: ['powerCrafterModal', 'npcCrafterModal'],
             doneText: 'Every NPC is rebuilt.',
             rows

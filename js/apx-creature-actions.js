@@ -222,6 +222,8 @@
         if (a.move && ctx.move) ctx.move();
         let spend = have != null ? Math.min(cost, have) : cost;
         // (standing up: removing Prone already charges its 2 AP where the page does that)
+        // (a maneuver against a creature is a hostile action: Invisible from a power, 2 AP to stay hidden)
+        if (['Shove', 'Grapple', 'Pin', 'Choke', 'Shield Bash', 'Feint'].includes(a.name) && ctx.hostile) setTimeout(() => ctx.hostile(), 0);
         if (spend > 0 && a.move && ctx.spendMove) ctx.spendMove(spend);
         else if (spend > 0 && ctx.spend && !(a.stand && ctx.standUpCharges)) ctx.spend(spend);
         if (won) {

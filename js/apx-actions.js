@@ -474,6 +474,9 @@
         if (moveAct && cost > 0 && window.apxSpendMoveAp) window.apxSpendMoveAp(cost);
         else { let spend = Math.min(cost, window.apxApCurrent ? window.apxApCurrent() : cost); if (spend > 0 && window.apxSpendAp) window.apxSpendAp(spend); }
         note(`${a.name}${cost ? `: −${cost} AP (${window.apxApCurrent ? window.apxApCurrent() : '?'} left)` : relFree ? ': 0 AP (Relentless, once per turn)' : ''}.`);
+        // A maneuver against a creature is a hostile action (Invisible from a power: 2 AP to stay hidden). One that only
+        // sets up your next attack (Power Attack, Charge, Lunging Attack…) counts when that attack is made.
+        if (['Shove', 'Grapple', 'Pin', 'Choke', 'Shield Bash', 'Feint', 'Ground Strike (Brute)'].includes(a.name) && window.apxHostileAction) window.apxHostileAction(a.name);
         // Your GM sees it in their dice tray and notifications (with what it does: Block's AC, Fight Defensively…)
         let added = fx().filter(e => !before.includes(e.id)).map(e => e.key === 'defensive' ? `Fight Defensively: +${e.attacked || st().apxAttackedTurn ? 2 : 4} AC` : (e.short || e.label));
         if (window.apxOnRollEvent && (a.g !== 'Standard Actions' || ['Fall Prone', 'Help', 'Ready', 'Jump', 'Repair (Unalive)'].includes(a.name))) {

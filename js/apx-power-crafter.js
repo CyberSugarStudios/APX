@@ -411,7 +411,8 @@ function pcRenderFreeBanner() {
         if (power.wasFree) {
             banner.classList.remove('hidden');
             let alsoUpgrade = window.state.chaFreeUpgrades.some(u => u.fromLevel === power.lvl && u.toLevel === computedLevel);
-            banner.innerHTML = `<div class="text-center">This Power was originally free -- Saving Changes to it will never cost XP, no matter what you change.${alsoUpgrade ? ` (This also spends your free Short Rest Powers upgrade: the Level ${power.lvl} version stays too.)` : ''}</div>`;
+            let fl = pcFreeLevel(power), allow = pcFreeAllowance(power), tot = window.pcCalcXP(pcDraft).total;
+            banner.innerHTML = `<div class="text-center">This Power was free at Level ${fl}: up to ${allow} XP of it is free (the top of Level ${fl}). ${tot > allow ? `This build is ${tot} XP, so saving it costs the ${tot - allow} XP over that${power.paidXP ? ` (${power.paidXP} already paid)` : ''}.` : 'Changes that keep it at or under that cost nothing.'}${alsoUpgrade ? ` (This also spends your free Short Rest Powers upgrade: the Level ${power.lvl} version stays too.)` : ''}</div>`;
             return;
         }
         // A free Charisma Powers upgrade only matches if this power's
@@ -969,9 +970,6 @@ function pcRulesProblems() {
     // Overexertion on the target: only a power with beneficial Utilities or healing
     if (pcDraft.refunds && pcDraft.refunds.overexertion && pcDraft.oxWho === 'target' && window.apxPowerBeneficial && !window.apxPowerBeneficial(pcDraft) && !pcStepSkipped(8))
         out.push('Overexertion can only give its Fatigue to the target on a power with beneficial Utilities or healing: pick the power\'s user in Step 8.');
-    // Turn the target Invisible needs the Concentration refund (Step 8)
-    if (((pcDraft.utility.major || {}).invisible || 0) > 0 && !(pcDraft.refunds && pcDraft.refunds.concentration) && !pcStepSkipped(8))
-        out.push('Turn the target Invisible needs the Concentration refund: tick Concentration in Step 8.');
     // No power costs more than 200 XP (the top of Level 5), free or not
     let tot = window.pcCalcXP(pcDraft).total;
     if (tot > window.APX_POWER_MAX_XP) {
@@ -1390,9 +1388,11 @@ function pcRenderSummaryCore() {
     if (showEditPair) {
         let power = getTargetPowers()[pcEditIndex];
 
-        if (power.wasFree) {
-            saveChangesBtn.innerText = 'Save Changes (Free)';
-            saveChangesBtn.disabled = overCap;
+        if (power.wasFree && pcChaFreeCredit?.type !== 'upgrade') {
+            // free up to the top of the Level it was free at; anything past that is paid (and refunded if it comes back down)
+            let delta = Math.max(0, t.total - pcFreeAllowance(power)) - (power.paidXP || 0);
+            saveChangesBtn.innerText = delta > 0 ? `Save Changes (+${delta} XP)` : delta < 0 ? `Save Changes (${-delta} XP refund)` : 'Save Changes (Free)';
+            saveChangesBtn.disabled = overCap || (delta > 0 && unspent < delta);
         } else if (pcChaFreeCredit?.type === 'upgrade') {
             saveChangesBtn.innerText = `Save Changes (Free Upgrade to Lvl ${pcChaFreeCredit.toLevel})`;
             saveChangesBtn.disabled = overCap;
@@ -1590,7 +1590,7 @@ window.finishPowerCrafter = function() {
     window.state.powers.push({
         name, lvl: t.level, ap: t.ap, atk: summary.atk, rng: summary.rng, dmg: summary.dmg, desc: finalDesc,
         attr: pcDraft.coreAttr || pcDefaultAttr(), pool: pcDraft.pool || pcDefaultPool(),
-        draft: pcSavedDraft(), rulesRev: window.APX_POWER_RULES_REV || 1, wasFree: useFree || useChaFree, paidXP
+        draft: pcSavedDraft(), rulesRev: window.APX_POWER_RULES_REV || 1, wasFree: useFree || useChaFree, paidXP, freeLevel: useFree || useChaFree ? t.level : undefined
     });
 
     window.closeModal('powerCrafterModal');
@@ -1624,9 +1624,13 @@ window.pcSelectChaFreeUpgradeTarget = function(idx) {
     window.openPowerEditor(idx, 'player');
 };
 
-// Editing in place. A power that was originally free stays free no matter
-// how the rebuild's cost changes -- you're fixing it, not making a second
-// one. A power that was originally paid charges (or refunds) only the
+// A power that was free is free up to the top of the Level it was free at (a free Level 1 power: 25 XP). Older free
+// powers count from the Level they're at now. Its paidXP is what was paid past that.
+function pcFreeLevel(power) { return Math.max(1, Math.min(5, parseInt(power && (power.freeLevel || power.lvl)) || 1)); }
+function pcFreeAllowance(power) { let L = pcFreeLevel(power); return (POWER_LEVEL_TABLE.find(l => l.level === L) || POWER_LEVEL_TABLE[0]).max; }
+window.pcFreeAllowance = pcFreeAllowance;
+// Editing in place. A power that was free stays free up to the top of the Level it was free at; building it past that
+// costs the XP over it (and coming back down refunds it). A power that was paid charges (or refunds) only the
 // difference between its old and new cost.
 window.savePowerChanges = function() {
     if (pcEditIndex === null) return;
@@ -1678,11 +1682,15 @@ window.savePowerChanges = function() {
         keptOriginal = JSON.parse(JSON.stringify(power));
     }
 
-    if (power.wasFree) {
-        // stays free no matter what changes, same as the existing rule
-    } else if (useChaFreeUpgrade) {
-        power.wasFree = true;
+    if (useChaFreeUpgrade) {
+        power.wasFree = true; power.freeLevel = t.level;
         power.paidXP = 0;
+    } else if (power.wasFree) {
+        // free up to the top of the Level it was free at
+        if (!power.freeLevel) power.freeLevel = pcFreeLevel(Object.assign({}, power, { lvl: oldLevel }));
+        let owed = Math.max(0, t.total - pcFreeAllowance(power)), delta = owed - (power.paidXP || 0);
+        if (delta && !pcApplyXpDelta(delta)) return;
+        power.paidXP = owed;
     } else {
         let delta = t.total - (power.paidXP || 0);
         if (!pcApplyXpDelta(delta)) return;
@@ -1748,7 +1756,7 @@ window.savePowerAsNew = function() {
     window.state.powers.push({
         name, lvl: t.level, ap: t.ap, atk: summary.atk, rng: summary.rng, dmg: summary.dmg, desc: finalDesc,
         attr: pcDraft.coreAttr || pcDefaultAttr(), pool: pcDraft.pool || pcDefaultPool(),
-        draft: pcSavedDraft(), rulesRev: window.APX_POWER_RULES_REV || 1, wasFree: useFree || useChaFreeUpgrade, paidXP
+        draft: pcSavedDraft(), rulesRev: window.APX_POWER_RULES_REV || 1, wasFree: useFree || useChaFreeUpgrade, paidXP, freeLevel: useFree || useChaFreeUpgrade ? t.level : undefined
     });
 
     window.closeModal('powerCrafterModal');

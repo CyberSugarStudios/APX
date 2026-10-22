@@ -628,6 +628,12 @@
                         t.net += b.amount;
                         if (!t.sources.includes(b.source)) t.sources.push(b.source);
                     });
+                    // A Conduit Exo-Suit's Breach: +5 ER against each of its Energy types (counted in combat too: apxMyDefense)
+                    ((calc.exo && calc.exo.breach) || []).forEach(type => {
+                        let t = ensureType(type);
+                        t.net += 5;
+                        if (!t.sources.includes('Exo-Suit: Breach')) t.sources.push('Exo-Suit: Breach');
+                    });
                     let lines = Object.keys(byType).map(type => {
                         let t = byType[type];
                         let sourceNote = t.sources.length ? ` <span class="text-slate-500">(${t.sources.join(', ')})</span>` : '';
@@ -2165,7 +2171,7 @@
                 else { notes.push(`Overexertion: ${whoTxt} ${oxWho === 'target' ? 'a level of ' : ''}Fatigue once it's done`); oxNow = { name: p.name || 'Power', ox: true, oxWho, oxTo, oxSelf }; }
             }
             if (inst && inst.conc) notes.push('Concentration: 2 AP at the start of each of your turns, and a CON save when you take damage');
-            // A harmful power is a hostile action (Invisible from a power: a Concentration check)
+            // A harmful power is a hostile action (Invisible from a power: 2 AP to stay hidden)
             if (!chan && window.apxHostileAction && window.apxPowerPlay && window.apxPowerPlay(p.draft || {}, lvl).harmful) window.apxHostileAction(name);
             // Your own tokens move now (a teleport of you, your companion or your summon); anyone else's, your GM's tracker
             if (plan && plan.moves) plan.moves.forEach(mv => {
@@ -2307,13 +2313,19 @@
                 if (fxInfo || planEv.ends || planEv.drain) o.powerFx = Object.assign({}, fxInfo || { conds: [] }, { ends: planEv.ends || undefined, drain: planEv.drain || undefined, pi: inst ? inst.id : undefined });
                 // A Conduit Exo-Suit: Breach (ignores Resistance to its types), Nullifier, Amplifier (maximum damage)
                 let exf = dmg && !dmg.heal && window.apxExoPowerFx ? window.apxExoPowerFx(dmg.type) : null;
-                if (exf) { o.hit = Object.assign({}, o.hit, { breach: exf.breach, nullify: exf.nullify || undefined }); if (exf.max) o.maxDmg = exf.max; }
+                if (exf) {
+                    o.hit = Object.assign({}, o.hit, { breach: exf.breach, nullify: exf.nullify || undefined });
+                    if (exf.note) o.breachNote = exf.note;
+                    // Amplifier: 3 more AP for maximum damage, asked before it's rolled
+                    exf.max = window.apxExoAmplify ? await window.apxExoAmplify(exf, name) : '';
+                    if (exf.max) o.maxDmg = exf.max;
+                }
                 // Split Target with an attack roll: one roll against each target's AC, then each target's own dice (a natural
                 // 20: their dice doubled), all sent to your GM's tracker
                 if (splitOn && info.kind === 'power' && !dmg.heal && o.areaHit) {
                     o.kind = 'attack'; o.note = useNote; let sent = false, aid = 'pa' + Date.now().toString(36);
                     o.onResult = r => { if (sent) return; sent = true;
-                        let sr = window.apxSplitRoll(Object.assign(splitArgs(), { crit: r.nat === 20, critMult: 2, maxDmg: o.maxDmg }));
+                        let sr = window.apxSplitRoll(Object.assign(splitArgs(), { crit: r.nat === 20, critMult: 2, maxDmg: o.maxDmg, breachNote: o.breachNote }));
                         window.apxOnRollEvent?.({ id: aid, kind: 'powerAtk', label: name, total: r.total, nat: r.nat, crit: r.nat === 20, fumble: r.nat === 1, area: o.areaHit, fx: o.powerFx || null, dmg: 0, dmgType: dmg.type, splitDmg: sr.byTok, splitParts: sr.parts, split: planEv.split || null, hit: o.hit }); };
                     APXDice.check(o);
                     tell(`${who || 'A player'} uses ${name}: attack roll (Split Target).` + (escLine ? ` ${escLine}.` : ''), { attackRoll: true });
@@ -2343,13 +2355,14 @@
             let sAttr = sInfo && sInfo.saveAttr ? sInfo.saveAttr + ' ' : '';
             let saveText = saveKind ? `Targets make a${/^[AEIOU]/.test(sAttr) ? 'n' : ''} ${sAttr}saving throw against DC ${dc}: a success ${saveKind === 'halves' ? 'halves it' : 'negates it'}.` : '';
             let exf = dmg && !dmg.heal && window.apxExoPowerFx ? window.apxExoPowerFx(dmg.type) : null;   // (a Conduit Exo-Suit)
+            if (exf && window.apxExoAmplify) exf.max = await window.apxExoAmplify(exf, name);   // (Amplifier: 3 more AP, maximum damage)
             let splitDmg = null, splitParts = null;
             if (dmg && splitOn) {
                 // Split Target: each target's dice rolled on their own
-                let sr = window.apxSplitRoll(Object.assign(splitArgs(), { maxDmg: exf && exf.max ? exf.max : undefined, apNote: useNote, apWarn: !pay, note: [saveText, areaNote].filter(Boolean).join(' ') || null, flavor }));
+                let sr = window.apxSplitRoll(Object.assign(splitArgs(), { maxDmg: exf && exf.max ? exf.max : undefined, breachNote: exf && exf.note || undefined, apNote: useNote, apWarn: !pay, note: [saveText, areaNote].filter(Boolean).join(' ') || null, flavor }));
                 dmg.total = sr.total; splitDmg = sr.byTok; splitParts = sr.parts;
             } else if (dmg) {
-                let dcard = APXDice.damage({ label: name + (dmg.heal ? ' healing' : ' damage'), who, formula: dmg.formula, dmgType: dmg.heal ? '' : dmg.type, heal: dmg.heal || undefined, wcat: 'power', maxDmg: exf && exf.max ? exf.max : undefined,
+                let dcard = APXDice.damage({ label: name + (dmg.heal ? ' healing' : ' damage'), who, formula: dmg.formula, dmgType: dmg.heal ? '' : dmg.type, heal: dmg.heal || undefined, wcat: 'power', maxDmg: exf && exf.max ? exf.max : undefined, breachNote: exf && exf.note || undefined,
                     apNote: useNote, apWarn: !pay, note: [saveText, areaNote].filter(Boolean).join(' ') || null, flavor, split: dmg.split || undefined });
                 // a split roll: the GM's tracker divides the damage between the types as rolled
                 if (dmg.split && dcard && Array.isArray(dcard.parts)) dmg.parts = dcard.parts.filter(x => x.kind === 'dmg').map((x, i) => ({ type: (dmg.split[i] || {}).type, dmg: x.total }));
@@ -2396,7 +2409,7 @@
                     <div class="text-[10px] text-slate-500 leading-tight font-medium">${p.desc}</div>
                     ${p.draft && p.draft.duration && p.draft.duration !== 'instant' ? (() => { let perm = p.draft.duration === 'permanent', inst = ((window.state.activePowers) || []).find(a => a.key === String(idx)), on = !!(p.permActive || inst);
                         return `<label class="inline-flex items-center gap-1 mt-1 mr-2 text-[9px] font-bold cursor-pointer ${on ? 'text-emerald-300' : 'text-slate-500'}" title="${perm ? 'Permanent: ' : ''}ticked while this power is in effect (using it ticks it for you; it unticks when its time runs out on the initiative, or a rest is long enough). Untick it when it ends some other way (you end it, or it's dispelled). Ending it ends what it did.${perm ? ' While it\'s Active, finishing a rest doesn\'t give back the Power Slot it used.' : ''}"><input type="checkbox" ${on ? 'checked' : ''} onchange="window.apxSetPowerActive(${idx}, this.checked)" style="accent-color:#10b981"> Active${inst && inst.left != null ? ` (${inst.left} more turn${inst.left === 1 ? '' : 's'})` : ''}${p.permActive && p.permActive.slot ? ` (holding a ${p.permActive.slot === 'CHA' ? 'Short Rest use' : 'Level ' + p.permActive.slot + ' Power Slot'})` : ''}</label>`; })() : ''}
-                    ${p.draft ? `<button onclick="window.openPowerEditor(${idx})" class="text-[9px] text-purple-400 hover:text-purple-300 font-bold mt-1">Edit in Power Crafter${p.wasFree ? ' (Free)' : ''}</button>` : ''}
+                    ${p.draft ? `<button onclick="window.openPowerEditor(${idx})" class="text-[9px] text-purple-400 hover:text-purple-300 font-bold mt-1">Edit in Power Crafter${p.wasFree ? (window.pcFreeAllowance ? ` (free up to ${window.pcFreeAllowance(p)} XP)` : ' (Free)') : ''}</button>` : ''}
                     ${p.draft && ((p.draft.utility || {}).major || {}).summonCreature ? (sl => `<button onclick="window.apxEditSummonCreature(${idx})" class="text-[9px] text-emerald-400 hover:text-emerald-300 font-bold mt-1 ml-2" title="Build or change the creature${sl.length > 1 ? 's' : ''} this power summons (${sl.map(x => 'Tier ' + x.tier).join(', ')})">${sl.every(x => x.npc) ? 'Edit Summoned Creature' : 'Build Summoned Creature'}${sl.length > 1 ? 's' : ''}</button><button onclick="window.apxOpenSummonsPanel && window.apxOpenSummonsPanel()" class="text-[9px] text-violet-300 hover:text-violet-200 font-bold mt-1 ml-2" title="Your summoned creatures in your GM's fight: HP, AP, Conditions and their attacks">Your Summons</button>`)(window.apxSummonSlots(p.draft)) : ''}
                     ${window.apxRecraftBadge ? window.apxRecraftBadge(p, `window.openPowerEditor(${idx})`) : ''}
                 </div>
@@ -2500,6 +2513,36 @@
             let dis = ((calc.disadv || {}).saveByAttr || {})[attr] || [], af = ((calc.disadv || {}).autoFailSaveByAttr || {})[attr] || [];
             return { bonus: mod + (tr ? window.state.trainingBonus : 0) + (window.apxItemSaveBonus ? window.apxItemSaveBonus(calc.itemFx, attr) : 0), disSources: dis.slice(), autoFail: af.length > 0 };
         };
+        // ── Lucky (General Perk): "Once per Short Rest, when you are forced to make a saving throw, you can use your LUC
+        // saving throw instead." Every saving throw your sheet rolls (one your GM asks for, a Concentration save, a save from
+        // your save list…) offers it first while it's unused; your GM's tracker counts the LUC save as the one it asked for. ──
+        (function hookLucky(tries) {
+            let D = window.APXDice;
+            if (!D || typeof D.check !== 'function') { if ((tries || 0) < 50) setTimeout(() => hookLucky((tries || 0) + 1), 200); return; }
+            if (D.check._apxLucky) return;
+            let orig = D.check;
+            let w = function (o) {
+                let st = window.state;
+                let mine = o && o.kind === 'save' && o.attr && o.attr !== 'LUC' && !o._lucky && !o.companion && !o.initId && !o.npcId && !o.summonInit;
+                if (mine && st && (window.apxPerkRank ? window.apxPerkRank(st, 'gen_lucky') : ((st.perks || {}).gen_lucky || 0)) > 0 && !st.luckyUsed && D.ask) {
+                    let self = this, args = arguments;
+                    let luc = window.apxSaveOpts ? window.apxSaveOpts('LUC') : { bonus: (calc.mods || {}).LUC || 0 }, cur = typeof o.bonus === 'number' ? o.bonus : (window.apxSaveOpts ? window.apxSaveOpts(o.attr).bonus : 0);
+                    let sg = n => (n >= 0 ? '+' : '−') + Math.abs(n);
+                    D.ask('Lucky', `${o.label || o.attr + ' save'}: use your LUC saving throw (${sg(luc.bonus)}) instead of ${o.attr} (${sg(cur)})? Once per Short Rest.`,
+                        [['luc', `Use LUC (${sg(luc.bonus)})`, luc.bonus > cur ? 'pri' : ''], ['keep', `Roll ${o.attr} (${sg(cur)})`, luc.bonus > cur ? '' : 'pri']]).then(a => {
+                        if (a !== 'luc') return orig.apply(self, [Object.assign({}, o, { _lucky: true })].concat([].slice.call(args, 1)));
+                        st.luckyUsed = true; window.scheduleAutoSave?.();
+                        let lab = String(o.label || o.attr + ' Save').replace(new RegExp('\\b' + o.attr + '\\b'), 'LUC');
+                        let n = Object.assign({}, o, { attr: 'LUC', bonus: luc.bonus, disSources: luc.disSources || [], autoFail: !!luc.autoFail, label: `${lab} (Lucky: LUC instead of ${o.attr})`, luckyFor: o.attr, _lucky: true });
+                        return orig.apply(self, [n].concat([].slice.call(args, 1)));
+                    });
+                    return;
+                }
+                return orig.apply(this, arguments);
+            };
+            Object.keys(orig).forEach(k => { w[k] = orig[k]; });
+            w._apxLucky = true; D.check = w;
+        })(0);
         // ── Sacrifice (Step 8) ──
         // "Using this power deals 1d10 damage per Power Level to you. This damage cannot be prevented or mitigated."
         // Rolled in your dice tray and taken at once: no DR, ER, resistance or immunity reduces it (Temporary HP takes it

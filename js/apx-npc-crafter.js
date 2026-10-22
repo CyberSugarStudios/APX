@@ -2244,7 +2244,9 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
             } else dmg.type = chosen.dmgType;
         }
     }
-    let o = Object.assign({ label: p.name || 'Power', who: whoGm, perks: false, gambleAllowed: false, apCost: cost, flavor: p.desc || '', power: true }, flags);
+    let o = Object.assign({ label: p.name || 'Power', who: whoGm, perks: false, gambleAllowed: false, apCost: cost, flavor: p.desc || '', power: true,
+        hostile: window.apxPowerPlay ? !!window.apxPowerPlay(d, p.lvl).harmful : true }, flags);   // (an Invisible creature's hostile action, if it harms)
+    if (o.hostile && actor && !sb._isCompanion && window._gmNpcHostile) setTimeout(() => window._gmNpcHostile(actor), 50);
     // Power Slot powers spend a Caster Slot of their Level (or the lowest higher one left)
     if (p.usageType === 'slot' && !sb._isCompanion) {
         let lvl = parseInt(p.lvl) || 1;
