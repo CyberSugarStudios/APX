@@ -52,7 +52,7 @@
                 "Rank 2. Weapon hit allows 1 sq free movement (no opportunity attacks).",
                 "Rank 3. AP reduction stacks up to 2 times.",
                 "Rank 4. Missing no longer resets AP reduction or damage bonus.",
-                "Rank 5. Critical hits refund their AP cost."
+                "Rank 5. A critical hit with a weapon attack refunds the AP spent on that attack (refunded for you; not AP spent to Aim, Power Attack or make it a critical hit)."
             ]},
             { id: "agi_mobile", name: "Mobile", attr: "AGI", max: 5, baseDesc: "+1 AC per rank until next turn when spending AP to move (once/round).", ranks: [
                 "Rank 1. Each time you spend AP to move on your turn, the cost is reduced by 1 AP (to a minimum of 0 AP). Additionally, you ignore the penalties of difficult terrain.",

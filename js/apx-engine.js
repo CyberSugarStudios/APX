@@ -1346,9 +1346,10 @@
                 mods.forEach(m => { if (!sel[m.id] || m.delta == null) return; cost += m.delta * (typeof sel[m.id] === 'number' ? sel[m.id] : 1); });
                 if (mods.some(m => sel[m.id] && m.delta != null)) cost = Math.max(1, cost);
                 if (sel.cleave) cost = 0;   // (Cleave: free, whatever else would change it)
+                let wpn = cost;   // (the weapon attack's own AP: what Flurry Rank 5 gives back on a critical hit)
                 mods.forEach(m => { if (sel[m.id] && m.add) cost += m.add; });   // (Ambusher Rank 5: +2 AP)
                 cost = Math.max(0, cost + (parseInt(extra) || 0));
-                return { atk: cost, aim: staggered ? 0 : aim, total: cost + (staggered ? 0 : aim), cleave: !!sel.cleave, ambush: !!sel.ambush, ambushCrit: !!sel.ambushCrit };
+                return { atk: cost, wpn, aim: staggered ? 0 : aim, total: cost + (staggered ? 0 : aim), cleave: !!sel.cleave, ambush: !!sel.ambush, ambushCrit: !!sel.ambushCrit };
             };
             let finish = (c, spend) => {
                 if (c.cleave && clGm) { window.state.cleaveUsed = clGm.key; setTimeout(() => window.recalculateMath?.(), 0); }
@@ -1367,6 +1368,8 @@
                 let parts = c.aim ? ` (${c.atk} attack + ${c.aim} Aim)` : '';
                 if (!spend) return { note: c.total > have ? `Not enough AP: had ${have}, needed ${c.total}${parts}` : `AP not spent (${c.total} AP${parts})`, warn: c.total > have };
                 window.apxSpendAp(c.total);
+                // Flurry Rank 5 refunds the attack's own AP on a critical hit (js/apx-dice.js): not Aim, not Ambusher's 2 AP
+                o.apAtkSpent = Math.max(0, Math.min(c.wpn, c.atk - (c.ambushCrit ? 2 : 0)));
                 return { note: `-${c.total} AP${parts} · ${window.apxApCurrent()} left` };
             };
             if (!needPopup) {
@@ -1402,7 +1405,9 @@
                 };
                 let upd = () => {
                     let c = read(), short = c.total > have;
+                    let flBack = Math.max(0, Math.min(c.wpn, c.atk - (c.ambushCrit ? 2 : 0)));
                     back.querySelector('[data-ap-total]').innerHTML = `Total: ${c.total} AP${c.aim ? ` <span style="font-weight:600;color:var(--c-text-muted,#94a3b8)">(${c.atk} attack + ${c.aim} Aim)</span>` : ''}`
+                        + (fl >= 5 && flBack > 0 ? `<div style="font-size:.68rem;font-weight:600;color:var(--c-text-muted,#94a3b8);margin-top:.2rem">Flurry Rank 5: a Critical Hit gives back this attack's ${flBack} AP${c.aim || c.ambushCrit ? ' (not ' + [c.aim ? 'Aim' : '', c.ambushCrit ? 'Ambusher\'s 2 AP' : ''].filter(Boolean).join(' or ') + ')' : ''}.</div>` : '')
                         + (short ? `<div style="color:#fca5a5;font-size:.72rem;margin-top:.2rem">Not enough AP: you have ${have}.</div>` : '');
                     let b = back.querySelector('[data-v="spend"]');
                     b.textContent = short ? 'Roll anyway' : `Spend ${c.total} AP & roll`;

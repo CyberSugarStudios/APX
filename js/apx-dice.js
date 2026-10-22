@@ -875,6 +875,8 @@
                 if (atk.swapNote) c.badges.push(['info', atk.swapNote]);
                 if (dst.ffCrit) c.badges.push(['crit', 'Fortunate Fighter: Luck Point spent, a hit is a critical hit']);
                 if (dst.ambCrit || (dst0 && dst0.ambCrit)) c.badges.push(['crit', 'Ambusher: 2 AP spent, a hit from stealth is a Critical Hit']);
+                if (dst.flurryBack) c.badges.push(['crit', `Flurry Rank 5: Critical Hit, the attack's ${dst.flurryBack} AP refunded` + (critIfHit() ? ' (only if it hits)' : ''), 'Flurry Rank 5: whenever you score a critical hit with a weapon attack, the AP spent to make that attack is refunded (not AP for Aim, Power Attack or Ambusher\'s critical hit)']);
+                else if (flurryR5 && dst.flurryMissed) c.badges.push(['info', `Flurry Rank 5: it missed, so the ${o.apAtkSpent} AP wasn't refunded`]);
                 if (o.fromStealth) c.badges.push(['info', 'Ambusher: from stealth or against an unaware target' + ((o.ambushRank || 0) >= 2 ? ' (a hit Staggers it' + ((o.ambushRank || 0) >= 3 ? ' and ignores DR and ER' : '') + ')' : '')]);
             };
             let extraActs = () => {
@@ -903,14 +905,29 @@
                         if (have < 2 && !window.confirm(`Ambusher costs 2 AP and you have ${have}. Make it a Critical Hit anyway?`)) return;
                         window.apxSpendAp(Math.min(2, have)); atk.forceCrit = true; dst.ambCrit = true; settleD20(atk); redo(); save(); refreshAllActions();
                     } });
+                // Flurry Rank 5 on a critical hit that only counts if it hits (Ambusher, Fortunate Fighter): undo the refund on a miss
+                if (flurryR5 && atk.crit && !atk.fumble && critIfHit()) acts.push(dst.flurryMissed
+                    ? { label: `It hit: refund ${o.apAtkSpent} AP`, cls: 'luck', title: 'Flurry Rank 5: the critical hit landed, so the attack\'s AP is refunded', run: () => { dst.flurryMissed = false; redo(); } }
+                    : { label: `It missed: take back ${dst.flurryBack} AP`, title: 'Flurry Rank 5 only refunds the AP when the critical hit lands', run: () => { dst.flurryMissed = true; redo(); } });
                 if (dst.confirm && !dst.maxed) acts.push({ label: 'It hit: max damage', cls: 'luck', title: 'The second attack roll hit: deal maximum critical damage', run: () => { dst.maxed = true; redo(); } });
                 if (gamble && hr >= 4 && !atk.fumble && !dst.apGained && typeof window.apxSetApValue === 'function') acts.push({ label: 'Gamble hit: +1 AP', cls: 'luck', title: 'High Roller Rank 4: landing a Gamble gives you 1 AP', run: () => {
                     dst.apGained = true; window.apxSetApValue((window.apxApCurrent ? window.apxApCurrent() : 0) + 1); redo();
                 } });
                 return acts;
             };
-            let redo = (full) => { settleDmg(); c.actions = d20Actions(c, atk, redo).concat(extraActs()); renderCard(c); tell(); };
+            // Flurry Rank 5: a critical hit with a weapon attack gives back the AP spent on the attack itself (worked out in
+            // apxBeforeAttack: not Aim, Power Attack or Ambusher's 2 AP). Kept in step with the roll: a reroll or an Omen
+            // that takes the crit away takes the AP back.
+            let flurryR5 = usePerks && perk('agi_flurry') >= 5 && o.pcAttack && !o.companion && !o.summonInit && (parseInt(o.apAtkSpent) || 0) > 0 && typeof window.apxSpendAp === 'function';
+            let critIfHit = () => !!(atk.crit && atk.forceCrit && atk.nat < Math.min(20, atk.critOn || 20));
+            let flurrySync = () => {
+                if (!flurryR5) return;
+                let want = atk.crit && !atk.fumble && !(dst.flurryMissed && critIfHit()) ? (parseInt(o.apAtkSpent) || 0) : 0, got = dst.flurryBack || 0;
+                if (want !== got) { window.apxSpendAp(got - want); dst.flurryBack = want; }
+            };
+            let redo = (full) => { flurrySync(); settleDmg(); c.actions = d20Actions(c, atk, redo).concat(extraActs()); renderCard(c); tell(); };
             c._redo = redo;
+            flurrySync();
             settleDmg();
             c.actions = d20Actions(c, atk, redo).concat(extraActs());
             setMode('normal');
