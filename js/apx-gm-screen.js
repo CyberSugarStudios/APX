@@ -1568,6 +1568,31 @@ function _gmSaveBonus(entry, attr) {
     } else if (entry.sourceNpcId) { try { sb = (window.gmNpcs || []).some(n => n.id === entry.sourceNpcId) ? ncStatBlockFor(entry.sourceNpcId) : null; } catch (e) { } }
     return sb && sb.saves && sb.saves[attr] != null ? (parseInt(sb.saves[attr]) || 0) : null;
 }
+// A power's damage to one of its targets: deal(entry, amount). The attack it hit with counts (so a split roll, Swarms and
+// extra dice do); a target that's no longer in the tracker takes nothing. info: { id, label, dmgTotal, dmgType, drain }
+function _gmPowerDealer(attacker, info) {
+    let label = info.label || 'a power', total = typeof info.dmgTotal === 'number' ? info.dmgTotal : null;
+    let drained = { dealt: 0, healed: 0 };
+    return (e0, amt) => {
+        let e = e0 && (window.gmInitiative.includes(e0) ? e0 : window.gmInitiative.find(x => x.id === e0.id));   // (the same creature, if the tracker was reloaded meanwhile)
+        if (!amt || !e) return;
+        let la = window._gmLastAttack;
+        let hit = la && la.id === info.id ? _gmTakeHit(e) : null;
+        if (hit && Array.isArray(hit.dmgShares) && total && amt !== total) hit = Object.assign({}, hit, { dmgShares: hit.dmgShares.map(x => Math.floor(x * amt / total)) });
+        let types = _gmDamageTypes({ typed: false }, hit) || (info.dmgType && window.APXDamage ? window.APXDamage.parts(info.dmgType) : null);
+        if (!types || !types.length) types = ['True'];
+        let hpBefore = (e.currentHp || 0) + (e.tempHp || 0);
+        let by = attacker ? (window.gmInitiative.find(x => x.id === attacker.id) || attacker) : null;
+        _gmDamage(e, { raw: amt, types, hit, swarmMode: 'area', src: hit ? null : `${by ? _gmGmName(by) : 'Someone'}'s ${label}` });
+        // Damage that heals (Step 5): half of what it dealt, to the creature picked when it was used
+        if (info.drain && window._gmPowerDrain) {
+            drained.dealt += Math.max(0, hpBefore - ((e.currentHp || 0) + (e.tempHp || 0)));
+            let want = Math.floor(drained.dealt / 2); if (want > drained.healed) { window._gmPowerDrain(info.drain, (want - drained.healed) * 2, label, by); drained.healed = want; }
+        }
+        if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
+        if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
+    };
+}
 // info: { id, label, area: { mapId, tokenIds }, save: { dc, kind, attr } | null, dmgTotal, dmgType, heal, attackRoll, fx }
 // Every use makes everyone in it roll a NEW save: NPCs and companions roll from your dice tray, players
 // are asked to roll theirs, and each one takes the damage when their own roll comes in.
@@ -1619,25 +1644,7 @@ window._gmAreaResolve = function(attacker, info) {
     let close = () => box.remove();
     box.querySelector('[data-x]').onclick = close;
     box.addEventListener('mousedown', e => { if (e.target === box) close(); });
-    // Deals one target's share (the attack it hit with, so a split roll, Swarms and extra dice count)
-    let drained = { dealt: 0, healed: 0 };
-    let deal = (e, amt) => {
-        if (!amt || !window.gmInitiative.includes(e)) return;
-        let la = window._gmLastAttack;
-        let hit = la && la.id === info.id ? _gmTakeHit(e) : null;
-        if (hit && Array.isArray(hit.dmgShares) && total && amt !== total) hit = Object.assign({}, hit, { dmgShares: hit.dmgShares.map(x => Math.floor(x * amt / total)) });
-        let types = _gmDamageTypes({ typed: false }, hit) || (info.dmgType && window.APXDamage ? window.APXDamage.parts(info.dmgType) : null);
-        if (!types || !types.length) types = ['True'];
-        let hpBefore = (e.currentHp || 0) + (e.tempHp || 0);
-        _gmDamage(e, { raw: amt, types, hit, swarmMode: 'area', src: hit ? null : `${_gmGmName(attacker)}'s ${label}` });
-        // Damage that heals (Step 5): half of what it dealt, to the creature picked when it was used
-        if (info.drain && window._gmPowerDrain) {
-            drained.dealt += Math.max(0, hpBefore - ((e.currentHp || 0) + (e.tempHp || 0)));
-            let want = Math.floor(drained.dealt / 2); if (want > drained.healed) { window._gmPowerDrain(info.drain, (want - drained.healed) * 2, label, attacker); drained.healed = want; }
-        }
-        if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
-        if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
-    };
+    let deal = _gmPowerDealer(attacker, info);
     // A failed save also brings the power's Conditions (and a lasting effect with its Escape Save)
     let fx = info.fx && attacker ? Object.assign({}, info.fx, { conds: (info.fx.conds || []).filter(c => c && c !== 'wounded') }) : null;
     let rec = fx && (fx.conds.length || fx.lasting) ? _gmPfxRecord({ casterId: attacker.id, label, fx }) : null;
@@ -2020,24 +2027,28 @@ function _gmCondResult(entry, item, ev, again) {
 // creature: it makes its Escape Save at the end of each of its turns (and whenever it takes damage,
 // with Damage Interrupt), and Action Interrupt ends it when the creature attacks. An effect that lasts
 // until the end of the target's next turn wears off then.
-window._gmPfx = window._gmPfx || {};            // offer id -> { casterId, label, fx }
+window._gmPfx = window._gmPfx || {};            // offer id -> { casterId, label, fx, deal }
 window._gmPfxItems = window._gmPfxItems || {};  // NPC save button -> its save item
 function _gmCondNames(conds) {
     let n = (conds || []).map(c => window._gmCondName ? window._gmCondName(c) : c);
     return n.length > 1 ? n.slice(0, -1).join(', ') + ' and ' + n[n.length - 1] : (n[0] || '');
 }
+// fx.dmg: { id, total, type, parts, drain }: the damage it rolled (a power with no attack roll and no targets picked on the
+// map), dealt to each target picked by their save (all of it without one). A save power with no Core Attribute: by hand.
 window._gmPowerFxOffer = function(caster, label, fx) {
     if (!caster || !fx || !_gmFightOn()) return null;
     let conds = (fx.conds || []).filter(c => c && c !== 'wounded');
     let save = !!(fx.saveKind && fx.saveAttr);
-    if (!conds.length && !save) return null;
+    let dm = fx.dmg && fx.dmg.total > 0 && (save || !fx.saveKind) ? fx.dmg : null;
+    if (!conds.length && !save && !dm) return null;
     let id = 'pfx_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
-    window._gmPfx[id] = { casterId: caster.id, label: label || 'a power', fx: Object.assign({}, fx, { conds }) };
-    let what = _gmCondNames(conds);
-    let text = `${_gmGmName(caster)} used ${label || 'a power'}` + (save ? `: targets make a DC ${fx.dc} ${fx.saveAttr} save${what ? ' or are ' + what : ''}` : what ? `, which inflicts ${what}` : '')
+    window._gmPfx[id] = { casterId: caster.id, label: label || 'a power', fx: Object.assign({}, fx, { conds, dmg: dm }),
+        deal: dm ? _gmPowerDealer(caster, { id: dm.id, label: label || 'a power', dmgTotal: dm.total, dmgType: dm.type, drain: dm.drain }) : null };
+    let what = _gmCondNames(conds), dTxt = dm ? `${dm.total}${dm.type ? ' ' + dm.type : ''} damage` : '';
+    let text = `${_gmGmName(caster)} used ${label || 'a power'}` + (save ? `: targets make a DC ${fx.dc} ${fx.saveAttr} save${dm ? ` (${fx.saveKind === 'halves' ? 'success halves' : 'success negates'} ${dTxt})` : ''}${what ? ' or are ' + what : ''}` : what ? `, which inflicts ${what}${dm ? ' and deals ' + dTxt : ''}` : dm ? `: ${dTxt}` : '')
         + (fx.lasting && fx.escapeAttr ? ` (Escape Save: ${fx.escapeAttr})` : what ? ' (until the end of the target\'s next turn)' : '') + '.';
     return gmLog({ id, gmOnly: true, kind: 'info', text,
-        ask: { gm: true, free: true, entryId: caster.id, kind: 'pfx', pfx: id, label: save ? `Roll targets' ${fx.saveAttr} saves` : `Apply ${what} to the targets it hit`, doneLabel: save ? 'Saves rolled' : 'Applied' } });
+        ask: { gm: true, free: true, entryId: caster.id, kind: 'pfx', pfx: id, label: save ? `Roll targets' ${fx.saveAttr} saves` : what ? `Apply ${what}${dm ? ' and its damage' : ''} to the targets it hit` : `Deal ${dTxt} to its targets`, doneLabel: save ? 'Saves rolled' : what ? 'Applied' : 'Dealt' } });
 };
 // Choose the targets (everyone in initiative but the user)
 function _gmPfxPick(id) {
@@ -2052,7 +2063,7 @@ function _gmPfxPick(id) {
     let back = document.createElement('div');
     back.id = 'apxPfxPick'; back.className = 'apxdlg-back'; back.style.zIndex = 2147483300;
     back.innerHTML = `<div class="apxdlg" style="width:min(380px,100%)"><div class="apxdlg-title">${esc(o.label)}</div>
-        <div class="apxdlg-msg">${save ? `Who has to make the DC ${fx.dc} ${fx.saveAttr} save? NPCs' saves are rolled now; players are asked to roll theirs.` : `Who did it hit? They are ${esc(_gmCondNames(fx.conds))}.`}</div>
+        <div class="apxdlg-msg">${save ? `Who has to make the DC ${fx.dc} ${fx.saveAttr} save? NPCs' saves are rolled now; players are asked to roll theirs${fx.dmg ? `, and each takes the damage (${fx.dmg.total}${fx.saveKind === 'halves' ? `, or ${Math.floor(fx.dmg.total / 2)} on a success` : ', or none on a success'}) when their roll comes in` : ''}.` : `Who did it hit? ${fx.conds.length ? `They are ${esc(_gmCondNames(fx.conds))}${fx.dmg ? ` and take ${fx.dmg.total} damage` : ''}` : `Each takes ${fx.dmg ? fx.dmg.total : 0} damage`}.`}</div>
         <div style="display:flex;flex-direction:column;gap:.3rem;max-height:50vh;overflow-y:auto;margin-bottom:.8rem">
         ${list.map(e => `<label style="display:flex;align-items:center;gap:.45rem;font-size:.78rem;cursor:pointer"><input type="checkbox" data-t="${esc(e.id)}"> <span style="color:${col[e.faction] || '#e2e8f0'};font-weight:700">${esc(_gmGmName(e))}</span></label>`).join('')}
         </div><div class="apxdlg-row"><button class="apxdlg-btn" data-x>Cancel</button><button class="apxdlg-btn apxdlg-ok" data-ok>${save ? 'Roll Saves' : 'Apply'}</button></div></div>`;
@@ -2062,6 +2073,7 @@ function _gmPfxPick(id) {
         back.remove();
         ids.forEach(tid => { let t = (window.gmInitiative || []).find(e => e.id === tid); if (t) _gmPfxResolve(o, t); });
         window.renderInitiativeTracker();
+        if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
     };
     document.body.appendChild(back);
 }
@@ -2076,14 +2088,19 @@ function _gmPfxResolve(o, t) {
     let fx = o.fx, rec = _gmPfxRecord(o), what = _gmCondNames(fx.conds);
     // a harmful power from the charmer's side ends Charmed (a power that charms it again doesn't)
     if (!fx.conds.includes('charmed')) { let src = (window.gmInitiative || []).find(x => x.id === o.casterId); if (src) _gmCharmBroken(t, src, 'targeted it with a harmful power'); }
+    let dm = fx.dmg && o.deal ? fx.dmg : null;
     if (fx.saveKind && fx.saveAttr) {
+        let dmgFail = dm || fx.saveKind === 'halves';
         let item = { attr: fx.saveAttr, dc: fx.dc, cond: fx.conds[0] || null, why: o.label, saveKind: fx.saveKind, pfx: rec,
-            fail: fx.conds.length ? `is ${what}` : (fx.saveKind === 'halves' ? 'takes the full damage' : 'is affected'),
-            failInf: fx.conds.length ? `be ${what}` : (fx.saveKind === 'halves' ? 'take the full damage' : 'be affected') };
+            fail: fx.conds.length ? (dm ? `takes the full damage and is ${what}` : `is ${what}`) : (dmgFail ? 'takes the full damage' : 'is affected'),
+            failInf: fx.conds.length ? (dm ? `take the full damage and be ${what}` : `be ${what}`) : (dmgFail ? 'take the full damage' : 'be affected') };
+        // (the damage it rolled: by this target's own roll, as an area's is)
+        if (dm) item.area = { total: dm.total, half: fx.saveKind === 'halves' ? Math.floor(dm.total / 2) : 0, kind: fx.saveKind, deal: o.deal, dealt: null };
         if (t.faction === 'player' && t.playerUid) _gmAskSave(t, item);
         else _gmRollNpcSave(t, item);
         return;
     }
+    if (dm) o.deal(t, dm.total);
     if (!fx.conds.length) return;
     _gmApplyPfx(t, rec);
     gmLog({ text: `${_gmPublicName(t)} is ${what} (${o.label}).`, gmText: `${_gmGmName(t)} is ${what} (${o.label}).`, kind: 'info' });
@@ -2610,7 +2627,11 @@ function _gmHandleRollEvent(uid, ev) {
             crit: false, fumble: false, total: 0, dice: ev.dice || '', critMult: 2, reroll12: false, dmgType: ev.dmgType || '', power: true, save: ev.save || null, aoe: !!ev.aoe,
             dmgShares: Array.isArray(ev.dmgParts) ? ev.dmgParts.map(x => x.dmg) : null });
         // (targets picked on the map, or an area: resolved below; otherwise you pick who it hit)
-        if (firstSeen && pwEntry && ev.fx && !ev.targets && !ev.area) { try { window._gmPowerFxOffer(pwEntry, ev.label || 'a power', ev.fx); } catch (e) { console.warn('Power effects:', e); } }
+        // (with the damage it rolled: dealt to each target you pick, by their save; a save power with damage and no
+        // Conditions gets the button too)
+        let pwDmg = !ev.attackRoll && !ev.heal && (parseInt(ev.dmgTotal) || 0) > 0 && !ev.splitDmg ? { dmg: { id: ev.id, total: parseInt(ev.dmgTotal) || 0, type: ev.dmgType || '', drain: ev.drain || undefined } } : null;
+        let pwFx = ev.fx ? Object.assign({}, ev.fx, pwDmg || {}) : pwDmg && ev.save && ev.save.attr ? Object.assign({ conds: [], saveKind: ev.save.kind, saveAttr: ev.save.attr, dc: ev.save.dc }, pwDmg) : null;
+        if (firstSeen && pwEntry && pwFx && !ev.targets && !ev.area) { try { window._gmPowerFxOffer(pwEntry, ev.label || 'a power', pwFx); } catch (e) { console.warn('Power effects:', e); } }
         // Placed on the battle map as an area: roll everyone's saves in it and deal the damage
         if (firstSeen && pwEntry && ev.area) { try { window._gmAreaResolve(pwEntry, ev); } catch (e) { console.warn('Power area:', e); } }
         // Its targets, what it leaves on the map, a teleport, a resize, a dispel… (js/apx-power-world-gm.js)

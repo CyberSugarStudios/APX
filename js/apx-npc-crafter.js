@@ -2266,7 +2266,9 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
     if (fxInfo && inst) fxInfo.pi = inst.id;
     if (fxInfo) fxInfo.lvl = parseInt(p.lvl) || 1;
     let picked = !!(plan && plan.targets && plan.targets.list && plan.targets.list.length);
-    let offerFx = () => { if (picked || (areaRes && plan)) return; if (fxInfo && actor && !sb._isCompanion && typeof window._gmPowerFxOffer === 'function') { try { window._gmPowerFxOffer(actor, p.name || 'Power', fxInfo); } catch (e) { console.warn('Power effects:', e); } } };
+    // (x.dmg: the damage it rolled, dealt to each target picked by their save, or all of it with no save)
+    let offerFx = (x) => { if (picked || (areaRes && plan)) return; let f = fxInfo ? Object.assign({}, fxInfo, x || {}) : x && x.dmg ? Object.assign({ conds: [] }, x) : null;
+        if (f && actor && !sb._isCompanion && typeof window._gmPowerFxOffer === 'function') { try { window._gmPowerFxOffer(actor, p.name || 'Power', f); } catch (e) { console.warn('Power effects:', e); } } };
     let aimAt = (o2) => {
         let tg = areaRes || (planEv.targets ? Object.assign({ names: plan.targets.list.map(x => x.name) }, planEv.targets) : null);
         if (tg && tg.tokenIds && tg.tokenIds.length) o2.areaHit = { mapId: tg.mapId, tokenIds: tg.tokenIds, names: tg.names || [], power: true };
@@ -2358,7 +2360,7 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
     let areaSave = saveKind && !(dmg && dmg.heal) ? { dc, kind: saveKind, attr: sInfo && sInfo.saveAttr || null } : null;
     areaOut({ save: areaSave, dmgTotal: dTotal, dmgType: dmg && !dmg.heal ? dmg.type : '', dice: dmg ? dmg.formula : '', heal: !!(dmg && dmg.heal), dmgParts: dShares, fx: fxInfo || undefined, ends: planEv.ends || undefined, drain: planEv.drain || undefined });
     worldOut(Object.assign({ save: areaSave, dmgTotal: dTotal, dmgType: dmg && !dmg.heal ? dmg.type : '', dice: dmg ? dmg.formula : '', heal: !!(dmg && dmg.heal), dmgParts: dShares, fx: fxInfo || undefined }, sr ? { splitDmg: sr.byTok, splitParts: sr.parts } : {}));
-    if (!(areaRes && areaSave)) offerFx();   // (an area's own saves bring its Conditions)
+    if (!(areaRes && areaSave)) offerFx(!areaRes && !sr && dmg && !dmg.heal && dTotal > 0 && (!saveKind || (sInfo && sInfo.saveAttr)) ? { dmg: { id: pwId, total: dTotal, type: dmg.type || '', drain: planEv.drain || undefined } } : null);   // (an area's own saves bring its Conditions)
 };
 // Has this stat block's creature (in the tracker) Awakened? Outside the tracker its Awakened powers are shown, unlocked.
 function npcAwakened(sb, initId) {

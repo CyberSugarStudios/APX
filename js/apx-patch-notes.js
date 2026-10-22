@@ -11,11 +11,11 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.22.0810',
-        released: '2026-10-22T08:10:00',
-        releasedText: 'October 22, 2026 · 8:10 AM',
+        version: 'v2026.10.22.0933',
+        released: '2026-10-22T09:33:00',
+        releasedText: 'October 22, 2026 · 9:33 AM',
         title: 'Playtest 4: Maneuvers, Gear & Burdens',
-        intro: 'Straight from our fourth playtest: NPCs and companions get the full list of maneuvers and actions, Loyal Companions can carry your gear, and carrying too much finally weighs you down. Squeezing costs what it should, and Vitality\'s top rank keeps you on your feet. Since then: NPC maneuvers roll themselves, five new weapon properties (two of them fire into an area), readable buttons in every theme, Exo-Suits rebuilt in three frameworks, including the new Conduit, Keen, Parrying and Suppressed weapons, summons that mix Tiers, creatures your GM shares for summoning, and now Summon a Weapon built in the Power Crafter, perks you can take back a rank at a time, character files that show when they\'ve been edited, and now powers that apply their numbers for you, summons you place and command from their own window, and Ambusher, Charge, Relentless and Regenerative working as written, and Sacrifice that hurts like it should and Permanent powers that hold their slot, powers that play out on the battle map (targets in range, zones, walls, Sensors, Concentration and durations that end everything a power did), Split Target dice you hand out one by one, Overexertion that can tire the target instead, AP Utilities that work every turn, lighter Juggernaut Plating, and now Invisibility that costs 2 AP to keep, Lucky on every save, Breach and Amplifier that show and ask, free powers that are free up to their Level, and now powers that stay ended when you reload.',
+        intro: 'Straight from our fourth playtest: NPCs and companions get the full list of maneuvers and actions, Loyal Companions can carry your gear, and carrying too much finally weighs you down. Squeezing costs what it should, and Vitality\'s top rank keeps you on your feet. Since then: NPC maneuvers roll themselves, five new weapon properties (two of them fire into an area), readable buttons in every theme, Exo-Suits rebuilt in three frameworks, including the new Conduit, Keen, Parrying and Suppressed weapons, summons that mix Tiers, creatures your GM shares for summoning, and now Summon a Weapon built in the Power Crafter, perks you can take back a rank at a time, character files that show when they\'ve been edited, and now powers that apply their numbers for you, summons you place and command from their own window, and Ambusher, Charge, Relentless and Regenerative working as written, and Sacrifice that hurts like it should and Permanent powers that hold their slot, powers that play out on the battle map (targets in range, zones, walls, Sensors, Concentration and durations that end everything a power did), Split Target dice you hand out one by one, Overexertion that can tire the target instead, AP Utilities that work every turn, lighter Juggernaut Plating, and now Invisibility that costs 2 AP to keep, Lucky on every save, Breach and Amplifier that show and ask, free powers that are free up to their Level, powers that stay ended when you reload, and now save powers whose damage lands on everyone who fails and tokens from any world that join the fight.',
         index: [
             ['Combat', [
                 'NPCs, summoned creatures and Loyal Companions have an Actions button with every Combat Maneuver and Standard Action, spending their own AP. Fight Defensively, Fight Offensively and next-attack maneuvers change their rolls (and AC) until their next turn.',
@@ -30,7 +30,8 @@
                 'Summoned creatures join the initiative right after their summoner on their own, appear where you place them within the power\'s range, and move with you like a Loyal Companion. A Your Summons window tracks their HP, AP and Conditions and rolls their attacks.',
                 'Ambusher, Charge, Relentless, Medic, Regenerative and Melee Prowess (with thrown weapons) work as written, and Ambusher\'s Rank 5 crit is in the attack\'s AP window and on the roll.',
                 'An NPC that wins a Grapple, Pin or Shove asks the GM who it grabbed, and a player\'s sheet gets the Condition.',
-                'Overexertion gives its Fatigue when the power ends, for players and NPCs alike.'
+                'Overexertion gives its Fatigue when the power ends, for players and NPCs alike.',
+                'Fixed: a creature\'s save power (one that halves or negates its damage) rolled its damage, but a player who failed the save never lost the HP. The damage now comes off each target by their own save as it comes in, for NPCs\' powers and players\' alike.'
             ]],
             ['Gear', [
                 'Overburdened rules apply: carrying more than your capacity drops you to Speed 1 with Disadvantage on every attack, check and save.',
@@ -169,7 +170,8 @@
                 'The Consumable Crafter has the Split Target counter and the Overexertion choice too.',
                 'Turn the target Invisible: lasts for the power\'s duration. Each hostile action while you\'re Invisible asks you to spend 2 AP to stay Invisible, or the power ends (with less than 2 AP it just ends). Hostile actions: an attack roll, a power that deals damage or inflicts Conditions, and Shove, Grapple, Pin, Choke, Shield Bash, Feint and Ground Strike. Not Fight Defensively or Offensively, Disengage, Vault, Block, Escape or any Standard Action; Power Attack, Charge and the other set-ups count when their attack is made.',
                 'Turn the target Invisible no longer needs the Concentration refund (Step 8), and has no Concentration check. Powers with it are listed to rebuild (free) in case you only took Concentration for it.',
-                'Free powers: free up to the top of the Level they were free at, not free whatever you change. The crafter\'s banner says how much is free and what a bigger build costs, and Save Changes charges the XP over it (or refunds it when you bring it back down). A free power from before counts from the Level it\'s at now; its card says how much XP is free.'
+                'Free powers: free up to the top of the Level they were free at, not free whatever you change. The crafter\'s banner says how much is free and what a bigger build costs, and Save Changes charges the XP over it (or refunds it when you bring it back down). A free power from before counts from the Level it\'s at now; its card says how much XP is free.',
+                'Fixed: when a creature\'s power made you save against its damage and you failed, the damage was rolled but never taken off your HP. It now comes off as soon as you roll (all of it on a failure, half or none on a success). Your own save powers deal theirs the same way to the targets your GM picks.'
             ]],
             ['Consumables', [
                 'The Consumable Crafter shows its price against the cap: 150 Cu for one charge, +25 Cu per Artisan rank.',
@@ -260,7 +262,9 @@
                 'Zones of blinding: Darkness and Fog cover the map like Fog of War for your players (lighter for you), intense Light shows as a bright ring. Creatures inside are Blinded and stop being Blinded when they leave.',
                 'Powers leave difficult terrain, hazardous ground and walls on the map: hazards and hazardous walls in their damage type\'s color deal the power\'s damage to whoever moves through them (per square, or once for a wall), and solid walls block movement and sight. Teleports don\'t trip hazards.',
                 'Teleports, pushes and size changes from powers move and resize the tokens for you, and the size goes back when the power ends.',
-                'Your NPC on more than one open battle map: using a power asks which one.'
+                'Your NPC on more than one open battle map: using a power asks which one.',
+                'Fixed: tokens from another world\'s stat blocks (Add Token → All worlds) were skipped by All to Init and by the question a new token asks while combat is on. They now join like any other, and double-clicking one opens its stat block. Its Damage Aura works too.',
+                'Adding a creature to the tracker takes over its token already on the open map, and the tracker\'s + Token links that token instead of making a second one. A token the tracker makes no longer asks whether it joins the initiative (it already has).'
             ]],
             ['NPC Crafter', [
                 'Core Attributes cost 1 TP per point up to a score of 10 and 2 TP per point above it. NPCs and companions built before this keep their old price, so nothing you\'ve made changes on its own; Step 1 shows a button to move one over (a companion only if it still fits its budget). A creature with nothing above 10 moves over by itself.',
@@ -307,7 +311,8 @@
                 'AP from powers at the start of each creature\'s turn while the power lasts: +1 AP, 1 less AP, and movement-only AP (+N move by its AP pips), spent first when it moves (dragging its token, or Move and Jump in its Actions). A Loyal Companion\'s goes to its owner\'s sheet.',
                 'NPCs to rebuild lists stat blocks whose powers use Split Target with Utilities, Overexertion on a beneficial power, or the old AP Utilities. They work as before until rebuilt.',
                 'Invisible NPCs: each hostile action (an attack, a power that harms, Shove, Grapple, Pin, Choke, Shield Bash or Feint from its Actions) asks you to spend 2 of its AP to keep it Invisible, or the power ends (with less than 2 AP it just ends). A beneficial power isn\'t a hostile action. A player whose Invisibility from someone else\'s power ends that way ends the power for its user too.',
-                'A Lucky player\'s LUC save answers the save you asked for (the log names it). A Conduit player\'s Breach is applied for you: their Powers ignore Resistance to its type, and they have +5 ER against it when they\'re hit.'
+                'A Lucky player\'s LUC save answers the save you asked for (the log names it). A Conduit player\'s Breach is applied for you: their Powers ignore Resistance to its type, and they have +5 ER against it when they\'re hit.',
+                'Fixed: an NPC\'s save power used without picking targets on the map rolled its damage, but the targets who failed (a player included) took none. Roll targets\' saves now carries the damage: each target takes all of it on a failure and half (or none) on a success, when their roll comes in. A player\'s save power used the same way works the same, and a power with damage and no save or attack roll gets a Deal button for whoever it hit.'
             ]],
             ['Players\' Gear', [
                 'Players can be Overburdened now (Speed 1, Disadvantage on attacks, checks and saves), and wear Backpacks, Bandoliers and Utility Belts to carry more.',
