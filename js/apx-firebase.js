@@ -14,7 +14,7 @@
     if (!window.FIREBASE_ENABLED) {
         window.apxAuth = { user: null, enabled: false,
             signIn: () => {}, signUp: () => {}, signOut: () => {},
-            onAuthChange: () => {}, saveCharacter: () => Promise.resolve(),
+            onAuthChange: () => {}, saveCharacter: () => Promise.resolve(), clearGmBuffs: () => Promise.resolve(),
             loadCharacters: () => Promise.resolve([]), saveGmRaces: () => Promise.resolve(),
             loadGmRaces: () => Promise.resolve([]), saveGmOrigins: () => Promise.resolve(), loadGmOrigins: () => Promise.resolve([]), saveGmNpcs: () => Promise.resolve(),
             loadGmNpcs: () => Promise.resolve([]), getShareCode: () => null,
@@ -138,8 +138,11 @@
         let ckey = 'char:' + user.uid + ':' + charId;
         if (!_sameAsLast(ckey, doc)) {
             try {
+                // mergeFields, not merge: the character's state REPLACES the saved one. With merge, a field the sheet
+                // removed (powers that ended, a buff on you that wore off, Can't Regain HP…) stayed in the saved copy
+                // and came back on the next load. Other top-level fields on the doc are still left as they are.
                 await db.collection('users').doc(user.uid)
-                    .collection('characters').doc(charId).set(doc, { merge: true });
+                    .collection('characters').doc(charId).set(doc, { mergeFields: Object.keys(doc) });
             } catch (e) { _forgetWrite(ckey); throw e; }
         }
 
@@ -153,11 +156,23 @@
                          updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
             let wkey = 'wplayer:' + worldCode + ':' + user.uid;
             if (!_sameAsLast(wkey, wdoc)) {
+                // (the same for the GM's copy: their tracker reads the powers still active on you from it; the GM's own
+                // fields on this doc, like _gmHp and _gmBuffs, aren't touched)
                 await db.collection('worldCodes').doc(worldCode)
-                    .collection('players').doc(user.uid).set(wdoc, { merge: true })
+                    .collection('players').doc(user.uid).set(wdoc, { mergeFields: Object.keys(wdoc) })
                     .catch(e => { _forgetWrite(wkey); console.warn('World char sync:', e.message); });
             }
         }
+    }
+
+    // Messages from the GM's tracker (_gmBuffs: a power's buff, an ended power…) this sheet has applied: removed from
+    // the world's player doc, so they can never be applied again after a reload
+    async function clearGmBuffs(inviteCode, ids) {
+        let user = currentUser();
+        if (!user || !inviteCode || !ids || !ids.length) return;
+        let upd = {};
+        ids.slice(0, 200).forEach(id => { upd['_gmBuffs.' + id] = firebase.firestore.FieldValue.delete(); });
+        await db.collection('worldCodes').doc(String(inviteCode).toUpperCase().trim()).collection('players').doc(user.uid).update(upd).catch(() => {});
     }
 
     async function loadCharacters() {
@@ -1096,7 +1111,7 @@
         enabled: true,
         get user() { return currentUser(); },
         signIn, signUp, signOut, onAuthChange,
-        saveCharacter, loadCharacters, deleteCharacter, deleteAllUserData,
+        saveCharacter, loadCharacters, deleteCharacter, deleteAllUserData, clearGmBuffs,
         loadFolders, saveFolder, deleteFolder,
         saveGmRaces, loadGmRaces, saveGmOrigins, loadGmOrigins, saveGmNpcs, loadGmNpcs,
         getShareCode, connectToGm,

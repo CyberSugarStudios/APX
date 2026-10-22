@@ -85,6 +85,7 @@
         ['Welcome', 'Welcome to the APX Character Sheet', `
             <p>This is where you build and play your APX characters. Everything you do saves to your account on its own, so your characters are on every device you sign in on.</p>
             <ul><li>Your characters are in the <b>Roster</b> sidebar. Sort them into folders, archive old ones, or start a new one.</li>
+            <li>What you take off your sheet stays off: a power that ended (by a rest, its duration, or <b>End</b>), a buff that wore off or a Condition you cleared is gone from the saved character too, so reloading the page or opening it on another device never brings it back.</li>
             <li><b>Export JSON</b> saves a sealed copy of a character. <b>Import JSON</b> always makes it a <i>new</i> character (never over the one you have open, or a world's). A file you exported from this account and didn't change comes in as it was; one that was changed, came from another account, or predates sealing is marked <b>Imported file</b>, and the GM of any world it joins sees the mark and what changed until they clear it.</li>
             <li>A character belongs to <b>one world</b> at a time, and you have one character in each world.</li>
             <li>Hover almost anything for a tooltip that explains it.</li></ul>`],
@@ -278,6 +279,7 @@
             <li>A Loyal Companion added to the tracker by hand shows the AP from its owner's sheet, where they spend it. A player with <b>Vitality Rank 4</b> who drops to 0 HP from your tracker is left at 1 HP instead (once per Full Rest), and their sheet asks how many Rest Dice to heal with.</li>
             <li>NPCs follow the armor rules too: weight class caps their AGI bonus to AC, and an unmet STR requirement costs them their AGI to AC, 2 Speed, and gives Disadvantage on attacks. Their forged gear costs TP, never Cu.</li>
             <li><b>Undead</b> and <b>Unalive Structure</b> NPC traits run themselves: immunities, vulnerabilities, the Undead revival save (rolled for you at the start of its turn; while it's down its token looks dead, and a Critical Hit, Fire, or damage that isn't Physical or Energy destroys it for good), the Electric Stun save, and repair-only healing.</li>
+            <li>A power you put on a player reaches their sheet once: their sheet applies it and clears it from your world, so it can't come back after the player ends it or rests, even when they reload.</li>
             <li>The combat log and your players' rolls show up in your dice tray. Requests waiting on you (an NPC's save, a limb to pick, a power's targets) stay <b>pinned to the top</b> until you answer them. Double-click the tray's title bar to close it.</li>
             <li><b>NPC Wounds:</b> the limb list never offers one that's already Wounded, a creature with every limb Wounded isn't asked for its Wound Threshold save, and a save still waiting when it goes down is settled for you.</li>
             <li>Allies and other named NPCs drop their own loot into the Loot panel when they die, just like enemies.</li>

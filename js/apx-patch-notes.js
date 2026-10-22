@@ -11,11 +11,11 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.22.0750',
-        released: '2026-10-22T07:50:00',
-        releasedText: 'October 22, 2026 · 7:50 AM',
+        version: 'v2026.10.22.0810',
+        released: '2026-10-22T08:10:00',
+        releasedText: 'October 22, 2026 · 8:10 AM',
         title: 'Playtest 4: Maneuvers, Gear & Burdens',
-        intro: 'Straight from our fourth playtest: NPCs and companions get the full list of maneuvers and actions, Loyal Companions can carry your gear, and carrying too much finally weighs you down. Squeezing costs what it should, and Vitality\'s top rank keeps you on your feet. Since then: NPC maneuvers roll themselves, five new weapon properties (two of them fire into an area), readable buttons in every theme, Exo-Suits rebuilt in three frameworks, including the new Conduit, Keen, Parrying and Suppressed weapons, summons that mix Tiers, creatures your GM shares for summoning, and now Summon a Weapon built in the Power Crafter, perks you can take back a rank at a time, character files that show when they\'ve been edited, and now powers that apply their numbers for you, summons you place and command from their own window, and Ambusher, Charge, Relentless and Regenerative working as written, and Sacrifice that hurts like it should and Permanent powers that hold their slot, powers that play out on the battle map (targets in range, zones, walls, Sensors, Concentration and durations that end everything a power did), Split Target dice you hand out one by one, Overexertion that can tire the target instead, AP Utilities that work every turn, lighter Juggernaut Plating, and now Invisibility that costs 2 AP to keep, Lucky on every save, Breach and Amplifier that show and ask, and free powers that are free up to their Level.',
+        intro: 'Straight from our fourth playtest: NPCs and companions get the full list of maneuvers and actions, Loyal Companions can carry your gear, and carrying too much finally weighs you down. Squeezing costs what it should, and Vitality\'s top rank keeps you on your feet. Since then: NPC maneuvers roll themselves, five new weapon properties (two of them fire into an area), readable buttons in every theme, Exo-Suits rebuilt in three frameworks, including the new Conduit, Keen, Parrying and Suppressed weapons, summons that mix Tiers, creatures your GM shares for summoning, and now Summon a Weapon built in the Power Crafter, perks you can take back a rank at a time, character files that show when they\'ve been edited, and now powers that apply their numbers for you, summons you place and command from their own window, and Ambusher, Charge, Relentless and Regenerative working as written, and Sacrifice that hurts like it should and Permanent powers that hold their slot, powers that play out on the battle map (targets in range, zones, walls, Sensors, Concentration and durations that end everything a power did), Split Target dice you hand out one by one, Overexertion that can tire the target instead, AP Utilities that work every turn, lighter Juggernaut Plating, and now Invisibility that costs 2 AP to keep, Lucky on every save, Breach and Amplifier that show and ask, free powers that are free up to their Level, and now powers that stay ended when you reload.',
         index: [
             ['Combat', [
                 'NPCs, summoned creatures and Loyal Companions have an Actions button with every Combat Maneuver and Standard Action, spending their own AP. Fight Defensively, Fight Offensively and next-attack maneuvers change their rolls (and AC) until their next turn.',
@@ -91,7 +91,8 @@
             ['Characters', [
                 'Perks can be taken back one rank at a time for the XP they cost, along with everything that rank set up. GMs can turn this off in World Settings.',
                 'Exported character files are sealed. Importing one always makes a new character, and a file that was edited after export is marked so the GM can see what changed.',
-                'Lucky is once per Short Rest, and your sheet offers your LUC save whenever you roll a saving throw while it\'s unused.'
+                'Lucky is once per Short Rest, and your sheet offers your LUC save whenever you roll a saving throw while it\'s unused.',
+                'Fixed: a power that ended (by a rest, its duration or by hand) came back active after reloading the page. Saving now replaces your saved character instead of only adding to it, so anything your sheet removed (an ended power, a buff that wore off, a cleared Condition) stays removed. A power that was already stuck may show once more after this update; end it again and it stays gone.'
             ]],
             ['Exo-Suits', [
                 'Exo-Suits are rebuilt: 3,000 Currency, worn with your armor, in three frameworks. A Juggernaut adds its Plating to your defenses, a Phantom hides in plain sight, and the new Conduit amplifies your Powers (Capacitor, Breach, Nullifier, Amplifier, Emitter). Everything a suit does is applied for you.',
@@ -219,7 +220,9 @@
             ]],
             ['Your Character', [
                 'Remove a perk rank: − Rank beside a perk (or Remove Rank in the Perk Forge) takes off its top rank, one at a time, and refunds the XP it cost (logged in your XP Log). Its choice goes with it, and so does what it set up: Power Slots and a free power you haven\'t made yet (Powers perks), Martial Arts\' unarmed strike, Mobile\'s AC, extra Omen Dice, and on Loyal Companion\'s last rank the TP you bought for it (the companion is kept for later). Uses per rest stay used, and a free power you already made stays: buying the rank again won\'t give a second one. Full Rest Powers asks which rank\'s purchase to remove.',
-                'Export JSON seals the file (a fingerprint of the character, recorded on your account). Import JSON always makes a new character, never over the one you have open or a world\'s. A file you exported from this account and didn\'t change comes in unmarked; one that was changed, came from another account, or was exported before this update comes in marked "Imported file", and the GM of a world it joins sees what changed until they clear it.'
+                'Export JSON seals the file (a fingerprint of the character, recorded on your account). Import JSON always makes a new character, never over the one you have open or a world\'s. A file you exported from this account and didn\'t change comes in unmarked; one that was changed, came from another account, or was exported before this update comes in marked "Imported file", and the GM of a world it joins sees what changed until they clear it.',
+                'Fixed: an ended power, a buff that wore off or a Condition you cleared came back after a page refresh. Your sheet now saves the character as it is, so what you remove stays removed, on this device and every other one. Your GM\'s tracker sees the same character.',
+                'Powers your GM puts on you are applied once and then cleared from the world, so a buff you ended or rested away can\'t be applied again when you reload (before, only the last 60 were remembered). A power that was already stuck may come back once after this update; end it again and it stays gone.'
             ]]
         ],
         gm: [
@@ -313,7 +316,9 @@
             ]],
             ['Worlds & Players', [
                 'World Settings: Players can remove perk ranks (on by default). Each removal refunds that rank\'s XP and shows in your dice tray; untick it and perks can only be bought in your world.',
-                'Imported characters: one made from a file that was edited after export, came from another account, or predates sealing carries a ⚠ Imported file mark on its Party card and in the Players list. Hover it to see what changed (XP, attributes, perks, powers, Currency…), and Clear it once you\'ve checked the character. Importing never overwrites a character already in your world.'
+                'Imported characters: one made from a file that was edited after export, came from another account, or predates sealing carries a ⚠ Imported file mark on its Party card and in the Players list. Hover it to see what changed (XP, attributes, perks, powers, Currency…), and Clear it once you\'ve checked the character. Importing never overwrites a character already in your world.',
+                'Fixed: a player\'s ended power or buff came back on their sheet (and your tracker) after a reload. Their sheet now saves the whole character instead of merging into the old one, and your own fields on their world entry (the HP, Conditions and wounds you set) are left as they are.',
+                'A power you put on a player is applied by their sheet once and then cleared from your world, so it can\'t return after they end it or rest. Old messages that were piling up are cleared the next time the player opens their sheet.'
             ]]
         ]
     }, {

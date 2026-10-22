@@ -230,13 +230,22 @@
         return rest;
     };
     // Buffs your GM's tracker sends you (another player's power on you): applied once each
-    window.apxReceiveBuffs = function (map) {
+    // Each message is applied once: applied ones are cleared from your world doc (inviteCode) so a reload can't bring an
+    // ended power back, the last 60 ids are remembered (st._buffSeen), and anything sent well before the newest one
+    // applied (st._buffSeenAt) is skipped. (Only the 60 ids used to be kept, so older messages were applied again.)
+    window.apxReceiveBuffs = function (map, inviteCode) {
         let st = window.state; if (!st || !map) return;
         let seen = st._buffSeen || [];
-        Object.keys(map).sort((a, b) => ((map[a] || {}).t || 0) - ((map[b] || {}).t || 0)).forEach(id => {
-            if (seen.includes(id) || !map[id]) return;
-            seen.push(id);
-            let m = map[id];
+        let ids = Object.keys(map).filter(id => map[id]).sort((a, b) => ((map[a] || {}).t || 0) - ((map[b] || {}).t || 0));
+        // (a sheet from before this: the newest message it remembers applying is where it got to)
+        if (st._buffSeenAt == null && seen.length) st._buffSeenAt = ids.filter(id => seen.includes(id)).reduce((t, id) => Math.max(t, (map[id] || {}).t || 0), 0);
+        let at = st._buffSeenAt || 0, done = [];
+        ids.forEach(id => {
+            let m = map[id], mt = m.t || 0;
+            // (older than where it got to, give or take 10 minutes in case the GM sends from a device whose clock is behind)
+            if (seen.includes(id) || (mt && mt < at - 600000)) { done.push(id); return; }
+            seen.push(id); done.push(id);
+            if (mt > (st._buffSeenAt || 0)) st._buffSeenAt = mt;
             // (the power it came from ended: its buffs on you go too)
             if (m.endPi) { let gone = (st.powerBuffs || []).filter(b => b.pi === m.endPi); if (gone.length) { st.powerBuffs = st.powerBuffs.filter(b => !gone.includes(b)); if (!st.powerBuffs.length) delete st.powerBuffs; window.APXDice?.notify(`${gone[0].name || 'A power'} on you ends${m.why ? ` (${m.why})` : ''}.`, { kind: 'note' }); window.recalculateMath?.(); } return; }
             // (one of your own powers was ended: dispelled, or its Sensor destroyed)
@@ -253,6 +262,10 @@
             window.apxApplyBuffToMe(Object.assign({}, m, { id }), m.from || '');
         });
         st._buffSeen = seen.slice(-60);
+        if (done.length && inviteCode && window.apxAuth && window.apxAuth.clearGmBuffs) {
+            window.scheduleAutoSave?.();
+            window.apxAuth.clearGmBuffs(inviteCode, done).catch(() => {});
+        }
     };
     // Using a power with these Utilities: who gets it. → { self: true } | { tokenId, name } | { companion: true } | null (cancel) | 'skip'
     window.apxPickBuffTarget = async function (name, b) {
