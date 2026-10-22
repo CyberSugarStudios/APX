@@ -11,11 +11,11 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.21.2304',
-        released: '2026-10-21T23:04:00',
-        releasedText: 'October 21, 2026 · 11:04 PM',
+        version: 'v2026.10.22.0718',
+        released: '2026-10-22T07:18:00',
+        releasedText: 'October 22, 2026 · 7:18 AM',
         title: 'Playtest 4: Maneuvers, Gear & Burdens',
-        intro: 'Straight from our fourth playtest: NPCs and companions get the full list of maneuvers and actions, Loyal Companions can carry your gear, and carrying too much finally weighs you down. Squeezing costs what it should, and Vitality\'s top rank keeps you on your feet. Since then: NPC maneuvers roll themselves, five new weapon properties (two of them fire into an area), readable buttons in every theme, Exo-Suits rebuilt in three frameworks, including the new Conduit, Keen, Parrying and Suppressed weapons, summons that mix Tiers, creatures your GM shares for summoning, and now Summon a Weapon built in the Power Crafter, perks you can take back a rank at a time, character files that show when they\'ve been edited, and now powers that apply their numbers for you, summons you place and command from their own window, and Ambusher, Charge, Relentless and Regenerative working as written, and Sacrifice that hurts like it should and Permanent powers that hold their slot, and now powers that play out on the battle map: targets in range, zones, walls, Sensors, Concentration and durations that end everything a power did.',
+        intro: 'Straight from our fourth playtest: NPCs and companions get the full list of maneuvers and actions, Loyal Companions can carry your gear, and carrying too much finally weighs you down. Squeezing costs what it should, and Vitality\'s top rank keeps you on your feet. Since then: NPC maneuvers roll themselves, five new weapon properties (two of them fire into an area), readable buttons in every theme, Exo-Suits rebuilt in three frameworks, including the new Conduit, Keen, Parrying and Suppressed weapons, summons that mix Tiers, creatures your GM shares for summoning, and now Summon a Weapon built in the Power Crafter, perks you can take back a rank at a time, character files that show when they\'ve been edited, and now powers that apply their numbers for you, summons you place and command from their own window, and Ambusher, Charge, Relentless and Regenerative working as written, and Sacrifice that hurts like it should and Permanent powers that hold their slot, powers that play out on the battle map (targets in range, zones, walls, Sensors, Concentration and durations that end everything a power did), and now Split Target dice you hand out one by one, Overexertion that can tire the target instead, AP Utilities that work every turn, and lighter Juggernaut Plating.',
         index: [
             ['Combat', [
                 'NPCs, summoned creatures and Loyal Companions have an Actions button with every Combat Maneuver and Standard Action, spending their own AP. Fight Defensively, Fight Offensively and next-attack maneuvers change their rolls (and AC) until their next turn.',
@@ -71,7 +71,12 @@
                 'A Sensor is a hidden token you can use powers from (it becomes visible and tangible, AC 10, 10 HP), move for 1 AP per 3 squares, and lose: if it\'s destroyed the power ends and the rest of the damage is dealt to you as Psychic.',
                 'Every lasting power has an Active bubble and counts down on the initiative (1 round = 6 seconds). When it ends (its time, a long enough rest, unticking it, Concentration lost, a dispel) everything it did ends with it.',
                 'Concentration asks for 2 AP each turn and a CON save when you\'re hurt. Turn the target Invisible needs it, with a Concentration check (CON save, DC 10 +5 each time) on every hostile action.',
-                'Extra weapon damage rides the target\'s weapon attacks, Damage that heals asks who gets the healing, End a Power lists the target\'s powers of its Level or lower, Temporary HP is 10 a copy, Swim and Climb show in your speeds, and Grappled joins the Minor Condition list.'
+                'Extra weapon damage rides the target\'s weapon attacks, Damage that heals asks who gets the healing, End a Power lists the target\'s powers of its Level or lower, Temporary HP is 10 a copy, Swim and Climb show in your speeds, and Grappled joins the Minor Condition list.',
+                'Split Target divides its damage or healing dice die by die: pick a target for each die (one creature can take several, and each die\'s +1 goes with it), and buy how many creatures its Utilities reach (5 XP for each one beyond the first). Every target makes its own save.',
+                'Utilities marked * can be added up to the highest Level of power you can make, with a note saying how much more XP the power needs to reach that Level.',
+                'Overexertion asks who gains the Fatigue: the power\'s user, or (on a power with beneficial Utilities or healing) its target when the power ends. It\'s applied for you either way.',
+                'The AP Utilities work on each of the target\'s turns while the power lasts: +1 AP for movement only (Minor), a new +1 AP for anything (Moderate, 15 XP), and 1 less AP each turn. Movement AP is spent first when you move.',
+                'Powers these changes affect are listed for a free rebuild when your sheet (or the GM\'s world) opens. They keep working as they were until then.'
             ]],
             ['Weapons', [
                 'Medium weapons top out at 3d8 (3d10 two-handed) with no Heavy properties. Crit upgrades cost 300 / 900 Cu, Sturdy 50 Cu.',
@@ -87,7 +92,8 @@
             ]],
             ['Exo-Suits', [
                 'Exo-Suits are rebuilt: 3,000 Currency, worn with your armor, in three frameworks. A Juggernaut adds its Plating to your defenses, a Phantom hides in plain sight, and the new Conduit amplifies your Powers (Capacitor, Breach, Nullifier, Amplifier, Emitter). Everything a suit does is applied for you.',
-                'System Overload: a Critical Hit or a hit over your Wound Threshold shuts the suit down, and a dead Juggernaut leaves anyone with STR 16 or less Overburdened (Speed 1, double move AP, Disadvantage on attacks, checks and saves) until a 6 AP Reboot.'
+                'System Overload: a Critical Hit or a hit over your Wound Threshold shuts the suit down, and a dead Juggernaut leaves anyone with STR 16 or less Overburdened (Speed 1, double move AP, Disadvantage on attacks, checks and saves) until a 6 AP Reboot.',
+                'Juggernaut Plating is lower: Assault Plating gives AC and WT +7 (was +10), Dreadnought Plating +9 (was +15). Suits already built update on their own. Conduit\'s Breach picker sits under its description.'
             ]]
         ],
         sheet: [
@@ -146,7 +152,16 @@
                 'Damage Interrupt on a beneficial power ends it when you take damage; Action Interrupt when you attack or use a harmful power.',
                 'Temporary HP from a power is 10 a copy (copies stack up to the power\'s Level). Swim and Climb speeds from a power show under your speeds while it\'s Active, and each copy picks one.',
                 'Grappled is in the Minor Inflict or end a Condition list; Pinned is in the Moderate one with Restrained, Blinded, Charmed, Freezing, Provoked and Frightened.',
-                'Using a power again while it\'s still Active ends the first use; a Permanent power stays marked Active for the new one.'
+                'Using a power again while it\'s still Active ends the first use; a Permanent power stays marked Active for the new one.',
+                'Split Target (Step 3): a Utility targets counter, 5 XP for each target beyond the first. Using the power opens a picker with every creature in range: give each damage or healing die a target with + and − (one creature can take several), Split evenly shares them out (rounded down, so 4 dice over 3 targets is 1 each with 1 left), and tick who gets its Utilities. Dice nobody takes are lost.',
+                'Each Split Target creature\'s dice are rolled on their own card, with their +1 a die (and your attribute bonus once, on the first). With a save, each target makes its own; with an attack roll, one roll is compared with each target\'s AC and a natural 20 doubles that target\'s dice. Only the creatures ticked for its Utilities get its Conditions and buffs.',
+                'Repeatable (*) Utilities can be added up to the highest Level of power you can make. If that\'s more than the power\'s Level so far, the copy shows "needs Level N" and a note under the summary says how much more XP to spend; the power saves once it reaches that Level.',
+                'Overexertion (Step 8) asks who gains the level of Fatigue: you, or its target. Only a power with beneficial Utilities or healing can give it to the target (not one that only deals damage, debuffs or harms); the choice can be changed under the refund.',
+                'Overexertion on the target: each creature it reached gains a level of Fatigue when the power ends (an Instant power: once it\'s used), through your GM\'s tracker; you, if you were one of its targets. A Loyal Companion\'s own power gives its Fatigue to the companion, not you.',
+                '+1 AP (Minor) now comes at the start of each of the target\'s turns while the power lasts, and can only be spent on movement: it shows as +N move beside your AP and is spent first when you Move, Jump or drag your token (it doesn\'t carry over).',
+                'New Moderate Utility (15 XP): the target gains 1 AP at the start of each of its turns for the power\'s duration, for anything. −1 AP now means the target starts each of its turns with 1 less AP while the power lasts.',
+                'Powers to rebuild: a Split Target power with Utilities, Overexertion on a beneficial power, and the old AP Utilities are listed when your sheet opens, each with a free Rebuild. An old Split Target power keeps giving its Utilities to everyone you pick until it\'s rebuilt.',
+                'The Consumable Crafter has the Split Target counter and the Overexertion choice too.'
             ]],
             ['Consumables', [
                 'The Consumable Crafter shows its price against the cap: 150 Cu for one charge, +25 Cu per Artisan rank.',
@@ -186,10 +201,11 @@
             ]],
             ['Exo-Suits', [
                 'Rebuilt from the rulebook: a Base Suit costs 3,000 Currency, is worn with your armor, and holds up to 3 Integrated Systems. Suits you already own keep their systems.',
-                'Juggernaut: STR +4 (to a maximum of 16; Powerful +6, to 18), Advantage on Athletics, Speed 4, one Size larger, and Plating added to your own AC, DR, ER and WT: Standard +5/+2, Assault Plating (2,000) +10/+4 at Speed 3, Dreadnought Plating (6,000) +15/+6 at Speed 2. New system: Bulwark (2,500), 2 AP for Temp HP equal to your AC, your STR modifier in uses per Short Rest. Kinetic Impactors are no longer sold.',
+                'Juggernaut: STR +4 (to a maximum of 16; Powerful +6, to 18), Advantage on Athletics, Speed 4, one Size larger, and Plating added to your own AC, DR, ER and WT: Standard +5/+2, Assault Plating (2,000) +7/+4 at Speed 3, Dreadnought Plating (6,000) +9/+6 at Speed 2. New system: Bulwark (2,500), 2 AP for Temp HP equal to your AC, your STR modifier in uses per Short Rest. Kinetic Impactors are no longer sold.',
                 'Phantom: AGI +4 (to a maximum of 16), Advantage on Stealth, Speed +1 and Active Camouflage. Mirage Weave is 1,500 and the Flight Module 2,000; Climbing Grips and the Flight Module show their Climb and Fly speeds, and the Flight Module flies on the battle map.',
                 'Conduit (new): Power Attack Bonus and Save DC +2, +5 ER, one more Short Rest Power Slot, and one more Long Rest Power Slot of a Level below your highest. Capacitor adds +2 more; Breach (pick an Energy type, again for another) makes your Powers ignore Resistance to it and gives you +5 ER against it; Nullifier treats Immunity as Resistance; Amplifier deals maximum damage with those Powers; Emitter adds 10 squares to ranged Powers and gives Touch Powers a range of 3. Overloading it also ends your Concentration Powers.',
-                'System Overload: a Critical Hit from your GM\'s creature, or one hit over your Wound Threshold, overloads the suit on its own, from your sheet or your GM\'s tracker. While a Juggernaut is shut down and your STR is 16 or less (it was 14), you\'re Overburdened: Speed 1, moving costs double AP (on the battle map too), no jumping or climbing, and Disadvantage on attacks, checks and saves, until Reboot Exo-Suit (6 AP).'
+                'System Overload: a Critical Hit from your GM\'s creature, or one hit over your Wound Threshold, overloads the suit on its own, from your sheet or your GM\'s tracker. While a Juggernaut is shut down and your STR is 16 or less (it was 14), you\'re Overburdened: Speed 1, moving costs double AP (on the battle map too), no jumping or climbing, and Disadvantage on attacks, checks and saves, until Reboot Exo-Suit (6 AP).',
+                'Juggernaut Plating: Assault Plating AC and WT +7 (was +10), Dreadnought Plating +9 (was +15), applied to suits already built. The Conduit\'s Breach Energy type picker now sits under its description instead of squeezing it to one side.'
             ]],
             ['Your Character', [
                 'Remove a perk rank: − Rank beside a perk (or Remove Rank in the Perk Forge) takes off its top rank, one at a time, and refunds the XP it cost (logged in your XP Log). Its choice goes with it, and so does what it set up: Power Slots and a free power you haven\'t made yet (Powers perks), Martial Arts\' unarmed strike, Mobile\'s AC, extra Omen Dice, and on Loyal Companion\'s last rank the TP you bought for it (the companion is kept for later). Uses per rest stay used, and a free power you already made stays: buying the rank again won\'t give a second one. Full Rest Powers asks which rank\'s purchase to remove.',
@@ -272,7 +288,11 @@
                 'Every lasting power is tracked as one instance: when it runs out on its owner\'s turns, a rest is long enough, its user unticks it, Concentration is lost, or it\'s dispelled, its buffs, Conditions, map effects, size change, Invisibility and Sensor all go together.',
                 'NPC Concentration: at the start of its turn you\'re asked to spend 2 AP or let it end, and damage rolls its CON save. An Invisible NPC rolls its Concentration check on each hostile action.',
                 'End a Power on a creature ends the power its user picked (of its Level or lower), or asks you which one.',
-                'A Sensor used as a power\'s source joins the order right after its owner (it never takes a turn) with AC 10 and 10 HP. Destroyed: the power ends and the rest of the damage goes to its owner as Psychic.'
+                'A Sensor used as a power\'s source joins the order right after its owner (it never takes a turn) with AC 10 and 10 HP. Destroyed: the power ends and the rest of the damage goes to its owner as Psychic.',
+                'Split Target from players, NPCs and companions: each target takes the damage from its own dice and makes its own save, and only the creatures ticked for its Utilities get its Conditions (an attack-roll split power hits each target with its own share).',
+                'Overexertion on the target: a player\'s power that ends gives each creature it reached a level of Fatigue on the tracker (players on their sheet). An NPC\'s lasting power built that way says so on its Overexertion chip and gives its targets the Fatigue when it ends; an Instant one does it right away. A Loyal Companion\'s own power gives the companion the Fatigue.',
+                'AP from powers at the start of each creature\'s turn while the power lasts: +1 AP, 1 less AP, and movement-only AP (+N move by its AP pips), spent first when it moves (dragging its token, or Move and Jump in its Actions). A Loyal Companion\'s goes to its owner\'s sheet.',
+                'NPCs to rebuild lists stat blocks whose powers use Split Target with Utilities, Overexertion on a beneficial power, or the old AP Utilities. They work as before until rebuilt.'
             ]],
             ['Players\' Gear', [
                 'Players can be Overburdened now (Speed 1, Disadvantage on attacks, checks and saves), and wear Backpacks, Bandoliers and Utility Belts to carry more.',

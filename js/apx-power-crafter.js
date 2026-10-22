@@ -84,7 +84,7 @@ function pcSavedDraft() { let d = JSON.parse(JSON.stringify(pcDraft)); delete d.
 
 function getBlankPowerDraft() {
     return {
-        step1: 'atkSave', step2: 'touch', aoe: 'single',
+        step1: 'atkSave', step2: 'touch', aoe: 'single', splitTargets: 1,
         dmg: { d4: 0, d6: 0, d8: 0, d10: 0, d12: 0 },
         isHealing: false, dmgType: 'Fire',
         addSecondType: false, secondDmgType: 'Cold', addFlatDmgPerDie: false, addAttrToDmg: false,
@@ -515,6 +515,7 @@ window.pcSetStep1 = function(val) {
 window.pcSetStep2 = function(val) { if (val === 'range' && pcDraft.step2 !== 'range') pcDraft.rangeSq = 10; pcDraft.step2 = val; pcRenderAll(); };
 window.pcRangeSq = function(delta, val) { window.apxRangeSqMutate(pcDraft, delta, val); pcRenderAll(); };
 window.pcSetAoe = function(val) { window.apxAoeMutate(pcDraft, 'aoe', val); pcRenderAll(); };
+window.pcSplitTargets = function(d) { pcDraft.splitTargets = Math.max(1, Math.min(50, (window.apxSplitTargets ? window.apxSplitTargets(pcDraft) : 1) + d)); pcRenderAll(); };
 window.pcSetAoeShape = function(val) { window.apxAoeMutate(pcDraft, 'shape', val); pcRenderAll(); };
 window.pcAoeSize = function(d, val) { window.apxAoeMutate(pcDraft, val != null ? 'size' : 'step', val != null ? val : d); pcRenderAll(); };
 window.pcSetDie = function(step, delta) {
@@ -689,11 +690,11 @@ window.pcSetUtilityCount = function(tier, key, delta) {
     if (!pcDraft.utility[tier]) pcDraft.utility[tier] = {};
     let cur = pcDraft.utility[tier][key] || 0;
     let entry = POWER_UTILITY[tier].find(u => u.key === key);
-    // A repeatable (*) Utility can be taken up to the power's Level in times (counting the copy being added,
-    // which can raise the Level: 5 at Level 5)
-    let max = entry.rep ? pcRepMax(tier, key, cur + 1) : 1;
+    // A repeatable (*) Utility can be taken up to the power's Level in times. You can add copies up to the highest
+    // Level of power you can make; a note under the summary says how much more XP the power needs to reach that Level.
+    let max = entry.rep ? pcRepCap() : 1;
     if (delta > 0 && tier !== 'mythic' && pcMythic(pcDraft)) return;   // a Mythic power can't have other utilities
-    if (delta > 0 && entry.rep && cur >= max) { window.APXDice?.notify(`A power can take a Utility at most as many times as its Level: this one is Level ${max}${max < 5 ? ' (more XP elsewhere raises it)' : ''}.`, { kind: 'warn' }); return; }
+    if (delta > 0 && entry.rep && cur >= max) { window.APXDice?.notify(`A power can take a Utility at most as many times as its Level, and the highest Level of power ${pcTarget === 'player' ? 'you can make' : 'there is'} is ${max}.`, { kind: 'warn' }); return; }
     let next = Math.max(0, Math.min(max, cur + delta));
     if (delta > 0 && key === 'summonCreature' && pcSummonBlock()) { window.showConfirm(pcSummonBlock(), null, true); return; }
     // Immune to Damage (Master): no Damage Interrupt on the same power
@@ -719,6 +720,9 @@ window.pcSetUtilityCount = function(tier, key, delta) {
     pcRenderAll();
 };
 
+// How many copies of a repeatable Utility can be added: the highest Level of power this crafter can make (a player's
+// unlocked Level; 5 for NPCs, companions, summons, items and the Library)
+function pcRepCap() { return Math.max(1, pcTarget !== 'player' ? 5 : (pcMaxUnlockedLevel() || 1)); }
 // How many times a repeatable Utility can be taken: the power's Level with n copies of it
 function pcRepMax(tier, key, n) {
     let d = JSON.parse(JSON.stringify(pcDraft));
@@ -773,7 +777,23 @@ window.pcSetApCount = function(d) {
 };
 // "1 AP or Reaction": which one this power uses (like Attack Roll / Save Negates)
 window.pcSetApReaction = function(on) { pcDraft.apReaction = !!on; pcRenderAll(); };
-window.pcToggleRefund = function(key, checked) { pcDraft.refunds[key] = checked; pcRenderAll(); };
+window.pcToggleRefund = async function(key, checked) {
+    pcDraft.refunds[key] = checked;
+    // Overexertion: who gains the Fatigue (only a power with beneficial Utilities or healing can give it to its target)
+    if (key === 'overexertion' && checked) {
+        let good = window.apxPowerBeneficial ? window.apxPowerBeneficial(pcDraft) : false;
+        if (!good) pcDraft.oxWho = 'self';
+        else if (window.APXDice && APXDice.ask) {
+            let who = pcIsNpc() ? 'The creature using it' : 'You (the power\'s user)';
+            let a = await APXDice.ask('Overexertion', 'Who gains the level of Fatigue when the power ends? Only a power with beneficial Utilities or healing can give it to its target (not damage or debuffs).',
+                [['self', who, pcDraft.oxWho === 'target' ? '' : 'pri'], ['target', 'Its target (each target it affects)', pcDraft.oxWho === 'target' ? 'pri' : '']]);
+            if (a === 'self' || a === 'target') pcDraft.oxWho = a;
+            else if (!pcDraft.oxWho) pcDraft.oxWho = 'self';
+        }
+    }
+    pcRenderAll();
+};
+window.pcSetOxWho = function(v) { pcDraft.oxWho = v === 'target' ? 'target' : 'self'; pcRenderAll(); };
 window.pcSetMinorRestriction = function(delta) {
     let next = Math.max(0, Math.min(10, (pcDraft.refunds.minorRestriction || 0) + delta));
     pcDraft.refunds.minorRestriction = next;
@@ -937,11 +957,18 @@ function pcRulesProblems() {
         let lvl = window.pcCalcXP(pcDraft).level;
         ['minor', 'moderate', 'major', 'master'].forEach(tier => Object.keys(pcDraft.utility[tier] || {}).forEach(key => {
             let u = (POWER_UTILITY[tier] || []).find(x => x.key === key), n = pcDraft.utility[tier][key] || 0;
-            if (u && u.rep && n > lvl) out.push(`"${String(u.label).replace(/\.$/, '')}" is taken ${n} times: a Level ${lvl} power can take it ${lvl} time${lvl === 1 ? '' : 's'} at most (Step 5).`);
+            if (u && u.rep && n > lvl) {
+                // (how much more it needs to reach the Level that many copies take)
+                let need = (POWER_LEVEL_TABLE.find(l => l.level === n) || {}).min, more = need != null ? need - window.pcCalcXP(pcDraft).total : null;
+                out.push(`"${String(u.label).replace(/\.$/, '').replace(/^\*/, '')}" is taken ${n} times, which needs a Level ${n} power: this one is Level ${lvl}. ${pcIsNpc() ? 'Add more to the power' : `Spend ${more > 0 ? more + ' more XP' : 'more XP'} on the power`} (anywhere) to bring it to Level ${n}, or take fewer copies (Step 5).`);
+            }
         }));
     }
     // Summon a Weapon: damage dice (1 per Power Level), no healing, properties it qualifies for
     if (window.apxSwProblems) out.push(...window.apxSwProblems(pcDraft, window.pcCalcXP(pcDraft).level));
+    // Overexertion on the target: only a power with beneficial Utilities or healing
+    if (pcDraft.refunds && pcDraft.refunds.overexertion && pcDraft.oxWho === 'target' && window.apxPowerBeneficial && !window.apxPowerBeneficial(pcDraft) && !pcStepSkipped(8))
+        out.push('Overexertion can only give its Fatigue to the target on a power with beneficial Utilities or healing: pick the power\'s user in Step 8.');
     // Turn the target Invisible needs the Concentration refund (Step 8)
     if (((pcDraft.utility.major || {}).invisible || 0) > 0 && !(pcDraft.refunds && pcDraft.refunds.concentration) && !pcStepSkipped(8))
         out.push('Turn the target Invisible needs the Concentration refund: tick Concentration in Step 8.');
@@ -1044,7 +1071,7 @@ function pcRenderUtilityTier(tier, label, colorClass) {
         let blocked = (mythicOn && tier !== 'mythic') || !!sumBlock;
         return `
             <div class="flex items-center justify-between bg-slate-900 border ${count && tier === 'mythic' ? 'border-amber-400' : 'border-slate-700'} rounded px-2 py-1.5 gap-2 ${blocked ? 'opacity-40' : ''}">
-                <div class="flex-1 text-[10px] text-slate-300 leading-tight">${u.rep ? '<b class="text-amber-400">*</b>' : ''}${u.label}${u.rep ? ` <span class="text-slate-500">(repeatable, up to its Level${count ? `: ${count}/${pcRepMax(tier, u.key, count)}` : ''})</span>` : ''}${sumBlock ? `<div class="text-red-400">${sumBlock}</div>` : ''}${pcIsNpc() && (u.rep || count < 1) ? ` <span class="text-yellow-500 font-bold">[${pcCost(0, d => { d.utility[tier][u.key] = (d.utility[tier][u.key] || 0) + 1; })}]</span>` : ''}</div>
+                <div class="flex-1 text-[10px] text-slate-300 leading-tight">${u.rep ? '<b class="text-amber-400">*</b>' : ''}${u.label}${u.rep ? ` <span class="text-slate-500">(repeatable, up to its Level${count ? `: ${count} of ${pcRepCap()}` : ''})</span>${count > window.pcCalcXP(pcDraft).level ? ` <span class="text-amber-400 font-bold">needs Level ${count}</span>` : ''}` : ''}${sumBlock ? `<div class="text-red-400">${sumBlock}</div>` : ''}${pcIsNpc() && (u.rep || count < 1) ? ` <span class="text-yellow-500 font-bold">[${pcCost(0, d => { d.utility[tier][u.key] = (d.utility[tier][u.key] || 0) + 1; })}]</span>` : ''}</div>
                 <div class="flex items-center gap-1 shrink-0">
                     <button onclick="window.pcSetUtilityCount('${tier}','${u.key}', -1)" ${count<=0?'disabled':''} class="w-5 h-5 rounded ${count<=0?'bg-slate-800 text-slate-600':'bg-slate-700 hover:bg-slate-600 text-white'} text-xs font-bold">-</button>
                     <span class="w-5 text-center text-xs font-bold text-white">${count}</span>
@@ -1167,6 +1194,13 @@ function pcRenderStep7() {
             <div class="text-[10px] text-slate-500 leading-tight mt-0.5">${POWER_LENGTHY_DESC}</div></div>`);
 }
 
+// Overexertion: who gains the Fatigue when the power ends
+function pcOxWhoRow() {
+    let good = window.apxPowerBeneficial ? window.apxPowerBeneficial(pcDraft) : false, cur = pcDraft.oxWho === 'target' && good ? 'target' : 'self';
+    let opt = (v, txt, dis) => `<label class="inline-flex items-center gap-1 mr-3 ${dis ? 'opacity-40' : 'cursor-pointer'}" onclick="event.stopPropagation()"><input type="radio" name="pcOxWho" value="${v}" ${cur === v ? 'checked' : ''} ${dis ? 'disabled' : ''} onchange="window.pcSetOxWho('${v}')"> ${txt}</label>`;
+    return `<div class="mt-1 text-[10px] text-slate-300" data-ox-who><b class="text-amber-300">Who gains the Fatigue:</b> ${opt('self', pcIsNpc() ? 'the creature using it' : 'you (the power\'s user)', false)}${opt('target', 'its target (each one)', !good)}
+        <div class="text-[9px] text-slate-500">${good ? 'Its target gains the level of Fatigue when the power ends (an Instant power: once it\'s used).' : 'Only a power with beneficial Utilities or healing can give its target the Fatigue, not one that only deals damage, debuffs or harms.'}</div></div>`;
+}
 function pcRenderStep8() {
     let mrDef = POWER_REFUNDS.find(r => r.key === 'minorRestriction');
     let mrCount = pcDraft.refunds.minorRestriction || 0;
@@ -1183,7 +1217,7 @@ function pcRenderStep8() {
     let checkboxRows = POWER_REFUNDS.filter(r => r.key !== 'minorRestriction').map(r => `
         <label class="flex items-start gap-2 bg-slate-900 border border-slate-700 rounded p-2 cursor-pointer">
             <input type="checkbox" class="mt-1" ${pcDraft.refunds[r.key] ? 'checked' : ''} onchange="window.pcToggleRefund('${r.key}', this.checked)">
-            <div><div class="text-xs font-bold text-slate-200">${r.label} <span class="text-emerald-400">[${pcDraft.refunds[r.key] ? pcCostOn(r.cost, x => { x.refunds[r.key] = false; }) : pcCost(r.cost, x => { x.refunds[r.key] = true; })}]</span></div><div class="text-[10px] text-slate-500 leading-tight">${r.desc}</div></div>
+            <div><div class="text-xs font-bold text-slate-200">${r.label} <span class="text-emerald-400">[${pcDraft.refunds[r.key] ? pcCostOn(r.cost, x => { x.refunds[r.key] = false; }) : pcCost(r.cost, x => { x.refunds[r.key] = true; })}]</span></div><div class="text-[10px] text-slate-500 leading-tight">${r.desc}</div>${r.key === 'overexertion' && pcDraft.refunds.overexertion ? pcOxWhoRow() : ''}</div>
         </label>
     `).join('');
     let costlyRow = `
@@ -1461,7 +1495,7 @@ function pcBuildTextSummary() {
     let refundBits = [];
     let mrCount = pcDraft.refunds.minorRestriction || 0;
     if (mrCount > 0) refundBits.push(mrCount > 1 ? `Minor Restriction (x${mrCount})` : 'Minor Restriction');
-    POWER_REFUNDS.filter(r => r.key !== 'minorRestriction').forEach(r => { if (pcDraft.refunds[r.key]) refundBits.push(r.key === 'sacrifice' && pcDraft.isHealing ? 'Sacrifice (cannot heal the caster)' : r.label); });
+    POWER_REFUNDS.filter(r => r.key !== 'minorRestriction').forEach(r => { if (pcDraft.refunds[r.key]) refundBits.push(r.key === 'sacrifice' && pcDraft.isHealing ? 'Sacrifice (cannot heal the caster)' : r.key === 'overexertion' && window.apxOxWho && window.apxOxWho(pcDraft) === 'target' ? 'Overexertion (the target gains the Fatigue)' : r.label); });
     if (pcDraft.refunds.costly) refundBits.push(`Costly (${pcDraft.refunds.costly} XP)`);
 
     let utilityText = utilityBits.join('; ');

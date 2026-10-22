@@ -461,7 +461,8 @@
                 relFree = true; st().relentlessFreeTurn = turn; cost = 0;
             }
         }
-        let have = window.apxApCurrent ? window.apxApCurrent() : 0;
+        let moveAct = ['Move', 'Jump'].includes(a.name);   // (a power's movement-only AP pays for these first)
+        let have = (window.apxApCurrent ? window.apxApCurrent() : 0) + (moveAct && window.apxMoveApLeft ? window.apxMoveApLeft() : 0);
         if (cost > have) {
             let ok = window.apxConfirm ? await window.apxConfirm(`${a.name} costs ${cost} AP and you have ${have}. Do it anyway?`, { title: 'Not enough AP', okLabel: 'Do it anyway', cancelLabel: 'Cancel' }) : false;
             if (!ok) return;
@@ -470,8 +471,8 @@
         let res = await a.auto();
         if (res === false) return;
         if (res && typeof res.spend === 'number') cost = res.spend;
-        let spend = Math.min(cost, window.apxApCurrent ? window.apxApCurrent() : cost);
-        if (spend > 0 && window.apxSpendAp) window.apxSpendAp(spend);
+        if (moveAct && cost > 0 && window.apxSpendMoveAp) window.apxSpendMoveAp(cost);
+        else { let spend = Math.min(cost, window.apxApCurrent ? window.apxApCurrent() : cost); if (spend > 0 && window.apxSpendAp) window.apxSpendAp(spend); }
         note(`${a.name}${cost ? `: −${cost} AP (${window.apxApCurrent ? window.apxApCurrent() : '?'} left)` : relFree ? ': 0 AP (Relentless, once per turn)' : ''}.`);
         // Your GM sees it in their dice tray and notifications (with what it does: Block's AC, Fight Defensively…)
         let added = fx().filter(e => !before.includes(e.id)).map(e => e.key === 'defensive' ? `Fight Defensively: +${e.attacked || st().apxAttackedTurn ? 2 : 4} AC` : (e.short || e.label));

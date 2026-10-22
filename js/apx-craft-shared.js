@@ -391,6 +391,21 @@ function apxStep3Html(d, o) {
         </label>`;
     };
     let html = POWER_STEP3_AOE.map(opt).join('');
+    // Split Target: how many creatures its Utilities reach (its damage or healing dice are divided die by die when it's used)
+    if (A.key === 'split') {
+        let n = A.targets || 1;
+        let btn = (dd, ok) => `<button type="button" onclick="window.${pre}SplitTargets(${dd})" ${ok ? '' : 'disabled'} class="w-7 h-7 rounded text-sm font-bold ${ok ? (dd < 0 ? 'bg-slate-700 hover:bg-slate-600' : 'bg-amber-700 hover:bg-amber-600') + ' text-white' : 'bg-slate-800 text-slate-600'}" title="${dd < 0 ? 'One target fewer' : 'One more target'}">${dd < 0 ? '−' : '+'}</button>`;
+        html += `<div class="bg-slate-950/40 border border-slate-700 rounded p-2 space-y-1.5" data-split-box>
+            <div class="flex items-center gap-2 flex-wrap" data-split-targets>
+                <span class="text-xs font-bold text-slate-200">Utility targets</span>${btn(-1, n > 1)}
+                <span class="w-8 text-center text-sm font-black text-white" data-split-n>${n}</span>${btn(1, n < 50)}
+                <span class="ml-auto text-[11px] font-bold text-yellow-500" data-split-cost>${price(A.cost, x => { x.aoe = 'split'; x.splitTargets = n; }, true)}</span>
+            </div>
+            <div class="text-[10px] text-slate-400 leading-tight">5 XP for each target beyond the first: when it's used, its Utilities (and their saves) apply to up to ${n} creature${n === 1 ? '' : 's'} you pick in range. Its damage or healing dice are split die by die: you pick a target for each die (one target can take several), and each die's +1 (Step 4) goes with it. Dice with no target are lost.</div>
+            ${o.total ? `<div class="text-[11px] font-bold text-white">${o.total}</div>` : ''}
+        </div>`;
+        return html;
+    }
     if (A.key !== 'aoe') return html;
     if (A.legacy || d._aoeFrom) html += `<div class="text-[10px] text-amber-400 leading-tight" data-aoe-legacy>This power used ${d._aoeFrom || A.label}, from before areas were crafted to an exact size${d._aoeFrom ? ` (shown below as a Burst of the same radius)` : ''}. Choose its shape and size.</div>`;
     let shapes = window.POWER_AOE_SHAPES.map(sh => {

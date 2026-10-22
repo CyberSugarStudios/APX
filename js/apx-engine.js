@@ -2149,10 +2149,20 @@
             }
             // Overexertion (Step 8): a level of Fatigue once the power is over (not again for each Channel). An Instant
             // power is over as soon as it's used; a lasting one is tracked above your Powers until it ends.
-            let inst = !chan && p.draft && window.apxStartActivePower ? window.apxStartActivePower(idx, p, { play: plan && plan.play }) : null;
+            // (Overexertion on the target: who it reached)
+            let oxWho = !chan && p.draft && window.apxOxWho ? window.apxOxWho(p.draft) : 'self', oxTo = null, oxSelf = false;
+            if (plan && plan.targets && plan.targets.list) {
+                let l = plan.targets.list, mine = mctx && mctx.tokenId;
+                oxSelf = l.some(x => x.self || x.tokenId === mine);
+                let others = l.filter(x => !(x.self || x.tokenId === mine));
+                if (others.length) oxTo = { mapId: plan.targets.mapId, tokenIds: others.map(x => x.tokenId) };
+            }
+            let inst = !chan && p.draft && window.apxStartActivePower ? window.apxStartActivePower(idx, p, { play: plan && plan.play, oxWho, oxTo, oxSelf }) : null;
+            let oxNow = null;   // (an Instant power's Overexertion: once its target is known, below)
             if (!chan && p.draft && p.draft.refunds && p.draft.refunds.overexertion) {
-                if (inst) notes.push('Overexertion: +1 Fatigue when it ends');
-                else { notes.push('Overexertion: +1 Fatigue once it\'s done'); setTimeout(() => window.apxOverexert && window.apxOverexert(p.name || 'Power'), 0); }
+                let whoTxt = oxWho === 'target' ? 'its target gains' : '+1';
+                if (inst) notes.push(`Overexertion: ${whoTxt} ${oxWho === 'target' ? 'a level of ' : ''}Fatigue when it ends`);
+                else { notes.push(`Overexertion: ${whoTxt} ${oxWho === 'target' ? 'a level of ' : ''}Fatigue once it's done`); oxNow = { name: p.name || 'Power', ox: true, oxWho, oxTo, oxSelf }; }
             }
             if (inst && inst.conc) notes.push('Concentration: 2 AP at the start of each of your turns, and a CON save when you take damage');
             // A harmful power is a hostile action (Invisible from a power: a Concentration check)
@@ -2250,7 +2260,7 @@
                     actInt: !!dm0.actionInterrupt || undefined });
                 if (areaRes) buffExtra = { buff };
                 else if (plan && (plan.targets || plan.other)) {
-                    let list = (plan.targets && plan.targets.list) || [], self = list.some(x => x.self), others = list.filter(x => !x.self);
+                    let list = ((plan.targets && plan.targets.list) || []).filter(x => !plan.split || x.util), self = list.some(x => x.self), others = list.filter(x => !x.self);   // (Split Target: the ones its Utilities reach)
                     if (self) window.apxApplyBuffToMe(buff, '');
                     buffExtra = { buff, buffTarget: self && !others.length ? { self: true } : others.length ? { mapId: plan.targets.mapId, tokenIds: others.map(x => x.tokenId), self } : {} };
                     if (inst && others.length) inst.onOthers = true;
@@ -2260,8 +2270,15 @@
                     if (tgt && tgt.self) { window.apxApplyBuffToMe(buff, ''); buffExtra = { buff, buffTarget: { self: true } }; }
                     else if (tgt && tgt !== 'skip') buffExtra = { buff, buffTarget: tgt };
                     else if (tgt === 'skip') buffExtra = { buff, buffTarget: {} };
+                    // (Overexertion on the target: the one picked here)
+                    if (oxWho === 'target' && tgt) {
+                        let ox = inst || oxNow;
+                        if (ox) { ox.oxSelf = !!tgt.self; ox.oxComp = !!tgt.companion; ox.oxTo = tgt.tokenId ? { mapId: tgt.mapId, tokenIds: [tgt.tokenId] } : null; }
+                    }
                 }
             }
+            // An Instant power's Overexertion: now (to you, or to its target)
+            if (oxNow && window.apxOxFatigue) setTimeout(() => window.apxOxFatigue(oxNow), 0);
             // (what it did on the map, its targets and its instance: the GM's tracker resolves them)
             let planEv = window.apxPlanEvent ? window.apxPlanEvent(plan, inst) : {};
             if (areaRes) delete planEv.targets;
@@ -2269,6 +2286,15 @@
             if (fxInfo) fxInfo.lvl = lvl;
             let powerId = 'pw' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
             let tell = (text, extra) => { if (typeof window.apxOnRollEvent === 'function') window.apxOnRollEvent(Object.assign({ id: powerId, kind: 'power', label: name, text: areaNote ? text + ' ' + areaNote : text }, extra || {}, summon ? { summon } : {}, isAoe ? { aoe: true } : {}, fxInfo ? { fx: fxInfo } : {}, areaRes ? { area: { mapId: areaRes.mapId, tokenIds: areaRes.tokenIds, safeIds: areaRes.safeIds } } : {}, buffExtra || {}, planEv)); };
+            // Split Target: each target's dice are rolled on their own (and each target makes its own save)
+            let splitOn = !!(plan && plan.split && dmg && plan.split.assign && Object.keys(plan.split.assign).length);
+            let splitArgs = () => {
+                let names = {}; ((plan.targets && plan.targets.list) || []).forEach(x => { names[x.tokenId] = x.name; });
+                let am = p.draft && p.draft.addAttrToDmg ? (calc.mods[window.apxPowerAttr ? window.apxPowerAttr(p) : window.state.powerAttr] || 0) : 0;
+                // (the damage types chosen as it's used, if it has that)
+                let assign = window.apxSplitAssign(window.apxSplitDice(p.draft, chosen || null), plan.targets.list);
+                return { name, who, assign, names, flat: !!(p.draft && p.draft.addFlatDmgPerDie), extraFirst: am + (dmg.heal && medicRk >= 1 ? 2 * medicRk : 0), heal: dmg.heal };
+            };
             if (info.kind === 'power' || info.kind === 'martial') {
                 let bonus = info.kind === 'power' ? pnums.atk : (info.w ? info.w.bonus : pnums.atk);
                 let via = info.kind === 'martial' && info.w ? ` (${info.w.label})` : '';
@@ -2282,6 +2308,17 @@
                 // A Conduit Exo-Suit: Breach (ignores Resistance to its types), Nullifier, Amplifier (maximum damage)
                 let exf = dmg && !dmg.heal && window.apxExoPowerFx ? window.apxExoPowerFx(dmg.type) : null;
                 if (exf) { o.hit = Object.assign({}, o.hit, { breach: exf.breach, nullify: exf.nullify || undefined }); if (exf.max) o.maxDmg = exf.max; }
+                // Split Target with an attack roll: one roll against each target's AC, then each target's own dice (a natural
+                // 20: their dice doubled), all sent to your GM's tracker
+                if (splitOn && info.kind === 'power' && !dmg.heal && o.areaHit) {
+                    o.kind = 'attack'; o.note = useNote; let sent = false, aid = 'pa' + Date.now().toString(36);
+                    o.onResult = r => { if (sent) return; sent = true;
+                        let sr = window.apxSplitRoll(Object.assign(splitArgs(), { crit: r.nat === 20, critMult: 2, maxDmg: o.maxDmg }));
+                        window.apxOnRollEvent?.({ id: aid, kind: 'powerAtk', label: name, total: r.total, nat: r.nat, crit: r.nat === 20, fumble: r.nat === 1, area: o.areaHit, fx: o.powerFx || null, dmg: 0, dmgType: dmg.type, splitDmg: sr.byTok, splitParts: sr.parts, split: planEv.split || null, hit: o.hit }); };
+                    APXDice.check(o);
+                    tell(`${who || 'A player'} uses ${name}: attack roll (Split Target).` + (escLine ? ` ${escLine}.` : ''), { attackRoll: true });
+                    return;
+                }
                 // A martial improvement rides a normal weapon attack: the weapon's damage plus the power's
                 let wpn = info.kind === 'martial' && info.w && info.w.dice ? info.w : null;
                 let wf = wpn ? String(wpn.dice) + (wpn.dmgMod ? (wpn.dmgMod > 0 ? '+' : '') + wpn.dmgMod : '') : '';
@@ -2306,7 +2343,12 @@
             let sAttr = sInfo && sInfo.saveAttr ? sInfo.saveAttr + ' ' : '';
             let saveText = saveKind ? `Targets make a${/^[AEIOU]/.test(sAttr) ? 'n' : ''} ${sAttr}saving throw against DC ${dc}: a success ${saveKind === 'halves' ? 'halves it' : 'negates it'}.` : '';
             let exf = dmg && !dmg.heal && window.apxExoPowerFx ? window.apxExoPowerFx(dmg.type) : null;   // (a Conduit Exo-Suit)
-            if (dmg) {
+            let splitDmg = null, splitParts = null;
+            if (dmg && splitOn) {
+                // Split Target: each target's dice rolled on their own
+                let sr = window.apxSplitRoll(Object.assign(splitArgs(), { maxDmg: exf && exf.max ? exf.max : undefined, apNote: useNote, apWarn: !pay, note: [saveText, areaNote].filter(Boolean).join(' ') || null, flavor }));
+                dmg.total = sr.total; splitDmg = sr.byTok; splitParts = sr.parts;
+            } else if (dmg) {
                 let dcard = APXDice.damage({ label: name + (dmg.heal ? ' healing' : ' damage'), who, formula: dmg.formula, dmgType: dmg.heal ? '' : dmg.type, heal: dmg.heal || undefined, wcat: 'power', maxDmg: exf && exf.max ? exf.max : undefined,
                     apNote: useNote, apWarn: !pay, note: [saveText, areaNote].filter(Boolean).join(' ') || null, flavor, split: dmg.split || undefined });
                 // a split roll: the GM's tracker divides the damage between the types as rolled
@@ -2318,8 +2360,8 @@
             }
             let saveEv = saveKind ? { dc, kind: saveKind, attr: sInfo && sInfo.saveAttr || null } : null;
             tell((saveText ? `${who || 'A player'} uses ${name}. ${saveText}` : `${who || 'A player'} uses ${name}.`) + (escLine ? ` ${escLine}.` : ''),
-                dmg && !dmg.heal ? Object.assign({ dmgType: dmg.type, dice: dmg.formula, save: saveEv, dmgParts: dmg.parts || undefined, dmgTotal: dmg.total }, exf ? { breach: exf.breach, nullify: exf.nullify || undefined } : {})
-                    : Object.assign(saveEv ? { save: saveEv } : {}, dmg && dmg.heal ? { heal: true, dmgTotal: dmg.total } : {}));
+                Object.assign(dmg && !dmg.heal ? Object.assign({ dmgType: dmg.type, dice: dmg.formula, save: saveEv, dmgParts: dmg.parts || undefined, dmgTotal: dmg.total }, exf ? { breach: exf.breach, nullify: exf.nullify || undefined } : {})
+                    : Object.assign(saveEv ? { save: saveEv } : {}, dmg && dmg.heal ? { heal: true, dmgTotal: dmg.total } : {}), splitDmg ? { splitDmg, splitParts } : {}));
         };
 
         // Summon a Creature: edit the creature on its own, without reopening the Power Crafter
@@ -2527,6 +2569,22 @@
             try { window.apxOnRollEvent?.({ id: 'ox' + Date.now().toString(36), kind: 'action', label: 'Overexertion', text: `${st.name || 'A player'} gains a level of Fatigue: ${name} is over (Overexertion).` }); } catch (e) { }
             window.recalculateMath(); window.scheduleAutoSave?.();
         };
+        // Overexertion's level of Fatigue when a power is over: to you, to your Loyal Companion (its own power), or to each
+        // target (a power with beneficial Utilities or healing built that way): yours here, anyone else's on your GM's tracker
+        window.apxOxFatigue = function (a, why) {
+            if (!a) return;
+            let label = a.name || 'Power', name = label + (why ? ` (${why})` : '');
+            let tell = ev => { try { window.apxOnRollEvent?.(Object.assign({ id: 'oxf' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), kind: 'oxFatigue', label, why: why || '' }, ev)); } catch (e) { } };
+            if (a.oxWho === 'target') {
+                if (a.oxSelf) window.apxOverexert(name);   // (you were one of its targets)
+                if (a.oxComp) { tell({ companion: true, text: `${(window.state || {}).name || 'A player'}'s Loyal Companion gains a level of Fatigue: ${label} is over (Overexertion).` }); APXDice?.notify(`Overexertion (${name}): your companion gains a level of Fatigue (on your GM's tracker).`, { kind: 'warn', open: true }); }
+                if (a.oxTo && a.oxTo.tokenIds && a.oxTo.tokenIds.length) { tell({ targets: a.oxTo, text: `${label} is over: its target${a.oxTo.tokenIds.length > 1 ? 's gain' : ' gains'} a level of Fatigue (Overexertion).` }); APXDice?.notify(`Overexertion (${name}): ${a.oxTo.tokenIds.length > 1 ? 'its targets gain' : 'its target gains'} a level of Fatigue (your GM's tracker applies it).`, { kind: 'warn', open: true }); }
+                else if (!a.oxSelf && !a.oxComp) { tell({ text: `${label} is over: its target gains a level of Fatigue (Overexertion). Apply it by hand.` }); APXDice?.notify(`Overexertion (${name}): its target gains a level of Fatigue (your GM applies it).`, { kind: 'warn', open: true }); }
+                return;
+            }
+            if (a.oxComp) { tell({ companion: true, text: `${(window.state || {}).name || 'A player'}'s Loyal Companion gains a level of Fatigue: ${label} is over (Overexertion).` }); APXDice?.notify(`Overexertion (${name}): your companion gains a level of Fatigue (on your GM's tracker).`, { kind: 'warn', open: true }); return; }
+            window.apxOverexert(name);
+        };
         window.apxStartActivePower = function (key, p, o) {
             o = o || {};
             let d = (p && p.draft) || {}, dur = d.duration || 'instant';
@@ -2540,6 +2598,8 @@
             let a = { id: 'pi' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), key: String(key), name: (p && p.name) || 'Power', lvl: parseInt(p && p.lvl) || 1, dur,
                 left: inFight && window.apxDurTurns ? window.apxDurTurns(dur) : null, ox: !!(d.refunds && d.refunds.overexertion), conc: !!(d.refunds && d.refunds.concentration),
                 dmgInt: !!dm.dmgInterrupt, actInt: !!dm.actionInterrupt, beneficial: !play.harmful, t: Date.now() };
+            // (Overexertion: who gains the Fatigue when it ends; a Loyal Companion's own power: the companion)
+            if (a.ox) { a.oxWho = o.oxWho || 'self'; if (o.oxTo) a.oxTo = o.oxTo; if (o.oxSelf) a.oxSelf = true; if (/^comp:/.test(String(key)) && a.oxWho !== 'target') a.oxComp = true; }
             if (play.invisible && !play.harmful && !play.dmg) a.invisibleOnly = true;
             st.activePowers = (st.activePowers || []).concat([a]);
             return a;
@@ -2556,7 +2616,7 @@
             if (st.powerBuffs && !st.powerBuffs.length) delete st.powerBuffs;
             if (st.channeling && st.channeling.key === a.key) st.channeling = null;
             try { window.apxOnRollEvent?.({ id: 'pe' + Date.now().toString(36) + Math.random().toString(36).slice(2, 4), kind: 'powerEnd', label: a.name, pi: a.id, why: why || '', text: `${st.name || 'A player'}'s ${a.name} ends${why ? ' (' + why + ')' : ''}.` }); } catch (e) { }
-            if (a.ox !== false) window.apxOverexert(a.name + (why ? ` (${why})` : ''));
+            if (a.ox !== false) window.apxOxFatigue(a, why);
             else window.APXDice?.notify(`${a.name} ends${why ? ` (${why})` : ''}.`, { kind: 'note' });
             setTimeout(() => window.recalculateMath?.(), 0); window.scheduleAutoSave?.();
         };

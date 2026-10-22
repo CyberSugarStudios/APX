@@ -57,8 +57,10 @@
         if ((n = count(d, 'plus1Ac'))) { b.ac += n; any = true; }
         if ((n = count(d, 'speed2'))) { b.speed += 2 * n; any = true; }
         if ((n = count(d, 'tempHp5'))) { b.tempHp += 10 * n; any = true; }   // (10 per copy, up to the power's Level in copies)
-        if ((n = count(d, 'bonusAp1'))) { b.apNext += n; any = true; }
-        if ((n = count(d, 'loseAp1'))) { b.apLose += n; b.harmful = true; any = true; }
+        // AP at the start of each of the target's turns while it lasts: movement-only, any use, or 1 less
+        if ((n = count(d, 'bonusAp1'))) { b.apMove = (b.apMove || 0) + n; any = true; }
+        if ((n = count(d, 'bonusApAny'))) { b.apTurn = (b.apTurn || 0) + n; any = true; }
+        if ((n = count(d, 'loseAp1'))) { b.apLoseTurn = (b.apLoseTurn || 0) + n; b.harmful = true; any = true; }
         if ((n = count(d, 'drEr2'))) { pickKeys('drEr2', n).forEach(pk => { b[pickOf(d, pk, 'drEr2') === 'er' ? 'er' : 'dr'] += 2; }); any = true; }
         if ((n = count(d, 'plus1Roll'))) { pickKeys('plus1Roll', n).forEach(pk => { let v = pickOf(d, pk, 'plus1Roll'); b[['atk', 'save', 'skill'].includes(v) ? v : 'atk'] += 1; }); any = true; }
         if (count(d, 'flySpeed')) { b.fly = true; any = true; }
@@ -74,7 +76,7 @@
         if (count(d, 'invisible')) { b.invisible = true; any = true; }   // (Concentration checks for each hostile action: js/apx-power-world.js)
         if (!any) return null;
         b.immune = [...new Set(b.immune)];
-        b.lasting = !!(b.ac || b.dr || b.er || b.speed || b.atk || b.save || b.skill || b.fly || b.swim || b.climb || b.hover || b.noAoO || b.featherFall || b.immune.length || b.invisible);
+        b.lasting = !!(b.ac || b.dr || b.er || b.speed || b.atk || b.save || b.skill || b.fly || b.swim || b.climb || b.hover || b.noAoO || b.featherFall || b.immune.length || b.invisible || b.apMove || b.apTurn || b.apLoseTurn);
         return b;
     };
     // An empty buff (for a power whose only buff is one the engine adds, like extra weapon damage)
@@ -87,12 +89,13 @@
         if (b.ac) t.push(`+${b.ac} AC`); if (b.dr) t.push(`+${b.dr} DR`); if (b.er) t.push(`+${b.er} ER`); if (b.speed) t.push(`+${b.speed} Speed`);
         if (b.atk) t.push(`+${b.atk} to Attack rolls`); if (b.save) t.push(`+${b.save} to Saving throws`); if (b.skill) t.push(`+${b.skill} to Skill checks`);
         if (b.tempHp) t.push(`${b.tempHp} Temporary HP`); if (b.apNext) t.push(`+${b.apNext} AP at the start of its next turn`); if (b.apLose) t.push(`loses ${b.apLose} AP`);
+        if (b.apTurn) t.push(`+${b.apTurn} AP each turn`); if (b.apMove) t.push(`+${b.apMove} AP each turn for movement`); if (b.apLoseTurn) t.push(`${b.apLoseTurn} less AP each turn`);
         if (b.fly) t.push('a Fly speed'); if (b.swim) t.push('a Swim speed'); if (b.climb) t.push('a Climb speed'); if (b.hover) t.push('Hover');
         if (b.noAoO) t.push('no Attacks of Opportunity'); if (b.featherFall) t.push('Feather Fall (no fall damage)');
         if (b.ethereal) t.push('Ethereal (immune to Physical damage)'); else if ((b.immune || []).length) t.push('Immune to ' + b.immune.join(', '));
         if (b.invisible) t.push('Invisible');
         if (b.wpnDmg) t.push(`weapons deal +${b.wpnDmg.formula}${b.wpnDmg.type ? ' ' + b.wpnDmg.type : ''}`);
-        if (b.fatigue) t.push(`Fatigue ${b.fatigue}`); if (b.fatigueZero) t.push('Fatigue to 0'); if (b.endWounds) t.push('ends every Wounded limb');
+        if (b.fatigue) t.push(b.fatigue > 0 ? `+${b.fatigue} level${b.fatigue > 1 ? 's' : ''} of Fatigue` : `${b.fatigue} Fatigue`); if (b.fatigueZero) t.push('Fatigue to 0'); if (b.endWounds) t.push('ends every Wounded limb');
         if ((b.endConds || []).length) t.push('ends ' + b.endConds.map(c => ((typeof CONDITIONS !== 'undefined' ? CONDITIONS : []).find(x => x.id === c) || {}).name || c).join(', '));
         return t.join(', ');
     };
@@ -193,11 +196,37 @@
             let gone = [];
             ((st && st.powerBuffs) || []).forEach(b => { if (b.left != null) { b.left -= 1; if (b.left <= 0) gone.push(b); } });
             if (gone.length) { st.powerBuffs = st.powerBuffs.filter(b => !gone.includes(b)); if (!st.powerBuffs.length) delete st.powerBuffs; window.APXDice?.notify(`${gone.map(b => b.name || 'A power').join(' and ')} on you ${gone.length > 1 ? 'end' : 'ends'}.`, { kind: 'note' }); setTimeout(() => window.recalculateMath?.(), 0); }
+            // The powers still on you: +1 AP each turn, 1 less, and AP that can only be spent on movement (used first when you
+            // move; it doesn't carry over to your next turn)
+            if (st) window.apxBuffTurnAp(st);
             return r;
         };
         Object.keys(orig).forEach(k => { w[k] = orig[k]; });
         w._apxBuff = true; window.apxResetAp = w;
     })(0);
+    window.apxBuffTurnAp = function (st) {
+        let sum = k => (st.powerBuffs || []).reduce((t, b) => t + (parseInt(b[k]) || 0), 0);
+        let plus = sum('apTurn'), minus = sum('apLoseTurn'), mv = sum('apMove'), bits = [];
+        if ((plus || minus) && window.apxSetApValue) {
+            let cur = window.apxApCurrent ? window.apxApCurrent() : 0;
+            window.apxSetApValue(Math.max(0, cur + plus - minus));
+            if (plus) bits.push(`+${plus} AP`); if (minus) bits.push(`−${minus} AP`);
+        }
+        if (mv) { st.apMove = mv; bits.push(`+${mv} AP for movement only (spent first when you move)`); } else delete st.apMove;
+        window.apxRenderApPips?.();
+        if (bits.length) window.APXDice?.notify(`Powers on you this turn: ${bits.join(', ')}.`, { kind: 'note' });
+    };
+    // Movement AP (Move, Jump, dragging your token): movement-only AP first, then your own. → AP taken from your own
+    window.apxMoveApLeft = () => Math.max(0, parseInt((window.state || {}).apMove) || 0);
+    window.apxSpendMoveAp = function (n) {
+        let st = window.state; n = Math.max(0, parseInt(n) || 0); if (!st || !n) return 0;
+        let mv = Math.min(n, window.apxMoveApLeft());
+        if (mv) { st.apMove -= mv; if (st.apMove <= 0) delete st.apMove; }
+        let rest = n - mv;
+        if (rest > 0 && window.apxSpendAp) window.apxSpendAp(Math.min(rest, window.apxApCurrent ? window.apxApCurrent() : rest));
+        else window.apxRenderApPips?.();
+        return rest;
+    };
     // Buffs your GM's tracker sends you (another player's power on you): applied once each
     window.apxReceiveBuffs = function (map) {
         let st = window.state; if (!st || !map) return;
@@ -210,6 +239,13 @@
             if (m.endPi) { let gone = (st.powerBuffs || []).filter(b => b.pi === m.endPi); if (gone.length) { st.powerBuffs = st.powerBuffs.filter(b => !gone.includes(b)); if (!st.powerBuffs.length) delete st.powerBuffs; window.APXDice?.notify(`${gone[0].name || 'A power'} on you ends${m.why ? ` (${m.why})` : ''}.`, { kind: 'note' }); window.recalculateMath?.(); } return; }
             // (one of your own powers was ended: dispelled, or its Sensor destroyed)
             if (m.endOwn) { if (window.apxMyInstance && window.apxMyInstance(m.endOwn)) window.apxEndActivePower(m.endOwn, m.why || 'it was ended'); return; }
+            // (your Loyal Companion's turn: powers on it add or take AP, or give it AP for movement only)
+            if (m.compAp !== undefined || m.compMove !== undefined) {
+                if (m.compAp && window.apxCompSetAp && window.apxCompApCurrent) window.apxCompSetAp(Math.max(0, window.apxCompApCurrent() + m.compAp));
+                if (st.companion) { if (m.compMove) st.compApMove = m.compMove; else delete st.compApMove; }
+                if (m.compAp || m.compMove) window.APXDice?.notify(`${(st.companion && st.companion.name) || 'Your companion'}: ${[m.compAp ? `${m.compAp > 0 ? '+' : '−'}${Math.abs(m.compAp)} AP` : '', m.compMove ? `+${m.compMove} AP for movement only` : ''].filter(Boolean).join(', ')} from powers this turn.`, { kind: 'note' });
+                window.scheduleAutoSave?.(); return;
+            }
             // (your token's size: a power grew or shrank you)
             if (m.size !== undefined) { st.powerSize = m.size || null; if (!st.powerSize) delete st.powerSize; window.recalculateMath?.(); return; }
             window.apxApplyBuffToMe(Object.assign({}, m, { id }), m.from || '');

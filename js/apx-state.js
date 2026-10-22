@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.10.21.2304';
+window.APX_VERSION = 'v2026.10.22.0718';
 
         window.state = getInitialState();
 
@@ -479,10 +479,11 @@ window.APX_VERSION = 'v2026.10.21.2304';
             let box = document.getElementById('apPips'); if (!box) return;
             let max = apxApMax(), cur = apxApCurrent();
             let lEl = document.getElementById('dispApLeft'); if (lEl) { lEl.innerText = cur; lEl.className = 'text-2xl font-black ' + (cur === 0 ? 'text-red-400' : cur > max ? 'text-cyan-300' : 'text-blue-400'); }
+            let mv = Math.max(0, parseInt(window.state.apMove) || 0);   // (a power's AP for movement only, this turn)
             box.innerHTML = Array.from({ length: Math.min(500, Math.max(max, cur) + 1) }, (_, i) => {
                 let filled = i < cur, stored = i >= max;
                 return `<button onclick="window.apxClickApPip(${i})" title="${filled ? 'Spend' : 'Add'} AP${stored ? ' (stored from earlier turns)' : ''}" style="width:9px;height:9px;border-radius:50%;padding:0;border:1px ${stored ? 'dashed #67e8f9' : 'solid #60a5fa'};background:${filled ? (stored ? '#06b6d4' : '#3b82f6') : 'transparent'};cursor:pointer;${i === max ? 'margin-left:3px;' : ''}"></button>`;
-            }).join('');
+            }).join('') + (mv ? `<span data-ap-move title="AP from a power that can only be spent on movement (Move, Jump, dragging your token). It's used first when you move, and doesn't carry over to your next turn." style="margin-left:5px;font-size:10px;font-weight:800;color:#86efac;white-space:nowrap">+${mv} move</span>` : '');
         };
         // Clicking a filled pip spends down to it; clicking an empty one fills up to it
         window.apxClickApPip = function(i) {

@@ -37,8 +37,8 @@
         },
         systems: {
             juggernaut: [
-                { id: 'assault', name: 'Assault Plating', cost: 2000, plating: { ac: 10, dr: 4, er: 4, wt: 10 }, speed: 3, desc: 'Heavy, militarized armor bolted to the frame (replacing all other Plating): AC and WT +10, DR and ER +4, and your Speed is set to 3.' },
-                { id: 'dreadnought', name: 'Dreadnought Plating', cost: 6000, plating: { ac: 15, dr: 6, er: 6, wt: 15 }, speed: 2, desc: 'Massive, lumbering armor (replacing all other Plating): AC and WT +15, DR and ER +6, and your Speed is set to 2.' },
+                { id: 'assault', name: 'Assault Plating', cost: 2000, plating: { ac: 7, dr: 4, er: 4, wt: 7 }, speed: 3, desc: 'Heavy, militarized armor bolted to the frame (replacing all other Plating): AC and WT +7, DR and ER +4, and your Speed is set to 3.' },
+                { id: 'dreadnought', name: 'Dreadnought Plating', cost: 6000, plating: { ac: 9, dr: 6, er: 6, wt: 9 }, speed: 2, desc: 'Massive, lumbering armor (replacing all other Plating): AC and WT +9, DR and ER +6, and your Speed is set to 2.' },
                 { id: 'powerful', name: 'Powerful', cost: 1000, desc: 'Overclocks the frame\'s lifting power: your STR score increases by an additional 2, to a maximum of 18.' },
                 { id: 'forceMult', name: 'Force Multipliers', cost: 1500, desc: 'Add your STR modifier twice to all melee weapon damage rolls.' },
                 { id: 'bulwark', name: 'Bulwark', cost: 2500, desc: 'Spend 2 AP to gain Temporary Hit Points equal to your AC. You can do this a number of times equal to your STR modifier (minimum once); the uses come back on a Short Rest.' },
@@ -390,11 +390,13 @@
                 let mine = d.systems.filter(id => baseId(id) === s.id), before = [...owned].filter(id => baseId(id) === s.id && !mine.includes(id) && have && have.frame === d.frame);
                 let taken = new Set(mine.concat(before).map(typeOf));
                 let free = ENERGY().filter(t => !taken.has(t));
-                let addRow = `<div style="display:flex;gap:.4rem;align-items:center;border:1px dashed #475569;border-radius:.4rem;padding:.35rem .45rem;background:#0b1220;opacity:${full || !free.length ? .5 : 1}">
-                    <div style="flex:1"><div style="font-size:.75rem;font-weight:800">${esc(s.name)} <span style="color:#facc15;font-weight:700">${s.cost.toLocaleString()} Cu</span></div>
-                    <div style="font-size:.62rem;color:#94a3b8;line-height:1.3">${esc(s.desc)}</div></div>
-                    <select data-breach-type style="background:#1e293b;border:1px solid #334155;border-radius:.3rem;color:#e2e8f0;font-size:.7rem;padding:.15rem" ${full || !free.length ? 'disabled' : ''}>${free.map(t => `<option value="${t}">${t}</option>`).join('')}</select>
-                    <button data-breach-add style="background:#a21caf;border:1px solid #e879f9;color:#fff;border-radius:.3rem;padding:.2rem .5rem;font-size:.68rem;font-weight:800;cursor:pointer" ${full || !free.length ? 'disabled' : ''}>Add</button></div>`;
+                // (the Energy type picker sits under the text, so the description keeps the row's full width)
+                let addRow = `<div data-breach-row style="border:1px dashed #475569;border-radius:.4rem;padding:.35rem .45rem;background:#0b1220;opacity:${full || !free.length ? .5 : 1}">
+                    <div style="font-size:.75rem;font-weight:800">${esc(s.name)} <span style="color:#facc15;font-weight:700">${s.cost.toLocaleString()} Cu</span></div>
+                    <div style="font-size:.62rem;color:#94a3b8;line-height:1.3">${esc(s.desc)}</div>
+                    <div style="display:flex;gap:.4rem;align-items:center;margin-top:.35rem;flex-wrap:wrap"><span style="font-size:.62rem;color:#cbd5e1;font-weight:700">Energy type</span>
+                    <select data-breach-type style="flex:1;min-width:8rem;background:#1e293b;border:1px solid #334155;border-radius:.3rem;color:#e2e8f0;font-size:.7rem;padding:.15rem" ${full || !free.length ? 'disabled' : ''}>${free.map(t => `<option value="${t}">${t}</option>`).join('')}</select>
+                    <button data-breach-add style="background:#a21caf;border:1px solid #e879f9;color:#fff;border-radius:.3rem;padding:.2rem .5rem;font-size:.68rem;font-weight:800;cursor:pointer" ${full || !free.length ? 'disabled' : ''}>Add</button></div></div>`;
                 return mine.concat(before).map(id => row(id, s, mine.includes(id), full)).join('') + addRow;
             }).join('');
             body.innerHTML = `

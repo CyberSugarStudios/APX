@@ -2153,13 +2153,19 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
     // A lasting power: tracked for its whole duration (an NPC's on the tracker, a companion's on its owner's sheet)
     let inst = null;
     if (!sb._isCompanion && actor && window._gmNpcCastStart) inst = window._gmNpcCastStart(actor, p, plan && plan.play);
-    else if (sb._isCompanion && window.apxStartActivePower && p.draft && (p.draft.duration || 'instant') !== 'instant') inst = window.apxStartActivePower('comp:' + (p.name || idx), Object.assign({}, p, { name: `${p.name || 'Power'} (${sb.name || 'companion'})` }), { play: plan && plan.play });
+    else if (sb._isCompanion && window.apxStartActivePower && p.draft && (p.draft.duration || 'instant') !== 'instant') {
+        // (Overexertion: the companion, or its target)
+        let ow = window.apxOxWho ? window.apxOxWho(d) : 'self', mine = mctx && mctx.tokenId, l = plan && plan.targets && plan.targets.list ? plan.targets.list : [], others = l.filter(x => x.tokenId !== mine);
+        inst = window.apxStartActivePower('comp:' + (p.name || idx), Object.assign({}, p, { name: `${p.name || 'Power'} (${sb.name || 'companion'})` }), { play: plan && plan.play, oxWho: ow,
+            oxTo: ow === 'target' && others.length ? { mapId: plan.targets.mapId, tokenIds: others.map(x => x.tokenId) } : null });
+        if (inst && ow === 'target' && l.some(x => x.tokenId === mine)) inst.oxComp = true;
+    }
     // Utilities that are numbers (+AC, DR/ER, Temp HP…): the targets picked; without a map, you pick who gets them
     let pBuff = window.apxPowerBuff ? window.apxPowerBuff(d, p.lvl) : null;
     if (plan && plan.play && plan.play.wpnDmg && dmg && !dmg.heal) { pBuff = Object.assign(pBuff || window.apxBlankBuff(), { wpnDmg: { formula: dmg.formula, type: dmg.type || '' }, lasting: true }); dmg = null; }
     if (pBuff) {
         pBuff = Object.assign(pBuff, { name: p.name || 'Power', key: (actor ? actor.id : 'comp') + ':' + (p.name || 'Power'), dur: d.duration || 'instant', pi: inst ? inst.id : null, lvl: parseInt(p.lvl) || 1, actInt: !!(d.durationMods || {}).actionInterrupt || undefined });
-        let tl = plan && plan.targets && plan.targets.list ? plan.targets.list : null;
+        let tl = plan && plan.targets && plan.targets.list ? plan.targets.list.filter(x => !plan.split || x.util) : null;   // (Split Target: the ones its Utilities reach)
         if (tl && tl.length && !sb._isCompanion) tl.forEach(x => { let e = typeof window._gmEntryForToken === 'function' ? window._gmEntryForToken(plan.targets.mapId, x.tokenId) : null; if (e && window._gmApplyBuff) window._gmApplyBuff(e, pBuff, whoGm); });
         else if (tl && tl.length && sb._isCompanion) window.apxOnRollEvent?.({ id: 'pwb' + Date.now().toString(36), kind: 'power', companion: true, label: p.name || 'Power', text: `${whoPub} uses ${p.name || 'a power'}.`, buff: pBuff, buffTarget: { mapId: plan.targets.mapId, tokenIds: tl.map(x => x.tokenId) } });
         else if (!plan && actor && !sb._isCompanion && window._gmBuffOffer) setTimeout(() => window._gmBuffOffer(actor, p), 400);
@@ -2195,9 +2201,24 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
     }
     // Overexertion (Step 8): using it costs the creature a level of Fatigue, once the power is over
     // (a lasting one in a fight: when it ends, i.e. 10 of its turns for 1 Minute or Channeling, or its chip's x)
+    // (a power with beneficial Utilities or healing can be built to give the Fatigue to its target instead: each one it reached)
+    let oxWho = d && d.refunds && d.refunds.overexertion && window.apxOxWho ? window.apxOxWho(d) : 'self';
+    let oxTargets = () => { let t = plan && plan.targets && plan.targets.list ? plan.targets.list.map(x => ({ mapId: plan.targets.mapId, tokenId: x.tokenId })) : []; return t; };
     if (actor && !sb._isCompanion && d && d.refunds && d.refunds.overexertion && window._gmAddFatigue) {
-        if ((d.duration || 'instant') !== 'instant' && window.gmCombatStarted && window._gmStartOverexert) window._gmStartOverexert(actor, p.name || 'Power', d.duration);
+        let to = oxWho === 'target' ? oxTargets() : null;
+        if ((d.duration || 'instant') !== 'instant' && window.gmCombatStarted && window._gmStartOverexert) window._gmStartOverexert(actor, p.name || 'Power', d.duration, { to: to && to.length ? to : null });
+        else if (oxWho === 'target') {
+            let list = (to || []).map(x => typeof window._gmEntryForToken === 'function' ? window._gmEntryForToken(x.mapId, x.tokenId) : null).filter(Boolean);
+            if (list.length && window._gmOxFatigueTo) window._gmOxFatigueTo(list, p.name || 'a power', whoGm);
+            else if (typeof window.gmLog === 'function') window.gmLog({ gmOnly: true, force: true, kind: 'info', text: `${whoGm}'s ${p.name || 'power'}: its target gains a level of Fatigue (Overexertion). Apply it by hand.` });
+        }
         else window._gmAddFatigue(actor.id, 1, `Overexertion: ${p.name || 'a power'}`);
+    }
+    // A Loyal Companion's Instant power: its Fatigue (or its target's) through its owner's sheet
+    if (sb._isCompanion && d && d.refunds && d.refunds.overexertion && (d.duration || 'instant') === 'instant' && window.apxOxFatigue) {
+        let mine = mctx && mctx.tokenId, l = plan && plan.targets && plan.targets.list ? plan.targets.list : [];
+        let others = l.filter(x => x.tokenId !== mine);
+        setTimeout(() => window.apxOxFatigue({ name: p.name || 'Power', oxWho, oxComp: oxWho !== 'target' || l.some(x => x.tokenId === mine), oxTo: others.length ? { mapId: plan.targets.mapId, tokenIds: others.map(x => x.tokenId) } : null }), 0);
     }
     // Sacrifice (Step 8): 1d10 per Power Level to the creature using it (a Loyal Companion's: its HP on its owner's sheet)
     if (d && d.refunds && d.refunds.sacrifice) {
@@ -2284,8 +2305,28 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
         if (fxInfo && fxInfo.conds.length) offerFx();
         return;
     }
+    // Split Target: a target for each die (picked on the map), each rolled on its own
+    let splitOn = !!(plan && plan.split && dmg && plan.split.assign && Object.keys(plan.split.assign).length);
+    let splitRoll = (x) => {
+        let names = {}; ((plan.targets && plan.targets.list) || []).forEach(t => { names[t.tokenId] = t.name; });
+        let am = d.addAttrToDmg ? ((sb.mods || {})[sb.powerAttrChoice] || 0) : 0;
+        return window.apxSplitRoll(Object.assign({ name: p.name || 'Power', who: whoGm, assign: window.apxSplitAssign(window.apxSplitDice(d), plan.targets.list), names, flat: !!d.addFlatDmgPerDie, extraFirst: am, heal: !!dmg.heal }, x || {}));
+    };
     if (step === 'atkSave' && d.atkMode !== 'save') {
         o.bonus = sb.powerAttackBonus || 0;
+        if (splitOn && !dmg.heal) {
+            // (one attack roll against each target's AC, then each target's own dice; a natural 20 doubles them)
+            Object.assign(o, { kind: 'attack', label: (p.name || 'Power') + ': Power Attack' }); aimAt(o);
+            let sent = false;
+            o.onResult = r => { if (sent) return; sent = true;
+                let sr = splitRoll({ crit: r.nat === 20, critMult: 2 });
+                let ev2 = { id: 'pa' + Date.now().toString(36), kind: 'powerAtk', label: o.label, total: r.total, nat: r.nat, crit: r.nat === 20, fumble: r.nat === 1, area: o.areaHit, fx: o.powerFx || null, dmg: 0, dmgType: dmg.type, splitDmg: sr.byTok, splitParts: sr.parts, split: planEv.split || null };
+                if (sb._isCompanion) window.apxOnRollEvent?.(Object.assign({ companion: true }, ev2)); else if (actor && window._gmAreaAttack) window._gmAreaAttack(actor, ev2); };
+            APXDice.check(o);
+            worldOut({ attackRoll: true });
+            tell(`${whoPub} uses ${p.name || 'a power'}${isReact ? ' (Reaction)' : ''}: attack roll (Split Target).`, `${whoGm} uses ${p.name || 'a power'}${isReact ? ' (Reaction)' : ''}: attack roll (Split Target).`);
+            return;
+        }
         o.hit = { weapon: p.name || 'Power', props: [], die: dmg ? '1d' + ((dmg.formula.match(/d(\d+)/) || [0, 6])[1]) : '1d6', dmgType: dmg && !dmg.heal ? dmg.type : '' };
         if (dmg && !dmg.heal) { o.dice = dmg.formula; o.dmgType = dmg.type; if (dmg.split) o.split = dmg.split; aimAt(o); APXDice.attack(o); }
         else { Object.assign(o, { kind: 'attack', label: (p.name || 'Power') + ': Power Attack' }); aimAt(o); APXDice.check(o); }
@@ -2304,16 +2345,17 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
     let bits = [isReact ? 'Reaction' : `${cost} AP`].concat(saveKind ? [`Targets make a DC ${dc} ${sAttr}save: success ${saveKind === 'halves' ? 'halves it' : 'negates it'}`] : []).concat(escLine ? [escLine] : []).concat(pre && pre.note ? [pre.note] : []).concat(o.useNote ? [o.useNote] : []).concat(areaNote ? [areaNote] : []);
     // The tracker learns this power (and its damage type) is what hits next, not an earlier attack
     if (dmg && !dmg.heal && typeof window.apxOnNpcPowerUse === 'function') { try { window.apxOnNpcPowerUse(o, { id: pwId, label: p.name || 'Power', dmgType: dmg.type, dice: dmg.formula, save: saveKind ? { dc, kind: saveKind, attr: sInfo && sInfo.saveAttr || null } : null, aoe: !!(d.aoe && !['single', 'split'].includes(d.aoe)) }); } catch (e) { console.warn('Power hook:', e); } }
-    let dcard = null;
-    if (dmg) dcard = APXDice.damage({ label: (p.name || 'Power') + (dmg.heal ? ' healing' : ' damage'), who: whoGm, formula: dmg.formula, dmgType: dmg.heal ? '' : dmg.type, heal: dmg.heal || undefined, perks: false, note: bits.join(' · '), split: dmg.split || undefined });
+    let dcard = null, sr = null;
+    if (dmg && splitOn) sr = splitRoll({ note: bits.join(' · ') });   // (Split Target: each target's dice on their own)
+    else if (dmg) dcard = APXDice.damage({ label: (p.name || 'Power') + (dmg.heal ? ' healing' : ' damage'), who: whoGm, formula: dmg.formula, dmgType: dmg.heal ? '' : dmg.type, heal: dmg.heal || undefined, perks: false, note: bits.join(' · '), split: dmg.split || undefined });
     else APXDice.info({ label: p.name || 'Power', who: whoGm, text: p.desc || '', badges: bits });
     let saveTxt = saveKind ? `: targets make a DC ${dc} ${sAttr}save (success ${saveKind === 'halves' ? 'halves it' : 'negates it'})` : '';
     tell(`${whoPub} uses ${p.name || 'a power'}${isReact ? ' (Reaction)' : ''}${saveTxt}.`, `${whoGm} uses ${p.name || 'a power'}${isReact ? ' (Reaction)' : ''}${saveTxt}.`);
-    let dTotal = dcard && Array.isArray(dcard.parts) ? dcard.parts.filter(x => x.kind === 'dmg').reduce((t, x) => t + (x.total || 0), 0) : undefined;
+    let dTotal = sr ? sr.total : dcard && Array.isArray(dcard.parts) ? dcard.parts.filter(x => x.kind === 'dmg').reduce((t, x) => t + (x.total || 0), 0) : undefined;
     let dShares = dmg && dmg.split && dcard && Array.isArray(dcard.parts) ? dcard.parts.filter(x => x.kind === 'dmg').map((x, i) => ({ type: (dmg.split[i] || {}).type, dmg: x.total })) : undefined;
     let areaSave = saveKind && !(dmg && dmg.heal) ? { dc, kind: saveKind, attr: sInfo && sInfo.saveAttr || null } : null;
     areaOut({ save: areaSave, dmgTotal: dTotal, dmgType: dmg && !dmg.heal ? dmg.type : '', dice: dmg ? dmg.formula : '', heal: !!(dmg && dmg.heal), dmgParts: dShares, fx: fxInfo || undefined, ends: planEv.ends || undefined, drain: planEv.drain || undefined });
-    worldOut({ save: areaSave, dmgTotal: dTotal, dmgType: dmg && !dmg.heal ? dmg.type : '', dice: dmg ? dmg.formula : '', heal: !!(dmg && dmg.heal), dmgParts: dShares, fx: fxInfo || undefined });
+    worldOut(Object.assign({ save: areaSave, dmgTotal: dTotal, dmgType: dmg && !dmg.heal ? dmg.type : '', dice: dmg ? dmg.formula : '', heal: !!(dmg && dmg.heal), dmgParts: dShares, fx: fxInfo || undefined }, sr ? { splitDmg: sr.byTok, splitParts: sr.parts } : {}));
     if (!(areaRes && areaSave)) offerFx();   // (an area's own saves bring its Conditions)
 };
 // Has this stat block's creature (in the tracker) Awakened? Outside the tracker its Awakened powers are shown, unlocked.

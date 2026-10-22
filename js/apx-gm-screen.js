@@ -1574,13 +1574,17 @@ function _gmSaveBonus(entry, attr) {
 window._gmAreaResolve = function(attacker, info) {
     let a = info && info.area; if (!a) return;
     let label = info.label || 'a power', seen = new Set(), rows = [];
-    (a.tokenIds || []).forEach(id => { let e = _gmEntryForToken(a.mapId, id); if (e && !seen.has(e.id) && window.gmInitiative.includes(e)) { seen.add(e.id); rows.push({ e }); } });
+    (a.tokenIds || []).forEach(id => { let e = _gmEntryForToken(a.mapId, id); if (e && !seen.has(e.id) && window.gmInitiative.includes(e)) { seen.add(e.id); rows.push({ e, tokenId: id }); } });
     let byName = attacker ? _gmGmName(attacker) : 'Someone';
+    // Split Target: each target's own dice (info.splitDmg: { tokenId: total }), and only those ticked get its Utilities
+    let sDmg = info.splitDmg || null, sUtil = info.split && Array.isArray(info.split.util) ? info.split.util : null;
+    rows.forEach(r => { r.amt = sDmg ? (parseInt(sDmg[r.tokenId]) || 0) : null; r.util = !sUtil || sUtil.includes(r.tokenId); });
     if (!rows.length) { gmLog({ gmOnly: true, kind: 'info', force: true, text: `${byName}'s ${label}: no one in the tracker is in its area.` }); return; }
     let total = typeof info.dmgTotal === 'number' ? info.dmgTotal : null, save = info.save || null;
+    let amtOf = r => r.amt != null ? r.amt : total, halfOf = r => save && save.kind === 'halves' && amtOf(r) != null ? Math.floor(amtOf(r) / 2) : 0;
     let fx0 = info.fx || null, hasFx = !!(fx0 && ((fx0.conds || []).filter(c => c && c !== 'wounded').length)) || !!(info.ends && info.ends.length);
     // An attack roll (each target is its own hit), or nothing to roll, deal or put on them: just say who's in it
-    if (info.attackRoll || (total == null && !save && !hasFx)) {
+    if (info.attackRoll || (total == null && !save && !hasFx && !sDmg)) {
         gmLog({ gmOnly: true, kind: 'info', force: true, text: `In ${byName}'s ${label}: ${rows.map(r => _gmGmName(r.e)).join(', ')}.` });
         return;
     }
@@ -1604,7 +1608,7 @@ window._gmAreaResolve = function(attacker, info) {
             <input type="checkbox" data-row="${i}" checked>
             <span style="flex:1;font-weight:700">${esc(_gmGmName(r.e))}</span>
             ${save ? `<span style="color:#94a3b8;font-weight:700">${r.player ? 'rolls their own save' : `rolls its save (${r.bonus == null ? '+0?' : sign(r.bonus)})`}</span>` : ''}
-            <span style="min-width:84px;text-align:right;font-weight:900;color:${heal ? '#4ade80' : '#fca5a5'}">${heal ? '+' + total : save ? `−${total} / ${half ? '−' + half : 'none'}` : '−' + total}</span>
+            <span style="min-width:84px;text-align:right;font-weight:900;color:${heal ? '#4ade80' : '#fca5a5'}">${amtOf(r) == null ? (r.util ? 'its Utilities' : '') : heal ? '+' + amtOf(r) : save ? `−${amtOf(r)} / ${halfOf(r) ? '−' + halfOf(r) : 'none'}` : '−' + amtOf(r)}${sUtil && r.util && amtOf(r) != null ? ' · Utilities' : ''}</span>
         </label>`).join('')}
         <div style="font-size:10px;color:#64748b;margin-top:8px">${save ? 'Everyone makes a new save: NPCs roll now in your dice tray, players are asked to roll theirs, and each takes the damage (fail / success) when their roll comes in. ' : ''}Damage reduction, resistances and Swarms (double from areas) are worked out as it's dealt. Untick anyone it shouldn't touch.</div>
         <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
@@ -1644,27 +1648,29 @@ window._gmAreaResolve = function(attacker, info) {
         let picked = rows.filter(r => r.on && window.gmInitiative.includes(r.e));
         picked.forEach(r => {
             // (those it ends: gone whatever the save)
-            if (info.ends && info.ends.length && window._gmPowerEnds) window._gmPowerEnds(r.e, info.ends, label);
+            if (r.util && info.ends && info.ends.length && window._gmPowerEnds) window._gmPowerEnds(r.e, info.ends, label);
+            let rTot = amtOf(r), rHalf = halfOf(r);
             if (heal) {
-                if (!total) return;
+                if (!rTot) return;
                 let wasAboveZero = r.e.currentHp === null || r.e.currentHp > 0, before = (r.e.currentHp || 0) + (r.e.tempHp || 0);
                 let nh = window.apxNoHealCond && window.apxNoHealCond(r.e.faction === 'player' && r.e.playerUid ? _gmPlayerCondList(r.e) : _gmEffConds(r.e));
                 if (nh) { gmLog({ text: `${_gmPublicName(r.e)} can't regain Hit Points (${nh}): ${label} doesn't heal it.`, kind: 'info' }); return; }
-                let res = window.apxApplyHpInput('+' + total, r.e.currentHp, r.e.tempHp, r.e.maxHp);
+                let res = window.apxApplyHpInput('+' + rTot, r.e.currentHp, r.e.tempHp, r.e.maxHp);
                 if (res) { r.e.currentHp = res.currentHp; r.e.tempHp = res.tempHp; }
                 _gmLogHpChange(r.e, before, (r.e.currentHp || 0) + (r.e.tempHp || 0), wasAboveZero, 0, null, label);
                 _afterHpChange(r.e, wasAboveZero);
                 return;
             }
             if (!save) {
-                if (total) deal(r.e, total);
+                if (rTot) deal(r.e, rTot);
                 // No save: its Conditions land on each of them
-                if (rec && fx.conds.length && window.gmInitiative.includes(r.e)) { _gmApplyPfx(r.e, rec); gmLog({ text: `${_gmPublicName(r.e)} is ${what} (${label}).`, gmText: `${_gmGmName(r.e)} is ${what} (${label}).`, kind: 'info' }); }
+                if (r.util && rec && fx.conds.length && window.gmInitiative.includes(r.e)) { _gmApplyPfx(r.e, rec); gmLog({ text: `${_gmPublicName(r.e)} is ${what} (${label}).`, gmText: `${_gmGmName(r.e)} is ${what} (${label}).`, kind: 'info' }); }
                 return;
             }
-            let full = what ? `takes the full damage and is ${what}` : 'takes the full damage', fullInf = what ? `take the full damage and be ${what}` : 'take the full damage';
-            let item = { attr: save.attr || 'AGI', dc: save.dc, cond: fx && fx.conds[0] || null, why: label, saveKind: save.kind, pfx: rec,
-                fail: full, failInf: fullInf, area: { total, half, kind: save.kind, deal, dealt: null } };
+            let rWhat = r.util ? what : '';
+            let full = !rTot && rWhat ? `is ${rWhat}` : rWhat ? `takes the full damage and is ${rWhat}` : 'takes the full damage', fullInf = !rTot && rWhat ? `be ${rWhat}` : rWhat ? `take the full damage and be ${rWhat}` : 'take the full damage';
+            let item = { attr: save.attr || 'AGI', dc: save.dc, cond: r.util && fx && fx.conds[0] || null, why: label, saveKind: save.kind, pfx: r.util ? rec : null,
+                fail: full, failInf: fullInf, area: { total: rTot || 0, half: rHalf, kind: save.kind, deal, dealt: null } };
             if (r.player) _gmAskSave(r.e, item);
             else _gmRollNpcSave(r.e, item);
         });
@@ -2544,6 +2550,8 @@ function _gmHandleRollEvent(uid, ev) {
     }
     // A lasting power of theirs is over (its time, a rest, Concentration, ended by hand): everything it did goes
     if (ev.kind === 'powerEnd') { if (firstSeen && window._gmEndPi) { try { window._gmEndPi(ev.pi, ev.why || 'it ended', { fromPlayer: uid }); } catch (e) { console.warn('Power end:', e); } } return; }
+    // Overexertion's Fatigue on someone else (the power's target, or the player's Loyal Companion)
+    if (ev.kind === 'oxFatigue') { if (firstSeen && (ev.t || Date.now()) > Date.now() - 600000) _gmOxFatigueEvent(uid, ev); return; }
     // A buff they lost on their own (Invisible: a failed Concentration check)
     if (ev.kind === 'buffDrop') { if (firstSeen && window._gmBuffDropped) window._gmBuffDropped(uid, ev); return; }
     // Out of combat, a power still does what it does on an open battle map (a zone, a wall, a teleport…)
@@ -4194,6 +4202,14 @@ window._gmSummonSummaries = function () {
     });
     return out;
 };
+// A power's AP at the start of each of the creature's turns (js/apx-power-fx.js buffs: apTurn, apLoseTurn, apMove)
+function _gmPowerTurnAp(e) {
+    let st = k => window._gmBuffStat ? window._gmBuffStat(e, k) : 0;
+    let plus = st('apTurn'), minus = st('apLoseTurn'), mv = st('apMove'), bits = [];
+    if (plus || minus) { e.apCur = Math.max(0, gmApCurrent(e) + plus - minus); if (plus) bits.push(`+${plus} AP`); if (minus) bits.push(`−${minus} AP`); }
+    if (mv) { e._apMove = mv; bits.push(`+${mv} AP for movement only`); } else delete e._apMove;
+    if (bits.length) gmLog({ text: `${_gmPublicName(e)}: ${bits.join(', ')} from powers this turn.`, kind: 'info' });
+}
 function gmApMax(e) { return e && e.summoned ? (_gmBloodiedFrenzy(e) ? 5 : 3) : Math.max(0, parseInt(e.ap) || 0); }
 function gmApCurrent(e) {
     let max = gmApMax(e);
@@ -4215,7 +4231,7 @@ function gmStartTurnAp(e) {
         if (gone.length) {
             e._fx = e._fx.filter(f => !gone.includes(f));
             gmLog({ text: `${gone.map(f => f.name || 'A power').join(' and ')} on ${_gmPublicName(e)} ${gone.length > 1 ? 'end' : 'ends'}.`, kind: 'info' });
-            gone.filter(f => f.overexert).forEach(f => _gmFatigueAdd(e, 1, `Overexertion: ${f.name} is over`));
+            gone.filter(f => f.overexert).forEach(f => _gmOxEnd(e, f));
         }
     }
     if (Array.isArray(e._fx)) e._fx = e._fx.filter(f => f.keep);   // its maneuvers last until the start of its next turn
@@ -4225,7 +4241,11 @@ function gmStartTurnAp(e) {
     // Its Sacrifice's Can't Regain HP ends now
     if (e._sacNoHeal) { delete e._sacNoHeal; if (window._gmRemoveEntryCondition && (window._gmEntryConditions ? window._gmEntryConditions(e.id) : []).includes('noheal')) window._gmRemoveEntryCondition(e.id, 'noheal'); gmLog({ text: `${_gmPublicName(e)} can regain Hit Points again (its Sacrifice wore off).`, kind: 'info' }); }
     if (e.faction === 'player') return;   // players' sheets add their own AP when their turn starts
-    if (_gmCompSheetAp(e) !== null) return;   // (and their Loyal Companion's, on the same sheet)
+    if (_gmCompSheetAp(e) !== null) {   // (and their Loyal Companion's, on the same sheet: a power's AP on it goes there)
+        let st = k => window._gmBuffStat ? window._gmBuffStat(e, k) : 0, d = st('apTurn') - st('apLoseTurn'), mv = st('apMove');
+        if ((d || mv) && window._gmSendBuff) window._gmSendBuff(e.companionOf, { compAp: d, compMove: mv, name: 'Powers on your companion' });
+        return;
+    }
     // A creature summoned by a power: a hard 3 AP, gained fresh each turn (nothing banked)
     let fat = Math.max(0, parseInt(e.fatigue) || 0);   // Fatigue: 1 AP less gained per level
     if (e.summoned) e.apCur = e._apFirstSurprised ? 1 : Math.max(0, 3 - fat);
@@ -4235,8 +4255,10 @@ function gmStartTurnAp(e) {
         e.apCur = e.summoned ? Math.min(5, e.apCur + 2) : e.apCur + 2;
         gmLog({ text: `${_gmPublicName(e)} is Bloodied and frenzied: +2 AP this turn.`, gmText: `Bloodied Frenzy: ${_gmGmName(e)} is at or below half HP, +2 AP (${e.apCur} AP)${e.summoned ? '; its summoned 3 AP cap is 5 while it lasts' : ''}.`, kind: 'info' });
     }
-    // +1 AP at the start of its next turn (a power)
+    // +1 AP at the start of its next turn (a power used before this change)
     if (e._apNext > 0) { e.apCur = (e.apCur || 0) + e._apNext; gmLog({ text: `${_gmPublicName(e)} gains ${e._apNext} AP from a power this turn.`, kind: 'info' }); e._apNext = 0; }
+    // Powers on it, each turn they last: +1 AP, 1 less AP, and AP it can only spend on movement (used first when it moves)
+    _gmPowerTurnAp(e);
     // Conditions that take away AP (Stunned, Incapacitated, Paralyzed, Unconscious…): no AP this turn
     let noAp = _gmEffConds(e).map(id => (typeof CONDITIONS !== 'undefined' ? CONDITIONS : []).find(c => c.id === id)).filter(c => c && c.apZero);
     if (noAp.length) {
@@ -4300,7 +4322,7 @@ function gmApPipsHtml(e) {
         return isPlayer ? `<span style="${st}"></span>`
             : `<button onclick="window.gmClickApPip('${e.id}', ${i})" title="${filled ? 'Spend' : 'Add'} AP" style="${st}cursor:pointer"></button>`;
     }).join('');
-    return `<span class="flex items-center gap-0.5 flex-wrap" title="${isPlayer ? (compAp !== null ? 'Tracked on its owner\'s sheet (they spend it there)' : 'Tracked on the player\'s sheet') : 'AP now (gains its AP at the start of each turn; unspent AP carries over, no cap)'}"><b class="${cur === 0 ? 'text-red-400' : 'text-blue-300'}">AP ${cur}/${max}</b>${pips}</span>`;
+    return `<span class="flex items-center gap-0.5 flex-wrap" title="${isPlayer ? (compAp !== null ? 'Tracked on its owner\'s sheet (they spend it there)' : 'Tracked on the player\'s sheet') : 'AP now (gains its AP at the start of each turn; unspent AP carries over, no cap)'}"><b class="${cur === 0 ? 'text-red-400' : 'text-blue-300'}">AP ${cur}/${max}</b>${pips}${!isPlayer && e._apMove > 0 ? `<span data-ap-move title="AP from a power that it can only spend on movement (used first when it moves; gone at the start of its next turn)" style="margin-left:4px;font-size:9px;font-weight:800;color:#86efac">+${e._apMove} move</span>` : ''}</span>`;
 }
 // NPC attack rolls from a stat block spend that creature's AP. When several
 // initiative entries share the stat block, the one whose turn it is pays
@@ -4422,6 +4444,9 @@ function _gmActionCtx(e) {
         note: compAp !== null ? 'Its AP is on its owner\'s sheet: they spend it there (effects still apply here).' : (e.ap == null ? 'No AP tracked for it.' : ''),
         have: () => compAp !== null ? _gmCompSheetAp(G()) : (G().ap == null ? null : gmApCurrent(G())),
         spend: compAp !== null || e.ap == null ? null : n => { let x = G(); x.apCur = Math.max(0, gmApCurrent(x) - n); },
+        // (a power's AP for movement only: Move and Jump use it first)
+        moveAp: () => compAp !== null ? 0 : Math.max(0, parseInt(G()._apMove) || 0),
+        spendMove: compAp !== null || e.ap == null ? null : n => { let x = G(), mv = Math.min(n, Math.max(0, parseInt(x._apMove) || 0)); if (mv) { x._apMove -= mv; if (x._apMove <= 0) delete x._apMove; } if (n - mv > 0) x.apCur = Math.max(0, gmApCurrent(x) - (n - mv)); },
         moveCost: () => { let x = G(), n = _gmMovesThisTurn(x) + 1, eff = window.apxEffectiveConditions ? window.apxEffectiveConditions(window._gmEntryConditions ? window._gmEntryConditions(x.id) : (x.conditions || [])).map(c => c.id) : []; return eff.includes('staggered') ? n * 2 : n; },
         move: () => { let x = G(), key = x.id + ':' + window.gmTurnNumber; x._moves = { key, n: _gmMovesThisTurn(x) + 1, left: 0 }; },
         conds: () => window._gmEntryConditions ? window._gmEntryConditions(e.id) : (e.conditions || []),
@@ -4489,8 +4514,10 @@ window._gmFoTargets = _gmFoTargets;
 // An attack that covers an area (a Scatter weapon's 3-square Cone, a Repeating weapon's 2x2 square): its roll is
 // compared against each creature in it, and every one it hits takes the damage (Repeating at Long Range: half)
 function _gmAreaAttack(attacker, ev) {
-    let a = ev.area || {}, seen = new Set(), rows = [];
-    (a.tokenIds || []).forEach(id => { let e = _gmEntryForToken(a.mapId, id); if (e && e !== attacker && !seen.has(e.id) && window.gmInitiative.includes(e)) { seen.add(e.id); rows.push(e); } });
+    let a = ev.area || {}, seen = new Set(), rows = [], tokOf = {};
+    (a.tokenIds || []).forEach(id => { let e = _gmEntryForToken(a.mapId, id); if (e && e !== attacker && !seen.has(e.id) && window.gmInitiative.includes(e)) { seen.add(e.id); rows.push(e); tokOf[e.id] = id; } });
+    // Split Target: each target's own dice, and its Utilities only on the ones ticked
+    let sDmg = ev.splitDmg || null, sUtil = ev.split && Array.isArray(ev.split.util) ? ev.split.util : null;
     let who = attacker ? _gmGmName(attacker) : 'Someone', label = ev.label || 'an attack';
     if (!rows.length) { gmLog({ gmOnly: true, kind: 'info', force: true, text: `${who}'s ${label} (${ev.total}): no one in the tracker is in its area.` }); return; }
     let types = window.APXDamage && ev.dmgType ? window.APXDamage.parts(ev.dmgType) : [];
@@ -4503,15 +4530,18 @@ function _gmAreaAttack(attacker, ev) {
         let ac = _gmEntryAc(e), hit = !ev.fumble && ((ev.crit && !ev.critIfHit) || (ev.total || 0) >= ac);   // (critIfHit: a bought crit lands only on a hit)
         (hit ? hits : misses).push(`${_gmGmName(e)} (AC ${ac})`);
         let h = { attacker, label, hit: ev.hit || null, crit: !!ev.crit && hit, dice: ev.dice || '', dmgType: ev.dmgType || '', critMult: ev.critMult || 2, critExtra: 0 };
-        if (hit && dmg > 0) { let before = (e.currentHp || 0) + (e.tempHp || 0); _gmDamage(e, { raw: dmg, types, hit: h }); dealt += Math.max(0, before - ((e.currentHp || 0) + (e.tempHp || 0))); }
+        let eDmg = sDmg ? Math.max(0, parseInt(sDmg[tokOf[e.id]]) || 0) : dmg, eUtil = !sUtil || sUtil.includes(tokOf[e.id]);
+        if (sDmg && hit && eDmg > 0) h = Object.assign({}, h, { crit: false });   // (its own dice already rolled the crit)
+        if (sDmg && ev.splitParts && ev.splitParts[tokOf[e.id]]) h.dmgShares = ev.splitParts[tokOf[e.id]].map(x => x.dmg);
+        if (hit && eDmg > 0) { let before = (e.currentHp || 0) + (e.tempHp || 0); _gmDamage(e, { raw: eDmg, types: sDmg && ev.splitParts && ev.splitParts[tokOf[e.id]] ? ev.splitParts[tokOf[e.id]].map(x => x.type) : types, hit: h }); dealt += Math.max(0, before - ((e.currentHp || 0) + (e.tempHp || 0))); }
         else if (!hit && _gmTearingFloor(h)) _gmDamage(e, { raw: _gmTearingFloor(h), types: ['True'], hit: null, src: `${who}'s ${label} (a miss; Tearing)` });   // Tearing deals its least, hit or miss
         // A power that hits: its Conditions (an attack lands them, no save), and those it ends
-        if (hit && rec && fx.conds.length && window.gmInitiative.includes(e)) { _gmApplyPfx(e, rec); gmLog({ text: `${_gmPublicName(e)} is ${_gmCondNames(fx.conds)} (${label}).`, gmText: `${_gmGmName(e)} is ${_gmCondNames(fx.conds)} (${label}).`, kind: 'info' }); }
-        if (hit && fx && (fx.ends || []).length && window._gmPowerEnds) window._gmPowerEnds(e, fx.ends, label);
+        if (hit && eUtil && rec && fx.conds.length && window.gmInitiative.includes(e)) { _gmApplyPfx(e, rec); gmLog({ text: `${_gmPublicName(e)} is ${_gmCondNames(fx.conds)} (${label}).`, gmText: `${_gmGmName(e)} is ${_gmCondNames(fx.conds)} (${label}).`, kind: 'info' }); }
+        if (hit && eUtil && fx && (fx.ends || []).length && window._gmPowerEnds) window._gmPowerEnds(e, fx.ends, label);
     });
     if (fx && fx.drain && dealt > 0 && window._gmPowerDrain) window._gmPowerDrain(fx.drain, dealt, label, attacker);
     gmLog({ text: `${attacker ? _gmPublicName(attacker) : 'Someone'}'s ${label} sweeps the area: ${hits.length ? 'hits ' + hits.length : 'no hits'}.`,
-        gmText: `${who}'s ${label} (${ev.total}${ev.crit ? (ev.critIfHit ? ', critical if it hits' : ', critical') : ''}): hits ${hits.join(', ') || 'no one'}${misses.length ? '; misses ' + misses.join(', ') : ''}${dmg ? ` · ${dmg} damage each${a.half ? ' (Long Range: half)' : ''}` : ''}.`, kind: 'dmg', force: true });
+        gmText: `${who}'s ${label} (${ev.total}${ev.crit ? (ev.critIfHit ? ', critical if it hits' : ', critical') : ''}): hits ${hits.join(', ') || 'no one'}${misses.length ? '; misses ' + misses.join(', ') : ''}${sDmg ? ` · Split Target: ${rows.map(e => `${_gmGmName(e)} ${parseInt(sDmg[tokOf[e.id]]) || 0}`).join(', ')}` : dmg ? ` · ${dmg} damage each${a.half ? ' (Long Range: half)' : ''}` : ''}.`, kind: 'dmg', force: true });
     window.renderInitiativeTracker();
 }
 window._gmAreaAttack = _gmAreaAttack;
@@ -4530,7 +4560,7 @@ window.gmEndEntryFx = function(id, fxId) {
     let e = (window.gmInitiative || []).find(x => x.id === id); if (!e) return;
     let f = _gmFx(e).find(x => x.id === fxId);
     e._fx = _gmFx(e).filter(x => x.id !== fxId);
-    if (f && f.overexert) _gmFatigueAdd(e, 1, `Overexertion: ${f.name} is over`);
+    if (f && f.overexert) _gmOxEnd(e, f);
     if (f && f.key === 'grappling' && window._gmRemoveEntryCondition && (window._gmEntryConditions ? window._gmEntryConditions(id) : []).includes('staggered')) window._gmRemoveEntryCondition(id, 'staggered');
     window.renderInitiativeTracker();
 };
@@ -4550,11 +4580,25 @@ window._gmSacrifice = function(e, name, lvl) {
 };
 // A lasting power with Overexertion (an NPC's, in a fight): its Fatigue comes when the power ends: after 10 of its
 // turns (1 Minute, Channeling), or when its chip's x is clicked (it ended, or was dispelled). Used again: the old one ends.
-function _gmOxLabel(f) { return `${f.name}: Overexertion (+1 Fatigue when it ends${f.left != null ? `, ${f.left} more turn${f.left === 1 ? '' : 's'}` : ''})`; }
-window._gmStartOverexert = function(e, name, dur) {
+function _gmOxLabel(f) { return `${f.name}: Overexertion (+1 Fatigue ${f.oxTo ? 'to its target ' : ''}when it ends${f.left != null ? `, ${f.left} more turn${f.left === 1 ? '' : 's'}` : ''})`; }
+// Its Fatigue now: to the creature, or (a power built to give it to its target) to each creature it reached
+function _gmOxEnd(e, f, why) {
+    if (f && f.oxTo) {
+        let seen = new Set(), list = [];
+        f.oxTo.forEach(x => { let t = x.entryId ? (window.gmInitiative || []).find(y => y.id === x.entryId) : _gmEntryForToken(x.mapId, x.tokenId); if (t && !seen.has(t.id)) { seen.add(t.id); list.push(t); } });
+        if (list.length) _gmOxFatigueTo(list, f.name + (why ? ` (${why})` : ''), _gmGmName(e));
+        else gmLog({ gmOnly: true, force: true, kind: 'info', text: `${_gmGmName(e)}'s ${f.name} is over: its target gains a level of Fatigue (Overexertion), but it isn't in the tracker.` });
+        return;
+    }
+    _gmFatigueAdd(e, 1, `Overexertion: ${f ? f.name : 'a power'} ${why || 'is over'}`);
+}
+window._gmOxEnd = _gmOxEnd;
+window._gmStartOverexert = function(e, name, dur, o) {
+    o = o || {};
     let key = 'ox:' + name, old = _gmFx(e).find(f => f.key === key);
-    if (old) { e._fx = _gmFx(e).filter(f => f !== old); _gmFatigueAdd(e, 1, `Overexertion: ${name} (used again, so the first one is over)`); }
+    if (old) { e._fx = _gmFx(e).filter(f => f !== old); _gmOxEnd(e, old, '(used again, so the first one is over)'); }
     let f = { id: 'ox' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), key, name, overexert: true, keep: true, left: ({ '1min': 10, channel: 10 })[dur] || null };
+    if (o.to && o.to.length) f.oxTo = o.to;   // (its target gains the Fatigue: [{ mapId, tokenId } | { entryId }])
     f.label = _gmOxLabel(f);
     e._fx = _gmFx(e).concat([f]);
     window.renderInitiativeTracker();
@@ -4593,6 +4637,30 @@ function _gmFatigueAdd(e, n, why) {
     gmLog({ gmOnly: true, kind: 'info', force: true, text: `${_gmGmName(e)}: Fatigue ${e.fatigue}${why ? ` (${why})` : ''}${e.fatigue >= max ? ` — that's its limit (${max}): it dies of exhaustion.` : `, ${max - e.fatigue} from its limit.`}` });
     if (n > 0 && e.fatigue >= max && (e.currentHp || 0) > 0) { e.currentHp = 0; _afterHpChange(e, true); }
     window.renderInitiativeTracker();
+}
+// Overexertion's level of Fatigue to the creatures it reached: an NPC here, a player on their sheet
+function _gmOxFatigueTo(entries, label, by) {
+    (entries || []).forEach(t => {
+        if (!t || !(window.gmInitiative || []).includes(t)) return;
+        if (t.faction === 'player' && t.playerUid && !t.companionOf) {
+            if (window._gmSendBuff) window._gmSendBuff(t.playerUid, { name: `Overexertion (${label})`, fatigue: 1, from: by || '' });
+            gmLog({ text: `${_gmPublicName(t)} gains a level of Fatigue: ${label} is over (Overexertion).`, kind: 'info', force: true });
+        } else _gmFatigueAdd(t, 1, `Overexertion: ${label} is over`);
+    });
+}
+window._gmOxFatigueTo = _gmOxFatigueTo;
+function _gmOxFatigueEvent(uid, ev) {
+    let by = ((window.gmParty || []).find(p => p.fileName === uid)?.summary?.name) || ev.who || 'A player', label = ev.label || 'a power';
+    if (ev.companion) {
+        let c = (window.gmInitiative || []).find(e => e.companionOf === uid);
+        if (c) _gmFatigueAdd(c, 1, `Overexertion: ${label} is over`);
+        else gmLog({ gmOnly: true, force: true, kind: 'info', text: `${by}'s Loyal Companion gains a level of Fatigue (Overexertion: ${label}), but it isn't in the tracker.` });
+        return;
+    }
+    let a = ev.targets, seen = new Set(), list = [];
+    (a && a.tokenIds || []).forEach(id => { let e = _gmEntryForToken(a.mapId, id); if (e && !seen.has(e.id)) { seen.add(e.id); list.push(e); } });
+    if (!list.length) { gmLog({ gmOnly: true, force: true, kind: 'info', text: `${by}'s ${label} is over: its target gains a level of Fatigue (Overexertion). It isn't in the tracker: apply it by hand.` }); return; }
+    _gmOxFatigueTo(list, label, by);
 }
 window._gmAddFatigue = function(id, n, why) { let e = (window.gmInitiative || []).find(x => x.id === id); if (e) _gmFatigueAdd(e, n, why); };
 window.gmAdjFatigue = function(id, d) {

@@ -575,7 +575,7 @@
         // Step 3: Targeting. AoE (x3) is crafted to an exact size in one of three shapes.
         const POWER_STEP3_AOE = [
             { key: "single", label: "Single Target", mult: 1, desc: "The power affects one target within range." },
-            { key: "split", label: "Split Target", mult: 2, desc: "The power allows you to manually divide damage or healing dice between multiple specific targets within the range." },
+            { key: "split", label: "Split Target", mult: 2, desc: "The power allows you to manually divide damage or healing dice between multiple specific targets within the range. Alternatively, for 5 XP per target beyond the first, you can apply the Utilities of the Power to multiple targets." },
             { key: "aoe", label: "AoE", mult: 3, desc: "The power affects all targets within a designated geometric shape: choose a Line, Cone or Burst and its size." }
         ];
         const POWER_AOE_SHAPES = [
@@ -597,6 +597,8 @@
             let old = POWER_AOE_LEGACY[d.aoe];
             if (old) return { key: 'aoe', mult: old.mult, cost: 0, shape: null, size: old.r, label: old.label, legacy: true };
             let def = POWER_STEP3_AOE.find(s => s.key === d.aoe) || POWER_STEP3_AOE[0];
+            // Split Target: its Utilities reach up to splitTargets creatures (5 XP for each one beyond the first)
+            if (def.key === 'split') { let n = apxSplitTargets(d); return { key: 'split', mult: def.mult, cost: 5 * (n - 1), shape: null, size: 0, targets: n, label: n > 1 ? `Split Target (Utilities on ${n} targets)` : def.label }; }
             if (def.key !== 'aoe') return { key: def.key, mult: def.mult, cost: 0, shape: null, size: 0, label: def.label };
             let sh = POWER_AOE_SHAPES.find(x => x.key === d.aoeShape) || POWER_AOE_SHAPES[2];
             let n = Math.max(1, parseInt(d.aoeSize) || sh.def);
@@ -604,6 +606,9 @@
                 label: sh.key === 'burst' ? `${n}-sq Burst` : `${n}-sq ${sh.label}`, shapeDef: sh };
         }
         window.apxPowerAoe = apxPowerAoe;
+        // How many creatures a Split Target power's Utilities reach (1 unless more were bought)
+        function apxSplitTargets(d) { return Math.max(1, Math.min(50, parseInt(d && d.splitTargets) || 1)); }
+        window.apxSplitTargets = apxSplitTargets;
         window.POWER_AOE_SHAPES = POWER_AOE_SHAPES;
         // An area power on the battle map: { mode, size, range } (range in squares from its user: 0 = Self/Touch,
         // Infinity = anywhere you can see), or null for a power without an area. Old fixed-size areas are Bursts.
@@ -648,7 +653,7 @@
                 { key: "revealOutlines", label: "Reveal outlines of chosen creatures/items in range (works through walls).", cost: 5 },
                 { key: "summonGear", label: "Summon any mundane piece of general equipment or a tool.", cost: 5, rep: true },
                 { key: "difficultTerrain", label: "The terrain in the power's area of effect becomes Difficult Terrain for the duration.", cost: 5 },
-                { key: "bonusAp1", label: "The target gains an additional 1 AP at the start of their next turn for the duration of the power.", cost: 5, rep: true },
+                { key: "bonusAp1", label: "The target gains an additional 1 AP at the start of their turns for the duration of the power. This AP can only be spent on movement.", cost: 5, rep: true },
                 { key: "foodWater", label: "Create enough food or water to feed 1 creature.", cost: 5, rep: true },
                 { key: "oneWordCommand", label: "Force a simple one-word command at the start of its next turn (can't compel self-harm).", cost: 5 },
                 { key: "distributeDmg", label: "Distribute damage evenly between targets (can't be Single Target).", cost: 5 }
@@ -670,7 +675,8 @@
                 { key: "resizeOne", label: "Change the physical size of a target, growing or shrinking them by one size category.", cost: 15 },
                 { key: "readSurfaceThoughts", label: "Read the surface thoughts and immediate intentions of the target.", cost: 15 },
                 { key: "influenceOpinion", label: "Influence a target's opinion of you (friendly acquaintance) for the duration.", cost: 15, legacy: true },   // replaced by Charmed: kept for powers built with it
-                { key: "loseAp1", label: "The target immediately loses 1 AP.", cost: 15, rep: true },
+                { key: "loseAp1", label: "The target starts their turns with 1 less AP for the duration of the Power.", cost: 15, rep: true },
+                { key: "bonusApAny", label: "The target gains an additional 1 AP at the start of their turns for the duration of the power.", cost: 15, rep: true },
                 { key: "hazardTerrain", label: "Terrain in the AoE deals damage per square walked through (max 2 dice in Step 4).", cost: 15 },
                 { key: "sensor", label: "Create an invisible Sensor, hack a remote camera feed, or project your mind to a specific location within range. For the duration of this Power, you can see and hear from that location as if you were physically standing there. You do not need line of sight to place the origin point, but you must be familiar with the location. For 1 AP, you can move the Sensor 3 squares within the Power's maximum range. You can use Powers from this Sensor as if you were standing there. Using a Power from the Sensor makes it obviously visible as the source of the Power and tangible (AC 10, 10 HP) for the remaining duration of this Power. If the Sensor is destroyed, this Power ends, and any remaining damage is dealt to you as Energy (Psychic) damage.", cost: 15 }
             ],
@@ -767,7 +773,7 @@
         const POWER_REFUNDS = [
             { key: "minorRestriction", label: "Minor Restriction", cost: -5, desc: "A minor condition (light/darkness, a loud noise, a chant, specific gestures) must be met to cast it." },
             { key: "concentration", label: "Concentration", cost: -10, desc: "Spend 2 AP each turn to maintain it; taking damage forces a CON save (DC 10 or half damage) to keep it active." },
-            { key: "overexertion", label: "Overexertion", cost: -15, desc: "You gain 1 level of Fatigue after the power ends." },
+            { key: "overexertion", label: "Overexertion", cost: -15, desc: "You gain 1 level of Fatigue after the power ends. A power with beneficial Utilities or healing can give the Fatigue to its target instead (each target gains it when the power ends); a power that only deals damage, debuffs or harms can't." },
             { key: "sacrifice", label: "Sacrifice", cost: -20, desc: "Using this power deals 1d10 damage per Power Level to you. This damage cannot be prevented or mitigated. (A Tier 5 Power would deal 5d10 damage to you upon using it.) Additionally, you cannot regain Hit points from any source (including this power) until the beginning of your next turn." }
         ];
         // Costly is a slider (GM sets the exact refund, -5 to -20).

@@ -68,6 +68,17 @@
         r.mapFx = !!(r.zones.length || r.walls.length || r.terrain || r.hazard || r.sensor);
         return r;
     };
+    // Does it do something good for its target (healing, or beneficial Utilities)? Overexertion can then give the
+    // target the Fatigue instead of the power's user (not a power that only deals damage, debuffs or harms).
+    window.apxPowerBeneficial = function (d) {
+        d = d || {};
+        let p = window.apxPowerPlay(d, 1), b = p.buff;
+        let good = b && !!(b.ac || b.dr || b.er || b.speed || b.atk || b.save || b.skill || b.tempHp || b.apMove || b.apTurn || b.fly || b.swim || b.climb || b.hover
+            || b.noAoO || b.featherFall || (b.immune || []).length || b.invisible || b.fatigue < 0 || b.fatigueZero || (b.endConds || []).length || b.endWounds);
+        return !!(p.heal || good || (p.ends || []).length || p.wpnDmg || p.invisible);
+    };
+    // Overexertion's Fatigue: 'self' (the power's user) or 'target'
+    window.apxOxWho = d => (d && d.refunds && d.refunds.overexertion && d.oxWho === 'target' && window.apxPowerBeneficial(d)) ? 'target' : 'self';
     // Range in squares (Touch / Self: adjacent; Line of Sight / a weapon's range: anywhere in sight)
     window.apxPowerReach = function (p, who) {
         let d = (p && p.draft) || {}, R = window.apxPowerRange ? window.apxPowerRange(d) : { sq: 0 };
@@ -179,6 +190,104 @@
         });
     };
 
+    // ── Split Target: its damage or healing dice divided die by die, its Utilities on up to N targets ──
+    const STEPS = ['d4', 'd6', 'd8', 'd10', 'd12'];
+    // The power's dice in order (a second damage type's dice last): [{ size: 'd6', type: 'Fire' }]
+    window.apxSplitDice = function (d, chosen) {
+        d = Object.assign({}, d || {}, chosen || {});
+        let sc = d.addSecondType && !d.isHealing && window.apxSplitCounts ? window.apxSplitCounts(d) : {}, a = [], b = [];
+        let t1 = d.isHealing ? '' : (d.dmgType || 'Fire'), t2 = d.secondDmgType || 'Cold';
+        STEPS.forEach(st => { let c = Math.max(0, parseInt((d.dmg || {})[st]) || 0), k = Math.min(c, sc[st] || 0); for (let i = 0; i < c - k; i++) a.push({ size: st, type: t1 }); for (let i = 0; i < k; i++) b.push({ size: st, type: t2 }); });
+        return a.concat(b);
+    };
+    // One target's share as damage parts: [{ formula: '2d4+2', type }] (o.flat: +1 a die; o.attr: added to the first part;
+    // o.crit: dice × o.critMult)
+    window.apxSplitParts = function (dice, o) {
+        o = o || {};
+        let by = {}, order = [];
+        (dice || []).forEach(x => { let k = x.type || ''; if (!by[k]) { by[k] = []; order.push(k); } by[k].push(x.size); });
+        let mult = o.crit ? Math.max(2, parseInt(o.critMult) || 2) : 1;
+        let parts = order.map(k => {
+            let arr = by[k], f = STEPS.map(st => { let c = arr.filter(x => x === st).length; return c ? (c * mult) + st : ''; }).filter(Boolean).join('+');
+            if (o.flat) f += '+' + arr.length;
+            return { formula: f, type: k };
+        });
+        if (parts.length && o.attr) parts[0].formula += (o.attr > 0 ? '+' : '') + o.attr;
+        return parts;
+    };
+    // Each target's dice from the picker's counts, in order: { tokenId: [dice] }
+    window.apxSplitAssign = function (dice, list) {
+        let out = {}, i = 0;
+        (list || []).forEach(x => { let k = Math.max(0, parseInt(x.dice) || 0); if (!k) return; out[x.tokenId] = (out[x.tokenId] || []).concat(dice.slice(i, i + k)); i += k; });
+        return out;
+    };
+    // Rolls each target's share in the dice tray. o: { name, who, assign: { tokenId: [dice] }, names: { tokenId: name }, flat,
+    // extraFirst (the attribute bonus, Medic…: once, on the first target), heal, crit, critMult, maxDmg, note, apNote, apWarn, flavor }
+    // → { total, byTok: { tokenId: total }, parts: { tokenId: [{ type, dmg }] } }
+    window.apxSplitRoll = function (o) {
+        let out = { total: 0, byTok: {}, parts: {} }, first = true;
+        Object.keys(o.assign || {}).forEach(tid => {
+            let dice = o.assign[tid]; if (!dice || !dice.length) return;
+            let parts = window.apxSplitParts(dice, { flat: o.flat, attr: first ? (o.extraFirst || 0) : 0, crit: o.crit, critMult: o.critMult });
+            let nm = (o.names || {})[tid] || 'a target';
+            let card = window.APXDice ? APXDice.damage({ label: `${o.name || 'Power'} → ${nm} (${dice.length} ${dice.length === 1 ? 'die' : 'dice'})`, who: o.who, formula: parts.map(x => x.formula).join('+'),
+                dmgType: o.heal ? '' : parts.map(x => x.type).filter(Boolean).join(' + '), heal: o.heal || undefined, wcat: 'power', maxDmg: o.maxDmg || undefined, crit: o.crit || undefined,
+                split: parts.length > 1 ? parts : undefined, apNote: first ? o.apNote : undefined, apWarn: first ? o.apWarn : undefined, note: first ? (o.note || null) : null, flavor: first ? o.flavor : undefined }) : null;
+            let dp = card && Array.isArray(card.parts) ? card.parts.filter(x => x.kind === 'dmg') : [];
+            let tot = dp.reduce((t, x) => t + (x.total || 0), 0);
+            out.byTok[tid] = tot; out.total += tot;
+            if (parts.length > 1) out.parts[tid] = dp.map((x, i) => ({ type: (parts[i] || {}).type, dmg: x.total }));
+            first = false;
+        });
+        return out;
+    };
+    // The picker. o: { title, ctx, fromId, selfId, reach, allowSelf, nDice, diceText, utilN, heal, other }
+    // → { mapId, list: [{ tokenId, name, self, t, dice, util }] } | { other: true } | null
+    window.apxPickSplit = function (o) {
+        let rows = window.apxTargetsInReach(o.ctx, o.fromId, o.reach, { allowSelf: o.allowSelf, selfId: o.selfId });
+        let nD = Math.max(0, o.nDice || 0), nU = Math.max(0, o.utilN || 0);
+        return new Promise(resolve => {
+            if (window.apxInjectDialogStyles) window.apxInjectDialogStyles();
+            document.getElementById('apxSplitPick')?.remove();
+            let st = rows.map(() => ({ dice: 0, util: false }));
+            let back = document.createElement('div');
+            back.id = 'apxSplitPick'; back.className = 'apxdlg-back'; back.style.zIndex = 2147483300;
+            let rTxt = o.reach === Infinity ? 'in sight' : `within ${o.reach} square${o.reach === 1 ? '' : 's'}`;
+            let left = () => nD - st.reduce((t, x) => t + x.dice, 0), utils = () => st.filter(x => x.util).length;
+            let btn = (a, i, t, on) => `<button type="button" data-${a}="${i}" ${on ? '' : 'disabled'} style="width:1.4rem;height:1.4rem;border-radius:.3rem;border:0;font-weight:900;cursor:${on ? 'pointer' : 'default'};background:${on ? (a === 'up' ? '#b45309' : '#334155') : '#1e293b'};color:${on ? '#fff' : '#475569'}">${t}</button>`;
+            let draw = () => {
+                back.innerHTML = `<div class="apxdlg" style="width:min(460px,100%)"><div class="apxdlg-title">${esc(o.title || 'Split Target')}</div>
+                    <div class="apxdlg-msg">${nD ? `Pick a target for each of its ${nD} ${o.heal ? 'healing' : 'damage'} dice (${esc(o.diceText || nD + ' dice')}): one creature can take several. Dice with no target are lost.` : ''}${nD && nU ? ' ' : ''}${nU ? `Its Utilities${o.hasSave ? ' (and their saves)' : ''} reach up to ${nU} creature${nU === 1 ? '' : 's'}: tick them.` : ''} Creatures ${rTxt} you can see.</div>
+                    <div style="display:flex;flex-direction:column;gap:.2rem;max-height:46vh;overflow-y:auto;margin-bottom:.5rem">
+                    ${rows.length ? rows.map((r, i) => `<div style="display:flex;align-items:center;gap:.45rem;font-size:.78rem;padding:.15rem .2rem;border-radius:.3rem;background:${st[i].dice || st[i].util ? 'rgba(126,34,206,.18)' : 'transparent'}" data-row="${i}">
+                        <span style="flex:1;font-weight:700">${esc(r.self ? `${r.t.name || 'You'} (you)` : (r.t.name || 'Creature'))} <span style="font-size:.64rem;color:#94a3b8;font-weight:400">${r.self ? '' : r.d + ' sq'}</span></span>
+                        ${nD ? `${btn('down', i, '−', st[i].dice > 0)}<span style="min-width:2.4rem;text-align:center;font-weight:900" data-dice="${i}">${st[i].dice} ${st[i].dice === 1 ? 'die' : 'dice'}</span>${btn('up', i, '+', left() > 0)}` : ''}
+                        ${nU ? `<label style="display:flex;align-items:center;gap:.2rem;font-size:.66rem;cursor:pointer"><input type="checkbox" data-util="${i}" ${st[i].util ? 'checked' : ''} ${!st[i].util && utils() >= nU ? 'disabled' : ''}>Utilities</label>` : ''}
+                    </div>`).join('') : `<div style="font-size:.72rem;color:#94a3b8">No one you can see is ${rTxt}.</div>`}
+                    </div>
+                    <div style="font-size:.68rem;color:#cbd5e1;margin-bottom:.6rem;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">${nD ? `<span data-left><b>${left()}</b> of ${nD} dice left${left() ? ' (lost if no target takes them)' : ''}</span><button type="button" data-even style="font-size:.64rem;padding:.1rem .45rem;border-radius:.3rem;border:1px solid #64748b;background:#1e293b;color:#e2e8f0;cursor:pointer" title="The same number of dice to each creature that has some (or is ticked), rounded down">Split evenly</button>` : ''}${nU ? `<span>${utils()} of ${nU} Utility target${nU === 1 ? '' : 's'}</span>` : ''}</div>
+                    <div class="apxdlg-row" style="flex-wrap:wrap"><button class="apxdlg-btn" data-x>Cancel</button><button class="apxdlg-btn" data-other style="background:var(--c-surface2,#1e293b);color:inherit">${esc(o.other || 'Not on the map (my GM applies it)')}</button>${rows.length ? `<button class="apxdlg-btn apxdlg-ok" data-ok>Use it</button>` : ''}</div></div>`;
+                back.querySelectorAll('[data-up]').forEach(b => b.onclick = () => { let i = +b.dataset.up; if (left() > 0) st[i].dice++; draw(); });
+                back.querySelectorAll('[data-down]').forEach(b => b.onclick = () => { let i = +b.dataset.down; if (st[i].dice > 0) st[i].dice--; draw(); });
+                back.querySelectorAll('[data-util]').forEach(c => c.onchange = () => { let i = +c.dataset.util; st[i].util = c.checked && (st[i].util || utils() < nU); draw(); });
+                let ev = back.querySelector('[data-even]');
+                if (ev) ev.onclick = () => { let on = st.map((x, i) => x.dice > 0 || x.util ? i : -1).filter(i => i >= 0); if (!on.length) return; let each = Math.floor(nD / on.length); st.forEach((x, i) => { x.dice = on.includes(i) ? each : 0; }); draw(); };
+                back.querySelector('[data-x]').onclick = () => done(null);
+                back.querySelector('[data-other]').onclick = () => done({ other: true });
+                let ok = back.querySelector('[data-ok]');
+                if (ok) ok.onclick = () => {
+                    let pickd = rows.map((r, i) => ({ r, s: st[i] })).filter(x => x.s.dice > 0 || x.s.util);
+                    if (!pickd.length) return;
+                    done({ mapId: o.ctx.mapId, list: pickd.map(x => ({ tokenId: x.r.t.id, name: x.r.t.name || 'Creature', self: x.r.self, t: x.r.t, dice: x.s.dice, util: !!x.s.util })) });
+                };
+            };
+            let done = v => { back.remove(); resolve(v); };
+            back.addEventListener('mousedown', e => { if (e.target === back) done(null); });
+            draw();
+            document.body.appendChild(back);
+        });
+    };
+
     // ── Planning a power before anything is spent ──
     // info: { p, name, lvl, ctx (map), casterId (its token), who ('player' | 'companion' | 'npc'), areaRes, chan,
     //         sensorId (an active Sensor's token on that map) }
@@ -201,11 +310,27 @@
         if (info.areaRes) plan.targets = { mapId: info.areaRes.mapId, list: (info.areaRes.tokenIds || []).map(id => ({ tokenId: id })) };
         else if (play.targeted) {
             let allowSelf = !play.harmful || !!play.teleport;
-            let r = await window.apxPickTargets({ title: info.name, ctx, fromId, selfId: info.casterId, reach, allowSelf, max: play.split ? Infinity : 1 });
-            if (r === null) return null;
-            if (r.other) plan.other = true; else plan.targets = r;
+            // Split Target: a target for each die, and its Utilities on up to the number bought (Step 3)
+            if (play.split) {
+                let dice = (play.dmg || play.heal) && window.apxSplitDice ? window.apxSplitDice(d, info.chosen) : [];
+                let hasUtil = !!(play.buff || play.inflicts.length || play.ends.length || play.teleport || play.push || play.resize || play.wpnDmg || play.dispel || play.invisible);
+                // (one built before this was bought, not rebuilt yet: its Utilities still reach every creature picked)
+                let legacy = d.splitTargets === undefined && (parseInt(p && p.rulesRev) || 1) < 12;
+                let utilN = hasUtil ? (legacy ? 50 : (window.apxSplitTargets ? window.apxSplitTargets(d) : 1)) : 0;
+                let txt = STEPS.map(st => { let c = dice.filter(x => x.size === st).length; return c ? c + st : ''; }).filter(Boolean).join(' + ');
+                let r = await window.apxPickSplit({ title: `${info.name}: Split Target`, ctx, fromId, selfId: info.casterId, reach, allowSelf, nDice: dice.length, diceText: txt, utilN, heal: play.heal, hasSave: !!play.save });
+                if (r === null) return null;
+                if (r.other) plan.other = true;
+                else { plan.targets = r; plan.split = { dice, utilN, assign: window.apxSplitAssign(dice, r.list), util: r.list.filter(x => x.util).map(x => x.tokenId) }; }
+            } else {
+                let r = await window.apxPickTargets({ title: info.name, ctx, fromId, selfId: info.casterId, reach, allowSelf, max: 1 });
+                if (r === null) return null;
+                if (r.other) plan.other = true; else plan.targets = r;
+            }
         }
-        let first = plan.targets && plan.targets.list && plan.targets.list[0];
+        // (Split Target: the creatures its Utilities reach)
+        let utilList = () => plan.split ? plan.targets.list.filter(x => x.util) : (plan.targets ? plan.targets.list : []);
+        let first = plan.targets && plan.targets.list && (plan.split ? utilList()[0] : plan.targets.list[0]);
         let tokOf = id => (ctx.map.battleTokens || []).find(t => t.id === id);
         // Teleport / Move the target: a square within reach of where it is, unoccupied, not through walls
         let moveN = play.teleport || play.push;
@@ -220,7 +345,7 @@
                 if (res && res !== 'skip' && res.foot) plan.moves.push({ mapId: ctx.mapId, tokenId: tt.id, gx: res.foot.x0, gy: res.foot.y0, kind: play.teleport ? 'teleport' : 'push', name: tt.name || '' });
             }
         }
-        if (play.resize && plan.targets) plan.resize = { dir: play.resize, mapId: plan.targets.mapId, tokenIds: plan.targets.list.map(x => x.tokenId) };
+        if (play.resize && plan.targets && utilList().length) plan.resize = { dir: play.resize, mapId: plan.targets.mapId, tokenIds: utilList().map(x => x.tokenId) };
         // Damage that heals: who regains half of what it deals
         if (play.drain) {
             let r = await window.apxPickTargets({ title: `${info.name}: healing`, msg: 'Who regains Hit Points equal to half the damage dealt (rounded down)?', ctx, fromId, selfId: info.casterId, reach, allowSelf: true, max: 1, other: 'No one on the map' });
@@ -277,6 +402,8 @@
         if (inst) Object.assign(out, { pi: inst.id, dur: inst.dur, lvl: inst.lvl });
         if (plan.mapId) out.mapId = plan.mapId;
         if (plan.targets && plan.targets.list && plan.targets.list.length) out.targets = { mapId: plan.targets.mapId, tokenIds: plan.targets.list.map(x => x.tokenId) };
+        // (Split Target: who its Utilities reach; each target's dice are rolled and sent as splitDmg)
+        if (plan.split) out.split = { util: plan.split.util.slice(), dice: Object.fromEntries(Object.entries(plan.split.assign).map(([k, v]) => [k, v.length])) };
         if (plan.play && plan.play.ends && plan.play.ends.length) out.ends = plan.play.ends.slice();
         if (plan.moves && plan.moves.length) out.moves = plan.moves.filter(m => !m.done).map(m => ({ mapId: m.mapId, tokenId: m.tokenId, gx: m.gx, gy: m.gy, kind: m.kind }));
         if (plan.resize) out.resize = plan.resize;

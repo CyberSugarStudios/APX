@@ -77,6 +77,16 @@
             { id: 'invisibleConc', test: d => ((((d.utility || {}).major || {}).invisible) || 0) > 0 && !(d.refunds && d.refunds.concentration),
               text: 'Turn the target Invisible now needs the Concentration refund (Step 8): keeping it up costs 2 AP each turn, and taking damage calls for a CON save. It still works as it is; rebuild it (free) to add Concentration.' }
         ],
+        // Split Target buys how many creatures its Utilities reach (5 XP per target beyond the first) and splits its dice
+        // die by die; Overexertion can give its Fatigue to the target; the AP Utilities work on each of the target's turns
+        12: [
+            { id: 'splitUtil', test: d => (window.apxPowerAoe ? window.apxPowerAoe(d).key === 'split' : d.aoe === 'split') && d.splitTargets === undefined && !!window.apxPowerPlay && (() => { let p = window.apxPowerPlay(d, 1); return !!(p.buff || p.inflicts.length || p.ends.length || p.teleport || p.push || p.resize || p.wpnDmg || p.dispel || p.invisible); })(),
+              text: 'Split Target changed: its damage or healing dice are now divided die by die (you pick a target for each die), and its Utilities reach one target unless you buy more (5 XP for each target beyond the first, Step 3). Until it\'s rebuilt it keeps applying its Utilities to every creature you pick. Rebuild it (free) to choose how many.' },
+            { id: 'oxWho', test: d => !!(d.refunds && d.refunds.overexertion) && !d.oxWho && !!window.apxPowerBeneficial && window.apxPowerBeneficial(d),
+              text: 'Overexertion can now give its level of Fatigue to the power\'s target instead of you, on a power with beneficial Utilities or healing. It still gives it to you; rebuild it (free) to choose (Step 8).' },
+            { id: 'apUtil', test: d => { let u = d.utility || {}; return !!((u.minor || {}).bonusAp1 || (u.moderate || {}).loseAp1); },
+              text: 'The AP Utilities changed: +1 AP now comes at the start of each of the target\'s turns for the power\'s duration and can only be spent on movement, and -1 AP now means the target starts each of its turns with 1 less AP while the power lasts (a new Moderate Utility gives +1 AP each turn for anything). It works the new way already; rebuild it (free) if you want to change it.' }
+        ],
         // Saving throws name their Core Attribute; lasting effects get an Escape Save the target can pass
         3: ['save', 'cond', 'escape', 'actionInt'].map(k => ({
             id: 'powerSaves_' + k,
@@ -443,7 +453,7 @@
         rbShownFor = key;
         window.apxRebuildList({
             id: 'sheet', title: 'Powers to rebuild',
-            intro: `The Power Crafting rules changed in ways that affect ${s.name || 'this character'}'s powers. Rebuild each one in the Power Crafter: it's free, and nothing is lost in the meantime. Area powers need rebuilding because Step 3 (Targeting) now crafts each area's shape and size exactly. A power listed only for the Step 7 AP changes (1 AP, Reaction, Lengthy Cast Time) is yours to rebuild or keep: rebuilding refunds any XP it now costs less. Powers now cap at 200 XP: one that costs more can't be used until it's rebuilt to 200 XP or less (free).`,
+            intro: `The Power Crafting rules changed in ways that affect ${s.name || 'this character'}'s powers. Rebuild each one in the Power Crafter: it's free, and nothing is lost in the meantime (each one says what changed). Latest: Split Target buys how many creatures its Utilities reach and splits its dice die by die, Overexertion can give its Fatigue to the target, and the AP Utilities work on each of the target's turns. Earlier changes: areas are crafted to an exact shape and size, Step 7's AP options were reworked (rebuild or keep), and powers cap at 200 XP (one over it can't be used until it's rebuilt).`,
             busy: ['powerCrafterModal', 'npcCrafterModal'],
             doneText: 'All your powers are rebuilt.',
             rows: () => {
@@ -487,7 +497,7 @@
         rbGmShown[wk] = true;
         window.apxRebuildList({
             id: 'gm', title: 'NPCs to rebuild',
-            intro: `The Power Crafting rules changed (saving throws name a Core Attribute, lasting effects give their target an Escape Save, Step 3 crafts each area's exact shape and size, and Step 7's AP options were reworked). These NPCs${w && w.name ? ' in ' + w.name : ''} have powers to rebuild. Rebuild opens each NPC and walks you through its powers; finished NPCs drop off this list. Powers listed only for the Step 7 changes can be kept as they are.`,
+            intro: `The Power Crafting rules changed (latest: Split Target buys how many creatures its Utilities reach and splits its dice die by die, Overexertion can give its Fatigue to the target, and the AP Utilities work on each of the target's turns; earlier: saving throws name a Core Attribute, lasting effects give an Escape Save, Step 3 crafts each area's exact shape and size, and Step 7's AP options were reworked). These NPCs${w && w.name ? ' in ' + w.name : ''} have powers to rebuild. Rebuild opens each NPC and walks you through its powers; finished NPCs drop off this list. Powers listed only for the Step 7 changes can be kept as they are.`,
             busy: ['powerCrafterModal', 'npcCrafterModal'],
             doneText: 'Every NPC is rebuilt.',
             rows

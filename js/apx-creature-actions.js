@@ -193,6 +193,7 @@
         }
         cost = cost || 0;
         let have = ctx.have ? ctx.have() : null;
+        if (a.move && have != null && ctx.moveAp) have += ctx.moveAp();   // (a power's AP for movement only)
         if (have != null && cost > have) {
             let ok = window.apxConfirm ? await window.apxConfirm(`${a.name} costs ${cost} AP and ${who} has ${have}. Do it anyway?`, { title: 'Not enough AP', okLabel: 'Do it anyway', cancelLabel: 'Cancel' }) : true;
             if (!ok) return;
@@ -221,7 +222,8 @@
         if (a.move && ctx.move) ctx.move();
         let spend = have != null ? Math.min(cost, have) : cost;
         // (standing up: removing Prone already charges its 2 AP where the page does that)
-        if (spend > 0 && ctx.spend && !(a.stand && ctx.standUpCharges)) ctx.spend(spend);
+        if (spend > 0 && a.move && ctx.spendMove) ctx.spendMove(spend);
+        else if (spend > 0 && ctx.spend && !(a.stand && ctx.standUpCharges)) ctx.spend(spend);
         if (won) {
             if (a.fx && ctx.addFx) ctx.addFx(Object.assign({ id: 'fx' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name: a.name }, JSON.parse(JSON.stringify(a.fx)), blockFx || {}));
             // (a grapple the tracker links up Staggers the grappler itself)

@@ -19,7 +19,7 @@ const CC_LAST_STEP = 7;
 
 function getBlankConsumableDraft() {
     return {
-        step1: 'atkSave', step2: 'touch', aoe: 'single',
+        step1: 'atkSave', step2: 'touch', aoe: 'single', splitTargets: 1,
         dmg: { d4: 0, d6: 0, d8: 0, d10: 0, d12: 0 },
         isHealing: false, dmgType: 'Fire',
         addSecondType: false, addFlatDmgPerDie: false, addAttrToDmg: false,
@@ -213,6 +213,7 @@ window.ccSetStep1 = function(val) { ccDraft.step1 = val; ccRenderAll(); };
 window.ccSetStep2 = function(val) { if (val === 'range' && ccDraft.step2 !== 'range') ccDraft.rangeSq = 10; ccDraft.step2 = val; ccRenderAll(); };
 window.ccRangeSq = function(delta, val) { window.apxRangeSqMutate(ccDraft, delta, val); ccRenderAll(); };
 window.ccSetAoe = function(val) { window.apxAoeMutate(ccDraft, 'aoe', val); ccRenderAll(); };
+window.ccSplitTargets = function(d) { ccDraft.splitTargets = Math.max(1, Math.min(50, (window.apxSplitTargets ? window.apxSplitTargets(ccDraft) : 1) + d)); ccRenderAll(); };
 window.ccSetAoeShape = function(val) { window.apxAoeMutate(ccDraft, 'shape', val); ccRenderAll(); };
 window.ccAoeSize = function(d, val) { window.apxAoeMutate(ccDraft, val != null ? 'size' : 'step', val != null ? val : d); ccRenderAll(); };
 window.ccSetDie = function(step, delta) {
@@ -286,7 +287,15 @@ window.ccSetMinorRestriction = function(delta) {
     ccDraft.refunds.minorRestriction = next;
     ccRenderAll();
 };
-window.ccToggleRefund = function(key, checked) { ccDraft.refunds[key] = checked; ccRenderAll(); };
+window.ccToggleRefund = function(key, checked) { ccDraft.refunds[key] = checked; if (key === 'overexertion' && checked && !(window.apxPowerBeneficial && window.apxPowerBeneficial(ccDraft))) ccDraft.oxWho = 'self'; ccRenderAll(); };
+// Overexertion: who gains the Fatigue (its target only on a consumable with beneficial Utilities or healing)
+window.ccSetOxWho = function(v) { ccDraft.oxWho = v === 'target' ? 'target' : 'self'; ccRenderAll(); };
+function ccOxWhoRow() {
+    let good = window.apxPowerBeneficial ? window.apxPowerBeneficial(ccDraft) : false, cur = ccDraft.oxWho === 'target' && good ? 'target' : 'self';
+    let opt = (v, txt, dis) => `<label class="inline-flex items-center gap-1 mr-3 ${dis ? 'opacity-40' : 'cursor-pointer'}" onclick="event.stopPropagation()"><input type="radio" name="ccOxWho" value="${v}" ${cur === v ? 'checked' : ''} ${dis ? 'disabled' : ''} onchange="window.ccSetOxWho('${v}')"> ${txt}</label>`;
+    return `<div class="mt-1 text-[10px] text-slate-300" data-ox-who><b class="text-amber-300">Who gains the Fatigue:</b> ${opt('self', 'whoever uses it', false)}${opt('target', 'its target (each one)', !good)}
+        <div class="text-[9px] text-slate-500">${good ? 'Its target gains the level of Fatigue when the effect ends.' : 'Only beneficial Utilities or healing can give the target the Fatigue, not damage or debuffs.'}</div></div>`;
+}
 window.ccSetCostly = function(val) { ccDraft.refunds.costly = parseInt(val) || 0; ccRenderAll(); };
 window.ccSetCharges = function(val) {
     let n = parseInt(val) || 1;
@@ -434,7 +443,7 @@ function ccRenderStep7() {
     let checkboxRows = POWER_REFUNDS.filter(r => r.key !== 'minorRestriction').map(r => `
         <label class="flex items-start gap-2 bg-slate-900 border border-slate-700 rounded p-2 cursor-pointer">
             <input type="checkbox" class="mt-1" ${ccDraft.refunds[r.key] ? 'checked' : ''} onchange="window.ccToggleRefund('${r.key}', this.checked)">
-            <div><div class="text-xs font-bold text-slate-200">${r.label} <span class="text-emerald-400">[${r.cost} XP]</span></div><div class="text-[10px] text-slate-500 leading-tight">${r.desc}</div></div>
+            <div><div class="text-xs font-bold text-slate-200">${r.label} <span class="text-emerald-400">[${r.cost} XP]</span></div><div class="text-[10px] text-slate-500 leading-tight">${r.desc}</div>${r.key === 'overexertion' && ccDraft.refunds.overexertion ? ccOxWhoRow() : ''}</div>
         </label>
     `).join('');
     let costlyRow = `
