@@ -11,11 +11,11 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.21.0432',
-        released: '2026-10-21T04:32:00',
-        releasedText: 'October 21, 2026 · 4:32 AM',
+        version: 'v2026.10.21.1713',
+        released: '2026-10-21T17:13:00',
+        releasedText: 'October 21, 2026 · 5:13 PM',
         title: 'Playtest 4: Maneuvers, Gear & Burdens',
-        intro: 'Straight from our fourth playtest: NPCs and companions get the full list of maneuvers and actions, Loyal Companions can carry your gear, and carrying too much finally weighs you down. Squeezing costs what it should, and Vitality\'s top rank keeps you on your feet. Since then: NPC maneuvers roll themselves, five new weapon properties (two of them fire into an area), readable buttons in every theme, Exo-Suits rebuilt in three frameworks, including the new Conduit, Keen, Parrying and Suppressed weapons, summons that mix Tiers, creatures your GM shares for summoning, and now Summon a Weapon built in the Power Crafter, perks you can take back a rank at a time, character files that show when they\'ve been edited, and now powers that apply their numbers for you, summons you place and command from their own window, and Ambusher, Charge, Relentless and Regenerative working as written.',
+        intro: 'Straight from our fourth playtest: NPCs and companions get the full list of maneuvers and actions, Loyal Companions can carry your gear, and carrying too much finally weighs you down. Squeezing costs what it should, and Vitality\'s top rank keeps you on your feet. Since then: NPC maneuvers roll themselves, five new weapon properties (two of them fire into an area), readable buttons in every theme, Exo-Suits rebuilt in three frameworks, including the new Conduit, Keen, Parrying and Suppressed weapons, summons that mix Tiers, creatures your GM shares for summoning, and now Summon a Weapon built in the Power Crafter, perks you can take back a rank at a time, character files that show when they\'ve been edited, and now powers that apply their numbers for you, summons you place and command from their own window, and Ambusher, Charge, Relentless and Regenerative working as written, and now Sacrifice that hurts like it should and Permanent powers that hold their slot.',
         index: [
             ['Combat', [
                 'NPCs, summoned creatures and Loyal Companions have an Actions button with every Combat Maneuver and Standard Action, spending their own AP. Fight Defensively, Fight Offensively and next-attack maneuvers change their rolls (and AC) until their next turn.',
@@ -61,7 +61,11 @@
                 'Charmed works everywhere it should: NPC Condition Immunities, an attack check against the charmer, and the Charm ends when the charmer\'s side harms the creature.',
                 'Summon a Weapon has its own builder: name the weapon, make it Melee or Ranged, and add Weapon Properties (10 XP each). It deals Step 4\'s damage (1 die per Power Level) with your Power Attack Bonus, costs 3 AP to attack with, and appears in Weapons & Attacks when you use the power.',
                 'Utilities marked * stack up to the power\'s Level (5 times at Level 5). Pinned joins the Moderate Condition list.',
-                'Medical consumables (ones that heal, or end a Condition) are tagged Medical, and Medic\'s AP discount applies to them.'
+                'Medical consumables (ones that heal, or end a Condition) are tagged Medical, and Medic\'s AP discount applies to them.',
+                'Sacrifice is applied for you: 1d10 per Power Level to the caster (nothing reduces it), then no regaining HP until their next turn, for players and NPCs alike.',
+                'Permanent powers have an Active bubble: while it\'s ticked, a rest doesn\'t give back the Power Slot it used.',
+                'Duration prices: 1 Hour 20 XP, 8 Hours 40, 24 Hours 45 (1 and 10 Minutes are unchanged). Powers and items you already have keep their price.',
+                'Invisibility now has a cost: each hostile action calls for a Concentration check, DC 10 and +5 for each one after.'
             ]],
             ['Weapons', [
                 'Medium weapons top out at 3d8 (3d10 two-handed) with no Heavy properties. Crit upgrades cost 300 / 900 Cu, Sturdy 50 Cu.',
@@ -116,7 +120,11 @@
                 'Using such a power asks who it targets: you, your Loyal Companion, or a creature on your GM\'s battle map (an area power: everyone in its area). On you it shows above your Powers and Attacks with the turns it has left and an x to end it; on anyone else your GM\'s tracker applies it.',
                 'Overexertion\'s Fatigue comes when the power ends: right away for an Instant power, otherwise when its time runs out, when you click End Power, or when you rest.',
                 'A Summon a Creature power with a range has you place each creature within it on your GM\'s battle map. On their turn you drag their tokens (their AP pays), and the Your Summons window shows their HP, Temp HP, AP, AC, Speed and Conditions with buttons to roll their attacks.',
-                'Building a summoned creature, the NPC Crafter warns about any attack or power over 3 AP: a summoned creature only ever has 3.'
+                'Building a summoned creature, the NPC Crafter warns about any attack or power over 3 AP: a summoned creature only ever has 3.',
+                'Sacrifice: using the power rolls 1d10 per Power Level in your dice tray and takes it from you at once (no DR, ER or resistance; Temporary HP still goes first), then you have Can\'t Regain HP until the start of your next turn (a round, out of combat). A companion\'s Sacrifice comes off its HP.',
+                'Permanent powers: an Active bubble on the card, ticked when you use it. While it\'s Active, a Short or Full Rest leaves its Power Slot (or Short Rest use) spent. Untick it when the power ends and the next rest gives the slot back. Rests no longer end a Permanent power with Overexertion; unticking it does, with its Fatigue.',
+                'Step 6 prices: 1 Minute 5 XP, 10 Minutes 10, 1 Hour 20, 8 Hours 40, 24 Hours 45. Your existing powers and consumables keep what they cost; a new duration on one uses the new price.',
+                'Turn the target Invisible: each time it takes a hostile action it must succeed on a Concentration check (DC 10, +5 for each further hostile action before the power ends).'
             ]],
             ['Consumables', [
                 'The Consumable Crafter shows its price against the cap: 150 Cu for one charge, +25 Cu per Artisan rank.',
@@ -217,7 +225,8 @@
                 'Summon ✓ / ✕ on an NPC\'s row in your NPC list shares it with your players for their Summon a Creature powers, in every world it\'s tagged for (every world, untagged), at its Tier. Players can\'t edit it, and turning it off stops new picks without taking it from powers that already summon it.',
                 'Condition Immunities include Charmed and Can\'t Regain HP.',
                 'Keen, Parrying and Suppressed are in the Weapon Forge for NPCs too, priced in TP: Keen weapons crit on a 19 or 20, and Suppressed attack cards note the attacker stays hidden.',
-                'Summon a Weapon for NPCs: build the weapon in the Power Crafter (properties priced in TP), and its stat block lists it under the power with the creature\'s Power Attack Bonus, Step 4 dice + its Power Attribute, and 3 AP. Click it to attack; using the power rolls no damage of its own. Crushing and Stunning on a summoned weapon use the Power Save DC.'
+                'Summon a Weapon for NPCs: build the weapon in the Power Crafter (properties priced in TP), and its stat block lists it under the power with the creature\'s Power Attack Bonus, Step 4 dice + its Power Attribute, and 3 AP. Click it to attack; using the power rolls no damage of its own. Crushing and Stunning on a summoned weapon use the Power Save DC.',
+                'Duration prices changed (1 Hour 20 XP, 8 Hours 40, 24 Hours 45), and NPC powers\' TP follows them when you build one or change its duration. NPCs you already made keep their powers\' Level and TP.'
             ]],
             ['Tracker', [
                 'Tearing raises a hit to at least 2 damage per damage die, after DR/ER (and an area attack\'s misses take it too).',
@@ -231,7 +240,8 @@
                 'Scatter and Repeating weapons (an NPC\'s or a player\'s) have you place a 3-square Cone or a 2x2 square on the battle map, and the roll is compared with each creature\'s AC there (Repeating at Long Range: half damage). Unwieldy asks whether the target is within 1 square.',
                 'NPC stat blocks list each weapon\'s properties under it, and a Tearing weapon\'s attack card shows its minimum damage.',
                 'Players\' notifications no longer show the damage NPCs deal each other (only that they hit), so DR and ER can\'t be worked out from them. Your log still has the numbers.',
-                'Temporary HP shows as "gains Temporary HP", not "Regaining HP".'
+                'Temporary HP shows as "gains Temporary HP", not "Regaining HP".',
+                'An NPC\'s Sacrifice power deals it 1d10 per Power Level (nothing reduces it) and gives it Can\'t Regain HP until the start of its next turn. A player\'s Sacrifice is logged as the Sacrifice, not as the last attack against them.'
             ]],
             ['Players\' Gear', [
                 'Players can be Overburdened now (Speed 1, Disadvantage on attacks, checks and saves), and wear Backpacks, Bandoliers and Utility Belts to carry more.',

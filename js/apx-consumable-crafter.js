@@ -60,7 +60,7 @@ window.ccCalcXP = function(draft) {
     });
 
     let durationDef = POWER_DURATION.find(d => d.key === draft.duration);
-    let step6Cost = durationDef.cost;
+    let step6Cost = window.apxDurationCost ? window.apxDurationCost(draft) : durationDef.cost;   // (an older item keeps its price)
     if (draft.durationMods.dmgInterrupt) step6Cost -= 5;
     if (draft.durationMods.actionInterrupt) step6Cost -= 10;
 
@@ -165,6 +165,7 @@ window.openConsumableCrafter = function(target) {
     let qin = document.getElementById('ccLootQty'); if (qin) qin.value = 1;
     if (qty) qty.style.display = 'none';
     ccDraft = getBlankConsumableDraft();
+    ccDraft.durRev = 2;   // (a new consumable: today's Step 6 prices; one being remade keeps its own until its duration changes)
     ccStep = 1;
     document.getElementById('ccName').value = '';
     let ed = ccTarget && ccTarget.edit;
@@ -263,6 +264,7 @@ window.ccSetUtilityCount = function(tier, key, delta) {
 };
 
 window.ccSetDuration = function(val) {
+    if (val !== ccDraft.duration) ccDraft.durRev = 2;   // a new duration: today's price
     ccDraft.duration = val;
     if (!ccDurationAllowsInterrupts(val)) {
         ccDraft.durationMods.dmgInterrupt = false;
@@ -403,7 +405,7 @@ function ccRenderStep6() {
     document.getElementById('ccStep6Options').innerHTML = ccEscapeHtml() + POWER_DURATION.map(d => `
         <label class="flex items-start gap-2 bg-slate-900 border ${ccDraft.duration === d.key ? 'border-purple-500' : 'border-slate-700'} rounded p-2 cursor-pointer">
             <input type="radio" name="ccDuration" class="mt-1" ${ccDraft.duration === d.key ? 'checked' : ''} onchange="window.ccSetDuration('${d.key}')">
-            <div><div class="text-xs font-bold text-slate-200">${d.label} <span class="text-yellow-500">[${d.cost} XP]</span></div>${d.desc ? `<div class="text-[10px] text-slate-500 leading-tight">${d.desc}</div>` : ''}</div>
+            <div><div class="text-xs font-bold text-slate-200">${d.label} <span class="text-yellow-500">[${ccDraft.duration === d.key && window.apxDurationCost ? window.apxDurationCost(ccDraft) : d.cost} XP]</span></div>${d.desc ? `<div class="text-[10px] text-slate-500 leading-tight">${d.desc}</div>` : ''}</div>
         </label>
     `).join('');
     let interruptsAllowed = ccDurationAllowsInterrupts(ccDraft.duration);

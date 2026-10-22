@@ -2116,11 +2116,23 @@
             else if (slot && slot.free) { notes.push(slot.label); if (traitSrc) traitSrc.used = (traitSrc.used || 0) + 1; }
             else if (slot) { window.state.usedPowerSlots[slot.key] = slot.used + 1; notes.push(`-1 ${slot.label} (${Math.max(0, slot.max - slot.used - 1)} left)`); }
             else notes.push(`no ${poolName} left`);
+            // A Permanent power: its Active bubble is ticked, and it remembers the Power Slot it took (a rest doesn't give
+            // that one back while the power is still active)
+            if (!chan && p.draft && p.draft.duration === 'permanent' && /^\d+$/.test(String(idx)) && !traitSrc && !itemSrc && !consItem) {
+                p.permActive = { slot: slot && !slot.free && slot.key != null ? String(slot.key) : null, t: Date.now() };
+                notes.push('Permanent: marked Active (while it is, a rest doesn\'t give back its Power Slot)');
+            }
             // Overexertion (Step 8): a level of Fatigue once the power is over (not again for each Channel). An Instant
             // power is over as soon as it's used; a lasting one is tracked above your Powers until it ends.
             if (!chan && p.draft && p.draft.refunds && p.draft.refunds.overexertion) {
                 if (window.apxStartActivePower && window.apxStartActivePower(idx, p)) notes.push('Overexertion: +1 Fatigue when it ends');
                 else { notes.push('Overexertion: +1 Fatigue once it\'s done'); setTimeout(() => window.apxOverexert && window.apxOverexert(p.name || 'Power'), 0); }
+            }
+            // Sacrifice (Step 8): using it deals 1d10 per Power Level to you (not again for each Channel), after its own card
+            if (!chan && p.draft && p.draft.refunds && p.draft.refunds.sacrifice && window.apxSacrifice) {
+                let sl = window.apxSacrificeLevel(p);
+                notes.push(`Sacrifice: ${sl}d10 damage to you`);
+                setTimeout(() => window.apxSacrifice(p.name || 'Power', sl), 60);
             }
             // A Channeling power: channeling starts (Channel buttons above your Powers and Attacks, up to 1 Minute)
             let chStep = !chan && window.apxChannelStep ? window.apxChannelStep(p.draft) : null;
@@ -2282,6 +2294,7 @@
                         <div><span class="text-slate-500">D/H:</span> ${apxPowerDmgHtml(p)}</div>
                     </div>
                     <div class="text-[10px] text-slate-500 leading-tight font-medium">${p.desc}</div>
+                    ${p.draft && p.draft.duration === 'permanent' ? `<label class="inline-flex items-center gap-1 mt-1 mr-2 text-[9px] font-bold cursor-pointer ${p.permActive ? 'text-emerald-300' : 'text-slate-500'}" title="Permanent: tick it while this power is still in effect (using it ticks it for you). While it's Active, finishing a rest doesn't give back the Power Slot it used. Untick it when it ends (you end it as a Free Action, or it's dispelled, cured, countered or destroyed)."><input type="checkbox" ${p.permActive ? 'checked' : ''} onchange="window.apxSetPermActive(${idx}, this.checked)" style="accent-color:#10b981"> Active${p.permActive && p.permActive.slot ? ` (holding a ${p.permActive.slot === 'CHA' ? 'Short Rest use' : 'Level ' + p.permActive.slot + ' Power Slot'})` : ''}</label>` : ''}
                     ${p.draft ? `<button onclick="window.openPowerEditor(${idx})" class="text-[9px] text-purple-400 hover:text-purple-300 font-bold mt-1">Edit in Power Crafter${p.wasFree ? ' (Free)' : ''}</button>` : ''}
                     ${p.draft && ((p.draft.utility || {}).major || {}).summonCreature ? (sl => `<button onclick="window.apxEditSummonCreature(${idx})" class="text-[9px] text-emerald-400 hover:text-emerald-300 font-bold mt-1 ml-2" title="Build or change the creature${sl.length > 1 ? 's' : ''} this power summons (${sl.map(x => 'Tier ' + x.tier).join(', ')})">${sl.every(x => x.npc) ? 'Edit Summoned Creature' : 'Build Summoned Creature'}${sl.length > 1 ? 's' : ''}</button><button onclick="window.apxOpenSummonsPanel && window.apxOpenSummonsPanel()" class="text-[9px] text-violet-300 hover:text-violet-200 font-bold mt-1 ml-2" title="Your summoned creatures in your GM's fight: HP, AP, Conditions and their attacks">Your Summons</button>`)(window.apxSummonSlots(p.draft)) : ''}
                     ${window.apxRecraftBadge ? window.apxRecraftBadge(p, `window.openPowerEditor(${idx})`) : ''}
@@ -2380,6 +2393,60 @@
         }
         window.apxChannelBarHtml = apxChannelBarHtml;
 
+        // ── Sacrifice (Step 8) ──
+        // "Using this power deals 1d10 damage per Power Level to you. This damage cannot be prevented or mitigated."
+        // Rolled in your dice tray and taken at once: no DR, ER, resistance or immunity reduces it (Temporary HP takes it
+        // first, as it does all damage). Then you can't regain Hit Points until the start of your next turn: the Can't
+        // Regain HP condition, ended for you then (out of combat: after a round, 6 seconds). state.sacrificeNoHeal
+        // remembers it was the Sacrifice's (a Can't Regain HP you already had stays).
+        // A consumable's Level comes from its XP, like a power's.
+        window.apxSacrificeLevel = function (p) {
+            let lvl = parseInt(p && p.lvl);
+            if (!lvl && p && p.consumable && p.draft && window.ccCalcXP && typeof getBlankConsumableDraft === 'function') {
+                try { let xp = window.ccCalcXP(Object.assign(getBlankConsumableDraft(), JSON.parse(JSON.stringify(p.draft)))).total; lvl = (POWER_LEVEL_TABLE.find(l => xp >= l.min && xp <= l.max) || { level: 1 }).level; } catch (e) { lvl = 1; }
+            }
+            return Math.max(1, Math.min(5, lvl || 1));
+        };
+        window.apxSacrifice = function (name, lvl) {
+            let st = window.state; if (!st || !window.APXDice) return;
+            lvl = Math.max(1, Math.min(5, parseInt(lvl) || 1));
+            let card = APXDice.damage({ label: `${name}: Sacrifice`, who: st.name || '', formula: lvl + 'd10', dmgType: 'True', perks: false,
+                note: `Sacrifice: ${lvl}d10 to you. Nothing reduces it, and you can't regain Hit Points until the start of your next turn.` });
+            let n = Math.max(0, (card && card.parts && card.parts[0] && card.parts[0].total) || 0);
+            let tempBefore = Math.max(0, st.tempHp || 0);
+            let r = window.apxApplyHpInput ? window.apxApplyHpInput('-' + n, st.currentHp, tempBefore, calc.maxHp) : null;
+            if (r) {
+                // (your GM's tracker takes your new HP and logs it as the Sacrifice's, not as the last attack's)
+                window.apxOnRollEvent?.({ id: 'sac' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), kind: 'damage', label: 'Sacrifice', sacrifice: name,
+                    raw: n, types: ['True'], dmg: n, hpDmg: n - Math.min(tempBefore, n), tempBefore, text: `${n} damage from ${name} (Sacrifice)`, hpAfter: r.currentHp, tempAfter: r.tempHp });
+                st.tempHp = r.tempHp;
+                window.updateState('currentHp', r.currentHp);
+                window.apxRefreshHpInputs?.();
+            }
+            let had = (st.conditions || []).includes('noheal');
+            st.sacrificeNoHeal = { added: !had || !!(st.sacrificeNoHeal && st.sacrificeNoHeal.added), t: Date.now(), fight: !!window._pwCombatCode };
+            if (!had && window.toggleCondition) window.toggleCondition('noheal', true);
+            window.APXDice.notify(`${name}: Sacrifice deals ${n} damage to you${tempBefore ? ` (${Math.min(tempBefore, n)} to your Temporary HP)` : ''}. You can't regain Hit Points until the start of your next turn.`, { kind: 'warn', open: true });
+            window.scheduleAutoSave?.();
+        };
+        // It wears off: the start of your next turn, or a round (6 seconds) out of combat
+        window.apxSacrificeEnd = function () {
+            let st = window.state, f = st && st.sacrificeNoHeal; if (!f) return;
+            delete st.sacrificeNoHeal;
+            if (f.added && (st.conditions || []).includes('noheal') && window.toggleCondition) window.toggleCondition('noheal', false);
+            window.APXDice?.notify('Sacrifice wears off: you can regain Hit Points again.', { kind: 'note' });
+            window.scheduleAutoSave?.();
+        };
+        setInterval(() => { try { let f = window.state && window.state.sacrificeNoHeal; if (f && !window._pwCombatCode && Date.now() - (f.t || 0) > 6000) window.apxSacrificeEnd(); } catch (e) { } }, 2000);
+        (function hookSac(tries) {
+            let orig = window.apxResetAp;
+            if (typeof orig !== 'function') { if ((tries || 0) < 50) setTimeout(() => hookSac((tries || 0) + 1), 200); return; }
+            if (orig._apxSac) return;
+            let w = function () { try { if (window.state && window.state.sacrificeNoHeal) window.apxSacrificeEnd(); } catch (e) { } return orig.apply(this, arguments); };   // (first: Regenerative can heal you at the start of the turn)
+            Object.keys(orig).forEach(k => { w[k] = orig[k]; });
+            w._apxSac = true; window.apxResetAp = w;
+        })(0);
+
         // ── Lasting powers with Overexertion ──
         // The Fatigue comes when the power ends: on its own (1 Minute or Channeling: 10 of your turns), when you end it
         // (End Power, above your Powers and Attacks), or when you rest. state.activePowers: [{ id, key, name, dur, left }]
@@ -2405,10 +2472,43 @@
             let st = window.state, a = (st.activePowers || []).find(x => x.id === id); if (!a) return;
             st.activePowers = st.activePowers.filter(x => x !== a);
             if (!st.activePowers.length) delete st.activePowers;
+            // (a Permanent power ended here: its Active bubble goes off too)
+            let pw = a.dur === 'permanent' && /^\d+$/.test(a.key) ? (st.powers || [])[+a.key] : null;
+            if (pw && pw.permActive) { delete pw.permActive; setTimeout(() => window.recalculateMath?.(), 0); }
             window.apxOverexert(a.name + (why ? ` (${why})` : ''));
         };
         // Resting ends them all (before the rest's own recovery)
-        window.apxEndAllActivePowers = function (why) { ((window.state && window.state.activePowers) || []).slice().forEach(a => window.apxEndActivePower(a.id, why)); };
+        // (keepPermanent: a rest doesn't end a Permanent power, it lasts until it's ended or dispelled)
+        window.apxEndAllActivePowers = function (why, keepPermanent) { ((window.state && window.state.activePowers) || []).slice().forEach(a => { if (keepPermanent && a.dur === 'permanent') return; window.apxEndActivePower(a.id, why); }); };
+        // ── Permanent powers: the Active bubble ──
+        // "When you complete a Rest, if this Power is still active, you do not regain the Power Slot used for this Power."
+        // power.permActive = { slot: '3' | 'CHA' | null } while it's in effect. Ticked by hand, it holds a slot of its own
+        // Level (or a Short Rest use). Unticked: it's over (with Overexertion, its Fatigue lands now).
+        window.apxSetPermActive = function (idx, on) {
+            let p = (window.state.powers || [])[idx]; if (!p) return;
+            if (on) {
+                let pool = window.apxPowerPool ? window.apxPowerPool(p) : 'full';
+                p.permActive = { slot: pool === 'short' ? 'CHA' : String(parseInt(p.lvl) || 1), t: Date.now(), manual: true };
+            } else {
+                delete p.permActive;
+                let a = ((window.state.activePowers) || []).find(x => x.key === String(idx));
+                if (a) window.apxEndActivePower(a.id, 'you ended it');
+                window.APXDice?.notify(`${p.name || 'Power'} has ended: your next rest gives back its Power Slot.`, { kind: 'note' });
+            }
+            window.recalculateMath(); window.scheduleAutoSave?.();
+        };
+        // What a rest keeps back: { slotKey: n } for the Permanent powers still Active (never more than were used)
+        window.apxPermHeldSlots = function (st) {
+            let held = {};
+            ((st && st.powers) || []).forEach(p => { if (p && p.permActive && p.permActive.slot && p.draft && p.draft.duration === 'permanent') held[p.permActive.slot] = (held[p.permActive.slot] || 0) + 1; });
+            Object.keys(held).forEach(k => { held[k] = Math.min(held[k], ((st.usedPowerSlots || {})[k]) || 0); if (!held[k]) delete held[k]; });
+            return held;
+        };
+        window.apxPermHeldText = function (held, st) {
+            let names = ((st && st.powers) || []).filter(p => p && p.permActive && p.permActive.slot && held[p.permActive.slot]).map(p => p.name || 'Power');
+            let n = Object.values(held).reduce((a, b) => a + b, 0);
+            return n ? `${n} Power Slot${n > 1 ? 's' : ''} still used by ${names.join(', ')} (Permanent, still Active)` : '';
+        };
         function apxActivePowersBarHtml() {
             let list = (window.state && window.state.activePowers) || []; if (!list.length) return '';
             let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');

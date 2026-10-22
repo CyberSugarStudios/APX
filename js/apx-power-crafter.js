@@ -92,6 +92,7 @@ function getBlankPowerDraft() {
         duration: 'instant', durationMods: { dmgInterrupt: false, actionInterrupt: false },
         apMod: 'ap4',
         refunds: { minorRestriction: 0, concentration: false, overexertion: false, sacrifice: false, costly: 0 },
+        durRev: 2,   // (Step 6's current prices; see apxDurationCost)
         flavorText: "",
         usageType: 'unlimited', maxCharges: 1, rechargeOn: 5 // GM/companion powers only
     };
@@ -190,7 +191,8 @@ window.pcCalcXP = function(draft) {
 
     let mythic = pcMythic(draft);
     let durationDef = POWER_DURATION.find(d => d.key === draft.duration);
-    let step6Cost = durationDef.cost;
+    let durCost = window.apxDurationCost ? window.apxDurationCost(draft) : durationDef.cost;   // (an older build keeps its price)
+    let step6Cost = durCost;
     if (draft.durationMods.dmgInterrupt) step6Cost -= 5;
     if (draft.durationMods.actionInterrupt) step6Cost -= 10;
 
@@ -210,7 +212,7 @@ window.pcCalcXP = function(draft) {
     // Mythic Utility: no XP refunded from Steps 6-8; Duration and AP Modification costs doubled;
     // a step the utility replaces costs nothing.
     if (mythic) {
-        step6Cost = (mythic.skip || []).includes(6) ? 0 : Math.max(0, durationDef.cost) * 2;
+        step6Cost = (mythic.skip || []).includes(6) ? 0 : Math.max(0, durCost) * 2;
         if ((mythic.skip || []).includes(7)) { step7Cost = 0; ap = POWER_AP_MODS.find(a => a.key === 'ap4')?.ap ?? 4; }
         else step7Cost = Math.max(0, step7Cost) * 2;
         step8Cost = 0;
@@ -346,6 +348,7 @@ window.openPowerCrafterFromGm = function(gp) {
     if (window.apxPowerApKey) { let k = window.apxPowerApKey(d); if (k !== d.apMod) d.apMod = k; delete d.apReaction; }
     if (!ATTRIBUTES.includes(d.coreAttr)) d.coreAttr = pcDefaultAttr();
     d.pool = pcDefaultPool();
+    d.durRev = 2;   // (a new power of yours: today's Step 6 prices)
     pcDraft = d;
     document.getElementById('pcName').value = gp.name || '';
     pcRenderUsageSection();
@@ -370,7 +373,7 @@ window.openPowerEditor = function(idx, target) {
     pcFreeMode = false; // only relevant to the "Save as New" path; "Save Changes" follows the power's own wasFree flag
     pcIsLairAction = !!power.isLairAction; // preserve whichever section this power already belongs to
     pcIsAwakened = !!power.isAwakened;
-    pcDraft = JSON.parse(JSON.stringify(power.draft));
+    pcDraft = JSON.parse(JSON.stringify(power.draft));   // (an older build keeps its Step 6 price until its duration is changed)
     // an area from before Step 3's rework (Small to Massive AoE): start from a Burst of the same radius
     if (window.apxPowerAoe && window.apxPowerAoe(pcDraft).legacy) { let A = window.apxPowerAoe(pcDraft); pcDraft.aoe = 'aoe'; pcDraft.aoeShape = 'burst'; pcDraft.aoeSize = A.size; pcDraft._aoeFrom = A.label; }
     // older Step 7 choices in the current terms ("1 AP or Reaction" set to Reaction, the one-length Lengthy Cast)
@@ -724,6 +727,7 @@ function pcRepMax(tier, key, n) {
 }
 window.pcSetChannelStep = function(val) { pcDraft.channelStep = val; pcRenderAll(); };
 window.pcSetDuration = function(val) {
+    if (val !== pcDraft.duration) pcDraft.durRev = 2;   // a new duration: today's price
     pcDraft.duration = val;
     // Interrupts only make sense for durations of 1 minute or longer --
     // silently clear them rather than leaving a disabled-but-checked box.
@@ -1090,7 +1094,7 @@ function pcRenderStep6() {
     document.getElementById('pcStep6Options').innerHTML = POWER_DURATION.map(d => `
         <label class="flex items-start gap-2 bg-slate-900 border ${pcDraft.duration === d.key ? 'border-purple-500' : 'border-slate-700'} rounded p-2 cursor-pointer">
             <input type="radio" name="pcDuration" class="mt-1" ${pcDraft.duration === d.key ? 'checked' : ''} onchange="window.pcSetDuration('${d.key}')">
-            <div><div class="text-xs font-bold text-slate-200">${d.label} <span class="text-yellow-500">[${pcCost(pcMythicPrice(d.cost), x => { x.duration = d.key; if (d.key === 'instant') { x.durationMods.dmgInterrupt = false; x.durationMods.actionInterrupt = false; } }, pcDraft.duration === d.key)}]</span></div>${d.desc ? `<div class="text-[10px] text-slate-500 leading-tight">${d.desc}</div>` : ''}</div>
+            <div><div class="text-xs font-bold text-slate-200">${d.label} <span class="text-yellow-500">[${pcCost(pcMythicPrice(pcDraft.duration === d.key && window.apxDurationCost ? window.apxDurationCost(pcDraft) : d.cost), x => { x.duration = d.key; x.durRev = 2; if (d.key === 'instant') { x.durationMods.dmgInterrupt = false; x.durationMods.actionInterrupt = false; } }, pcDraft.duration === d.key)}]</span></div>${d.desc ? `<div class="text-[10px] text-slate-500 leading-tight">${d.desc}</div>` : ''}</div>
         </label>
     `).join('');
     // Channeling: which step it repeats (asked only when the power has both)

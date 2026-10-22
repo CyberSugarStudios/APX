@@ -677,7 +677,7 @@
             major: [
                 { key: "dmgHeals", label: "Step 4 damage also heals you or another target for half (rounded down).", cost: 30 },
                 { key: "dispel", label: "End an ongoing Power of an equal or lower level affecting the target (Reaction: prevent it from being used).", cost: 30 },
-                { key: "invisible", label: "Turn the target Invisible.", cost: 30 },
+                { key: "invisible", label: "Turn the target Invisible. Each time the target takes a hostile action, they must succeed on a Concentration check. The DC starts at 10 and increases by 5 for each additional time they take a hostile action before this Power ends.", cost: 30 },
                 { key: "condInflictMajor", label: "Inflict or end Stunned, Paralyzed, or Unconscious.", cost: 30, rep: true },
                 { key: "fatigueZeroWoundAll", label: "Reduce Fatigue to zero, or end the Wounded condition on all limbs.", cost: 30 },
                 { key: "complexCommand", label: "Issue a complex, multi-step command the target must follow to the best of its ability.", cost: 30 },
@@ -710,12 +710,20 @@
             { key: "instant", label: "Instant / End of Next Turn", cost: 0 },
             { key: "1min", label: "1 Minute", cost: 5 },
             { key: "10min", label: "10 Minutes", cost: 10 },
-            { key: "1hr", label: "1 Hour", cost: 15 },
-            { key: "8hr", label: "8 Hours", cost: 20 },
-            { key: "24hr", label: "24 Hours", cost: 30 },
+            { key: "1hr", label: "1 Hour", cost: 20, legacyCost: 15 },
+            { key: "8hr", label: "8 Hours", cost: 40, legacyCost: 20 },
+            { key: "24hr", label: "24 Hours", cost: 45, legacyCost: 30 },
             { key: "channel", label: "Channeling (up to 1 Minute)", cost: 35, desc: "Spend half the power's AP cost (rounded down, min 1) on your turn to reapply its Damage (Step 4) or its Utility (Step 5) to the same target, whichever you choose when crafting it (not both), without using another Power Slot." },
             { key: "permanent", label: "Permanent", cost: 50, desc: "Lasts until dispelled, cured, countered, or destroyed. Ending it is a Free Action." }
         ];
+        // Step 6's cost for a build. 1 Hour, 8 Hours and 24 Hours cost more now (20 / 40 / 45 XP, were 15 / 20 / 30): a power
+        // or consumable built before (no durRev on its draft) keeps the price it was built at, so its Level, cap and TP don't
+        // change. Anything crafted (or rebuilt) from now on is stamped durRev 2 and pays the new price.
+        function apxDurationCost(draft) {
+            let def = POWER_DURATION.find(d => d.key === (draft && draft.duration)) || POWER_DURATION[0];
+            return ((draft && draft.durRev >= 2) || def.legacyCost == null) ? def.cost : def.legacyCost;
+        }
+        window.apxDurationCost = apxDurationCost;
         const POWER_DURATION_MODS = [
             { key: "dmgInterrupt", label: "Damage Interrupt", cost: -5, desc: "Whenever the target of a negative Utility takes damage, it immediately makes its Escape Save, ending the effect on a success. However, if the target is gaining a beneficial Utility then this interrupt occurs when you take damage, immediately ending the effects." },
             { key: "actionInterrupt", label: "Action Interrupt", cost: -10, desc: "The power ends the moment the target spends AP to attack or use a harmful power or ability. A target that can spend AP can also spend 3 AP on its turn to repeat an Escape Save, potentially ending the power. Can't be taken on a power that inflicts Stunned, Paralyzed, or Unconscious." }

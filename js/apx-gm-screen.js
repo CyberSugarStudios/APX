@@ -3486,9 +3486,10 @@ function _gmSheetDamageEvent(uid, ev) {
     if (ev.ignoreRes) types.ignoreRes = true;   // the player ticked "Ignore resistances"
     // the tracker takes the sheet's new HP (it's the player's own entry)
     if (typeof ev.hpAfter === 'number') { e.currentHp = ev.hpAfter; e.tempHp = ev.tempAfter || 0; }
-    let hit = (ev.atkId && window._gmLastAttack && window._gmLastAttack.id === ev.atkId ? _gmTakeHit(e) : null) || _gmTakeHit(e) || _gmTurnHit(e);
+    // (a power's Sacrifice: their own damage, not the last attack's)
+    let hit = ev.sacrifice ? null : (ev.atkId && window._gmLastAttack && window._gmLastAttack.id === ev.atkId ? _gmTakeHit(e) : null) || _gmTakeHit(e) || _gmTurnHit(e);
     e._sheetDmgAt = Date.now();
-    _gmDamage(e, { raw: ev.raw || 0, types, hit, sheet: { dmg: ev.dmg || 0, hpDmg: typeof ev.hpDmg === 'number' ? ev.hpDmg : undefined, tempBefore: typeof ev.tempBefore === 'number' ? ev.tempBefore : undefined }, nonlethal: !!ev.nonlethal });
+    _gmDamage(e, { raw: ev.raw || 0, types, hit, src: ev.sacrifice ? `${ev.sacrifice} (Sacrifice)` : undefined, sheet: { dmg: ev.dmg || 0, hpDmg: typeof ev.hpDmg === 'number' ? ev.hpDmg : undefined, tempBefore: typeof ev.tempBefore === 'number' ? ev.tempBefore : undefined }, nonlethal: !!ev.nonlethal });
 }
 
 window.toggleSurprised = function(id, checked) {
@@ -4179,6 +4180,8 @@ function gmStartTurnAp(e) {
         }
     }
     if (Array.isArray(e._fx)) e._fx = e._fx.filter(f => f.keep);   // its maneuvers last until the start of its next turn
+    // Its Sacrifice's Can't Regain HP ends now
+    if (e._sacNoHeal) { delete e._sacNoHeal; if (window._gmRemoveEntryCondition && (window._gmEntryConditions ? window._gmEntryConditions(e.id) : []).includes('noheal')) window._gmRemoveEntryCondition(e.id, 'noheal'); gmLog({ text: `${_gmPublicName(e)} can regain Hit Points again (its Sacrifice wore off).`, kind: 'info' }); }
     if (e.faction === 'player') return;   // players' sheets add their own AP when their turn starts
     if (_gmCompSheetAp(e) !== null) return;   // (and their Loyal Companion's, on the same sheet)
     // A creature summoned by a power: a hard 3 AP, gained fresh each turn (nothing banked)
@@ -4481,6 +4484,20 @@ window.gmEndEntryFx = function(id, fxId) {
     e._fx = _gmFx(e).filter(x => x.id !== fxId);
     if (f && f.overexert) _gmFatigueAdd(e, 1, `Overexertion: ${f.name} is over`);
     if (f && f.key === 'grappling' && window._gmRemoveEntryCondition && (window._gmEntryConditions ? window._gmEntryConditions(id) : []).includes('staggered')) window._gmRemoveEntryCondition(id, 'staggered');
+    window.renderInitiativeTracker();
+};
+// An NPC's power with Sacrifice: 1d10 per Power Level to itself, which nothing reduces (Temp HP first, as always), and it
+// can't regain Hit Points until the start of its next turn (the Can't Regain HP condition, ended then; e._sacNoHeal)
+window._gmSacrifice = function(e, name, lvl) {
+    if (!e || !window.APXDice) return;
+    lvl = Math.max(1, Math.min(5, parseInt(lvl) || 1));
+    let card = APXDice.damage({ label: `${name || 'Power'}: Sacrifice`, who: _gmGmName(e), formula: lvl + 'd10', dmgType: 'True', perks: false, note: `Sacrifice: ${lvl}d10 to ${_gmGmName(e)}, which nothing reduces` });
+    let n = Math.max(0, (card && card.parts && card.parts[0] && card.parts[0].total) || 0);
+    if (n > 0) _gmDamage(e, { raw: n, types: ['True'], hit: null, src: `${name || 'a power'} (Sacrifice)` });
+    let had = (window._gmEntryConditions ? window._gmEntryConditions(e.id) : (e.conditions || [])).includes('noheal');
+    if (!had) { _gmAddCondition(e, 'noheal'); e._sacNoHeal = true; }
+    // (out of combat there's no next turn: a round, 6 seconds)
+    if (!had && !window.gmCombatStarted) setTimeout(() => { if (!e._sacNoHeal) return; delete e._sacNoHeal; if (window._gmRemoveEntryCondition) window._gmRemoveEntryCondition(e.id, 'noheal'); window.renderInitiativeTracker(); }, 6000);
     window.renderInitiativeTracker();
 };
 // A lasting power with Overexertion (an NPC's, in a fight): its Fatigue comes when the power ends: after 10 of its

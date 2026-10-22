@@ -112,7 +112,7 @@
     // ── Short Rest ───────────────────────────────────────────────
     window.apxShortRest = function () {
         if (!needHp()) return;
-        window.apxEndAllActivePowers?.('you rested');   // (a lasting Overexertion power ends: its Fatigue first)
+        window.apxEndAllActivePowers?.('you rested', true);   // (a lasting Overexertion power ends: its Fatigue first; a Permanent one goes on)
         let log = [];
         let back = panel('Short Rest', '');
         let draw = () => {
@@ -155,8 +155,11 @@
             };
             back.querySelector('[data-finish]').onclick = () => {
                 let s = st();
-                let chaBack = (s.usedPowerSlots && s.usedPowerSlots.CHA) || 0;
-                if (s.usedPowerSlots) s.usedPowerSlots.CHA = 0;
+                // (a Permanent power still Active keeps its Short Rest use)
+                let held = window.apxPermHeldSlots ? window.apxPermHeldSlots(s) : {}, heldCha = held.CHA || 0;
+                let chaBack = Math.max(0, ((s.usedPowerSlots && s.usedPowerSlots.CHA) || 0) - heldCha);
+                if (s.usedPowerSlots) s.usedPowerSlots.CHA = heldCha;
+                let heldNote = heldCha && window.apxPermHeldText ? window.apxPermHeldText({ CHA: heldCha }, s) : '';
                 if (s.exoSuit) { s.exoSuit.camoUsed = 0; s.exoSuit.bulwarkUsed = 0; }   // Active Camouflage and Bulwark uses come back on a Short Rest
                 s.thFoundUsed = false;   // Treasure Hunter Rank 5: another item "found earlier"
                 s.relentlessUsed = 0;    // Relentless: its uses come back
@@ -167,6 +170,7 @@
                 refresh();
                 back.remove();
                 let spent = log.length;
+                if (heldNote) window.APXDice?.notify(heldNote + ': that use comes back at a rest after it ends.', { kind: 'note', open: true });
                 toast(`Short Rest done${spent ? `: ${spent} Rest Di${spent > 1 ? 'ce' : 'e'} spent` : ''}${chaBack ? `, ${chaBack} Short Rest Power use${chaBack > 1 ? "s" : ""} restored` : ''}${recBack ? `, ${recBack} ready again` : ''}${compSlots ? `, companion's CHA power slots restored` : ''}.`);
             };
         };
@@ -176,13 +180,14 @@
     // ── Full Rest ────────────────────────────────────────────────
     window.apxFullRest = async function () {
         if (!needHp()) return;
-        window.apxEndAllActivePowers?.('you rested');   // (a lasting Overexertion power ends: its Fatigue first)
+        window.apxEndAllActivePowers?.('you rested', true);   // (a lasting Overexertion power ends: its Fatigue first; a Permanent one goes on)
         let s = st(), c = C();
         let mh = maxHp();
         let maxDice = c.maxRestDice || s.restDice || 0;
         let spent = Math.max(0, maxDice - (s.restDice || 0));
         let diceBack = Math.min(spent, Math.floor(maxDice / 2));   // half of the max pool, rounded down
         let slotsUsed = Object.values(s.usedPowerSlots || {}).reduce((a, b) => a + (b || 0), 0);
+        let held = window.apxPermHeldSlots ? window.apxPermHeldSlots(s) : {}, nHeld = Object.values(held).reduce((a, b) => a + b, 0);
         let maxLuck = c.maxLuck || Math.max(1, (c.mods && c.mods.LUC) || 0);
         let omenRank = (s.perks || {}).luc_omen || 0;
         let unusedOmen = (s.omenDice || []).length;
@@ -190,7 +195,7 @@
             `HP back to full (${s.currentHp} → ${mh})`,
             s.fatigue > 0 ? `Fatigue ${s.fatigue} → ${s.fatigue - 1}` : null,
             `Rest Dice +${diceBack} (half your max of ${maxDice}, rounded down) → ${Math.min(maxDice, (s.restDice || 0) + diceBack)} / ${maxDice}`,
-            slotsUsed ? `All Power Slots restored (${slotsUsed} used)` : 'Power Slots: all available',
+            slotsUsed ? (nHeld ? `Power Slots restored (${slotsUsed - nHeld} of ${slotsUsed}): ${window.apxPermHeldText(held, s)}` : `All Power Slots restored (${slotsUsed} used)`) : 'Power Slots: all available',
             `Luck Points → ${maxLuck}`,
             s.companion ? `${s.companion.name || 'Companion'}: full HP, power slots and charges` : null,
             omenRank >= 5 ? 'Omen Dice: a Natural 1, a 10 and a Natural 20 to assign to your slots (below)'
@@ -251,7 +256,9 @@
             s2.currentHp = mh;
             if ((s2.fatigue || 0) > 0) s2.fatigue -= 1;
             s2.restDice = Math.min(maxDice, (s2.restDice || 0) + diceBack);
-            if (s2.usedPowerSlots) Object.keys(s2.usedPowerSlots).forEach(k => s2.usedPowerSlots[k] = 0);
+            // (a Permanent power still Active keeps the Power Slot it used)
+            let held2 = window.apxPermHeldSlots ? window.apxPermHeldSlots(s2) : {};
+            if (s2.usedPowerSlots) Object.keys(s2.usedPowerSlots).forEach(k => s2.usedPowerSlots[k] = held2[k] || 0);
             if (s2.exoSuit) { s2.exoSuit.camoUsed = 0; s2.exoSuit.bulwarkUsed = 0; }
             s2.thFoundUsed = false;
             s2.relentlessUsed = 0;

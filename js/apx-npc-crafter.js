@@ -2162,6 +2162,16 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
         if ((d.duration || 'instant') !== 'instant' && window.gmCombatStarted && window._gmStartOverexert) window._gmStartOverexert(actor, p.name || 'Power', d.duration);
         else window._gmAddFatigue(actor.id, 1, `Overexertion: ${p.name || 'a power'}`);
     }
+    // Sacrifice (Step 8): 1d10 per Power Level to the creature using it (a Loyal Companion's: its HP on its owner's sheet)
+    if (d && d.refunds && d.refunds.sacrifice) {
+        let sl = Math.max(1, Math.min(5, parseInt(p.lvl) || 1));
+        if (actor && !sb._isCompanion && window._gmSacrifice) setTimeout(() => window._gmSacrifice(actor, p.name || 'Power', sl), 60);
+        else if (sb._isCompanion && window.setCompanionHp && window.APXDice) setTimeout(() => {
+            let card = APXDice.damage({ label: `${p.name || 'Power'}: Sacrifice`, who: sb.name, formula: sl + 'd10', dmgType: 'True', perks: false, note: `Sacrifice: ${sl}d10 to ${sb.name || 'your companion'}, which nothing reduces. It can't regain Hit Points until the start of its next turn.` });
+            let n = Math.max(0, (card && card.parts && card.parts[0] && card.parts[0].total) || 0);
+            if (n) window.setCompanionHp(`-${n} true`);
+        }, 60);
+    }
     // Damage type chosen each time it's used: whoever uses it (the GM, or the player with a companion) picks
     let chosen = window.apxPowerChooseTypes ? await window.apxPowerChooseTypes(d, p.name) : null;
     if (chosen === false) return;
