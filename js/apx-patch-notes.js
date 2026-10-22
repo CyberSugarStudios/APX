@@ -11,11 +11,11 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.21.1713',
-        released: '2026-10-21T17:13:00',
-        releasedText: 'October 21, 2026 · 5:13 PM',
+        version: 'v2026.10.21.2304',
+        released: '2026-10-21T23:04:00',
+        releasedText: 'October 21, 2026 · 11:04 PM',
         title: 'Playtest 4: Maneuvers, Gear & Burdens',
-        intro: 'Straight from our fourth playtest: NPCs and companions get the full list of maneuvers and actions, Loyal Companions can carry your gear, and carrying too much finally weighs you down. Squeezing costs what it should, and Vitality\'s top rank keeps you on your feet. Since then: NPC maneuvers roll themselves, five new weapon properties (two of them fire into an area), readable buttons in every theme, Exo-Suits rebuilt in three frameworks, including the new Conduit, Keen, Parrying and Suppressed weapons, summons that mix Tiers, creatures your GM shares for summoning, and now Summon a Weapon built in the Power Crafter, perks you can take back a rank at a time, character files that show when they\'ve been edited, and now powers that apply their numbers for you, summons you place and command from their own window, and Ambusher, Charge, Relentless and Regenerative working as written, and now Sacrifice that hurts like it should and Permanent powers that hold their slot.',
+        intro: 'Straight from our fourth playtest: NPCs and companions get the full list of maneuvers and actions, Loyal Companions can carry your gear, and carrying too much finally weighs you down. Squeezing costs what it should, and Vitality\'s top rank keeps you on your feet. Since then: NPC maneuvers roll themselves, five new weapon properties (two of them fire into an area), readable buttons in every theme, Exo-Suits rebuilt in three frameworks, including the new Conduit, Keen, Parrying and Suppressed weapons, summons that mix Tiers, creatures your GM shares for summoning, and now Summon a Weapon built in the Power Crafter, perks you can take back a rank at a time, character files that show when they\'ve been edited, and now powers that apply their numbers for you, summons you place and command from their own window, and Ambusher, Charge, Relentless and Regenerative working as written, and Sacrifice that hurts like it should and Permanent powers that hold their slot, and now powers that play out on the battle map: targets in range, zones, walls, Sensors, Concentration and durations that end everything a power did.',
         index: [
             ['Combat', [
                 'NPCs, summoned creatures and Loyal Companions have an Actions button with every Combat Maneuver and Standard Action, spending their own AP. Fight Defensively, Fight Offensively and next-attack maneuvers change their rolls (and AC) until their next turn.',
@@ -65,7 +65,13 @@
                 'Sacrifice is applied for you: 1d10 per Power Level to the caster (nothing reduces it), then no regaining HP until their next turn, for players and NPCs alike.',
                 'Permanent powers have an Active bubble: while it\'s ticked, a rest doesn\'t give back the Power Slot it used.',
                 'Duration prices: 1 Hour 20 XP, 8 Hours 40, 24 Hours 45 (1 and 10 Minutes are unchanged). Powers and items you already have keep their price.',
-                'Invisibility now has a cost: each hostile action calls for a Concentration check, DC 10 and +5 for each one after.'
+                'Invisibility now has a cost: each hostile action calls for a Concentration check, DC 10 and +5 for each one after.',
+                'Powers work on the battle map: using one lists the creatures in its range you can see (walls block sight), and the GM\'s tracker rolls their saves and applies its damage, healing and Conditions to the ones you picked, with no dialog. NPC, Loyal Companion and summon powers work the same way.',
+                'Teleport and Move pick an empty square in reach, a zone of blinding (Darkness, Fog or Light, 2-square radius) Blinds whoever is inside, difficult and hazardous terrain cover the power\'s area, walls are drawn square by square (Solid blocks, Hazardous hurts), and Resize grows or shrinks the target.',
+                'A Sensor is a hidden token you can use powers from (it becomes visible and tangible, AC 10, 10 HP), move for 1 AP per 3 squares, and lose: if it\'s destroyed the power ends and the rest of the damage is dealt to you as Psychic.',
+                'Every lasting power has an Active bubble and counts down on the initiative (1 round = 6 seconds). When it ends (its time, a long enough rest, unticking it, Concentration lost, a dispel) everything it did ends with it.',
+                'Concentration asks for 2 AP each turn and a CON save when you\'re hurt. Turn the target Invisible needs it, with a Concentration check (CON save, DC 10 +5 each time) on every hostile action.',
+                'Extra weapon damage rides the target\'s weapon attacks, Damage that heals asks who gets the healing, End a Power lists the target\'s powers of its Level or lower, Temporary HP is 10 a copy, Swim and Climb show in your speeds, and Grappled joins the Minor Condition list.'
             ]],
             ['Weapons', [
                 'Medium weapons top out at 3d8 (3d10 two-handed) with no Heavy properties. Crit upgrades cost 300 / 900 Cu, Sturdy 50 Cu.',
@@ -124,7 +130,23 @@
                 'Sacrifice: using the power rolls 1d10 per Power Level in your dice tray and takes it from you at once (no DR, ER or resistance; Temporary HP still goes first), then you have Can\'t Regain HP until the start of your next turn (a round, out of combat). A companion\'s Sacrifice comes off its HP.',
                 'Permanent powers: an Active bubble on the card, ticked when you use it. While it\'s Active, a Short or Full Rest leaves its Power Slot (or Short Rest use) spent. Untick it when the power ends and the next rest gives the slot back. Rests no longer end a Permanent power with Overexertion; unticking it does, with its Fatigue.',
                 'Step 6 prices: 1 Minute 5 XP, 10 Minutes 10, 1 Hour 20, 8 Hours 40, 24 Hours 45. Your existing powers and consumables keep what they cost; a new duration on one uses the new price.',
-                'Turn the target Invisible: each time it takes a hostile action it must succeed on a Concentration check (DC 10, +5 for each further hostile action before the power ends).'
+                'Turn the target Invisible: each time it takes a hostile action it must succeed on a Concentration check (DC 10, +5 for each further hostile action before the power ends).',
+                'Targets in range: with your GM\'s battle map open, using a power lists the creatures within its range you can see, nearest first. Pick one (or several for a split power), or leave it to your GM. Your token on more than one open map: you pick which.',
+                'Teleport and Move the target: pick an empty square within reach (not through walls). Your own token moves right away; anyone else\'s, through your GM\'s tracker.',
+                'Create a zone of blinding: a 2-square radius of Darkness, Fog or intense Light (picked in the Power Crafter) that you place. Anyone inside is Blinded until they leave it.',
+                'Difficult terrain follows the power\'s area (a burst flows around walls). Hazardous terrain does too, and deals its damage for each square walked through.',
+                'Create a wall: Solid or Hazardous (picked in the crafter), 4 squares a copy, drawn square by square, each touching the last and the first within range. Solid blocks movement and sight like a map wall; Hazardous is difficult terrain in its damage type\'s color that hurts whoever goes through.',
+                'Change size: Grow or Shrink (picked in the crafter), on a target within range.',
+                'The target\'s weapons or fists deal additional damage: its dice are rolled as their own part of every weapon attack the target makes while it\'s Active.',
+                'Damage that heals asks who regains half of the damage dealt. End a Power lists the target\'s powers of its Level or lower to end one (a Reaction counterspell is your GM\'s call).',
+                'Create a Sensor: placed anywhere within range (no line of sight needed). Your powers can come from it, measuring range and sight from there; it then becomes visible and tangible (AC 10, 10 HP). Drag it on your turn for 1 AP per 3 squares, within range. If it\'s destroyed the power ends and the rest of the damage is dealt to you as Psychic.',
+                'Every lasting power (not only Permanent) has an Active bubble on its card, ticked when you use it. Unticking it ends the power and everything it did. In combat its time counts down on your turns (1 Minute is 10 of them); a Short Rest ends what lasts under an hour, a Full Rest what lasts under 8.',
+                'Concentration: at the start of each of your turns you\'re asked to spend 2 AP or let the power end, and taking damage asks for a CON save (DC 10 or half the damage, whichever is higher).',
+                'Turn the target Invisible needs the Concentration refund (Step 8). Each hostile action you take while Invisible asks for a Concentration check (a CON save), DC 10 and +5 each time; failing makes you visible again.',
+                'Damage Interrupt on a beneficial power ends it when you take damage; Action Interrupt when you attack or use a harmful power.',
+                'Temporary HP from a power is 10 a copy (copies stack up to the power\'s Level). Swim and Climb speeds from a power show under your speeds while it\'s Active, and each copy picks one.',
+                'Grappled is in the Minor Inflict or end a Condition list; Pinned is in the Moderate one with Restrained, Blinded, Charmed, Freezing, Provoked and Frightened.',
+                'Using a power again while it\'s still Active ends the first use; a Permanent power stays marked Active for the new one.'
             ]],
             ['Consumables', [
                 'The Consumable Crafter shows its price against the cap: 150 Cu for one charge, +25 Cu per Artisan rank.',
@@ -205,7 +227,11 @@
                 'Add Token: search by name, filter by Tier, sort by Name, Tier or HP. It shows this world\'s NPCs; tick All worlds for every saved stat block. Stat blocks place with their size and portrait.',
                 'Smaller tokens draw on top of larger ones.',
                 'A player\'s summoned creatures are theirs to move on their turns, like a Loyal Companion.',
-                'Fixed: a player\'s burst measurement stayed on your map after they turned it off.'
+                'Fixed: a player\'s burst measurement stayed on your map after they turned it off.',
+                'Zones of blinding: Darkness and Fog cover the map like Fog of War for your players (lighter for you), intense Light shows as a bright ring. Creatures inside are Blinded and stop being Blinded when they leave.',
+                'Powers leave difficult terrain, hazardous ground and walls on the map: hazards and hazardous walls in their damage type\'s color deal the power\'s damage to whoever moves through them (per square, or once for a wall), and solid walls block movement and sight. Teleports don\'t trip hazards.',
+                'Teleports, pushes and size changes from powers move and resize the tokens for you, and the size goes back when the power ends.',
+                'Your NPC on more than one open battle map: using a power asks which one.'
             ]],
             ['NPC Crafter', [
                 'Core Attributes cost 1 TP per point up to a score of 10 and 2 TP per point above it. NPCs and companions built before this keep their old price, so nothing you\'ve made changes on its own; Step 1 shows a button to move one over (a companion only if it still fits its budget). A creature with nothing above 10 moves over by itself.',
@@ -241,7 +267,12 @@
                 'NPC stat blocks list each weapon\'s properties under it, and a Tearing weapon\'s attack card shows its minimum damage.',
                 'Players\' notifications no longer show the damage NPCs deal each other (only that they hit), so DR and ER can\'t be worked out from them. Your log still has the numbers.',
                 'Temporary HP shows as "gains Temporary HP", not "Regaining HP".',
-                'An NPC\'s Sacrifice power deals it 1d10 per Power Level (nothing reduces it) and gives it Can\'t Regain HP until the start of its next turn. A player\'s Sacrifice is logged as the Sacrifice, not as the last attack against them.'
+                'An NPC\'s Sacrifice power deals it 1d10 per Power Level (nothing reduces it) and gives it Can\'t Regain HP until the start of its next turn. A player\'s Sacrifice is logged as the Sacrifice, not as the last attack against them.',
+                'A power with targets picked on the map resolves on its own: NPCs roll their saves in your dice tray, players are asked for theirs, and the damage, healing, Conditions it inflicts and the ones it ends land without a dialog. NPC and Loyal Companion powers list the creatures in range to pick from too.',
+                'Every lasting power is tracked as one instance: when it runs out on its owner\'s turns, a rest is long enough, its user unticks it, Concentration is lost, or it\'s dispelled, its buffs, Conditions, map effects, size change, Invisibility and Sensor all go together.',
+                'NPC Concentration: at the start of its turn you\'re asked to spend 2 AP or let it end, and damage rolls its CON save. An Invisible NPC rolls its Concentration check on each hostile action.',
+                'End a Power on a creature ends the power its user picked (of its Level or lower), or asks you which one.',
+                'A Sensor used as a power\'s source joins the order right after its owner (it never takes a turn) with AC 10 and 10 HP. Destroyed: the power ends and the rest of the damage goes to its owner as Psychic.'
             ]],
             ['Players\' Gear', [
                 'Players can be Overburdened now (Speed 1, Disadvantage on attacks, checks and saves), and wear Backpacks, Bandoliers and Utility Belts to carry more.',

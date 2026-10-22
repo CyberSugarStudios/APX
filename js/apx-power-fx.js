@@ -2,7 +2,7 @@
 // APX Power effects: Utilities that are numbers, applied for you
 // ============================================================
 // Step 5 Utilities that buff (or drain) a target by a number are applied when the power is used:
-//   +1 AC, +2 DR or ER, +2 Speed, +1 to Attack rolls / Saves / Skill checks, Temporary HP (5 x Level),
+//   +1 AC, +2 DR or ER, +2 Speed, +1 to Attack rolls / Saves / Skill checks, Temporary HP (10 a copy),
 //   +1 AP at the start of its next turn, -1 AP now, a Fly / Swim / Climb speed, Hover, no Attacks of
 //   Opportunity, Feather Fall, Immunity to a damage type, Ethereal (immune to Physical damage),
 //   Fatigue -1 / to 0, and ending Bleeding Out, Infected, Diseased or every Wounded limb.
@@ -26,7 +26,10 @@
         endBleedInfect: ['Ends', [['bleedingout', 'Bleeding Out'], ['infected', 'Infected']]],
         fatigueDisease: ['Does', [['fatigue', 'Fatigue -1 level'], ['diseased', 'Ends Diseased']]],
         fatigueZeroWoundAll: ['Does', [['fatigue', 'Fatigue to 0'], ['wounds', 'Ends Wounded on every limb']]],
-        dmgImmunity: ['Immune to', null]   // (a damage type)
+        dmgImmunity: ['Immune to', null],   // (a damage type)
+        lightDark: ['Zone of', [['dark', 'Magical darkness'], ['fog', 'A cloud of fog'], ['light', 'Intense light']]],
+        wall: ['Wall:', [['solid', 'Solid (blocks movement and sight)'], ['hazard', 'Hazardous (Step 4 dice to pass through)']]],
+        resizeOne: ['Size:', [['grow', 'Grow one size larger'], ['shrink', 'Shrink one size smaller']]]
     };
     const TIER_OF = {};
     function tierOf(key) {
@@ -53,14 +56,14 @@
         let any = false, n;
         if ((n = count(d, 'plus1Ac'))) { b.ac += n; any = true; }
         if ((n = count(d, 'speed2'))) { b.speed += 2 * n; any = true; }
-        if ((n = count(d, 'tempHp5'))) { b.tempHp += 5 * lvl * n; any = true; }
+        if ((n = count(d, 'tempHp5'))) { b.tempHp += 10 * n; any = true; }   // (10 per copy, up to the power's Level in copies)
         if ((n = count(d, 'bonusAp1'))) { b.apNext += n; any = true; }
         if ((n = count(d, 'loseAp1'))) { b.apLose += n; b.harmful = true; any = true; }
         if ((n = count(d, 'drEr2'))) { pickKeys('drEr2', n).forEach(pk => { b[pickOf(d, pk, 'drEr2') === 'er' ? 'er' : 'dr'] += 2; }); any = true; }
         if ((n = count(d, 'plus1Roll'))) { pickKeys('plus1Roll', n).forEach(pk => { let v = pickOf(d, pk, 'plus1Roll'); b[['atk', 'save', 'skill'].includes(v) ? v : 'atk'] += 1; }); any = true; }
         if (count(d, 'flySpeed')) { b.fly = true; any = true; }
         if (count(d, 'hover')) { b.hover = true; any = true; }
-        if (count(d, 'swimClimb')) { b[pickOf(d, 'swimClimb', 'swimClimb') === 'climb' ? 'climb' : 'swim'] = true; any = true; }
+        if ((n = count(d, 'swimClimb'))) { pickKeys('swimClimb', n).forEach(pk => { b[pickOf(d, pk, 'swimClimb') === 'climb' ? 'climb' : 'swim'] = true; }); any = true; }   // (two copies: both)
         if (count(d, 'noAoO')) { b.noAoO = true; any = true; }
         if (count(d, 'featherFall')) { b.featherFall = true; any = true; }
         if (count(d, 'dmgImmunity')) { b.immune.push(pickOf(d, 'dmgImmunity', 'dmgImmunity')); any = true; }
@@ -68,11 +71,15 @@
         if (count(d, 'endBleedInfect')) { b.endConds.push(pickOf(d, 'endBleedInfect', 'endBleedInfect')); any = true; }
         if (count(d, 'fatigueDisease')) { if (pickOf(d, 'fatigueDisease', 'fatigueDisease') === 'diseased') b.endConds.push('diseased'); else b.fatigue -= 1; any = true; }
         if (count(d, 'fatigueZeroWoundAll')) { if (pickOf(d, 'fatigueZeroWoundAll', 'fatigueZeroWoundAll') === 'wounds') b.endWounds = true; else b.fatigueZero = true; any = true; }
+        if (count(d, 'invisible')) { b.invisible = true; any = true; }   // (Concentration checks for each hostile action: js/apx-power-world.js)
         if (!any) return null;
         b.immune = [...new Set(b.immune)];
-        b.lasting = !!(b.ac || b.dr || b.er || b.speed || b.atk || b.save || b.skill || b.fly || b.swim || b.climb || b.hover || b.noAoO || b.featherFall || b.immune.length);
+        b.lasting = !!(b.ac || b.dr || b.er || b.speed || b.atk || b.save || b.skill || b.fly || b.swim || b.climb || b.hover || b.noAoO || b.featherFall || b.immune.length || b.invisible);
         return b;
     };
+    // An empty buff (for a power whose only buff is one the engine adds, like extra weapon damage)
+    window.apxBlankBuff = () => ({ ac: 0, dr: 0, er: 0, speed: 0, atk: 0, save: 0, skill: 0, tempHp: 0, apNext: 0, apLose: 0, fly: false, swim: false, climb: false, hover: false, noAoO: false, featherFall: false,
+        immune: [], fatigue: 0, fatigueZero: false, endConds: [], endWounds: false, harmful: false, lasting: false });
     // "+1 AC, +2 DR, Fly speed…"
     window.apxPowerBuffText = function (b) {
         if (!b) return '';
@@ -82,13 +89,16 @@
         if (b.tempHp) t.push(`${b.tempHp} Temporary HP`); if (b.apNext) t.push(`+${b.apNext} AP at the start of its next turn`); if (b.apLose) t.push(`loses ${b.apLose} AP`);
         if (b.fly) t.push('a Fly speed'); if (b.swim) t.push('a Swim speed'); if (b.climb) t.push('a Climb speed'); if (b.hover) t.push('Hover');
         if (b.noAoO) t.push('no Attacks of Opportunity'); if (b.featherFall) t.push('Feather Fall (no fall damage)');
-        if (b.ethereal) t.push('Ethereal (immune to Physical damage)'); else if (b.immune.length) t.push('Immune to ' + b.immune.join(', '));
+        if (b.ethereal) t.push('Ethereal (immune to Physical damage)'); else if ((b.immune || []).length) t.push('Immune to ' + b.immune.join(', '));
+        if (b.invisible) t.push('Invisible');
+        if (b.wpnDmg) t.push(`weapons deal +${b.wpnDmg.formula}${b.wpnDmg.type ? ' ' + b.wpnDmg.type : ''}`);
         if (b.fatigue) t.push(`Fatigue ${b.fatigue}`); if (b.fatigueZero) t.push('Fatigue to 0'); if (b.endWounds) t.push('ends every Wounded limb');
-        if (b.endConds.length) t.push('ends ' + b.endConds.map(c => ((typeof CONDITIONS !== 'undefined' ? CONDITIONS : []).find(x => x.id === c) || {}).name || c).join(', '));
+        if ((b.endConds || []).length) t.push('ends ' + b.endConds.map(c => ((typeof CONDITIONS !== 'undefined' ? CONDITIONS : []).find(x => x.id === c) || {}).name || c).join(', '));
         return t.join(', ');
     };
+    // Its target's turns (counted at the start of each one): 1 round = 6 seconds (js/apx-power-world.js)
     const TURNS = { instant: 2, '1min': 10, channel: 10 };
-    window.apxBuffTurns = dur => TURNS[dur || 'instant'] != null ? TURNS[dur || 'instant'] : null;
+    window.apxBuffTurns = dur => window.apxDurTurns ? window.apxDurTurns(dur) : (TURNS[dur || 'instant'] != null ? TURNS[dur || 'instant'] : null);
 
     // ── The Power Crafter: a pick for each copy that needs one ──
     window.pcUtilPickRows = function (key, n) {
@@ -108,7 +118,7 @@
         pickKeys(key, n).forEach(pk => { let v = pickOf(d, pk, key); tally[v] = (tally[v] || 0) + 1; });
         return Object.keys(tally).map(v => {
             let txt = ((opts.find(o => o[0] === v) || [v, v])[1]), k = tally[v];
-            let line = key === 'drEr2' ? `+${2 * k} ${txt}` : key === 'plus1Roll' ? `+${k} to ${txt}` : P[0] === 'Does' ? txt : `${P[0]} ${txt}`;
+            let line = key === 'drEr2' ? `+${2 * k} ${txt}` : key === 'plus1Roll' ? `+${k} to ${txt}` : P[0] === 'Does' || /:$/.test(P[0]) ? txt : `${P[0]} ${txt}`;
             return line + (k > 1 && !['drEr2', 'plus1Roll'].includes(key) ? ` (x${k})` : '');
         });
     };
@@ -129,6 +139,8 @@
             add('saveAll', b.save); add('checkAll', b.skill);
         });
     };
+    // Extra weapon damage from a power on you: [{ formula, type, name }]
+    window.apxPowerBuffWpnDmg = st => ((st && st.powerBuffs) || []).filter(b => b.wpnDmg && b.wpnDmg.formula).map(b => Object.assign({ name: b.name || 'Power' }, b.wpnDmg));
     window.apxPowerBuffImmune = st => [...new Set(((st && st.powerBuffs) || []).reduce((t, b) => t.concat(b.immune || []), []))];
     window.apxPowerBuffHas = (st, k) => ((st && st.powerBuffs) || []).some(b => b[k]);
     // Put a buff on yourself (from your own power, or from someone else's through your GM)
@@ -148,12 +160,17 @@
         window.recalculateMath?.(); window.scheduleAutoSave?.();
         window.APXDice?.notify(`${b.name || 'A power'}${from ? ` (${from})` : ''}: ${window.apxPowerBuffText(b)}${notes.length ? ' · ' + notes.join(', ') : ''}.`, { kind: 'note', open: true });
     };
-    window.apxEndBuff = function (id) {
+    window.apxEndBuff = function (id, why) {
         let st = window.state; if (!st) return;
         let b = (st.powerBuffs || []).find(x => x.id === id);
         st.powerBuffs = (st.powerBuffs || []).filter(x => x.id !== id);
         if (!st.powerBuffs.length) delete st.powerBuffs;
-        if (b) window.APXDice?.notify(`${b.name || 'A power'} on you ends.`, { kind: 'note' });
+        if (b) window.APXDice?.notify(`${b.name || 'A power'} on you ends${why ? ` (${why})` : ''}.`, { kind: 'note' });
+        // (Invisible no more: your GM's map shows your token again)
+        if (b && b.invisible) { try { window.apxOnRollEvent?.({ id: 'bd' + Date.now().toString(36), kind: 'buffDrop', label: b.name || 'Power', pi: b.pi || null, invisible: true }); } catch (e) { } }
+        // (your own lasting power whose only effect this was: it's over too)
+        let a = b && b.pi && window.apxMyInstance ? window.apxMyInstance(b.pi) : null;
+        if (a && !a.onOthers && !(st.powerBuffs || []).some(x => x.pi === a.id) && why && window.apxEndActivePower) window.apxEndActivePower(a.id, why);
         window.recalculateMath?.(); window.scheduleAutoSave?.();
     };
     // The bar above your Powers and Attacks (and under Armor & Defenses' totals): what's on you, with x to end it
@@ -188,7 +205,14 @@
         Object.keys(map).sort((a, b) => ((map[a] || {}).t || 0) - ((map[b] || {}).t || 0)).forEach(id => {
             if (seen.includes(id) || !map[id]) return;
             seen.push(id);
-            window.apxApplyBuffToMe(Object.assign({}, map[id], { id }), map[id].from || '');
+            let m = map[id];
+            // (the power it came from ended: its buffs on you go too)
+            if (m.endPi) { let gone = (st.powerBuffs || []).filter(b => b.pi === m.endPi); if (gone.length) { st.powerBuffs = st.powerBuffs.filter(b => !gone.includes(b)); if (!st.powerBuffs.length) delete st.powerBuffs; window.APXDice?.notify(`${gone[0].name || 'A power'} on you ends${m.why ? ` (${m.why})` : ''}.`, { kind: 'note' }); window.recalculateMath?.(); } return; }
+            // (one of your own powers was ended: dispelled, or its Sensor destroyed)
+            if (m.endOwn) { if (window.apxMyInstance && window.apxMyInstance(m.endOwn)) window.apxEndActivePower(m.endOwn, m.why || 'it was ended'); return; }
+            // (your token's size: a power grew or shrank you)
+            if (m.size !== undefined) { st.powerSize = m.size || null; if (!st.powerSize) delete st.powerSize; window.recalculateMath?.(); return; }
+            window.apxApplyBuffToMe(Object.assign({}, m, { id }), m.from || '');
         });
         st._buffSeen = seen.slice(-60);
     };
@@ -255,10 +279,11 @@
         let list = window.gmInitiative || [], targets = [];
         let byTok = (mapId, tid) => { let m = ((window._wNotes || {}).otherMaps || (typeof _wNotes !== 'undefined' ? _wNotes.otherMaps : []) || []).find(x => x.id === mapId); let t = m && (m.battleTokens || []).find(x => x.id === tid); return t && t.initiativeId ? list.find(e => e.id === t.initiativeId) : null; };
         if (ev.buffTarget && ev.buffTarget.tokenId) { let e = byTok(ev.buffTarget.mapId, ev.buffTarget.tokenId); if (e) targets.push(e); }
+        else if (ev.buffTarget && Array.isArray(ev.buffTarget.tokenIds)) ev.buffTarget.tokenIds.forEach(tid => { let e = window._gmEntryForToken ? window._gmEntryForToken(ev.buffTarget.mapId, tid) : byTok(ev.buffTarget.mapId, tid); if (e && !targets.includes(e)) targets.push(e); });
         else if (ev.buffTarget && ev.buffTarget.companion) { let e = list.find(x => x.companionOf === uid); if (e) targets.push(e); }
         else if (ev.area && Array.isArray(ev.area.tokenIds)) ev.area.tokenIds.forEach(tid => { let e = byTok(ev.area.mapId, tid); if (e && !targets.includes(e)) targets.push(e); });
         targets.forEach(e => { if (e.faction === 'player' && e.playerUid === uid && !e.companionOf) return; window._gmApplyBuff(e, b, casterName); });   // (the caster's own buff is on their sheet already)
-        if (!targets.length && ev.buffTarget !== undefined && typeof gmLog === 'function') gmLog({ gmOnly: true, kind: 'info', text: `${casterName || 'A player'}'s ${b.name || 'power'}: ${window.apxPowerBuffText(b)}. Apply it to its target by hand (it wasn't a creature in the tracker).` });
+        if (!targets.length && ev.buffTarget !== undefined && !(ev.buffTarget && ev.buffTarget.self) && typeof gmLog === 'function') gmLog({ gmOnly: true, kind: 'info', text: `${casterName || 'A player'}'s ${b.name || 'power'}: ${window.apxPowerBuffText(b)}. Apply it to its target by hand (it wasn't a creature in the tracker).` });
     };
     // GM page: an NPC's attack roll gets its +1 to Attack rolls from a power (added to the roll's bonus)
     (function hookGmAtk(tries) {
@@ -269,6 +294,16 @@
             let pre = await orig.apply(this, arguments);
             if (pre === false || !o || o.pcAttack) return pre;
             let a = null; try { a = window._gmAttackerFor(o); } catch (e) { }
+            // (an attack is a hostile action: Invisible from a power, a Concentration check; Action Interrupt ends a buff)
+            if (a && !o._hostileDone && window._gmNpcHostile) { o._hostileDone = true; try { window._gmNpcHostile(a); } catch (e) { } }
+            // A power on it makes its weapons deal extra damage (a weapon attack, not a power)
+            let wd = a && !o.power && o.dice ? (Array.isArray(a._fx) ? a._fx : []).filter(f => f.powerBuff && f.wpnDmg && f.wpnDmg.formula) : [];
+            if (wd.length && !o._wpnDmgDone) {
+                o._wpnDmgDone = true;
+                o.split = (o.split && o.split.length ? o.split : [{ formula: o.dice, type: o.dmgType || 'Weapon' }]).concat(wd.map(f => ({ formula: f.wpnDmg.formula, type: f.wpnDmg.type || 'Power' })));
+                o.dmgType = [...new Set(o.split.map(x => x.type).filter(Boolean))].join(' + ');
+                pre = Object.assign({}, pre || {}, { note: ((pre && pre.note) ? pre.note + ' · ' : '') + wd.map(f => `+${f.wpnDmg.formula} ${f.wpnDmg.type || ''} (${f.name})`).join(', ') });
+            }
             let n = a ? window._gmBuffStat(a, 'atk') : 0;
             if (!n) return pre;
             return Object.assign({}, pre || {}, { bonus: ((pre && pre.bonus) || 0) + n, note: ((pre && pre.note) ? pre.note + ' · ' : '') + `+${n} to attack (a power)` });

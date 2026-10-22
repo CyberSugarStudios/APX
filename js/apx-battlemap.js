@@ -1756,7 +1756,7 @@
         let ws = _sightWalls(layer._opts); if (!ws.length) return true;
         return _sightClear(ws, (cf.x0 + cf.x1 + 1) / 2, (cf.y0 + cf.y1 + 1) / 2, fa.x0 + 0.5, fa.y0 + 0.5);
     }
-    function _areaOk(layer, P) { return _areaSight(layer, P) && (P.range === Infinity || !_casterFoot(layer, P) || _areaReach(layer, P) <= Math.max(1, P.range)); }
+    function _areaOk(layer, P) { return (P.noSight || _areaSight(layer, P)) && (P.range === Infinity || !_casterFoot(layer, P) || _areaReach(layer, P) <= Math.max(1, P.range)); }
     function _sightWalls(o) { return ((o && o.walls) || []).filter(w => w && !(w.door && w.open)); }
     function _sightClear(ws, ax, ay, bx, by, touch) { for (let w of ws) if (_segHits(ax, ay, bx, by, w, touch)) return false; return true; }
     // An area cut by walls: a Line stops at the first wall, a Cone covers only the squares its point can see,
@@ -1828,6 +1828,7 @@
     }
     function _layoutArea(layer) {
         let P = layer._area; if (!P || !layer._opts) return;
+        if (P.layoutHook) { P.layoutHook(); return; }   // (picking squares: its own drawing)
         let o = layer._opts, g = o.grid, win = o.win, s = win._scale || 1, ox = win._offX || 0, oy = win._offY || 0, org = origin(g), cs = g.cellSize;
         let scr = (x, y) => ({ x: ox + (org.ox + x * cs) * s, y: oy + (org.oy + y * cs) * s });
         let rect = (x0, y0, x1, y1, fill, stroke, w, dash) => { let tl = scr(x0, y0), br = scr(x1 + 1, y1 + 1);
@@ -1890,7 +1891,7 @@
             let range = opts.range === Infinity || opts.range == null ? Infinity : Math.max(0, parseInt(opts.range) || 0);
             // A Line or Cone points the way it last did for this power (no turning it back around every time)
             let angKey = (opts.key || opts.label || 'Power') + '|' + opts.mode;
-            let P = layer._area = { ov, svg, bar, mode: opts.mode, size, range, casterId: opts.casterId || null, label: opts.label || 'Power', safeZone: !!opts.safeZone,
+            let P = layer._area = { ov, svg, bar, mode: opts.mode, size, range, casterId: opts.casterId || null, label: opts.label || 'Power', safeZone: !!opts.safeZone, noSight: !!opts.noSight,
                 width: Math.max(1, parseInt(opts.width) || 1), label2: opts.shapeLabel || '',
                 safe: new Set(), anchor: false, a: null, ang: _areaAng(angKey), placed: false, drag: false };
             // Self / Touch: it starts from its user, pointing away from the map's middle-ish (right)
@@ -1918,7 +1919,10 @@
                 let hit = A.hits.filter(h => !P.safe.has(h.vm.id));
                 let res = { tokenIds: hit.map(h => h.vm.id), safeIds: A.hits.filter(h => P.safe.has(h.vm.id)).map(h => h.vm.id),
                     names: hit.map(h => h.vm.name || String(h.vm.title || '').split(' (')[0] || 'Token'), squares: A.cells.length, reach: _areaReach(layer, P),
-                    foot: A.fa ? { x0: A.fa.x0, y0: A.fa.y0, x1: A.fa.x1, y1: A.fa.y1 } : null };
+                    foot: A.fa ? { x0: A.fa.x0, y0: A.fa.y0, x1: A.fa.x1, y1: A.fa.y1 } : null,
+                    cells: A.cells.map(c => [c.gx, c.gy]) };   // (the squares it covers: a zone, terrain…)
+                // (opts.validate(res) -> a reason it can't go there, e.g. a teleport onto someone)
+                if (opts.validate) { let why = null; try { why = opts.validate(res); } catch (e) { } if (why) { toast(layer._opts.area, why); return; } }
                 if (P.mode !== 'burst' && P.mode !== 'square') _areaAng(angKey, P.ang);
                 // Everyone sees where it landed for a few seconds (as this window's shared measurement)
                 let o = layer._opts;
@@ -2015,7 +2019,9 @@
         let walls = tool && tool.kind === 'walls' ? tool.walls : (o.walls || []);
         let showWalls = !!(tool && tool.kind === 'walls');
         let portals = tool && tool.kind === 'portal' ? tool.portals : (o.portals || []);
-        if (!diff.length && !draws.length && !showWalls && !portals.length && !(tool && tool.kind === 'portal')) {
+        let pfx = o.powerFx || [];
+        _layoutZones(layer, pfx, scr);
+        if (!diff.length && !draws.length && !showWalls && !portals.length && !(tool && tool.kind === 'portal') && !pfx.length) {
             let old = layer.querySelector('[data-bt-ui="marks"]'); if (old) old.innerHTML = '';
         } else {
             let svg = _marksSvg(layer), pid = 'apxHatch_' + layer.id;
@@ -2031,6 +2037,25 @@
                     let a = scr(st, +y), b = scr(pv + 1, +y + 1);
                     html += `<rect x="${a.x}" y="${a.y}" width="${b.x - a.x}" height="${b.y - a.y}" fill="url(#${pid})" stroke="rgba(251,191,36,.45)" stroke-width="1"/>`;
                     if (i < xs.length) st = pv = xs[i];
+                }
+            });
+            // A power's marks under the tokens: intense light (a bright ring), hazardous squares (the colour of their
+            // damage), and the stone of a solid wall
+            pfx.forEach(f => {
+                let cells = (f.cells || []).filter(c => Array.isArray(c) && isFinite(c[0]) && isFinite(c[1]));
+                if (!cells.length) return;
+                let cellRect = (c, fill, stroke, w) => { let a = scr(c[0], c[1]), b = scr(c[0] + 1, c[1] + 1); return `<rect x="${a.x}" y="${a.y}" width="${b.x - a.x}" height="${b.y - a.y}" fill="${fill}" stroke="${stroke}" stroke-width="${w || 1}"/>`; };
+                if (f.kind === 'zone' && f.sub === 'light') {
+                    cells.forEach(c => { html += cellRect(c, 'rgba(254,240,138,.28)', 'rgba(253,224,71,.25)'); });
+                    let xs = cells.map(c => c[0]), ys = cells.map(c => c[1]);
+                    let a = scr(Math.min(...xs), Math.min(...ys)), b = scr(Math.max(...xs) + 1, Math.max(...ys) + 1), r = Math.max(b.x - a.x, b.y - a.y) / 2;
+                    html += `<circle cx="${(a.x + b.x) / 2}" cy="${(a.y + b.y) / 2}" r="${r}" fill="none" stroke="#fde047" stroke-width="${Math.max(2, cs * s / 10)}" stroke-opacity=".85"/>
+                        <circle cx="${(a.x + b.x) / 2}" cy="${(a.y + b.y) / 2}" r="${r * 0.82}" fill="none" stroke="#fef9c3" stroke-width="${Math.max(1, cs * s / 20)}" stroke-opacity=".7" stroke-dasharray="${cs * s / 4} ${cs * s / 6}"/>`;
+                } else if (f.kind === 'hazard' || (f.kind === 'wall' && f.sub === 'hazard')) {
+                    let col = auraColor(f.type || 'Fire');
+                    cells.forEach(c => { html += cellRect(c, col + '55', col, f.kind === 'wall' ? 2.5 : 1.5); });
+                } else if (f.kind === 'wall') {
+                    cells.forEach(c => { html += cellRect(c, 'rgba(71,85,105,.92)', '#cbd5e1', 2); });
                 }
             });
             // Drawings
@@ -2080,11 +2105,119 @@
         _layoutRoomBtns(layer);
         _layoutPings(layer);
     }
+    // ── A power's darkness or fog: over the tokens (under the map's own fog), so what's inside can't be seen.
+    // Your own tokens are drawn above it. The GM sees through it (fainter).
+    function _layoutZones(layer, pfx, scr) {
+        let o = layer._opts, zs = (pfx || []).filter(f => f.kind === 'zone' && (f.sub === 'dark' || f.sub === 'fog'));
+        let svg = layer.querySelector('[data-bt-ui="zones"]');
+        if (!zs.length) { if (svg) svg.innerHTML = ''; return; }
+        if (!svg) {
+            svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('data-bt-ui', 'zones'); svg.setAttribute('width', '100%'); svg.setAttribute('height', '100%');
+            svg.style.cssText = `position:absolute;inset:0;pointer-events:none;overflow:visible;z-index:${Z_FOG - 50};`;
+            layer.appendChild(svg);
+        }
+        let gm = !!o.isGM, html = '';
+        zs.forEach(f => {
+            let fill = f.sub === 'dark' ? `rgba(2,6,23,${gm ? 0.5 : 0.94})` : `rgba(203,213,225,${gm ? 0.4 : 0.86})`;
+            (f.cells || []).forEach(c => { if (!Array.isArray(c)) return; let a = scr(c[0], c[1]), b = scr(c[0] + 1, c[1] + 1); html += `<rect x="${a.x - 0.5}" y="${a.y - 0.5}" width="${b.x - a.x + 1}" height="${b.y - a.y + 1}" fill="${fill}"/>`; });
+        });
+        svg.innerHTML = html;
+    }
+    // Squares between two footprints {x0,y0,x1,y1} (edge to edge, the Measure tool's 1-2-1 diagonals: adjacent = 1)
+    function footDist(a, b) { let n = _nearest(a, b), m = _nearest(b, a); return squaresBetween(n.gx - m.gx, n.gy - m.gy); }
+    // Can a creature at footprint a see footprint b? (centre to centre, past walls and closed doors)
+    function footSight(walls, a, b) {
+        let ws = ((walls || []).filter(w => w && !(w.door && w.open))); if (!ws.length) return true;
+        return _sightClear(ws, (a.x0 + a.x1 + 1) / 2, (a.y0 + a.y1 + 1) / 2, (b.x0 + b.x1 + 1) / 2, (b.y0 + b.y1 + 1) / 2, true);
+    }
+    // The outline of a set of squares as wall segments (grid units): a solid wall a power made blocks like any wall
+    function cellWalls(cells, tag) {
+        let set = new Set((cells || []).map(c => c[0] + ',' + c[1])), out = [];
+        (cells || []).forEach(([x, y]) => {
+            if (!set.has(x + ',' + (y - 1))) out.push({ x1: x, y1: y, x2: x + 1, y2: y });
+            if (!set.has(x + ',' + (y + 1))) out.push({ x1: x, y1: y + 1, x2: x + 1, y2: y + 1 });
+            if (!set.has((x - 1) + ',' + y)) out.push({ x1: x, y1: y, x2: x, y2: y + 1 });
+            if (!set.has((x + 1) + ',' + y)) out.push({ x1: x + 1, y1: y, x2: x + 1, y2: y + 1 });
+        });
+        return out.map((w, i) => Object.assign(w, { id: 'pw_' + (tag || 'w') + '_' + i, pw: true }));
+    }
+    // Pick squares one at a time (a power's wall): each one touching one already picked, the first within range of
+    // its user (opts.casterId, opts.range squares). opts.max squares at most. Resolves { cells: [[gx, gy]…] }, 'skip'
+    // (use it without the map) or null (cancelled).
+    function pickCells(winId, opts) {
+        let layer = document.getElementById(winId + '_btScreen');
+        if (!layer || !layer._opts) return Promise.resolve('skip');
+        if (layer._measure) exitMeasure(winId);
+        if (layer._area) layer._area.finish(null);
+        opts = opts || {};
+        let max = Math.max(1, parseInt(opts.max) || 4), range = opts.range === Infinity || opts.range == null ? Infinity : Math.max(0, parseInt(opts.range) || 0);
+        return new Promise(resolve => {
+            let ov = document.createElement('div');
+            ov.setAttribute('data-bt-ui', 'area');
+            ov.style.cssText = `position:absolute;inset:0;z-index:${Z_UI};pointer-events:auto;cursor:crosshair;`;
+            let svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('width', '100%'); svg.setAttribute('height', '100%');
+            svg.style.cssText = 'position:absolute;inset:0;pointer-events:none;overflow:visible;';
+            let bar = document.createElement('div');
+            bar.style.cssText = 'position:absolute;left:8px;right:8px;bottom:8px;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:4px;pointer-events:none;cursor:default;';
+            let btn = (attr, txt, bg, bd) => `<button ${attr} style="pointer-events:auto;border:1px solid ${bd};border-radius:5px;font-size:11px;font-weight:800;padding:3px 10px;cursor:pointer;background:${bg};color:#fff">${txt}</button>`;
+            bar.innerHTML = btn('data-ago', opts.goLabel || 'Done', '#7e22ce', '#c084fc') + btn('data-askip', 'Use without the map', 'rgba(15,23,42,.92)', '#64748b') + btn('data-acancel', 'Cancel', 'rgba(15,23,42,.92)', '#64748b')
+                + `<span data-atip style="background:rgba(15,23,42,.92);border:1px solid #c084fc;color:#f5f3ff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:5px;white-space:normal;max-width:100%;text-align:center;pointer-events:none"></span>`;
+            ov.appendChild(svg); ov.appendChild(bar);
+            layer.appendChild(ov);
+            let picked = [], key = c => c[0] + ',' + c[1];
+            let P = { casterId: opts.casterId || null, a: null, anchor: false };
+            let caster = () => _casterFoot(layer, P);
+            let inRange = c => { if (range === Infinity) return true; let f = caster(); if (!f) return true; let n = _nearest(f, { x0: c[0], y0: c[1], x1: c[0], y1: c[1] }); return squaresBetween(c[0] - n.gx, c[1] - n.gy) <= Math.max(1, range); };
+            let inSight = c => { let f = caster(); if (!f) return true; let ws = _sightWalls(layer._opts); return !ws.length || _sightClear(ws, (f.x0 + f.x1 + 1) / 2, (f.y0 + f.y1 + 1) / 2, c[0] + 0.5, c[1] + 0.5); };
+            let touches = c => picked.some(p => Math.abs(p[0] - c[0]) <= 1 && Math.abs(p[1] - c[1]) <= 1);
+            let occupied = c => (layer._opts.tokens || []).some(vm => { let p = _tokPos(layer, vm.id) || { gx: vm.gridX, gy: vm.gridY }, sp = span(vm.size); return c[0] >= p.gx && c[0] < p.gx + sp && c[1] >= p.gy && c[1] < p.gy + sp; });
+            let draw = () => {
+                let o = layer._opts; if (!o) return;
+                let g = o.grid, win = o.win, sc = win._scale || 1, ox = win._offX || 0, oy = win._offY || 0, org = origin(g), cs = g.cellSize;
+                let scr = (x, y) => ({ x: ox + (org.ox + x * cs) * sc, y: oy + (org.oy + y * cs) * sc });
+                let col = opts.color || '#c084fc';
+                svg.innerHTML = picked.map((c, i) => { let a = scr(c[0], c[1]), b = scr(c[0] + 1, c[1] + 1); return `<rect x="${a.x}" y="${a.y}" width="${b.x - a.x}" height="${b.y - a.y}" fill="${col}66" stroke="${col}" stroke-width="2"/><text x="${(a.x + b.x) / 2}" y="${(a.y + b.y) / 2 + 4}" text-anchor="middle" font-size="12" font-weight="900" fill="#fff">${i + 1}</text>`; }).join('');
+                bar.querySelector('[data-atip]').textContent = `${opts.label || 'Pick squares'}: ${picked.length} / ${max} square${max === 1 ? '' : 's'} · click a square to add it (each one touching the last ones${range !== Infinity ? `, the first within ${range} square${range === 1 ? '' : 's'}` : ''}), click it again to take it off · Enter when done, Esc to cancel`;
+            };
+            let finish = res => { if (layer._area !== P) return; document.removeEventListener('keydown', onKey, true); ov.remove(); layer._area = null; resolve(res); };
+            P.finish = finish; layer._area = P;
+            let done = () => { if (!picked.length) { toast(layer._opts.area, 'Click the squares first.'); return; } finish({ cells: picked.slice() }); };
+            let onKey = e => {
+                let t = e.target; if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+                if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(null); }
+                else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); done(); }
+            };
+            document.addEventListener('keydown', onKey, true);
+            bar.addEventListener('mousedown', e => e.stopPropagation());
+            bar.querySelector('[data-ago]').addEventListener('click', e => { e.stopPropagation(); done(); });
+            bar.querySelector('[data-askip]').addEventListener('click', e => { e.stopPropagation(); finish('skip'); });
+            bar.querySelector('[data-acancel]').addEventListener('click', e => { e.stopPropagation(); finish(null); });
+            ov.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); finish(null); });
+            ov.addEventListener('mousedown', e => {
+                if (e.button === 1 || (e.button === 0 && (e.ctrlKey || e.metaKey))) return;
+                e.stopPropagation(); e.preventDefault(); if (e.button !== 0) return;
+                let p = _imgPoint(layer, e), cc = _cellAt(layer._opts.grid, p.x, p.y), c = [cc.gx, cc.gy];
+                let i = picked.findIndex(x => key(x) === key(c));
+                if (i >= 0) { picked.splice(i, 1); draw(); return; }
+                if (picked.length >= max) { toast(layer._opts.area, `That's all ${max}: take one off first.`); return; }
+                if (!picked.length && !inRange(c)) { toast(layer._opts.area, `The first square has to be within ${range} square${range === 1 ? '' : 's'} of you.`); return; }
+                if (!picked.length && !inSight(c)) { toast(layer._opts.area, 'A wall is in the way: start somewhere you can see.'); return; }
+                if (picked.length && !touches(c)) { toast(layer._opts.area, 'Each square has to touch one you already picked.'); return; }
+                if (opts.noTokens && occupied(c)) { toast(layer._opts.area, 'A creature is in that square.'); return; }
+                picked.push(c); draw();
+            });
+            P.layoutHook = draw;
+            draw();
+        });
+    }
+
     // ── Rooms: closed loops of walls (doors count as wall) ──
     // Returns [{ id, poly: [{x, y}] (grid units), holes: [poly] (rooms inside it), ix, iy (a spot well inside it) }]
     let _roomsKey = null, _roomsVal = [];
     function rooms(walls) {
-        let segs = (walls || []).filter(w => w && isFinite(w.x1) && isFinite(w.y1) && isFinite(w.x2) && isFinite(w.y2) && (w.x1 !== w.x2 || w.y1 !== w.y2));
+        let segs = (walls || []).filter(w => w && !w.pw && isFinite(w.x1) && isFinite(w.y1) && isFinite(w.x2) && isFinite(w.y2) && (w.x1 !== w.x2 || w.y1 !== w.y2));
         let key = segs.map(w => [w.x1, w.y1, w.x2, w.y2].join(',')).join(';');
         if (key === _roomsKey) return _roomsVal;
         // Split every wall where another one crosses it or an end touches it, so the walls make one network
@@ -2365,10 +2498,10 @@
         let tip = t => `<span style="background:rgba(15,23,42,.92);border:1px solid #94a3b8;color:#f1f5f9;font-size:11px;font-weight:700;padding:3px 8px;border-radius:5px;white-space:normal;max-width:100%;text-align:center;pointer-events:none">${t}</span>`;
         let T = layer._tool = { kind, ov, bar, down: false };
         if (kind === 'terrain') {
-            T.set = new Set(o.difficult || []);
+            T.set = new Set(o.difficultOwn || o.difficult || []);   // (the map's own: not a power's)
             bar.innerHTML = tip('Difficult terrain: click or drag across squares to add or remove it (moving into one costs 2 squares; it hides under fog like the map) · Esc or the button to stop');
         } else if (kind === 'walls') {
-            T.walls = JSON.parse(JSON.stringify(o.walls || []));
+            T.walls = JSON.parse(JSON.stringify((o.walls || []).filter(w => !w.pw)));   // (a power's walls aren't the map's)
             bar.innerHTML = tip('Walls: drag anywhere to draw one (it joins another wall\'s end when you start or stop near it; hold Alt to snap to grid corners) · Shift+click a wall to make it a door (or a wall again) · right-click a wall to delete it · players\' tokens can\'t cross walls or closed doors · only you see walls, and only while this is on');
         } else if (kind === 'draw') {
             T.color = _DRAW_PREFS.c || '#f43f5e'; T.size = _DRAW_PREFS.w || 3; T.snap = !!_DRAW_PREFS.snap;
@@ -2892,7 +3025,7 @@
         render, layout, clear, toast,
         numberOf, sizeFromCharState, compressImage,
         squaresBetween, pathSquares, areaCells, lineCells, measuresFor, writeMeasure, moveCost, ctrlUid, auraColor, enterMeasure, exitMeasure, toggleMeasure, isMeasuring,
-        placeArea, isPlacingArea,
+        placeArea, isPlacingArea, pickCells, cellWalls, footDist, footSight,
         pathCost, wallBlocking, enterTool, exitTool, toggleTool, toolOf, pingHere, rooms, refreshRooms: winId => { let l = document.getElementById(winId + '_btScreen'); if (l) _layoutRoomBtns(l); },
         pingsFor, drawingsFor, myDrawings, writePing, writeDrawings, draws: () => store.draws
     };

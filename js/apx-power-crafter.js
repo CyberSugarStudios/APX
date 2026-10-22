@@ -942,6 +942,9 @@ function pcRulesProblems() {
     }
     // Summon a Weapon: damage dice (1 per Power Level), no healing, properties it qualifies for
     if (window.apxSwProblems) out.push(...window.apxSwProblems(pcDraft, window.pcCalcXP(pcDraft).level));
+    // Turn the target Invisible needs the Concentration refund (Step 8)
+    if (((pcDraft.utility.major || {}).invisible || 0) > 0 && !(pcDraft.refunds && pcDraft.refunds.concentration) && !pcStepSkipped(8))
+        out.push('Turn the target Invisible needs the Concentration refund: tick Concentration in Step 8.');
     // No power costs more than 200 XP (the top of Level 5), free or not
     let tot = window.pcCalcXP(pcDraft).total;
     if (tot > window.APX_POWER_MAX_XP) {

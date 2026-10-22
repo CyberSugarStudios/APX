@@ -994,6 +994,10 @@
                         let flyBlocked = armorClassLocal === 'Heavily' || (calc.overburdened ?? totWt > calc.carryCap);
                         lines.push(flyBlocked ? 'Fly Speed: 0 (Encumbered/Heavy Armor)' : `Fly Speed: ${walkSpeed}`);
                     }
+                    // A power on you: a Swim, Climb or Fly speed equal to your walking speed, Hover (for as long as it's Active)
+                    let pb = (window.state.powerBuffs || []);
+                    [['swim', 'Swim'], ['climb', 'Climb'], ['fly', 'Fly']].forEach(([k, n]) => { let b = pb.find(x => x[k]); if (b && !lines.some(l => l.startsWith(n + ' Speed'))) lines.push(`${n} Speed: ${walkSpeed} (${String(b.name || 'a power').replace(/</g, '&lt;')})`); });
+                    if (pb.some(x => x.hover)) lines.push('Hover (a power)');
                     specialSpeedsEl.innerHTML = lines.join('<br>');
                 }
             }
@@ -2058,13 +2062,34 @@
             // The GM's tracker then rolls everyone's saves in it and deals the damage.
             let areaRes = null, areaSpec = window.apxPowerAreaSpec ? window.apxPowerAreaSpec(p) : null;
             if (areaSpec && window.apxExoRange) areaSpec = Object.assign({}, areaSpec, { range: window.apxExoRange(areaSpec.range) });   // (an Emitter's reach)
-            if (areaSpec && !chan && window._pwAreaMap && window.APXBattle && window.APXBattle.placeArea) {
-                let am = window._pwAreaMap(false);
-                if (am) {
-                    let r = await window.APXBattle.placeArea(am.winId, Object.assign({ casterId: am.tokenId, label: name, safeZone: window.apxPerkRank(window.state, 'gen_safezone') > 0 }, areaSpec));
-                    if (r === null) return;
-                    if (r !== 'skip') areaRes = { mapId: am.mapId, tokenIds: r.tokenIds, safeIds: r.safeIds, names: r.names };
+            // The battle map it's used on (yours, with your token: asked when there's more than one), and where from
+            // (your Sensor, when one of yours is on that map)
+            let mctx = null, origin = null;
+            if (!chan && window.apxPowerMapCtx && window.APXBattle && window.APXBattle.placeArea) {
+                mctx = await window.apxPowerMapCtx(m => window.apxMyTokOn(m, false), name);
+                if (mctx === 'cancel') return;
+                let sid = mctx && window.apxMySensorOn ? window.apxMySensorOn(mctx.mapId) : null;
+                let pl0 = sid && p.draft && window.apxPowerPlay ? window.apxPowerPlay(p.draft, parseInt(p.lvl) || 1) : null;
+                if (sid && APXDice.ask && (areaSpec || !pl0 || pl0.targeted || pl0.mapFx)) {
+                    let a = await APXDice.ask(name, 'Use it from where?', [['me', 'From you', 'pri'], ['sensor', 'From your Sensor (it becomes visible and tangible: AC 10, 10 HP)']]);
+                    if (!a) return;
+                    if (a === 'sensor') origin = sid;
                 }
+            } else if (!chan && window._pwAreaMap) mctx = window._pwAreaMap(false);
+            if (areaSpec && !chan && mctx && window.APXBattle && window.APXBattle.placeArea) {
+                let am = mctx;
+                let r = await window.APXBattle.placeArea(am.winId, Object.assign({ casterId: origin || am.tokenId, label: name, safeZone: window.apxPerkRank(window.state, 'gen_safezone') > 0 }, areaSpec));
+                if (r === null) return;
+                if (r !== 'skip') areaRes = { mapId: am.mapId, tokenIds: r.tokenIds, safeIds: r.safeIds, names: r.names, cells: r.cells };
+            }
+            // Everything else it does on the map, before anything is spent: its targets (in range, in sight), where a
+            // teleport lands, a zone, terrain, a wall drawn square by square, a Sensor… (js/apx-power-world.js)
+            let plan = null;
+            if (!chan && mctx && mctx.tokenId && window.apxPowerPlan && p.draft) {
+                let d0 = apxPowerDamage(p, chosen);
+                plan = await window.apxPowerPlan({ p, name, lvl: parseInt(p.lvl) || (window.apxSacrificeLevel ? window.apxSacrificeLevel(p) : 1), ctx: mctx, casterId: mctx.tokenId, fromId: origin || mctx.tokenId, origin, who: 'player', areaRes,
+                    dmgFormula: d0 && !d0.heal ? d0.formula : null, dmgType: d0 && !d0.heal ? d0.type : null });
+                if (plan === null) return;
             }
             // An item's power runs on the item (its uses are on the card), not on your Power Slots
             let itemSrc = /^i\d+_\d+$/.test(String(idx)) ? (window.state.items || [])[+String(idx).slice(1).split('_')[0]] : null;
@@ -2124,10 +2149,19 @@
             }
             // Overexertion (Step 8): a level of Fatigue once the power is over (not again for each Channel). An Instant
             // power is over as soon as it's used; a lasting one is tracked above your Powers until it ends.
+            let inst = !chan && p.draft && window.apxStartActivePower ? window.apxStartActivePower(idx, p, { play: plan && plan.play }) : null;
             if (!chan && p.draft && p.draft.refunds && p.draft.refunds.overexertion) {
-                if (window.apxStartActivePower && window.apxStartActivePower(idx, p)) notes.push('Overexertion: +1 Fatigue when it ends');
+                if (inst) notes.push('Overexertion: +1 Fatigue when it ends');
                 else { notes.push('Overexertion: +1 Fatigue once it\'s done'); setTimeout(() => window.apxOverexert && window.apxOverexert(p.name || 'Power'), 0); }
             }
+            if (inst && inst.conc) notes.push('Concentration: 2 AP at the start of each of your turns, and a CON save when you take damage');
+            // A harmful power is a hostile action (Invisible from a power: a Concentration check)
+            if (!chan && window.apxHostileAction && window.apxPowerPlay && window.apxPowerPlay(p.draft || {}, lvl).harmful) window.apxHostileAction(name);
+            // Your own tokens move now (a teleport of you, your companion or your summon); anyone else's, your GM's tracker
+            if (plan && plan.moves) plan.moves.forEach(mv => {
+                let m = window.apxMapById ? window.apxMapById(mv.mapId) : null, t = m && (m.battleTokens || []).find(x => x.id === mv.tokenId), me = window.apxAuth?.user?.uid;
+                if (t && me && window.APXBattle && (window.APXBattle.ctrlUid(t) === me)) { window.APXBattle.move(window._playerWorldData?.inviteCode, me, mv.mapId, t.id, mv.gx, mv.gy); mv.done = true; notes.push(`${t.name || 'Your token'} ${mv.kind === 'teleport' ? 'teleports' : 'moves'}`); }
+            });
             // Sacrifice (Step 8): using it deals 1d10 per Power Level to you (not again for each Channel), after its own card
             if (!chan && p.draft && p.draft.refunds && p.draft.refunds.sacrifice && window.apxSacrifice) {
                 let sl = window.apxSacrificeLevel(p);
@@ -2208,9 +2242,19 @@
             // power's targets are in its area; otherwise you pick the target (you, your companion, a creature on the map).
             let buffExtra = null;
             let buff = !chan && p.draft && window.apxPowerBuff ? window.apxPowerBuff(p.draft, lvl) : null;
+            // The target's weapons deal this power's dice as extra damage (instead of the power dealing them now)
+            if (!chan && plan && plan.play && plan.play.wpnDmg && dmg && !dmg.heal) { buff = Object.assign(buff || window.apxBlankBuff(), { wpnDmg: { formula: dmg.formula, type: dmg.type || '' }, lasting: true }); dmg = null; }
             if (buff) {
-                buff = Object.assign(buff, { name: p.name || 'Power', key: 'pw:' + (p.name || idx), dur: p.draft.duration || 'instant', from: who || '' });
+                let dm0 = (p.draft && p.draft.durationMods) || {};
+                buff = Object.assign(buff, { name: p.name || 'Power', key: 'pw:' + (p.name || idx), dur: p.draft.duration || 'instant', from: who || '', lvl, pi: inst ? inst.id : null, by: window.apxAuth?.user?.uid || null,
+                    actInt: !!dm0.actionInterrupt || undefined });
                 if (areaRes) buffExtra = { buff };
+                else if (plan && (plan.targets || plan.other)) {
+                    let list = (plan.targets && plan.targets.list) || [], self = list.some(x => x.self), others = list.filter(x => !x.self);
+                    if (self) window.apxApplyBuffToMe(buff, '');
+                    buffExtra = { buff, buffTarget: self && !others.length ? { self: true } : others.length ? { mapId: plan.targets.mapId, tokenIds: others.map(x => x.tokenId), self } : {} };
+                    if (inst && others.length) inst.onOthers = true;
+                }
                 else {
                     let tgt = window.apxPickBuffTarget ? await window.apxPickBuffTarget(name, buff) : { self: true };
                     if (tgt && tgt.self) { window.apxApplyBuffToMe(buff, ''); buffExtra = { buff, buffTarget: { self: true } }; }
@@ -2218,7 +2262,13 @@
                     else if (tgt === 'skip') buffExtra = { buff, buffTarget: {} };
                 }
             }
-            let tell = (text, extra) => { if (typeof window.apxOnRollEvent === 'function') window.apxOnRollEvent(Object.assign({ id: 'pw' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), kind: 'power', label: name, text: areaNote ? text + ' ' + areaNote : text }, extra || {}, summon ? { summon } : {}, isAoe ? { aoe: true } : {}, fxInfo ? { fx: fxInfo } : {}, areaRes ? { area: { mapId: areaRes.mapId, tokenIds: areaRes.tokenIds, safeIds: areaRes.safeIds } } : {}, buffExtra || {})); };
+            // (what it did on the map, its targets and its instance: the GM's tracker resolves them)
+            let planEv = window.apxPlanEvent ? window.apxPlanEvent(plan, inst) : {};
+            if (areaRes) delete planEv.targets;
+            if (fxInfo && inst) fxInfo.pi = inst.id;
+            if (fxInfo) fxInfo.lvl = lvl;
+            let powerId = 'pw' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+            let tell = (text, extra) => { if (typeof window.apxOnRollEvent === 'function') window.apxOnRollEvent(Object.assign({ id: powerId, kind: 'power', label: name, text: areaNote ? text + ' ' + areaNote : text }, extra || {}, summon ? { summon } : {}, isAoe ? { aoe: true } : {}, fxInfo ? { fx: fxInfo } : {}, areaRes ? { area: { mapId: areaRes.mapId, tokenIds: areaRes.tokenIds, safeIds: areaRes.safeIds } } : {}, buffExtra || {}, planEv)); };
             if (info.kind === 'power' || info.kind === 'martial') {
                 let bonus = info.kind === 'power' ? pnums.atk : (info.w ? info.w.bonus : pnums.atk);
                 let via = info.kind === 'martial' && info.w ? ` (${info.w.label})` : '';
@@ -2226,6 +2276,9 @@
                     disSources: info.kind === 'martial' && info.w ? info.w.disSources : ((calc.disadv && calc.disadv.atkGeneral.concat(calc.disadv.atkNotMelee || [])) || []),
                     advSources: info.kind === 'martial' && info.w ? info.w.advSources : [],
                     hit: info.kind === 'martial' && info.w ? info.w.hit : { weapon: name, props: [] } };
+                let tg = areaRes || (planEv.targets ? Object.assign({ names: (plan.targets.list || []).map(x => x.name) }, planEv.targets) : null);
+                if (tg && tg.tokenIds && tg.tokenIds.length) o.areaHit = { mapId: tg.mapId, tokenIds: tg.tokenIds, names: tg.names || [], power: true };
+                if (fxInfo || planEv.ends || planEv.drain) o.powerFx = Object.assign({}, fxInfo || { conds: [] }, { ends: planEv.ends || undefined, drain: planEv.drain || undefined, pi: inst ? inst.id : undefined });
                 // A Conduit Exo-Suit: Breach (ignores Resistance to its types), Nullifier, Amplifier (maximum damage)
                 let exf = dmg && !dmg.heal && window.apxExoPowerFx ? window.apxExoPowerFx(dmg.type) : null;
                 if (exf) { o.hit = Object.assign({}, o.hit, { breach: exf.breach, nullify: exf.nullify || undefined }); if (exf.max) o.maxDmg = exf.max; }
@@ -2240,7 +2293,12 @@
                     APXDice.attack(o);
                 }
                 else if (wpn) { o.dice = wf; o.dmgType = wpn.dmgType; o.critMult = wpn.critMult || 2; o.wcat = wpn.wcat || ''; APXDice.attack(o); }
-                else { o.kind = 'attack'; o.note = useNote; APXDice.check(o); }
+                else {
+                    o.kind = 'attack'; o.note = useNote;
+                    // (no damage: the attack roll alone, sent to your GM's tracker to compare with each target's AC)
+                    if (o.areaHit) { let sent = false, aid = 'pa' + Date.now().toString(36); o.onResult = r => { if (sent) return; sent = true; window.apxOnRollEvent?.({ id: aid, kind: 'powerAtk', label: name, total: r.total, nat: r.nat, crit: r.nat === 20, fumble: r.nat === 1, area: o.areaHit, fx: o.powerFx || null }); }; }
+                    APXDice.check(o);
+                }
                 tell(`${who || 'A player'} uses ${name}${via}: attack roll.` + (escLine ? ` ${escLine}.` : ''), { attackRoll: true });
                 return;
             }
@@ -2294,7 +2352,8 @@
                         <div><span class="text-slate-500">D/H:</span> ${apxPowerDmgHtml(p)}</div>
                     </div>
                     <div class="text-[10px] text-slate-500 leading-tight font-medium">${p.desc}</div>
-                    ${p.draft && p.draft.duration === 'permanent' ? `<label class="inline-flex items-center gap-1 mt-1 mr-2 text-[9px] font-bold cursor-pointer ${p.permActive ? 'text-emerald-300' : 'text-slate-500'}" title="Permanent: tick it while this power is still in effect (using it ticks it for you). While it's Active, finishing a rest doesn't give back the Power Slot it used. Untick it when it ends (you end it as a Free Action, or it's dispelled, cured, countered or destroyed)."><input type="checkbox" ${p.permActive ? 'checked' : ''} onchange="window.apxSetPermActive(${idx}, this.checked)" style="accent-color:#10b981"> Active${p.permActive && p.permActive.slot ? ` (holding a ${p.permActive.slot === 'CHA' ? 'Short Rest use' : 'Level ' + p.permActive.slot + ' Power Slot'})` : ''}</label>` : ''}
+                    ${p.draft && p.draft.duration && p.draft.duration !== 'instant' ? (() => { let perm = p.draft.duration === 'permanent', inst = ((window.state.activePowers) || []).find(a => a.key === String(idx)), on = !!(p.permActive || inst);
+                        return `<label class="inline-flex items-center gap-1 mt-1 mr-2 text-[9px] font-bold cursor-pointer ${on ? 'text-emerald-300' : 'text-slate-500'}" title="${perm ? 'Permanent: ' : ''}ticked while this power is in effect (using it ticks it for you; it unticks when its time runs out on the initiative, or a rest is long enough). Untick it when it ends some other way (you end it, or it's dispelled). Ending it ends what it did.${perm ? ' While it\'s Active, finishing a rest doesn\'t give back the Power Slot it used.' : ''}"><input type="checkbox" ${on ? 'checked' : ''} onchange="window.apxSetPowerActive(${idx}, this.checked)" style="accent-color:#10b981"> Active${inst && inst.left != null ? ` (${inst.left} more turn${inst.left === 1 ? '' : 's'})` : ''}${p.permActive && p.permActive.slot ? ` (holding a ${p.permActive.slot === 'CHA' ? 'Short Rest use' : 'Level ' + p.permActive.slot + ' Power Slot'})` : ''}</label>`; })() : ''}
                     ${p.draft ? `<button onclick="window.openPowerEditor(${idx})" class="text-[9px] text-purple-400 hover:text-purple-300 font-bold mt-1">Edit in Power Crafter${p.wasFree ? ' (Free)' : ''}</button>` : ''}
                     ${p.draft && ((p.draft.utility || {}).major || {}).summonCreature ? (sl => `<button onclick="window.apxEditSummonCreature(${idx})" class="text-[9px] text-emerald-400 hover:text-emerald-300 font-bold mt-1 ml-2" title="Build or change the creature${sl.length > 1 ? 's' : ''} this power summons (${sl.map(x => 'Tier ' + x.tier).join(', ')})">${sl.every(x => x.npc) ? 'Edit Summoned Creature' : 'Build Summoned Creature'}${sl.length > 1 ? 's' : ''}</button><button onclick="window.apxOpenSummonsPanel && window.apxOpenSummonsPanel()" class="text-[9px] text-violet-300 hover:text-violet-200 font-bold mt-1 ml-2" title="Your summoned creatures in your GM's fight: HP, AP, Conditions and their attacks">Your Summons</button>`)(window.apxSummonSlots(p.draft)) : ''}
                     ${window.apxRecraftBadge ? window.apxRecraftBadge(p, `window.openPowerEditor(${idx})`) : ''}
@@ -2393,6 +2452,12 @@
         }
         window.apxChannelBarHtml = apxChannelBarHtml;
 
+        // A save you roll from something other than its row (Concentration, staying Invisible): its bonus, Disadvantage and auto-fails
+        window.apxSaveOpts = function (attr) {
+            let mod = (calc.mods || {})[attr] || 0, tr = !!(window.state.savesTrained && window.state.savesTrained[attr]);
+            let dis = ((calc.disadv || {}).saveByAttr || {})[attr] || [], af = ((calc.disadv || {}).autoFailSaveByAttr || {})[attr] || [];
+            return { bonus: mod + (tr ? window.state.trainingBonus : 0) + (window.apxItemSaveBonus ? window.apxItemSaveBonus(calc.itemFx, attr) : 0), disSources: dis.slice(), autoFail: af.length > 0 };
+        };
         // ── Sacrifice (Step 8) ──
         // "Using this power deals 1d10 damage per Power Level to you. This damage cannot be prevented or mitigated."
         // Rolled in your dice tray and taken at once: no DR, ER, resistance or immunity reduces it (Temporary HP takes it
@@ -2422,6 +2487,7 @@
                 st.tempHp = r.tempHp;
                 window.updateState('currentHp', r.currentHp);
                 window.apxRefreshHpInputs?.();
+                if (n > 0) setTimeout(() => window.apxOnSelfDamage?.(n), 0);
             }
             let had = (st.conditions || []).includes('noheal');
             st.sacrificeNoHeal = { added: !had || !!(st.sacrificeNoHeal && st.sacrificeNoHeal.added), t: Date.now(), fight: !!window._pwCombatCode };
@@ -2447,10 +2513,13 @@
             w._apxSac = true; window.apxResetAp = w;
         })(0);
 
-        // ── Lasting powers with Overexertion ──
-        // The Fatigue comes when the power ends: on its own (1 Minute or Channeling: 10 of your turns), when you end it
-        // (End Power, above your Powers and Attacks), or when you rest. state.activePowers: [{ id, key, name, dur, left }]
-        const APX_DUR_TURNS = { '1min': 10, channel: 10 };
+        // ── Lasting powers: one instance each while it lasts ──
+        // Every power with a duration longer than Instant is tracked from its use until it ends: on its own (on the
+        // initiative: 1 Minute is 10 of your turns, 10 Minutes 100, 1 Hour 600…), when you end it (End Power, or its
+        // Active bubble), when a rest is long enough, when it's dispelled, or when its Concentration is lost. Ending it
+        // ends everything it did (its buffs, Conditions and map effects, through your GM's tracker), and with
+        // Overexertion that's when its Fatigue lands. state.activePowers: [{ id, key, name, lvl, dur, left, ox, conc,
+        // dmgInt, actInt, beneficial }] (older entries, made for Overexertion only, have no ox: they're Overexertion's)
         window.apxOverexert = function (name) {
             let st = window.state; if (!st) return;
             st.fatigue = (parseInt(st.fatigue) || 0) + 1;
@@ -2458,15 +2527,22 @@
             try { window.apxOnRollEvent?.({ id: 'ox' + Date.now().toString(36), kind: 'action', label: 'Overexertion', text: `${st.name || 'A player'} gains a level of Fatigue: ${name} is over (Overexertion).` }); } catch (e) { }
             window.recalculateMath(); window.scheduleAutoSave?.();
         };
-        window.apxStartActivePower = function (key, p) {
-            let dur = (p && p.draft && p.draft.duration) || 'instant';
-            if (dur === 'instant') return false;
+        window.apxStartActivePower = function (key, p, o) {
+            o = o || {};
+            let d = (p && p.draft) || {}, dur = d.duration || 'instant';
+            if (dur === 'instant') return null;
             let st = window.state, inFight = !!window._pwCombatCode;
             let old = (st.activePowers || []).find(a => a.key === String(key));
-            if (old) window.apxEndActivePower(old.id, 'used again');   // (used again: the old one is over, and its Fatigue lands)
-            st.activePowers = st.activePowers || [];
-            st.activePowers.push({ id: 'ap' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), key: String(key), name: p.name || 'Power', dur, left: inFight && APX_DUR_TURNS[dur] ? APX_DUR_TURNS[dur] : null });
-            return true;
+            // (used again: the old one is over, and its Fatigue lands; a Permanent one's Active mark is the new use's)
+            let keepPerm = p && p.permActive;
+            if (old) { window.apxEndActivePower(old.id, 'used again'); if (keepPerm && p && !p.permActive) p.permActive = keepPerm; }
+            let play = o.play || (window.apxPowerPlay ? window.apxPowerPlay(d, p.lvl) : {}), dm = d.durationMods || {};
+            let a = { id: 'pi' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), key: String(key), name: (p && p.name) || 'Power', lvl: parseInt(p && p.lvl) || 1, dur,
+                left: inFight && window.apxDurTurns ? window.apxDurTurns(dur) : null, ox: !!(d.refunds && d.refunds.overexertion), conc: !!(d.refunds && d.refunds.concentration),
+                dmgInt: !!dm.dmgInterrupt, actInt: !!dm.actionInterrupt, beneficial: !play.harmful, t: Date.now() };
+            if (play.invisible && !play.harmful && !play.dmg) a.invisibleOnly = true;
+            st.activePowers = (st.activePowers || []).concat([a]);
+            return a;
         };
         window.apxEndActivePower = function (id, why) {
             let st = window.state, a = (st.activePowers || []).find(x => x.id === id); if (!a) return;
@@ -2475,10 +2551,23 @@
             // (a Permanent power ended here: its Active bubble goes off too)
             let pw = a.dur === 'permanent' && /^\d+$/.test(a.key) ? (st.powers || [])[+a.key] : null;
             if (pw && pw.permActive) { delete pw.permActive; setTimeout(() => window.recalculateMath?.(), 0); }
-            window.apxOverexert(a.name + (why ? ` (${why})` : ''));
+            // Everything it did ends with it: its buffs on you here, the rest through your GM's tracker
+            ((st.powerBuffs) || []).filter(b => b.pi === a.id).forEach(b => { st.powerBuffs = st.powerBuffs.filter(x => x !== b); });
+            if (st.powerBuffs && !st.powerBuffs.length) delete st.powerBuffs;
+            if (st.channeling && st.channeling.key === a.key) st.channeling = null;
+            try { window.apxOnRollEvent?.({ id: 'pe' + Date.now().toString(36) + Math.random().toString(36).slice(2, 4), kind: 'powerEnd', label: a.name, pi: a.id, why: why || '', text: `${st.name || 'A player'}'s ${a.name} ends${why ? ' (' + why + ')' : ''}.` }); } catch (e) { }
+            if (a.ox !== false) window.apxOverexert(a.name + (why ? ` (${why})` : ''));
+            else window.APXDice?.notify(`${a.name} ends${why ? ` (${why})` : ''}.`, { kind: 'note' });
+            setTimeout(() => window.recalculateMath?.(), 0); window.scheduleAutoSave?.();
         };
-        // Resting ends them all (before the rest's own recovery)
-        // (keepPermanent: a rest doesn't end a Permanent power, it lasts until it's ended or dispelled)
+        // Resting: what wouldn't last that long is over (a Short Rest is 1 hour, a Full Rest 8), before the rest's own recovery
+        window.apxRestEndPowers = function (hours, why) {
+            let st = window.state; if (!st) return;
+            (st.activePowers || []).slice().forEach(a => { if (window.apxDurOverAfter ? window.apxDurOverAfter(a.dur, hours) : a.dur !== 'permanent') window.apxEndActivePower(a.id, why); });
+            let gone = (st.powerBuffs || []).filter(b => window.apxDurOverAfter && window.apxDurOverAfter(b.dur, hours));
+            if (gone.length) { st.powerBuffs = st.powerBuffs.filter(b => !gone.includes(b)); if (!st.powerBuffs.length) delete st.powerBuffs; window.APXDice?.notify(`${gone.map(b => b.name || 'A power').join(', ')} on you ${gone.length > 1 ? 'have' : 'has'} worn off (${why}).`, { kind: 'note' }); }
+        };
+        // (older callers: everything but Permanent ends)
         window.apxEndAllActivePowers = function (why, keepPermanent) { ((window.state && window.state.activePowers) || []).slice().forEach(a => { if (keepPermanent && a.dur === 'permanent') return; window.apxEndActivePower(a.id, why); }); };
         // ── Permanent powers: the Active bubble ──
         // "When you complete a Rest, if this Power is still active, you do not regain the Power Slot used for this Power."
@@ -2486,17 +2575,25 @@
         // Level (or a Short Rest use). Unticked: it's over (with Overexertion, its Fatigue lands now).
         window.apxSetPermActive = function (idx, on) {
             let p = (window.state.powers || [])[idx]; if (!p) return;
+            let perm = p.draft && p.draft.duration === 'permanent';
             if (on) {
                 let pool = window.apxPowerPool ? window.apxPowerPool(p) : 'full';
-                p.permActive = { slot: pool === 'short' ? 'CHA' : String(parseInt(p.lvl) || 1), t: Date.now(), manual: true };
+                if (perm) p.permActive = { slot: pool === 'short' ? 'CHA' : String(parseInt(p.lvl) || 1), t: Date.now(), manual: true };
+                // (ticked by hand: it's in effect, tracked from now; a buff it gives goes on you)
+                if (!((window.state.activePowers) || []).some(x => x.key === String(idx)) && window.apxStartActivePower) {
+                    let a = window.apxStartActivePower(idx, p);
+                    let b = a && p.draft && window.apxPowerBuff ? window.apxPowerBuff(p.draft, p.lvl) : null;
+                    if (a && b && !b.harmful && window.apxApplyBuffToMe) window.apxApplyBuffToMe(Object.assign(b, { name: p.name || 'Power', key: 'pw:' + (p.name || idx), dur: p.draft.duration, pi: a.id, lvl: a.lvl }), '');
+                }
             } else {
                 delete p.permActive;
                 let a = ((window.state.activePowers) || []).find(x => x.key === String(idx));
                 if (a) window.apxEndActivePower(a.id, 'you ended it');
-                window.APXDice?.notify(`${p.name || 'Power'} has ended: your next rest gives back its Power Slot.`, { kind: 'note' });
+                window.APXDice?.notify(`${p.name || 'Power'} has ended${perm ? ': your next rest gives back its Power Slot' : ''}.`, { kind: 'note' });
             }
             window.recalculateMath(); window.scheduleAutoSave?.();
         };
+        window.apxSetPowerActive = window.apxSetPermActive;
         // What a rest keeps back: { slotKey: n } for the Permanent powers still Active (never more than were used)
         window.apxPermHeldSlots = function (st) {
             let held = {};
@@ -2515,9 +2612,9 @@
             let durText = { '1min': '1 Minute', '10min': '10 Minutes', '1hr': '1 Hour', '8hr': '8 Hours', '24hr': '24 Hours', channel: 'Channeling', permanent: 'Permanent' };
             return list.map(a => `<div data-active-power="${esc(a.id)}" style="background:rgba(120,53,15,.3);border:1px solid #b45309;border-radius:.4rem;padding:.35rem .5rem;margin-bottom:.4rem;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap">
                 <span style="font-size:.72rem;font-weight:800;color:#fde68a">${esc(a.name)}</span>
-                <span style="font-size:.6rem;color:#fcd34d">${esc(durText[a.dur] || a.dur)}${a.left != null ? ` · ${a.left} more turn${a.left === 1 ? '' : 's'}` : ''} · Overexertion: +1 Fatigue when it ends</span>
+                <span style="font-size:.6rem;color:#fcd34d">${esc(durText[a.dur] || a.dur)}${a.left != null ? ` · ${a.left} more turn${a.left === 1 ? '' : 's'}` : ' · until you end it (no initiative to count on)'}${a.ox !== false ? ' · Overexertion: +1 Fatigue when it ends' : ''}${a.conc ? ' · Concentration (2 AP a turn)' : ''}</span>
                 <span style="flex:1"></span>
-                <button onclick="window.apxEndActivePower('${esc(a.id)}')" title="It's over (you ended it, it was dispelled, or its time ran out): take the Fatigue" style="font-size:.66rem;font-weight:800;padding:.12rem .45rem;border-radius:.25rem;background:#1e293b;border:1px solid #b45309;color:#fde68a;cursor:pointer">End Power</button></div>`).join('');
+                <button onclick="window.apxEndActivePower('${esc(a.id)}')" title="It's over (you ended it, it was dispelled, or its time ran out)${a.ox !== false ? ': take the Fatigue' : ''}" style="font-size:.66rem;font-weight:800;padding:.12rem .45rem;border-radius:.25rem;background:#1e293b;border:1px solid #b45309;color:#fde68a;cursor:pointer">End Power</button></div>`).join('');
         }
         window.apxActivePowersBarHtml = apxActivePowersBarHtml;
         // Your turn starts: a 1 Minute (or Channeling) power runs down

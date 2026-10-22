@@ -661,7 +661,7 @@ function _gmCompanionOwner(e) {
 function effInit(e) { let o = _gmCompanionOwner(e); if (o) return effInit(o); return e.baseInitiative - (e.surprised ? 10 : 0); }
 // A Loyal Companion takes its turn WITH its owner: one slot in the order (drawn joined under its owner),
 // Next / Prev Turn pass over it, and its turn (AP, start / end of turn effects) begins and ends with theirs.
-function _gmSharesTurn(e) { return !!(e && e.companionOf && !e.summonOf && !e.summonOfEntry && _gmCompanionOwner(e)); }
+function _gmSharesTurn(e) { return !!(e && ((e.companionOf && !e.summonOf && !e.summonOfEntry && _gmCompanionOwner(e)) || e.sensor)); }   // (a power's Sensor: an object, no turns)
 function _gmTurnMates(e) { return e && e.playerUid && !e.companionOf ? (window.gmInitiative || []).filter(x => x !== e && x.companionOf === e.playerUid && !x.summonOf && !x.summonOfEntry) : []; }
 window._gmSharesTurn = _gmSharesTurn; window._gmTurnMates = _gmTurnMates;
 // Everyone whose turn it is now: the creature on turn and a companion sharing it
@@ -1426,6 +1426,7 @@ function _gmPublishLogSoon() {
 // HP change on a tracker entry → "<active creature> dealt X damage to <target>."
 function _gmLogHpChange(entry, before, after, wasAboveZero, rawDmg, hit, why) {
     if (entry && after < before) { try { _gmPfxOnDamage(entry); } catch (e) { console.warn('Damage Interrupt:', e); } }
+    if (entry && after < before && window._gmOnHpDrop) { try { window._gmOnHpDrop(entry, before, after, Math.max(before - after, rawDmg || 0)); } catch (e) { console.warn('Power upkeep:', e); } }
     let d = before - after;
     if (d > 0 && rawDmg > d) d = rawDmg;   // the whole hit, even past 0 HP
     if (!_gmFightOn()) return;
@@ -1515,7 +1516,7 @@ function _gmAtkLive(a) {
 window.apxOnAttackRoll = function(o, r) {
     if (!o || !_gmFightOn()) return;
     let e = _gmAttackerFor(o); if (!e) return;
-    if (o.areaHit) { _gmAreaAttack(e, Object.assign({}, r, { label: o.label, hit: o.hit || null, dice: o.dice || '', dmgType: o.dmgType || (o.hit && o.hit.dmgType) || '', critMult: o.critMult || 2, area: o.areaHit })); return; }
+    if (o.areaHit) { _gmAreaAttack(e, Object.assign({}, r, { label: o.label, hit: o.hit || null, dice: o.dice || '', dmgType: o.dmgType || (o.hit && o.hit.dmgType) || '', critMult: o.critMult || 2, area: o.areaHit, fx: o.powerFx || null })); return; }
     _gmRecordAttack({ id: r.id, attacker: e, label: o.label || 'an attack', hit: o.hit || null, crit: !!r.crit, fumble: !!r.fumble, total: r.total,
         dice: o.dice || '', critMult: o.critMult || 2, reroll12: false, critExtra: r.critExtra || 0, dmgType: o.dmgType || (o.hit && o.hit.dmgType) || '',
         dmgShares: r.dmgParts ? r.dmgParts.map(x => x.dmg) : null });   // (NPC stat blocks don't use perks)
@@ -1577,8 +1578,9 @@ window._gmAreaResolve = function(attacker, info) {
     let byName = attacker ? _gmGmName(attacker) : 'Someone';
     if (!rows.length) { gmLog({ gmOnly: true, kind: 'info', force: true, text: `${byName}'s ${label}: no one in the tracker is in its area.` }); return; }
     let total = typeof info.dmgTotal === 'number' ? info.dmgTotal : null, save = info.save || null;
-    // An attack roll (each target is its own hit), or nothing to roll or deal: just say who's in it
-    if (info.attackRoll || (total == null && !save)) {
+    let fx0 = info.fx || null, hasFx = !!(fx0 && ((fx0.conds || []).filter(c => c && c !== 'wounded').length)) || !!(info.ends && info.ends.length);
+    // An attack roll (each target is its own hit), or nothing to roll, deal or put on them: just say who's in it
+    if (info.attackRoll || (total == null && !save && !hasFx)) {
         gmLog({ gmOnly: true, kind: 'info', force: true, text: `In ${byName}'s ${label}: ${rows.map(r => _gmGmName(r.e)).join(', ')}.` });
         return;
     }
@@ -1614,6 +1616,7 @@ window._gmAreaResolve = function(attacker, info) {
     box.querySelector('[data-x]').onclick = close;
     box.addEventListener('mousedown', e => { if (e.target === box) close(); });
     // Deals one target's share (the attack it hit with, so a split roll, Swarms and extra dice count)
+    let drained = { dealt: 0, healed: 0 };
     let deal = (e, amt) => {
         if (!amt || !window.gmInitiative.includes(e)) return;
         let la = window._gmLastAttack;
@@ -1621,7 +1624,13 @@ window._gmAreaResolve = function(attacker, info) {
         if (hit && Array.isArray(hit.dmgShares) && total && amt !== total) hit = Object.assign({}, hit, { dmgShares: hit.dmgShares.map(x => Math.floor(x * amt / total)) });
         let types = _gmDamageTypes({ typed: false }, hit) || (info.dmgType && window.APXDamage ? window.APXDamage.parts(info.dmgType) : null);
         if (!types || !types.length) types = ['True'];
+        let hpBefore = (e.currentHp || 0) + (e.tempHp || 0);
         _gmDamage(e, { raw: amt, types, hit, swarmMode: 'area', src: hit ? null : `${_gmGmName(attacker)}'s ${label}` });
+        // Damage that heals (Step 5): half of what it dealt, to the creature picked when it was used
+        if (info.drain && window._gmPowerDrain) {
+            drained.dealt += Math.max(0, hpBefore - ((e.currentHp || 0) + (e.tempHp || 0)));
+            let want = Math.floor(drained.dealt / 2); if (want > drained.healed) { window._gmPowerDrain(info.drain, (want - drained.healed) * 2, label, attacker); drained.healed = want; }
+        }
         if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
         if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
     };
@@ -1629,11 +1638,13 @@ window._gmAreaResolve = function(attacker, info) {
     let fx = info.fx && attacker ? Object.assign({}, info.fx, { conds: (info.fx.conds || []).filter(c => c && c !== 'wounded') }) : null;
     let rec = fx && (fx.conds.length || fx.lasting) ? _gmPfxRecord({ casterId: attacker.id, label, fx }) : null;
     let what = fx ? _gmCondNames(fx.conds) : '';
-    box.querySelector('[data-go]').onclick = () => {
+    let go = () => {
         box.querySelectorAll('[data-row]').forEach(cb => { rows[+cb.dataset.row].on = cb.checked; });
         close();
         let picked = rows.filter(r => r.on && window.gmInitiative.includes(r.e));
         picked.forEach(r => {
+            // (those it ends: gone whatever the save)
+            if (info.ends && info.ends.length && window._gmPowerEnds) window._gmPowerEnds(r.e, info.ends, label);
             if (heal) {
                 if (!total) return;
                 let wasAboveZero = r.e.currentHp === null || r.e.currentHp > 0, before = (r.e.currentHp || 0) + (r.e.tempHp || 0);
@@ -1645,7 +1656,12 @@ window._gmAreaResolve = function(attacker, info) {
                 _afterHpChange(r.e, wasAboveZero);
                 return;
             }
-            if (!save) { deal(r.e, total); return; }
+            if (!save) {
+                if (total) deal(r.e, total);
+                // No save: its Conditions land on each of them
+                if (rec && fx.conds.length && window.gmInitiative.includes(r.e)) { _gmApplyPfx(r.e, rec); gmLog({ text: `${_gmPublicName(r.e)} is ${what} (${label}).`, gmText: `${_gmGmName(r.e)} is ${what} (${label}).`, kind: 'info' }); }
+                return;
+            }
             let full = what ? `takes the full damage and is ${what}` : 'takes the full damage', fullInf = what ? `take the full damage and be ${what}` : 'take the full damage';
             let item = { attr: save.attr || 'AGI', dc: save.dc, cond: fx && fx.conds[0] || null, why: label, saveKind: save.kind, pfx: rec,
                 fail: full, failInf: fullInf, area: { total, half, kind: save.kind, deal, dealt: null } };
@@ -1656,6 +1672,9 @@ window._gmAreaResolve = function(attacker, info) {
         if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
         if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
     };
+    box.querySelector('[data-go]').onclick = go;
+    // (targets the player picked within range: no need to ask)
+    if (info.auto) go();
 };
 // An area power's save came in: the damage by that roll. A reroll that changes it is flagged for the GM.
 function _gmAreaSaveDamage(entry, item, pass, again) {
@@ -2044,7 +2063,8 @@ window._gmPfxPick = _gmPfxPick;
 function _gmPfxRecord(o) {
     let fx = o.fx;
     return { key: o.casterId + '|' + o.label, label: o.label, conds: fx.conds.slice(), attr: fx.lasting ? fx.escapeAttr || null : null, dc: fx.dc,
-        byId: o.casterId, lasting: !!fx.lasting, dur: fx.dur || 'instant', dmgInt: !!fx.dmgInt, actInt: !!fx.actInt };
+        byId: o.casterId, lasting: !!fx.lasting, dur: fx.dur || 'instant', dmgInt: !!fx.dmgInt, actInt: !!fx.actInt,
+        pi: fx.pi || null, lvl: parseInt(fx.lvl) || null, left: fx.lasting && window.gmCombatStarted && window.apxDurTurns ? window.apxDurTurns(fx.dur) : null };   // (1 round = 6 seconds: its turns)
 }
 function _gmPfxResolve(o, t) {
     let fx = o.fx, rec = _gmPfxRecord(o), what = _gmCondNames(fx.conds);
@@ -2522,6 +2542,15 @@ function _gmHandleRollEvent(uid, ev) {
     if (ev.kind === 'power' && ev.summon && firstSeen && (ev.t || Date.now()) > Date.now() - 600000) {
         if (typeof window._gmSpawnSummon === 'function') window._gmSpawnSummon(uid, ev);
     }
+    // A lasting power of theirs is over (its time, a rest, Concentration, ended by hand): everything it did goes
+    if (ev.kind === 'powerEnd') { if (firstSeen && window._gmEndPi) { try { window._gmEndPi(ev.pi, ev.why || 'it ended', { fromPlayer: uid }); } catch (e) { console.warn('Power end:', e); } } return; }
+    // A buff they lost on their own (Invisible: a failed Concentration check)
+    if (ev.kind === 'buffDrop') { if (firstSeen && window._gmBuffDropped) window._gmBuffDropped(uid, ev); return; }
+    // Out of combat, a power still does what it does on an open battle map (a zone, a wall, a teleport…)
+    if (ev.kind === 'power' && !_gmFightOn() && firstSeen && window._gmPowerWorldEvent && (ev.t || Date.now()) > Date.now() - 600000) {
+        let pe = ev.companion ? (window.gmInitiative || []).find(e => e.companionOf === uid) : (window.gmInitiative || []).find(e => e.playerUid === uid && e.faction === 'player' && !e.companionOf);
+        try { window._gmPowerWorldEvent(uid, ev, pe || null, ((window.gmParty || []).find(p => p.fileName === uid)?.summary?.name) || ev.who || 'A player', { mapOnly: true }); } catch (e) { console.warn('Power in play:', e); }
+    }
     let entry0 = (window.gmInitiative || []).find(e => e.playerUid === uid && e.faction === 'player');
     if (entry0 && ev.kind === 'check' && _gmFallFromRoll(entry0, ev)) return;
     // Checks and saves show for the GM whenever a player in this world rolls one (not only in combat)
@@ -2572,11 +2601,21 @@ function _gmHandleRollEvent(uid, ev) {
         if (firstSeen && pwEntry && !ev.attackRoll && (ev.dmgType || ev.save)) _gmRecordAttack({ id: ev.id, attacker: pwEntry, label: ev.label || 'a power', hit: { weapon: ev.label || 'Power', props: [], dmgType: ev.dmgType || '', breach: Array.isArray(ev.breach) ? ev.breach : undefined, nullify: ev.nullify || undefined },
             crit: false, fumble: false, total: 0, dice: ev.dice || '', critMult: 2, reroll12: false, dmgType: ev.dmgType || '', power: true, save: ev.save || null, aoe: !!ev.aoe,
             dmgShares: Array.isArray(ev.dmgParts) ? ev.dmgParts.map(x => x.dmg) : null });
-        if (firstSeen && pwEntry && ev.fx && !(ev.area && ev.save && !ev.attackRoll)) { try { window._gmPowerFxOffer(pwEntry, ev.label || 'a power', ev.fx); } catch (e) { console.warn('Power effects:', e); } }   // (an area's own saves bring its Conditions)
+        // (targets picked on the map, or an area: resolved below; otherwise you pick who it hit)
+        if (firstSeen && pwEntry && ev.fx && !ev.targets && !ev.area) { try { window._gmPowerFxOffer(pwEntry, ev.label || 'a power', ev.fx); } catch (e) { console.warn('Power effects:', e); } }
         // Placed on the battle map as an area: roll everyone's saves in it and deal the damage
         if (firstSeen && pwEntry && ev.area) { try { window._gmAreaResolve(pwEntry, ev); } catch (e) { console.warn('Power area:', e); } }
+        // Its targets, what it leaves on the map, a teleport, a resize, a dispel… (js/apx-power-world-gm.js)
+        if (firstSeen && window._gmPowerWorldEvent) { try { window._gmPowerWorldEvent(uid, ev, pwEntry, name); } catch (e) { console.warn('Power in play:', e); } }
         return;
     }
+    // A power's attack roll with no damage: against each picked target's AC (its Conditions land on a hit)
+    if (ev.kind === 'powerAtk') {
+        let pe = ev.companion ? (window.gmInitiative || []).find(e => e.companionOf === uid) : entry;
+        if (firstSeen && pe && ev.area) _gmAreaAttack(pe, Object.assign({}, ev, { dmg: 0 }));
+        return;
+    }
+
     // Burning ticked at the start of their turn: say why they lost HP (instead of a plain damage line)
     if (ev.kind === 'burn') {
         if (!firstSeen) return;
@@ -4180,6 +4219,9 @@ function gmStartTurnAp(e) {
         }
     }
     if (Array.isArray(e._fx)) e._fx = e._fx.filter(f => f.keep);   // its maneuvers last until the start of its next turn
+    // A power's lasting Conditions on it run out (1 Minute: 10 of its turns, 10 Minutes 100…)
+    (e._powerFx || []).slice().forEach(f => { if (f.lasting && f.left != null) { f.left -= 1; if (f.left <= 0) _gmEndPfx(e, f.id, 'its time is up'); } });
+    if (window._gmPowerTurnStart) { try { window._gmPowerTurnStart(e); } catch (err) { console.warn('Power upkeep:', err); } }
     // Its Sacrifice's Can't Regain HP ends now
     if (e._sacNoHeal) { delete e._sacNoHeal; if (window._gmRemoveEntryCondition && (window._gmEntryConditions ? window._gmEntryConditions(e.id) : []).includes('noheal')) window._gmRemoveEntryCondition(e.id, 'noheal'); gmLog({ text: `${_gmPublicName(e)} can regain Hit Points again (its Sacrifice wore off).`, kind: 'info' }); }
     if (e.faction === 'player') return;   // players' sheets add their own AP when their turn starts
@@ -4454,14 +4496,20 @@ function _gmAreaAttack(attacker, ev) {
     let types = window.APXDamage && ev.dmgType ? window.APXDamage.parts(ev.dmgType) : [];
     if (!types.length) types = ['True'];
     let dmg = Math.max(0, parseInt(ev.dmg) || 0); if (a.half) dmg = Math.floor(dmg / 2);
-    let hits = [], misses = [];
+    let hits = [], misses = [], dealt = 0;
+    let fx = ev.fx && attacker ? Object.assign({}, ev.fx, { conds: (ev.fx.conds || []).filter(c => c && c !== 'wounded') }) : null;
+    let rec = fx && (fx.conds.length || fx.lasting) ? _gmPfxRecord({ casterId: attacker.id, label, fx }) : null;
     rows.forEach(e => {
         let ac = _gmEntryAc(e), hit = !ev.fumble && ((ev.crit && !ev.critIfHit) || (ev.total || 0) >= ac);   // (critIfHit: a bought crit lands only on a hit)
         (hit ? hits : misses).push(`${_gmGmName(e)} (AC ${ac})`);
         let h = { attacker, label, hit: ev.hit || null, crit: !!ev.crit && hit, dice: ev.dice || '', dmgType: ev.dmgType || '', critMult: ev.critMult || 2, critExtra: 0 };
-        if (hit && dmg > 0) _gmDamage(e, { raw: dmg, types, hit: h });
+        if (hit && dmg > 0) { let before = (e.currentHp || 0) + (e.tempHp || 0); _gmDamage(e, { raw: dmg, types, hit: h }); dealt += Math.max(0, before - ((e.currentHp || 0) + (e.tempHp || 0))); }
         else if (!hit && _gmTearingFloor(h)) _gmDamage(e, { raw: _gmTearingFloor(h), types: ['True'], hit: null, src: `${who}'s ${label} (a miss; Tearing)` });   // Tearing deals its least, hit or miss
+        // A power that hits: its Conditions (an attack lands them, no save), and those it ends
+        if (hit && rec && fx.conds.length && window.gmInitiative.includes(e)) { _gmApplyPfx(e, rec); gmLog({ text: `${_gmPublicName(e)} is ${_gmCondNames(fx.conds)} (${label}).`, gmText: `${_gmGmName(e)} is ${_gmCondNames(fx.conds)} (${label}).`, kind: 'info' }); }
+        if (hit && fx && (fx.ends || []).length && window._gmPowerEnds) window._gmPowerEnds(e, fx.ends, label);
     });
+    if (fx && fx.drain && dealt > 0 && window._gmPowerDrain) window._gmPowerDrain(fx.drain, dealt, label, attacker);
     gmLog({ text: `${attacker ? _gmPublicName(attacker) : 'Someone'}'s ${label} sweeps the area: ${hits.length ? 'hits ' + hits.length : 'no hits'}.`,
         gmText: `${who}'s ${label} (${ev.total}${ev.crit ? (ev.critIfHit ? ', critical if it hits' : ', critical') : ''}): hits ${hits.join(', ') || 'no one'}${misses.length ? '; misses ' + misses.join(', ') : ''}${dmg ? ` · ${dmg} damage each${a.half ? ' (Long Range: half)' : ''}` : ''}.`, kind: 'dmg', force: true });
     window.renderInitiativeTracker();

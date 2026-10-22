@@ -72,6 +72,11 @@
             { id: 'summonTierLevel', test: d => { let n = ((d.utility || {}).major || {}).summonCreature || 0; if (!n || typeof window.pcCalcXP !== 'function') return false; let t = Math.max(...(window.apxSummonSlots ? window.apxSummonSlots(d) : [{ tier: d.summonTier }]).map(x => parseInt(x.tier) || 1)); return t > 5 || t > window.pcCalcXP(d).level; },
               text: 'A summoned creature\'s Tier can\'t be higher than the power\'s Level now (Tier 5 at most). This power still works as it is; rebuild it (free) to bring its creature\'s Tier in line.' }
         ],
+        // Turn the target Invisible needs the Concentration refund (Step 8)
+        11: [
+            { id: 'invisibleConc', test: d => ((((d.utility || {}).major || {}).invisible) || 0) > 0 && !(d.refunds && d.refunds.concentration),
+              text: 'Turn the target Invisible now needs the Concentration refund (Step 8): keeping it up costs 2 AP each turn, and taking damage calls for a CON save. It still works as it is; rebuild it (free) to add Concentration.' }
+        ],
         // Saving throws name their Core Attribute; lasting effects get an Escape Save the target can pass
         3: ['save', 'cond', 'escape', 'actionInt'].map(k => ({
             id: 'powerSaves_' + k,

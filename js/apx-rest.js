@@ -112,7 +112,8 @@
     // ── Short Rest ───────────────────────────────────────────────
     window.apxShortRest = function () {
         if (!needHp()) return;
-        window.apxEndAllActivePowers?.('you rested', true);   // (a lasting Overexertion power ends: its Fatigue first; a Permanent one goes on)
+        // A Short Rest is 1 hour: a power that wouldn't last that long is over (its Overexertion Fatigue first)
+        if (window.apxRestEndPowers) window.apxRestEndPowers(1, 'a Short Rest: an hour passes'); else window.apxEndAllActivePowers?.('you rested', true);
         let log = [];
         let back = panel('Short Rest', '');
         let draw = () => {
@@ -180,7 +181,8 @@
     // ── Full Rest ────────────────────────────────────────────────
     window.apxFullRest = async function () {
         if (!needHp()) return;
-        window.apxEndAllActivePowers?.('you rested', true);   // (a lasting Overexertion power ends: its Fatigue first; a Permanent one goes on)
+        // A Full Rest is 8 hours: everything shorter is over (24 Hours and Permanent go on)
+        if (window.apxRestEndPowers) window.apxRestEndPowers(8, 'a Full Rest: 8 hours pass'); else window.apxEndAllActivePowers?.('you rested', true);
         let s = st(), c = C();
         let mh = maxHp();
         let maxDice = c.maxRestDice || s.restDice || 0;

@@ -2123,19 +2123,56 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
     let whoGm = actor ? (window._gmGmName ? window._gmGmName(actor) : actor.name) : sb.name;
     let whoPub = actor ? (window._gmPublicName ? window._gmPublicName(actor) : actor.name) : sb.name;
     if (actor && !sb._isCompanion) flags.initId = actor.id;
-    // Utilities that are numbers (+AC, DR/ER, Temp HP…): once it's used, you pick who gets them
-    if (actor && !sb._isCompanion && window._gmBuffOffer && window.apxPowerBuff && window.apxPowerBuff(d, p.lvl)) setTimeout(() => window._gmBuffOffer(actor, p), 400);
+    // The battle map it's used on (the creature's token on it: asked when it's on more than one open map)
+    let mctx = null;
+    if (window.apxPowerMapCtx && window.APXBattle && window.APXBattle.placeArea) {
+        if (sb._isCompanion) mctx = await window.apxPowerMapCtx(m => window.apxMyTokOn(m, true), p.name);
+        else if (actor) mctx = await window.apxPowerMapCtx(m => (m.battleTokens || []).find(t => t.initiativeId === actor.id), p.name);
+        if (mctx === 'cancel') return;
+    } else mctx = sb._isCompanion ? (window._pwAreaMap ? window._pwAreaMap(true) : null) : (actor && window._btAreaMapFor ? window._btAreaMapFor(actor) : null);
     // An area power with a battle map open: its area is placed first (its shape and size are the power's).
     // Everyone in it then rolls the save and takes the damage (the GM confirms it in the tracker).
     let areaSpec = window.apxPowerAreaSpec ? window.apxPowerAreaSpec(p) : null, areaRes = null;
     if (areaSpec && window.APXBattle && window.APXBattle.placeArea) {
-        let am = sb._isCompanion ? (window._pwAreaMap ? window._pwAreaMap(true) : null) : (actor && window._btAreaMapFor ? window._btAreaMapFor(actor) : null);   // (a creature not in the tracker has nothing to resolve it)
-        if (am) {
+        let am = mctx;   // (a creature not in the tracker has nothing to resolve it)
+        if (am && am.tokenId !== undefined) {
             let r = await window.APXBattle.placeArea(am.winId, Object.assign({ casterId: am.tokenId, label: p.name || 'Power', safeZone: !sb._isCompanion }, areaSpec));
             if (r === null) return;
-            if (r !== 'skip') areaRes = { mapId: am.mapId, tokenIds: r.tokenIds, safeIds: r.safeIds, names: r.names };
+            if (r !== 'skip') areaRes = { mapId: am.mapId, tokenIds: r.tokenIds, safeIds: r.safeIds, names: r.names, cells: r.cells };
         }
     }
+    // Its targets within range, a teleport's square, a zone, a wall… (js/apx-power-world.js), before anything is spent
+    let plan = null;
+    if (mctx && mctx.tokenId && window.apxPowerPlan && p.draft) {
+        // (a Sensor of this creature's on that map: the power can come from it)
+        let sen = !sb._isCompanion && actor ? (mctx.map.battleTokens || []).find(t => t.sensor && t.sensorFrom === actor.id && (!t.pi || !window._gmCastReg || window._gmCastReg[t.pi])) : null;
+        plan = await window.apxPowerPlan({ p, name: p.name || 'Power', lvl: parseInt(p.lvl) || 1, ctx: mctx, casterId: mctx.tokenId, fromId: mctx.tokenId, sensorId: sen ? sen.id : null, who: sb._isCompanion ? 'companion' : 'npc', areaRes,
+            dmgFormula: dmg && !dmg.heal ? dmg.formula : null, dmgType: dmg && !dmg.heal ? dmg.type : null });
+        if (plan === null) return;
+    }
+    // A lasting power: tracked for its whole duration (an NPC's on the tracker, a companion's on its owner's sheet)
+    let inst = null;
+    if (!sb._isCompanion && actor && window._gmNpcCastStart) inst = window._gmNpcCastStart(actor, p, plan && plan.play);
+    else if (sb._isCompanion && window.apxStartActivePower && p.draft && (p.draft.duration || 'instant') !== 'instant') inst = window.apxStartActivePower('comp:' + (p.name || idx), Object.assign({}, p, { name: `${p.name || 'Power'} (${sb.name || 'companion'})` }), { play: plan && plan.play });
+    // Utilities that are numbers (+AC, DR/ER, Temp HP…): the targets picked; without a map, you pick who gets them
+    let pBuff = window.apxPowerBuff ? window.apxPowerBuff(d, p.lvl) : null;
+    if (plan && plan.play && plan.play.wpnDmg && dmg && !dmg.heal) { pBuff = Object.assign(pBuff || window.apxBlankBuff(), { wpnDmg: { formula: dmg.formula, type: dmg.type || '' }, lasting: true }); dmg = null; }
+    if (pBuff) {
+        pBuff = Object.assign(pBuff, { name: p.name || 'Power', key: (actor ? actor.id : 'comp') + ':' + (p.name || 'Power'), dur: d.duration || 'instant', pi: inst ? inst.id : null, lvl: parseInt(p.lvl) || 1, actInt: !!(d.durationMods || {}).actionInterrupt || undefined });
+        let tl = plan && plan.targets && plan.targets.list ? plan.targets.list : null;
+        if (tl && tl.length && !sb._isCompanion) tl.forEach(x => { let e = typeof window._gmEntryForToken === 'function' ? window._gmEntryForToken(plan.targets.mapId, x.tokenId) : null; if (e && window._gmApplyBuff) window._gmApplyBuff(e, pBuff, whoGm); });
+        else if (tl && tl.length && sb._isCompanion) window.apxOnRollEvent?.({ id: 'pwb' + Date.now().toString(36), kind: 'power', companion: true, label: p.name || 'Power', text: `${whoPub} uses ${p.name || 'a power'}.`, buff: pBuff, buffTarget: { mapId: plan.targets.mapId, tokenIds: tl.map(x => x.tokenId) } });
+        else if (!plan && actor && !sb._isCompanion && window._gmBuffOffer) setTimeout(() => window._gmBuffOffer(actor, p), 400);
+    }
+    // What the plan does on the map and to its targets: an NPC's here in the tracker, a companion's through its owner's sheet
+    let planEv = window.apxPlanEvent ? window.apxPlanEvent(plan, inst) : {};
+    if (areaRes) delete planEv.targets;
+    let worldOut = (info) => {
+        if (!plan) return;
+        let ev = Object.assign({ id: 'pw' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), label: p.name || 'Power' }, info || {}, planEv, pBuff && pBuff.invisible && plan.targets ? { buff: pBuff, buffTarget: { mapId: plan.targets.mapId, tokenIds: plan.targets.list.map(x => x.tokenId) } } : {});
+        if (sb._isCompanion) window.apxOnRollEvent?.(Object.assign({ kind: 'power', companion: true, text: `${whoPub} uses ${p.name || 'a power'}.` }, ev));
+        else if (window._gmPowerWorldEvent) { try { window._gmPowerWorldEvent(null, ev, actor, whoGm); } catch (e) { console.warn('Power in play:', e); } }
+    };
     let areaNote = areaRes ? `In the area: ${areaRes.names.length ? areaRes.names.join(', ') : 'no one'}${areaRes.safeIds.length ? ` (${areaRes.safeIds.length} kept safe)` : ''}.` : '';
     let pwId = 'pw' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
     // Hands the area to the GM's tracker (a companion's goes there from its owner's sheet)
@@ -2203,7 +2240,19 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
     let escLine = p.draft && window.apxPowerSaveLines ? window.apxPowerSaveLines(d, sb.powerSaveDc).escape : '';
     let fxInfo = sInfo && (sInfo.inflicts.length || sInfo.lasting || (sInfo.saveKind && sInfo.saveAttr)) ? { conds: sInfo.inflicts.filter(c => c !== 'wounded'), lasting: sInfo.lasting, escapeAttr: sInfo.escapeAttr,
         dur: sInfo.dur, dmgInt: sInfo.dmgInt, actInt: sInfo.actInt, saveAttr: sInfo.saveAttr, saveKind: sInfo.saveKind, dc: sb.powerSaveDc } : null;
-    let offerFx = () => { if (fxInfo && actor && !sb._isCompanion && typeof window._gmPowerFxOffer === 'function') { try { window._gmPowerFxOffer(actor, p.name || 'Power', fxInfo); } catch (e) { console.warn('Power effects:', e); } } };
+    if (fxInfo && inst) fxInfo.pi = inst.id;
+    if (fxInfo) fxInfo.lvl = parseInt(p.lvl) || 1;
+    let picked = !!(plan && plan.targets && plan.targets.list && plan.targets.list.length);
+    let offerFx = () => { if (picked || (areaRes && plan)) return; if (fxInfo && actor && !sb._isCompanion && typeof window._gmPowerFxOffer === 'function') { try { window._gmPowerFxOffer(actor, p.name || 'Power', fxInfo); } catch (e) { console.warn('Power effects:', e); } } };
+    let aimAt = (o2) => {
+        let tg = areaRes || (planEv.targets ? Object.assign({ names: plan.targets.list.map(x => x.name) }, planEv.targets) : null);
+        if (tg && tg.tokenIds && tg.tokenIds.length) o2.areaHit = { mapId: tg.mapId, tokenIds: tg.tokenIds, names: tg.names || [], power: true };
+        if (fxInfo || planEv.ends || planEv.drain) o2.powerFx = Object.assign({}, fxInfo || { conds: [] }, { ends: planEv.ends || undefined, drain: planEv.drain || undefined, pi: inst ? inst.id : undefined });
+        // (a lone attack roll with no damage: compared with each target's AC once it's rolled)
+        if (o2.areaHit && o2.kind === 'attack') { let sent = false; o2.onResult = r => { if (sent) return; sent = true;
+            let ev2 = { id: 'pa' + Date.now().toString(36), kind: 'powerAtk', label: o2.label, total: r.total, nat: r.nat, crit: r.nat === 20, fumble: r.nat === 1, area: o2.areaHit, fx: o2.powerFx || null, dmg: 0 };
+            if (sb._isCompanion) window.apxOnRollEvent?.(Object.assign({ companion: true }, ev2)); else if (actor && window._gmAreaAttack) window._gmAreaAttack(actor, ev2); }; }
+    };
     if (escLine) o.flavor = o.flavor ? o.flavor + ' · ' + escLine + '.' : escLine + '.';
     // Summon a Creature: the creatures appear next to this creature (a companion's: via the GM's tracker)
     let sumN = ((d.utility || {}).major || {}).summonCreature || 0;
@@ -2227,7 +2276,9 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
             o.dice = mw.dice + '+' + dmg.formula; o.dmgType = [mw.dmgType, dmg.type].filter(Boolean).join(' + ');
             o.split = [{ formula: mw.dice, type: mw.dmgType || 'Weapon' }].concat(dmg.split || [{ formula: dmg.formula, type: dmg.type }]);
         } else { o.dice = mw.dice; o.dmgType = mw.dmgType; }
+        aimAt(o);
         APXDice.attack(o);
+        worldOut({ attackRoll: true });
         tell(`${whoPub} uses ${p.name || 'a power'} with ${mw.label}${isReact ? ' (Reaction)' : ''}: attack roll.`, `${whoGm} uses ${p.name || 'a power'} with ${mw.label}${isReact ? ' (Reaction)' : ''}: attack roll.`);
         areaOut({ attackRoll: true });
         if (fxInfo && fxInfo.conds.length) offerFx();
@@ -2236,8 +2287,9 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
     if (step === 'atkSave' && d.atkMode !== 'save') {
         o.bonus = sb.powerAttackBonus || 0;
         o.hit = { weapon: p.name || 'Power', props: [], die: dmg ? '1d' + ((dmg.formula.match(/d(\d+)/) || [0, 6])[1]) : '1d6', dmgType: dmg && !dmg.heal ? dmg.type : '' };
-        if (dmg && !dmg.heal) { o.dice = dmg.formula; o.dmgType = dmg.type; if (dmg.split) o.split = dmg.split; APXDice.attack(o); }
-        else APXDice.check(Object.assign(o, { kind: 'attack', label: (p.name || 'Power') + ': Power Attack' }));
+        if (dmg && !dmg.heal) { o.dice = dmg.formula; o.dmgType = dmg.type; if (dmg.split) o.split = dmg.split; aimAt(o); APXDice.attack(o); }
+        else { Object.assign(o, { kind: 'attack', label: (p.name || 'Power') + ': Power Attack' }); aimAt(o); APXDice.check(o); }
+        worldOut({ attackRoll: true });
         tell(`${whoPub} uses ${p.name || 'a power'}${isReact ? ' (Reaction)' : ''}: attack roll.`, `${whoGm} uses ${p.name || 'a power'}${isReact ? ' (Reaction)' : ''}: attack roll.`);
         areaOut({ attackRoll: true });
         if (fxInfo && fxInfo.conds.length) offerFx();
@@ -2260,7 +2312,8 @@ window.apxNpcUsePower = async function(key, list, idx, initId) {
     let dTotal = dcard && Array.isArray(dcard.parts) ? dcard.parts.filter(x => x.kind === 'dmg').reduce((t, x) => t + (x.total || 0), 0) : undefined;
     let dShares = dmg && dmg.split && dcard && Array.isArray(dcard.parts) ? dcard.parts.filter(x => x.kind === 'dmg').map((x, i) => ({ type: (dmg.split[i] || {}).type, dmg: x.total })) : undefined;
     let areaSave = saveKind && !(dmg && dmg.heal) ? { dc, kind: saveKind, attr: sInfo && sInfo.saveAttr || null } : null;
-    areaOut({ save: areaSave, dmgTotal: dTotal, dmgType: dmg && !dmg.heal ? dmg.type : '', dice: dmg ? dmg.formula : '', heal: !!(dmg && dmg.heal), dmgParts: dShares, fx: fxInfo || undefined });
+    areaOut({ save: areaSave, dmgTotal: dTotal, dmgType: dmg && !dmg.heal ? dmg.type : '', dice: dmg ? dmg.formula : '', heal: !!(dmg && dmg.heal), dmgParts: dShares, fx: fxInfo || undefined, ends: planEv.ends || undefined, drain: planEv.drain || undefined });
+    worldOut({ save: areaSave, dmgTotal: dTotal, dmgType: dmg && !dmg.heal ? dmg.type : '', dice: dmg ? dmg.formula : '', heal: !!(dmg && dmg.heal), dmgParts: dShares, fx: fxInfo || undefined });
     if (!(areaRes && areaSave)) offerFx();   // (an area's own saves bring its Conditions)
 };
 // Has this stat block's creature (in the tracker) Awakened? Outside the tracker its Awakened powers are shown, unlocked.
