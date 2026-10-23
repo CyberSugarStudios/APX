@@ -76,15 +76,6 @@ function craftHasFailRecovery(craftAttr, bsRank, artisanRank) {
     return (craftAttr === 'STR' && bsRank >= 2) || (artisanRank >= 3);
 }
 
-function craftRollOutcome(d20, craftBonus, dc) {
-    let total = d20 + craftBonus;
-    let margin = dc - total;
-    let outcome, label;
-    if (total >= dc) { outcome = 'success'; label = 'SUCCESS'; }
-    else if (margin >= 5 || d20 === 1) { outcome = 'failhard'; label = 'FAILED BY 5+ / CRITICAL FAILURE'; }
-    else { outcome = 'fail'; label = 'FAILED'; }
-    return { outcome, label, total };
-}
 
 // ------------------------------------------------------------------
 // LIFO batch bookkeeping (Ch.8: "recover Crafting Materials equal to

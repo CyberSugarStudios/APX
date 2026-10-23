@@ -1,25 +1,7 @@
 // ============================================================
 // APX Character Sheet — Inventory, Weapons, Powers & Skills UI
 // ============================================================
-        window.toggleSkillTraining = (id, checked) => { window.state.skillsTrained[id] = checked; window.recalculateMath(); };
         window.toggleWeaponAim = (idx, checked) => { window.state.weapons[idx].aimed = checked; window.recalculateMath(); };
-        window.toggleWeaponTwoHanded = (idx, checked) => {
-            if (checked) {
-                let w = window.state.weapons[idx];
-                let handsFree = window.calcTotalHands() - window.calcHandsUsed(idx);
-                if (handsFree < 2) {
-                    window.showConfirm(`Not enough free hands to wield ${w.name} two-handed.`, null, true);
-                    return;
-                }
-            }
-            window.state.weapons[idx].twoHanded = checked;
-            window.recalculateMath();
-        };
-        window.toggleSaveTraining = (attr, checked) => {
-            if (!window.state.savesTrained) window.state.savesTrained = {};
-            window.state.savesTrained[attr] = checked;
-            window.recalculateMath();
-        };
         window.deleteCustomSkill = (id) => { window.showConfirm('Delete this custom skill?', () => { window.state.customSkills = window.state.customSkills.filter(s => s.id !== id); window.recalculateMath(); }); };
         window.updateItemName = (idx, val) => { window.state.items[idx].name = val; window.recalculateMath(); };
         window.updateItemWt = (idx, val) => { window.state.items[idx].wt = parseFloat(val)||0; window.recalculateMath(); };
@@ -109,6 +91,7 @@
                 window.state.conditions = window.state.conditions.filter(x => x !== id);
             }
             window.recalculateMath();
+            window.scheduleAutoSave?.(true);   // (your GM's tracker shows your Conditions)
         };
 
         // one: take off just one of a limb's Wounds (a Torso can be Wounded several times)
@@ -668,8 +651,6 @@
         window.updateWeaponName = (idx, val) => { window.state.weapons[idx].name = val; window.recalculateMath(); };
         window.updateWeaponAttr = (idx, val) => { window.state.weapons[idx].attr = val; window.recalculateMath(); };
         window.updateWeaponTr = (idx, val) => { window.state.weapons[idx].tr = val; window.recalculateMath(); };
-        window.updateWeaponDmg = (idx, val) => { window.state.weapons[idx].dmg = val; window.recalculateMath(); };
-        window.updateWeaponAp = (idx, val) => { window.state.weapons[idx].ap = parseInt(val)||1; window.recalculateMath(); };
         window.deleteWeapon = (idx) => { window.showConfirm('Delete weapon?', () => { window.state.weapons.splice(idx, 1); window.recalculateMath(); }); };
         window.removeEquippedArmor = function() {
             let armor = window.state.equippedArmor;

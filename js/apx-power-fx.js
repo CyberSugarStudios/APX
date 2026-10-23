@@ -197,6 +197,7 @@
             if (st && st.apNextBonus > 0 && window.apxSetApValue) { let n = st.apNextBonus; st.apNextBonus = 0; window.apxSetApValue((window.apxApCurrent ? window.apxApCurrent() : 0) + n); window.APXDice?.notify(`+${n} AP from a power, this turn.`, { kind: 'note' }); }
             let gone = [];
             ((st && st.powerBuffs) || []).forEach(b => { if (b.left != null) { b.left -= 1; if (b.left <= 0) gone.push(b); } });
+            gone.filter(b => b.invisible).forEach(b => { try { window.apxOnRollEvent?.({ id: 'bd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), kind: 'buffDrop', label: b.name || 'Power', pi: b.pi || null, invisible: true, why: 'its time ran out' }); } catch (e) { } });   // (your token shows again)
             if (gone.length) { st.powerBuffs = st.powerBuffs.filter(b => !gone.includes(b)); if (!st.powerBuffs.length) delete st.powerBuffs; window.APXDice?.notify(`${gone.map(b => b.name || 'A power').join(' and ')} on you ${gone.length > 1 ? 'end' : 'ends'}.`, { kind: 'note' }); setTimeout(() => window.recalculateMath?.(), 0); }
             // The powers still on you: +1 AP each turn, 1 less, and AP that can only be spent on movement (used first when you
             // move; it doesn't carry over to your next turn)
@@ -264,7 +265,10 @@
         st._buffSeen = seen.slice(-60);
         if (done.length && inviteCode && window.apxAuth && window.apxAuth.clearGmBuffs) {
             window.scheduleAutoSave?.();
-            window.apxAuth.clearGmBuffs(inviteCode, done).catch(() => {});
+            // (once each: my doc's updates list them again until the clear lands)
+            let busy = window._apxBuffClearing = window._apxBuffClearing || new Set(), todo = done.filter(id => !busy.has(id));
+            todo.forEach(id => busy.add(id));
+            if (todo.length) window.apxAuth.clearGmBuffs(inviteCode, todo).catch(() => {}).finally(() => todo.forEach(id => busy.delete(id)));
         }
     };
     // Using a power with these Utilities: who gets it. → { self: true } | { tokenId, name } | { companion: true } | null (cancel) | 'skip'

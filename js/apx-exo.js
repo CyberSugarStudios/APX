@@ -204,7 +204,8 @@
                 <div class="flex flex-col gap-1">${!x
                     ? _btn('w-full whitespace-nowrap ' + B_FUCH, 'Exo-Suit Forge', 'window.openExoForge()', 'Build a Juggernaut, Phantom or Conduit suit (3,000 Currency)')
                     : (allowed ? _btn('w-full whitespace-nowrap ' + B_CYAN, x.worn ? 'Leave Suit' : 'Enter Suit', 'window.apxExoWear()', 'Getting in or out takes 1 minute' + (x.frame === 'juggernaut' ? ' (6 AP in combat)' : '')) : '')
-                      + _btn('w-full whitespace-nowrap ' + B_FUCH, allowed ? 'Forge' : 'Scrap…', 'window.openExoForge()', allowed ? 'Change its systems or name, or scrap it' : 'Your GM has turned Exo-Suits off for this world: it does nothing here')}</div>`;
+                      + _btn('w-full whitespace-nowrap ' + B_FUCH, allowed ? 'Forge' : 'Scrap…', 'window.openExoForge()', allowed ? 'Change its systems or name, or scrap it' : 'Your GM has turned Exo-Suits off for this world: it does nothing here')
+                      + exoUseBtns(st, x, act, c, 'w-full whitespace-nowrap ')}</div>`;
         } else tile.innerHTML = '';
         // Vitals: Overload Exo-Suit while it's powered (System Reboot once it has overloaded)
         if (vb) {
@@ -256,12 +257,12 @@
         if (x.frame === 'juggernaut' && (x.systems || []).includes('bulwark')) {
             let max = window.apxExoBulwarkMax(st, (c.mods || {}).STR), left = Math.max(0, max - (x.bulwarkUsed || 0));
             camo = `<div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;margin-top:.5rem;font-size:.72rem">Bulwark: <b>${left}/${max}</b> left this Short Rest
-                ${_btn(B_IND, 'Bulwark (2 AP)', 'window.apxExoBulwark()', `Gain Temporary HP equal to your AC (${c.ac || '?'})`, !act || !left)}</div>`;
+                <span style="display:flex;gap:.3rem">${exoUseBtns(st, x, act, c, '')}</span></div>`;
         }
         if (x.frame === 'phantom') {
             let max = window.apxExoCamoMax(st, (c.mods || {}).AGI), left = Math.max(0, max - (x.camoUsed || 0));
             camo = `<div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;margin-top:.5rem;font-size:.72rem">Active Camouflage: <b>${left}/${max}</b> left this Short Rest
-                ${_btn(B_IND, 'Camouflage (2 AP)', 'window.apxExoCamo()', 'Become Invisible until the start of your next turn', !act || !left)}</div>`;
+                <span style="display:flex;gap:.3rem;flex-wrap:wrap;justify-content:flex-end">${exoUseBtns(st, x, act, c, '')}</span></div>`;
         }
         let back = old || document.createElement('div');
         if (!old) {
@@ -288,6 +289,23 @@
         </div>`;
     };
 
+    // The suit's own actions, as buttons (its slot on the sheet, and its details pop-up): Active Camouflage (and
+    // Swap with Decoy) on a Phantom, Bulwark on a Juggernaut that has it
+    function exoUseBtns(st, x, act, c, cls) {
+        if (!x || !x.worn || !window.apxExoAllowed()) return '';
+        if (x.frame === 'phantom') {
+            let max = window.apxExoCamoMax(st, (c.mods || {}).AGI), left = Math.max(0, max - (x.camoUsed || 0));
+            let on = ((st.powerBuffs || []).find(b => b.key === 'exo:camo'));
+            let dec = (x.systems || []).includes('decoy') ? window.apxExoMyDecoy() : null;
+            return _btn(cls + B_IND, on ? 'Camouflaged' : `Camouflage (2 AP) · ${left}/${max}`, 'window.apxExoCamo()', on ? 'You\'re Invisible until the start of your next turn (Active Camouflage)' : `Active Camouflage: spend 2 AP to become Invisible until the start of your next turn${(x.systems || []).includes('decoy') ? ', and leave a Decoy of yourself in your square' : ''} (${left} of ${max} uses left this Short Rest)`, !act || !left || !!on)
+                + (dec ? _btn(cls + B_CYAN, 'Swap with Decoy (3 AP)', 'window.apxExoDecoySwap()', 'Swap places with your Decoy (within 15 squares): it\'s destroyed and your Active Camouflage ends', !act) : '');
+        }
+        if (x.frame === 'juggernaut' && (x.systems || []).includes('bulwark')) {
+            let max = window.apxExoBulwarkMax(st, (c.mods || {}).STR), left = Math.max(0, max - (x.bulwarkUsed || 0));
+            return _btn(cls + B_IND, `Bulwark (2 AP) · ${left}/${max}`, 'window.apxExoBulwark()', `Bulwark: spend 2 AP for Temporary HP equal to your AC (${c.ac || '?'}); ${left} of ${max} uses left this Short Rest`, !act || !left);
+        }
+        return '';
+    }
     let save = () => { window.recalculateMath?.(); window.scheduleAutoSave?.(); };
     let spendAp = (n, what) => {
         // In combat, from your AP (asks first when you don't have enough); outside combat it's free
@@ -319,21 +337,73 @@
         window.APXDice?.notify(`System Reboot: ${x.name || 'your Exo-Suit'} is back online.`, { kind: 'note' });
         save();
     };
-    window.apxExoCamo = function () {
+    // An action of the suit's (Active Camouflage, Bulwark, a Decoy swap): its AP comes off your tracker, in a fight or
+    // not, like any action. Short on AP: asked first.
+    let payAp = async (n, what) => {
+        if (typeof window.apxApCurrent !== 'function' || !window.apxSpendAp) return true;
+        let have = window.apxApCurrent();
+        if (have < n) {
+            let ok = window.apxConfirm ? await window.apxConfirm(`${what} costs ${n} AP and you have ${have}. Use it anyway?`, { title: what, okLabel: 'Use it', cancelLabel: 'Cancel' }) : window.confirm(`${what} costs ${n} AP and you have ${have}. Use it anyway?`);
+            if (!ok) return false;
+        }
+        window.apxSpendAp(Math.min(n, have)); return true;
+    };
+    // Active Camouflage (Phantom): 2 AP, Invisible until the start of your next turn (a chip under Armor & Defenses, with
+    // its ✕). Your GM's map hides your token from the other players; with Decoy, a see-through light blue copy of
+    // you stays in your square (it's destroyed by any damage)
+    window.apxExoCamo = async function () {
         let st = window.state, x = st?.exoSuit; if (!x || !window.apxExoActive(st)) return;
         let max = window.apxExoCamoMax(st, (C().mods || {}).AGI);
         if ((x.camoUsed || 0) >= max) { window.APXDice?.notify('No Active Camouflage left until a Short Rest.', { kind: 'warn' }); return; }
-        if (!spendAp(2, 'Active Camouflage')) return;
+        if ((st.powerBuffs || []).some(b => b.key === 'exo:camo')) { window.APXDice?.notify('Your Active Camouflage is already on: it lasts until the start of your next turn.', { kind: 'warn' }); return; }
+        let decoy = false;
+        if ((x.systems || []).includes('decoy') && window.APXDice && APXDice.ask) {
+            let a = await APXDice.ask('Active Camouflage', 'Leave a Decoy of yourself in your square? Enemies who don\'t know where you really are treat it as you, and any damage destroys it. Later, 3 AP swaps you with it (within 15 squares), ending your Camouflage.', [['decoy', 'Leave a Decoy', 'pri'], ['no', 'No Decoy']]);
+            if (!a) return;
+            decoy = a === 'decoy';
+        }
+        if (!(await payAp(2, 'Active Camouflage'))) return;
         x.camoUsed = (x.camoUsed || 0) + 1;
-        window.APXDice?.notify(`Active Camouflage: you're Invisible until the start of your next turn${(x.systems || []).includes('decoy') ? ' (you can leave a Decoy of yourself in this square)' : ''}. ${max - x.camoUsed} left.`, { kind: 'note', open: true });
-        save();
+        let id = 'cm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+        st.powerBuffs = (st.powerBuffs || []).filter(b => b.key !== 'exo:camo').concat([{ id, key: 'exo:camo', name: 'Active Camouflage', pi: 'camo_' + id, camo: true, invisible: true, lasting: true, left: 1, dur: 'nextTurn', from: x.name || 'your Exo-Suit' }]);
+        try { window.apxOnRollEvent?.({ id: 'exc' + id, kind: 'action', label: 'Active Camouflage', ap: 2, exo: { camo: true, pi: 'camo_' + id, decoy: decoy || undefined },
+            text: `${st.name || 'A player'} uses Active Camouflage (2 AP): Invisible until the start of their next turn${decoy ? ', leaving a Decoy in their square' : ''}.` }); } catch (e) { }
+        window.APXDice?.notify(`Active Camouflage: you're Invisible until the start of your next turn${decoy ? ', and your Decoy stands in your square' : ''}. ${max - x.camoUsed} left this Short Rest.`, { kind: 'note', open: true });
+        save(); window.apxRenderExo();
+    };
+    // Your Decoy on a battle map your GM shares (and your own token on that map): { map, decoy, me } or null
+    window.apxExoMyDecoy = function () {
+        let uid = window.apxAuth?.user?.uid, w = window._playerWorldData; if (!uid || !w) return null;
+        for (let m of ((w.notesV2 && w.notesV2.otherMaps) || [])) {
+            let d = (m.battleTokens || []).find(t => t.type === 'decoy' && t.decoyOf === uid);
+            if (d) return { map: m, decoy: d, me: (m.battleTokens || []).find(t => t.type === 'player' && t.playerUid === uid) || null };
+        }
+        return null;
+    };
+    // Swap places with your Decoy (3 AP, within 15 squares): it's destroyed, and your Active Camouflage ends
+    window.apxExoDecoySwap = async function () {
+        let st = window.state, x = st?.exoSuit; if (!x || !window.apxExoActive(st)) return;
+        let f = window.apxExoMyDecoy();
+        if (!f) { window.APXDice?.notify('Your Decoy isn\'t on a battle map any more (any damage destroys it).', { kind: 'warn' }); return; }
+        if (f.me && window.APXBattle) {
+            let a = window.APXBattle.posOf(f.map.id, f.me), b = window.APXBattle.posOf(f.map.id, f.decoy);
+            let d = window.APXBattle.squaresBetween(a.gridX - b.gridX, a.gridY - b.gridY);
+            if (d > 15) { window.APXDice?.notify(`Your Decoy is ${d} squares away: you can only swap with it within 15 squares.`, { kind: 'warn', open: true }); return; }
+        }
+        if (!(await payAp(3, 'Swapping with your Decoy'))) return;
+        try { window.apxOnRollEvent?.({ id: 'exs' + Date.now().toString(36), kind: 'action', label: 'Decoy', ap: 3, exo: { swap: true, mapId: f.map.id, decoyId: f.decoy.id },
+            text: `${st.name || 'A player'} swaps places with their Decoy (3 AP): it's destroyed and their Active Camouflage ends.` }); } catch (e) { }
+        let cb = (st.powerBuffs || []).find(b => b.key === 'exo:camo');
+        if (cb && window.apxEndBuff) window.apxEndBuff(cb.id, 'you swapped places with your Decoy');
+        window.APXDice?.notify('You swap places with your Decoy: it\'s gone, and so is your Active Camouflage.', { kind: 'note', open: true });
+        save(); window.apxRenderExo();
     };
     // Bulwark (Juggernaut): 2 AP for Temporary HP equal to your AC (Temp HP doesn't stack: you keep the higher)
-    window.apxExoBulwark = function () {
+    window.apxExoBulwark = async function () {
         let st = window.state, x = st?.exoSuit; if (!x || !window.apxExoActive(st)) return;
         let c = C(), max = window.apxExoBulwarkMax(st, (c.mods || {}).STR);
         if ((x.bulwarkUsed || 0) >= max) { window.APXDice?.notify('No Bulwark left until a Short Rest.', { kind: 'warn' }); return; }
-        if (!spendAp(2, 'Bulwark')) return;
+        if (!(await payAp(2, 'Bulwark'))) return;
         x.bulwarkUsed = (x.bulwarkUsed || 0) + 1;
         let amt = Math.max(0, c.ac || 0), had = Math.max(0, st.tempHp || 0);
         st.tempHp = Math.max(had, amt);

@@ -15,7 +15,7 @@
         window.apxAuth = { user: null, enabled: false,
             signIn: () => {}, signUp: () => {}, signOut: () => {},
             onAuthChange: () => {}, saveCharacter: () => Promise.resolve(), clearGmBuffs: () => Promise.resolve(),
-            loadCharacters: () => Promise.resolve([]), saveGmRaces: () => Promise.resolve(),
+            loadCharacters: () => Promise.resolve([]), loadCharacter: () => Promise.resolve(null), saveGmRaces: () => Promise.resolve(),
             loadGmRaces: () => Promise.resolve([]), saveGmOrigins: () => Promise.resolve(), loadGmOrigins: () => Promise.resolve([]), saveGmNpcs: () => Promise.resolve(),
             loadGmNpcs: () => Promise.resolve([]), getShareCode: () => null,
             connectToGm: () => Promise.resolve([],),
@@ -135,15 +135,14 @@
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         };
         if (meta) Object.assign(doc, meta); // folderId, worldCode, etc.
-        let ckey = 'char:' + user.uid + ':' + charId;
+        let ckey = 'char:' + user.uid + ':' + charId, jobs = [];
         if (!_sameAsLast(ckey, doc)) {
-            try {
-                // mergeFields, not merge: the character's state REPLACES the saved one. With merge, a field the sheet
-                // removed (powers that ended, a buff on you that wore off, Can't Regain HP…) stayed in the saved copy
-                // and came back on the next load. Other top-level fields on the doc are still left as they are.
-                await db.collection('users').doc(user.uid)
-                    .collection('characters').doc(charId).set(doc, { mergeFields: Object.keys(doc) });
-            } catch (e) { _forgetWrite(ckey); throw e; }
+            // mergeFields, not merge: the character's state REPLACES the saved one. With merge, a field the sheet
+            // removed (powers that ended, a buff on you that wore off, Can't Regain HP…) stayed in the saved copy
+            // and came back on the next load. Other top-level fields on the doc are still left as they are.
+            jobs.push(db.collection('users').doc(user.uid)
+                .collection('characters').doc(charId).set(doc, { mergeFields: Object.keys(doc) })
+                .catch(e => { _forgetWrite(ckey); throw e; }));
         }
 
         // Sync character state into the world players sub-collection so the GM's
@@ -158,11 +157,15 @@
             if (!_sameAsLast(wkey, wdoc)) {
                 // (the same for the GM's copy: their tracker reads the powers still active on you from it; the GM's own
                 // fields on this doc, like _gmHp and _gmBuffs, aren't touched)
-                await db.collection('worldCodes').doc(worldCode)
+                jobs.push(db.collection('worldCodes').doc(worldCode)
                     .collection('players').doc(user.uid).set(wdoc, { mergeFields: Object.keys(wdoc) })
-                    .catch(e => { _forgetWrite(wkey); console.warn('World char sync:', e.message); });
+                    .catch(e => { _forgetWrite(wkey); console.warn('World char sync:', e.message); }));
             }
         }
+        // Both go out together: the GM's copy (your AP, HP, Conditions on their tracker) no longer waits for the
+        // character doc's round trip first. A failed character write still fails the save.
+        let res = await Promise.allSettled(jobs), bad = res.find(r => r.status === 'rejected');
+        if (bad) throw bad.reason;
     }
 
     // Messages from the GM's tracker (_gmBuffs: a power's buff, an ended power…) this sheet has applied: removed from
@@ -181,6 +184,14 @@
         let snap = await db.collection('users').doc(user.uid)
             .collection('characters').orderBy('updatedAt', 'desc').get();
         return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+
+    // One character (not the whole list): { id, ...doc } or null
+    async function loadCharacter(charId) {
+        let user = currentUser();
+        if (!user || !charId) return null;
+        let d = await db.collection('users').doc(user.uid).collection('characters').doc(charId).get();
+        return d.exists ? { id: d.id, ...d.data() } : null;
     }
 
     async function deleteCharacter(charId) {
@@ -843,29 +854,35 @@
     }
 
     const _inviteCodeCache = {};
-    async function saveWorld(worldId, gmPrivateData, publicData) {
+    // The GM's world: their private copy and the public one the players read, written together (the players' copy
+    // doesn't wait for the private doc's round trip). inviteCode: the world's code when the caller knows it (saves a read).
+    async function saveWorld(worldId, gmPrivateData, publicData, inviteCode) {
         let user = currentUser();
         if (!user) return;
+        if (inviteCode) _inviteCodeCache[worldId] = String(inviteCode).toUpperCase().trim();
+        let jobs = [];
         if (gmPrivateData && Object.keys(gmPrivateData).length) {
             let priv = apxClean(gmPrivateData), pkey = 'wpriv:' + user.uid + ':' + worldId;
-            if (!_sameAsLast(pkey, priv)) {
-                try { await db.collection('users').doc(user.uid).collection('worlds').doc(worldId).set(priv, { merge: true }); }
-                catch (e) { _forgetWrite(pkey); throw e; }
-            }
+            if (!_sameAsLast(pkey, priv))
+                jobs.push(db.collection('users').doc(user.uid).collection('worlds').doc(worldId).set(priv, { merge: true }).catch(e => { _forgetWrite(pkey); throw e; }));
         }
         if (publicData && Object.keys(publicData).length) {
             let pub = { ...apxClean(publicData), gmUid: user.uid, worldId };  // worldId: players load portraits from users/{gmUid}/worlds/{worldId}/npcPortraits
-            let qkey = 'wpub:' + user.uid + ':' + worldId;
-            if (_sameAsLast(qkey, pub)) return;
-            try {
-                if (!_inviteCodeCache[worldId]) {
-                    let worldDoc = await db.collection('users').doc(user.uid).collection('worlds').doc(worldId).get();
-                    _inviteCodeCache[worldId] = worldDoc.exists ? worldDoc.data().inviteCode : null;
-                }
-                let inviteCode = _inviteCodeCache[worldId];
-                if (inviteCode) await db.collection('worldCodes').doc(inviteCode).set(pub, { merge: true });
-            } catch (e) { _forgetWrite(qkey); throw e; }
+            // (one check per kind of content: the notes and the published Origins/Powers don't make each other rewrite)
+            let qkey = 'wpub:' + user.uid + ':' + worldId + ':' + Object.keys(pub).sort().join(',');
+            if (!_sameAsLast(qkey, pub)) jobs.push((async () => {
+                try {
+                    if (!_inviteCodeCache[worldId]) {
+                        let worldDoc = await db.collection('users').doc(user.uid).collection('worlds').doc(worldId).get();
+                        _inviteCodeCache[worldId] = worldDoc.exists ? worldDoc.data().inviteCode : null;
+                    }
+                    let code = _inviteCodeCache[worldId];
+                    if (code) await db.collection('worldCodes').doc(code).set(pub, { merge: true });
+                } catch (e) { _forgetWrite(qkey); throw e; }
+            })());
         }
+        let res = await Promise.allSettled(jobs), bad = res.find(r => r.status === 'rejected');
+        if (bad) throw bad.reason;
     }
 
     async function saveWorldRaces(worldId, races) {
@@ -1063,16 +1080,9 @@
         return doc.exists ? (doc.data().races || []) : [];
     }
 
-    // --- Auto-save (debounced) ------------------------------------------
-    let _saveTimer = null;
+    // --- The open character ---------------------------------------------
+    // (saving it is the sheet's: scheduleAutoSave in APX_CharSheet.html)
     let _currentCharId = null;
-
-    function scheduleAutoSave(stateObj) {
-        if (!currentUser() || !_currentCharId) return;
-        clearTimeout(_saveTimer);
-        _saveTimer = setTimeout(() => saveCharacter(_currentCharId, stateObj), 3000);
-    }
-
     function setActiveCharId(id) {
         _currentCharId = id;
     }
@@ -1111,7 +1121,7 @@
         enabled: true,
         get user() { return currentUser(); },
         signIn, signUp, signOut, onAuthChange,
-        saveCharacter, loadCharacters, deleteCharacter, deleteAllUserData, clearGmBuffs,
+        saveCharacter, loadCharacters, loadCharacter, deleteCharacter, deleteAllUserData, clearGmBuffs,
         loadFolders, saveFolder, deleteFolder,
         saveGmRaces, loadGmRaces, saveGmOrigins, loadGmOrigins, saveGmNpcs, loadGmNpcs,
         getShareCode, connectToGm,
@@ -1130,7 +1140,7 @@
         gmGiveToPlayer, ackGmGifts, writeOutbox, clearOutbox, ackGift, publishLootRequest, askLuck, claimLuck,
         saveFogData, loadFogData, loadFogDataForPlayer, listenFogDataForPlayer, saveFogMask, listenFogMask,
         listenWorldPlayers, listenPublicWorldNotes, kickWorldPlayer, leaveWorldAsPlayer,
-        scheduleAutoSave, setActiveCharId,
+        setActiveCharId,
         renderAuthBar,
     };
 })();

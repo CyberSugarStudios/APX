@@ -191,7 +191,7 @@
                 let s = JSON.stringify(data);
                 if (pubSig[id] === s) return;
                 pubSig[id] = s;
-                window.apxAuth.saveWorld(id, null, data).catch(e => { delete pubSig[id]; console.warn('World content publish:', e.message); });
+                window.apxAuth.saveWorld(id, null, data, w.inviteCode).catch(e => { delete pubSig[id]; console.warn('World content publish:', e.message); });
             });
         }, now ? 0 : 900);
     };

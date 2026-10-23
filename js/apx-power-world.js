@@ -461,7 +461,7 @@
             let inv = [];
             (st.powerBuffs || []).slice().forEach(b => {
                 if (b.actInt && !b.harmful) { if (window.apxEndBuff) window.apxEndBuff(b.id, 'you attacked (Action Interrupt)'); return; }
-                if (b.invisible) inv.push(b);
+                if (b.invisible && !b.camo) inv.push(b);   // (Active Camouflage just lasts until your next turn)
             });
             for (let b of inv) {
                 if (!(st.powerBuffs || []).includes(b)) continue;

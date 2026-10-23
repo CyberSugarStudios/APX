@@ -3,37 +3,7 @@
 // ============================================================
         let activeCharId = null;
         let charToDelete = null;
-        let dirHandle = null;
         let localRoster = {};
-
-        window.loadRosterFolder = async function() {
-            try {
-                dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
-                localRoster = {};
-                for await (const entry of dirHandle.values()) {
-                    if (entry.kind === 'file' && entry.name.endsWith('.json')) {
-                        const file = await entry.getFile();
-                        const text = await file.text();
-                        try {
-                            const charData = JSON.parse(text);
-                            if (!charData.id) charData.id = crypto.randomUUID();
-                            localRoster[charData.id] = { ...charData, _fileHandle: entry };
-                        } catch (e) {
-                            console.warn("Skipping invalid JSON file:", entry.name);
-                        }
-                    }
-                }
-                // This only populates the roster list for browsing -- it
-                // must never touch window.state on its own. Whatever
-                // character is currently being edited (possibly with
-                // unsaved changes) stays active until the user explicitly
-                // clicks a character in the list to switch to it.
-                window.renderLocalRoster();
-            } catch (err) {
-                console.error(err);
-                window.showConfirm("Folder access was denied or is restricted in this browser. You can still use 'Export' and 'Import Single'.", null, true);
-            }
-        };
 
         window.renderLocalRoster = function() {
             let html = '';
@@ -50,54 +20,6 @@
             if(chars.length === 0) html = `<div class="text-xs text-slate-500 text-center py-4">Roster is empty.</div>`;
             document.getElementById('characterList').innerHTML = html;
         };
-
-        window.saveToRosterFolder = async function() {
-            if (!dirHandle || !activeCharId) {
-                window.showConfirm("No roster folder loaded. Use 'Export' to download.", null, true);
-                return;
-            }
-            try {
-                let charData = localRoster[activeCharId];
-                let fileName = (window.state.name ? window.state.name.replace(/[^a-z0-9]/gi, '_').toLowerCase() : "apx_character_" + activeCharId) + ".json";
-                
-                let fileHandle;
-                if (charData && charData._fileHandle && charData._fileHandle.name === fileName) {
-                    fileHandle = charData._fileHandle;
-                } else {
-                    fileHandle = await dirHandle.getFileHandle(fileName, { create: true });
-                }
-
-                const writable = await fileHandle.createWritable();
-                window.state.id = activeCharId;
-                window.state.updatedAt = Date.now();
-                
-                const saveState = { ...window.state };
-                
-                await writable.write(JSON.stringify(saveState, null, 2));
-                await writable.close();
-                
-                localRoster[activeCharId] = { ...saveState, _fileHandle: fileHandle };
-                window.renderLocalRoster();
-                
-                let btn = document.getElementById('btnSaveRoster');
-                let oldText = btn.innerText;
-                btn.innerText = "[ok] Saved!";
-                setTimeout(() => btn.innerText = oldText, 2000);
-            } catch (err) {
-                console.error("Save to roster failed", err);
-                window.showConfirm("Failed to save to folder. Check permissions or use Export.", null, true);
-            }
-        };
-
-        window.createNewCharacter = function() {
-            window.state = window.apxStampNewCharacter(getInitialState());
-            activeCharId = crypto.randomUUID();
-            window.state.id = activeCharId;
-            localRoster[activeCharId] = { ...window.state };
-            window.recalculateMath();
-            window.renderLocalRoster();
-            window.toggleSidebar();
-        }
 
         window.loadCharacter = async function(id) {
             if (localRoster[id]) {
@@ -131,14 +53,6 @@
         window.confirmDeleteCharacter = async function() {
             if(!charToDelete) return;
             
-            if (dirHandle && localRoster[charToDelete] && localRoster[charToDelete]._fileHandle) {
-                try {
-                    await dirHandle.removeEntry(localRoster[charToDelete]._fileHandle.name);
-                } catch(e) {
-                    console.warn("Could not delete file from disk", e);
-                }
-            }
-            
             delete localRoster[charToDelete];
             if(activeCharId === charToDelete) {
                 activeCharId = null;
@@ -148,43 +62,6 @@
             window.renderLocalRoster();
             window.closeModal('typeDeleteModal');
         }
-
-        window.saveToLocal = function() {
-            const saveState = { ...window.state };
-            saveState.id = activeCharId;
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(saveState, null, 2));
-            const downloadAnchorNode = document.createElement('a');
-            downloadAnchorNode.setAttribute("href", dataStr);
-            let fileName = window.state.name ? window.state.name.replace(/[^a-z0-9]/gi, '_').toLowerCase() : "apx_character";
-            downloadAnchorNode.setAttribute("download", fileName + ".json");
-            document.body.appendChild(downloadAnchorNode);
-            downloadAnchorNode.click();
-            downloadAnchorNode.remove();
-        };
-
-        window.loadFromLocal = function(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const importedState = JSON.parse(e.target.result);
-                    window.state = { ...getInitialState(), ...window.apxPrepareLoadedState(importedState) };
-                    activeCharId = window.state.id || crypto.randomUUID();
-                    window.state.id = activeCharId;
-                    localRoster[activeCharId] = { ...window.state };
-                    
-                    window.recalculateMath();
-                    window.renderLocalRoster();
-                    document.getElementById('importFile').value = ''; 
-                    window.toggleSidebar();
-                } catch (err) {
-                    console.error("Failed to parse character file", err);
-                    window.showConfirm("Invalid character file.", null, true);
-                }
-            };
-            reader.readAsText(file);
-        };
 
         window.toggleSidebar = function() {
             document.getElementById('sidebar').classList.toggle('active');

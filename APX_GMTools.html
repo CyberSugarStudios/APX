@@ -411,47 +411,10 @@
 .text-orange-400\/80 { color: color-mix(in srgb, var(--c-orange) 80%, transparent) !important; }
                 /*@src [class*="text-yellow-500/50"]*/
 .text-yellow-500\/50 { color: color-mix(in srgb, var(--c-yellow-dk) 50%, transparent) !important; }
-                /* ===== Instant tooltips (data-tip="...") -- no native browser delay ===== */
-                [data-tip] { position: relative; cursor: help; }
-
-                /* ===== Bubble-style checkboxes, everywhere in the document ===== */
-                input[type="checkbox"] {
-                    -webkit-appearance: none;
-                    appearance: none;
-                    width: 15px;
-                    height: 15px;
-                    min-width: 15px;
-                    border-radius: 50%;
-                    border: 2px solid var(--c-border2);
-                    background: var(--c-surface2);
-                    cursor: pointer;
-                    position: relative;
-                    flex-shrink: 0;
-                    transition: background-color 0.15s, border-color 0.15s;
-                    vertical-align: middle;
-                }
-                input[type="checkbox"]:hover:not(:disabled) { border-color: var(--c-emerald); }
-                input[type="checkbox"]:checked {
-                    background: var(--c-emerald);
-                    border-color: var(--c-emerald);
-                }
-                input[type="checkbox"]:checked::after {
-                    content: '';
-                    position: absolute;
-                    top: 50%; left: 50%;
-                    transform: translate(-50%, -50%);
-                    width: 5px; height: 5px;
-                    border-radius: 50%;
-                    background: #ffffff;
-                }
-                input[type="checkbox"]:disabled {
-                    opacity: 0.55;
-                    cursor: not-allowed;
-                }
                 .apx-tb-btn:hover { filter: brightness(1.18); }
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=202610221207">
-    <link rel="stylesheet" href="css/tailwind.css?v=202610221207">
+    <link rel="stylesheet" href="css/apx-themes.css?v=202610221357">
+    <link rel="stylesheet" href="css/tailwind.css?v=202610221357">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
@@ -1522,26 +1485,6 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
     </div>
 
-<div class="modal-overlay" id="loadPartyModal">
-        <div class="modal-content max-w-sm">
-            <h3 class="text-base font-bold text-white mb-3 border-b border-slate-600 pb-2">Load Party</h3>
-            <div class="space-y-2 mb-4">
-                <button onclick="window.loadGmPartyFromCloud()" class="w-full py-3 rounded bg-emerald-700 hover:bg-emerald-600 text-white text-sm font-bold transition text-left px-4">
-                    Load from World Invite Code
-                    <div class="text-[10px] text-emerald-200 font-normal mt-0.5">Pull all characters who joined this world via invite code.</div>
-                </button>
-                <button onclick="window.closeModal('loadPartyModal'); window.loadGmPartyFolder();" class="w-full py-3 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition text-left px-4">
-                    Load from Folder
-                    <div class="text-[10px] text-slate-400 font-normal mt-0.5">Select a local folder of exported character JSON files.</div>
-                </button>
-            </div>
-            <div id="loadPartyStatus" class="text-xs text-slate-400 mb-3 hidden"></div>
-            <div class="flex justify-end">
-                <button onclick="window.closeModal('loadPartyModal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold">Cancel</button>
-            </div>
-        </div>
-    </div>
-
 <div class="modal-overlay" id="npcStatBlockPickerModal">
         <div class="modal-content max-w-md">
             <h3 class="text-base font-bold text-white mb-3 border-b border-slate-600 pb-2">Link Stat Block</h3>
@@ -1565,45 +1508,45 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=202610221207"></script>
-    <script src="js/apx-patch-notes.js?v=202610221207"></script>
-    <script src="js/apx-dice.js?v=202610221207"></script>
-    <script src="js/apx-data.js?v=202610221207"></script>
-    <script src="js/apx-item-effects.js?v=202610221207"></script>
-    <script src="js/apx-exo.js?v=202610221207"></script>
-    <script src="js/apx-perks-db.js?v=202610221207"></script>
-    <script src="js/apx-migrations.js?v=202610221207"></script>
-    <script src="js/apx-state.js?v=202610221207"></script>
-    <script src="js/apx-craft-shared.js?v=202610221207"></script>
-    <script src="js/apx-armor-forge.js?v=202610221207"></script>
-    <script src="js/apx-weapon-forge.js?v=202610221207"></script>
-    <script src="js/apx-consumable-crafter.js?v=202610221207"></script>
-    <script src="js/apx-perks-ui.js?v=202610221207"></script>
-    <script src="js/apx-power-crafter.js?v=202610221207"></script>
-    <script src="js/apx-summon-weapon.js?v=202610221207"></script>
-    <script src="js/apx-power-fx.js?v=202610221207"></script>
-    <script src="js/apx-power-world.js?v=202610221207"></script>
-    <script src="js/apx-power-world-gm.js?v=202610221207"></script>
-    <script src="js/apx-npc-crafter.js?v=202610221207"></script>
-    <script src="js/apx-creature-actions.js?v=202610221207"></script>
-    <script src="js/apx-inventory-ui.js?v=202610221207"></script>
-    <script src="js/apx-ancestry-wizard.js?v=202610221207"></script>
-    <script src="js/apx-gm-screen.js?v=202610221207"></script>
-    <script src="js/apx-seal.js?v=202610221207"></script>
-    <script src="js/apx-loot-maker.js?v=202610221207"></script>
-    <script src="js/apx-library.js?v=202610221207"></script>
-    <script src="js/apx-gm-content.js?v=202610221207"></script>
-    <script src="js/apx-gmtools-main.js?v=202610221207"></script>
+    <script src="js/apx-dialogs.js?v=202610221357"></script>
+    <script src="js/apx-patch-notes.js?v=202610221357"></script>
+    <script src="js/apx-dice.js?v=202610221357"></script>
+    <script src="js/apx-data.js?v=202610221357"></script>
+    <script src="js/apx-item-effects.js?v=202610221357"></script>
+    <script src="js/apx-exo.js?v=202610221357"></script>
+    <script src="js/apx-perks-db.js?v=202610221357"></script>
+    <script src="js/apx-migrations.js?v=202610221357"></script>
+    <script src="js/apx-state.js?v=202610221357"></script>
+    <script src="js/apx-craft-shared.js?v=202610221357"></script>
+    <script src="js/apx-armor-forge.js?v=202610221357"></script>
+    <script src="js/apx-weapon-forge.js?v=202610221357"></script>
+    <script src="js/apx-consumable-crafter.js?v=202610221357"></script>
+    <script src="js/apx-perks-ui.js?v=202610221357"></script>
+    <script src="js/apx-power-crafter.js?v=202610221357"></script>
+    <script src="js/apx-summon-weapon.js?v=202610221357"></script>
+    <script src="js/apx-power-fx.js?v=202610221357"></script>
+    <script src="js/apx-power-world.js?v=202610221357"></script>
+    <script src="js/apx-power-world-gm.js?v=202610221357"></script>
+    <script src="js/apx-npc-crafter.js?v=202610221357"></script>
+    <script src="js/apx-creature-actions.js?v=202610221357"></script>
+    <script src="js/apx-inventory-ui.js?v=202610221357"></script>
+    <script src="js/apx-ancestry-wizard.js?v=202610221357"></script>
+    <script src="js/apx-gm-screen.js?v=202610221357"></script>
+    <script src="js/apx-seal.js?v=202610221357"></script>
+    <script src="js/apx-loot-maker.js?v=202610221357"></script>
+    <script src="js/apx-library.js?v=202610221357"></script>
+    <script src="js/apx-gm-content.js?v=202610221357"></script>
+    <script src="js/apx-gmtools-main.js?v=202610221357"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=202610221207"></script>
-    <script src="js/apx-firebase.js?v=202610221207"></script>
-    <script src="js/apx-battlemap.js?v=202610221207"></script>
-    <script src="js/apx-fog.js?v=202610221207"></script>
-    <script src="js/apx-map-tiles.js?v=202610221207"></script>
+    <script src="js/firebase-config.js?v=202610221357"></script>
+    <script src="js/apx-firebase.js?v=202610221357"></script>
+    <script src="js/apx-battlemap.js?v=202610221357"></script>
+    <script src="js/apx-fog.js?v=202610221357"></script>
+    <script src="js/apx-map-tiles.js?v=202610221357"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -1822,12 +1765,14 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // ── Notes auto-save ──────────────────────────────────────────
-    let _saveNotesTimer = null;
-    window.saveCampaignNotes = function() {}; // compat no-op
+    let _saveNotesTimer = null, _saveNotesFirst = 0;
     // Debounced save (typing, toggles, etc.)
     function saveWorldNotes() {
         clearTimeout(_saveNotesTimer);
-        _saveNotesTimer = setTimeout(_doSaveWorldNotes, 400);
+        // 400 ms after the last change, but a steady stream of them (players moving, the tracker re-rendering) can't
+        // keep putting it off: at most a second after the first one
+        let now = Date.now(); if (!_saveNotesFirst) _saveNotesFirst = now;
+        _saveNotesTimer = setTimeout(_doSaveWorldNotes, Math.max(0, Math.min(400, 1000 - (now - _saveNotesFirst))));
     }
     // Revealed sub-notes whose parent players can't see (a hidden location or NPC, an area marker that's
     // hidden or on a map that isn't shared): nothing nests them, so they go to the players' Discoveries on
@@ -1844,7 +1789,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     // The actual save — also called directly (no debounce) after a token move
     async function _doSaveWorldNotes() {
-        clearTimeout(_saveNotesTimer);
+        clearTimeout(_saveNotesTimer); _saveNotesFirst = 0;
         {
             let w = getActiveWorld();
             if (!w) return;
@@ -1970,6 +1915,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         ownerUid:     t.ownerUid      || null,   // a player's summoned creature: they move it
                                         sensor:       !!t.sensor, sensorHidden: !!t.sensorHidden, tangible: !!t.tangible, pi: t.pi || null, sensorFrom: t.sensorFrom || null, sensorReach: t.sensorReach || null,   // a power's Sensor (its owner sees it)
                                         invisible:    !!t.invisible,                             // Invisible (a power): only its owner sees it
+                                        decoyOf:      t.type === 'decoy' ? (t.decoyOf || null) : null,   // a Phantom's Decoy: drawn as a see-through light blue copy of them
                                         initiativeId: t.initiativeId  || null,
                                         revealed:     t.revealed      !== false,
                                         swarm:        !!t.swarm,
@@ -2042,7 +1988,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             }),
                     }
                 };
-                await window.apxAuth.saveWorld(_activeWorldId, privateData, publicData)
+                await window.apxAuth.saveWorld(_activeWorldId, privateData, publicData, w.inviteCode)
                     .catch(e => console.warn('World save failed:', e.message));
             } else {
                 if (_mapImg && _mapImg.src && _mapImg.src.startsWith('data:'))
@@ -2062,6 +2008,10 @@ document.addEventListener('DOMContentLoaded', () => {
     window.saveWorldNotesNow = function() {
         return _doSaveWorldNotes();
     };
+    // Leaving the page (or switching away from it on a phone): a world save that's still waiting goes out now
+    let _flushWorldSave = () => { if (_saveNotesFirst) _doSaveWorldNotes(); };
+    window.addEventListener('pagehide', _flushWorldSave);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') _flushWorldSave(); });
 
     // ── World Settings ───────────────────────────────────────────
     // Rules for characters in this world: Starting XP, Max GP, starting Currency, and how
@@ -2157,7 +2107,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (tab==='players')    { window.renderPlayersList(); }
         if (tab==='settings')   { window.renderWorldSettings(); }
     };
-    window.showCampaignTab = window.showWorldTab; // alias for old refs
 
     // ── Note rendering helpers ───────────────────────────────────
     // Unified reveal badge for any item type (note, location, npc)
@@ -2180,7 +2129,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (type==='location') window.renderLocationList();
         if (type==='npc')      window.renderNpcList();
     };
-    window.toggleSecretReveal = (id,val) => window.toggleReveal('note',id,val);
 
     // ── Session Notes ────────────────────────────────────────────
     window.renderSessionList = function() {
@@ -3816,11 +3764,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // ── Area token label sequence: A-Z then AA, AB...AZ, BA, BB... ──────────
-    function _omLabelToNum(s) {
-        let n = 0;
-        for (let i = 0; i < s.length; i++) n = n * 26 + (s.charCodeAt(i) - 64);
-        return n;
-    }
     function _omNumToLabel(n) {
         let s = '';
         while (n > 0) { let r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); }
@@ -4109,7 +4052,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }));
         window._btRefreshAllOpenMaps();
-        if (dirty) saveWorldNotes();  // keep private + public copies in step
+        // keep private + public copies in step. Not in a hurry: everyone already sees players' tokens move from their own
+        // docs, so a player's string of moves is one save, a few seconds after the last (any other save takes them sooner)
+        if (dirty) { clearTimeout(window._gmPosEchoT); window._gmPosEchoT = setTimeout(saveWorldNotes, 3000); }
     }
     if (window.APXBattle && !window._gmBattleHooked) {
         window._gmBattleHooked = true;
@@ -4282,7 +4227,18 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (t.type === 'companion' && t.playerUid) {
                 let pm = (window.gmParty||[]).find(p=>p.fileName===t.playerUid||p.summary?.playerUid===t.playerUid);
                 portrait = pm?.state?.companion?.portrait || window.APXBattle.companionOf(t.playerUid).portrait || '';
+            } else if (t.type === 'decoy' && t.decoyOf) {
+                let pm = (window.gmParty||[]).find(p=>p.fileName===t.decoyOf||p.summary?.playerUid===t.decoyOf);
+                portrait = pm?.state?.charPortrait || pm?.summary?.charPortrait || window.APXBattle.portraitOf(t.decoyOf) || '';
             }
+            // A Phantom's Decoy: a see-through, light blue copy of its owner with a light blue glow
+            if (t.type === 'decoy') return {
+                id: t.id, gridX: pos.gridX, gridY: pos.gridY, size: t.size || 'medium', label: (t.name||'?')[0].toUpperCase(), portrait,
+                bg: '#38bdf8', borderColor: '#7dd3fc', borderW: 2, glow: 'rgba(56,189,248,.95)', tint: 'rgba(125,211,252,.5)', opacity: isHidden ? 0.3 : 0.6, filter: 'saturate(.55) brightness(1.15)',
+                layer: t.layer == null ? 1 : t.layer, conds: [], num: null,
+                title: `${t.name || 'Decoy'}: an illusion left by Active Camouflage. Any damage destroys it; its owner can swap places with it (3 AP, within 15 squares). Right-click → Remove Token to destroy it.`,
+                draggable: interactive, interactive, type: 'decoy', name: t.name
+            };
 
             return {
                 id: t.id, gridX: pos.gridX, gridY: pos.gridY, size: pos.sq || t.size || 'medium',   // (squeezed: the smaller size)
@@ -4293,7 +4249,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 borderW: isActive ? 3 : 2,
                 glow: isActive ? 'rgba(251,191,36,.8)' : isBleedingOut ? 'rgba(249,115,22,.7)' : null,
                 tint: isBleedingOut ? 'rgba(220,38,38,0.45)' : isDead ? 'rgba(0,0,0,0.55)' : null,
-                opacity: isHidden ? 0.45 : isDead ? 0.7 : 1,
+                opacity: isHidden ? 0.45 : isDead ? 0.7 : t.invisible ? 0.55 : 1,   // (Invisible: the other players don't see it)
                 filter: isDead || isKo ? 'grayscale(1)' : isBleedingOut ? 'saturate(0.4)' : 'none',
                 badge: (isBleedingOut && linkedEntry?.bleedOutTurns != null) ? linkedEntry.bleedOutTurns : null,
                 num: t.type === 'player' ? null : window.APXBattle.numberOf(linkedEntry?.name || t.name),
@@ -5219,7 +5175,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof window.renderInitiativeTracker === 'function') window.renderInitiativeTracker();
         saveWorldNotes(); _btRenderTokens(mapId,winId);
     };
-    window.linkBattleTokenToInit = function(mapId,tokenId,initId){ let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); let tok=(map?.battleTokens||[]).find(t=>t.id===tokenId); if(tok){tok.initiativeId=initId;tok._explicitDead=false;let en=(window.gmInitiative||[]).find(x=>x.id===initId);if(en?.sourceNpcId&&tok.type==='npc')tok.statBlockId=en.sourceNpcId;if(en?.conditions?.length&&tok.type!=='player'){tok.conditions=[...new Set([...(tok.conditions||[]),...en.conditions])];en.conditions=[];}window._gmRenumber();saveWorldNotes();} };
     window._btToggleReveal = function(mapId,winId,tokenId){ let map=(_wNotes.otherMaps||[]).find(m=>m.id===mapId); let tok=(map?.battleTokens||[]).find(t=>t.id===tokenId); if(!tok) return; tok.revealed=tok.revealed===false?true:false; saveWorldNotes(); _btRenderTokens(mapId,winId); };
     window._btRefreshAllOpenMaps = function(){ (_wNotes.otherMaps||[]).forEach(m=>{if(m.battleMapEnabled){let wid='omWin_'+m.id;if(document.getElementById(wid))_btRenderTokens(m.id,wid);}}); };
     // An area power used by a creature in the tracker: the open battle map its token is on, where its area is placed
@@ -5628,7 +5583,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if ((map.battleTokens||[]).some(o => o !== t && o.initiativeId === t._lastEntryId)) return;
             t.initiativeId = t._lastEntryId; relinked++;
         });
-        let todo = (map.battleTokens||[]).filter(t => t.revealed !== false && !t._explicitDead && !_btIsLiveEntry(t.initiativeId)).sort((a, b) => rank(a) - rank(b));
+        let todo = (map.battleTokens||[]).filter(t => t.type !== 'decoy' && t.revealed !== false && !t._explicitDead && !_btIsLiveEntry(t.initiativeId)).sort((a, b) => rank(a) - rank(b));   // (a Phantom's Decoy isn't a creature)
         let added = 0, skipped = [];
         todo.forEach(t => {
             let entry = null;
@@ -5668,7 +5623,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // Player token positions now arrive through APXBattle (see _gmOnPlayerPositions).
-    window._gmApplyPlayerBattlePos = function() {};
 
     // Killed (0 HP / bled out): token goes grey. Remember the XP it paid out so a
     // Revive can take it back out of the pending pool.
@@ -7198,8 +7152,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </script>
     <div id="floatingWindowContainer"></div>
 
-    <script src="js/apx-chat.js?v=202610221207"></script>
-    <script src="js/apx-extras.js?v=202610221207"></script>
-    <script src="js/apx-theme-light.js?v=202610221207"></script>
+    <script src="js/apx-chat.js?v=202610221357"></script>
+    <script src="js/apx-extras.js?v=202610221357"></script>
+    <script src="js/apx-theme-light.js?v=202610221357"></script>
 </body>
 </html>

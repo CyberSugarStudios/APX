@@ -713,10 +713,10 @@
                     unarmored: armorWt === 0, defensive: (window.state.perks || {}).con_defensive || 0, helmet: !!(h.equipped && !h.broken) };
                 // changed (first time on this version, or new gear): save it so the GM has it (after things settle)
                 if (prevDerived !== JSON.stringify(window.state.derived)) {
-                    // an AC change (Fight Defensively, Block, Mobile…) goes out quickly so the GM's tracker shows it
+                    // an AC change (Fight Defensively, Block, Mobile…) goes out quickly so the GM's tracker shows it (the rest
+                    // goes with this recalculation's ordinary save)
                     let acMoved = !prevDerived || (JSON.parse(prevDerived) || {}).ac !== calc.ac;
-                    clearTimeout(window._apxDerivedT);
-                    window._apxDerivedT = setTimeout(() => { try { window.scheduleAutoSave && window.scheduleAutoSave(); } catch (e) { } }, acMoved ? 400 : 5000);
+                    if (acMoved) { try { window.scheduleAutoSave && window.scheduleAutoSave(true); } catch (e) { } }
                 }
             }
             let newMaxLuck = Math.max(0, Math.max(1, calc.mods.LUC) + fxStat('maxLuck'));
@@ -1166,9 +1166,6 @@
                 used += weaponHandCost(w);
             });
             return used;
-        };
-        window.calcHandsFree = function(excludeIdx) {
-            return window.calcTotalHands() - window.calcHandsUsed(excludeIdx);
         };
 
         function weaponCategory(w) {
@@ -1845,7 +1842,6 @@
             return n;
         }
         window.apxMaxSlotsFor = getMaxSlotsForLevel;
-        window.apxMaxPowerSlots = getMaxSlotsForLevel;
         // A power's own Attack Bonus and Save DC: its Core Attribute + Training Bonus (attack) + the
         // highest Power Level you can use (+ item bonuses)
         function apxPowerNums(p) {

@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.10.22.1207';
+window.APX_VERSION = 'v2026.10.22.1357';
 
         window.state = getInitialState();
 
@@ -472,7 +472,7 @@ window.APX_VERSION = 'v2026.10.22.1207';
             window.state.apCurrent = Math.max(0, Math.floor(Number(v) || 0));
             delete window.state.apUsed;
             window.apxRenderApPips();
-            window.scheduleAutoSave?.();
+            window.scheduleAutoSave?.(true);   // (your GM's tracker shows your AP: it goes out quickly)
         }
         window.apxApCurrent = apxApCurrent;
         window.apxRenderApPips = function() {
@@ -569,12 +569,6 @@ window.APX_VERSION = 'v2026.10.22.1207';
             document.body.appendChild(back);
         };
 
-        // One Rest Die, rolled in the dice tray (Well Rested: roll twice, keep highest)
-        window.apxRollRestDie = function() {
-            if (!window.APXDice) return;
-            window.APXDice.rest({ label: 'Rest Die', who: window.state.name || '', dieStep: calc.restDieStep || 'd6', count: 1,
-                wellRested: window.apxPerkRank(window.state, 'gen_wellrested') > 0 });
-        };
 
         // Keep both HP boxes showing the real values after any change
         window.apxRefreshHpInputs = function() {

@@ -2,9 +2,6 @@
 // APX Character Sheet — Origin Wizard
 // ============================================================
         // One screen: identity, wealth and feature beside languages and competencies.
-        // (Kept for anything that still calls the old step navigation.)
-        window.navOriginWizard = function() {};
-        window.jumpToOrigStep = function() {};
 
         window.syncOriginWizard = function() {
             document.getElementById('origName').value = window.state.origin.name !== "Unknown" ? window.state.origin.name : "";

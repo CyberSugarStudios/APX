@@ -229,102 +229,10 @@ function computeCharSummary(state) {
 window.computeCharSummary = computeCharSummary;
 
 // ------------------------------------------------------------------
-// Party roster: load a folder of character JSON files (same File System
-// Access pattern as the character roster), compute each one's summary.
+// Party roster: the players in the active world (the party listener below
+// keeps it current), each with its summary. fileName is the player's uid.
 // ------------------------------------------------------------------
 window.gmParty = []; // [{fileName, state, summary}]
-
-window.loadGmPartyFolder = async function() {
-    try {
-        let dirHandle = await window.showDirectoryPicker({ mode: 'read' });
-        let loaded = [];
-        for await (const entry of dirHandle.values()) {
-            if (entry.kind === 'file' && entry.name.endsWith('.json')) {
-                try {
-                    const file = await entry.getFile();
-                    const text = await file.text();
-                    const charData = JSON.parse(text);
-                    if (!charData.baseStats || !charData.ancestry) continue;
-                    loaded.push({ fileName: entry.name, state: charData, summary: computeCharSummary(charData) });
-                } catch (e) {
-                    console.warn("Skipping invalid character file:", entry.name, e);
-                }
-            }
-        }
-        window.gmParty = loaded;
-        window.renderGmScreen();
-    } catch (err) {
-        console.error(err);
-        window.showConfirm("Folder access was denied or is restricted in this browser.", null, true);
-    }
-};
-
-window.openLoadPartyModal = function() {
-    let status = document.getElementById('loadPartyStatus');
-    if (status) status.classList.add('hidden');
-    window.openModal('loadPartyModal');
-};
-
-window.loadGmPartyFromCloud = async function() {
-    let statusEl = document.getElementById('loadPartyStatus');
-    let showStatus = (msg, color) => {
-        if (!statusEl) return;
-        statusEl.classList.remove('hidden');
-        statusEl.style.color = color || '';
-        statusEl.innerText = msg;
-    };
-
-    if (!window.apxAuth?.enabled || !window.apxAuth.user) {
-        showStatus('Sign in to load players from the cloud.', 'var(--c-red,#ef4444)');
-        return;
-    }
-
-    // Find invite code — auto-select the one active world if only one exists
-    let activeWorldId = typeof _activeWorldId !== 'undefined' ? _activeWorldId : null;
-    let worlds = typeof _gmWorlds !== 'undefined' ? _gmWorlds : [];
-    let activeWorld = worlds.find(w => (w.worldId || w.id) === activeWorldId);
-
-    // Auto-use the only world if the GM hasn't explicitly selected one
-    if (!activeWorld && worlds.length === 1) {
-        activeWorld = worlds[0];
-        if (typeof window.switchGmWorld === 'function') window.switchGmWorld(activeWorld.worldId || activeWorld.id);
-    }
-
-    let inviteCode = activeWorld?.inviteCode;
-
-    if (!inviteCode) {
-        let msg = worlds.length === 0
-            ? 'No worlds yet. Create a world in the World tab first.'
-            : 'Select a world in the World tab, then try again.';
-        showStatus(msg, 'var(--c-red,#ef4444)');
-        return;
-    }
-
-    try {
-        showStatus('Fetching players who joined with code ' + inviteCode + '...');
-        let players = await window.apxAuth.loadWorldPlayers(inviteCode);
-        if (!players.length) {
-            showStatus('No players have joined with this invite code yet.', '#94a3b8');
-            return;
-        }
-        // charState (new field name) || state (old field name) || fallback
-        let newEntries = players.map(p => {
-            let state = p.charState || p.state || { name: p.charName || 'Unknown Player' };
-            return { fileName: p.uid, state, summary: computeCharSummary(state), world: String(inviteCode).toUpperCase().trim() };
-        });
-        newEntries.forEach(e => {
-            if (!window.gmParty.find(p => p.fileName === e.fileName)) window.gmParty.push(e);
-        });
-        showStatus(`Loaded ${newEntries.length} player(s) from world ${inviteCode}.`, 'var(--c-emerald,#34d399)');
-        window.renderGmScreen();
-        // Start real-time listener so party auto-updates when players save
-        startPartyListener(inviteCode);
-        setTimeout(() => window.closeModal('loadPartyModal'), 1500);
-    } catch(e) {
-        showStatus('Error: ' + e.message, 'var(--c-red,#ef4444)');
-    }
-};
-
 
 // ── Real-time party listener ──────────────────────────────────────────────
 // Subscribes to worldCodes/{inviteCode}/players/* so the GM's party panel
@@ -1599,6 +1507,7 @@ function _gmPowerDealer(attacker, info) {
 window._gmAreaResolve = function(attacker, info) {
     let a = info && info.area; if (!a) return;
     let label = info.label || 'a power', seen = new Set(), rows = [];
+    if (window._gmDecoysHit && !info.heal && !info.attackRoll) window._gmDecoysHit(a.mapId, a.tokenIds, d => info.splitDmg ? (parseInt(info.splitDmg[d.id]) || 0) > 0 : (parseInt(info.dmgTotal) || 0) > 0, label);
     (a.tokenIds || []).forEach(id => { let e = _gmEntryForToken(a.mapId, id); if (e && !seen.has(e.id) && window.gmInitiative.includes(e)) { seen.add(e.id); rows.push({ e, tokenId: id }); } });
     let byName = attacker ? _gmGmName(attacker) : 'Someone';
     // Split Target: each target's own dice (info.splitDmg: { tokenId: total }), and only those ticked get its Utilities
@@ -2265,16 +2174,6 @@ function _gmExpireCondTimers(ending) {
     });
 }
 window._gmExpireCondTimers = _gmExpireCondTimers;
-// Is this creature Stunned right now? (NPC tokens / tracker, or the player's own sheet)
-function _gmIsStunned(e) {
-    if (e.faction === 'player') {
-        let pm = (window.gmParty || []).find(p => p.fileName === e.playerUid || p.summary?.playerUid === e.playerUid);
-        let st = pm?.state || {};
-        let c = [].concat(st.conditions || [], st.gmConditions || []);
-        return c.includes('stunned');
-    }
-    return window._gmEntryConditions ? window._gmEntryConditions(e.id).includes('stunned') : false;
-}
 // NPCs' and companions' conditions change their rolls, as a player's do on their sheet:
 // Disadvantage (Poisoned, Frightened, Prone melee…), Advantage (Prone ranged), auto-fails
 // (Paralyzed STR/AGI…), and a warning before an Incapacitated creature attacks
@@ -2559,7 +2458,7 @@ function _gmHandleRollEvent(uid, ev) {
     // Grapple / Pin / Escape / Choke / let go, from a player's Actions list
     if (ev.kind === 'tactician') { if (firstSeen) _gmTacAnswer(uid, ev); return; }
     // A maneuver or action from a player's Actions list (Block, Fight Defensively…): in the GM's tray and notifications
-    if (ev.kind === 'action') { if (firstSeen && (ev.t || Date.now()) > Date.now() - 600000) { gmLog({ id: 'act_' + ev.id, text: ev.text || `${ev.who || 'A player'} uses ${ev.label}.`, kind: 'info', force: true }); window.renderInitiativeTracker(); } return; }
+    if (ev.kind === 'action') { if (firstSeen && (ev.t || Date.now()) > Date.now() - 600000) { gmLog({ id: 'act_' + ev.id, text: ev.text || `${ev.who || 'A player'} uses ${ev.label}.`, kind: 'info', force: true }); if (ev.exo && window._gmExoEvent) { try { window._gmExoEvent(uid, ev); } catch (e) { console.warn('Exo-Suit:', e); } } window.renderInitiativeTracker(); } return; }
     if (ev.kind === 'grapple') { if (firstSeen && (ev.t || Date.now()) > Date.now() - 600000) _gmGrappleEvent(uid, ev); return; }
     // Summon a Creature: its creatures join next to the caster (in or out of combat)
     if (ev.kind === 'power' && ev.summon && firstSeen && (ev.t || Date.now()) > Date.now() - 600000) {
@@ -3548,7 +3447,6 @@ window.setInitiativeDef = function(id, key, value) {
 
 // A player typed damage on their own sheet. Their sheet reduced it with its own DR/ER and sends
 // { raw, types, dmg, hpAfter, tempAfter }; here it becomes a hit (extra dice, reactions, saves…).
-window._gmSheetDamage = {};   // uid -> { ev, t } handled
 function _gmSheetDamageEvent(uid, ev) {
     let e = (window.gmInitiative || []).find(x => x.playerUid === uid && x.faction === 'player');
     if (!e) return;
@@ -3959,8 +3857,13 @@ window.startCombat = function(skipTac) {
     if (window.gmInitiative[0]) { gmStartTurnAp(window.gmInitiative[0]); _gmBurnTick(window.gmInitiative[0]); _gmTac5Offer(window.gmInitiative[0]); _gmTurnMates(window.gmInitiative[0]).forEach(m => { gmStartTurnAp(m); _gmBurnTick(m); }); }
     window.renderInitiativeTracker();
     if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
-    if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
+    _gmPublishTurnNow();
 };
+// A new turn (or the fight starting) reaches the players' sheets straight away: their AP comes in on their turn
+function _gmPublishTurnNow() {
+    if (typeof window.saveWorldNotesNow === 'function') window.saveWorldNotesNow();
+    else if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
+}
 
 window.nextInitiativeTurn = function() {
     if (!window.gmInitiative.length) return;
@@ -4018,7 +3921,7 @@ window.nextInitiativeTurn = function() {
     window.renderInitiativeTracker();
     // Refresh battle map tokens and push current-turn data to players
     if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
-    if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
+    _gmPublishTurnNow();
 };
 
 window.prevInitiativeTurn = function() {
@@ -4036,6 +3939,7 @@ window.prevInitiativeTurn = function() {
     window.gmTurnNumber = Math.max(1, window.gmTurnNumber - 1);
     window.renderInitiativeTracker();
     if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
+    _gmPublishTurnNow();
 };
 
 // Limited-use Power bubbles on an NPC's initiative card -- only for
@@ -4186,15 +4090,6 @@ window.adjustInitiativePowerCharges = function(entryId, powerName, delta) {
     if (!e.powerUsage) e.powerUsage = {};
     let current = e.powerUsage[powerName] || 0;
     e.powerUsage[powerName] = Math.max(0, current - delta);
-    window.renderInitiativeTracker();
-};
-window.toggleInitiativePowerSlot = function(entryId, powerName, idx) {
-    let e = window.gmInitiative.find(x => x.id === entryId);
-    if (!e) return;
-    if (!e.powerUsage) e.powerUsage = {};
-    let current = e.powerUsage[powerName] || 0;
-    let target = idx + 1;
-    e.powerUsage[powerName] = (current === target) ? idx : target;
     window.renderInitiativeTracker();
 };
 
@@ -4539,6 +4434,7 @@ window._gmFoTargets = _gmFoTargets;
 // compared against each creature in it, and every one it hits takes the damage (Repeating at Long Range: half)
 function _gmAreaAttack(attacker, ev) {
     let a = ev.area || {}, seen = new Set(), rows = [], tokOf = {};
+    if (window._gmDecoysHit) window._gmDecoysHit(a.mapId, a.tokenIds, d => { let o = (window.gmInitiative || []).find(e => e.faction === 'player' && e.playerUid === d.decoyOf && !e.companionOf && !e.summonOf); return !ev.fumble && ((ev.crit && !ev.critIfHit) || !o || (ev.total || 0) >= _gmEntryAc(o)); }, ev.label || 'an attack');
     (a.tokenIds || []).forEach(id => { let e = _gmEntryForToken(a.mapId, id); if (e && e !== attacker && !seen.has(e.id) && window.gmInitiative.includes(e)) { seen.add(e.id); rows.push(e); tokOf[e.id] = id; } });
     // Split Target: each target's own dice, and its Utilities only on the ones ticked
     let sDmg = ev.splitDmg || null, sUtil = ev.split && Array.isArray(ev.split.util) ? ev.split.util : null;

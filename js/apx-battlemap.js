@@ -73,12 +73,12 @@
         return ax < bx + s && bx < ax + s && ay < by + s && by < ay + s;
     }
     // tokens: array of token objects; moving: {id, size}; posOf(tok) -> {gridX, gridY}
-    // A Swarm shares squares with any creature, so it never blocks or is blocked
+    // A Swarm shares squares with any creature, so it never blocks or is blocked (nor does a Phantom's Decoy: an illusion)
     function findBlocker(tokens, moving, gx, gy, posOf) {
         let me = moving.swarm ? moving : (tokens || []).find(t => t && t.id === moving.id);
-        if (me && me.swarm) return null;
+        if (me && (me.swarm || me.type === 'decoy')) return null;
         for (let o of (tokens || [])) {
-            if (!o || o.id === moving.id || o.swarm || o._down || o.down) continue;   // a dead, downed or Prone creature can be stood over
+            if (!o || o.id === moving.id || o.swarm || o._down || o.down || o.type === 'decoy') continue;   // a dead, downed or Prone creature can be stood over
             let p = posOf(o);
             if (collides(moving.size, gx, gy, p.sq || o.size, p.gridX, p.gridY)) return o;   // (a squeezed creature takes the smaller space)
         }

@@ -147,14 +147,6 @@
         zoneSync(); save(); redraw();
     }
     window._gmAddMapFx = addMapFx;
-    window._gmRemoveMapFx = function (mapId, fxId) {
-        let m = mapById(mapId); if (!m) return;
-        let f = (m.powerFx || []).find(x => x.id === fxId); if (!f) return;
-        if (f.pi) { window._gmEndPi(f.pi, 'ended by the GM'); return; }
-        m.powerFx = m.powerFx.filter(x => x !== f);
-        if (f.kind === 'sensor') removeSensor(m, f, null);
-        zoneSync(); save(); redraw();
-    };
     // ── The Sensor ──
     function makeSensor(m, fx, meta, f) {
         let c = fx.cells[0];
@@ -279,6 +271,56 @@
         if (bt.tokenId) mark(bt.mapId, bt.tokenId);
         if (bt.self && uid) maps().forEach(m => (m.battleTokens || []).forEach(t => { if (t.type === 'player' && t.playerUid === uid) t.invisible = meta.pi || true; }));
     }
+    // ── A Phantom Exo-Suit's Active Camouflage (and its Decoy): ev.exo from the player's sheet ──
+    //   { camo, pi, decoy }: their token is Invisible (until the start of their next turn, when their sheet says so),
+    //     and a Decoy (a see-through light blue copy of their token) stays in their square
+    //   { swap, mapId, decoyId }: they swap places with the Decoy, which is destroyed (their Camouflage ends with it)
+    // A Decoy is a token { type: 'decoy', decoyOf: uid }: it never blocks, isn't in the initiative, and any damage
+    // destroys it (an attack that would hit its owner, an area or targeted power that deals damage: _gmDecoysHit)
+    const isMine = (t, uid) => t.type === 'player' && t.playerUid === uid;
+    window._gmExoEvent = function (uid, ev) {
+        let x = ev.exo || {}, changed = false, who = ev.who || 'A player';
+        let inUse = typeof window._btMapsInUse === 'function' ? window._btMapsInUse() : maps();
+        if (x.camo) {
+            maps().forEach(m => (m.battleTokens || []).forEach(t => { if (isMine(t, uid)) { t.invisible = x.pi || true; changed = true; } }));
+            if (x.decoy) {
+                // (on the maps in use where their token is; a new Decoy replaces an old one)
+                let on = inUse.filter(m => m.battleMapEnabled && (m.battleTokens || []).some(t => isMine(t, uid)));
+                if (!on.length) on = maps().filter(m => m.battleMapEnabled && (m.battleTokens || []).some(t => isMine(t, uid)));
+                on.forEach(m => {
+                    let me = m.battleTokens.find(t => isMine(t, uid)), p = window.APXBattle ? window.APXBattle.posOf(m.id, me) : { gridX: me.gridX, gridY: me.gridY };
+                    m.battleTokens = m.battleTokens.filter(t => !(t.type === 'decoy' && t.decoyOf === uid));
+                    // (just before their token in the list: drawn under it while they share the square)
+                    m.battleTokens.splice(m.battleTokens.indexOf(me), 0, { id: rid('bt_decoy_'), type: 'decoy', decoyOf: uid, decoyPi: x.pi || null, name: `${me.name || who} (Decoy)`, baseName: `${me.name || who} (Decoy)`,
+                        color: '#38bdf8', size: me.size || 'medium', gridX: p.gridX, gridY: p.gridY, revealed: me.revealed !== false, faction: 'player', layer: me.layer == null ? 1 : me.layer, initiativeId: null });
+                    changed = true;
+                });
+                if (on.length) log({ gmOnly: true, force: true, text: `${who}'s Decoy stands in their square (any damage destroys it). Their own token is hidden from the other players until the start of their next turn.` });
+            }
+        }
+        if (x.swap) {
+            let m = mapById(x.mapId), d = m && (m.battleTokens || []).find(t => t.id === x.decoyId && t.type === 'decoy'), me = m && (m.battleTokens || []).find(t => isMine(t, uid));
+            if (!d || !me) { log({ gmOnly: true, force: true, text: `${who} tried to swap places with their Decoy, but it isn't on the map any more.` }); return; }
+            let dp = window.APXBattle ? window.APXBattle.posOf(m.id, d) : { gridX: d.gridX, gridY: d.gridY };
+            m.battleTokens = m.battleTokens.filter(t => t !== d);
+            me._noHazard = true;   // (it's an instant swap: nothing in between)
+            if (typeof _btCommitMove === 'function') _btCommitMove(m.id, 'omWin_' + m.id, me.id, dp.gridX, dp.gridY, { noPortal: true });
+            else { me.gridX = dp.gridX; me.gridY = dp.gridY; }
+            maps().forEach(mm => (mm.battleTokens || []).forEach(t => { if (isMine(t, uid) && t.invisible && (!d.decoyPi || t.invisible === d.decoyPi || String(t.invisible).startsWith('camo_'))) delete t.invisible; }));
+            log({ text: `${who} swaps places with their Decoy: it's destroyed, and their Active Camouflage ends.` });
+            changed = true;
+        }
+        if (changed) { save(); redraw(); }
+    };
+    // Tokens a power or an attack reached: a Decoy among them that takes damage is destroyed. hurts(decoy) → true if it does
+    window._gmDecoysHit = function (mapId, tokenIds, hurts, label) {
+        let m = mapById(mapId); if (!m || !(tokenIds || []).length) return;
+        let gone = (m.battleTokens || []).filter(t => t.type === 'decoy' && tokenIds.includes(t.id) && (!hurts || hurts(t)));
+        if (!gone.length) return;
+        m.battleTokens = m.battleTokens.filter(t => !gone.includes(t));
+        gone.forEach(t => log({ text: `${t.name || 'A Decoy'} is destroyed${label ? ` by ${label}` : ''}: it was an illusion.` }));
+        save(); redraw();
+    };
     window._gmBuffDropped = function (uid, ev) {
         let changed = false;
         maps().forEach(m => (m.battleTokens || []).forEach(t => { if (t.type === 'player' && t.playerUid === uid && t.invisible && (!ev.pi || t.invisible === ev.pi)) { delete t.invisible; changed = true; } }));

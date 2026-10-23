@@ -301,9 +301,6 @@ window.pcSetMaxCharges = function(val) {
     pcRenderUsageSection();
     pcRenderSummary();
 };
-window.pcSetRechargeOn = function(val) {
-    pcDraft.rechargeOn = parseInt(val);
-};
 
 let pcIsLairAction = false; // set by the "Build a Power for This Lair Action" button; tags the finished power so it displays under Lair Actions instead of the general Powers list
 // Mythic Awakening: a power the creature has only once it Awakens (locked until then)
@@ -724,12 +721,6 @@ window.pcSetUtilityCount = function(tier, key, delta) {
 // How many copies of a repeatable Utility can be added: the highest Level of power this crafter can make (a player's
 // unlocked Level; 5 for NPCs, companions, summons, items and the Library)
 function pcRepCap() { return Math.max(1, pcTarget !== 'player' ? 5 : (pcMaxUnlockedLevel() || 1)); }
-// How many times a repeatable Utility can be taken: the power's Level with n copies of it
-function pcRepMax(tier, key, n) {
-    let d = JSON.parse(JSON.stringify(pcDraft));
-    d.utility[tier] = d.utility[tier] || {}; d.utility[tier][key] = n;
-    return Math.max(1, window.pcCalcXP(d).level);
-}
 window.pcSetChannelStep = function(val) { pcDraft.channelStep = val; pcRenderAll(); };
 window.pcSetDuration = function(val) {
     if (val !== pcDraft.duration) pcDraft.durRev = 2;   // a new duration: today's price
@@ -776,8 +767,6 @@ window.pcSetApCount = function(d) {
     pcDraft.apMod = 'ap' + n; pcDraft._lastAp = n; delete pcDraft.apReaction;
     pcRenderAll();
 };
-// "1 AP or Reaction": which one this power uses (like Attack Roll / Save Negates)
-window.pcSetApReaction = function(on) { pcDraft.apReaction = !!on; pcRenderAll(); };
 window.pcToggleRefund = async function(key, checked) {
     pcDraft.refunds[key] = checked;
     // Overexertion: who gains the Fatigue (only a power with beneficial Utilities or healing can give it to its target)

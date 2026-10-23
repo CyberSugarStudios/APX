@@ -80,7 +80,6 @@
         });
         return changed;
     }
-    window.apxLibMergeDuplicates = function () { if (mergePowerDuplicates()) { save(); tabRefresh(); } };
 
     // Add something the GM made. Already there: it's also tagged with this world.
     // opts: { quiet, worlds: [worldIds] (default: the open world; [] = every world), backfill }
