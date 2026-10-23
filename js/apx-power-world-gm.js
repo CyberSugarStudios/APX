@@ -275,8 +275,8 @@
     //   { camo, pi, decoy }: their token is Invisible (until the start of their next turn, when their sheet says so),
     //     and a Decoy (a see-through light blue copy of their token) stays in their square
     //   { swap, mapId, decoyId }: they swap places with the Decoy, which is destroyed (their Camouflage ends with it)
-    // A Decoy is a token { type: 'decoy', decoyOf: uid }: it never blocks, isn't in the initiative, and any damage
-    // destroys it (an attack that would hit its owner, an area or targeted power that deals damage: _gmDecoysHit)
+    // A Decoy is a token { type: 'decoy', decoyOf: uid }: it never blocks, isn't in the initiative, has AC 10, and any
+    // damage destroys it (an attack that hits AC 10, an area or targeted power that deals damage: _gmDecoysHit)
     const isMine = (t, uid) => t.type === 'player' && t.playerUid === uid;
     window._gmExoEvent = function (uid, ev) {
         let x = ev.exo || {}, changed = false, who = ev.who || 'A player';
@@ -395,6 +395,8 @@
         reg(c.pi, { name: c.name, lvl: c.lvl, dur, uid: null, casterId: e.id, by: gmn(e) });
         return { id: c.pi, dur, lvl: c.lvl };
     };
+    // A powered Conduit Exo-Suit on this creature (its stat block's): Concentration costs 1 AP less, Advantage on its saves
+    const conduitOn = e => { try { let sb = window._gmExoSb ? window._gmExoSb(e) : null; return !!(sb && sb.exo && sb.exo.frame === 'conduit' && window._gmExoState && window._gmExoState(e) === 'on'); } catch (er) { return false; } };
     // Its turn starts: its powers run down, Concentration costs 2 AP, an Instant map effect is over
     window._gmPowerTurnStart = function (e) {
         maps().forEach(m => {
@@ -407,8 +409,9 @@
             for (let c of conc) {
                 if (!(e._casts || []).includes(c)) continue;
                 let have = typeof gmApCurrent === 'function' ? gmApCurrent(e) : 2;
-                let a = await APXDice.ask(`Concentration: ${c.name}`, `${gmn(e)} keeps ${c.name} up? It costs 2 AP at the start of each of its turns (it has ${have}).`, [['keep', 'Spend 2 AP', 'pri'], ['end', 'Let it end']]);
-                if (a === 'keep') { e.apCur = Math.max(0, have - 2); log({ text: `${pub(e)} keeps ${c.name} up (Concentration: 2 AP).` }); redraw(); }
+                let cost = conduitOn(e) ? 1 : 2;   // (a powered Conduit Exo-Suit: 1 AP less)
+                let a = await APXDice.ask(`Concentration: ${c.name}`, `${gmn(e)} keeps ${c.name} up? It costs ${cost} AP at the start of each of its turns${cost < 2 ? ' (its Conduit Exo-Suit)' : ''} (it has ${have}).`, [['keep', `Spend ${cost} AP`, 'pri'], ['end', 'Let it end']]);
+                if (a === 'keep') { e.apCur = Math.max(0, have - cost); log({ text: `${pub(e)} keeps ${c.name} up (Concentration: ${cost} AP).` }); redraw(); }
                 else window._gmEndPi(c.pi, 'it let its Concentration go');
             }
         }, 400);
@@ -434,7 +437,7 @@
             let sb = e.sourceNpcId && typeof ncStatBlockFor === 'function' ? ncStatBlockFor(e.sourceNpcId) : null;
             let bonus = sb ? ((sb.saves || {}).CON ?? ((sb.mods || {}).CON || 0)) : 0;
             let first = true;
-            APXDice.check({ kind: 'save', attr: 'CON', label: `Concentration: ${c.name} (DC ${dc})`, who: gmn(e), bonus, perks: false, initId: e.id,
+            APXDice.check({ kind: 'save', attr: 'CON', label: `Concentration: ${c.name} (DC ${dc})`, who: gmn(e), bonus, perks: false, initId: e.id, advSources: conduitOn(e) ? ['Conduit Exo-Suit'] : undefined,
                 onResult: r => { if (!first) return; first = false; if (r.total >= dc) return `${gmn(e)} keeps ${c.name} up.`; window._gmEndPi(c.pi, `Concentration lost (${r.total} vs DC ${dc})`); return `Concentration lost: ${c.name} ends.`; } });
         });
     };

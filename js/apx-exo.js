@@ -4,9 +4,11 @@
 // A suit is bought (3,000 Currency) as a Juggernaut, a Phantom or a Conduit, is worn with your armor, and
 // holds up to 3 Integrated Systems from its framework's list. While it's worn and powered it changes the
 // sheet (js/apx-engine.js asks apxExoActive). A System Overload (a Critical Hit, or one hit over your Wound
-// Threshold) shuts it down until a 6 AP System Reboot.
+// Threshold) shuts it down until a 6 AP System Reboot (a Critical Hit that overloads it becomes a normal hit). Another
+// Critical Hit while it's overloaded damages it: it has to be repaired before it can be rebooted. You can't wear a
+// helmet in a suit.
 //   state.exoSuit = { frame: 'juggernaut'|'phantom'|'conduit', name, systems: [ids installed], owned: [ids ever bought],
-//                     paidCost, worn, overloaded, camoUsed, bulwarkUsed }
+//                     paidCost, worn, overloaded, damaged, camoUsed, bulwarkUsed }
 //   A Breach system is stored with its Energy type: 'breach:Fire' (it can be taken more than once).
 // Only offered when the GM's World Settings allow Exo-Suits (characters outside a world always can).
 // ============================================================
@@ -17,49 +19,53 @@
         base: 3000, maxSystems: 3,
         frames: {
             juggernaut: {
+                npcTp: 12,   // (an NPC's, summon's or Loyal Companion's suit: Threat Points, priced by what it does)
                 name: 'Juggernaut', attr: 'STR', skill: 'Athletics', attrPlus: 4, attrMax: 16,
                 blurb: 'Raw power and front-line siege warfare: a walking tank (a hollowed-out golem, a steampunk gear-hulk, an armored cybernetic exoskeleton).',
-                features: ['STR +4 (to a maximum of 16)', 'Advantage on STR (Athletics) checks', 'Speed is set to 4', 'Your Size increases by one step',
+                features: ['STR +4 (to a maximum of 16)', 'Advantage on STR (Athletics) checks', 'Your base Speed becomes 4 while wearing this suit', 'Your Size increases by one step',
                     'Standard Plating: AC and WT +5, DR and ER +2']
             },
             phantom: {
+                npcTp: 10,   // (an NPC's, summon's or Loyal Companion's suit: Threat Points, priced by what it does)
                 name: 'Phantom', attr: 'AGI', skill: 'Stealth', attrPlus: 4, attrMax: 16,
                 blurb: 'Infiltration and mobility: a skin-tight second layer (a shadow-weave garment, a bio-organic carapace, an optical-camouflage stealth suit). No Plating: your armor is your protection.',
                 features: ['AGI +4 (to a maximum of 16)', 'Advantage on AGI (Stealth) checks', 'Speed +1 square',
                     'Active Camouflage: at the start of your turn, spend 2 AP to become Invisible until the start of your next turn (uses per Short Rest: your AGI modifier, minimum once)']
             },
             conduit: {
+                npcTp: 10,   // (an NPC's, summon's or Loyal Companion's suit: Threat Points, priced by what it does)
                 name: 'Conduit',
                 blurb: 'A frame built around the Powers you wield, focusing and amplifying them (a rune-etched harness, a resonance amplifier rig, a psionic focusing lattice). Overloading it also ends your Concentration Powers.',
-                features: ['Power Attack Bonus and Save DC +2', '+5 ER',
+                features: ['Power Attack Bonus and Save DC +2', '+5 ER', 'Concentration costs 1 AP less to maintain, and you have Advantage on Concentration saves',
                     'Long Rest Powers: one more Long Rest Power Slot, of a Level below your highest Power Level', 'Short Rest Powers: one more Short Rest Power Slot']
             }
         },
         systems: {
             juggernaut: [
-                { id: 'assault', name: 'Assault Plating', cost: 2000, plating: { ac: 7, dr: 4, er: 4, wt: 7 }, speed: 3, desc: 'Heavy, militarized armor bolted to the frame (replacing all other Plating): AC and WT +7, DR and ER +4, and your Speed is set to 3.' },
-                { id: 'dreadnought', name: 'Dreadnought Plating', cost: 6000, plating: { ac: 9, dr: 6, er: 6, wt: 9 }, speed: 2, desc: 'Massive, lumbering armor (replacing all other Plating): AC and WT +9, DR and ER +6, and your Speed is set to 2.' },
-                { id: 'powerful', name: 'Powerful', cost: 1000, desc: 'Overclocks the frame\'s lifting power: your STR score increases by an additional 2, to a maximum of 18.' },
-                { id: 'forceMult', name: 'Force Multipliers', cost: 1500, desc: 'Add your STR modifier twice to all melee weapon damage rolls.' },
-                { id: 'bulwark', name: 'Bulwark', cost: 2500, desc: 'Spend 2 AP to gain Temporary Hit Points equal to your AC. You can do this a number of times equal to your STR modifier (minimum once); the uses come back on a Short Rest.' },
-                { id: 'impactors', name: 'Kinetic Impactors', cost: 1500, legacy: true, desc: 'Your unarmed strikes deal 2d8 Bludgeoning damage and gain the Crushing Property. (No longer sold: kept on suits that have it.)' },
-                { id: 'heavyMount', name: 'Heavy Weapon Mount', cost: 1500, desc: 'A Heavy weapon mounted in the shoulder or forearm: your hands stay free, and it can\'t be disarmed.' },
-                { id: 'hermetic', name: 'Hermetic Seal', cost: 1000, desc: 'Immune to airborne toxins, diseases, and the vacuum of space or underwater environments.' }
+                { id: 'assault', name: 'Assault Plating', cost: 2000, npcTp: 3, plating: { ac: 7, dr: 4, er: 4, wt: 7 }, speed: 3, desc: 'Heavy, militarized armor bolted to the frame (replacing all other Plating): AC and WT +7, DR and ER +4, and your base Speed becomes 3 while wearing this suit.' },
+                { id: 'dreadnought', name: 'Dreadnought Plating', cost: 5000, npcTp: 6, plating: { ac: 9, dr: 6, er: 6, wt: 9 }, speed: 2, desc: 'Massive, lumbering armor (replacing all other Plating): AC and WT +9, DR and ER +6, and your base Speed becomes 2 while wearing this suit.' },
+                { id: 'powerful', name: 'Powerful', cost: 1000, npcTp: 4, desc: 'Overclocks the frame\'s lifting power: your STR score increases by an additional 2, to a maximum of 18.' },
+                { id: 'forceMult', name: 'Force Multipliers', cost: 1500, npcTp: 2, desc: 'Add your STR modifier twice to all melee weapon damage rolls.' },
+                { id: 'bulwark', name: 'Bulwark', cost: 2500, npcTp: 3, desc: 'Spend 2 AP to gain Temporary Hit Points equal to your AC. You can do this a number of times equal to your STR modifier (minimum once); the uses come back on a Short Rest.' },
+                { id: 'impactors', name: 'Kinetic Impactors', cost: 1500, npcTp: 2, legacy: true, desc: 'Your unarmed strikes deal 2d8 Bludgeoning damage and gain the Crushing Property. (No longer sold: kept on suits that have it.)' },
+                { id: 'heavyMount', name: 'Heavy Weapon Mount', cost: 1500, npcTp: 1, desc: 'A Heavy weapon mounted in the shoulder or forearm: your hands stay free, and it can\'t be disarmed.' },
+                { id: 'hermetic', name: 'Hermetic Seal', cost: 1000, npcTp: 3, desc: 'Immune to airborne toxins, diseases, and the vacuum of space or underwater environments.' }
             ],
             phantom: [
-                { id: 'mirage', name: 'Mirage Weave', cost: 1500, desc: 'Double the uses of Active Camouflage per Short Rest.' },
-                { id: 'climb', name: 'Climbing Grips', cost: 1500, desc: 'A Climb speed equal to your walking speed; hang upside down from ceilings with your hands free.' },
-                { id: 'concealed', name: 'Concealed Weapon Mount', cost: 1000, desc: 'A Light weapon hidden in the forearm or leg: invisible to casual inspection, can\'t be disarmed, has the Concealed property.' },
-                { id: 'decoy', name: 'Decoy', cost: 2000, desc: 'Using Active Camouflage can leave a perfect illusion of you in your square (destroyed by any damage). For 3 AP, swap places with it within 15 squares, destroying it and ending Active Camouflage.' },
-                { id: 'injector', name: 'Auto-Injector', cost: 1000, desc: 'Stores up to 3 crafted Consumables: trigger one for 1 AP instead of 3 AP.' },
-                { id: 'flight', name: 'Flight Module', cost: 2000, desc: 'A glider, wings or micro-thrusters: a Fly Speed equal to your walking speed.' }
+                { id: 'mirage', name: 'Mirage Weave', cost: 1500, npcTp: 2, desc: 'Double the uses of Active Camouflage per Short Rest.' },
+                { id: 'climb', name: 'All-Terrain Movement', cost: 1500, npcTp: 5, desc: 'Increases your Speed by 1 and grants a Climb and Swim speed equal to your walking speed. You can hang completely upside down from ceilings, leaving your hands free to use weapons.' },
+                { id: 'concealed', name: 'Concealed Weapon Mount', cost: 1000, npcTp: 1, desc: 'A Light weapon hidden in the forearm or leg: invisible to casual inspection, can\'t be disarmed, has the Concealed property.' },
+                { id: 'decoy', name: 'Decoy', cost: 2000, npcTp: 3, desc: 'When you spend AP to use your Active Camouflage, you can choose to leave behind an animated, perfect visual illusion of yourself in the square you activated it in. Enemies unaware of your true location treat it as the real you. It has an AC of 10 and is instantly destroyed if it takes any amount of damage. For 3 AP, you can swap places with it if it\'s within 15 squares, destroying it and ending Active Camouflage.' },
+                { id: 'injector', name: 'Auto-Injector', cost: 1000, npcTp: 1, desc: 'Stores up to 3 crafted Consumables: trigger one for 1 AP instead of 3 AP.' },
+                { id: 'flight', name: 'Flight Module', cost: 2000, npcTp: 2, legacy: true, desc: 'A glider, wings or micro-thrusters: a Fly Speed equal to your walking speed. (A Conduit system now: kept on Phantom suits that have it.)' }
             ],
             conduit: [
-                { id: 'capacitor', name: 'Capacitor', cost: 3000, desc: 'Another +2 to your Power Attack Bonus and Save DC.' },
-                { id: 'breach', name: 'Breach', cost: 2500, typed: true, desc: 'Choose an Energy damage type: your Powers ignore a target\'s Resistance to it, and you gain +5 ER against it. Take it again for another type.' },
-                { id: 'nullifier', name: 'Nullifier', cost: 5000, req: 'breach', desc: 'Requires Breach. Your Powers treat Immunity as Resistance against your Breach types.' },
-                { id: 'amplifier', name: 'Amplifier', cost: 5000, req: 'nullifier', desc: 'Requires Nullifier. Whenever you would roll for damage with a Power that deals Energy damage of your chosen type from Breach, you may spend an additional 3 AP to deal maximum damage instead.' },
-                { id: 'emitter', name: 'Emitter', cost: 1500, desc: 'Your ranged Powers reach 10 squares farther, and your Touch Powers have a range of 3 squares.' }
+                { id: 'capacitor', name: 'Capacitor', cost: 3000, npcTp: 4, desc: 'Another +2 to your Power Attack Bonus and Save DC.' },
+                { id: 'breach', name: 'Breach', cost: 2500, npcTp: 3, typed: true, desc: 'Choose an Energy damage type: your Powers ignore a target\'s Resistance to it, and you gain +5 ER against it. Take it again for another type.' },
+                { id: 'nullifier', name: 'Nullifier', cost: 5000, npcTp: 4, req: 'breach', desc: 'Requires Breach. Your Powers treat Immunity as Resistance against your Breach types.' },
+                { id: 'amplifier', name: 'Amplifier', cost: 5000, npcTp: 4, req: 'nullifier', desc: 'Requires Nullifier. Whenever you would roll for damage with a Power that deals Energy damage of your chosen type from Breach, you may spend an additional 3 AP to deal maximum damage instead.' },
+                { id: 'emitter', name: 'Emitter', cost: 1500, npcTp: 2, desc: 'Your ranged Powers reach 10 squares farther, and your Touch Powers have a range of 3 squares.' },
+                { id: 'flight', name: 'Flight Module', cost: 2000, npcTp: 2, desc: 'Deploys a rigid glider, magical wings or silent micro-thrusters: a Fly Speed equal to your walking speed.' }
             ]
         }
     };
@@ -93,12 +99,12 @@
             let pl = sys.has('dreadnought') ? sysDef('juggernaut', 'dreadnought') : sys.has('assault') ? sysDef('juggernaut', 'assault') : null;
             out.plating = pl ? pl.plating : { ac: 5, dr: 2, er: 2, wt: 5 };   // added to your own defenses
             out.platingName = pl ? pl.name : 'Standard Plating';
-            out.speedFixed = pl ? pl.speed : 4;
+            out.speedFixed = pl ? pl.speed : 4;   // (your base Speed: what powers and gear add still counts on top)
             out.sizeUp = true;
         } else if (x.frame === 'phantom') {
             out.speedPlus = 1;
-            if (sys.has('flight')) out.fly = true;
-            if (sys.has('climb')) out.climb = true;
+            if (sys.has('flight')) out.fly = true;   // (no longer sold for a Phantom: kept where it was bought)
+            if (sys.has('climb')) { out.climb = true; out.swim = true; out.speedPlus += 1; }   // All-Terrain Movement
         } else if (x.frame === 'conduit') {
             out.power = sys.has('capacitor') ? 4 : 2;   // Power Attack Bonus and Save DC
             out.er = 5;
@@ -107,6 +113,8 @@
             out.nullifier = sys.has('nullifier') && out.breach.length > 0;
             out.amplifier = sys.has('amplifier') && out.nullifier;
             out.emitter = sys.has('emitter');
+            if (sys.has('flight')) out.fly = true;
+            out.concAp = 1; out.concAdv = true;   // Concentration: 1 AP less to keep up, Advantage on its saves
         }
         return out;
     };
@@ -181,19 +189,34 @@
     }
     // The sheet's numbers (calc lives in js/apx-state.js)
     const C = () => { try { return (typeof calc !== 'undefined' && calc) || {}; } catch (e) { return {}; } };
+    // You can't wear a helmet in an Exo-Suit (one you're in, where your GM allows them): its slot is hidden, and a
+    // helmet you had on goes to your inventory
+    window.apxExoNoHelmet = function (st) { st = st || window.state; let x = st && st.exoSuit; return !!(x && x.worn && window.apxExoAllowed()); };
+    function helmetOff(quiet) {
+        let st = window.state, h = st && st.equippedHelmet;
+        if (!h || !h.equipped) return false;
+        h.equipped = false;
+        if (window.apxStashItem) window.apxStashItem({ name: 'Helmet', wt: h.wt, ct: 1, val: h.cost, isHelmet: true, isLocked: true, desc: `Helmet: +${h.ac} AC/DR/ER` });
+        if (!quiet) window.APXDice?.notify('You can\'t wear a helmet in an Exo-Suit: your Helmet goes to your inventory.', { kind: 'note' });
+        return true;
+    }
     window.apxRenderExo = function () {
         let tile = document.getElementById('exoControl'), slots = document.getElementById('equipSlots'), vb = document.getElementById('exoVitalsBtn');
         if (!tile) return;
         let st = window.state, x = st && st.exoSuit, allowed = window.apxExoAllowed(), c = C();
         let act = window.apxExoActive(st), f = x ? (EXO.frames[x.frame] || {}) : {};
         // The slot: shown when suits are allowed here, or one is owned
-        let show = !!x || allowed;
+        let show = !!x || allowed, noHelm = window.apxExoNoHelmet(st);
         tile.classList.toggle('hidden', !show);
-        if (slots) { slots.classList.toggle('grid-cols-3', show); slots.classList.toggle('grid-cols-2', !show); }
+        let hc = document.getElementById('helmetControl'); if (hc) hc.classList.toggle('hidden', noHelm);
+        let n = 1 + (noHelm ? 0 : 1) + (show ? 1 : 0);   // (the Shield, the Helmet unless you're in a suit, the suit)
+        if (slots) { slots.classList.toggle('grid-cols-3', n === 3); slots.classList.toggle('grid-cols-2', n === 2); }
+        if (noHelm && st.equippedHelmet && st.equippedHelmet.equipped) setTimeout(() => { if (window.apxExoNoHelmet() && helmetOff()) save(); }, 0);
         if (show) {
             let status = !x ? 'None'
                 : !allowed ? '<span class="text-amber-300">Not allowed in this world</span>'
                 : !x.worn ? `${esc(f.name)} · <span class="text-slate-400">Stowed</span>`
+                : x.damaged ? `${esc(f.name)} · <span class="text-red-400 font-bold">Damaged</span>`
                 : x.overloaded ? `${esc(f.name)} · <span class="text-red-400 font-bold">Overloaded</span>`
                 : `${esc(f.name)} · <span class="text-emerald-400 font-bold">Powered</span>`;
             // Click EXO-SUIT (or its name) for everything the suit does
@@ -212,11 +235,13 @@
             let on = !!(x && x.worn && allowed);
             vb.classList.toggle('hidden', !on);
             if (on) {
-                vb.textContent = x.overloaded ? 'Reboot Exo-Suit (6 AP)' : 'Overload Exo-Suit';
-                vb.title = x.overloaded ? 'System Reboot: bring the suit back online' : 'A Critical Hit, or one hit over your Wound Threshold (caught automatically when you take damage), overloads the Power Core: the suit shuts down until a System Reboot (6 AP)';
-                vb.style.borderColor = x.overloaded ? 'var(--c-emerald,#059669)' : '#dc2626';
-                vb.style.color = x.overloaded ? 'var(--c-emerald-lt,#6ee7b7)' : '#fca5a5';
-                vb.onclick = () => x.overloaded ? window.apxExoReboot() : window.apxExoOverload();
+                vb.textContent = x.damaged ? 'Repair Exo-Suit' : x.overloaded ? 'Reboot Exo-Suit (6 AP)' : 'Overload Exo-Suit';
+                vb.title = x.damaged ? 'Damaged by a Critical Hit while it was overloaded: it has to be repaired before a System Reboot (your GM decides what the repair takes)'
+                    : x.overloaded ? 'System Reboot: bring the suit back online'
+                    : 'A Critical Hit, or one hit over your Wound Threshold (caught automatically when you take damage), overloads the Power Core: the suit shuts down until a System Reboot (6 AP). A Critical Hit that overloads it becomes a normal hit';
+                vb.style.borderColor = x.overloaded && !x.damaged ? 'var(--c-emerald,#059669)' : '#dc2626';
+                vb.style.color = x.overloaded && !x.damaged ? 'var(--c-emerald-lt,#6ee7b7)' : '#fca5a5';
+                vb.onclick = () => x.damaged ? window.apxExoRepair() : x.overloaded ? window.apxExoReboot() : window.apxExoOverload();
             }
         }
         document.getElementById('apxExoDetails') && window.apxExoDetails(true);   // keep an open pop-up current
@@ -228,7 +253,7 @@
         _mark('dispWt', !!pl, pl ? `Includes +${pl.wt} WT from ${nm} (${act.platingName})` : '');
         let acc = document.getElementById('dispAcCalc');
         if (acc && pl && !/Plating/.test(acc.innerText)) acc.innerText = `${acc.innerText} + ${act.platingName} ${pl.ac}`;
-        _mark('dispSpeed', !!(act && (act.speedFixed || act.speedPlus)), act ? `${nm}: ${act.speedFixed ? 'Speed set to ' + act.speedFixed : 'Speed +1'}` : '');
+        _mark('dispSpeed', !!(act && (act.speedFixed || act.speedPlus)), act ? `${nm}: ${act.speedFixed ? 'base Speed ' + act.speedFixed + ' (Powers and gear add to it)' : 'Speed +' + act.speedPlus}` : '');
     };
     // The suit's details: what it does right now, its systems, and its buttons (click EXO-SUIT in its slot)
     window.apxExoDetails = function (refresh) {
@@ -237,14 +262,15 @@
         if (refresh && !old) return;
         let c = C(), f = EXO.frames[x.frame] || {}, act = window.apxExoActive(st), allowed = window.apxExoAllowed();
         let sys = (x.systems || []).filter(id => sysDef(x.frame, id)).map(id => Object.assign({}, sysDef(x.frame, id), { name: sysName(x.frame, id) }));
-        let state = !allowed ? ['Not allowed in this world: it does nothing here', '#fcd34d'] : !x.worn ? ['Stowed: Enter Suit to power it up', '#94a3b8'] : x.overloaded ? ['Overloaded: shut down until a System Reboot (6 AP)', '#f87171'] : ['Powered', '#4ade80'];
+        let state = !allowed ? ['Not allowed in this world: it does nothing here', '#fcd34d'] : !x.worn ? ['Stowed: Enter Suit to power it up', '#94a3b8'] : x.damaged ? ['Damaged: repair it, then a System Reboot (6 AP) brings it back', '#f87171'] : x.overloaded ? ['Overloaded: shut down until a System Reboot (6 AP)', '#f87171'] : ['Powered', '#4ade80'];
         let now = [];
         if (act) {
             if (act.attr) now.push(`${act.attr} +${act.attrPlus} (to a maximum of ${act.attrMax}): ${act.attr} ${(c.scores || {})[act.attr] || '?'} now`, `Advantage on ${act.attr} (${act.skill}) checks`);
-            if (act.speedFixed) now.push(`Speed is set to ${act.speedFixed}`); if (act.speedPlus) now.push('Speed +1 square');
+            if (act.speedFixed) now.push(`Your base Speed is ${act.speedFixed} (Speed from Powers and gear still adds to it)`); if (act.speedPlus) now.push(`Speed +${act.speedPlus} square${act.speedPlus > 1 ? 's' : ''}`);
             if (act.sizeUp) now.push('One Size larger');
             if (act.plating) now.push(`${act.platingName}: AC and WT +${act.plating.ac}, DR and ER +${act.plating.dr} (added to your own)`);
-            if (act.climb) now.push('Climb Speed equal to your walking speed'); if (act.fly) now.push('Fly Speed equal to your walking speed');
+            if (act.climb) now.push(`Climb${act.swim ? ' and Swim' : ''} Speed equal to your walking speed`); if (act.fly) now.push('Fly Speed equal to your walking speed');
+            if (act.concAp) now.push('Concentration costs 1 AP less to keep up (1 AP), and you have Advantage on Concentration saves');
             if (act.power) now.push(`Power Attack Bonus and Save DC +${act.power}`);
             if (act.er) now.push(`ER +${act.er}`);
             if (act.extraSlot) now.push('One more Power Slot: a Long Rest slot of a Level below your highest, and/or a Short Rest slot');
@@ -319,19 +345,21 @@
         if (x.worn && x.frame === 'juggernaut' && window._pwCombatCode && !spendAp(6, 'Leaving a Juggernaut')) return;
         x.worn = !x.worn;
         if (!x.worn) x.overloaded = false;
+        if (x.worn && window.apxExoAllowed()) helmetOff();
         window.APXDice?.notify(x.worn ? `You're in ${x.name || 'your Exo-Suit'}: it's powered.` : `You left ${x.name || 'your Exo-Suit'}.`, { kind: 'note' });
         save();
     };
-    window.apxExoOverload = function (why) {
+    window.apxExoOverload = function (why, crit) {
         let x = window.state?.exoSuit; if (!x || !x.worn || x.overloaded) return;
         x.overloaded = true;
         let conc = x.frame === 'conduit' ? ' Your Concentration Powers end.' : '';
-        window.APXDice?.notify(`System Overload${why ? ' (' + why + ')' : ''}: ${x.name || 'your Exo-Suit'} shuts down. Everything it grants is gone until a System Reboot (6 AP).${conc}`, { kind: 'warn', open: true });
+        window.APXDice?.notify(`System Overload${why ? ' (' + why + ')' : ''}: ${x.name || 'your Exo-Suit'} shuts down. Everything it grants is gone until a System Reboot (6 AP).${crit ? ' It took the Critical Hit for you: it was a normal hit.' : ''}${conc}`, { kind: 'warn', open: true });
         try { window.apxOnRollEvent?.({ id: 'exo' + Date.now().toString(36), kind: 'action', label: 'System Overload', text: `${window.state.name || 'A player'}'s Exo-Suit overloads and shuts down.${conc ? ' Their Concentration Powers end.' : ''}` }); } catch (e) { }
         save();
     };
     window.apxExoReboot = function () {
         let x = window.state?.exoSuit; if (!x || !x.overloaded) return;
+        if (x.damaged) { window.APXDice?.notify(`${x.name || 'Your Exo-Suit'} is damaged: it has to be repaired before a System Reboot.`, { kind: 'warn', open: true }); return; }
         if (!spendAp(6, 'A System Reboot')) return;
         x.overloaded = false;
         window.APXDice?.notify(`System Reboot: ${x.name || 'your Exo-Suit'} is back online.`, { kind: 'note' });
@@ -358,7 +386,7 @@
         if ((st.powerBuffs || []).some(b => b.key === 'exo:camo')) { window.APXDice?.notify('Your Active Camouflage is already on: it lasts until the start of your next turn.', { kind: 'warn' }); return; }
         let decoy = false;
         if ((x.systems || []).includes('decoy') && window.APXDice && APXDice.ask) {
-            let a = await APXDice.ask('Active Camouflage', 'Leave a Decoy of yourself in your square? Enemies who don\'t know where you really are treat it as you, and any damage destroys it. Later, 3 AP swaps you with it (within 15 squares), ending your Camouflage.', [['decoy', 'Leave a Decoy', 'pri'], ['no', 'No Decoy']]);
+            let a = await APXDice.ask('Active Camouflage', 'Leave a Decoy of yourself in your square? It\'s an animated illusion: enemies who don\'t know where you really are treat it as you. It has AC 10, and any damage destroys it. Later, 3 AP swaps you with it (within 15 squares), ending your Camouflage.', [['decoy', 'Leave a Decoy', 'pri'], ['no', 'No Decoy']]);
             if (!a) return;
             decoy = a === 'decoy';
         }
@@ -412,11 +440,32 @@
         window.apxRefreshHpInputs?.();
         save();
     };
-    // A Critical Hit, or a single hit over the Wound Threshold (the suit's, with Plating), overloads the Power Core
+    // A Critical Hit, or a single hit over the Wound Threshold (the suit's, with Plating), overloads the Power Core (the
+    // Critical Hit becomes a normal hit: your GM's tracker takes its extra damage back). Another Critical Hit while it's
+    // overloaded damages it: it has to be repaired before a System Reboot.
     window.apxExoOnDamage = function (amount, wt, crit) {
-        let st = window.state; if (!st || !window.apxExoActive(st)) return;
-        if (crit) window.apxExoOverload('a Critical Hit');
+        let st = window.state, x = st && st.exoSuit; if (!x || !x.worn || !window.apxExoAllowed()) return;
+        if (crit && x.overloaded && !x.damaged) {
+            x.damaged = true;
+            window.APXDice?.notify(`${x.name || 'Your Exo-Suit'} took a Critical Hit while it was overloaded: it's damaged. It has to be repaired before a System Reboot can bring it back.`, { kind: 'warn', open: true });
+            try { window.apxOnRollEvent?.({ id: 'exd' + Date.now().toString(36), kind: 'action', label: 'Exo-Suit damaged', text: `${st.name || 'A player'}'s overloaded Exo-Suit takes another Critical Hit: it's damaged and needs a repair before a System Reboot.` }); } catch (e) { }
+            save(); return;
+        }
+        if (!window.apxExoActive(st)) return;
+        if (crit) window.apxExoOverload('a Critical Hit', true);
         else if ((amount || 0) > (wt || 0)) window.apxExoOverload(`${amount} damage, over your WT of ${wt}`);
+    };
+    // Repairing a damaged suit (what it takes, the time at a Workbench, materials or Currency, is your GM's call). It's
+    // still shut down after: a System Reboot (6 AP) brings it back
+    window.apxExoRepair = async function () {
+        let st = window.state, x = st && st.exoSuit; if (!x || !x.damaged) return;
+        let msg = `Repair ${x.name || 'your Exo-Suit'}? Your GM decides what the repair takes (time at a Workbench, materials or Currency). After it, a System Reboot (6 AP) brings the suit back online.`;
+        let ok = window.apxConfirm ? await window.apxConfirm(msg, { title: 'Repair Exo-Suit', okLabel: 'Repaired' }) : window.confirm(msg);
+        if (!ok) return;
+        x.damaged = false;
+        window.APXDice?.notify(`${x.name || 'Your Exo-Suit'} is repaired. A System Reboot (6 AP) brings it back online.`, { kind: 'note' });
+        try { window.apxOnRollEvent?.({ id: 'exr' + Date.now().toString(36), kind: 'action', label: 'Exo-Suit repaired', text: `${st.name || 'A player'} repairs their Exo-Suit.` }); } catch (e) { }
+        save();
     };
 
     // ── The Exo-Suit Forge ──

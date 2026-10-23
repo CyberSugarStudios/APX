@@ -895,6 +895,8 @@
                 });
                 return;
             }
+            // (not in an Exo-Suit: js/apx-exo.js)
+            if (window.apxExoNoHelmet && window.apxExoNoHelmet()) { window.APXDice?.notify('You can\'t wear a helmet in an Exo-Suit. Leave the suit first.', { kind: 'warn' }); return; }
             let brokenOwned = window.state.items.find(i => i.isBrokenHelmet);
             if (brokenOwned) {
                 window.openHelmetRepairModal();

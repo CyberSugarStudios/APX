@@ -680,9 +680,10 @@
             document.getElementById('dispAp').innerText = calc.maxAp;
             window.apxRenderApPips && window.apxRenderApPips();
             document.getElementById('dispInit').innerText = calc.init;
-            // Exo-Suits: a Juggernaut's Speed is set (4; Assault Plating 3, Dreadnought 2); a Phantom adds 1.
+            // Exo-Suits: a Juggernaut's base Speed becomes 4 (Assault Plating 3, Dreadnought 2), and what was added to your
+            // own base Speed (a Power, gear, a penalty) still counts on top; a Phantom adds 1 (All-Terrain Movement 1 more).
             // A shut-down Juggernaut weighs on anyone with STR 16 or less: Speed 1 (and Overburdened, above).
-            if (exo && exo.speedFixed) calc.speed = exo.speedFixed;
+            if (exo && exo.speedFixed) calc.speed = exo.speedFixed + (calc.speed - (window.state.ancestry.speed || 3));
             if (exo && exo.speedPlus) calc.speed += exo.speedPlus;
             if (window.apxExoOverburdened && window.apxExoOverburdened(window.state, calc.scores.STR)) calc.speed = Math.min(calc.speed, 1);
             if (calc.overburdened) calc.speed = Math.min(calc.speed, 1);   // Overburdened: Speed 1
@@ -994,6 +995,7 @@
                     if (window.state.ancestry.traits.includes('t_vert') || (calc.exo && calc.exo.climb)) {
                         lines.push(`Climb Speed: ${walkSpeed}${!window.state.ancestry.traits.includes('t_vert') ? ' (Exo-Suit)' : ''}`);
                     }
+                    if (calc.exo && calc.exo.swim) lines.push(`Swim Speed: ${walkSpeed} (Exo-Suit)`);   // (a Phantom's All-Terrain Movement)
                     if (calc.exo && calc.exo.fly && !window.state.ancestry.traits.includes('t_fly')) lines.push(`Fly Speed: ${walkSpeed} (Exo-Suit)`);
                     if (window.state.ancestry.traits.includes('t_fly')) {
                         let armorClassLocal = armorWt === 0 ? null : (calc.armorClassWt > 70 ? 'Heavily' : (calc.armorClassWt > 30 ? 'Moderately' : 'Lightly'));

@@ -286,6 +286,19 @@
                 if ((s.powers || []).some(p => p && p.wasFree)) notes.push({ title: 'Free powers', text: 'A power you got for free is free up to the top of the Level it was free at (a free Level 1 power: 25 XP). Editing it past that costs the XP over it. Your free powers count from the Level they\'re at now.' });
                 return notes;
             }
+        },
+        {
+            v: 13, label: 'Exo-Suit updates (Oct 23, 2026)',
+            run(s) {
+                // Nothing changes on the character (a suit you're in gives back its helmet by itself): the notices say what's new
+                let x = s.exoSuit; if (!x || !x.frame) return [];
+                let sys = new Set((x.systems || []).map(id => String(id).split(':')[0])), notes = [];
+                let all = 'You can\'t wear a helmet in an Exo-Suit (one you had on goes to your inventory while you\'re in it). A Critical Hit that overloads your suit becomes a normal hit; another Critical Hit while it\'s overloaded damages it, and it has to be repaired before a System Reboot.';
+                if (x.frame === 'juggernaut') notes.push({ title: 'Juggernaut Exo-Suit', text: `${all} Your suit now sets your base Speed (4, Assault Plating 3, Dreadnought 2): Speed from Powers and gear adds to it. Dreadnought Plating costs 5,000 Currency now.` });
+                if (x.frame === 'phantom') notes.push({ title: 'Phantom Exo-Suit', text: `${all}${sys.has('climb') ? ' Your Climbing Grips are All-Terrain Movement now: +1 Speed, and a Climb and Swim Speed equal to your walking speed.' : ' Climbing Grips became All-Terrain Movement (+1 Speed, Climb and Swim).'}${sys.has('flight') ? ' The Flight Module is a Conduit system now; yours stays on your suit and keeps working.' : ''} A Decoy has AC 10.` });
+                if (x.frame === 'conduit') notes.push({ title: 'Conduit Exo-Suit', text: `${all} New for every Conduit: Concentration costs 1 AP less to keep up, and you have Advantage on Concentration saves. The Flight Module (2,000 Currency) is a Conduit system now.` });
+                return notes;
+            }
         }
     ];
     // Joins identical inventory rows into one stack (worn items and part-used consumables stay apart)

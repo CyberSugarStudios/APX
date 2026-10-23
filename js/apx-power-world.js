@@ -438,8 +438,10 @@
                 if (a.conc) {
                     let dc = Math.max(10, Math.floor(n / 2));
                     if (!window.APXDice) return;
-                    let first = true;
-                    APXDice.check(Object.assign({ kind: 'save', attr: 'CON', label: `Concentration: ${a.name} (DC ${dc})`, who: st.name || '' }, window.apxSaveOpts ? window.apxSaveOpts('CON') : {}, {
+                    let first = true, so = window.apxSaveOpts ? window.apxSaveOpts('CON') : {};
+                    // (a Conduit Exo-Suit: Advantage on Concentration saves)
+                    if (typeof calc !== 'undefined' && calc.exo && calc.exo.concAdv) so = Object.assign({}, so, { advSources: (so.advSources || []).concat(['Conduit Exo-Suit']) });
+                    APXDice.check(Object.assign({ kind: 'save', attr: 'CON', label: `Concentration: ${a.name} (DC ${dc})`, who: st.name || '' }, so, {
                         onResult: r => {
                             if (!first) return; first = false;
                             if (r.total >= dc) return `You keep ${a.name} up.`;
@@ -489,8 +491,10 @@
                     for (let a of list) {
                         if (!window.apxMyInstance(a.id)) continue;
                         let have = window.apxApCurrent ? window.apxApCurrent() : 2;
-                        let ans = await APXDice.ask(`Concentration: ${a.name}`, `Keep ${a.name} up? It costs 2 AP at the start of each of your turns (you have ${have}).`, have >= 2 ? [['keep', 'Spend 2 AP', 'pri'], ['end', 'Let it end']] : [['end', 'Let it end', 'pri'], ['keep', 'Spend 2 AP anyway']]);
-                        if (ans === 'keep') { window.apxSpendAp && window.apxSpendAp(Math.min(2, have)); window.APXDice.notify(`${a.name}: 2 AP to keep it up (Concentration).`, { kind: 'note' }); }
+                        // (a Conduit Exo-Suit: 1 AP less)
+                        let cost = Math.max(0, 2 - ((typeof calc !== 'undefined' && calc.exo && calc.exo.concAp) || 0));
+                        let ans = await APXDice.ask(`Concentration: ${a.name}`, `Keep ${a.name} up? It costs ${cost} AP at the start of each of your turns${cost < 2 ? ' (1 less: your Conduit Exo-Suit)' : ''} (you have ${have}).`, have >= cost ? [['keep', `Spend ${cost} AP`, 'pri'], ['end', 'Let it end']] : [['end', 'Let it end', 'pri'], ['keep', `Spend ${cost} AP anyway`]]);
+                        if (ans === 'keep') { window.apxSpendAp && window.apxSpendAp(Math.min(cost, have)); window.APXDice.notify(`${a.name}: ${cost} AP to keep it up (Concentration).`, { kind: 'note' }); }
                         else window.apxEndActivePower(a.id, 'you let your Concentration go');
                     }
                     window.scheduleAutoSave?.();

@@ -2352,6 +2352,7 @@ function _gmNpcHelmet(e, ask, brk) {
 window._gmEntrySbAdjust = function(sb) {
     let e = sb && sb._initId && (window.gmInitiative || []).find(x => x.id === sb._initId);
     let acid = e ? (parseInt(e.acidDr) || 0) + _gmAcidFx(e) : 0;
+    if (e && e._exoOverloaded) sb = window._gmExoAdj(e, sb);   // (its Exo-Suit is down: the unpowered numbers)
     if (!e || !(e._helmetBroken || acid)) return sb;
     let o = Object.assign({}, sb);
     if (e._helmetBroken && o.hasHelmet) { o.hasHelmet = false; o.ac = (o.ac || 0) - 1; o.dr = (o.dr || 0) - 1; o.er = (o.er || 0) - 1; o.helmetBroken = true; }
@@ -2832,7 +2833,7 @@ function _gmNpcSb(entry) {
     try { return entry && entry.sourceNpcId && typeof ncStatBlockFor === 'function' && (window.gmNpcs || []).some(n => n.id === entry.sourceNpcId) ? ncStatBlockFor(entry.sourceNpcId) : null; } catch (e) { return null; }
 }
 function _gmNpcWt(entry) {
-    let sb = _gmNpcSb(entry);
+    let sb = window._gmExoAdj(entry, _gmNpcSb(entry));
     return sb && sb.woundThreshold ? sb.woundThreshold : null;
 }
 window._gmNpcWt = _gmNpcWt;
@@ -3095,6 +3096,7 @@ function _gmDefenseOf(entry) {
     if (entry.companionOf) {
         let pm = (window.gmParty || []).find(p => p.fileName === entry.companionOf);
         let csb = pm && typeof gmCompanionSb === 'function' ? gmCompanionSb(pm) : null;
+        if (csb) csb = window._gmExoAdj(entry, csb);   // (its Exo-Suit overloaded)
         if (csb) {
             if (window.APXDamage && window.APXDamage.fromStatBlock) Object.assign(def, window.APXDamage.fromStatBlock(csb));
             else { def.dr = csb.dr || 0; def.er = csb.er || 0; }
@@ -3124,6 +3126,7 @@ function _gmDefenseOf(entry) {
     }
     let sb = null;
     try { sb = entry.sourceNpcId && typeof ncStatBlockFor === 'function' && (window.gmNpcs || []).some(n => n.id === entry.sourceNpcId) ? ncStatBlockFor(entry.sourceNpcId) : null; } catch (e) { sb = null; }
+    if (sb) sb = window._gmExoAdj(entry, sb);   // (its Exo-Suit overloaded)
     if (sb) {
         def.dr = sb.dr || 0; def.er = sb.er || 0; def.src = 'stat block';
         (sb.damageResistances || []).forEach(t => { let k = N(t); def.res[k] = (def.res[k] || 0) + 5; });
@@ -3241,6 +3244,24 @@ function _gmDamage(entry, opts) {
         let r = window.apxApplyHpInput('-' + dmg, entry.currentHp, entry.tempHp, entry.maxHp);
         if (r) { entry.currentHp = r.currentHp; entry.tempHp = r.tempHp; }
     }
+    // An Exo-Suit takes a Critical Hit: a powered suit overloads and the hit becomes a normal one (its extra damage comes
+    // back, as with a Helmet); one already overloaded is damaged instead (repaired before its System Reboot)
+    let exoNow = hit && hit.crit && dmg > 0 ? _gmExoState(entry) : null;
+    if (exoNow === 'on') {
+        let refund = Math.min(dmg, Math.max(0, hit.critExtra || 0));
+        if (refund > 0 && entry.currentHp !== null) { entry.currentHp = Math.min(entry.maxHp || Infinity, (entry.currentHp || 0) + refund); dmg -= refund; woundDmg = Math.max(0, woundDmg - refund); }
+        hit = Object.assign({}, hit, { crit: false, critExtra: 0, exoTook: true });
+        entry._exoGmOverAt = Date.now();   // (until their sheet says so: overloaded)
+        if (entry.faction !== 'player' || entry.companionOf) _gmNpcExoOverload(entry, 'a Critical Hit');
+        gmLog({ text: `${_gmPublicName(entry)}'s Exo-Suit takes the Critical Hit and overloads: it's a normal hit${refund ? ` (${dmg} damage instead of ${dmg + refund})` : ''}.`, gmText: `${_gmGmName(entry)}'s Exo-Suit takes the Critical Hit and overloads: it's a normal hit${refund ? ` (${dmg} damage instead of ${dmg + refund})` : ''}.`, kind: 'info', force: true });
+    } else if (exoNow === null && dmg > 0 && woundDmg > 0 && (entry.faction !== 'player' || entry.companionOf) && _gmHasExo(entry) && _gmExoState(entry) === 'on') {
+        // ...or one hit over its Wound Threshold (its suit's, with Plating; a player's sheet works out its own)
+        let wsb = _gmExoSb(entry), wt = wsb && wsb.woundThreshold;
+        if (wt && woundDmg > wt) _gmNpcExoOverload(entry, `${woundDmg} damage in one hit, over its Wound Threshold of ${wt}`);
+    } else if (exoNow === 'overloaded') {
+        if (entry.faction !== 'player' || entry.companionOf) entry._exoDamaged = true;
+        gmLog({ text: `${_gmPublicName(entry)}'s overloaded Exo-Suit takes another Critical Hit: it's damaged, and has to be repaired before a System Reboot.`, gmText: `${_gmGmName(entry)}'s overloaded Exo-Suit takes another Critical Hit: it's damaged, and has to be repaired before a System Reboot.`, kind: 'info', force: true });
+    }
     let after = (entry.currentHp || 0) + (entry.tempHp || 0);
     let who = hit && hit.attacker ? `${_gmGmName(hit.attacker)}'s ${hit.label || 'attack'}` : (opts.src || 'damage');
     let math = `${opts.raw}${extraSum ? ' + ' + extraSum + ' (' + extras.map(x => x.why).join(', ') + ')' : ''} → ${res.text}${incap ? ' · Incapacitated: resistances bypassed' : ''}`;
@@ -3293,6 +3314,107 @@ function _gmDamage(entry, opts) {
     return { dmg, res };
 }
 window._gmDamage = _gmDamage;
+
+// An Exo-Suit on this creature: 'on' (powered), 'overloaded', 'damaged' or null (none, not in it, not allowed here).
+// A player's from their sheet (their suit, and whether it's in effect); an NPC's from its stat block and this fight.
+function _gmExoState(entry) {
+    if (!entry) return null;
+    if (entry.faction === 'player' && entry.playerUid && !entry.companionOf) {
+        let st = ((window.gmParty || []).find(p => p.fileName === entry.playerUid) || {}).state, x = st && st.exoSuit;
+        if (!x || !x.worn) return null;
+        if (x.damaged) return 'damaged';
+        if (x.overloaded) return 'overloaded';
+        if (!(st.derived && st.derived.exo)) return null;   // (its sheet says it does nothing: off in this world)
+        // (it overloaded a moment ago: their sheet hasn't saved it yet)
+        return entry._exoGmOverAt && Date.now() - entry._exoGmOverAt < 20000 ? 'overloaded' : 'on';
+    }
+    let sb = _gmExoSb(entry), x = sb && sb.exo;
+    if (!x) return null;
+    if (entry._exoDamaged) return 'damaged';
+    return entry._exoOverloaded ? 'overloaded' : 'on';
+}
+window._gmExoState = _gmExoState;
+// An NPC's, summon's or Loyal Companion's stat block (where its Exo-Suit is: sb.exo)
+function _gmExoSb(entry) {
+    if (!entry) return null;
+    if (entry.companionOf) { let pm = (window.gmParty || []).find(p => p.fileName === entry.companionOf); try { return pm ? gmCompanionSb(pm) : null; } catch (e) { return null; } }
+    return _gmTraitSb(entry);
+}
+window._gmExoSb = _gmExoSb;
+// Does this tracker entry wear an Exo-Suit? (cheap: no stat block)
+function _gmHasExo(entry) {
+    if (!entry || (entry.faction === 'player' && !entry.companionOf)) return false;
+    if (entry.companionOf) { let pm = (window.gmParty || []).find(p => p.fileName === entry.companionOf); let x = pm && pm.state && pm.state.companion && pm.state.companion.exoSuit; return !!(x && x.frame); }
+    let n = entry.sourceNpcId && (window.gmNpcs || []).find(g => g.id === entry.sourceNpcId), x = n && n.npc && n.npc.exoSuit;
+    return !!(x && x.frame);
+}
+// Its stat block as it is right now: an overloaded suit's numbers are its unpowered ones (sb.exo.off)
+window._gmExoAdj = function(entry, sb) {
+    if (!sb || !entry || !entry._exoOverloaded || !sb.exo || !sb.exo.off) return sb;
+    return Object.assign({}, sb, sb.exo.off, { exoPowered: false });
+};
+// Its Exo-Suit by hand (its stat block's buttons): overload, System Reboot (6 AP), repaired, Active Camouflage, Bulwark
+window._gmNpcExo = function(entryId, what) {
+    let e = (window.gmInitiative || []).find(x => x.id === entryId); if (!e) return;
+    let sb = _gmExoSb(e), x = sb && sb.exo; if (!x) return;
+    let comp = _gmCompSheetAp(e) !== null, have = comp ? _gmCompSheetAp(e) : gmApCurrent(e);
+    // (a Loyal Companion's AP is on its owner's sheet: they spend it there)
+    let pay = n => { if (comp || e.ap == null) return true; if (have < n) { window.APXDice?.notify(`${_gmGmName(e)} needs ${n} AP for that (it has ${have}).`, { kind: 'warn' }); return false; } e.apCur = have - n; return true; };
+    let done = () => { window.renderInitiativeTracker(); if (typeof window.refreshOpenStatBlocks === 'function') window.refreshOpenStatBlocks(); if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes(); };
+    if (what === 'overload') { _gmNpcExoOverload(e, 'by hand'); return done(); }
+    if (what === 'repair') {
+        e._exoDamaged = false;
+        gmLog({ text: `${_gmPublicName(e)}'s Exo-Suit is repaired: a System Reboot can bring it back.`, gmText: `${_gmGmName(e)}'s Exo-Suit is repaired (still overloaded until its System Reboot).`, kind: 'info' });
+        return done();
+    }
+    if (what === 'reboot') {
+        if (e._exoDamaged) { window.APXDice?.notify('Its Exo-Suit is damaged: repair it first.', { kind: 'warn' }); return; }
+        if (!pay(6)) return;
+        e._exoOverloaded = false;
+        gmLog({ text: `${_gmPublicName(e)}'s Exo-Suit reboots: it's powered again.`, gmText: `${_gmGmName(e)}: System Reboot (6 AP${comp ? ', on its owner\'s sheet' : ''}). Its Exo-Suit is powered again.`, kind: 'info' });
+        return done();
+    }
+    if (e._exoOverloaded || e._exoDamaged) return;
+    if (what === 'camo' && x.frame === 'phantom') {
+        let max = Math.max(1, (sb.mods || {}).AGI || 0) * ((x.systems || []).some(y => y.base === 'mirage') ? 2 : 1);
+        if ((e._exoCamoUsed || 0) >= max) { window.APXDice?.notify('No Active Camouflage left until a Short Rest.', { kind: 'warn' }); return; }
+        if (!pay(2)) return;
+        e._exoCamoUsed = (e._exoCamoUsed || 0) + 1;
+        e._exoCamo = true;   // (Invisible until the start of its next turn: gmStartTurnAp)
+        if (window._gmAddEntryCondition) window._gmAddEntryCondition(e.id, 'invisible');
+        gmLog({ gmOnly: true, force: true, kind: 'info', text: `${_gmGmName(e)} uses Active Camouflage (2 AP): Invisible until the start of its next turn (${max - e._exoCamoUsed} of ${max} left).` });
+        return done();
+    }
+    if (what === 'bulwark' && (x.systems || []).some(y => y.base === 'bulwark')) {
+        let max = Math.max(1, (sb.mods || {}).STR || 0);
+        if ((e._exoBulwarkUsed || 0) >= max) { window.APXDice?.notify('No Bulwark left until a Short Rest.', { kind: 'warn' }); return; }
+        if (!pay(2)) return;
+        e._exoBulwarkUsed = (e._exoBulwarkUsed || 0) + 1;
+        let amt = Math.max(0, _gmEntryAc(e)), had = Math.max(0, e.tempHp || 0);
+        e.tempHp = Math.max(had, amt);
+        gmLog({ text: `${_gmPublicName(e)} braces behind its Bulwark.`, gmText: `${_gmGmName(e)} uses Bulwark (2 AP): ${had >= amt ? `keeps its ${had} Temporary HP (they don't stack)` : `${amt} Temporary HP (its AC)`}; ${max - e._exoBulwarkUsed} of ${max} left.`, kind: 'info' });
+        return done();
+    }
+};
+// Its tracker card: the suit's state, with the Reboot / Repair buttons once it's down
+function _gmExoRowHtml(e) {
+    if (!_gmHasExo(e)) return '';
+    let st = e._exoDamaged ? 'damaged' : e._exoOverloaded ? 'overloaded' : 'on';
+    let b = (what, label, bg) => `<button onclick="window._gmNpcExo('${e.id}','${what}')" class="text-[9px] font-bold px-1 rounded text-white" style="background:${bg}">${label}</button>`;
+    return `<div class="flex items-center gap-1 flex-wrap text-[9px] font-bold ${st === 'on' ? 'text-fuchsia-300' : st === 'overloaded' ? 'text-amber-300' : 'text-red-400'}">Exo-Suit: ${st === 'on' ? 'powered' : st}
+        ${st === 'overloaded' ? b('reboot', 'Reboot (6 AP)', '#a21caf') : st === 'damaged' ? b('repair', 'Repaired', '#065f46') : ''}</div>`;
+}
+// An NPC's Exo-Suit overloads: everything it grants is gone until its System Reboot (6 AP, from its tracker row)
+function _gmNpcExoOverload(entry, why) {
+    if (!entry || entry._exoOverloaded) return;
+    entry._exoOverloaded = true;
+    gmLog({ gmOnly: true, force: true, kind: 'info', text: `${_gmGmName(entry)}'s Exo-Suit overloads${why ? ` (${why})` : ''}: it shuts down until a System Reboot (6 AP).` });
+    // A Conduit's overload also ends its Concentration powers
+    let sb = _gmExoSb(entry);
+    if (sb && sb.exo && sb.exo.frame === 'conduit' && window._gmEndPi) (entry._casts || []).filter(c => c.conc).forEach(c => window._gmEndPi(c.pi, 'its Conduit Exo-Suit overloaded'));
+    if (typeof window.refreshOpenStatBlocks === 'function') window.refreshOpenStatBlocks();
+}
+window._gmNpcExoOverload = _gmNpcExoOverload;
 
 // ── Undead / Unalive Structure (NPC traits) ──
 function _gmTraitSb(entry) {
@@ -4139,6 +4261,11 @@ function gmApCurrent(e) {
 // (this includes creatures added mid-combat that enter Surprised).
 function gmStartTurnAp(e) {
     if (e && e.faction !== 'player' && window.gmCombatStarted) { try { _gmRechargeTick(e); } catch (err) { console.warn('Recharge:', err); } }
+    if (e && e._exoCamo) {   // (its Exo-Suit's Active Camouflage ends at the start of its turn)
+        e._exoCamo = false;
+        if (window._gmRemoveEntryCondition) window._gmRemoveEntryCondition(e.id, 'invisible');
+        gmLog({ gmOnly: true, force: true, kind: 'info', text: `${_gmGmName(e)}'s Active Camouflage ends (its turn started).` });
+    }
     let first = e._apTurns === 0 || (e._apTurns == null && e.apCur == null);   // older saved combats: only brand-new entries
     e._apTurns = (e._apTurns || 0) + 1;
     e._apFirstSurprised = !!(first && e.surprised);
@@ -4413,7 +4540,9 @@ function _gmEntryAc(e) {
         let d = pm && pm.state && pm.state.derived;
         if (d && typeof d.ac === 'number') return d.ac;
     }
-    return (parseInt(e.ac) || 0) + _gmFxAcBonus(e) - (e._helmetBroken ? 1 : 0);
+    let exoDrop = 0;   // (its Exo-Suit overloaded: the AC it gave is gone)
+    if (e._exoOverloaded) { let sb = _gmExoSb(e); if (sb && sb.exo && sb.exo.off) exoDrop = Math.max(0, (sb.ac || 0) - (sb.exo.off.ac || 0)); }
+    return (parseInt(e.ac) || 0) + _gmFxAcBonus(e) - (e._helmetBroken ? 1 : 0) - exoDrop;
 }
 window._gmEntryAc = _gmEntryAc;
 // Creatures Fighting Offensively (attacks against them have Advantage): [{ name, id }]
@@ -4434,7 +4563,7 @@ window._gmFoTargets = _gmFoTargets;
 // compared against each creature in it, and every one it hits takes the damage (Repeating at Long Range: half)
 function _gmAreaAttack(attacker, ev) {
     let a = ev.area || {}, seen = new Set(), rows = [], tokOf = {};
-    if (window._gmDecoysHit) window._gmDecoysHit(a.mapId, a.tokenIds, d => { let o = (window.gmInitiative || []).find(e => e.faction === 'player' && e.playerUid === d.decoyOf && !e.companionOf && !e.summonOf); return !ev.fumble && ((ev.crit && !ev.critIfHit) || !o || (ev.total || 0) >= _gmEntryAc(o)); }, ev.label || 'an attack');
+    if (window._gmDecoysHit) window._gmDecoysHit(a.mapId, a.tokenIds, d => !ev.fumble && ((ev.crit && !ev.critIfHit) || (ev.total || 0) >= 10), ev.label || 'an attack');   // (a Decoy has AC 10)
     (a.tokenIds || []).forEach(id => { let e = _gmEntryForToken(a.mapId, id); if (e && e !== attacker && !seen.has(e.id) && window.gmInitiative.includes(e)) { seen.add(e.id); rows.push(e); tokOf[e.id] = id; } });
     // Split Target: each target's own dice, and its Utilities only on the ones ticked
     let sDmg = ev.splitDmg || null, sUtil = ev.split && Array.isArray(ev.split.util) ? ev.split.util : null;
@@ -4861,6 +4990,7 @@ window.renderInitiativeTracker = function() {
                 })() : ''}
                 ${(e.wounds || []).length ? `<div class="flex items-center gap-1 flex-wrap">${e.wounds.map(l => `<span class="apx-cond-chip" style="border-color:#f87171;color:#fecaca" title="${String(_gmWoundEffect(l)).replace(/"/g, '&quot;')} Click × when it heals.">${l} Wound<button onclick="window._gmHealNpcWound('${e.id}','${l.replace(/'/g, '')}')">&times;</button></span>`).join('')}</div>` : ''}
                 ${_gmMythicHtml(e)}
+                ${_gmExoRowHtml(e)}
                 ${_gmPowerFxHtml(e)}
                 ${e.sourceNpcId ? renderInitiativePowerBubbles(e) : ''}
                 ${isCurrent ? '<div class="text-[9px] text-amber-300 font-bold">Current Turn</div>' : ''}

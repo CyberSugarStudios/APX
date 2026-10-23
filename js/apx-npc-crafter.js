@@ -217,9 +217,41 @@ window.companionGearTp = function(c) {
     out.weapons = (c.weapons || []).map(w => Object.assign({ name: w.name }, window.npcWeaponTp(w)));
     out.shield = c.shield && c.shield.owned ? window.npcArmorTp(NPC_SHIELD) : { tp: 0, parts: [] };
     out.helmet = c.helmet && c.helmet.owned ? window.npcArmorTp(NPC_HELMET) : { tp: 0, parts: [] };
-    out.total = out.armor.tp + out.shield.tp + out.helmet.tp + out.weapons.reduce((a, w) => a + w.tp, 0);
+    out.exo = window.npcExoTp(c.exoSuit);
+    out.total = out.armor.tp + out.shield.tp + out.helmet.tp + out.exo.tp + out.weapons.reduce((a, w) => a + w.tp, 0);
     return out;
 };
+
+// ---- Exo-Suits (Rulebook Chapter 11) on GM NPCs, summoned creatures and Loyal Companions ----
+// Offered while the GM's World Settings allow Exo-Suits (a Loyal Companion, or a player's summon: their world's).
+// c.exoSuit = { frame, systems: [ids] } ('breach:Fire' for a Breach), or null. It's part of the creature, so it's
+// priced in TP by what it does (npcTp on APX_EXO's frames and systems), not in Currency. It can't wear a helmet in one.
+function ncExoAllowed() {
+    if (typeof window._gmExoAllowed === 'function') return window._gmExoAllowed();   // (the GM's page)
+    return typeof window.apxExoAllowed === 'function' && window.apxExoAllowed();
+}
+window.ncExoAllowed = ncExoAllowed;
+window.npcExoTp = function(x) {
+    let E = window.APX_EXO, f = E && x && x.frame && E.frames[x.frame];
+    if (!f) return { tp: 0, parts: [] };
+    let parts = [{ name: `${f.name} Exo-Suit`, tp: f.npcTp || 0 }];
+    (x.systems || []).forEach(id => {
+        let [b, t] = String(id).split(':'), d = (E.systems[x.frame] || []).find(y => y.id === b);
+        if (d) parts.push({ name: d.name + (d.typed && t ? ` (${t})` : ''), tp: d.npcTp || 0 });
+    });
+    return { tp: parts.reduce((a, q) => a + q.tp, 0), parts };
+};
+let ncExoOff = false;   // (set while working out a suited creature's numbers with its suit unpowered: sb.exo.off)
+function ncExoSummary(c, fx) {
+    let E = window.APX_EXO, x = c.exoSuit, f = E && E.frames[x.frame];
+    if (!f) return null;
+    let systems = (x.systems || []).map(id => {
+        let [b, t] = String(id).split(':'), d = (E.systems[x.frame] || []).find(y => y.id === b);
+        return d ? { id: String(id), base: b, name: d.name + (d.typed && t ? ` (${t})` : ''), desc: d.desc } : null;
+    }).filter(Boolean);
+    return { frame: x.frame, frameName: f.name, name: x.name || `${f.name} Exo-Suit`, features: (f.features || []).slice(), systems, tp: window.npcExoTp(x).tp,
+        plating: fx && fx.plating ? Object.assign({ name: fx.platingName }, fx.plating) : null };
+}
 
 // A Core Attribute's TP: 1 per point raised (or refunded, below 5), and 2 per point above 10 (score 11+).
 // Creatures built before that price (attrRule unset) keep theirs until the GM moves them to it (Step 1),
@@ -1204,17 +1236,26 @@ window.companionStatBlock = function() {
         window.apxApplyItemAttrSets(sc, ifx);
         ATTRIBUTES.forEach(a => { mods[a] = sc[a] - 5; });
     }
+    // An Exo-Suit (Step 4): what it does while it's powered (js/apx-exo.js). This is the powered stat block; in a fight,
+    // its tracker card swaps in the unpowered numbers (sb.exo.off) while the suit is overloaded.
+    let inSuit = !!(c.exoSuit && c.exoSuit.frame);
+    let exoFx = inSuit && !ncExoOff && window.apxExoActive ? window.apxExoActive({ exoSuit: Object.assign({}, c.exoSuit, { worn: true, overloaded: false }) }) : null;
+    if (exoFx && exoFx.attr) mods[exoFx.attr] = window.apxExoScore(5 + (mods[exoFx.attr] || 0), exoFx) - 5;
+    let exoSys = k => !!(exoFx && exoFx.sys && exoFx.sys.has(k));
 
     let maxHp = tierInfo.hp + (c.hpTierBonus * 5 * Math.max(1, tier));
     let sizeDef = NPC_SIZES.find(s => s.key === c.size);
     if (sizeDef) maxHp += sizeDef.hp;
     maxHp += ist('maxHp');
     maxHp = Math.max(1, maxHp);
+    // A Juggernaut is one size larger in its suit (its reach, AC and skills; its Hit Points stay the same)
+    const SIZE_UP = { tiny: 'small', small: 'medium', medium: 'large', large: 'huge', huge: 'gargantuan' };
+    let sizeWorn = exoFx && exoFx.sizeUp && !c.swarm && SIZE_UP[c.size || 'medium'] ? (NPC_SIZES.find(z => z.key === SIZE_UP[c.size || 'medium']) || sizeDef) : sizeDef;
 
     let armor = c.equippedArmor || {};
     // Shield (when held) and helmet
     let shieldOn = !!(c.shield && c.shield.owned && c.shield.equipped !== false);
-    let helmetOn = !!(c.helmet && c.helmet.owned);
+    let helmetOn = !!(c.helmet && c.helmet.owned) && !inSuit;   // (no helmet in an Exo-Suit)
     // Armor rules, as for players: everything worn counts toward the weight class and the STR
     // requirement (weight / 10). Light (≤30 lb): full AGI to AC; Moderate (31-70): AGI capped at +2;
     // Heavy (>70): no AGI to AC. STR short: no AGI to AC, -2 Speed, Disadvantage on attacks.
@@ -1234,16 +1275,22 @@ window.companionStatBlock = function() {
     let er = Math.max(0, ...nonConStr, 0) + c.erBonus * 2 + (armor.er || 0);   // each +2 ER purchase adds 2
     if (shieldOn) er += NPC_SHIELD.er;
     if (helmetOn) er += NPC_HELMET.er;
+    if (exoFx && exoFx.plating) { ac += exoFx.plating.ac; dr += exoFx.plating.dr; er += exoFx.plating.er; }   // (a Juggernaut's Plating)
+    if (exoFx && exoFx.er) er += exoFx.er;   // (a Conduit: +5 ER)
     ac += ist('ac'); dr += ist('dr'); er += ist('er');
     // Size: Tiny +2 AC (reach 0, no Heavy weapons); Huge -2 AC (+STR modifier to melee damage)
     // Size: its effects apply on their own (AC, skills, Advantage/Disadvantage, reach). A Swarm
     // uses the swarm rules instead of its size's bonuses and penalties.
-    let sizeFx = (!c.swarm && sizeDef && sizeDef.fx) || {};
-    let isTiny = !c.swarm && c.size === 'tiny';
+    let sizeFx = (!c.swarm && sizeWorn && sizeWorn.fx) || {};
+    let isTiny = !c.swarm && (sizeWorn ? sizeWorn.key : c.size) === 'tiny';
     ac += sizeFx.ac || 0;
     let hugeMelee = 0;
-    let speed = 3 + c.speedBonus + (armor.speedMod || 0) + ist('speed') - (armorStrShort ? 2 : 0);
+    // (a Juggernaut's suit sets its base Speed: what it buys and its gear still add on top)
+    let speed = (exoFx && exoFx.speedFixed ? exoFx.speedFixed : 3) + ((exoFx && exoFx.speedPlus) || 0) + c.speedBonus + (armor.speedMod || 0) + ist('speed') - (armorStrShort ? 2 : 0);
     speed = Math.max(0, speed);
+    // An unpowered Juggernaut suit (overloaded) with STR 16 or less is dead weight: Overburdened, Speed 1
+    let exoOverburdened = ncExoOff && inSuit && c.exoSuit.frame === 'juggernaut' && 5 + (mods.STR || 0) <= 16;
+    if (exoOverburdened) speed = Math.min(speed, 1);
     let ap = c.isSummon ? 3 : 6 + c.apBonus * 1 + ist('maxAp');   // summoned by a power: a hard 3 AP // AP purchases add flat +1 each (not tied to AGI for NPCs, per Ch.15 baseline "6 AP")
     // NPCs don't get a chosen initStat like players (AGI or PER) --
     // AGI is the standard default for Passive Initiative.
@@ -1258,7 +1305,8 @@ window.companionStatBlock = function() {
     let innateAttacks = (c.innateWeapons || []).map(w => {
         let dieInfo = parseDieStep(NPC_DIE_STEPS[w.dieStepIndex || 0]);
         let dice = `${dieInfo.count + (w.extraDice || 0)}${dieInfo.type}`;
-        let bonusMod = ((w.dmgBonus === 'STR' || w.dmgBonus === 'AGI') ? (mods[w.dmgBonus] || 0) : 0) + ist('meleeDmg') + hugeMelee;
+        let bonusMod = ((w.dmgBonus === 'STR' || w.dmgBonus === 'AGI') ? (mods[w.dmgBonus] || 0) : 0) + ist('meleeDmg') + hugeMelee
+            + (exoSys('forceMult') && !((w.rangeBonus || 0) > 0) ? Math.max(0, mods.STR || 0) : 0);   // (Force Multipliers: STR twice on melee damage)
         let dmgText = dice + (bonusMod ? ` ${bonusMod >= 0 ? '+' : '-'} ${Math.abs(bonusMod)}` : '');
         let typeText = w.dmgBonus === 'energy' ? `${w.dmgType} + ${w.energyType} (split)` : w.dmgType;
         let props = (w.properties || []).map(k => NPC_WEAPON_PROPERTIES.find(p => p.key === k)).filter(Boolean)
@@ -1296,8 +1344,9 @@ window.companionStatBlock = function() {
     // A GM NPC can use ANY attribute to cast (chosen in Step 6); otherwise best of INT/CHA
     let powerAttrChoice = ncTarget === 'gm' && c.powerAttr && ATTRIBUTES.includes(c.powerAttr)
         ? c.powerAttr : ((mods.CHA || 0) > (mods.INT || 0) ? 'CHA' : 'INT');
-    let powerAttackBonus = c.trainingBonus + (mods[powerAttrChoice] || 0) + ist('powerAtk');
-    let powerSaveDc = 10 + c.trainingBonus + (mods[powerAttrChoice] || 0) + ist('powerDc');
+    let exoPow = (exoFx && exoFx.power) || 0;   // (a Conduit Exo-Suit: +2, or +4 with a Capacitor)
+    let powerAttackBonus = c.trainingBonus + (mods[powerAttrChoice] || 0) + ist('powerAtk') + exoPow;
+    let powerSaveDc = 10 + c.trainingBonus + (mods[powerAttrChoice] || 0) + ist('powerDc') + exoPow;
     let powerList = powerCards.map(p => `${p.name} (Level ${p.lvl})`);
     // otherTrainings mixes weapon-type strings and skill names together;
     // split them out here so skills can get their own computed bonus line.
@@ -1312,8 +1361,9 @@ window.companionStatBlock = function() {
             let attrMod = attr ? (mods[attr] || 0) : 0;
             let trained = trainedNames.includes(name);
             let own = ((sizeFx.skill || {})[base] || 0) + (ifx ? (ifx.skill[base] || 0) : 0);
-            let adv = (sizeFx.adv || []).includes(base) ? [sizeDef.label.replace(/\s*\(.*\)$/, '')] : [];
-            let dis = (sizeFx.dis || []).includes(base) ? [sizeDef.label.replace(/\s*\(.*\)$/, '')] : [];
+            let adv = (sizeFx.adv || []).includes(base) ? [sizeWorn.label.replace(/\s*\(.*\)$/, '')] : [];
+            let dis = (sizeFx.dis || []).includes(base) ? [sizeWorn.label.replace(/\s*\(.*\)$/, '')] : [];
+            if (exoFx && exoFx.skill === base) adv.push('Exo-Suit');   // (Juggernaut: Athletics, Phantom: Stealth)
             if (!trained && !own && !adv.length && !dis.length) return null;
             let total = attrMod + (trained ? c.trainingBonus : 0) + own + (ifx && attr ? window.apxItemCheckBonus(ifx, attr) : 0);
             return { name, attr, attrMod, trained, trainingBonus: trained ? c.trainingBonus : 0, total, adv, dis };
@@ -1335,7 +1385,8 @@ window.companionStatBlock = function() {
     (c.weapons || []).concat(givenW).forEach((w, wIdx) => {
         let hand = handOf(w);
         let rngd = w.category === 'ranged';
-        let dmgMod = companionWeaponDamageModifier(w, mods) + ist(rngd ? 'rangedDmg' : 'meleeDmg') + (rngd ? 0 : hugeMelee);
+        let fMult = !rngd && exoSys('forceMult') ? Math.max(0, mods.STR || 0) : 0;   // (Force Multipliers)
+        let dmgMod = companionWeaponDamageModifier(w, mods) + ist(rngd ? 'rangedDmg' : 'meleeDmg') + (rngd ? 0 : hugeMelee) + fMult;
         let dmgText = dmgMod !== 0 ? `${w.dmg} ${dmgMod >= 0 ? '+' : '-'} ${Math.abs(dmgMod)}` : w.dmg;
         let atkInfo = companionWeaponAttackBonus(c, w, mods);
         equippedWeapons.push({
@@ -1365,7 +1416,7 @@ window.companionStatBlock = function() {
                 return m[1] + (dieTypeStep[m[2]] || m[2]);
             }
             let twoHDice = ncStepUpDie(w.dmg);
-            let twoHDmgMod = companionWeaponDamageModifier(w, mods, true) + ist('meleeDmg');
+            let twoHDmgMod = companionWeaponDamageModifier(w, mods, true) + ist('meleeDmg') + fMult;
             let twoHDmgText = twoHDmgMod !== 0 ? `${twoHDice} ${twoHDmgMod >= 0 ? '+' : ''}${twoHDmgMod}` : twoHDice;
             let twoHAtkInfo = companionWeaponAttackBonus(c, w, mods, true);
             equippedWeapons.push({
@@ -1378,6 +1429,21 @@ window.companionStatBlock = function() {
             });
         }
     });
+
+    // A suited creature: its numbers with the suit unpowered too (an overload), for its tracker card
+    let exoSum = inSuit ? ncExoSummary(c, exoFx) : null;
+    if (exoSum && !ncExoOff) {
+        let keepHp = c.currentHp, keepMax = c._hpMax, o = null;
+        ncExoOff = true;
+        try { o = window.companionStatBlock(); } finally { ncExoOff = false; c.currentHp = keepHp; c._hpMax = keepMax; }
+        if (o) exoSum.off = { ac: o.ac, dr: o.dr, er: o.er, speed: o.speed, woundThreshold: o.woundThreshold, mods: o.mods, saves: o.saves, initiative: o.initiative,
+            attackBonus: o.attackBonus, powerAttackBonus: o.powerAttackBonus, powerSaveDc: o.powerSaveDc, equippedWeapons: o.equippedWeapons, innateAttacks: o.innateAttacks,
+            trainedSkills: o.trainedSkills, size: o.size, sizeKey: o.sizeKey, sizeNote: o.sizeNote, altLocomotion: o.altLocomotion, damageResistances: o.damageResistances,
+            exoOverburdened: o.exoOverburdened };
+    }
+    // Its suit's other ways to move (All-Terrain Movement: Climb and Swim; a Flight Module: Fly)
+    let loco = (c.altLocomotion || []).slice();
+    if (exoFx) [['climb', 'Climb'], ['swim', 'Swim'], ['fly', 'Fly']].forEach(([k, t]) => { if (exoFx[k] && !loco.some(l => String(l.type).toLowerCase() === k)) loco.push({ type: t, doubled: false, exo: true }); });
 
     if (c.currentHp === null || c.currentHp === undefined) c.currentHp = maxHp;
     // Max HP changed since the last time (Tier / CON / TP changes): a creature that was at
@@ -1400,10 +1466,11 @@ window.companionStatBlock = function() {
         lairActionsText: c.lairActionsText || '',
         mythicAwakening: !!c.mythicAwakening,
         mythicAwakeningText: c.mythicAwakeningText || '',
-        size: sizeDef ? sizeDef.label : 'Medium', swarm: c.swarm, sizeKey: c.size || 'medium',
+        size: sizeWorn ? sizeWorn.label : 'Medium', swarm: c.swarm, sizeKey: (sizeWorn && sizeWorn.key) || c.size || 'medium',
         sizeNote: c.swarm ? 'Swarm: shares squares with other creatures; takes half damage from single-target attacks and double from area effects; below half HP it rolls half its damage dice.'
-            : sizeDef && sizeDef.fx && Object.keys(sizeDef.fx).length ? `${sizeDef.label.replace(/\s*\(.*\)$/, '')}: ${sizeDef.desc} (applied)` : '',
-        altLocomotion: c.altLocomotion, hover: c.hover,
+            : sizeWorn && sizeWorn.fx && Object.keys(sizeWorn.fx).length ? `${sizeWorn.label.replace(/\s*\(.*\)$/, '')}${sizeWorn !== sizeDef ? ' in its Exo-Suit' : ''}: ${sizeWorn.desc}${sizeWorn !== sizeDef ? ' (its Hit Points stay its own size\'s)' : ''} (applied)`
+            : sizeWorn !== sizeDef ? `${sizeWorn.label.replace(/\s*\(.*\)$/, '')} in its Exo-Suit.` : '',
+        altLocomotion: loco, hover: c.hover,
         mods, dmgText, attackBonus, range, propNames, innateAttacks, trainingBonus: c.trainingBonus,
         armorWt: wornWt, armorReqStr, armorStrShort, armorClass,
         otherTrainings: c.otherTrainings, equippedWeapons, equippedArmorName: armor.name || null, trainedSkills, saves, saveTrained,
@@ -1413,11 +1480,13 @@ window.companionStatBlock = function() {
         conditionImmunities: ncTraitMerge(c, 'immuneConds', c.conditionImmunities), conditionalDmgImmunities: c.conditionalDmgImmunities,
         energyImmunities: ncTraitMerge(c, 'immuneEnergy', c.energyImmunities), energyVulnerabilities: ncTraitMerge(c, 'vulnEnergy', c.energyVulnerabilities),
         undead: (c.traits || []).includes('undead'), unalive: (c.traits || []).includes('unalive'),
-        damageResistances: c.damageResistances || [],
+        // (a Conduit's Breach: +5 ER against each of its Energy types)
+        damageResistances: (c.damageResistances || []).concat(exoFx && exoFx.breach ? exoFx.breach : []),
         carriedItems: Array.isArray(c.carriedItems) ? c.carriedItems : [], carriedCu: c.carriedCu || 0,
         wornItemNames: wornItems.map(it => it.name || 'Item'), itemEr: ifx ? ifx.er : [],
         // Wound Threshold: double its CON score (score = 5 + modifier), plus worn items
-        woundThreshold: Math.max(1, (5 + (mods.CON || 0)) * 2 + ist('wt')),
+        woundThreshold: Math.max(1, (5 + (mods.CON || 0)) * 2 + ist('wt') + (exoFx && exoFx.plating ? exoFx.plating.wt : 0)),
+        exo: exoSum, exoOverburdened,
         // Damage Aura: its Energy type (colours the ring on battle maps) and damage dice
         aura: c.traits.includes('damageaura') ? { type: (c.traitChoice || {}).damageaura || 'Fire', dice: Math.max(1, tier) + 'd6', radius: 1 } : null,
         _isCompanion: ncTarget === 'companion'
@@ -1431,8 +1500,76 @@ window.ncToggleGear = function(which, own) {
     let tp = window.npcArmorTp(def).tp;
     let cur = !!(c[which] && c[which].owned);
     if (own === cur) return;
+    if (which === 'helmet' && own && c.exoSuit && c.exoSuit.frame) { window.showConfirm('It can\'t wear a helmet in an Exo-Suit.', null, true); ncRenderAll(); return; }
     ncSpend(own ? tp : -tp, () => { c[which] = { owned: own, equipped: true }; });
 };
+// Step 4: its Exo-Suit's framework (or none), then its Integrated Systems
+window.ncSetExoFrame = function(frame) {
+    let c = ncActiveCompanion(), E = window.APX_EXO; if (!c || !E) return;
+    frame = E.frames[frame] ? frame : '';
+    let cur = c.exoSuit && c.exoSuit.frame ? c.exoSuit : null;
+    if ((cur ? cur.frame : '') === frame) return;
+    if (frame && !ncExoAllowed()) { ncRenderAll(); return; }
+    let next = frame ? { frame, systems: [] } : null;
+    let helm = next && c.helmet && c.helmet.owned ? window.npcArmorTp(NPC_HELMET).tp : 0;   // (its helmet comes off)
+    if (ncSpend(window.npcExoTp(next).tp - window.npcExoTp(cur).tp - helm, () => {
+        c.exoSuit = next;   // (null, not deleted: a cloud save merges fields)
+        if (helm) c.helmet = { owned: false, equipped: true };
+    }) === false) { ncRenderAll(); return; }
+    if (helm && window.APXDice) window.APXDice.notify(`Its Helmet comes off: no helmet in an Exo-Suit (${helm} TP back).`, { kind: 'note' });
+};
+window.ncToggleExoSystem = function(id, on) {
+    let c = ncActiveCompanion(), E = window.APX_EXO, x = c && c.exoSuit;
+    if (!x || !x.frame || !E) return;
+    id = String(id || '');
+    let [b, t] = id.split(':'), def = (E.systems[x.frame] || []).find(y => y.id === b);
+    if (!def) return;
+    let has = (list, k) => list.some(y => String(y).split(':')[0] === k);
+    let next = (x.systems || []).slice();
+    if (on) {
+        if (next.includes(id) || (def.typed && !t) || (def.req && !has(next, def.req))) { ncRenderAll(); return; }
+        if (b === 'assault') next = next.filter(y => y !== 'dreadnought');   // (one Plating at a time)
+        if (b === 'dreadnought') next = next.filter(y => y !== 'assault');
+        if (next.length >= E.maxSystems) { window.showConfirm(`An Exo-Suit holds up to ${E.maxSystems} Integrated Systems.`, null, true); ncRenderAll(); return; }
+        next.push(id);
+    } else {
+        next = next.filter(y => y !== id);
+        if (!has(next, 'breach')) next = next.filter(y => y !== 'nullifier');   // (what needed it goes too)
+        if (!has(next, 'nullifier')) next = next.filter(y => y !== 'amplifier');
+    }
+    if (ncSpend(window.npcExoTp({ frame: x.frame, systems: next }).tp - window.npcExoTp(x).tp, () => { x.systems = next; }) === false) ncRenderAll();
+};
+function ncExoStepHtml(c, heading) {
+    let E = window.APX_EXO, x = c.exoSuit && c.exoSuit.frame ? c.exoSuit : null, allowed = ncExoAllowed();
+    if (!E || (!x && !allowed)) return '';
+    let esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    let energy = window.APXDamage && window.APXDamage.ENERGY ? (typeof window.APXDamage.ENERGY === 'function' ? window.APXDamage.ENERGY() : window.APXDamage.ENERGY) : ['Fire', 'Cold', 'Electric', 'Acid', 'Poison', 'Sonic', 'Radiation', 'Force', 'Psychic'];
+    let html = heading('Exo-Suit') + `<div class="bg-slate-900 border ${x ? 'border-fuchsia-600' : 'border-slate-700'} rounded p-2">
+        <div class="text-[10px] text-slate-500 leading-tight mb-1">A suit it wears into battle (Rulebook Chapter 11), priced in TP by what it does. It can't wear a helmet in one. A Critical Hit (which becomes a normal hit) or one hit over its Wound Threshold overloads it until a System Reboot (6 AP, on its tracker card); another Critical Hit while it's overloaded damages it until it's repaired.${allowed ? '' : ' <span class="text-amber-400">Exo-Suits are off in this world\'s settings: it keeps the one it has.</span>'}</div>
+        <select onchange="window.ncSetExoFrame(this.value)" class="bg-slate-800 text-xs w-full mb-1">
+            <option value="">No Exo-Suit</option>
+            ${Object.keys(E.frames).map(k => `<option value="${k}" ${x && x.frame === k ? 'selected' : ''} ${!allowed && !(x && x.frame === k) ? 'disabled' : ''}>${E.frames[k].name} [${E.frames[k].npcTp || 0} TP]</option>`).join('')}
+        </select>`;
+    if (x) {
+        let f = E.frames[x.frame], list = E.systems[x.frame] || [], sys = x.systems || [];
+        let has = k => sys.some(y => String(y).split(':')[0] === k), full = sys.length >= E.maxSystems;
+        html += `<div class="text-[10px] text-fuchsia-200 leading-tight mb-1">${(f.features || []).map(esc).join(' · ')}</div>
+            <div class="text-[10px] font-bold text-slate-300 mb-0.5">Integrated Systems (${sys.length}/${E.maxSystems})</div>`
+            + list.filter(d => !d.typed && (!d.legacy || has(d.id))).map(d => {
+                let on = has(d.id), dis = !on && (full || (d.req && !has(d.req)));
+                return `<label class="flex items-start gap-2 mt-0.5 ${dis ? 'opacity-50' : 'cursor-pointer'}"><input type="checkbox" class="mt-0.5" ${on ? 'checked' : ''} ${dis ? 'disabled' : ''} onchange="window.ncToggleExoSystem('${d.id}', this.checked)">
+                    <div><div class="text-[11px] font-bold text-white">${esc(d.name)} <span class="text-yellow-500 text-[10px]">[${d.npcTp || 0} TP]</span></div><div class="text-[10px] text-slate-500 leading-tight">${esc(d.desc)}</div></div></label>`;
+            }).join('')
+            + list.filter(d => d.typed).map(d => `<div class="mt-1"><div class="text-[11px] font-bold text-white">${esc(d.name)} <span class="text-yellow-500 text-[10px]">[${d.npcTp || 0} TP each]</span></div><div class="text-[10px] text-slate-500 leading-tight">${esc(d.desc)}</div>
+                <div class="flex flex-wrap gap-1 mt-0.5">${sys.filter(y => String(y).split(':')[0] === d.id).map(y => `<span class="text-[9px] rounded px-1.5 py-0.5 border bg-fuchsia-900/30 border-fuchsia-800 text-fuchsia-200">${esc(String(y).split(':')[1] || '')} <button onclick="window.ncToggleExoSystem('${esc(y)}', false)" class="text-red-400 font-bold ml-1">&times;</button></span>`).join('')}</div>
+                ${full ? '' : `<div class="flex items-center gap-1 mt-0.5"><select id="ncExoTyped_${d.id}" class="bg-slate-800 text-[10px]" style="width:auto;min-width:7rem">${energy.filter(t => !sys.includes(d.id + ':' + t)).map(t => `<option>${esc(t)}</option>`).join('')}</select>
+                    <button onclick="window.ncToggleExoSystem('${d.id}:' + document.getElementById('ncExoTyped_${d.id}').value, true)" class="text-[10px] text-amber-400 hover:text-amber-300 font-bold" style="white-space:nowrap">+ Add</button></div>`}</div>`).join('')
+            + (x.frame === 'juggernaut' ? '<div class="text-[9px] text-slate-500 mt-1">Assault and Dreadnought Plating replace each other (one Plating at a time).</div>' : '')
+            + (x.frame === 'conduit' ? '<div class="text-[9px] text-slate-500 mt-1">Nullifier needs a Breach, and Amplifier needs Nullifier.</div>' : '')
+            + `<div class="text-[10px] text-yellow-400 font-bold mt-1">Exo-Suit total: ${window.npcExoTp(x).tp} TP</div>`;
+    }
+    return html + '</div>';
+}
 // Stat block button: hold the shield, or stow it to free a hand for two-handed attacks
 // Move an NPC's (or your companion's) one-handed weapon to the other hand
 window.npcSwapWeaponHand = function(npcId, wIdx) {
@@ -1905,6 +2042,35 @@ function npcCarriedBox(sb, esc) {
         <div class="text-[10px] font-black text-fuchsia-300 uppercase mb-1">Carried <span class="text-slate-500 normal-case font-bold">(dropped as loot when defeated)</span></div>
         ${rows}${sb.carriedCu ? `<div class="text-xs text-yellow-300 mt-1" data-no-roll>${sb.carriedCu} Cu</div>` : ''}</div>`;
 }
+// Its Exo-Suit on its stat block: what the suit does, and (a creature in the fight) whether it's powered, with
+// its Overload, System Reboot, Repair, Active Camouflage and Bulwark buttons (js/apx-gm-screen.js: _gmNpcExo)
+function ncExoSbHtml(sb, esc) {
+    let x = sb.exo, e = sb._initId && (window.gmInitiative || []).find(y => y.id === sb._initId);
+    let st = e ? (e._exoDamaged ? 'damaged' : e._exoOverloaded ? 'overloaded' : 'on') : null;
+    let has = k => (x.systems || []).some(y => y.base === k);
+    let btn = (what, label, title, bg) => `<button type="button" onclick="window._gmNpcExo('${e.id}','${what}')" title="${esc(title).replace(/"/g, '&quot;')}" class="text-[10px] font-bold px-1.5 py-0.5 rounded text-white" style="background:${bg || '#334155'}">${label}</button>`;
+    let acts = '';
+    if (e && window._gmNpcExo) {
+        if (st === 'damaged') acts = btn('repair', 'Repaired', 'It has been repaired (whatever that takes in your world): a System Reboot can bring it back now', '#065f46');
+        else if (st === 'overloaded') acts = btn('reboot', 'System Reboot (6 AP)', 'Its Power Core comes back online: the suit works again', '#a21caf');
+        else {
+            let camoMax = Math.max(1, (sb.mods || {}).AGI || 0) * (has('mirage') ? 2 : 1), bwMax = Math.max(1, (sb.mods || {}).STR || 0);
+            acts = btn('overload', 'Overload', 'Shut it down by hand (a Critical Hit, or one hit over its Wound Threshold, does this on its own)', '#7f1d1d')
+                + (x.frame === 'phantom' ? btn('camo', `Active Camouflage (2 AP, ${Math.max(0, camoMax - (e._exoCamoUsed || 0))}/${camoMax})`, 'Invisible until the start of its next turn', '#0369a1') : '')
+                + (has('bulwark') ? btn('bulwark', `Bulwark (2 AP, ${Math.max(0, bwMax - (e._exoBulwarkUsed || 0))}/${bwMax})`, 'Temporary Hit Points equal to its AC (they don\'t stack)', '#475569') : '');
+        }
+    }
+    let stTxt = st === 'damaged' ? '<span class="text-red-400 font-bold">Damaged: repair it before a System Reboot</span>'
+        : st === 'overloaded' ? `<span class="text-amber-300 font-bold">Overloaded: its suit's bonuses are off (shown above)${sb.exoOverburdened ? '; dead weight, Overburdened (Speed 1)' : ''}</span>`
+        : st === 'on' ? '<span class="text-emerald-400 font-bold">Powered</span>' : '';
+    return `<div class="bg-slate-900 border border-fuchsia-800/60 rounded p-2 mb-2" data-no-roll>
+        <div class="text-[10px] font-black text-fuchsia-300 uppercase mb-1 flex items-center gap-2 flex-wrap">${esc(x.name)} <span class="text-slate-500 normal-case font-bold">(${esc(x.frameName)}, ${x.tp} TP)</span> ${stTxt ? `<span class="normal-case text-[10px]">${stTxt}</span>` : ''}</div>
+        <div class="text-[10px] text-fuchsia-100/80 leading-tight">${(x.features || []).map(esc).join(' · ')}${x.plating && x.plating.name !== 'Standard Plating' ? ` · ${esc(x.plating.name)}: AC and WT +${x.plating.ac}, DR and ER +${x.plating.dr}` : ''}</div>
+        ${(x.systems || []).map(y => `<div class="text-[10px] text-slate-300 mt-0.5"><b class="text-slate-200">${esc(y.name)}:</b> ${esc(y.desc)}</div>`).join('')}
+        <div class="text-[9px] text-slate-500 mt-1">No helmet in the suit. Its numbers above are the powered suit's (attribute, Plating, Speed, Power bonus and the rest are applied).</div>
+        ${acts ? `<div class="flex flex-wrap gap-1 mt-1.5">${acts}</div>` : ''}
+    </div>`;
+}
 function buildStatBlockHtml(sb, editable) {
     if (sb && sb._initId && typeof window._gmEntrySbAdjust === 'function') sb = window._gmEntrySbAdjust(sb);   // (this creature in the fight: a broken helmet…)
     if (!sb) return '';
@@ -1977,6 +2143,7 @@ function buildStatBlockHtml(sb, editable) {
                 <button type="button" onclick="window.npcToggleShieldEquipped(${sb._npcId ? `'${sb._npcId}'` : 'null'})" class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-white">${sb.shieldOn ? 'Stow' : 'Equip'}</button></div>` : ''}
             ${sb.hasHelmet ? `<div class="text-xs text-slate-200 mt-1">Helmet (+1 AC/DR/ER)</div>` : sb.helmetBroken ? `<div class="text-xs text-red-400 mt-1">Helmet: destroyed this fight</div>` : ''}
         </div>` : ''}
+        ${sb.exo ? ncExoSbHtml(sb, esc) : ''}
         <div class="bg-slate-900 border border-emerald-800/50 rounded p-2 mb-2">
             <div class="text-[10px] font-black text-emerald-400 uppercase mb-1">Skills <span class="text-slate-500 normal-case font-bold">(Training +${sb.trainingBonus}; others roll the plain attribute check)</span></div>
             <div class="grid grid-cols-2 gap-x-3">${sb.trainedSkills.length ? sb.trainedSkills.map(s => `<div class="text-xs ${s.trained === false ? 'text-slate-400' : 'text-slate-200'}" title="${s.trained === false ? 'Not trained: its own bonus, Advantage or Disadvantage' : 'Trained'}"${R({ type: 'check', attr: s.attr || undefined, label: s.name, bonus: s.total, advSources: (s.adv || []).length ? s.adv : undefined, disSources: (s.dis || []).length ? s.dis : undefined })}>${esc(s.name)} (${s.total >= 0 ? '+' : ''}${s.total})${(s.adv || []).length ? ' <span class="text-emerald-400 text-[9px] font-bold">Adv</span>' : ''}${(s.dis || []).length ? ' <span class="text-red-400 text-[9px] font-bold">Disadv</span>' : ''}</div>`).join('') : '<div class="text-[10px] text-slate-600 col-span-2">No skills beyond the attribute checks</div>'}</div>
@@ -2620,10 +2787,12 @@ function ncRenderStep4() {
         [['shield', 'Shield', '+2 AC, +2 DR, +2 ER. Takes 1 hand while held; stow it from the stat block to free the hand for two-handed attacks.', NPC_SHIELD],
          ['helmet', 'Helmet', '+1 AC, +1 DR, +1 ER.', NPC_HELMET]].map(([key, label, desc, def]) => {
             let own = !!(c[key] && c[key].owned), tp = window.npcArmorTp(def).tp;
-            return `<label class="flex items-start gap-2 bg-slate-900 border ${own ? 'border-orange-600' : 'border-slate-700'} rounded p-2 mt-1 cursor-pointer">
-                <input type="checkbox" class="mt-0.5" ${own ? 'checked' : ''} onchange="window.ncToggleGear('${key}', this.checked)">
-                <div><div class="text-xs font-bold text-white">${label} <span class="text-yellow-500 text-[10px]">[${tp} TP]</span></div><div class="text-[10px] text-slate-500 leading-tight">${desc}</div></div></label>`;
+            let lock = key === 'helmet' && !own && c.exoSuit && c.exoSuit.frame;   // (no helmet in an Exo-Suit)
+            return `<label class="flex items-start gap-2 bg-slate-900 border ${own ? 'border-orange-600' : 'border-slate-700'} rounded p-2 mt-1 ${lock ? 'opacity-50' : 'cursor-pointer'}">
+                <input type="checkbox" class="mt-0.5" ${own ? 'checked' : ''} ${lock ? 'disabled' : ''} onchange="window.ncToggleGear('${key}', this.checked)">
+                <div><div class="text-xs font-bold text-white">${label} <span class="text-yellow-500 text-[10px]">[${tp} TP]</span></div><div class="text-[10px] text-slate-500 leading-tight">${desc}${lock ? ' Not in an Exo-Suit.' : ''}</div></div></label>`;
         }).join('') +
+        ncExoStepHtml(c, heading) +
         heading('Natural Defenses (no cap)') +
         statRow('+1 AC', 'acBonus', 1) +
         statRow('+2 DR', 'drBonus', 1) +
