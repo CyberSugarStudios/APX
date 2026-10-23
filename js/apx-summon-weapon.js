@@ -217,6 +217,19 @@
         if (e) window.APXDice?.notify(`${wName(e.w, e.slot)} fades away.`, { kind: 'note' });
         window.recalculateMath?.(); window.scheduleAutoSave?.();
     };
+    // Its power is over (you ended it, its time ran out, or a rest outlasted it): its weapons fade. which(entry) picks them.
+    window.apxSwFade = function (which, why) {
+        let st = window.state, list = (st && st.summonedWeapons) || [];
+        let gone = list.filter(which); if (!gone.length) return;
+        st.summonedWeapons = list.filter(e => !gone.includes(e));
+        if (!st.summonedWeapons.length) delete st.summonedWeapons;
+        window.APXDice?.notify(`${gone.map(e => wName(e.w, e.slot)).join(' and ')} ${gone.length > 1 ? 'fade' : 'fades'} away${why ? ` (${why})` : ''}.`, { kind: 'note' });
+        setTimeout(() => { window.recalculateMath?.(); window.scheduleAutoSave?.(); }, 0);
+    };
+    // A rest: the ones whose power wouldn't last that long (an Instant one, or out of a fight, a 1 Minute one) are gone
+    window.apxSwRestFade = function (hours, why) {
+        window.apxSwFade(e => (window.apxDurOverAfter ? window.apxDurOverAfter(e.dur, hours) : e.dur !== 'permanent'), why);
+    };
     // Your turn starts: Instant ones last through your next turn, 1 Minute ones 10 rounds
     (function hook(tries) {
         let orig = window.apxResetAp;
@@ -265,10 +278,9 @@
             let disHtml = calc.cantAct ? `<span class="text-[8px] text-red-500 font-black block -mt-1 leading-none">(${calc.cantActLabel})</span>`
                 : dis.length ? `<span class="text-[8px] text-red-400 block -mt-1 leading-none" title="${esc(dis.join(', '))}">(Disadv)</span>` : adv.length ? `<span class="text-[8px] text-emerald-400 block -mt-1 leading-none" title="${esc(adv.join(', '))}">(Adv)</span>` : '';
             return `
-                <tr class="bg-blue-950/40 border-b border-blue-800/50" data-sw-row="${esc(e.id)}">
+                <tr class="bg-blue-950/40" data-sw-row="${esc(e.id)}">
                     <td class="px-1 py-2">
                         <div class="text-xs font-bold text-blue-200">${esc(name)}</div>
-                        <div class="text-[9px] text-slate-400 leading-tight">Summoned by ${esc(e.power)} · Medium ${cat === 'ranged' ? 'Ranged (' + esc(hit.range) + ')' : 'Melee'} · ${esc(dmg.type)}${propText(w) ? ' · ' + esc(propText(w)) : ''}${lasts ? ' · lasts ' + esc(lasts) : ''}</div>
                     </td>
                     <td class="px-1 py-2 text-center text-[10px] text-slate-300 font-bold" title="Your Power Attribute: attacks use your Power Attack Bonus">${esc(pn.attr)}</td>
                     <td class="px-1 py-2 text-center"><input type="checkbox" checked disabled class="w-4 h-4 opacity-60" title="You're Trained with a summoned weapon"></td>
@@ -279,6 +291,9 @@
                     <td class="px-1 py-2 text-center text-[11px] text-slate-300 font-bold apx-rollable" title="Roll damage only"${dmgAttr}>${esc(dmgText)}</td>
                     <td class="px-1 py-2"><div class="text-xs font-bold text-blue-400 text-center p-1 h-7 flex items-center justify-center" title="A summoned weapon's attacks cost ${BASE_AP} AP${ap > BASE_AP ? ' (Repeating +2)' : ''}">${ap}</div></td>
                     <td class="px-1 py-2 text-center"><button onclick="window.apxSwDismiss('${esc(e.id)}')" class="text-[9px] text-red-400 hover:text-red-300 font-bold" title="Dismiss it (the power ends)">Dismiss</button></td>
+                </tr>
+                <tr class="bg-blue-950/40 border-b border-blue-800/50" data-sw-info="${esc(e.id)}">
+                    <td colspan="7" class="px-1 pb-2 pt-0 text-[9px] text-slate-400 leading-tight" style="white-space:normal;overflow-wrap:anywhere">Summoned by ${esc(e.power)} · Medium ${cat === 'ranged' ? 'Ranged (' + esc(hit.range) + ')' : 'Melee'} · ${esc(dmg.type)}${propText(w) ? ' · ' + esc(propText(w)) : ''}${lasts ? ' · lasts ' + esc(lasts) : ''}</td>
                 </tr>`;
         }).join('');
     };

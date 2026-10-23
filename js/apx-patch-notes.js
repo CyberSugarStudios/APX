@@ -11,11 +11,11 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.23.0556',
-        released: '2026-10-23T05:56:00',
-        releasedText: 'October 23, 2026 · 5:56 AM',
+        version: 'v2026.10.23.0740',
+        released: '2026-10-23T07:40:00',
+        releasedText: 'October 23, 2026 · 7:40 AM',
         title: 'Playtest 4: Maneuvers, Gear & Burdens',
-        intro: 'Straight from our fourth playtest: NPCs and companions get the full list of maneuvers and actions, Loyal Companions can carry your gear, and carrying too much finally weighs you down. Squeezing costs what it should, and Vitality\'s top rank keeps you on your feet. Since then: NPC maneuvers roll themselves, five new weapon properties (two of them fire into an area), readable buttons in every theme, Exo-Suits rebuilt in three frameworks, including the new Conduit, Keen, Parrying and Suppressed weapons, summons that mix Tiers, creatures your GM shares for summoning, and now Summon a Weapon built in the Power Crafter, perks you can take back a rank at a time, character files that show when they\'ve been edited, and now powers that apply their numbers for you, summons you place and command from their own window, and Ambusher, Charge, Relentless and Regenerative working as written, and Sacrifice that hurts like it should and Permanent powers that hold their slot, powers that play out on the battle map (targets in range, zones, walls, Sensors, Concentration and durations that end everything a power did), Split Target dice you hand out one by one, Overexertion that can tire the target instead, AP Utilities that work every turn, lighter Juggernaut Plating, and now Invisibility that costs 2 AP to keep, Lucky on every save, Breach and Amplifier that show and ask, free powers that are free up to their Level, powers that stay ended when you reload, and now save powers whose damage lands on everyone who fails, tokens from any world that join the fight, Flurry\'s top rank refunding a critical hit\'s AP for you, a Phantom\'s Camouflage and Decoy that really hide you, faster syncing between your sheet and your GM, and now the latest Exo-Suit rules, with suits for NPCs and Loyal Companions too.',
+        intro: 'Straight from our fourth playtest: NPCs and companions get the full list of maneuvers and actions, Loyal Companions can carry your gear, and carrying too much finally weighs you down. Squeezing costs what it should, and Vitality\'s top rank keeps you on your feet. Since then: NPC maneuvers roll themselves, five new weapon properties (two of them fire into an area), readable buttons in every theme, Exo-Suits rebuilt in three frameworks, including the new Conduit, Keen, Parrying and Suppressed weapons, summons that mix Tiers, creatures your GM shares for summoning, and now Summon a Weapon built in the Power Crafter, perks you can take back a rank at a time, character files that show when they\'ve been edited, and now powers that apply their numbers for you, summons you place and command from their own window, and Ambusher, Charge, Relentless and Regenerative working as written, and Sacrifice that hurts like it should and Permanent powers that hold their slot, powers that play out on the battle map (targets in range, zones, walls, Sensors, Concentration and durations that end everything a power did), Split Target dice you hand out one by one, Overexertion that can tire the target instead, AP Utilities that work every turn, lighter Juggernaut Plating, and now Invisibility that costs 2 AP to keep, Lucky on every save, Breach and Amplifier that show and ask, free powers that are free up to their Level, powers that stay ended when you reload, and now save powers whose damage lands on everyone who fails, tokens from any world that join the fight, Flurry\'s top rank refunding a critical hit\'s AP for you, a Phantom\'s Camouflage and Decoy that really hide you, faster syncing between your sheet and your GM, the latest Exo-Suit rules with suits for NPCs and Loyal Companions too, and now summoned weapons that fade with their power, a cleaner XP Log, a page that recovers when part of it fails to load, and new characters that take their place in a world cleanly.',
         index: [
             ['Combat', [
                 'NPCs, summoned creatures and Loyal Companions have an Actions button with every Combat Maneuver and Standard Action, spending their own AP. Fight Defensively, Fight Offensively and next-attack maneuvers change their rolls (and AC) until their next turn.',
@@ -51,7 +51,9 @@
                 'Fixed: a player\'s burst measurement stayed on everyone\'s map after they turned it off.',
                 'Notifications say "gains Temporary HP" for Temp HP, and players no longer see how much damage NPCs deal each other.',
                 'Faster, leaner syncing: your AP, AC and Conditions reach your GM\'s tracker in a fifth of a second, new turns reach players at once, and both pages save what\'s still waiting when the tab closes. Several places that read or wrote more to the server than they needed to now don\'t.',
-                'The Attributes & Skills panel on the character sheet now fills the space beside the column next to it, with no gap underneath.'
+                'The Attributes & Skills panel on the character sheet now fills the space beside the column next to it, with no gap underneath.',
+                'If part of APX fails to load (a site update still on its way, a dropped connection), it\'s fetched again by itself, and if it still can\'t load, a red banner says so with a Reload button. Before, the Dice and Notifications window couldn\'t be dragged, the sheet\'s dock button did nothing, and pop-ups like the XP Log lost their frame when that happened.',
+                'The XP Log is a proper framed pop-up with your totals at the top.'
             ]],
             ['Powers & Consumables', [
                 'Power ranges are bought by the square: Touch/Self is free, 1 XP per 5 squares, or Line of Sight for 15 XP. Older powers keep their range and cost.',
@@ -81,7 +83,8 @@
                 'The AP Utilities work on each of the target\'s turns while the power lasts: +1 AP for movement only (Minor), a new +1 AP for anything (Moderate, 15 XP), and 1 less AP each turn. Movement AP is spent first when you move.',
                 'Powers these changes affect are listed for a free rebuild when your sheet (or the GM\'s world) opens. They keep working as they were until then.',
                 'Turn the target Invisible now lasts for the power\'s duration, and each hostile action (an attack, a power that harms, a maneuver against a creature) costs 2 AP to stay Invisible, or the power ends. Your sheet and the GM\'s tracker ask each time; it no longer needs Concentration.',
-                'A power you got for free is free up to the top of the Level it was free at (a free Level 1 power: 25 XP). Editing it past that costs the XP over it, and coming back down refunds it.'
+                'A power you got for free is free up to the top of the Level it was free at (a free Level 1 power: 25 XP). Editing it past that costs the XP over it, and coming back down refunds it.',
+                'Summoned weapons fade when their power ends, including from a rest, and their details no longer stretch Weapons & Attacks.'
             ]],
             ['Weapons', [
                 'Medium weapons top out at 3d8 (3d10 two-handed) with no Heavy properties. Crit upgrades cost 300 / 900 Cu, Sturdy 50 Cu.',
@@ -96,7 +99,8 @@
                 'Exported character files are sealed. Importing one always makes a new character, and a file that was edited after export is marked so the GM can see what changed.',
                 'Lucky is once per Short Rest, and your sheet offers your LUC save whenever you roll a saving throw while it\'s unused.',
                 'Fixed: a power that ended (by a rest, its duration or by hand) came back active after reloading the page. Saving now replaces your saved character instead of only adding to it, so anything your sheet removed (an ended power, a buff that wore off, a cleared Condition) stays removed. A power that was already stuck may show once more after this update; end it again and it stays gone.',
-                'Flurry Rank 5 refunds for you: a Critical Hit with a weapon attack gives back the AP that attack cost, including a critical hit from Ambusher. AP for Aim, Power Attack or Ambusher\'s 2 AP stays spent.'
+                'Flurry Rank 5 refunds for you: a Critical Hit with a weapon attack gives back the AP that attack cost, including a critical hit from Ambusher. AP for Aim, Power Attack or Ambusher\'s 2 AP stays spent.',
+                'A new character in a world takes its player\'s place cleanly: the previous character\'s token, initiative entries and waiting requests are cleared, and nothing from a fight before it joined (like a Relentless notice) reaches it.'
             ]],
             ['Exo-Suits', [
                 'Exo-Suits are rebuilt: 3,000 Currency, worn with your armor, in three frameworks. A Juggernaut adds its Plating to your defenses, a Phantom hides in plain sight, and the new Conduit amplifies your Powers (Capacitor, Breach, Nullifier, Amplifier, Emitter). Everything a suit does is applied for you.',
@@ -124,7 +128,9 @@
                 'The dice and notifications tray comes to the front when a roll or notification lands in it.',
                 'Fixed: a burst you measured stayed on everyone else\'s map after you turned it off (closing the map clears it too).',
                 'Gaining Temporary HP no longer says "Regaining HP".',
-                'Attributes & Skills runs as tall as the column beside it (and at least as tall as before), with its list scrolling inside, so there\'s no empty gap under it.'
+                'Attributes & Skills runs as tall as the column beside it (and at least as tall as before), with its list scrolling inside, so there\'s no empty gap under it.',
+                'XP Log: a framed pop-up with a title bar and ✕, your Gained, Spent and Unspent XP at the top, and every entry below. Close, Esc or a click outside closes it.',
+                'If one of APX\'s files fails to load, it\'s fetched again by itself; if it still can\'t load, a red banner names it and offers Reload. (A file that didn\'t load is what stopped the Dice and Notifications window from being dragged, made the sheet\'s ⇆ button throw an error, and left the XP Log without its frame.) The Dice and Notifications window also picks up dragging as soon as that file arrives.'
             ]],
             ['Powers', [
                 'Step 2 (Range) is bought by the square: Touch/Self is free, every 5 squares cost 1 XP (set it with − and + or type it), and Line of Sight is 15 XP. A power made with Short, Long or Extreme Range keeps that range and its cost; choose a new range only if you want to.',
@@ -178,7 +184,9 @@
                 'Turn the target Invisible: lasts for the power\'s duration. Each hostile action while you\'re Invisible asks you to spend 2 AP to stay Invisible, or the power ends (with less than 2 AP it just ends). Hostile actions: an attack roll, a power that deals damage or inflicts Conditions, and Shove, Grapple, Pin, Choke, Shield Bash, Feint and Ground Strike. Not Fight Defensively or Offensively, Disengage, Vault, Block, Escape or any Standard Action; Power Attack, Charge and the other set-ups count when their attack is made.',
                 'Turn the target Invisible no longer needs the Concentration refund (Step 8), and has no Concentration check. Powers with it are listed to rebuild (free) in case you only took Concentration for it.',
                 'Free powers: free up to the top of the Level they were free at, not free whatever you change. The crafter\'s banner says how much is free and what a bigger build costs, and Save Changes charges the XP over it (or refunds it when you bring it back down). A free power from before counts from the Level it\'s at now; its card says how much XP is free.',
-                'Fixed: when a creature\'s power made you save against its damage and you failed, the damage was rolled but never taken off your HP. It now comes off as soon as you roll (all of it on a failure, half or none on a success). Your own save powers deal theirs the same way to the targets your GM picks.'
+                'Fixed: when a creature\'s power made you save against its damage and you failed, the damage was rolled but never taken off your HP. It now comes off as soon as you roll (all of it on a failure, half or none on a success). Your own save powers deal theirs the same way to the targets your GM picks.',
+                'Summoned weapons: the line under the weapon (Summoned by…, its properties, how long it lasts) is its own row now, so a long one wraps instead of adding a scroll bar to Weapons & Attacks.',
+                'Summoned weapons fade on their own when their power is over: End Power, its time running out in a fight, or a rest that outlasts it (a Short Rest ends Instant and 1 Minute weapons, a Full Rest anything under 8 hours). No more dismissing them by hand after a rest.'
             ]],
             ['Consumables', [
                 'The Consumable Crafter shows its price against the cap: 150 Cu for one charge, +25 Cu per Artisan rank.',
@@ -248,7 +256,9 @@
                 'Your AP, AC and Conditions now reach your GM\'s tracker about a fifth of a second after you change them (was close to a second), and your character\'s two saves go out together instead of one after the other.',
                 'Anything still waiting to be saved goes out when you close the tab or switch away from it on a phone (the last second of changes could be lost).',
                 'Fixed: after switching characters from the sidebar, Undo could bring back the character you had open before. Each character\'s Undo history now starts fresh.',
-                'Fixed: a gift another player gave you kept writing to the server over and over until they next opened their sheet. Loading a character from the sidebar reads just that character, and leaving a world stops following its battle maps.'
+                'Fixed: a gift another player gave you kept writing to the server over and over until they next opened their sheet. Loading a character from the sidebar reads just that character, and leaving a world stops following its battle maps.',
+                'A Relentless notice only comes from a fight your character was in: a new character no longer gets one from a fight that happened in the world before it joined (or one meant for another of your characters).',
+                'A turn on your GM\'s tracker that belongs to another of your characters in the same world no longer gives this one its AP.'
             ]]
         ],
         gm: [
@@ -298,7 +308,8 @@
             ]],
             ['Your Screen', [
                 'Every picker and pop-up opens on top of what it\'s changing. In the NPC Crafter, Condition Immunities, Damage Immunities, Resistances and Vulnerabilities no longer open behind it, and neither do world tags, the Weapon and Armor Forges, the kick/ban prompt or any other panel. A picker that\'s reused comes back on top too.',
-                'Button text stays readable in every theme, hovered or not.'
+                'Button text stays readable in every theme, hovered or not.',
+                'If one of APX\'s files fails to load, it\'s fetched again by itself; if it still can\'t load, a red banner names it and offers Reload, instead of leaving buttons that do nothing.'
             ]],
             ['NPC Crafter & Forges', [
                 'Editing an NPC you\'ve already saved, Save NPC is on every step (and Save Creature, editing a summoned creature).',
@@ -356,7 +367,9 @@
                 'Fixed: a player\'s ended power or buff came back on their sheet (and your tracker) after a reload. Their sheet now saves the whole character instead of merging into the old one, and your own fields on their world entry (the HP, Conditions and wounds you set) are left as they are.',
                 'A power you put on a player is applied by their sheet once and then cleared from your world, so it can\'t return after they end it or rest. Old messages that were piling up are cleared the next time the player opens their sheet.',
                 'Start Combat, Next Turn and the previous-turn button publish at once, so players\' AP comes in as their turn starts. A steady stream of other changes is saved at least once a second instead of waiting for it to stop, and both of your world\'s copies are written together. Anything still waiting is saved when you close the tab.',
-                'Cleanup: the old Load Party window (its button was already gone) and other code nothing used any more were removed.'
+                'Cleanup: the old Load Party window (its button was already gone) and other code nothing used any more were removed.',
+                'One place per player: each player\'s character is now recorded per world. When a different character takes a player\'s place (their old one was deleted, or they switched characters), the old character\'s tokens on every battle map, its initiative entries (with its companion and summons), a Relentless drop and roll requests still waiting for it are cleared, and the log says what went. When a player\'s place is gone (their last character there deleted, or they left or were kicked), the same happens. Worlds start recording with each player\'s next save, so nothing already in a world is touched by this update.',
+                'Relentless drops are tagged with the character that made them and cleared at the start and end of every fight.'
             ]]
         ]
     }, {

@@ -4,6 +4,41 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Universal APX Character Sheet</title>
+    <script>
+        // Every APX script has to load. One that fails (a site mid-update can answer "not found" for a moment, a download
+        // can drop or be blocked) is fetched once more on a fresh address; if it's still missing, a banner names it and
+        // offers a reload, so a half-loaded page never just has buttons that do nothing.
+        (function () {
+            var failed = [], retried = {};
+            // (this site's own files only: not the sign-in service or other outside libraries)
+            function nameOf(src) { try { var u = new URL(src, location.href); if (u.origin !== location.origin) return null; var m = u.pathname.match(/js\/[^\/]+\.js$/); return m ? m[0] : null; } catch (x) { return null; } }
+            function banner() {
+                if (!document.body) { document.addEventListener('DOMContentLoaded', banner); return; }
+                var b = document.getElementById('apxLoadBanner');
+                if (!b) {
+                    b = document.createElement('div'); b.id = 'apxLoadBanner';
+                    b.style.cssText = 'position:fixed;left:50%;top:.75rem;transform:translateX(-50%);z-index:2147483290;max-width:calc(100vw - 24px);background:#450a0a;border:1px solid #f87171;color:#fee2e2;font:700 .78rem system-ui,sans-serif;padding:.5rem .75rem;border-radius:.6rem;box-shadow:0 10px 30px rgba(0,0,0,.6);display:flex;gap:.6rem;align-items:center;flex-wrap:wrap';
+                    document.body.appendChild(b);
+                }
+                b.innerHTML = '<span>Part of APX didn\'t load (' + failed.join(', ') + '), so some buttons won\'t work. Reloading usually fixes it.</span>'
+                    + '<button style="background:#dc2626;color:#fff;border:0;border-radius:.4rem;padding:.3rem .65rem;font-weight:800;cursor:pointer">Reload</button>';
+                b.querySelector('button').onclick = function () { var u = new URL(location.href); u.searchParams.set('apx', String(Date.now())); location.replace(u.toString()); };
+            }
+            function retry(src) {
+                var name = nameOf(src); if (!name) return;
+                if (retried[name]) { if (failed.indexOf(name) < 0) failed.push(name); banner(); return; }
+                retried[name] = true;
+                var n = document.createElement('script');
+                n.src = String(src).split('#')[0] + (String(src).indexOf('?') >= 0 ? '&' : '?') + 'retry=' + Date.now();
+                n.async = false;
+                (document.body || document.head).appendChild(n);
+            }
+            // a file that couldn't be fetched
+            window.addEventListener('error', function (e) { var s = e.target; if (s && s.tagName === 'SCRIPT' && s.src) retry(s.src); }, true);
+            // a file that arrived broken (cut short: it can't even be read)
+            window.addEventListener('error', function (e) { if (e && e.filename && /SyntaxError|Unexpected (end|token)|Invalid or unexpected/.test(String(e.message || ''))) retry(e.filename); });
+        })();
+    </script>
 <script>
         // Apply saved theme before any CSS renders to prevent a flash of the wrong theme.
         // Reads from both keys: apxTheme (landing page) and apxAppSettings (in-app selector).
@@ -474,8 +509,8 @@
         }
 
     </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=202610230556">
-    <link rel="stylesheet" href="css/tailwind.css?v=202610230556">
+    <link rel="stylesheet" href="css/apx-themes.css?v=202610230740">
+    <link rel="stylesheet" href="css/tailwind.css?v=202610230740">
 </head>
 <body class="p-2 md:p-6 flex justify-center text-sm ml-0 lg:ml-8 transition-all" style="padding-top:4.25rem"><!-- (room for the floating Roster / Settings buttons) -->
     <!-- Auth bar removed — account controls are in the sidebar -->
@@ -487,7 +522,7 @@
         <button class="hamburger-btn" onclick="window.toggleSidebar()">= Roster</button>
         <button id="playerWorldBtn" class="hamburger-btn hidden" onclick="window.openModal('playerWorldModal')" style="font-size:0.875rem;">World</button>
         <button id="settingsBtn" class="hamburger-btn" onclick="window.openModal('settingsModal')" title="Settings" style="font-size:0.875rem;">Settings</button>
-        <button class="hamburger-btn" onclick="window.apxDockCycle('sheet')" data-apx-dock-btn="sheet" title="Centre the sheet, or pin it to the left or right of the screen" style="font-size:0.875rem;">⇆</button>
+        <button class="hamburger-btn" onclick="window.apxDockCycle && window.apxDockCycle('sheet')" data-apx-dock-btn="sheet" title="Centre the sheet, or pin it to the left or right of the screen" style="font-size:0.875rem;">⇆</button>
     </div>
     <div id="sidebarOverlay" onclick="window.toggleSidebar()"></div>
     <div id="sidebar">
@@ -2319,45 +2354,45 @@
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=202610230556"></script>
-    <script src="js/apx-patch-notes.js?v=202610230556"></script>
-    <script src="js/apx-dice.js?v=202610230556"></script>
-    <script src="js/apx-luck.js?v=202610230556"></script>
-    <script src="js/apx-data.js?v=202610230556"></script>
-    <script src="js/apx-item-effects.js?v=202610230556"></script>
-    <script src="js/apx-exo.js?v=202610230556"></script>
-    <script src="js/apx-traits.js?v=202610230556"></script>
-    <script src="js/apx-perks-db.js?v=202610230556"></script>
-    <script src="js/apx-migrations.js?v=202610230556"></script>
-    <script src="js/apx-roster.js?v=202610230556"></script>
-    <script src="js/apx-state.js?v=202610230556"></script>
-    <script src="js/apx-origin-wizard.js?v=202610230556"></script>
-    <script src="js/apx-ancestry-wizard.js?v=202610230556"></script>
-    <script src="js/apx-inventory-ui.js?v=202610230556"></script>
-    <script src="js/apx-craft-shared.js?v=202610230556"></script>
-    <script src="js/apx-armor-forge.js?v=202610230556"></script>
-    <script src="js/apx-weapon-forge.js?v=202610230556"></script>
-    <script src="js/apx-power-crafter.js?v=202610230556"></script>
-    <script src="js/apx-summon-weapon.js?v=202610230556"></script>
-    <script src="js/apx-power-fx.js?v=202610230556"></script>
-    <script src="js/apx-power-world.js?v=202610230556"></script>
-    <script src="js/apx-consumable-crafter.js?v=202610230556"></script>
-    <script src="js/apx-npc-crafter.js?v=202610230556"></script>
-    <script src="js/apx-engine.js?v=202610230556"></script>
-    <script src="js/apx-perks-ui.js?v=202610230556"></script>
-    <script src="js/apx-rest.js?v=202610230556"></script>
-    <script src="js/apx-looting.js?v=202610230556"></script>
-    <script src="js/apx-main.js?v=202610230556"></script>
+    <script src="js/apx-dialogs.js?v=202610230740"></script>
+    <script src="js/apx-patch-notes.js?v=202610230740"></script>
+    <script src="js/apx-dice.js?v=202610230740"></script>
+    <script src="js/apx-luck.js?v=202610230740"></script>
+    <script src="js/apx-data.js?v=202610230740"></script>
+    <script src="js/apx-item-effects.js?v=202610230740"></script>
+    <script src="js/apx-exo.js?v=202610230740"></script>
+    <script src="js/apx-traits.js?v=202610230740"></script>
+    <script src="js/apx-perks-db.js?v=202610230740"></script>
+    <script src="js/apx-migrations.js?v=202610230740"></script>
+    <script src="js/apx-roster.js?v=202610230740"></script>
+    <script src="js/apx-state.js?v=202610230740"></script>
+    <script src="js/apx-origin-wizard.js?v=202610230740"></script>
+    <script src="js/apx-ancestry-wizard.js?v=202610230740"></script>
+    <script src="js/apx-inventory-ui.js?v=202610230740"></script>
+    <script src="js/apx-craft-shared.js?v=202610230740"></script>
+    <script src="js/apx-armor-forge.js?v=202610230740"></script>
+    <script src="js/apx-weapon-forge.js?v=202610230740"></script>
+    <script src="js/apx-power-crafter.js?v=202610230740"></script>
+    <script src="js/apx-summon-weapon.js?v=202610230740"></script>
+    <script src="js/apx-power-fx.js?v=202610230740"></script>
+    <script src="js/apx-power-world.js?v=202610230740"></script>
+    <script src="js/apx-consumable-crafter.js?v=202610230740"></script>
+    <script src="js/apx-npc-crafter.js?v=202610230740"></script>
+    <script src="js/apx-engine.js?v=202610230740"></script>
+    <script src="js/apx-perks-ui.js?v=202610230740"></script>
+    <script src="js/apx-rest.js?v=202610230740"></script>
+    <script src="js/apx-looting.js?v=202610230740"></script>
+    <script src="js/apx-main.js?v=202610230740"></script>
 
     <!-- Firebase (cloud sync — requires firebase-config.js to be configured) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=202610230556"></script>
-    <script src="js/apx-firebase.js?v=202610230556"></script>
-    <script src="js/apx-battlemap.js?v=202610230556"></script>
-    <script src="js/apx-fog.js?v=202610230556"></script>
-    <script src="js/apx-map-tiles.js?v=202610230556"></script>
+    <script src="js/firebase-config.js?v=202610230740"></script>
+    <script src="js/apx-firebase.js?v=202610230740"></script>
+    <script src="js/apx-battlemap.js?v=202610230740"></script>
+    <script src="js/apx-fog.js?v=202610230740"></script>
+    <script src="js/apx-map-tiles.js?v=202610230740"></script>
     <script>
     // ── Sidebar: folders, worlds, meatball menus ─────────────
     window._sidebarChars = [];
@@ -3706,11 +3741,21 @@
             // Combat just ended -> your AP resets to your normal maximum (banked AP is lost).
             // combatTurn comes from the GM's tracker itself, so this works with or without a battle map.
             let ct = data.combatTurn && typeof data.combatTurn === 'object' ? data.combatTurn : null;
+            // A turn for another of your characters (one that was in this world before this one): not this character's
+            {
+                let me = window.apxAuth?.user?.uid;
+                if (ct && ct.charId && window._activeCloudCharId && ct.charId !== window._activeCloudCharId && me && (ct.playerUid === me || ct.companionOf === me))
+                    ct = Object.assign({}, ct, { playerUid: ct.playerUid === me ? null : ct.playerUid, companionOf: ct.companionOf === me ? null : ct.companionOf });
+            }
             window._pwCombatTurn = ct;
             // Relentless: your hit dropped a creature to 0 HP: regain AP equal to your Rank (half your Rank in uses per Short Rest, min 1)
             try {
                 let dr = ct && ct.drops && window.apxAuth?.user?.uid ? ct.drops[window.apxAuth.user.uid] : null;
-                if (dr && dr.key && window.state && window.state._dropSeen !== dr.key) {
+                // (only a fresh one, for this character: not one from before it joined, or another of your characters)
+                let drAt = dr ? (dr.t || parseInt(String(dr.key || '').split(':').pop(), 36) || 0) : 0;
+                let drMine = dr && (!dr.charId || !window._activeCloudCharId || dr.charId === window._activeCloudCharId) && !(drAt && Date.now() - drAt > 5 * 60 * 1000);
+                if (dr && dr.key && window.state && window.state._dropSeen !== dr.key && !drMine) window.state._dropSeen = dr.key;
+                if (dr && dr.key && drMine && window.state && window.state._dropSeen !== dr.key) {
                     window.state._dropSeen = dr.key;
                     let rk = window.apxPerkRank ? window.apxPerkRank(window.state, 'agi_relentless') : ((window.state.perks || {}).agi_relentless || 0);
                     let max = Math.max(1, Math.floor(rk / 2)), used = window.state.relentlessUsed || 0;
@@ -6021,12 +6066,12 @@
         });
     }
     </script>
-    <script src="js/apx-chat.js?v=202610230556"></script>
-    <script src="js/apx-actions.js?v=202610230556"></script>
-    <script src="js/apx-creature-actions.js?v=202610230556"></script>
-    <script src="js/apx-seal.js?v=202610230556"></script>
-    <script src="js/apx-summons.js?v=202610230556"></script>
-    <script src="js/apx-extras.js?v=202610230556"></script>
-    <script src="js/apx-theme-light.js?v=202610230556"></script>
+    <script src="js/apx-chat.js?v=202610230740"></script>
+    <script src="js/apx-actions.js?v=202610230740"></script>
+    <script src="js/apx-creature-actions.js?v=202610230740"></script>
+    <script src="js/apx-seal.js?v=202610230740"></script>
+    <script src="js/apx-summons.js?v=202610230740"></script>
+    <script src="js/apx-extras.js?v=202610230740"></script>
+    <script src="js/apx-theme-light.js?v=202610230740"></script>
 </body>
 </html>

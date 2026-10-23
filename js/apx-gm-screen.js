@@ -234,6 +234,69 @@ window.computeCharSummary = computeCharSummary;
 // ------------------------------------------------------------------
 window.gmParty = []; // [{fileName, state, summary}]
 
+// ── One place per player in a world ──────────────────────────────────────
+// A world keeps one place for each player (their account): their character's doc, token, initiative entry. When a
+// different character takes it (their old character was deleted, or they switched characters), nothing the old one
+// left carries over: its tokens and initiative entries (its companion's and summons' too), a Relentless drop or roll
+// request still waiting for it, and the GM's messages on its doc. Each player's character is recorded per world
+// (partyChars) from now on, so only a real change of character ever does this, never an update on its own.
+function _gmCharSwapCheck(p, code) {
+    let cid = p && p.charId, uid = p && p.uid;
+    if (!cid || !uid || typeof _wNotes === 'undefined' || !_wNotes) return;
+    let w = typeof getActiveWorld === 'function' ? getActiveWorld() : null;
+    if (!w || String(w.inviteCode || '').toUpperCase().trim() !== code) return;   // (the world these notes are)
+    let known = _wNotes.partyChars = _wNotes.partyChars || {};
+    let was = known[uid];
+    if (was === cid) return;
+    known[uid] = cid;
+    if (was) _gmClearPlayerPlace(uid, code, String(p.charName || (p.charState || {}).name || 'A new character'));
+    if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
+}
+function _gmClearPlayerPlace(uid, code, newName, left) {
+    let mine = e => e.playerUid === uid || e.companionOf === uid || e.summonOf === uid || e.summonUid === uid;
+    let gone = (window.gmInitiative || []).filter(mine), ids = new Set(gone.map(e => e.id));
+    let oldName = (gone.find(e => e.playerUid === uid && !e.companionOf && !e.summonOf) || {}).name || '';
+    // its tokens on every battle map (its own, its companion's, the creatures it summoned, its Decoy), before its
+    // initiative entries go (taking an entry out unlinks its token)
+    let toks = 0;
+    let maps = (typeof _wNotes !== 'undefined' && _wNotes && _wNotes.otherMaps) || [];
+    maps.forEach(m => {
+        if (!Array.isArray(m.battleTokens)) return;
+        let keep = m.battleTokens.filter(t => !(t.playerUid === uid || t.ownerUid === uid || t.decoyOf === uid || (t.initiativeId && ids.has(t.initiativeId))));
+        if (keep.length !== m.battleTokens.length) {
+            toks += m.battleTokens.length - keep.length;
+            if (!oldName) oldName = ((m.battleTokens.find(t => t.type === 'player' && t.playerUid === uid) || {}).name) || '';
+            m.battleTokens = keep;
+        }
+    });
+    gone.forEach(e => { try { window.removeFromInitiative(e.id); } catch (err) { } });
+    if (window._gmDrops) delete window._gmDrops[uid];
+    ids.forEach(id => { [window._gmCleave, window._gmFlurry, window._gmWpnHits].forEach(o => { if (o) delete o[id]; }); });
+    // roll requests still waiting for the old character
+    let asks = 0;
+    (window.gmCombatLog || []).forEach(x => { if (x && x.ask && x.ask.uid === uid) { x.ask = null; asks++; } });
+    // the GM's messages on its doc (HP, Conditions, a Wound, powers on it) were for the old character
+    if (!left) try { window.apxAuth && window.apxAuth.clearGmFields && window.apxAuth.clearGmFields(code, uid); } catch (err) { }
+    if (gone.length || toks || asks) {
+        gmLog({ gmOnly: true, force: true, kind: 'info', text: `${left ? `${oldName || 'A player\'s character'} left this world (deleted, or its player left)` : `${newName} took ${oldName ? oldName + "'s" : 'a player\'s'} place in this world`}: ${[gone.length ? `${gone.length} initiative entr${gone.length === 1 ? 'y' : 'ies'}` : '', toks ? `${toks} token${toks === 1 ? '' : 's'}` : '', asks ? `${asks} waiting roll request${asks === 1 ? '' : 's'}` : ''].filter(Boolean).join(', ')} from ${left ? 'it' : 'the old character'} ${gone.length + toks + asks === 1 ? 'was' : 'were'} removed.${left ? '' : ' Add the new character with +Token or All to Init.'}` });
+    }
+    if (typeof window.renderInitiativeTracker === 'function') window.renderInitiativeTracker();
+    if (typeof window._btRefreshAllOpenMaps === 'function') window._btRefreshAllOpenMaps();
+}
+window._gmCharSwapCheck = _gmCharSwapCheck;
+// Players recorded in this world whose place is gone from it (a server snapshot, not the cache: their last character
+// there was deleted, they left, or were kicked): what they left in the world goes too
+function _gmPlacesGone(here, code) {
+    if (typeof _wNotes === 'undefined' || !_wNotes || !_wNotes.partyChars) return;
+    let w = typeof getActiveWorld === 'function' ? getActiveWorld() : null;
+    if (!w || String(w.inviteCode || '').toUpperCase().trim() !== code) return;
+    let gone = Object.keys(_wNotes.partyChars).filter(uid => !here.has(uid));
+    if (!gone.length) return;
+    gone.forEach(uid => { delete _wNotes.partyChars[uid]; _gmClearPlayerPlace(uid, code, null, true); });
+    if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
+}
+window._gmPlacesGone = _gmPlacesGone;
+
 // ── Real-time party listener ──────────────────────────────────────────────
 // Subscribes to worldCodes/{inviteCode}/players/* so the GM's party panel
 // refreshes automatically whenever a player saves their character.
@@ -251,6 +314,7 @@ function startPartyListener(inviteCode) {
         // loaded from a folder of JSON files have no world and are left alone.
         if (!(meta && meta.fromCache && !players.length)) {
             let here = new Set(players.map(p => p.uid));
+            if (!(meta && meta.fromCache)) { try { _gmPlacesGone(here, code); } catch (err) { console.warn('Players gone:', err); } }
             for (let i = window.gmParty.length - 1; i >= 0; i--) {
                 let x = window.gmParty[i];
                 if (x.world && !(x.world === code && here.has(x.fileName))) { window.gmParty.splice(i, 1); changed = true; }
@@ -293,9 +357,12 @@ function startPartyListener(inviteCode) {
                 let savAt = p.updatedAt?.toMillis ? p.updatedAt.toMillis() : 0;
                 if (gmAt >= savAt) state = { ...state, currentHp: gm.hp, tempHp: gm.tempHp ?? state.tempHp };
             }
+            // A different character in this player's place: what the old one left in the world goes first
+            try { _gmCharSwapCheck(p, code); } catch (err) { console.warn('Character change:', err); }
             // Update the party panel
             let entry = window.gmParty.find(x => x.fileName === p.uid);
             if (entry) {
+                entry.charId  = p.charId || null;
                 entry.state   = state;
                 entry.summary = computeCharSummary(state);
                 entry.summary.charPortrait = state.charPortrait || null;
@@ -304,7 +371,7 @@ function startPartyListener(inviteCode) {
             } else {
                 let summ = computeCharSummary(state);
                 summ.charPortrait = state.charPortrait || null;
-                window.gmParty.push({ fileName: p.uid, state, summary: summ, world: code });
+                window.gmParty.push({ fileName: p.uid, charId: p.charId || null, state, summary: summ, world: code });
                 changed = true;
             }
             // Also update any matching initiative tracker entry's HP/TempHP so the
@@ -686,14 +753,14 @@ window.addToInitiative = function(sourceIdx, sourceType, faction, displayName) {
         let owner = (window.gmInitiative || []).find(x => x.playerUid === p.fileName && !x.companionOf);
         entry = { id: crypto.randomUUID(), name: sb.name || 'Companion', baseInitiative: owner ? owner.baseInitiative : (p.summary?.initiative ?? sb.initiative), surprised: false,
             currentHp: Math.min(hp, sb.maxHp), maxHp: sb.maxHp, tempHp: 0, ap: sb.ap, ac: sb.ac, dr: sb.dr, er: sb.er,
-            faction: 'ally', bleedOutTurns: null, tpValue: 0, lairTraitNote: null, companionOf: p.fileName };
+            faction: 'ally', bleedOutTurns: null, tpValue: 0, lairTraitNote: null, companionOf: p.fileName, charId: p.charId || null };
     } else if (sourceType === 'party') {
         let p = window.gmParty[sourceIdx];
         entry = { id: crypto.randomUUID(), name: p.summary.name, baseInitiative: p.summary.initiative, surprised: false,
             currentHp: p.summary.currentHp, maxHp: p.summary.maxHp, tempHp: p.summary.tempHp || 0,
             ap: p.summary.ap, ac: p.summary.ac, dr: p.summary.dr, er: p.summary.er,
             faction: 'player', bleedOutTurns: null, tpValue: 0, lairTraitNote: null,
-            playerUid: p.fileName };
+            playerUid: p.fileName, charId: p.charId || null };   // (which of their characters: a different one later doesn't take this turn)
     } else if (sourceType === 'npc') {
         let n = window.gmNpcs[sourceIdx];
         let sb = ncStatBlockFor(n.id);
@@ -3281,7 +3348,9 @@ function _gmDamage(entry, opts) {
     // A player's hit that drops a creature to 0 HP (Relentless: their sheet regains AP)
     if (hit && hit.attacker && hit.attacker.faction === 'player' && hit.attacker.playerUid && !hit.attacker.companionOf && wasAboveZero && (entry.currentHp || 0) <= 0 && entry !== hit.attacker && window.gmCombatStarted) {
         window._gmDrops = window._gmDrops || {};
-        window._gmDrops[hit.attacker.playerUid] = { key: hit.attacker.id + ':' + entry.id + ':' + Date.now().toString(36), target: _gmPublicName(entry) };
+        // (when, and for which of the player's characters: a character that wasn't in this fight never takes it)
+        let pm = (window.gmParty || []).find(x => x.fileName === hit.attacker.playerUid);
+        window._gmDrops[hit.attacker.playerUid] = { key: hit.attacker.id + ':' + entry.id + ':' + Date.now().toString(36), target: _gmPublicName(entry), t: Date.now(), charId: (pm && pm.charId) || null };
         if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes();
     }
     // Cleave: the hit that drops a creature to 0 HP gives its attacker one more attack with that weapon for 0 AP this turn
@@ -3762,6 +3831,7 @@ function _gmBleedingPlayers() {
     return (window.gmInitiative || []).filter(e => e.faction === 'player' && e.currentHp !== null && e.currentHp <= 0 && !e.stabilized);
 }
 window.endCombat = async function(force) {
+    window._gmDrops = {};   // (Relentless drops belong to the fight they happened in)
     // Someone still Bleeding Out: the fight isn't over until they're saved (or lost)
     let bleeding = force === true ? [] : _gmBleedingPlayers();
     if (bleeding.length && window.gmCombatStarted) {
@@ -3961,6 +4031,7 @@ function _gmTacAnswer(uid, ev) {
 // After this, new arrivals join at the bottom instead of auto-sorting in.
 // A Tactician (Rank 1) in the fight is asked first (skipTac: already asked).
 window.startCombat = function(skipTac) {
+    window._gmDrops = {};
     if (skipTac !== true && _gmTacStart()) return;
     let swaps = _gmTac ? _gmTac.swaps : [];
     _gmTac = null; _gmTacWaitClose();

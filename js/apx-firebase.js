@@ -41,7 +41,7 @@
             deleteOtherMapImage: () => Promise.resolve(),
             saveMapTile: () => Promise.resolve(), loadMapTile: () => Promise.resolve(null), deleteMapTiles: () => Promise.resolve(), resetWriteStream: () => Promise.resolve(),
             saveBattleImage: () => Promise.resolve(), loadBattleImage: () => Promise.resolve(null),
-            setActiveCharId: () => {}, setGmCondition: () => Promise.resolve(), setGmWound: () => Promise.resolve(),
+            setActiveCharId: () => {}, clearGmFields: () => Promise.resolve(), setGmCondition: () => Promise.resolve(), setGmWound: () => Promise.resolve(),
             addXpGrant: () => Promise.resolve(), ackXpGrants: () => Promise.resolve(), addXpToPlayer: () => Promise.resolve(),
             loadBattleImageForPlayer: () => Promise.resolve(null), deleteBattleImage: () => Promise.resolve(),
             saveFogData: () => Promise.resolve(), saveFogMask: () => Promise.resolve(), listenFogMask: () => (() => {}),
@@ -151,7 +151,9 @@
         if (worldCode) {
             // The GM only needs the character, not the sheet's undo history
             let { _undoStack, _redoStack, ...pub } = stateObj;
-            let wdoc = { uid: user.uid, charName: (stateObj.name || 'Unknown Player').slice(0, 60), charState: pub,
+            // (charId: which of the player's characters holds their place in the world, so the GM's tracker can tell
+            // when a different one takes it)
+            let wdoc = { uid: user.uid, charId: charId || null, charName: (stateObj.name || 'Unknown Player').slice(0, 60), charState: pub,
                          updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
             let wkey = 'wplayer:' + worldCode + ':' + user.uid;
             if (!_sameAsLast(wkey, wdoc)) {
@@ -176,6 +178,14 @@
         let upd = {};
         ids.slice(0, 200).forEach(id => { upd['_gmBuffs.' + id] = firebase.firestore.FieldValue.delete(); });
         await db.collection('worldCodes').doc(String(inviteCode).toUpperCase().trim()).collection('players').doc(user.uid).update(upd).catch(() => {});
+    }
+
+    // GM → a player's doc: a different character took their place, so the GM's messages for the old one go
+    async function clearGmFields(inviteCode, uid) {
+        if (!inviteCode || !uid) return;
+        let del = firebase.firestore.FieldValue.delete(), upd = {};
+        ['_gmHp', '_gmCompHp', '_gmBuffs', '_gmConds', '_gmWound'].forEach(k => { upd[k] = del; });
+        await db.collection('worldCodes').doc(String(inviteCode).toUpperCase().trim()).collection('players').doc(uid).update(upd).catch(() => {});
     }
 
     async function loadCharacters() {
@@ -1140,7 +1150,7 @@
         gmGiveToPlayer, ackGmGifts, writeOutbox, clearOutbox, ackGift, publishLootRequest, askLuck, claimLuck,
         saveFogData, loadFogData, loadFogDataForPlayer, listenFogDataForPlayer, saveFogMask, listenFogMask,
         listenWorldPlayers, listenPublicWorldNotes, kickWorldPlayer, leaveWorldAsPlayer,
-        setActiveCharId,
+        setActiveCharId, clearGmFields,
         renderAuthBar,
     };
 })();

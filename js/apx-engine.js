@@ -2661,6 +2661,8 @@
             ((st.powerBuffs) || []).filter(b => b.pi === a.id).forEach(b => { st.powerBuffs = st.powerBuffs.filter(x => x !== b); });
             if (st.powerBuffs && !st.powerBuffs.length) delete st.powerBuffs;
             if (st.channeling && st.channeling.key === a.key) st.channeling = null;
+            // (the weapons it summoned fade with it; used again, the new use replaces them itself)
+            if (why !== 'used again' && window.apxSwFade) window.apxSwFade(e => e.key === a.key, why || 'its power ended');
             try { window.apxOnRollEvent?.({ id: 'pe' + Date.now().toString(36) + Math.random().toString(36).slice(2, 4), kind: 'powerEnd', label: a.name, pi: a.id, why: why || '', text: `${st.name || 'A player'}'s ${a.name} ends${why ? ' (' + why + ')' : ''}.` }); } catch (e) { }
             if (a.ox !== false) window.apxOxFatigue(a, why);
             else window.APXDice?.notify(`${a.name} ends${why ? ` (${why})` : ''}.`, { kind: 'note' });
@@ -2670,6 +2672,7 @@
         window.apxRestEndPowers = function (hours, why) {
             let st = window.state; if (!st) return;
             (st.activePowers || []).slice().forEach(a => { if (window.apxDurOverAfter ? window.apxDurOverAfter(a.dur, hours) : a.dur !== 'permanent') window.apxEndActivePower(a.id, why); });
+            if (window.apxSwRestFade) window.apxSwRestFade(hours, why);   // (summoned weapons: an Instant one isn't tracked as a lasting power)
             let gone = (st.powerBuffs || []).filter(b => window.apxDurOverAfter && window.apxDurOverAfter(b.dur, hours));
             if (gone.length) { st.powerBuffs = st.powerBuffs.filter(b => !gone.includes(b)); if (!st.powerBuffs.length) delete st.powerBuffs; window.APXDice?.notify(`${gone.map(b => b.name || 'A power').join(', ')} on you ${gone.length > 1 ? 'have' : 'has'} worn off (${why}).`, { kind: 'note' }); }
         };

@@ -4,6 +4,41 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>APX GM Tools</title>
+    <script>
+        // Every APX script has to load. One that fails (a site mid-update can answer "not found" for a moment, a download
+        // can drop or be blocked) is fetched once more on a fresh address; if it's still missing, a banner names it and
+        // offers a reload, so a half-loaded page never just has buttons that do nothing.
+        (function () {
+            var failed = [], retried = {};
+            // (this site's own files only: not the sign-in service or other outside libraries)
+            function nameOf(src) { try { var u = new URL(src, location.href); if (u.origin !== location.origin) return null; var m = u.pathname.match(/js\/[^\/]+\.js$/); return m ? m[0] : null; } catch (x) { return null; } }
+            function banner() {
+                if (!document.body) { document.addEventListener('DOMContentLoaded', banner); return; }
+                var b = document.getElementById('apxLoadBanner');
+                if (!b) {
+                    b = document.createElement('div'); b.id = 'apxLoadBanner';
+                    b.style.cssText = 'position:fixed;left:50%;top:.75rem;transform:translateX(-50%);z-index:2147483290;max-width:calc(100vw - 24px);background:#450a0a;border:1px solid #f87171;color:#fee2e2;font:700 .78rem system-ui,sans-serif;padding:.5rem .75rem;border-radius:.6rem;box-shadow:0 10px 30px rgba(0,0,0,.6);display:flex;gap:.6rem;align-items:center;flex-wrap:wrap';
+                    document.body.appendChild(b);
+                }
+                b.innerHTML = '<span>Part of APX didn\'t load (' + failed.join(', ') + '), so some buttons won\'t work. Reloading usually fixes it.</span>'
+                    + '<button style="background:#dc2626;color:#fff;border:0;border-radius:.4rem;padding:.3rem .65rem;font-weight:800;cursor:pointer">Reload</button>';
+                b.querySelector('button').onclick = function () { var u = new URL(location.href); u.searchParams.set('apx', String(Date.now())); location.replace(u.toString()); };
+            }
+            function retry(src) {
+                var name = nameOf(src); if (!name) return;
+                if (retried[name]) { if (failed.indexOf(name) < 0) failed.push(name); banner(); return; }
+                retried[name] = true;
+                var n = document.createElement('script');
+                n.src = String(src).split('#')[0] + (String(src).indexOf('?') >= 0 ? '&' : '?') + 'retry=' + Date.now();
+                n.async = false;
+                (document.body || document.head).appendChild(n);
+            }
+            // a file that couldn't be fetched
+            window.addEventListener('error', function (e) { var s = e.target; if (s && s.tagName === 'SCRIPT' && s.src) retry(s.src); }, true);
+            // a file that arrived broken (cut short: it can't even be read)
+            window.addEventListener('error', function (e) { if (e && e.filename && /SyntaxError|Unexpected (end|token)|Invalid or unexpected/.test(String(e.message || ''))) retry(e.filename); });
+        })();
+    </script>
 <script>
         // Apply saved theme before any CSS renders to prevent a flash of the wrong theme.
         // Reads from both keys: apxTheme (landing page) and apxAppSettings (in-app selector).
@@ -413,8 +448,8 @@
 .text-yellow-500\/50 { color: color-mix(in srgb, var(--c-yellow-dk) 50%, transparent) !important; }
                 .apx-tb-btn:hover { filter: brightness(1.18); }
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=202610230556">
-    <link rel="stylesheet" href="css/tailwind.css?v=202610230556">
+    <link rel="stylesheet" href="css/apx-themes.css?v=202610230740">
+    <link rel="stylesheet" href="css/tailwind.css?v=202610230740">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
@@ -424,7 +459,7 @@
     <div id="gmMain" class="w-full max-w-[1400px] p-4" data-apx-dock="gm" data-dock-default="left" data-dock-min="460" style="margin-left:0;margin-right:auto">
         <div class="flex items-center justify-between mb-4" style="flex-wrap:wrap;gap:0.5rem;">
             <div>
-                <h1 class="text-2xl font-black text-white" style="white-space:nowrap;">APX GM Tools <button onclick="window.apxDockCycle('gm')" data-apx-dock-btn="gm" title="Centre the GM Tools, or pin them to the left or right" style="vertical-align:middle;font-size:0.8rem;font-weight:800;padding:0.05rem 0.4rem;border-radius:0.25rem;background:#1e293b;border:1px solid #334155;color:#94a3b8;cursor:pointer;">⇆</button></h1>
+                <h1 class="text-2xl font-black text-white" style="white-space:nowrap;">APX GM Tools <button onclick="window.apxDockCycle && window.apxDockCycle('gm')" data-apx-dock-btn="gm" title="Centre the GM Tools, or pin them to the left or right" style="vertical-align:middle;font-size:0.8rem;font-weight:800;padding:0.05rem 0.4rem;border-radius:0.25rem;background:#1e293b;border:1px solid #334155;color:#94a3b8;cursor:pointer;">⇆</button></h1>
                 <p class="text-xs text-slate-500">GM Screen -- party overview and initiative tracker.</p>
             </div>
             <div class="flex gap-2" style="flex-wrap:wrap;">
@@ -1508,45 +1543,45 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=202610230556"></script>
-    <script src="js/apx-patch-notes.js?v=202610230556"></script>
-    <script src="js/apx-dice.js?v=202610230556"></script>
-    <script src="js/apx-data.js?v=202610230556"></script>
-    <script src="js/apx-item-effects.js?v=202610230556"></script>
-    <script src="js/apx-exo.js?v=202610230556"></script>
-    <script src="js/apx-perks-db.js?v=202610230556"></script>
-    <script src="js/apx-migrations.js?v=202610230556"></script>
-    <script src="js/apx-state.js?v=202610230556"></script>
-    <script src="js/apx-craft-shared.js?v=202610230556"></script>
-    <script src="js/apx-armor-forge.js?v=202610230556"></script>
-    <script src="js/apx-weapon-forge.js?v=202610230556"></script>
-    <script src="js/apx-consumable-crafter.js?v=202610230556"></script>
-    <script src="js/apx-perks-ui.js?v=202610230556"></script>
-    <script src="js/apx-power-crafter.js?v=202610230556"></script>
-    <script src="js/apx-summon-weapon.js?v=202610230556"></script>
-    <script src="js/apx-power-fx.js?v=202610230556"></script>
-    <script src="js/apx-power-world.js?v=202610230556"></script>
-    <script src="js/apx-power-world-gm.js?v=202610230556"></script>
-    <script src="js/apx-npc-crafter.js?v=202610230556"></script>
-    <script src="js/apx-creature-actions.js?v=202610230556"></script>
-    <script src="js/apx-inventory-ui.js?v=202610230556"></script>
-    <script src="js/apx-ancestry-wizard.js?v=202610230556"></script>
-    <script src="js/apx-gm-screen.js?v=202610230556"></script>
-    <script src="js/apx-seal.js?v=202610230556"></script>
-    <script src="js/apx-loot-maker.js?v=202610230556"></script>
-    <script src="js/apx-library.js?v=202610230556"></script>
-    <script src="js/apx-gm-content.js?v=202610230556"></script>
-    <script src="js/apx-gmtools-main.js?v=202610230556"></script>
+    <script src="js/apx-dialogs.js?v=202610230740"></script>
+    <script src="js/apx-patch-notes.js?v=202610230740"></script>
+    <script src="js/apx-dice.js?v=202610230740"></script>
+    <script src="js/apx-data.js?v=202610230740"></script>
+    <script src="js/apx-item-effects.js?v=202610230740"></script>
+    <script src="js/apx-exo.js?v=202610230740"></script>
+    <script src="js/apx-perks-db.js?v=202610230740"></script>
+    <script src="js/apx-migrations.js?v=202610230740"></script>
+    <script src="js/apx-state.js?v=202610230740"></script>
+    <script src="js/apx-craft-shared.js?v=202610230740"></script>
+    <script src="js/apx-armor-forge.js?v=202610230740"></script>
+    <script src="js/apx-weapon-forge.js?v=202610230740"></script>
+    <script src="js/apx-consumable-crafter.js?v=202610230740"></script>
+    <script src="js/apx-perks-ui.js?v=202610230740"></script>
+    <script src="js/apx-power-crafter.js?v=202610230740"></script>
+    <script src="js/apx-summon-weapon.js?v=202610230740"></script>
+    <script src="js/apx-power-fx.js?v=202610230740"></script>
+    <script src="js/apx-power-world.js?v=202610230740"></script>
+    <script src="js/apx-power-world-gm.js?v=202610230740"></script>
+    <script src="js/apx-npc-crafter.js?v=202610230740"></script>
+    <script src="js/apx-creature-actions.js?v=202610230740"></script>
+    <script src="js/apx-inventory-ui.js?v=202610230740"></script>
+    <script src="js/apx-ancestry-wizard.js?v=202610230740"></script>
+    <script src="js/apx-gm-screen.js?v=202610230740"></script>
+    <script src="js/apx-seal.js?v=202610230740"></script>
+    <script src="js/apx-loot-maker.js?v=202610230740"></script>
+    <script src="js/apx-library.js?v=202610230740"></script>
+    <script src="js/apx-gm-content.js?v=202610230740"></script>
+    <script src="js/apx-gmtools-main.js?v=202610230740"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=202610230556"></script>
-    <script src="js/apx-firebase.js?v=202610230556"></script>
-    <script src="js/apx-battlemap.js?v=202610230556"></script>
-    <script src="js/apx-fog.js?v=202610230556"></script>
-    <script src="js/apx-map-tiles.js?v=202610230556"></script>
+    <script src="js/firebase-config.js?v=202610230740"></script>
+    <script src="js/apx-firebase.js?v=202610230740"></script>
+    <script src="js/apx-battlemap.js?v=202610230740"></script>
+    <script src="js/apx-fog.js?v=202610230740"></script>
+    <script src="js/apx-map-tiles.js?v=202610230740"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -1692,6 +1727,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 loot:            priv.loot || [],
                 lootDefeated:    priv.lootDefeated || 0,
                 combatJson:      priv.combatJson || null,   // a fight left mid-combat
+                partyChars:      priv.partyChars || {},     // each player's character in this world (a new one in their place: apx-gm-screen.js _gmCharSwapCheck)
                 settings:        Object.assign(window.apxDefaultWorldSettings(), priv.settings || w.worldSettings || {}),
                 // ALWAYS load from private data first — priv contains the full unfiltered
                 // list. publicNotes only holds revealed items and is player-facing only.
@@ -1867,6 +1903,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         id: _ct?.id || null, turnNo: window.gmTurnNumber || 0, round: window.gmRoundNumber || 1,
                         session: (typeof _gmLogSession !== 'undefined' && _gmLogSession) || null,   // this fight (combat-start AP is granted once per fight)
                         playerUid: _ct && _ct.faction === 'player' ? (_ct.playerUid || null) : null,
+                        charId: (_ct && (_ct.playerUid || _ct.companionOf) && _ct.charId) || null,   // (the character the turn is for)
                         // (a Loyal Companion shares its owner's turn: both get their AP when it starts)
                         companionOf: _ct?.companionOf || (_ct && window._gmTurnMates && window._gmTurnMates(_ct).length ? _ct.playerUid : null),
                         apGain1: !!_ct?._apFirstSurprised,
@@ -7157,8 +7194,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </script>
     <div id="floatingWindowContainer"></div>
 
-    <script src="js/apx-chat.js?v=202610230556"></script>
-    <script src="js/apx-extras.js?v=202610230556"></script>
-    <script src="js/apx-theme-light.js?v=202610230556"></script>
+    <script src="js/apx-chat.js?v=202610230740"></script>
+    <script src="js/apx-extras.js?v=202610230740"></script>
+    <script src="js/apx-theme-light.js?v=202610230740"></script>
 </body>
 </html>

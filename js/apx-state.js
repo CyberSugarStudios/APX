@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.10.23.0556';
+window.APX_VERSION = 'v2026.10.23.0740';
 
         window.state = getInitialState();
 
@@ -556,17 +556,36 @@ window.APX_VERSION = 'v2026.10.23.0556';
             let el = document.getElementById('spendXpLog');
             if (el) el.innerHTML = window.apxXpLogHtml();
         };
+        // The XP Log pop-up: everything gained (with bonuses), spent and refunded, newest first. Styled on its own, so it
+        // always looks like the other pop-ups (bordered panel, title bar, ✕), even before the shared dialog styles load.
         window.apxShowXpLog = function() {
             if (window.apxInjectDialogStyles) window.apxInjectDialogStyles();
+            document.querySelectorAll('[data-apx-xplog]').forEach(n => n.remove());
+            let st = window.state || {}, log = st.xpLog || [];
+            let gained = log.filter(e => e && e.type !== 'spent' && e.type !== 'refund').reduce((t, e) => t + (parseInt(e.total) || 0), 0);
+            let spent = (parseInt(st.spentXp) || 0), unspent = (parseInt(st.unspentXp) || 0);
+            let chip = (label, n, col) => `<span style="display:inline-flex;align-items:baseline;gap:.25rem;background:var(--c-surface2,#0f172a);border:1px solid var(--c-border,#334155);border-radius:.4rem;padding:.15rem .45rem;font-size:.66rem;color:var(--c-text-muted,#94a3b8)">${label} <b style="font-size:.78rem;color:${col}">${n}</b></span>`;
             let back = document.createElement('div');
-            back.className = 'apxdlg-back';
-            back.innerHTML = `<div class="apxdlg" style="width:min(520px,100%);max-height:80vh;display:flex;flex-direction:column">
-                <div class="apxdlg-title">XP Log</div>
-                <div style="overflow-y:auto;flex:1;margin-bottom:.7rem">${window.apxXpLogHtml()}</div>
-                <div class="apxdlg-row"><button class="apxdlg-btn apxdlg-ok" data-ok>Close</button></div></div>`;
-            back.querySelector('[data-ok]').onclick = () => back.remove();
-            back.addEventListener('mousedown', e => { if (e.target === back) back.remove(); });
+            back.setAttribute('data-apx-xplog', '1');
+            back.style.cssText = 'position:fixed;inset:0;z-index:2147483200;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px';
+            back.innerHTML = `<div role="dialog" aria-modal="true" style="background:var(--c-surface,#1e293b);border:1px solid var(--c-border2,#475569);border-radius:.75rem;box-shadow:0 20px 60px rgba(0,0,0,.6);width:min(560px,100%);max-height:82vh;display:flex;flex-direction:column;color:var(--c-text,#fff);font-family:var(--c-font,inherit);overflow:hidden">
+                <div style="display:flex;align-items:center;gap:.5rem;padding:.7rem .9rem;background:var(--c-surface2,#0f172a);border-bottom:1px solid var(--c-border,#334155)">
+                    <div style="font-family:var(--c-heading-font,inherit);font-weight:900;font-size:1rem;flex:1">XP Log</div>
+                    <button data-x title="Close" style="background:none;border:none;color:var(--c-text-dimmer,#94a3b8);font-size:1.05rem;font-weight:900;cursor:pointer;line-height:1">✕</button>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:.35rem;padding:.55rem .9rem 0">${chip('Gained', gained, '#34d399')}${chip('Spent', spent, '#f59e0b')}${chip('Unspent', unspent, '#60a5fa')}</div>
+                <div style="overflow-y:auto;flex:1;padding:.6rem .9rem .2rem;font-size:.75rem;color:var(--c-text-dimmer,#cbd5e1)">${window.apxXpLogHtml()}</div>
+                <div style="display:flex;justify-content:flex-end;padding:.55rem .9rem .75rem;border-top:1px solid var(--c-border,#334155)">
+                    <button data-ok style="background:var(--c-emerald,#059669);color:#fff;border:0;border-radius:.4rem;padding:.45rem 1.1rem;font-size:.78rem;font-weight:800;cursor:pointer">Close</button>
+                </div></div>`;
+            let close = () => { back.remove(); document.removeEventListener('keydown', onKey, true); };
+            let onKey = e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } };
+            document.addEventListener('keydown', onKey, true);
+            back.querySelector('[data-ok]').onclick = close;
+            back.querySelector('[data-x]').onclick = close;
+            back.addEventListener('mousedown', e => { if (e.target === back) close(); });
             document.body.appendChild(back);
+            if (window.apxFront) window.apxFront(back);
         };
 
 

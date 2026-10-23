@@ -334,7 +334,9 @@
         });
         renderPool();
         el.querySelector('[data-explode]').onchange = e => { tray.explodeNext = e.target.checked; };
-        if (window.apxMakeDraggable) window.apxMakeDraggable(el, el.querySelector('#apxdHdr'));
+        // Dragged by its title bar (should the shared drag helper arrive late, it's attached as soon as it's there)
+        let attachDrag = tries => { if (window.apxMakeDraggable) window.apxMakeDraggable(el, el.querySelector('#apxdHdr')); else if (tries < 60) setTimeout(() => attachDrag(tries + 1), 250); };
+        attachDrag(0);
         refreshPerkBar();
     }
     const POOL_SIDES = [4, 6, 8, 10, 12, 20, 100];
