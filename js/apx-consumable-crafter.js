@@ -104,6 +104,9 @@ function ccProblems() {
     let out = i.problems.map(k => window.apxPowerSaveProblemText ? window.apxPowerSaveProblemText(i, k).replace(/power/g, 'item') : k);
     let noDi = window.apxNoDmgInterrupt ? window.apxNoDmgInterrupt(ccDraft) : [];
     if (ccDraft.durationMods && ccDraft.durationMods.dmgInterrupt && noDi.length) out.push(`Damage Interrupt can't be taken on an item with the ${noDi.join(' or ')} Utility: remove it (Step 6).`);
+    let max = typeof POWER_MAX_DICE_PER_STEP !== 'undefined' ? POWER_MAX_DICE_PER_STEP : 8;
+    let over = POWER_DIE_STEPS.filter(st => (parseInt((ccDraft.dmg || {})[st]) || 0) > max);
+    if (over.length) out.push(`At most ${max} damage or healing dice: lower ${over.map(st => ccDraft.dmg[st] + st).join(', ')} in Step 4.`);
     return out;
 }
 function ccSeg(on, onclick, label, tip) { return `<button type="button" onclick="${onclick}" ${tip ? `title="${tip}"` : ''} class="px-2 py-1 text-[10px] font-bold rounded border transition ${on ? 'bg-purple-700 border-purple-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}">${label}</button>`; }
@@ -221,7 +224,10 @@ window.ccSetDie = function(step, delta) {
     // One die size per item, as for powers
     let other = POWER_DIE_STEPS.find(st => st !== step && (ccDraft.dmg[st] || 0) > 0);
     if (delta > 0 && other) { window.APXDice?.notify(`An item uses one die size: remove its ${other} dice first.`, { kind: 'warn' }); return; }
-    let next = Math.max(0, Math.min(12, cur + delta));
+    // (at most POWER_MAX_DICE_PER_STEP dice, 8, as for powers: one made before keeps its dice until it's lowered)
+    let max = typeof POWER_MAX_DICE_PER_STEP !== 'undefined' ? POWER_MAX_DICE_PER_STEP : 8;
+    let next = delta > 0 ? Math.min(Math.max(cur, max), cur + delta) : Math.max(0, cur + delta);
+    if (delta > 0 && cur >= max) next = cur;
     ccDraft.dmg[step] = next;
     ccRenderAll();
 };
@@ -342,7 +348,7 @@ function ccRenderStep4() {
             <span class="text-xs font-bold text-white">${step} <span class="text-[10px] text-slate-500">(${POWER_DIE_COSTS[step]} XP/die${ccDraft.step1 === 'guaranteed' ? ', x2 Guaranteed Hit' : ''})</span></span>
             <div class="flex items-center gap-2">
                 <button onclick="window.ccSetDie('${step}', -1)" class="w-6 h-6 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold">-</button>
-                <span class="w-6 text-center font-bold text-sm text-white">${ccDraft.dmg[step]}</span>
+                <span class="w-6 text-center font-bold text-sm ${ccDraft.dmg[step] > (typeof POWER_MAX_DICE_PER_STEP !== 'undefined' ? POWER_MAX_DICE_PER_STEP : 8) ? 'text-red-400' : 'text-white'}">${ccDraft.dmg[step]}</span>
                 <button onclick="window.ccSetDie('${step}', 1)" class="w-6 h-6 rounded bg-amber-700 hover:bg-amber-600 text-white font-bold">+</button>
             </div>
         </div>

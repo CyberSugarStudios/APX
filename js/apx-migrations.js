@@ -299,6 +299,25 @@
                 if (x.frame === 'conduit') notes.push({ title: 'Conduit Exo-Suit', text: `${all} New for every Conduit: Concentration costs 1 AP less to keep up, and you have Advantage on Concentration saves. The Flight Module (2,000 Currency) is a Conduit system now.` });
                 return notes;
             }
+        },
+        {
+            v: 14, label: 'Rules updates (Oct 23, 2026)',
+            run(s) {
+                // Nothing on the character changes: the notices say what's new for what it has
+                let p = s.perks || {}, notes = [];
+                if ((p.luc_treasurehunter || 0) >= 5) notes.push({ title: 'Treasure Hunter (Rank 5)', text: 'Reworded: you can spend a Luck Point to reach into your bag and produce one item you "found earlier" (it isn\'t free once per Short Rest any more). It must be non-unique, fit in the container you pull it from, and be worth no more than 10 Currency x your LUC modifier (minimum 50): general equipment, ammunition or a consumable. Items found this way can\'t be sold.' });
+                if ((p.agi_relentless || 0) >= 2) notes.push({ title: 'Relentless (Rank 2)', text: 'Reworded: your ranged weapon attacks suffer no penalties when attacking within 1 square of your target.' });
+                if ((p.str_meleeprowess || 0) >= 4) notes.push({ title: 'Melee Prowess (Rank 4)', text: 'Reworded: whenever you perform a combat maneuver with a melee weapon that would normally impose Disadvantage on your attack roll, you instead make the attack roll with Advantage (a maneuver that wouldn\'t, like Power Attack, no longer gets Advantage).' });
+                if ((p.con_defensive || 0) >= 2) notes.push({ title: 'Defensive (Rank 2)', text: 'Reworded: you gain Advantage on any attribute checks or saving throws made to resist being grappled, pinned, held in place, or forcefully moved. Your Escape rolls (Actions) have it automatically.' });
+                if ((p.str_martialarts || 0) >= 1) notes.push({ title: 'Martial Arts (Rank 1)', text: 'Combat maneuvers you perform with only your body cost 1 AP less (to a minimum of 1 AP, or 2 AP for maneuvers that add to your Attack AP, like Whirlwind). Holding a weapon or shield, your sheet asks whether you\'re doing it with only your body.' });
+                if ((parseInt(s.ancestry && s.ancestry.size) || 30) >= 60) notes.push({ title: 'Large', text: 'Reworded: you take up a 2x2 square and carry STR x 60 lbs. Advantage on STR (Athletics) checks to grapple, pin or escape a grapple, and on melee attack rolls made to Shove; Disadvantage on AGI (Stealth) checks. You can still squeeze into a 1x1 square, with Disadvantage on attack rolls and AGI saves while squeezing.' });
+                let x = s.exoSuit;
+                if (x && x.frame === 'conduit' && (x.systems || []).includes('nullifier')) notes.push({ title: 'Nullifier (Exo-Suit)', text: 'Now 2,500 Currency, and you also gain Immunity to your Breach Energy types.' });
+                if (x && x.damaged) notes.push({ title: 'Your damaged Exo-Suit', text: 'Repairs now follow the crafting rules: a damaged suit takes Crafting Materials worth the damage it took while overloaded. Click Repair Exo-Suit, enter the damage your GM gives you, and roll the Craft check.' });
+                let big = (s.items || []).filter(i => i && i.isConsumable && i.draft && Object.values(i.draft.dmg || {}).some(n => (parseInt(n) || 0) > 8));
+                if (big.length) notes.push({ title: 'Consumables', text: `A consumable's damage or healing is capped at 8 dice now (it was 12). ${big.map(i => i.name).join(', ')} still work as they are; crafting one again needs 8 dice or fewer.` });
+                return notes;
+            }
         }
     ];
     // Joins identical inventory rows into one stack (worn items and part-used consumables stay apart)

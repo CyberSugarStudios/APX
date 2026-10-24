@@ -541,10 +541,11 @@ function weaponForgeCraftMath() {
     if (craftAttr === 'STR' && bsRank >= 4) hours = nominalDelta === 0 ? 0 : Math.max(1, Math.floor(hours / 2));
     if (weaponForgeSpecialized && artisanRank >= 4) hours = nominalDelta === 0 ? 0 : Math.max(1, Math.floor(hours / 2));
 
-    let mats = craftMaterialsForCost(nominalDelta, { bsRank, artisanRank, specialized: weaponForgeSpecialized });
+    let mats = craftMaterialsForCost(nominalDelta, { bsRank, artisanRank, specialized: weaponForgeSpecialized, kind: 'weapon' });
     let hasFailRecovery = craftHasFailRecovery(craftAttr, bsRank, artisanRank);
 
-    return { totals, nominalDelta, bsRank, artisanRank, craftAttr, dc, hours, minRareCt: mats.minRareCt, minUncommonCt: mats.minUncommonCt, commonCt: mats.commonCt, hasFailRecovery };
+    return { totals, nominalDelta, bsRank, artisanRank, craftAttr, dc, hours, minRareCt: mats.minRareCt, minUncommonCt: mats.minUncommonCt, commonCt: mats.commonCt, hasFailRecovery,
+        matCost: mats.matCost, mins: mats.mins, matsValid: mats.valid, matsValue: mats.value };
 }
 
 // ------------------------------------------------------------------

@@ -81,8 +81,19 @@
     }
     function oneDie(formula) { let m = String(formula).match(/d(\d+)/); return m ? +m[1] : 6; }
     function rollDie(sides) { return window.APXDice && window.APXDice.rnd ? window.APXDice.rnd(sides) : 1 + Math.floor(Math.random() * sides); }
-    // Martial Arts Rank 1: combat maneuvers cost 1 AP less (minimum 1)
-    function maneuverCost(a, c) { if (a.g !== 'Combat Maneuvers' || !c || a.perk) return c; return ((st().perks || {}).str_martialarts || 0) >= 1 ? Math.max(1, c - 1) : c; }
+    // Martial Arts Rank 1: combat maneuvers you perform with only your body cost 1 AP less (to a minimum of 1 AP, or 2 AP
+    // for a maneuver that adds to your Attack AP, like Whirlwind: one that's already under 2 stays as it is). Not a Shield
+    // Bash; holding a weapon or shield, you're asked whether it's with only your body (doAction).
+    function maneuverCost(a, c) {
+        if (a.g !== 'Combat Maneuvers' || !c || a.perk || a.notBody || ((st().perks || {}).str_martialarts || 0) < 1) return c;
+        return a.extra ? Math.max(Math.min(c, 2), c - 1) : Math.max(1, c - 1);
+    }
+    // Something in hand (a weapon other than your unarmed strike, an innate weapon, a summoned weapon or a shield)
+    function holdingGear() {
+        let s = st();
+        return (s.weapons || []).some(w => w && !w.isUnarmed && (w.isAncestry || (w.hands && w.hands.length)))
+            || (s.summonedWeapons || []).length > 0 || !!(s.equippedShield && s.equippedShield.equipped);
+    }
     function prowess() { return (st().perks || {}).str_meleeprowess || 0; }
     // A combat maneuver that is itself a STR melee attack (Shove, Shield Bash): rolled now, and it counts as an
     // attack (Fight Defensively drops to +2, Block ends). Melee Prowess R3/R4 apply when melee is set.
@@ -93,12 +104,14 @@
         let dis = (dd.atkGeneral || []).concat(mp >= 3 ? [] : (dd.atkMelee || []), mp >= 3 ? [] : fx().filter(e => e.atkDis).map(e => e.label));
         dis = [...new Set(dis)];
         let adv = (dd.atkAdv || []).slice();
+        // Large: Advantage on melee attack rolls made to Shove
+        if (label === 'Shove' && typeof calc !== 'undefined' && calc.sizeKey === 'large') adv.push('Large size');
         if (opts.larger && window.APXDice && APXDice.ask) {
-            let big = await APXDice.ask(label, `Is the target larger than you? Shoving a larger creature is rolled with Disadvantage${mp >= 3 ? ' (but your Melee Prowess Rank 3 removes it)' : ''}.`, [['no', 'Same size or smaller', 'pri'], ['yes', mp >= 3 ? 'Larger (no Disadvantage: Melee Prowess)' : 'Larger: Disadvantage']]);
+            let big = await APXDice.ask(label, `Is the target larger than you? Shoving a larger creature is rolled with Disadvantage${mp >= 4 ? ' (your Melee Prowess Rank 4 rolls it with Advantage instead)' : mp >= 3 ? ' (but your Melee Prowess Rank 3 removes it)' : ''}.`, [['no', 'Same size or smaller', 'pri'], ['yes', mp >= 3 ? 'Larger (no Disadvantage: Melee Prowess)' : 'Larger: Disadvantage']]);
             if (!big) return false;
             if (big === 'yes' && mp < 3) dis.push('Target is larger');
+            if (big === 'yes' && mp >= 4) adv.push('Melee Prowess R4 (instead of the Disadvantage)');
         }
-        if (mp >= 4) adv.push('Melee Prowess R4 (a combat maneuver)');
         window.APXDice?.check({ kind: 'attack', attr: 'STR', label, bonus: mod('STR') + (st().trainingBonus || 0), who: st().name || '', note, disSources: dis.length ? dis : undefined, advSources: adv.length ? adv : undefined });
         st().apxAttackedTurn = true;
         fx().forEach(e => { if (e.key === 'defensive') e.attacked = true; });
@@ -114,9 +127,11 @@
         if (!window.APXDice) return;
         let o = Object.assign({ attr, skill, bonus: 0, who: st().name || '' }, spec || {}, { label });
         delete o.type;
-        // Large: Advantage on STR (Athletics) to push or grapple (Grapple, Pin, Escape, Shove)
+        // Large: Advantage on STR (Athletics) checks to grapple, pin or escape a grapple (a Shove's attack roll: maneuverAttack)
         if (skill === 'Athletics' && typeof calc !== 'undefined' && calc.sizeKey === 'large' && /Grapple|Pin|Escape|Shove/.test(label || ''))
             o.advSources = (o.advSources || []).concat(['Large size']);
+        // Defensive Rank 2: Advantage on checks to resist being grappled, pinned or held in place (an Escape)
+        if (/^Escape/.test(label || '') && ((st().perks || {}).con_defensive || 0) >= 2) o.advSources = (o.advSources || []).concat(['Defensive (Rank 2)']);
         window.APXDice.check(o);
     }
 
@@ -126,13 +141,13 @@
     };
     window.apxTurnFxApply = function (calc) {
         // Melee Prowess R3: a combat maneuver's Disadvantage doesn't apply to your melee weapon attacks;
-        // R4: a combat maneuver you make with a melee weapon has Advantage
+        // R4: a combat maneuver you make with a melee weapon that would impose Disadvantage has Advantage instead
         let mp = prowess();
         fx().forEach(e => {
             if (e.atkDis) (mp >= 3 ? (calc.disadv.atkNotMelee = calc.disadv.atkNotMelee || []) : calc.disadv.atkGeneral).push(e.label);
             if (e.atkAdv) (calc.disadv.atkAdv = calc.disadv.atkAdv || []).push(e.label);
             if (e.next && e.next.dis && !(mp >= 3 && e.next.melee)) (e.next.melee ? calc.disadv.atkMelee : calc.disadv.atkGeneral).push(e.label);
-            if (e.next && e.next.melee && mp >= 4) (calc.disadv.atkMeleeAdv = calc.disadv.atkMeleeAdv || []).push(`Melee Prowess R4 (${e.label})`);
+            if (e.next && e.next.melee && e.next.dis && mp >= 4) (calc.disadv.atkMeleeAdv = calc.disadv.atkMeleeAdv || []).push(`Melee Prowess R4 (${e.label})`);
         });
         try { checkGrapple(); } catch (e) { }
         render();
@@ -240,11 +255,11 @@
                 if (!e.next) return;
                 if (e.next.melee && !melee) return;
                 // A next-attack maneuver rides on this attack: Disadvantage and/or extra damage, then it's spent
-                // (Melee Prowess: R3 no Disadvantage from it on a melee attack, R4 Advantage)
+                // (Melee Prowess: R3 no Disadvantage from it on a melee attack, R4 Advantage instead of that Disadvantage)
                 let addU = (arr, v) => (arr || []).includes(v) ? arr : (arr || []).concat([v]);
                 if (e.next.dis && !(melee && prowess() >= 3)) o.disSources = addU(o.disSources, e.label);
                 if (e.next.adv) o.advSources = addU(o.advSources, e.label);
-                if (melee && e.next.melee && prowess() >= 4) o.advSources = addU(o.advSources, `Melee Prowess R4 (${e.label})`);
+                if (melee && e.next.melee && e.next.dis && prowess() >= 4) o.advSources = addU(o.advSources, `Melee Prowess R4 (${e.label})`);
                 if (e.next.dmg) o.dmgMod = (parseInt(o.dmgMod) || 0) + e.next.dmg;
                 if (e.next.dice && o.dice) { let m = String(o.dice).match(/^(\d+)d(\d+)(.*)$/); if (m) o.dice = (parseInt(m[1]) + e.next.dice) + 'd' + m[2] + m[3]; }
                 e._spent = true; changed = true;
@@ -285,7 +300,7 @@
                 addFx({ key: 'block', label: 'Block', short: `Block (${src}${parry ? ', Parrying' : ''}): +${ac} AC`, ac, until: 'attack', desc: `+${ac} AC until your next turn or until you attack.${parry ? ' (Parrying: your Reaction this round.)' : ''}` });
                 if (parry) return { spend: 0 };   // (your Reaction, no AP)
             } },
-        { g: 'Combat Maneuvers', name: 'Shield Bash', cost: 3, tip: 'With a shield: a STR melee attack; on a hit, Bludgeoning damage equal to your STR score and the target is Staggered until your next turn.',
+        { g: 'Combat Maneuvers', name: 'Shield Bash', cost: 3, notBody: true, tip: 'With a shield: a STR melee attack; on a hit, Bludgeoning damage equal to your STR score and the target is Staggered until your next turn.',
             requires: () => shieldAc() ? '' : 'You need a shield equipped.',
             auto: () => { let s = (typeof calc !== 'undefined' && calc.scores && calc.scores.STR) || 0; return maneuverAttack('Shield Bash', `Hit: ${s} Bludgeoning damage and the target is Staggered until your next turn`); } },
         { g: 'Combat Maneuvers', name: 'Ground Strike (Brute)', cost: 3, tip: 'Brute Rank 5, once per turn: strike the ground with a Heavy weapon (or the creature you\'re grappling). Every other creature on the ground within 2 squares makes an AGI save (DC 10 + your STR modifier + 5) or takes 5d8 + twice your STR modifier Bludgeoning damage and falls Prone; half damage on a save. A Grappled creature you strike with takes the maximum.',
@@ -304,9 +319,9 @@
             auto: () => addFx({ key: 'whirl', label: 'Whirlwind', short: 'Whirlwind: next melee attack', until: 'turn', next: { melee: true, dis: true }, desc: 'Next melee attack: Disadvantage; compare it to every enemy in reach.' }) },
         { g: 'Combat Maneuvers', name: 'Charge', cost: 3, tip: 'Move up to your Speed in a straight line (2+ squares). Then 1 AP: a melee attack with Disadvantage that deals an extra damage die, or a tackle (both Prone, STR score damage).',
             auto: () => { st().chargeMove = { key: typeof _pwTurnKey === 'function' ? _pwTurnKey() : null }; return addFx({ key: 'charge', label: 'Charge', short: 'Charge: next melee attack +1 die', until: 'turn', next: { melee: true, dis: true, dice: 1 }, desc: 'Your next melee attack (1 AP) has Disadvantage and deals an extra die of damage.' }); } },
-        { g: 'Combat Maneuvers', name: 'Lunging Attack', cost: 3, tip: 'A melee attack with 1 square more reach, with Disadvantage; it provokes attacks of opportunity.',
+        { g: 'Combat Maneuvers', name: 'Lunging Attack', cost: 1, extra: '+ attack', tip: 'Declare before your next melee attack (it also costs its own AP): it has 1 square more reach and Disadvantage, and it provokes attacks of opportunity.',
             auto: () => addFx({ key: 'lunge', label: 'Lunging Attack', short: 'Lunge: next melee attack', until: 'turn', next: { melee: true, dis: true }, desc: 'Next melee attack: +1 square reach, Disadvantage; provokes attacks of opportunity.' }) },
-        { g: 'Combat Maneuvers', name: 'Disarming Attack', cost: 3, tip: 'A melee attack with Disadvantage: on a hit, the target drops an item of your choice (2 AP to catch it).',
+        { g: 'Combat Maneuvers', name: 'Disarming Attack', cost: 2, extra: '+ attack', tip: 'Declare before your next melee attack (it also costs its own AP): it has Disadvantage, and on a hit the target drops an item of your choice (2 AP to catch it).',
             auto: () => addFx({ key: 'disarm', label: 'Disarming Attack', short: 'Disarm: next melee attack', until: 'turn', next: { melee: true, dis: true }, desc: 'Next melee attack: Disadvantage; on a hit the target drops an item.' }) },
         { g: 'Combat Maneuvers', name: 'Shove', cost: 3, tip: 'A melee attack that deals no damage (Disadvantage against larger creatures): on a hit, push 2 squares or knock Prone.',
             auto: () => maneuverAttack('Shove', 'No damage. Hit: push the target 2 squares away or knock it Prone', { larger: true, melee: true }) },
@@ -449,6 +464,14 @@
         if (why) { note(`${a.name}: ${why}`, 'warn'); return; }
         if (a.own) { await a.auto(); return; }
         let cost = costOf(a) || 0;
+        // Martial Arts Rank 1 only makes a maneuver cheaper with only your body: holding something, which is it?
+        let full = a.costNow ? a.costNow() : a.cost;
+        if (cost < (full || 0) && holdingGear() && window.APXDice && APXDice.ask) {
+            let ans = await APXDice.ask(a.name, `Martial Arts: a combat maneuver you perform with only your body costs 1 AP less. Are you doing this with only your body?`,
+                [['body', `With only my body (${cost} AP${a.extra ? ' ' + a.extra : ''})`, 'pri'], ['gear', `With what I'm holding (${full} AP${a.extra ? ' ' + a.extra : ''})`]]);
+            if (!ans) return;
+            if (ans === 'gear') cost = full;
+        }
         // Relentless Rank 1 (Rank 3): once per turn in combat, a non-attack, non-movement action that costs 1 AP
         // (3 AP or less) costs 0 AP
         let relFree = false;

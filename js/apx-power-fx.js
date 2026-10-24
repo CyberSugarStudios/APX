@@ -180,7 +180,9 @@
     };
     // The bar above your Powers and Attacks (and under Armor & Defenses' totals): what's on you, with x to end it
     window.apxPowerBuffBarHtml = function () {
-        let list = (window.state && window.state.powerBuffs) || []; if (!list.length) return '';
+        // (a buff from one of your own lasting powers is shown on that power's line instead: apxActivePowersBarHtml)
+        let act = new Set(((window.state && window.state.activePowers) || []).map(a => a.id));
+        let list = ((window.state && window.state.powerBuffs) || []).filter(b => !(b.pi && act.has(b.pi))); if (!list.length) return '';
         return list.map(b => `<div data-power-buff="${esc(b.id)}" style="background:rgba(12,74,110,.35);border:1px solid #0284c7;border-radius:.4rem;padding:.3rem .5rem;margin-bottom:.4rem;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap">
             <span style="font-size:.7rem;font-weight:800;color:#bae6fd">${esc(b.name || 'Power')}</span>
             <span style="font-size:.6rem;color:#7dd3fc">${esc(window.apxPowerBuffText(Object.assign({}, b, { tempHp: 0, apNext: 0, apLose: 0, fatigue: 0, fatigueZero: false, endWounds: false, endConds: [] })))}${b.from ? ' · from ' + esc(b.from) : ''}${b.left != null ? ` · ${b.left} more turn${b.left === 1 ? '' : 's'}` : ''}</span>

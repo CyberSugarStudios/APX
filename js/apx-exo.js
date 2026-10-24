@@ -5,10 +5,11 @@
 // holds up to 3 Integrated Systems from its framework's list. While it's worn and powered it changes the
 // sheet (js/apx-engine.js asks apxExoActive). A System Overload (a Critical Hit, or one hit over your Wound
 // Threshold) shuts it down until a 6 AP System Reboot (a Critical Hit that overloads it becomes a normal hit). Another
-// Critical Hit while it's overloaded damages it: it has to be repaired before it can be rebooted. You can't wear a
-// helmet in a suit.
+// Critical Hit, or another hit over the Wound Threshold, while it's overloaded damages it: the suit takes that hit's
+// damage (it adds up), and it has to be repaired (Crafting Materials worth that damage: js/apx-repair.js) before it can
+// be rebooted. You can't wear a helmet in a suit.
 //   state.exoSuit = { frame: 'juggernaut'|'phantom'|'conduit', name, systems: [ids installed], owned: [ids ever bought],
-//                     paidCost, worn, overloaded, damaged, camoUsed, bulwarkUsed }
+//                     paidCost, worn, overloaded, damaged, damage, camoUsed, bulwarkUsed }
 //   A Breach system is stored with its Energy type: 'breach:Fire' (it can be taken more than once).
 // Only offered when the GM's World Settings allow Exo-Suits (characters outside a world always can).
 // ============================================================
@@ -62,7 +63,7 @@
             conduit: [
                 { id: 'capacitor', name: 'Capacitor', cost: 3000, npcTp: 4, desc: 'Another +2 to your Power Attack Bonus and Save DC.' },
                 { id: 'breach', name: 'Breach', cost: 2500, npcTp: 3, typed: true, desc: 'Choose an Energy damage type: your Powers ignore a target\'s Resistance to it, and you gain +5 ER against it. Take it again for another type.' },
-                { id: 'nullifier', name: 'Nullifier', cost: 5000, npcTp: 4, req: 'breach', desc: 'Requires Breach. Your Powers treat Immunity as Resistance against your Breach types.' },
+                { id: 'nullifier', name: 'Nullifier', cost: 2500, npcTp: 4, req: 'breach', desc: 'Requires Breach. Your Powers treat Immunity as Resistance against your Breach types. You also gain Immunity to the selected Energy Damage type.' },
                 { id: 'amplifier', name: 'Amplifier', cost: 5000, npcTp: 4, req: 'nullifier', desc: 'Requires Nullifier. Whenever you would roll for damage with a Power that deals Energy damage of your chosen type from Breach, you may spend an additional 3 AP to deal maximum damage instead.' },
                 { id: 'emitter', name: 'Emitter', cost: 1500, npcTp: 2, desc: 'Your ranged Powers reach 10 squares farther, and your Touch Powers have a range of 3 squares.' },
                 { id: 'flight', name: 'Flight Module', cost: 2000, npcTp: 2, desc: 'Deploys a rigid glider, magical wings or silent micro-thrusters: a Fly Speed equal to your walking speed.' }
@@ -216,7 +217,7 @@
             let status = !x ? 'None'
                 : !allowed ? '<span class="text-amber-300">Not allowed in this world</span>'
                 : !x.worn ? `${esc(f.name)} · <span class="text-slate-400">Stowed</span>`
-                : x.damaged ? `${esc(f.name)} · <span class="text-red-400 font-bold">Damaged</span>`
+                : x.damaged ? `${esc(f.name)} · <span class="text-red-400 font-bold">Damaged${x.damage ? ' (' + x.damage + ')' : ''}</span>`
                 : x.overloaded ? `${esc(f.name)} · <span class="text-red-400 font-bold">Overloaded</span>`
                 : `${esc(f.name)} · <span class="text-emerald-400 font-bold">Powered</span>`;
             // Click EXO-SUIT (or its name) for everything the suit does
@@ -236,7 +237,7 @@
             vb.classList.toggle('hidden', !on);
             if (on) {
                 vb.textContent = x.damaged ? 'Repair Exo-Suit' : x.overloaded ? 'Reboot Exo-Suit (6 AP)' : 'Overload Exo-Suit';
-                vb.title = x.damaged ? 'Damaged by a Critical Hit while it was overloaded: it has to be repaired before a System Reboot (your GM decides what the repair takes)'
+                vb.title = x.damaged ? `Damaged while it was overloaded (${x.damage || 0} damage): it has to be repaired before a System Reboot. The repair takes Crafting Materials worth that damage`
                     : x.overloaded ? 'System Reboot: bring the suit back online'
                     : 'A Critical Hit, or one hit over your Wound Threshold (caught automatically when you take damage), overloads the Power Core: the suit shuts down until a System Reboot (6 AP). A Critical Hit that overloads it becomes a normal hit';
                 vb.style.borderColor = x.overloaded && !x.damaged ? 'var(--c-emerald,#059669)' : '#dc2626';
@@ -262,7 +263,7 @@
         if (refresh && !old) return;
         let c = C(), f = EXO.frames[x.frame] || {}, act = window.apxExoActive(st), allowed = window.apxExoAllowed();
         let sys = (x.systems || []).filter(id => sysDef(x.frame, id)).map(id => Object.assign({}, sysDef(x.frame, id), { name: sysName(x.frame, id) }));
-        let state = !allowed ? ['Not allowed in this world: it does nothing here', '#fcd34d'] : !x.worn ? ['Stowed: Enter Suit to power it up', '#94a3b8'] : x.damaged ? ['Damaged: repair it, then a System Reboot (6 AP) brings it back', '#f87171'] : x.overloaded ? ['Overloaded: shut down until a System Reboot (6 AP)', '#f87171'] : ['Powered', '#4ade80'];
+        let state = !allowed ? ['Not allowed in this world: it does nothing here', '#fcd34d'] : !x.worn ? ['Stowed: Enter Suit to power it up', '#94a3b8'] : x.damaged ? [`Damaged (${x.damage || 0} damage): repair it (Crafting Materials worth ${x.damage || 0} Cu), then a System Reboot (6 AP) brings it back`, '#f87171'] : x.overloaded ? ['Overloaded: shut down until a System Reboot (6 AP)', '#f87171'] : ['Powered', '#4ade80'];
         let now = [];
         if (act) {
             if (act.attr) now.push(`${act.attr} +${act.attrPlus} (to a maximum of ${act.attrMax}): ${act.attr} ${(c.scores || {})[act.attr] || '?'} now`, `Advantage on ${act.attr} (${act.skill}) checks`);
@@ -275,7 +276,7 @@
             if (act.er) now.push(`ER +${act.er}`);
             if (act.extraSlot) now.push('One more Power Slot: a Long Rest slot of a Level below your highest, and/or a Short Rest slot');
             if (act.breach && act.breach.length) now.push(`Breach: your Powers ignore Resistance to ${act.breach.join(', ')}; +5 ER against ${act.breach.length > 1 ? 'each' : 'it'}`);
-            if (act.nullifier) now.push(`Nullifier: your Powers treat Immunity to ${act.breach.join(', ')} as Resistance`);
+            if (act.nullifier) now.push(`Nullifier: your Powers treat Immunity to ${act.breach.join(', ')} as Resistance, and you're Immune to ${act.breach.join(' and ')} damage`);
             if (act.amplifier) now.push(`Amplifier: when a Power deals ${act.breach.join(' or ')} damage, you can spend 3 more AP to deal maximum damage (asked as you use it)`);
             if (act.emitter) now.push('Emitter: ranged Powers +10 squares; Touch Powers reach 3 squares');
         } else if (x.worn && x.overloaded && window.apxExoOverburdened(st, (c.scores || {}).STR || 0)) now.push('The dead Juggernaut weighs on you (STR 16 or less): you\'re Overburdened (Disadvantage on attacks, checks and saves, no jumping or climbing), Speed 1, and moving costs double AP');
@@ -441,24 +442,29 @@
         save();
     };
     // A Critical Hit, or a single hit over the Wound Threshold (the suit's, with Plating), overloads the Power Core (the
-    // Critical Hit becomes a normal hit: your GM's tracker takes its extra damage back). Another Critical Hit while it's
-    // overloaded damages it: it has to be repaired before a System Reboot.
+    // Critical Hit becomes a normal hit: your GM's tracker takes its extra damage back). Another Critical Hit, or another
+    // hit over the Wound Threshold, while it's overloaded damages it: the suit takes that hit's damage (after DR), which
+    // adds up, and the repair takes Crafting Materials worth it. It has to be repaired before a System Reboot.
     window.apxExoOnDamage = function (amount, wt, crit) {
         let st = window.state, x = st && st.exoSuit; if (!x || !x.worn || !window.apxExoAllowed()) return;
-        if (crit && x.overloaded && !x.damaged) {
-            x.damaged = true;
-            window.APXDice?.notify(`${x.name || 'Your Exo-Suit'} took a Critical Hit while it was overloaded: it's damaged. It has to be repaired before a System Reboot can bring it back.`, { kind: 'warn', open: true });
-            try { window.apxOnRollEvent?.({ id: 'exd' + Date.now().toString(36), kind: 'action', label: 'Exo-Suit damaged', text: `${st.name || 'A player'}'s overloaded Exo-Suit takes another Critical Hit: it's damaged and needs a repair before a System Reboot.` }); } catch (e) { }
+        let n = Math.max(0, parseInt(amount) || 0);
+        if (x.overloaded && (crit || n > (wt || 0))) {
+            let first = !x.damaged;
+            x.damaged = true; x.damage = (parseInt(x.damage) || 0) + n;
+            let why = crit ? 'a Critical Hit' : `${n} damage, over your WT of ${wt}`;
+            window.APXDice?.notify(`${x.name || 'Your Exo-Suit'} took ${why} while it was overloaded: ${first ? 'it\'s damaged' : 'more damage'} (${x.damage} in all). It has to be repaired (Crafting Materials worth ${x.damage} Cu) before a System Reboot can bring it back.`, { kind: 'warn', open: true });
+            try { window.apxOnRollEvent?.({ id: 'exd' + Date.now().toString(36), kind: 'action', label: 'Exo-Suit damaged', text: `${st.name || 'A player'}'s overloaded Exo-Suit takes ${why}: ${x.damage} damage to the suit, to repair before a System Reboot.` }); } catch (e) { }
             save(); return;
         }
         if (!window.apxExoActive(st)) return;
         if (crit) window.apxExoOverload('a Critical Hit', true);
         else if ((amount || 0) > (wt || 0)) window.apxExoOverload(`${amount} damage, over your WT of ${wt}`);
     };
-    // Repairing a damaged suit (what it takes, the time at a Workbench, materials or Currency, is your GM's call). It's
+    // Repairing a damaged suit: the Repair screen (js/apx-repair.js), Crafting Materials worth the damage it took. It's
     // still shut down after: a System Reboot (6 AP) brings it back
     window.apxExoRepair = async function () {
         let st = window.state, x = st && st.exoSuit; if (!x || !x.damaged) return;
+        if (window.apxOpenRepair) { window.apxOpenRepair({ kind: 'exo' }); return; }
         let msg = `Repair ${x.name || 'your Exo-Suit'}? Your GM decides what the repair takes (time at a Workbench, materials or Currency). After it, a System Reboot (6 AP) brings the suit back online.`;
         let ok = window.apxConfirm ? await window.apxConfirm(msg, { title: 'Repair Exo-Suit', okLabel: 'Repaired' }) : window.confirm(msg);
         if (!ok) return;

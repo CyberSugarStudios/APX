@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.10.23.0740';
+window.APX_VERSION = 'v2026.10.23.1720';
 
         window.state = getInitialState();
 
@@ -173,6 +173,7 @@ window.APX_VERSION = 'v2026.10.23.0740';
             // matches -- close them rather than risk a stale form silently
             // overwriting the just-restored values on its next save.
             document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
+            window._apxInvForge = null;
             window.recalculateMath();
             window.updateUndoRedoButtons();
         }
@@ -258,6 +259,8 @@ window.APX_VERSION = 'v2026.10.23.0740';
                 window._itemDetailIdx = null;
             }
             document.getElementById(id).classList.remove('active');
+            // A weapon taken out of the inventory for the Weapon Forge goes back there (js/apx-repair.js)
+            if (id === 'weaponForgeModal' && window._apxInvForge) setTimeout(() => window.apxInvForgeClosed && window.apxInvForgeClosed(), 0);
         }
 
         window.updateState = function(key, val) {
@@ -337,9 +340,11 @@ window.APX_VERSION = 'v2026.10.23.0740';
             ((typeof calc !== 'undefined' && calc.customItemErBonuses) || []).forEach(b => { if (b.type) def.res[N(b.type)] = (def.res[N(b.type)] || 0) + (b.amount || 0); });
             def.halfBypass = ((st.perks || {}).con_ironclad || 0) >= 4;
             (window.apxPowerBuffImmune ? window.apxPowerBuffImmune(st) : []).forEach(t => def.immune.push(N(t)));   // (a power made you immune)
+            (st.powerBuffs || []).forEach(b => Object.entries(b.res || {}).forEach(([t, n]) => { def.res[N(t)] = (def.res[N(t)] || 0) + (parseInt(n) || 0); }));   // (a power's Resistance)
             // A Conduit Exo-Suit's Breach: +5 ER against each of its Energy types
             let ex = (typeof calc !== 'undefined' && calc.exo) || null;
             ((ex && ex.breach) || []).forEach(t => { def.res[N(t)] = (def.res[N(t)] || 0) + 5; });
+            if (ex && ex.nullifier) (ex.breach || []).forEach(t => def.immune.push(N(t)));   // (and Nullifier: Immunity to them)
             return def;
         };
         window.handleMathInput = function(stateKey, inputEl) {
@@ -368,7 +373,7 @@ window.APX_VERSION = 'v2026.10.23.0740';
                             let nl = !!(pe.nonlethal || t.nonlethal);   // non-lethal: 0 HP knocks you out instead
                             useAtk = !!(t.fromSuggest && fresh);
                             let eff = window.apxEffectiveConditions ? window.apxEffectiveConditions(window.state.conditions || [], window.state).map(c => c.id) : [];
-                            let res = (window.APXDamage.throughTemp ? window.APXDamage.throughTemp.bind(null, raw, window.state.tempHp || 0) : window.APXDamage.mitigate.bind(null, raw))(t, def, { ignore: useAtk ? window.APXDamage.ignoreOf(atk) : null, bypassRes: eff.includes('incapacitated'), halfBypass: def.halfBypass });
+                            let res = (window.APXDamage.throughTemp ? window.APXDamage.throughTemp.bind(null, raw, window.state.tempHp || 0) : window.APXDamage.mitigate.bind(null, raw))(t, def, { ignore: useAtk ? window.APXDamage.ignoreOf(atk) : null, bypassPool: eff.includes('incapacitated'), halfBypass: def.halfBypass });
                             // Tearing (the attack's weapon): at least 2 damage per damage die, whatever DR/ER take off
                             if (useAtk && (atk.props || []).includes('tearing')) {
                                 let nd = 0; String(atk.dice || '').replace(/(\d*)d\d+/gi, (m, k) => { nd += parseInt(k || '1', 10); return m; });

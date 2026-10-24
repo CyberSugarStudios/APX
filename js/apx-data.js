@@ -42,11 +42,11 @@
               atkDisadvantage: 'general', checkDisadvantage: 'all' },
             { id: "grappled", name: "Grappled", desc: "Held by another creature: Speed 0, and Disadvantage on attack rolls against anyone other than the grappler. Escape (4 AP): contested STR (Athletics) or AGI (Acrobatics) against the grappler's STR (Athletics). The grappler is Staggered while it holds you.",
               speedZero: true },
-            { id: "incapacitated", name: "Incapacitated", desc: "AP reduced to 0; can't take actions, Free Actions, or Reactions. Completely exposed: any hit against you is a Critical Hit and bypasses all your resistances.",
-              apZero: true, noActions: true },
+            { id: "incapacitated", name: "Incapacitated", desc: "Your AP is reduced to 0, and you don't gain AP at the start of your turn. You can't take actions, Free Actions or Reactions, and you can't move. You automatically fail STR and AGI saving throws. Attacks against you have Advantage, and any hit against you is a Critical Hit that bypasses your DR and ER (your natural Resistances and Immunities still apply).",
+              apZero: true, noActions: true, speedZero: true, autoFailSaves: ['STR','AGI'] },
             { id: "infected", name: "Infected", desc: "Carries a disease with no symptoms or penalties yet. Becomes Diseased after the incubation period." },
-            { id: "paralyzed", name: "Paralyzed", desc: "Also Incapacitated. Can't move or speak. Auto-fail STR/AGI saves. Melee hits within 1 square are automatic Critical Hits.",
-              apZero: true, autoFailSaves: ['STR','AGI'], autoFailChecks: ['STR','AGI'] },
+            { id: "paralyzed", name: "Paralyzed", desc: "Also Incapacitated. You can't speak.",
+              apZero: true },
             { id: "pinned", name: "Pinned", desc: "Also Grappled, Restrained and Prone. The grappler can Choke you (2 AP): unarmed strike damage with no attack roll, lethal or non-lethal (0 HP from non-lethal damage is Unconscious, not Bleeding Out). Escape (4 AP) ends the Pin and the Grapple." },
             { id: "poisoned", name: "Poisoned", desc: "Disadvantage on all attack rolls and attribute checks. Specific poisons may add further effects.",
               atkDisadvantage: 'general', checkDisadvantage: 'all' },
@@ -57,12 +57,12 @@
               atkDisadvantage: 'general', saveDisadvantage: ['AGI'], speedZero: true },
             { id: "staggered", name: "Staggered", desc: "2x AP to move. Can't spend AP to Aim. (No Disadvantage.)" },
             { id: "starving", name: "Starving", desc: "Past your CON mod in days without food (min 1 day): DC 10+ CON save each day (DC +2/day) or gain 1 Fatigue." },
-            { id: "stunned", name: "Stunned", desc: "Also Incapacitated. Can't spend AP to move; can only speak brief, confused sentences. Auto-fail STR/AGI saves. Attacks against you have Advantage.",
-              autoFailSaves: ['STR','AGI'], speedZero: true },
+            { id: "stunned", name: "Stunned", desc: "Also Incapacitated. You can only speak in brief, confused sentences.",
+              apZero: true },
             { id: "noheal", name: "Can't Regain HP", desc: "Can't regain Hit Points from any source. Temporary Hit Points can still be gained." },
-                        { id: "suffocating", name: "Suffocating", desc: "Can't regain HP. Gain 2 levels of Fatigue at the start of each of your turns." },
-            { id: "unconscious", name: "Unconscious", desc: "Drops held items, falls Prone. Also Incapacitated. Auto-fail STR/AGI saves. Melee hits within 1 square are automatic Critical Hits.",
-              apZero: true, autoFailSaves: ['STR','AGI'], autoFailChecks: ['STR','AGI','PER','INT','CHA'] }
+                        { id: "suffocating", name: "Suffocating", desc: "You've gone past your Breath Capacity: you can't regain Hit Points, and you gain 1 level of Fatigue at the start of each of your turns." },
+            { id: "unconscious", name: "Unconscious", desc: "You drop whatever you're holding and fall Prone. Also Incapacitated.",
+              apZero: true }
         ];
 
         // Base 6 body parts for the Wounded condition. Traits that grant
@@ -464,7 +464,7 @@
             { key: "tearing", name: "Tearing", cost: 200, desc: "The minimum damage you can deal with this weapon is 2 damage for every damage die it has (ignoring DR/ER), whether you hit or miss.", reqLabel: "Non-Bludgeoning damage", reqCheck: (ctx) => ctx.effectiveDmgType === 'Piercing' || ctx.effectiveDmgType === 'Slashing' },
             { key: "crushing", name: "Crushing", cost: 300, desc: "On a hit, the creature must make a STR saving throw (DC 10 + your STR modifier) or be knocked Prone. If the target is already Prone, you deal an additional die of damage on a hit instead.", reqLabel: "Bludgeoning damage", reqCheck: (ctx) => ctx.effectiveDmgType === 'Bludgeoning' },
             { key: "flurry", name: "Flurry", cost: 300, desc: "When you hit a creature with this weapon, each subsequent attack you make against them costs 1 AP less (minimum 1 AP). You lose this AP reduction on a miss, or at the end of your turn.", reqLabel: "Slashing damage", reqCheck: (ctx) => ctx.effectiveDmgType === 'Slashing' },
-            { key: "stunning", name: "Stunning", cost: 400, desc: "On a hit, the target must succeed on a CON saving throw (DC 10 + your STR modifier) or become Stunned until the end of your next turn. If you crafted this weapon to deal Energy (Electric) damage, you can use your INT modifier for the attack roll, damage roll, and DC. ", reqLabel: "Heavy Weapon or Energy (Electric)", reqCheck: (ctx) => ctx.weightClass === 'heavy' || ctx.elemental === 'Electric' },
+            { key: "stunning", name: "Stunning", cost: 400, desc: "On a hit, the target must succeed on a CON saving throw (DC 10 + your STR modifier) or become Stunned until the end of your next turn. A creature that saves against this property is immune to it until the start of your next turn. If you crafted this weapon to deal Energy (Electric) damage, you can use your INT modifier for the attack roll, damage roll, and DC. ", reqLabel: "Heavy Weapon or Energy (Electric)", reqCheck: (ctx) => ctx.weightClass === 'heavy' || ctx.elemental === 'Electric' },
             // Heavy weapons' own properties
             { key: "brutal", name: "Brutal", cost: 100, desc: "When you roll damage with this weapon, reroll any die that comes up as a 1. You must take the new result, even if it is also a 1.", reqLabel: "Heavy Weapon", reqCheck: (ctx) => ctx.weightClass === 'heavy' },
             { key: "sunder", name: "Sunder", cost: 200, desc: "This weapon deals double damage to objects, structures, and vehicles.", reqLabel: "Heavy Melee Weapon", reqCheck: (ctx) => ctx.weightClass === 'heavy' && ctx.category === 'melee' },
@@ -1070,11 +1070,13 @@
             let dur = mythic && (mythic.skip || []).includes(6) ? 'mythic' : (d.duration || 'instant');
             let lasting = d.step1 !== 'friendly' && dur !== 'instant' && (inflicts.length > 0 || negOther.length > 0);
             let forbid = [], why = {};
-            inflicts.forEach(c => {
-                let def = CONDITIONS.find(x => x.id === c);
+            // (with what each Condition brings: Stunned is also Incapacitated, which auto-fails STR and AGI saves)
+            apxEffectiveConditions(inflicts, null).forEach(ec => {
+                let c = ec.id, def = CONDITIONS.find(x => x.id === c), named = CONDITIONS.find(x => x.id === (ec.from || c));
                 [].concat((def && def.autoFailSaves) || [], APX_ESCAPE_FORBID[c] || []).forEach(a => {
                     if (!forbid.includes(a)) forbid.push(a);
-                    (why[a] = why[a] || []).push(def ? def.name : c);
+                    let n = named ? named.name : c;
+                    if (!(why[a] = why[a] || []).includes(n)) why[a].push(n);
                 });
             });
             let incap = inflicts.filter(c => APX_INCAP_CONDS.includes(c));
@@ -1327,7 +1329,7 @@
 // plus a specific resistance for that type (ER +5 Fire), a Vulnerability (it
 // lowers the reduction), or an Immunity (no damage). Damage of two types
 // ("Slashing + Fire") is split evenly between them. Attacks that ignore DR/ER
-// (all, half, or X) and an Incapacitated target (all resistances bypassed)
+// (all, half, or X) and an Incapacitated target (its DR and ER bypassed)
 // are handled too, so a hit that deals 0 damage is always recognised as one.
 // Shared by the Character Sheet and the GM Tools.
 // ============================================================
@@ -1359,7 +1361,8 @@
     function label(t) { return t === 'True' ? 'true damage' : t === 'Physical' ? 'physical' : t; }
 
     // def: { dr, er, res: { Type: +N resist / −N vulnerable }, immune: [types] }
-    // opts: { ignore: 'all' | 'half' | N, bypassRes: bool, halfBypass: bool (Ironclad R4) }
+    // opts: { ignore: 'all' | 'half' | N, bypassRes: bool (no DR, ER or Resistance: a Choke), bypassPool: bool (no DR or ER:
+    //         an Incapacitated target, whose Resistances and Immunities still count), halfBypass: bool (Ironclad R4) }
     function mitigate(raw, types, def, opts) {
         raw = Math.max(0, Math.floor(Number(raw) || 0));
         def = def || {}; opts = opts || {};
@@ -1401,7 +1404,7 @@
             let why = [];
             if (nullified) { res = 5; why.push('Immunity treated as Resistance (Nullifier)'); }
             else if (breach.includes(t) && res > 0) { why.push(`Resistance ignored (Breach)`); res = 0; }
-            if (opts.bypassRes) { if (pool) why.push(`${energy ? 'ER' : 'DR'} bypassed`); pool = 0; res = Math.min(0, res); }
+            if (opts.bypassRes || opts.bypassPool) { if (pool) why.push(`${energy ? 'ER' : 'DR'} bypassed`); pool = 0; if (opts.bypassRes) res = Math.min(0, res); }
             let ign = 0;
             if (opts.ignore === 'all') ign = pool;
             else if (opts.ignore === 'half') ign = Math.floor(pool / 2);

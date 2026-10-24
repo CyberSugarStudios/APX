@@ -109,11 +109,21 @@
         if (r) { window.scheduleAutoSave?.(); toast(`Rest Die: healed ${r.healed} HP (${st().restDice} Rest Di${st().restDice === 1 ? 'e' : 'ce'} left).` + (r.comp ? ` ${r.comp}.` : '')); }
     };
 
+    // What finishing a rest of this many hours ends: lasting powers and summoned weapons that wouldn't last that long
+    function endingHtml(hours) {
+        let s = st() || {}, over = d => (window.apxDurOverAfter ? window.apxDurOverAfter(d, hours) : d !== 'permanent');
+        let names = (s.activePowers || []).filter(a => over(a.dur)).map(a => a.name || 'Power')
+            .concat((s.summonedWeapons || []).filter(e => over(e.dur)).map(e => (e.w && e.w.name) || 'a summoned weapon'))
+            .concat((s.powerBuffs || []).filter(b => over(b.dur) && !(s.activePowers || []).some(a => a.id === b.pi)).map(b => (b.name || 'A power') + ' (on you)'));
+        names = [...new Set(names)];
+        return names.length ? `<div class="apxdlg-msg" style="font-size:.7rem;margin-bottom:.6rem;color:#fcd34d">When you finish, these end (they don't last ${hours === 1 ? 'an hour' : hours + ' hours'}): ${names.map(esc).join(', ')}</div>` : '';
+    }
+
     // ── Short Rest ───────────────────────────────────────────────
     window.apxShortRest = function () {
         if (!needHp()) return;
-        // A Short Rest is 1 hour: a power that wouldn't last that long is over (its Overexertion Fatigue first)
-        if (window.apxRestEndPowers) window.apxRestEndPowers(1, 'a Short Rest: an hour passes'); else window.apxEndAllActivePowers?.('you rested', true);
+        // (a Short Rest is 1 hour: a power that wouldn't last that long ends when you finish it, its Overexertion Fatigue
+        // first. Cancelling changes nothing.)
         let log = [];
         let back = panel('Short Rest', '');
         let draw = () => {
@@ -138,6 +148,7 @@
                         <div style="font-size:1.2rem;font-weight:900;color:var(--c-text)">${dice}<span style="font-size:.75rem;color:var(--c-text-muted)"> ${dieStep()}</span></div></div>
                 </div>
                 ${log.length ? `<div style="font-size:.7rem;color:var(--c-text-dimmer);margin-bottom:.6rem;max-height:110px;overflow-y:auto">${log.map(l => `<div>${esc(l)}</div>`).join('')}</div>` : ''}
+                ${endingHtml(1)}
                 <div class="apxdlg-row" style="flex-wrap:wrap">
                     <button class="apxdlg-btn apxdlg-cancel" data-cancel>Cancel</button>
                     <button class="apxdlg-btn apxdlg-ok" data-spend ${!canSpend ? 'disabled style="opacity:.45;cursor:default"' : ''}>${spendLabel}</button>
@@ -155,6 +166,8 @@
                 draw();
             };
             back.querySelector('[data-finish]').onclick = () => {
+                // An hour has passed: what wouldn't last that long is over now
+                if (window.apxRestEndPowers) window.apxRestEndPowers(1, 'a Short Rest: an hour passes'); else window.apxEndAllActivePowers?.('you rested', true);
                 let s = st();
                 // (a Permanent power still Active keeps its Short Rest use)
                 let held = window.apxPermHeldSlots ? window.apxPermHeldSlots(s) : {}, heldCha = held.CHA || 0;
@@ -182,8 +195,8 @@
     // ── Full Rest ────────────────────────────────────────────────
     window.apxFullRest = async function () {
         if (!needHp()) return;
-        // A Full Rest is 8 hours: everything shorter is over (24 Hours and Permanent go on)
-        if (window.apxRestEndPowers) window.apxRestEndPowers(8, 'a Full Rest: 8 hours pass'); else window.apxEndAllActivePowers?.('you rested', true);
+        // (a Full Rest is 8 hours: everything shorter ends when you take it, 24 Hours and Permanent go on. Cancelling
+        // changes nothing.)
         let s = st(), c = C();
         let mh = maxHp();
         let maxDice = c.maxRestDice || s.restDice || 0;
@@ -235,6 +248,7 @@
         let back = panel('Full Rest', `<div class="apxdlg-msg" style="margin-bottom:.5rem">8 hours of rest (6 asleep). This will:</div>
             <ul style="margin:0 0 .8rem 1.1rem;padding:0;list-style:disc;font-size:.76rem;color:var(--c-text-dimmer);line-height:1.5">${lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>
             ${omenHtml}
+            ${endingHtml(8)}
             <div class="apxdlg-msg" style="font-size:.68rem;margin-bottom:.8rem">Other perk features that recharge on a rest: update those yourself for now.</div>
             <div class="apxdlg-row" style="flex-wrap:wrap"><button class="apxdlg-btn apxdlg-cancel" data-cancel>Cancel</button>
                 <button class="apxdlg-btn apxdlg-ok" data-go="rest">Take Full Rest</button></div>`, 440);
@@ -255,6 +269,8 @@
             let omenSet = r5 ? r5.pick.map((v, i) => v === 'k' ? { v: r5.held[i], kept: true } : { v: parseInt(v, 10) })
                 .filter((x, i, a) => x.kept || a.findIndex(y => !y.kept && y.v === x.v) === i) : null;
             let reroll = [...back.querySelectorAll('[data-omen-reroll]')].filter(x => x.checked).map(x => parseInt(x.dataset.omenReroll));
+            // 8 hours pass: what wouldn't last that long is over now (its Overexertion Fatigue first)
+            if (window.apxRestEndPowers) window.apxRestEndPowers(8, 'a Full Rest: 8 hours pass'); else window.apxEndAllActivePowers?.('you rested', true);
             let s2 = st();
             s2.currentHp = mh;
             if ((s2.fatigue || 0) > 0) s2.fatigue -= 1;
@@ -376,9 +392,16 @@
 
     // ── Burning: 1d10 Fire damage at the start of each of your turns (bypasses ER) ──
     // Called when your turn starts in the GM's initiative. Immune to Fire: no damage.
+    // (Suffocating, past your Breath Capacity: 1 level of Fatigue at the start of each of your turns, here too)
     window.apxBurnTick = function () {
         let s = st(); if (!s) return;
         let eff = (window.apxEffectiveConditions ? window.apxEffectiveConditions(s.conditions || [], s) : (s.conditions || []).map(id => ({ id }))).map(c => c.id);
+        if (eff.includes('suffocating')) {
+            let f = (parseInt(s.fatigue) || 0) + 1;
+            if (window.updateState) window.updateState('fatigue', f); else s.fatigue = f;
+            window.APXDice?.notify(`Suffocating: you gain 1 level of Fatigue (now ${f}). You can't regain Hit Points until you can breathe.`, { kind: 'warn', open: true });
+            if (typeof window.apxOnRollEvent === 'function') window.apxOnRollEvent({ id: 'suf' + Date.now().toString(36), kind: 'action', label: 'Suffocating', text: `${s.name || 'A player'} is Suffocating: +1 Fatigue (${f}).` });
+        }
         if (!eff.includes('burning')) return;
         let immune = (s.ancestryEnvResistances || []).some(e => e.type === 'Fire' && e.immune);
         if (immune) { window.APXDice?.notify('Burning: you\'re immune to Fire damage, so it deals nothing.', { kind: 'note' }); return; }

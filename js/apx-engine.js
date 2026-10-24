@@ -430,6 +430,12 @@
             startsNow.forEach(id => (typeof CONDITION_ON_START !== 'undefined' ? CONDITION_ON_START[id] || [] : []).forEach(extra => {
                 if (!window.state.conditions.includes(extra)) { window.state.conditions.push(extra); effConds.push({ id: extra, from: null }); }
             }));
+            // Unconscious: you drop whatever you're holding (it's on the ground where you fell: your GM's call who gets to it)
+            if (startsNow.includes('unconscious') && (window.state._condsInEffect || null)) {
+                let held = (window.state.weapons || []).filter(w => w && !w.isUnarmed && !w.isAncestry && !w.summonedBy && !w.isSummoned).map(w => w.name || 'Weapon')
+                    .concat(window.state.equippedShield && window.state.equippedShield.equipped ? ['your Shield'] : []);
+                if (held.length) setTimeout(() => window.APXDice?.notify(`You're Unconscious: you drop what you're holding (${held.join(', ')}). It's on the ground where you fell.`, { kind: 'warn', open: true }), 0);
+            }
             window.state._condsInEffect = effConds.map(c => c.id);
             effConds.forEach(ec => {
                 let cDef = CONDITIONS.find(c => c.id === ec.id);
@@ -633,6 +639,13 @@
                         let t = ensureType(type);
                         t.net += 5;
                         if (!t.sources.includes('Exo-Suit: Breach')) t.sources.push('Exo-Suit: Breach');
+                        if (calc.exo.nullifier) { t.immune = true; if (!t.sources.includes('Exo-Suit: Nullifier')) t.sources.push('Exo-Suit: Nullifier'); }   // (Nullifier: Immunity to it)
+                    });
+                    // Powers on you: the Immunity (or Resistance) they grant, named after the power (counted in combat: apxMyDefense)
+                    (window.state.powerBuffs || []).forEach(b => {
+                        let src = 'Power: ' + (b.name || 'a power');
+                        (b.immune || []).forEach(type => { let t = ensureType(type); t.immune = true; if (!t.sources.includes(src)) t.sources.push(src); });
+                        Object.entries(b.res || {}).forEach(([type, n]) => { let t = ensureType(type); t.net += parseInt(n) || 0; if (!t.sources.includes(src)) t.sources.push(src); });
                     });
                     let lines = Object.keys(byType).map(type => {
                         let t = byType[type];
@@ -649,7 +662,9 @@
                         if (t.net < 0) return `<span class="skill-mod-negative font-bold">${type}: Vulnerable (+${-t.net} dmg taken)</span>${sourceNote}`;
                         return null; // net exactly 0 -- resistance and vulnerability fully cancel, nothing to show
                     }).filter(Boolean);
-                    let parts = lines.length ? ['Energy Resistances: ' + lines.join(', ')] : [];
+                    // (Physical types too, when a power makes you immune to them)
+                    let physOnly = Object.keys(byType).some(k => /^(bludgeoning|piercing|slashing)$/i.test(k));
+                    let parts = lines.length ? [(physOnly ? 'Resistances &amp; Immunities: ' : 'Energy Resistances: ') + lines.join(', ')] : [];
                     // Defensive Rank 4: unarmored, DR and ER against traps, hazards and falling go up by your CON score
                     if ((window.state.perks['con_defensive'] || 0) >= 4 && armorWt === 0) {
                         let con = (calc.scores && calc.scores.CON) || 0;
@@ -861,6 +876,7 @@
         };
         window.apxToggleStorage = function(idx) {
             let it = (window.state.items || [])[idx]; if (!it) return;
+            if (it.broken && !it.storageWorn) { window.APXDice?.notify(`${it.name} is broken: repair it first (🔍, then Repair).`, { kind: 'warn', open: true }); return; }
             it.storageWorn = !it.storageWorn;
             window.recalculateMath();
         };
@@ -868,7 +884,7 @@
             let html = '';
             // Treasure Hunter Rank 5: Found Earlier
             let thBtn = document.getElementById('thFoundBtn');
-            if (thBtn) { let on = ((window.state.perks || {}).luc_treasurehunter || 0) >= 5; thBtn.classList.toggle('hidden', !on); if (on) thBtn.textContent = window.state.thFoundUsed ? 'Found Earlier (Luck Point)' : 'Found Earlier'; }
+            if (thBtn) { let on = ((window.state.perks || {}).luc_treasurehunter || 0) >= 5; thBtn.classList.toggle('hidden', !on); if (on) thBtn.textContent = 'Found Earlier (Luck Point)'; }
             let totWt = 0;
             // Crafting materials are always-present, rarely-interacted-with
             // bulk resources -- pinning them to the bottom keeps armor,
@@ -921,6 +937,7 @@
                 if (item.isCustomEquippable) {
                     equipBtn = `<button onclick="window.toggleCustomItemEquip(${idx})" class="text-[9px] ${item.equipped ? 'text-emerald-400 hover:text-emerald-300' : 'text-cyan-400 hover:text-cyan-300'} font-bold mr-1" title="${item.equipped ? 'Currently equipped -- click to unequip' : 'Equip this item'}">${item.equipped ? 'Equipped' : 'Equip'}</button>`;
                 }
+                if (item.broken) equipBtn = `<button onclick="window.apxOpenRepair && window.apxOpenRepair({ kind: 'item', idx: ${idx} })" class="text-[9px] text-red-400 hover:text-red-300 font-bold mr-1" title="Broken: repair it with Crafting Materials (a quarter of its value)">Repair</button>`;
                 // Only Count stays inline-editable for every item; Name/
                 // Wt/Value are now read-only in the main row and moved
                 // into the magnifying-glass detail popup instead (which
@@ -1443,14 +1460,14 @@
                 return (window.state.items || []).find(i => i && !i.isConsumable && new RegExp('^' + name + '\\b', 'i').test(i.name || '') && (parseInt(i.ct) || 0) > 0) || null;
             };
             window.apxBeforeAttack = function (o) {
-                let type = o && o.pcAttack && !o.companion && o.hit && o.hit.ammo;
+                let type = o && o.pcAttack && !o.companion && o.hit && (o.hit.ammo || o.hit.ammoUse);   // (ammoUse: thrown by hand)
                 let inCombat = !!window._pwCombatCode;
                 if (!type || !inCombat) return inner(o);
                 let stack = window.apxAmmoStack(type);
                 let per = (o.hit.props || []).includes('repeating') ? 3 : 1;   // Repeating: 3 rounds an attack
                 if (stack && per > 1 && (parseInt(stack.ct) || 0) < per) { window.APXDice?.notify(`${(o.hit && o.hit.weapon) || 'This weapon'} is Repeating: each attack fires ${per} rounds of ${AMMO[type]}, and you have ${parseInt(stack.ct) || 0}.`, { kind: 'warn', open: true }); return false; }
                 if (!stack) {
-                    window.APXDice?.notify(`${(o.hit && o.hit.weapon) || 'This weapon'} fires ${AMMO[type]}, and you have none left. Buy or find some (Adventuring Gear → Ammo) to use it.`, { kind: 'warn', open: true });
+                    window.APXDice?.notify(o.hit.ammoUse ? `You have no ${AMMO[type]} left to throw.` : `${(o.hit && o.hit.weapon) || 'This weapon'} fires ${AMMO[type]}, and you have none left. Buy or find some (Adventuring Gear → Ammo) to use it.`, { kind: 'warn', open: true });
                     return false;
                 }
                 let after = res => {
@@ -1535,11 +1552,13 @@
                         let a = await APXDice.ask(o.label || 'Attack', 'You\'re Charmed: you can\'t attack the creature that charmed you, or target it with harmful powers.', [['go', 'I\'m attacking someone else', 'pri'], ['no', 'Cancel the attack']]);
                         if (a !== 'go') return false;
                     }
-                    let fo = ((window._pwCombatTurn && window._pwCombatTurn.fo) || []).filter(n => n !== window.state.name);
+                    // (Fighting Offensively, or Incapacitated / Restrained: attacks against them have Advantage)
+                    let fo = ((window._pwCombatTurn && window._pwCombatTurn.fo) || []).filter(n => n !== window.state.name).map(n => ({ name: n, why: 'Fighting Offensively' }));
+                    ((window._pwCombatTurn && window._pwCombatTurn.advVs) || []).forEach(f => { if (f && f.name && f.name !== window.state.name && !fo.some(x => x.name === f.name)) fo.push({ name: f.name, why: f.why || 'Incapacitated' }); });
                     if (!o.areaHit && fo.length) {
-                        let a = await APXDice.ask(o.label || 'Attack', `Fighting Offensively, so attacks against them have Advantage: ${fo.join(', ')}. Are you attacking one of them?`, fo.map((n, i) => ['t' + i, n + ' (Advantage)', i ? '' : 'pri']).concat([['other', 'Someone else']]));
+                        let a = await APXDice.ask(o.label || 'Attack', `Attacks against them have Advantage: ${fo.map(f => `${f.name} (${f.why})`).join(', ')}. Are you attacking one of them?`, fo.map((f, i) => ['t' + i, f.name + ' (Advantage)', i ? '' : 'pri']).concat([['other', 'Someone else']]));
                         if (!a) return false;
-                        if (a !== 'other') o.advSources = (o.advSources || []).concat([`${fo[+a.slice(1)]} is Fighting Offensively`]);
+                        if (a !== 'other') { let f = fo[+a.slice(1)]; o.advSources = (o.advSources || []).concat([`${f.name} is ${f.why}`]); }
                     }
                 }
                 return inner(o);
@@ -1556,7 +1575,7 @@
             let advSources = (calc.disadv.atkAdv || []).concat(cat === 'ranged' ? calc.disadv.atkRangedAdv : (calc.disadv.atkMeleeAdv || []));
             // Fortunate Fighter Rank 4: crit multiplier +1
             let critMult = (w.critMult || 2) + ((window.state.perks['luc_fortunatefighter'] || 0) >= 4 ? 1 : 0);
-            let rollName = (w.name || 'Weapon') + (opts.thrown ? ' (Thrown)' : opts.label ? (opts.attr === 'STR' && /2-Handed/.test(opts.label) ? ' (2-Handed)' : /Aimed/.test(opts.label) ? ' (Aimed)' : '') : '');
+            let rollName = opts.ammoThrow ? 'Thrown Light Ammo' : (w.name || 'Weapon') + (opts.thrown ? ' (Thrown)' : opts.label ? (opts.attr === 'STR' && /2-Handed/.test(opts.label) ? ' (2-Handed)' : /Aimed/.test(opts.label) ? ' (Aimed)' : '') : '');
             // What a hit with it can do (Crushing, Stunning, Flurry…): read by the GM's tracker
             // (a Medium weapon's Stunning only works in its two-handed attack, unless it's Energy (Electric))
             let medStun1H = w.weightClass === 'medium' && w.elemental !== 'Electric' && !/2-Handed/.test(opts.label || '');
@@ -1567,14 +1586,18 @@
                 // Ranged weapons fire Light / Medium / Heavy Ammo by weight (its effect shows in the roller)
                 ammo: cat === 'ranged' && !(w.properties && w.properties.thrown && w.category !== 'ranged') && ['light', 'medium', 'heavy'].includes(w.weightClass) ? w.weightClass : null,
                 range: cat === 'ranged' ? effectiveWeaponRange(w) : opts.thrown ? `${calc.scores.STR || 0}/${(calc.scores.STR || 0) * 2}` : null, thrown: opts.thrown || undefined };
+            // Light Ammo thrown by hand: your Unarmed Attack damage at range. It uses up a round (not fired: no ammo effect),
+            // and it isn't a strike with only your body (Martial Arts doesn't change it)
+            if (opts.ammoThrow) Object.assign(hitMeta, { weapon: 'Light Ammo', props: [], ammoUse: 'light' });
+            let unarmedAtk = !!w.isUnarmed && !opts.ammoThrow;
             // pcAttack/apCost/aimed: the sheet's AP hook (apxBeforeAttack) spends AP for this attack
             let atkRoll = apxRollAttr({ type: 'attack', label: rollName, bonus: atk, dice: opts.dice, dmgMod, critMult, dmgType: apxWeaponDmgType(w), disSources: disadvSources, advSources,
-                pcAttack: true, wcat: cat, apCost: parseInt(opts.ap) || 0, ranged: cat === 'ranged' || !!opts.thrown, thrown: opts.thrown || undefined, aimed: cat === 'ranged' && !!w.aimed, unarmed: !!w.isUnarmed,
+                pcAttack: true, wcat: cat, apCost: parseInt(opts.ap) || 0, ranged: cat === 'ranged' || !!opts.thrown, thrown: opts.thrown || undefined, aimed: cat === 'ranged' && !!w.aimed, unarmed: unarmedAtk,
                 wFlurry: !!(w.properties && w.properties.flurry) || undefined, hit: hitMeta });
             // Remember each attack option, so martial powers can roll with the weapon they're used through
-            let variant = opts.thrown ? 'thrown' : opts.label ? (/Aimed/.test(opts.label) ? 'aimed' : /2-Handed/.test(opts.label) ? '2h' : '') : '';
+            let variant = opts.ammoThrow ? 'ammo' : opts.thrown ? 'thrown' : opts.label ? (/Aimed/.test(opts.label) ? 'aimed' : /2-Handed/.test(opts.label) ? '2h' : '') : '';
             (calc.weaponAttacks = calc.weaponAttacks || []).push({ key: (w.name || 'Weapon') + '|' + variant, label: rollName, bonus: atk, disSources: disadvSources, advSources,
-                unarmed: !!w.isUnarmed, innate: !!w.isAncestry, wcat: cat, dice: opts.dice, dmgMod, dmgType: apxWeaponDmgType(w), critMult, hit: hitMeta, ap: parseInt(opts.ap) || 0 });
+                unarmed: unarmedAtk, innate: !!w.isAncestry, wcat: cat, dice: opts.dice, dmgMod, dmgType: apxWeaponDmgType(w), critMult, hit: hitMeta, ap: parseInt(opts.ap) || 0 });
             if (calc.cantAct) {
                 // Incapacitated / Unconscious: no attacking until it ends
                 let why = calc.cantActLabel;
@@ -1592,7 +1615,7 @@
                 return `
                     <tr class="bg-slate-800/30 border-b border-slate-700/50">
                         <td class="px-1 py-1 pl-4 text-[10px] text-slate-400 italic" colspan="1">${opts.label}</td>
-                        <td class="px-1 py-1 text-[10px] text-slate-400 text-center font-bold">${opts.attr||'STR'}</td>
+                        <td class="px-1 py-1 text-[10px] text-slate-400 text-center font-bold">${opts.attrHtml || opts.attr || 'STR'}</td>
                         <td class="px-1 py-1"></td>
                         <td class="px-1 py-1 text-center">
                             <div class="font-black text-emerald-400/80 text-xs bg-slate-900 rounded border border-slate-700 py-0.5 apx-rollable" title="Roll attack + damage"${atkRoll}>${atk >= 0 ? '+' + atk : atk}</div>
@@ -1677,6 +1700,14 @@
                 let couldGoTwoHanded = handsFreeForThis >= 2;
                 let rep2 = w.properties && w.properties.repeating ? 2 : 0;   // Repeating: +2 AP to fire
                 html += renderWeaponRow(w, idx, { attr: w.attr, dice: w.dmg, ap: (parseInt(w.ap) || 0) + rep2, editable: true });
+                // Light Ammo in your pack can be thrown by hand: your Unarmed Attack damage, out to STR / twice STR squares,
+                // with STR or AGI for the attack and damage (state.ammoThrowAttr). 2 AP: it isn't a strike with only your body.
+                if (w.isUnarmed && (window.state.items || []).some(i => i && !i.isConsumable && !i.broken && /^Light Ammo\b/i.test(i.name || '') && (parseInt(i.ct) || 0) > 0)) {
+                    let str = calc.scores.STR || 0;
+                    let ta = ['STR', 'AGI'].includes(window.state.ammoThrowAttr) ? window.state.ammoThrowAttr : ((calc.mods.AGI || 0) > (calc.mods.STR || 0) ? 'AGI' : 'STR');
+                    let sel = `<select onchange="window.state.ammoThrowAttr=this.value;window.recalculateMath()" title="Thrown Light Ammo: STR or AGI for the attack and damage" class="bg-slate-900 border-slate-700 text-[10px] font-bold p-0.5 h-6 w-14">${['STR', 'AGI'].map(a => `<option value="${a}" ${a === ta ? 'selected' : ''}>${a}</option>`).join('')}</select>`;
+                    html += renderWeaponRow(w, idx, { label: `↳ Thrown Light Ammo (ranged attack, ${str}/${str * 2} sq; uses a round)`, attr: ta, attrHtml: sel, dice: w.dmg, ap: 2, editable: false, thrown: true, ammoThrow: true });
+                }
                 // Thrown (a melee weapon): a ranged attack roll out to STR / twice STR squares. It's still a melee
                 // weapon, so Melee Prowess (and other melee bonuses) apply to it.
                 if (weaponCategory(w) === 'melee' && w.properties && w.properties.thrown && !w.isUnarmed) {
@@ -2055,11 +2086,14 @@
             let chan = opts && opts.channel ? window.state.channeling : null;
             if (window.apxPowerOverCap && window.apxPowerOverCap(p)) { APXDice.notify(`${p.name || 'This power'} costs more than ${window.APX_POWER_MAX_XP || 200} XP, the most a power can cost. Rebuild it in the Power Crafter (free) before using it.`, { kind: 'warn', open: true }); if (typeof window.openPowerEditor === 'function' && typeof idx === 'number') window.openPowerEditor(idx); return; }
             if (calc.cantAct) { APXDice.notify(`You're ${calc.cantActLabel}, so you can't use powers until that ends.`, { kind: 'warn', open: true }); return; }
+            // Armor too heavy for your STR: you can't Concentrate on Powers
+            if (!chan && p.draft && p.draft.refunds && p.draft.refunds.concentration && calc.hasArmorDisadvantage) { APXDice.notify(`${p.name || 'This power'} needs Concentration, and you can't Concentrate while your armor is too heavy for your STR.`, { kind: 'warn', open: true }); return; }
             // An Ancestry Trait's power runs on its own uses (once per Short Rest), not on Power Slots
             let traitSrc = /^t\d+$/.test(String(idx)) ? p : null;
             if (traitSrc && (traitSrc.used || 0) >= (traitSrc.usesMax || 1)) { APXDice.notify(`You've used ${p.name || 'it'}: it comes back on a Short Rest.`, { kind: 'warn', open: true }); return; }
             // A consumable: a flat 3 AP and one of its charges, no Power Slot
             let consIdx = /^c\d+$/.test(String(idx)) ? +String(idx).slice(1) : null, consItem = consIdx != null ? (window.state.items || [])[consIdx] : null;
+            if (consItem && consItem.broken) { APXDice.notify(`${consItem.name || 'That item'} is broken: repair it first.`, { kind: 'warn', open: true }); return; }
             if (consItem && (consItem.chargesRemaining ?? consItem.charges ?? 1) <= 0) { APXDice.notify(`${consItem.name || 'That item'} is used up.`, { kind: 'warn', open: true }); return; }
             if (consItem && p.ammoMissing) { APXDice.notify(p.ammoMissing, { kind: 'warn', open: true }); return; }
             let name = (p.name || 'Power') + (chan ? ' (Channel)' : ''), who = window.state.name || '';
@@ -2719,10 +2753,15 @@
             let list = (window.state && window.state.activePowers) || []; if (!list.length) return '';
             let esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
             let durText = { '1min': '1 Minute', '10min': '10 Minutes', '1hr': '1 Hour', '8hr': '8 Hours', '24hr': '24 Hours', channel: 'Channeling', permanent: 'Permanent' };
+            // (one line per power: what it does to you goes on its own line here, not on a second one)
+            let mine = a => ((window.state && window.state.powerBuffs) || []).filter(b => b.pi && b.pi === a.id)
+                .map(b => window.apxPowerBuffText ? window.apxPowerBuffText(Object.assign({}, b, { tempHp: 0, apNext: 0, apLose: 0, fatigue: 0, fatigueZero: false, endWounds: false, endConds: [] })) : '').filter(Boolean).join(', ');
+            let cost = window.apxConcCost ? window.apxConcCost() : 2;
             return list.map(a => `<div data-active-power="${esc(a.id)}" style="background:rgba(120,53,15,.3);border:1px solid #b45309;border-radius:.4rem;padding:.35rem .5rem;margin-bottom:.4rem;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap">
                 <span style="font-size:.72rem;font-weight:800;color:#fde68a">${esc(a.name)}</span>
-                <span style="font-size:.6rem;color:#fcd34d">${esc(durText[a.dur] || a.dur)}${a.left != null ? ` · ${a.left} more turn${a.left === 1 ? '' : 's'}` : ' · until you end it (no initiative to count on)'}${a.ox !== false ? ' · Overexertion: +1 Fatigue when it ends' : ''}${a.conc ? ' · Concentration (2 AP a turn)' : ''}</span>
+                <span style="font-size:.6rem;color:#fcd34d">${mine(a) ? `<b style="color:#fef3c7">${esc(mine(a))}</b> · ` : ''}${esc(durText[a.dur] || a.dur)}${a.left != null ? ` · ${a.left} more turn${a.left === 1 ? '' : 's'}` : ' · until you end it (no initiative to count on)'}${a.ox !== false ? ' · Overexertion: +1 Fatigue when it ends' : ''}${a.conc ? ` · Concentration (${cost} AP a turn${cost < 2 ? ', Conduit Exo-Suit' : ''})` : ''}</span>
                 <span style="flex:1"></span>
+                ${a.conc ? `<button onclick="window.apxConcentrate('${esc(a.id)}')" title="Keep it up this turn: ${cost} AP (your turn's prompt does this too)" style="font-size:.66rem;font-weight:800;padding:.12rem .45rem;border-radius:.25rem;background:#78350f;border:1px solid #f59e0b;color:#fef3c7;cursor:pointer">Concentrate (${cost} AP)</button>` : ''}
                 <button onclick="window.apxEndActivePower('${esc(a.id)}')" title="It's over (you ended it, it was dispelled, or its time ran out)${a.ox !== false ? ': take the Fatigue' : ''}" style="font-size:.66rem;font-weight:800;padding:.12rem .45rem;border-radius:.25rem;background:#1e293b;border:1px solid #b45309;color:#fde68a;cursor:pointer">End Power</button></div>`).join('');
         }
         window.apxActivePowersBarHtml = apxActivePowersBarHtml;

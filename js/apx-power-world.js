@@ -479,25 +479,49 @@
             }
             window.scheduleAutoSave?.();
         };
-        // Concentration at the start of your turn: 2 AP to keep each one up
+        // Concentration: 2 AP at the start of each of your turns to keep each one up (1 AP in a powered Conduit Exo-Suit).
+        // Armor too heavy for your STR: you can't Concentrate at all.
+        window.apxConcCost = () => Math.max(0, 2 - ((typeof calc !== 'undefined' && calc.exo && calc.exo.concAp) || 0));
+        const concTooHeavy = () => typeof calc !== 'undefined' && !!calc.hasArmorDisadvantage;
+        // Keeping one up this turn by hand (the Concentrate button: at the table, or before the turn's prompt is answered)
+        window.apxConcentrate = function (id) {
+            let st = window.state, a = ((st && st.activePowers) || []).find(x => x.id === id && x.conc); if (!a) return;
+            if (concTooHeavy()) { window.APXDice?.notify(`You can't Concentrate while your armor is too heavy for your STR: ${a.name} ends.`, { kind: 'warn', open: true }); window.apxEndActivePower(a.id, 'your armor is too heavy to Concentrate'); return; }
+            if ((a.concPaid || 0) >= (window._apxTurnStartAt || 0) && window._apxTurnStartAt) { window.APXDice?.notify(`${a.name} is already kept up this turn.`, { kind: 'note' }); return; }
+            let cost = window.apxConcCost(), have = window.apxApCurrent ? window.apxApCurrent() : cost;
+            if (have < cost) { window.APXDice?.notify(`Concentrating on ${a.name} costs ${cost} AP (you have ${have}).`, { kind: 'warn', open: true }); return; }
+            if (cost && window.apxSpendAp) window.apxSpendAp(cost);
+            a.concPaid = Date.now();
+            window.APXDice?.notify(`${a.name}: ${cost} AP to keep it up this turn (Concentration).`, { kind: 'note' });
+            try { window.apxOnRollEvent?.({ id: 'cc' + Date.now().toString(36), kind: 'action', label: 'Concentrate', ap: cost, text: `${st.name || 'A player'} Concentrates on ${a.name} (${cost} AP).` }); } catch (e) { }
+            window.recalculateMath?.(); window.scheduleAutoSave?.();
+        };
         (function hookConc(tries) {
             let orig = window.apxResetAp;
             if (typeof orig !== 'function') { if ((tries || 0) < 50) setTimeout(() => hookConc((tries || 0) + 1), 200); return; }
             if (orig._apxConc) return;
             let w = function () {
                 let r = orig.apply(this, arguments);
+                window._apxTurnStartAt = Date.now();   // (a Concentrate after this is this turn's)
                 let st = window.state, list = ((st && st.activePowers) || []).filter(a => a.conc);
-                if (list.length && window._pwCombatCode && window.APXDice && APXDice.ask) setTimeout(async () => {
+                // (your turn on your GM's tracker, or New Turn at the table)
+                if (list.length && window.APXDice && APXDice.ask) setTimeout(async () => {
+                    let start = window._apxTurnStartAt;
                     for (let a of list) {
                         if (!window.apxMyInstance(a.id)) continue;
-                        let have = window.apxApCurrent ? window.apxApCurrent() : 2;
-                        // (a Conduit Exo-Suit: 1 AP less)
-                        let cost = Math.max(0, 2 - ((typeof calc !== 'undefined' && calc.exo && calc.exo.concAp) || 0));
-                        let ans = await APXDice.ask(`Concentration: ${a.name}`, `Keep ${a.name} up? It costs ${cost} AP at the start of each of your turns${cost < 2 ? ' (1 less: your Conduit Exo-Suit)' : ''} (you have ${have}).`, have >= cost ? [['keep', `Spend ${cost} AP`, 'pri'], ['end', 'Let it end']] : [['end', 'Let it end', 'pri'], ['keep', `Spend ${cost} AP anyway`]]);
-                        if (ans === 'keep') { window.apxSpendAp && window.apxSpendAp(Math.min(cost, have)); window.APXDice.notify(`${a.name}: ${cost} AP to keep it up (Concentration).`, { kind: 'note' }); }
-                        else window.apxEndActivePower(a.id, 'you let your Concentration go');
+                        if (concTooHeavy()) { window.apxEndActivePower(a.id, 'your armor is too heavy to Concentrate'); continue; }
+                        if ((a.concPaid || 0) >= start) continue;   // (kept up already with the Concentrate button)
+                        let have = window.apxApCurrent ? window.apxApCurrent() : 2, cost = window.apxConcCost();
+                        let ans = await APXDice.ask(`Concentration: ${a.name}`, `Keep ${a.name} up? Concentrating costs ${cost} AP at the start of each of your turns${cost < 2 ? ' (1 less: your Conduit Exo-Suit)' : ''} (you have ${have}).`, have >= cost ? [['keep', `Spend ${cost} AP`, 'pri'], ['end', 'Let it end']] : [['end', 'Let it end (not enough AP)', 'pri']]);
+                        if (!window.apxMyInstance(a.id) || (a.concPaid || 0) >= start) continue;   // (ended, or kept up by hand, while it asked)
+                        if (ans === 'keep') {
+                            have = window.apxApCurrent ? window.apxApCurrent() : have;
+                            if (have < cost) { window.apxEndActivePower(a.id, 'not enough AP to Concentrate'); continue; }
+                            window.apxSpendAp && window.apxSpendAp(cost); a.concPaid = Date.now();
+                            window.APXDice.notify(`${a.name}: ${cost} AP to keep it up (Concentration).`, { kind: 'note' });
+                        } else window.apxEndActivePower(a.id, 'you let your Concentration go');
                     }
-                    window.scheduleAutoSave?.();
+                    window.recalculateMath?.(); window.scheduleAutoSave?.();
                 }, 500);
                 return r;
             };

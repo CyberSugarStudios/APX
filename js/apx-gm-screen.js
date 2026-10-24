@@ -1850,13 +1850,13 @@ function _gmCritExtra(hit) {
 function _gmHitExtraDamage(target, hit) {
     let props = (hit.hit && hit.hit.props) || [], out = [];
     let conds = _gmEffConds(target);
-    // Incapacitated: any hit is a Critical Hit (and bypasses their resistances). A hit that didn't
+    // Incapacitated: any hit is a Critical Hit (and bypasses their DR and ER). A hit that didn't
     // roll a crit gets the crit's extra dice here, the same way Crushing adds its die.
     if (conds.includes('incapacitated') && !hit.crit && hit.dice) {
         let x = _gmCritExtra(hit);
         if (x.dice) out.push({ n: x.n, why: 'Incapacitated',
             pub: `${_gmPublicName(target)} is Incapacitated, so the hit is a Critical Hit.`,
-            gm: `Incapacitated: automatic Critical Hit, +${x.n} damage (${x.dice}${hit.reroll12 ? ', High Roller rerolls' : ''}). It also bypasses their resistances.` });
+            gm: `Incapacitated: automatic Critical Hit, +${x.n} damage (${x.dice}${hit.reroll12 ? ', High Roller rerolls' : ''}). It also bypasses their DR and ER (Resistances and Immunities still count).` });
     }
     if (props.includes('crushing') && conds.includes('prone')) {
         let n = _gmRollDie(hit.hit.die);
@@ -1891,7 +1891,10 @@ function _gmHitEffects(target, hit, extras) {
     let pdc = parseInt(h.propDc) || 0;   // (a summoned weapon: its power's Save DC)
     if (props.includes('crushing') && !hit._crushedProne)
         _gmAskSave(target, { attr: 'STR', dc: pdc || 10 + str, cond: 'prone', why: 'Crushing', failInf: 'be knocked Prone', fail: 'is knocked Prone' });
-    if (props.includes('stunning'))
+    // (a creature that saved against this wielder's Stunning is immune to it until the start of the wielder's next turn)
+    if (props.includes('stunning') && a && target._stunImm && target._stunImm.byId === a.id)
+        gmLog({ text: `${_gmPublicName(target)} resisted ${_gmPublicName(a)}'s Stunning already: immune to it until the start of ${_gmPublicName(a)}'s next turn.`, kind: 'info' });
+    else if (props.includes('stunning'))
         _gmAskSave(target, { attr: 'CON', dc: pdc || 10 + (h.elec ? Math.max(str, int) : str), cond: 'stunned', why: 'Stunning', byId: a && a.id, turn: window.gmTurnNumber, failInf: `be Stunned until the end of ${_gmPublicName(a)}'s next turn`, fail: `is Stunned until the end of ${_gmPublicName(a)}'s next turn` });
     if (props.includes('grappling') && a) _gmStartGrapple(a, target, false, { via: `${h.weapon || 'weapon'}, Grappling` });
     // Ambusher Rank 2: a hit from stealth Staggers the target (and it can't take Reactions) until the end of its next turn
@@ -1970,7 +1973,7 @@ function _gmAskSave(target, item) {
         let itemKey = (item.pfx || item.escape) ? 'si' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6) : null;
         if (itemKey) window._gmPfxItems[itemKey] = item;
         gmLog({ text, gmText: `${_gmGmName(target)} must make a DC ${item.dc} ${item.attr} save or ${item.failInf || item.fail} (${item.why}).`, kind: 'wt',
-            ask: { gm: true, entryId: target.id, roll: 'save', attr: item.attr, dc: item.dc, cond: item.cond, fail: item.fail, byId: item.byId || null, turn: item.turn || null, itemKey, label: `Roll ${_gmGmName(target)}'s ${item.attr} save (DC ${item.dc})` } });
+            ask: { gm: true, entryId: target.id, roll: 'save', attr: item.attr, dc: item.dc, cond: item.cond, fail: item.fail, byId: item.byId || null, turn: item.turn || null, why: item.why || null, itemKey, label: `Roll ${_gmGmName(target)}'s ${item.attr} save (DC ${item.dc})` } });
     }
 }
 function _gmCondResult(entry, item, ev, again) {
@@ -1989,6 +1992,8 @@ function _gmCondResult(entry, item, ev, again) {
         return pass ? `${name} succeeds on the ${item.attr} save against ${item.why} (${ev.total} vs DC ${item.dc})${tail}.`
                     : `${name} fails the ${item.attr} save against ${item.why} (${ev.total} vs DC ${item.dc}) and ${item.fail}.`;
     }
+    // Stunning: saving against it makes the creature immune to that wielder's Stunning until the start of their next turn
+    if (item.why === 'Stunning' && item.byId) { if (pass) entry._stunImm = { byId: item.byId }; else if (entry._stunImm && entry._stunImm.byId === item.byId) delete entry._stunImm; }
     if (!pass) { _gmAddCondition(entry, item.cond); if (item.byId) _gmSetCondTimer(entry, item); }
     else if (again && item.applied) { _gmClearCondTimer(entry, item); if (entry.faction === 'player') _gmSetPlayerCondition(entry, item.cond, false); else if (window._gmRemoveEntryCondition) window._gmRemoveEntryCondition(entry.id, item.cond); }
     item.applied = !pass;
@@ -2265,6 +2270,9 @@ window.apxRollConditions = function(o, kind) {
     if (sq && ((kind || 'attack') === 'attack' || (kind === 'save' && o.attr === 'AGI'))) wdis = wdis.concat([`Squeezing (into a ${sq} space)`]);
     let fm = _gmFxRollMods(e, kind);
     wdis = wdis.concat(fm.dis);
+    // Armor too heavy for its STR: Disadvantage on all its d20 rolls (its stat block's own buttons already say so)
+    let asb = e.companionOf ? null : _gmTraitSb(e);
+    if (asb && asb.armorStrShort && !(o.disSources || []).some(d => /STR requirement/.test(d))) wdis = wdis.concat(['Armor (STR requirement not met)']);
     if (!conds.length && !wdis.length && !fm.adv.length) return null;
     let m = conds.length && window.apxConditionRollMods ? window.apxConditionRollMods(conds, kind, o.attr, !!o.ranged) : null;
     m = m || { dis: [], adv: [], autoFail: [] };
@@ -2284,7 +2292,7 @@ window.apxRollFromAsk = function(ask, choice) {
     let sb = e.sourceNpcId && typeof ncStatBlockFor === 'function' ? ncStatBlockFor(e.sourceNpcId) : null;
     let bonus = sb ? ((sb.saves || {})[ask.attr] ?? (sb.mods ? (sb.mods[ask.attr] || 0) : 0)) : 0;   // trained saves add the Training Bonus
     if (ask.kind === 'pfx') { _gmPfxPick(ask.pfx); return; }
-    let item = (ask.itemKey && window._gmPfxItems[ask.itemKey]) || { attr: ask.attr, dc: ask.dc, cond: ask.cond, fail: ask.fail, byId: ask.byId || null, turn: ask.turn || null };
+    let item = (ask.itemKey && window._gmPfxItems[ask.itemKey]) || { attr: ask.attr, dc: ask.dc, cond: ask.cond, fail: ask.fail, byId: ask.byId || null, turn: ask.turn || null, why: ask.why || null };
     if (item.pfx || item.escape) { _gmRollNpcSave(e, item); return; }
     let first = true;
     APXDice.check({ kind: 'save', attr: ask.attr, label: `${ask.attr} Save (DC ${ask.dc})`, who: e.name, bonus, perks: false, initId: e.id,
@@ -3148,7 +3156,7 @@ window._gmAuraTick = _gmAuraTick;
 //   3. extra dice from the hit: Incapacitated (auto-crit), Crushing (Prone), Concealed
 //      (Surprised), Torso Wound: added to the damage BEFORE DR/ER
 //   4. the target's defences reduce it: DR (physical) or ER (energy), resistances, vulnerabilities,
-//      immunities, weapons that ignore DR/ER, Incapacitated bypassing resistances, Ironclad R4.
+//      immunities, weapons that ignore DR/ER, Incapacitated bypassing DR and ER, Ironclad R4.
 //      Players' DR/ER are the numbers their own sheet shows (saved with the character).
 //   5. HP (Temp HP first), synced to the player's sheet
 //   6. the log: the GM sees the math, players see "X hit Y" (no numbers for hits on enemies)
@@ -3266,7 +3274,7 @@ function _gmDamage(entry, opts) {
     let def = _gmDefenseOf(entry);
     if (opts.defAdd) { def.dr += opts.defAdd.dr || 0; def.er += opts.defAdd.er || 0; if (opts.defAdd.why) def.src = (def.src || 'tracker') + ', ' + opts.defAdd.why; }
     let incap = _gmEffConds(entry).includes('incapacitated');
-    let mopt = { ignore: hit && hit.hit && window.APXDamage ? window.APXDamage.ignoreOf(hit.hit) : null, bypassRes: incap || !!opts.bypassRes, halfBypass: def.halfBypass,
+    let mopt = { ignore: hit && hit.hit && window.APXDamage ? window.APXDamage.ignoreOf(hit.hit) : null, bypassRes: !!opts.bypassRes, bypassPool: incap, halfBypass: def.halfBypass,
         breach: hit && hit.hit && Array.isArray(hit.hit.breach) ? hit.hit.breach : null, nullify: !!(hit && hit.hit && hit.hit.nullify),   // (a Conduit Exo-Suit's Powers)
         shares: hit && Array.isArray(hit.dmgShares) && opts.types && hit.dmgShares.length === opts.types.length ? hit.dmgShares : null };   // a split roll: each type its own amount
     // Temp HP takes its share unreduced; only what gets past it is reduced by DR, ER, resistances and immunities
@@ -3325,13 +3333,22 @@ function _gmDamage(entry, opts) {
         // ...or one hit over its Wound Threshold (its suit's, with Plating; a player's sheet works out its own)
         let wsb = _gmExoSb(entry), wt = wsb && wsb.woundThreshold;
         if (wt && woundDmg > wt) _gmNpcExoOverload(entry, `${woundDmg} damage in one hit, over its Wound Threshold of ${wt}`);
-    } else if (exoNow === 'overloaded') {
-        if (entry.faction !== 'player' || entry.companionOf) entry._exoDamaged = true;
-        gmLog({ text: `${_gmPublicName(entry)}'s overloaded Exo-Suit takes another Critical Hit: it's damaged, and has to be repaired before a System Reboot.`, gmText: `${_gmGmName(entry)}'s overloaded Exo-Suit takes another Critical Hit: it's damaged, and has to be repaired before a System Reboot.`, kind: 'info', force: true });
+    } else if (exoNow === 'overloaded' || exoNow === 'damaged') {
+        // (the suit takes the hit's damage: it adds up, and its repair takes Crafting Materials worth it)
+        let npcSuit = entry.faction !== 'player' || entry.companionOf;
+        if (npcSuit) { entry._exoDamaged = true; entry._exoDmg = (entry._exoDmg || 0) + woundDmg; }
+        gmLog({ text: `${_gmPublicName(entry)}'s overloaded Exo-Suit takes another Critical Hit: it's damaged, and has to be repaired before a System Reboot.`, gmText: `${_gmGmName(entry)}'s overloaded Exo-Suit takes another Critical Hit: it's damaged${npcSuit ? ` (${entry._exoDmg} damage to the suit: its repair takes Crafting Materials worth that)` : ''}, and has to be repaired before a System Reboot.`, kind: 'info', force: true });
+    } else if (exoNow === null && dmg > 0 && woundDmg > 0 && (entry.faction !== 'player' || entry.companionOf) && _gmHasExo(entry) && _gmExoState(entry) !== 'on') {
+        // ...and so does one hit over its Wound Threshold while it's overloaded (its unpowered numbers)
+        let wsb = window._gmExoAdj(entry, _gmExoSb(entry)), wt = wsb && wsb.woundThreshold;
+        if (wt && woundDmg > wt) {
+            entry._exoDamaged = true; entry._exoDmg = (entry._exoDmg || 0) + woundDmg;
+            gmLog({ text: `${_gmPublicName(entry)}'s overloaded Exo-Suit is damaged.`, gmText: `${_gmGmName(entry)}'s overloaded Exo-Suit takes ${woundDmg} damage in one hit, over its Wound Threshold of ${wt}: it's damaged (${entry._exoDmg} damage to the suit: its repair takes Crafting Materials worth that), and has to be repaired before a System Reboot.`, kind: 'info', force: true });
+        }
     }
     let after = (entry.currentHp || 0) + (entry.tempHp || 0);
     let who = hit && hit.attacker ? `${_gmGmName(hit.attacker)}'s ${hit.label || 'attack'}` : (opts.src || 'damage');
-    let math = `${opts.raw}${extraSum ? ' + ' + extraSum + ' (' + extras.map(x => x.why).join(', ') + ')' : ''} → ${res.text}${incap ? ' · Incapacitated: resistances bypassed' : ''}`;
+    let math = `${opts.raw}${extraSum ? ' + ' + extraSum + ' (' + extras.map(x => x.why).join(', ') + ')' : ''} → ${res.text}${incap ? ' · Incapacitated: DR and ER bypassed' : ''}`;
     entry.lastHit = { text: `${who}: ${math}${nonlethal ? ' (non-lethal)' : ''}`, dmg, t: Date.now() };
     entry._dmgNl = nonlethal; entry._dmgLethal = !nonlethal && dmg > 0;
     gmLog({ gmOnly: true, kind: 'info', force: true, text: `${_gmGmName(entry)} ← ${who}: ${math}. (${_gmDefText(def)}, from ${def.src || 'tracker'})` });
@@ -3432,8 +3449,9 @@ window._gmNpcExo = function(entryId, what) {
     let done = () => { window.renderInitiativeTracker(); if (typeof window.refreshOpenStatBlocks === 'function') window.refreshOpenStatBlocks(); if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes(); };
     if (what === 'overload') { _gmNpcExoOverload(e, 'by hand'); return done(); }
     if (what === 'repair') {
-        e._exoDamaged = false;
-        gmLog({ text: `${_gmPublicName(e)}'s Exo-Suit is repaired: a System Reboot can bring it back.`, gmText: `${_gmGmName(e)}'s Exo-Suit is repaired (still overloaded until its System Reboot).`, kind: 'info' });
+        let dmgWas = e._exoDmg || 0;
+        e._exoDamaged = false; e._exoDmg = 0;
+        gmLog({ text: `${_gmPublicName(e)}'s Exo-Suit is repaired: a System Reboot can bring it back.`, gmText: `${_gmGmName(e)}'s Exo-Suit is repaired${dmgWas ? ` (${dmgWas} Cu of Crafting Materials)` : ''} (still overloaded until its System Reboot).`, kind: 'info' });
         return done();
     }
     if (what === 'reboot') {
@@ -3470,7 +3488,7 @@ function _gmExoRowHtml(e) {
     if (!_gmHasExo(e)) return '';
     let st = e._exoDamaged ? 'damaged' : e._exoOverloaded ? 'overloaded' : 'on';
     let b = (what, label, bg) => `<button onclick="window._gmNpcExo('${e.id}','${what}')" class="text-[9px] font-bold px-1 rounded text-white" style="background:${bg}">${label}</button>`;
-    return `<div class="flex items-center gap-1 flex-wrap text-[9px] font-bold ${st === 'on' ? 'text-fuchsia-300' : st === 'overloaded' ? 'text-amber-300' : 'text-red-400'}">Exo-Suit: ${st === 'on' ? 'powered' : st}
+    return `<div class="flex items-center gap-1 flex-wrap text-[9px] font-bold ${st === 'on' ? 'text-fuchsia-300' : st === 'overloaded' ? 'text-amber-300' : 'text-red-400'}" ${st === 'damaged' ? `title="${e._exoDmg || 0} damage to the suit: its repair takes Crafting Materials worth ${e._exoDmg || 0} Cu"` : ''}>Exo-Suit: ${st === 'on' ? 'powered' : st}${st === 'damaged' && e._exoDmg ? ` (${e._exoDmg})` : ''}
         ${st === 'overloaded' ? b('reboot', 'Reboot (6 AP)', '#a21caf') : st === 'damaged' ? b('repair', 'Repaired', '#065f46') : ''}</div>`;
 }
 // An NPC's Exo-Suit overloads: everything it grants is gone until its System Reboot (6 AP, from its tracker row)
@@ -4332,6 +4350,8 @@ function gmApCurrent(e) {
 // (this includes creatures added mid-combat that enter Surprised).
 function gmStartTurnAp(e) {
     if (e && e.faction !== 'player' && window.gmCombatStarted) { try { _gmRechargeTick(e); } catch (err) { console.warn('Recharge:', err); } }
+    // (immunity to this creature's Stunning, from a successful save, ends as its turn starts)
+    if (e) (window.gmInitiative || []).forEach(x => { if (x._stunImm && x._stunImm.byId === e.id) delete x._stunImm; });
     if (e && e._exoCamo) {   // (its Exo-Suit's Active Camouflage ends at the start of its turn)
         e._exoCamo = false;
         if (window._gmRemoveEntryCondition) window._gmRemoveEntryCondition(e.id, 'invisible');
@@ -4485,12 +4505,14 @@ window.apxBeforeAttack = async function(o) {
             }
         }
         if (!o.areaHit && att) {
-            let fo = _gmFoTargets(att.id);
+            // (Fighting Offensively, or Incapacitated / Restrained: attacks against them have Advantage)
+            let fo = _gmFoTargets(att.id).map(f => Object.assign({ why: 'Fighting Offensively' }, f));
+            _gmAdvVsTargets(att.id).forEach(f => { if (!fo.some(x => x.id === f.id)) fo.push(f); });
             if (fo.length) {
-                let ans = await APXDice.ask(o.label || 'Attack', `Fighting Offensively, so attacks against them have Advantage: ${fo.map(f => f.name).join(', ')}. Who is ${att.name} attacking?`, fo.map((f, i) => [f.id, f.name + ' (Advantage)', i ? '' : 'pri']).concat([['other', 'Someone else']]));
+                let ans = await APXDice.ask(o.label || 'Attack', `Attacks against them have Advantage: ${fo.map(f => `${f.name} (${f.why})`).join(', ')}. Who is ${att.name} attacking?`, fo.map((f, i) => [f.id, f.name + ' (Advantage)', i ? '' : 'pri']).concat([['other', 'Someone else']]));
                 if (!ans) return false;
                 let t = fo.find(f => f.id === ans);
-                if (t) o.advSources = (o.advSources || []).concat([`${t.name} is Fighting Offensively`]);
+                if (t) o.advSources = (o.advSources || []).concat([`${t.name} is ${t.why}`]);
             }
         }
     }
@@ -4616,6 +4638,18 @@ function _gmEntryAc(e) {
     return (parseInt(e.ac) || 0) + _gmFxAcBonus(e) - (e._helmetBroken ? 1 : 0) - exoDrop;
 }
 window._gmEntryAc = _gmEntryAc;
+// Creatures whose Conditions give attacks against them Advantage (Incapacitated, and what brings it: Stunned,
+// Paralyzed, Unconscious; Restrained): [{ name, id, why }]
+function _gmAdvVsTargets(exceptId) {
+    let out = [];
+    (window.gmInitiative || []).forEach(x => {
+        if (x.id === exceptId || x.currentHp === 0 && x.faction !== 'player') return;
+        let c = _gmEffConds(x), why = ['stunned', 'paralyzed', 'unconscious', 'incapacitated', 'restrained'].find(id => c.includes(id));
+        if (why) out.push({ id: x.id, name: x.name, why: (typeof CONDITIONS !== 'undefined' && (CONDITIONS.find(d => d.id === why) || {}).name) || why });
+    });
+    return out;
+}
+window._gmAdvVsTargets = _gmAdvVsTargets;
 // Creatures Fighting Offensively (attacks against them have Advantage): [{ name, id }]
 function _gmFoTargets(exceptId) {
     let out = [];

@@ -537,7 +537,7 @@ window.ncAddTextImmunity = function(field, tp, label) {
     if (field === 'energyImmunities') {
         window.ncPickFromList(field, tp, 'Damage Immunity', ncAllDamageTypes());
     } else if (field === 'energyVulnerabilities') {
-        window.ncPickFromList(field, tp, 'Damage Vulnerability', ncAllDamageTypes());
+        window.ncPickFromList(field, tp, 'Energy Vulnerability (+5 damage)', window.NPC_ENERGY_TYPES || NPC_ENERGY_TYPES);   // (one Energy damage type)
     } else if (field === 'damageResistances') {
         window.ncPickFromList(field, tp, 'Damage Resistance (+5)', ncAllDamageTypes());
     } else if (field === 'conditionImmunities') {
@@ -1478,7 +1478,8 @@ window.companionStatBlock = function() {
         senseList, traitList, powerList, powerCards, lairActionPowerCards, awakenedPowerCards, casterSlots: c.casterSlots,
         powerAttrChoice, powerAttackBonus, powerSaveDc,
         conditionImmunities: ncTraitMerge(c, 'immuneConds', c.conditionImmunities), conditionalDmgImmunities: c.conditionalDmgImmunities,
-        energyImmunities: ncTraitMerge(c, 'immuneEnergy', c.energyImmunities), energyVulnerabilities: ncTraitMerge(c, 'vulnEnergy', c.energyVulnerabilities),
+        // (a Conduit's Nullifier: Immunity to its Breach types)
+        energyImmunities: (ncTraitMerge(c, 'immuneEnergy', c.energyImmunities) || []).concat(exoFx && exoFx.nullifier ? exoFx.breach.filter(t => !(ncTraitMerge(c, 'immuneEnergy', c.energyImmunities) || []).includes(t)) : []), energyVulnerabilities: ncTraitMerge(c, 'vulnEnergy', c.energyVulnerabilities),
         undead: (c.traits || []).includes('undead'), unalive: (c.traits || []).includes('unalive'),
         // (a Conduit's Breach: +5 ER against each of its Energy types)
         damageResistances: (c.damageResistances || []).concat(exoFx && exoFx.breach ? exoFx.breach : []),
@@ -2095,7 +2096,9 @@ function buildStatBlockHtml(sb, editable) {
     // Click-to-roll hooks (APXDice). NPC rolls never use the player's perks.
     // (which creature a roll belongs to, so the GM's tracker can apply its conditions)
     let compFlags = sb._isCompanion ? { omen: true, companion: true, compOwner: sb._compOwner || null } : { npcId: sb._npcId || undefined, initId: sb._initId || undefined };
-    let R = o => window.APXDice ? ` data-apx-roll='${window.APXDice.attr(Object.assign({ who: sb.name, perks: false, gambleAllowed: false }, compFlags, o))}' title="Click to roll"` : '';
+    // (armor too heavy for its STR: Disadvantage on every d20 roll, checks and saves included)
+    let armorDis = o => sb.armorStrShort && (o.type === 'check' || o.type === 'save') && !o.disSources ? { disSources: ['Armor (STR requirement not met)'] } : {};
+    let R = o => window.APXDice ? ` data-apx-roll='${window.APXDice.attr(Object.assign({ who: sb.name, perks: false, gambleAllowed: false }, compFlags, o, armorDis(o)))}' title="Click to roll"` : '';
     // What a hit with this weapon can do (Crushing, Stunning, Flurry…): read by the GM's tracker
     let hitOf = w => ({ weapon: w.name, props: w.props || [], range: w.range || null, die: (String(w.dmgText || w.dmg || '').match(/\d*d(\d+)/) || [0, 6])[1] ? '1d' + (String(w.dmgText || w.dmg || '').match(/\d*d(\d+)/) || [0, 6])[1] : '1d6',
         strMod: sb.mods.STR || 0, intMod: sb.mods.INT || 0, elec: w.elemental === 'Electric', dmgType: w.typeText || w.dmgType || '', tier: sb.tier || 0, ammo: w.ammo || null });
@@ -2138,7 +2141,7 @@ function buildStatBlockHtml(sb, editable) {
                     ? `<span data-no-roll title="Needs ${w.hands} free hands. Stow the shield to use it.">+${w.atk} to hit, ${w.dmg} damage</span>, ${w.ap} AP${w.range ? `, Range ${esc(String(w.range))} sq` : ''} <span class="text-[10px] text-amber-500/80">(needs ${w.hands} free hands)</span>`
                     : `<span class="apxd-atk"${R({ type: 'attack', label: w.name, bonus: w.atk, dice: String(w.dmg), critMult: w.critMult || 2, disSources: sb.armorStrShort ? ['Armor (STR requirement not met)'] : undefined, npcId: sb._npcId || null, initId: sb._initId || null, apCost: parseInt(w.ap) || 3, flurry: w.flurry || undefined, ranged: w.category === 'ranged' || undefined, dmgType: w.dmgType || undefined, hit: hitOf(w) })}>+${w.atk} to hit</span>, ${w.dmg} damage, ${w.ap} AP${w.range ? `, Range ${esc(String(w.range))} sq` : ''} <span class="text-[10px] text-slate-500">(${w.typeLabel})</span>`}</div>${propLine}`;
             }).join('') : ''}
-            ${sb.equippedArmorName ? `<div class="text-xs text-slate-200 mt-1">Armor: ${esc(sb.equippedArmorName)} <span class="text-[10px] text-slate-400">(${sb.armorClass}, ${sb.armorWt} lb worn, STR ${sb.armorReqStr} needed)</span>${sb.armorStrShort ? ' <span class="text-[10px] text-red-400 font-bold">STR not met: no AGI to AC, -2 Speed, Disadvantage on attacks</span>' : ''}</div>` : ''}
+            ${sb.equippedArmorName ? `<div class="text-xs text-slate-200 mt-1">Armor: ${esc(sb.equippedArmorName)} <span class="text-[10px] text-slate-400">(${sb.armorClass}, ${sb.armorWt} lb worn, STR ${sb.armorReqStr} needed)</span>${sb.armorStrShort ? ' <span class="text-[10px] text-red-400 font-bold">STR not met: no AGI to AC, -2 Speed, Disadvantage on all d20 rolls, no Concentration</span>' : ''}</div>` : ''}
             ${sb.hasShield ? `<div class="text-xs text-slate-200 mt-1 flex items-center gap-2">Shield (+2 AC/DR/ER, 1 hand): <b class="${sb.shieldOn ? 'text-emerald-400' : 'text-slate-500'}">${sb.shieldOn ? 'held' : 'stowed'}</b>
                 <button type="button" onclick="window.npcToggleShieldEquipped(${sb._npcId ? `'${sb._npcId}'` : 'null'})" class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-white">${sb.shieldOn ? 'Stow' : 'Equip'}</button></div>` : ''}
             ${sb.hasHelmet ? `<div class="text-xs text-slate-200 mt-1">Helmet (+1 AC/DR/ER)</div>` : sb.helmetBroken ? `<div class="text-xs text-red-400 mt-1">Helmet: destroyed this fight</div>` : ''}
@@ -2157,7 +2160,7 @@ function buildStatBlockHtml(sb, editable) {
         <div class="text-[10px] font-black text-slate-400 uppercase mb-1">Defenses</div>
         <div class="grid grid-cols-2 gap-2">
             ${defBox('Resistances', 'text-blue-400', chips(resist, 'bg-slate-800 border-slate-600 text-slate-300'))}
-            ${defBox('Vulnerabilities <span class="text-slate-500 normal-case">(double damage)</span>', 'text-red-400', chips(sb.energyVulnerabilities || [], 'bg-red-900/30 border-red-800 text-red-300'))}
+            ${defBox('Vulnerabilities <span class="text-slate-500 normal-case">(+5 damage)</span>', 'text-red-400', chips(sb.energyVulnerabilities || [], 'bg-red-900/30 border-red-800 text-red-300'))}
             ${defBox('Damage Immunities', 'text-emerald-400', chips(sb.energyImmunities || [], 'bg-emerald-900/30 border-emerald-800 text-emerald-300'))}
             ${defBox('Condition Immunities', 'text-emerald-400', chips(sb.conditionImmunities || [], 'bg-emerald-900/30 border-emerald-800 text-emerald-300'))}
         </div>
@@ -2804,7 +2807,7 @@ function ncRenderStep4() {
         listBox('conditionImmunities', 'Condition Immunity', 2, 'Immune to one specific condition.', 'bg-emerald-900/30 border-emerald-800 text-emerald-300') +
         listBox('conditionalDmgImmunities', 'Conditional Damage Immunity', 3, 'Immune to damage UNLESS a condition is met (silver, magic, a shield generator…).', 'bg-emerald-900/30 border-emerald-800 text-emerald-300') +
         heading('Vulnerabilities') +
-        listBox('energyVulnerabilities', 'Damage Vulnerability', -3, 'Takes double damage from one damage type (refunds TP).', 'bg-red-900/30 border-red-800 text-red-300');
+        listBox('energyVulnerabilities', 'Energy Vulnerability', -3, 'Takes +5 damage from one Energy damage type (gives back 3 TP).', 'bg-red-900/30 border-red-800 text-red-300');
 }
 
 function ncRenderInnateWeapon(w, i, tier) {

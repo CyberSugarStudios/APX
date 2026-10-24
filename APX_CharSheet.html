@@ -509,8 +509,8 @@
         }
 
     </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=202610230740">
-    <link rel="stylesheet" href="css/tailwind.css?v=202610230740">
+    <link rel="stylesheet" href="css/apx-themes.css?v=202610231720">
+    <link rel="stylesheet" href="css/tailwind.css?v=202610231720">
 </head>
 <body class="p-2 md:p-6 flex justify-center text-sm ml-0 lg:ml-8 transition-all" style="padding-top:4.25rem"><!-- (room for the floating Roster / Settings buttons) -->
     <!-- Auth bar removed — account controls are in the sidebar -->
@@ -763,7 +763,7 @@
                         Remove
                     </button>
                 </div>
-                <div id="armorWarning" class="text-[10px] text-red-400 mt-2 hidden text-center font-black uppercase tracking-wider bg-red-900/30 border border-red-800 rounded p-1">Strength Requirement Not Met! (-2 Speed, Disadvantage on Atk/Checks/Saves)</div>
+                <div id="armorWarning" class="text-[10px] text-red-400 mt-2 hidden text-center font-black uppercase tracking-wider bg-red-900/30 border border-red-800 rounded p-1">Strength Requirement Not Met! (No AGI to AC, -2 Speed, Disadvantage on all d20 rolls, can't Concentrate)</div>
 
                 <div id="equipSlots" class="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-700">
                     <div id="shieldControl" class="bg-slate-900 rounded border border-slate-700 p-2 text-center">
@@ -928,7 +928,7 @@
                         Loot / Scavenge
                     </button>
                     <!-- Treasure Hunter Rank 5 (js/apx-inventory-ui.js): shown only at that rank -->
-                    <button id="thFoundBtn" onclick="window.apxFoundEarlier()" title="Treasure Hunter Rank 5: produce an item you 'found earlier' (once per Short Rest, then a Luck Point each)" class="hidden bg-amber-600/20 text-amber-300 hover:bg-amber-600/40 text-xs px-3 py-1 rounded border border-amber-700/50 transition font-bold">
+                    <button id="thFoundBtn" onclick="window.apxFoundEarlier()" title="Treasure Hunter Rank 5: spend a Luck Point to produce an item you 'found earlier'" class="hidden bg-amber-600/20 text-amber-300 hover:bg-amber-600/40 text-xs px-3 py-1 rounded border border-amber-700/50 transition font-bold">
                         Found Earlier
                     </button>
                     </div>
@@ -1193,8 +1193,9 @@
                         <select id="wizSize" class="bg-slate-900 text-xs" onchange="window.calcAncestryGp()">
                             <option value="15">Small (x15 lbs) [1 GP]</option>
                             <option value="30" selected>Medium (x30 lbs) [0 GP]</option>
-                            <option value="60">Large (x60 lbs) [1 GP]</option>
+                            <option value="60" title="Twice the size of a Medium Creature. You take up a 2x2 square. Your carrying capacity is doubled (STR x 60 lbs). You gain Advantage on STR (Athletics) checks for grappling, pinning, or escaping a grapple, as well as on melee attack rolls made to Shove. You also suffer Disadvantage on AGI (Stealth) checks. You can still squeeze into a 1x1 square, but while squeezing you have Disadvantage on attack rolls and AGI saving throws.">Large (x60 lbs) [1 GP]</option>
                         </select>
+                        <div class="text-[9px] text-slate-500 leading-tight mt-1">Large: twice the size of a Medium creature, a 2x2 square, carrying capacity STR x 60 lbs. Advantage on STR (Athletics) to grapple, pin or escape a grapple, and on melee attack rolls to Shove; Disadvantage on AGI (Stealth). It can squeeze into a 1x1 square, with Disadvantage on attack rolls and AGI saves while squeezing.</div>
                     </div>
                     <div class="bg-slate-800 p-3 rounded border border-slate-700">
                         <div class="flex justify-between items-center mb-2">
@@ -2354,45 +2355,46 @@
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=202610230740"></script>
-    <script src="js/apx-patch-notes.js?v=202610230740"></script>
-    <script src="js/apx-dice.js?v=202610230740"></script>
-    <script src="js/apx-luck.js?v=202610230740"></script>
-    <script src="js/apx-data.js?v=202610230740"></script>
-    <script src="js/apx-item-effects.js?v=202610230740"></script>
-    <script src="js/apx-exo.js?v=202610230740"></script>
-    <script src="js/apx-traits.js?v=202610230740"></script>
-    <script src="js/apx-perks-db.js?v=202610230740"></script>
-    <script src="js/apx-migrations.js?v=202610230740"></script>
-    <script src="js/apx-roster.js?v=202610230740"></script>
-    <script src="js/apx-state.js?v=202610230740"></script>
-    <script src="js/apx-origin-wizard.js?v=202610230740"></script>
-    <script src="js/apx-ancestry-wizard.js?v=202610230740"></script>
-    <script src="js/apx-inventory-ui.js?v=202610230740"></script>
-    <script src="js/apx-craft-shared.js?v=202610230740"></script>
-    <script src="js/apx-armor-forge.js?v=202610230740"></script>
-    <script src="js/apx-weapon-forge.js?v=202610230740"></script>
-    <script src="js/apx-power-crafter.js?v=202610230740"></script>
-    <script src="js/apx-summon-weapon.js?v=202610230740"></script>
-    <script src="js/apx-power-fx.js?v=202610230740"></script>
-    <script src="js/apx-power-world.js?v=202610230740"></script>
-    <script src="js/apx-consumable-crafter.js?v=202610230740"></script>
-    <script src="js/apx-npc-crafter.js?v=202610230740"></script>
-    <script src="js/apx-engine.js?v=202610230740"></script>
-    <script src="js/apx-perks-ui.js?v=202610230740"></script>
-    <script src="js/apx-rest.js?v=202610230740"></script>
-    <script src="js/apx-looting.js?v=202610230740"></script>
-    <script src="js/apx-main.js?v=202610230740"></script>
+    <script src="js/apx-dialogs.js?v=202610231720"></script>
+    <script src="js/apx-patch-notes.js?v=202610231720"></script>
+    <script src="js/apx-dice.js?v=202610231720"></script>
+    <script src="js/apx-luck.js?v=202610231720"></script>
+    <script src="js/apx-data.js?v=202610231720"></script>
+    <script src="js/apx-item-effects.js?v=202610231720"></script>
+    <script src="js/apx-exo.js?v=202610231720"></script>
+    <script src="js/apx-traits.js?v=202610231720"></script>
+    <script src="js/apx-perks-db.js?v=202610231720"></script>
+    <script src="js/apx-migrations.js?v=202610231720"></script>
+    <script src="js/apx-roster.js?v=202610231720"></script>
+    <script src="js/apx-state.js?v=202610231720"></script>
+    <script src="js/apx-origin-wizard.js?v=202610231720"></script>
+    <script src="js/apx-ancestry-wizard.js?v=202610231720"></script>
+    <script src="js/apx-inventory-ui.js?v=202610231720"></script>
+    <script src="js/apx-craft-shared.js?v=202610231720"></script>
+    <script src="js/apx-armor-forge.js?v=202610231720"></script>
+    <script src="js/apx-weapon-forge.js?v=202610231720"></script>
+    <script src="js/apx-repair.js?v=202610231720"></script>
+    <script src="js/apx-power-crafter.js?v=202610231720"></script>
+    <script src="js/apx-summon-weapon.js?v=202610231720"></script>
+    <script src="js/apx-power-fx.js?v=202610231720"></script>
+    <script src="js/apx-power-world.js?v=202610231720"></script>
+    <script src="js/apx-consumable-crafter.js?v=202610231720"></script>
+    <script src="js/apx-npc-crafter.js?v=202610231720"></script>
+    <script src="js/apx-engine.js?v=202610231720"></script>
+    <script src="js/apx-perks-ui.js?v=202610231720"></script>
+    <script src="js/apx-rest.js?v=202610231720"></script>
+    <script src="js/apx-looting.js?v=202610231720"></script>
+    <script src="js/apx-main.js?v=202610231720"></script>
 
     <!-- Firebase (cloud sync — requires firebase-config.js to be configured) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=202610230740"></script>
-    <script src="js/apx-firebase.js?v=202610230740"></script>
-    <script src="js/apx-battlemap.js?v=202610230740"></script>
-    <script src="js/apx-fog.js?v=202610230740"></script>
-    <script src="js/apx-map-tiles.js?v=202610230740"></script>
+    <script src="js/firebase-config.js?v=202610231720"></script>
+    <script src="js/apx-firebase.js?v=202610231720"></script>
+    <script src="js/apx-battlemap.js?v=202610231720"></script>
+    <script src="js/apx-fog.js?v=202610231720"></script>
+    <script src="js/apx-map-tiles.js?v=202610231720"></script>
     <script>
     // ── Sidebar: folders, worlds, meatball menus ─────────────
     window._sidebarChars = [];
@@ -6066,12 +6068,12 @@
         });
     }
     </script>
-    <script src="js/apx-chat.js?v=202610230740"></script>
-    <script src="js/apx-actions.js?v=202610230740"></script>
-    <script src="js/apx-creature-actions.js?v=202610230740"></script>
-    <script src="js/apx-seal.js?v=202610230740"></script>
-    <script src="js/apx-summons.js?v=202610230740"></script>
-    <script src="js/apx-extras.js?v=202610230740"></script>
-    <script src="js/apx-theme-light.js?v=202610230740"></script>
+    <script src="js/apx-chat.js?v=202610231720"></script>
+    <script src="js/apx-actions.js?v=202610231720"></script>
+    <script src="js/apx-creature-actions.js?v=202610231720"></script>
+    <script src="js/apx-seal.js?v=202610231720"></script>
+    <script src="js/apx-summons.js?v=202610231720"></script>
+    <script src="js/apx-extras.js?v=202610231720"></script>
+    <script src="js/apx-theme-light.js?v=202610231720"></script>
 </body>
 </html>

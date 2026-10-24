@@ -11,11 +11,11 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.23.0740',
-        released: '2026-10-23T07:40:00',
-        releasedText: 'October 23, 2026 · 7:40 AM',
+        version: 'v2026.10.23.1720',
+        released: '2026-10-23T17:20:00',
+        releasedText: 'October 23, 2026 · 5:20 PM',
         title: 'Playtest 4: Maneuvers, Gear & Burdens',
-        intro: 'Straight from our fourth playtest: NPCs and companions get the full list of maneuvers and actions, Loyal Companions can carry your gear, and carrying too much finally weighs you down. Squeezing costs what it should, and Vitality\'s top rank keeps you on your feet. Since then: NPC maneuvers roll themselves, five new weapon properties (two of them fire into an area), readable buttons in every theme, Exo-Suits rebuilt in three frameworks, including the new Conduit, Keen, Parrying and Suppressed weapons, summons that mix Tiers, creatures your GM shares for summoning, and now Summon a Weapon built in the Power Crafter, perks you can take back a rank at a time, character files that show when they\'ve been edited, and now powers that apply their numbers for you, summons you place and command from their own window, and Ambusher, Charge, Relentless and Regenerative working as written, and Sacrifice that hurts like it should and Permanent powers that hold their slot, powers that play out on the battle map (targets in range, zones, walls, Sensors, Concentration and durations that end everything a power did), Split Target dice you hand out one by one, Overexertion that can tire the target instead, AP Utilities that work every turn, lighter Juggernaut Plating, and now Invisibility that costs 2 AP to keep, Lucky on every save, Breach and Amplifier that show and ask, free powers that are free up to their Level, powers that stay ended when you reload, and now save powers whose damage lands on everyone who fails, tokens from any world that join the fight, Flurry\'s top rank refunding a critical hit\'s AP for you, a Phantom\'s Camouflage and Decoy that really hide you, faster syncing between your sheet and your GM, the latest Exo-Suit rules with suits for NPCs and Loyal Companions too, and now summoned weapons that fade with their power, a cleaner XP Log, a page that recovers when part of it fails to load, and new characters that take their place in a world cleanly.',
+        intro: 'Straight from our fourth playtest: NPCs and companions get the full list of maneuvers and actions, Loyal Companions can carry your gear, and carrying too much finally weighs you down. Squeezing costs what it should, and Vitality\'s top rank keeps you on your feet. Since then: NPC maneuvers roll themselves, five new weapon properties (two of them fire into an area), readable buttons in every theme, Exo-Suits rebuilt in three frameworks, including the new Conduit, Keen, Parrying and Suppressed weapons, summons that mix Tiers, creatures your GM shares for summoning, and now Summon a Weapon built in the Power Crafter, perks you can take back a rank at a time, character files that show when they\'ve been edited, and now powers that apply their numbers for you, summons you place and command from their own window, and Ambusher, Charge, Relentless and Regenerative working as written, and Sacrifice that hurts like it should and Permanent powers that hold their slot, powers that play out on the battle map (targets in range, zones, walls, Sensors, Concentration and durations that end everything a power did), Split Target dice you hand out one by one, Overexertion that can tire the target instead, AP Utilities that work every turn, lighter Juggernaut Plating, and now Invisibility that costs 2 AP to keep, Lucky on every save, Breach and Amplifier that show and ask, free powers that are free up to their Level, powers that stay ended when you reload, and now save powers whose damage lands on everyone who fails, tokens from any world that join the fight, Flurry\'s top rank refunding a critical hit\'s AP for you, a Phantom\'s Camouflage and Decoy that really hide you, faster syncing between your sheet and your GM, the latest Exo-Suit rules with suits for NPCs and Loyal Companions too, and now summoned weapons that fade with their power, a cleaner XP Log, a page that recovers when part of it fails to load, new characters that take their place in a world cleanly, and now breaking and repairing gear, a Concentration prompt each turn, thrown Light Ammo, and updated Conditions and perks.',
         index: [
             ['Combat', [
                 'NPCs, summoned creatures and Loyal Companions have an Actions button with every Combat Maneuver and Standard Action, spending their own AP. Fight Defensively, Fight Offensively and next-attack maneuvers change their rolls (and AC) until their next turn.',
@@ -31,13 +31,19 @@
                 'Ambusher, Charge, Relentless, Medic, Regenerative and Melee Prowess (with thrown weapons) work as written, and Ambusher\'s Rank 5 crit is in the attack\'s AP window and on the roll.',
                 'An NPC that wins a Grapple, Pin or Shove asks the GM who it grabbed, and a player\'s sheet gets the Condition.',
                 'Overexertion gives its Fatigue when the power ends, for players and NPCs alike.',
-                'Fixed: a creature\'s save power (one that halves or negates its damage) rolled its damage, but a player who failed the save never lost the HP. The damage now comes off each target by their own save as it comes in, for NPCs\' powers and players\' alike.'
+                'Fixed: a creature\'s save power (one that halves or negates its damage) rolled its damage, but a player who failed the save never lost the HP. The damage now comes off each target by their own save as it comes in, for NPCs\' powers and players\' alike.',
+                'Conditions, updated: Incapacitated is AP 0 (and no AP at the start of your turn), no actions, Free Actions, Reactions or movement, and automatic STR and AGI save failures. Attacks against an Incapacitated creature have Advantage, and its hits are Critical Hits that bypass DR and ER (Resistances and Immunities still count). Paralyzed, Stunned and Unconscious bring Incapacitated with them; Suffocating gives 1 Fatigue each turn and stops healing.',
+                'Concentration: at the start of your turn you\'re asked whether to keep each Concentration power going, with its AP cost (2 AP, 1 in a Conduit Exo-Suit), and a Concentrate button does it by hand at the table. Armor too heavy for your STR means you can\'t Concentrate.',
+                'Disarming Attack costs the attack\'s AP + 2, Lunging Attack the attack\'s AP + 1. A creature that saves against Stunning is immune to that wielder\'s Stunning until the start of their next turn.'
             ]],
             ['Gear', [
                 'Overburdened rules apply: carrying more than your capacity drops you to Speed 1 with Disadvantage on every attack, check and save.',
                 'Backpacks, Bandoliers and Utility Belts have a Wear button and raise what you can carry before you\'re Overburdened.',
                 'Loyal Companions carry gear: Give an item to your companion from your inventory, Take it back from its card, and Wield a weapon you gave it.',
-                'Treasure Hunter Rank 5 is reworked into Found Earlier: once per Short Rest (then a Luck Point each), produce gear, ammo or a consumable worth up to 10 Cu × your LUC modifier (minimum 50). It can\'t be sold.'
+                'Treasure Hunter Rank 5 is reworked into Found Earlier: once per Short Rest (then a Luck Point each), produce gear, ammo or a consumable worth up to 10 Cu × your LUC modifier (minimum 50). It can\'t be sold.',
+                'Break and Repair: any item but Crafting Materials can be broken, and repaired like crafting: Crafting Materials worth a quarter of its value (any rarity), the usual time, DC and workspace, and a Craft check. Broken Helmets and damaged Exo-Suits repair the same way.',
+                'Crafting rarities: for every 50 Currency of Crafting Materials, at least 2 Uncommon and 1 Rare. You now choose how many of each rarity you spend.',
+                'Light Ammo can be thrown by hand for your Unarmed Attack damage, and a forged weapon in your inventory can go straight back to the Weapon Forge.'
             ]],
             ['NPC Crafter', [
                 'Raising an NPC\'s Core Attribute above 10 costs 2 TP per point. Creatures you already built keep their price until you move them over.'
@@ -84,7 +90,8 @@
                 'Powers these changes affect are listed for a free rebuild when your sheet (or the GM\'s world) opens. They keep working as they were until then.',
                 'Turn the target Invisible now lasts for the power\'s duration, and each hostile action (an attack, a power that harms, a maneuver against a creature) costs 2 AP to stay Invisible, or the power ends. Your sheet and the GM\'s tracker ask each time; it no longer needs Concentration.',
                 'A power you got for free is free up to the top of the Level it was free at (a free Level 1 power: 25 XP). Editing it past that costs the XP over it, and coming back down refunds it.',
-                'Summoned weapons fade when their power ends, including from a rest, and their details no longer stretch Weapons & Attacks.'
+                'Summoned weapons fade when their power ends, including from a rest, and their details no longer stretch Weapons & Attacks.',
+                'Resistances and Immunities from powers show in Armor & Defenses, a power and its own buff share one line, and a rest only ends your powers once you finish it. Consumables are capped at 8 damage or healing dice, like powers.'
             ]],
             ['Weapons', [
                 'Medium weapons top out at 3d8 (3d10 two-handed) with no Heavy properties. Crit upgrades cost 300 / 900 Cu, Sturdy 50 Cu.',
@@ -100,7 +107,8 @@
                 'Lucky is once per Short Rest, and your sheet offers your LUC save whenever you roll a saving throw while it\'s unused.',
                 'Fixed: a power that ended (by a rest, its duration or by hand) came back active after reloading the page. Saving now replaces your saved character instead of only adding to it, so anything your sheet removed (an ended power, a buff that wore off, a cleared Condition) stays removed. A power that was already stuck may show once more after this update; end it again and it stays gone.',
                 'Flurry Rank 5 refunds for you: a Critical Hit with a weapon attack gives back the AP that attack cost, including a critical hit from Ambusher. AP for Aim, Power Attack or Ambusher\'s 2 AP stays spent.',
-                'A new character in a world takes its player\'s place cleanly: the previous character\'s token, initiative entries and waiting requests are cleared, and nothing from a fight before it joined (like a Relentless notice) reaches it.'
+                'A new character in a world takes its player\'s place cleanly: the previous character\'s token, initiative entries and waiting requests are cleared, and nothing from a fight before it joined (like a Relentless notice) reaches it.',
+                'Reworded: Treasure Hunter Rank 5 (a Luck Point each time), Relentless Rank 2, Melee Prowess Rank 4, Defensive Rank 2, Martial Arts Rank 1 (only with your body) and Large. Characters these touch get a notice the first time they open.'
             ]],
             ['Exo-Suits', [
                 'Exo-Suits are rebuilt: 3,000 Currency, worn with your armor, in three frameworks. A Juggernaut adds its Plating to your defenses, a Phantom hides in plain sight, and the new Conduit amplifies your Powers (Capacitor, Breach, Nullifier, Amplifier, Emitter). Everything a suit does is applied for you.',
@@ -109,13 +117,17 @@
                 'Conduit: Breach shows on your Power rolls (Resistance to its type ignored) and in Armor & Defenses (+5 ER against it), and both are applied in combat. Amplifier costs 5,000 Currency and now asks, as a Power of your Breach type rolls damage, whether to spend 3 more AP for maximum damage.',
                 'Phantom: Active Camouflage is a button on your Exo-Suit slot, spends its 2 AP, and really hides you on the battle map until your next turn. With Decoy, a see-through light blue copy of you stays behind (any damage destroys it), and you can swap places with it for 3 AP.',
                 'Exo-Suit updates: no helmet in a suit, a Critical Hit that overloads your suit becomes a normal hit, and a second Critical Hit while it\'s overloaded damages it until it\'s repaired. Juggernaut suits set your base Speed (powers still add on top), Dreadnought Plating costs 5,000, the Phantom gets All-Terrain Movement, the Flight Module moves to the Conduit, and the Conduit makes Concentration easier.',
-                'NPCs, summoned creatures and Loyal Companions can wear Exo-Suits too, when the GM allows them, paid for in Threat Points.'
+                'NPCs, summoned creatures and Loyal Companions can wear Exo-Suits too, when the GM allows them, paid for in Threat Points.',
+                'An overloaded suit takes the damage of another Critical Hit or another hit over your WT, adding up; its repair takes Crafting Materials worth that damage. Nullifier costs 2,500 Currency and also gives Immunity to your Breach types.'
             ]]
         ],
         sheet: [
             ['Carrying', [
                 'Overburdened: carry more than your carrying capacity and you\'re Overburdened: Speed 1, you can\'t jump or climb, you sink when swimming, and you have Disadvantage on every attack, check and save. The warning beside your carry limit shows it, and the penalties are added to your rolls for you.',
-                'Storage gear: a Backpack, Bandolier or Utility Belt in your inventory has a Wear button. Worn, a Backpack makes your STR count as 2 higher for your carry limit (a Bandolier or Utility Belt, 1 higher). They don\'t stack: only your best one counts, and your carry limit in Inventory shows it.'
+                'Storage gear: a Backpack, Bandolier or Utility Belt in your inventory has a Wear button. Worn, a Backpack makes your STR count as 2 higher for your carry limit (a Bandolier or Utility Belt, 1 higher). They don\'t stack: only your best one counts, and your carry limit in Inventory shows it.',
+                'Break and Repair: an item\'s 🔍 has Break (anything but Crafting Materials). A broken item can\'t be equipped or used, and its Repair button opens a crafting panel like the forges\': Crafting Materials worth a quarter of its value (half that if you crafted it at a discount; Tinker halves it again), any rarity, the usual time, DC and workspace, and a Craft check. A failed check loses the materials. Your Broken Helmet repairs there too.',
+                'The forges\' craft panels let you choose how many Common, Uncommon and Rare Crafting Materials you spend: their value has to cover the cost, with at least 2 Uncommon and 1 Rare for every 50 Cu of materials.',
+                'A forged weapon in your inventory has Forge in its 🔍: it works like Return to Forge, and the weapon goes back to your inventory when the Forge closes.'
             ]],
             ['Loyal Companion', [
                 'Actions: your companion\'s card (and its full stat block) has an Actions button with every Combat Maneuver and Standard Action. Each spends its AP. Fight Defensively, Fight Offensively and next-attack maneuvers (Sweeping Strike, Charge, Feint…) change its rolls, show as chips on its card, and end when its next turn starts (✕ ends one early). Your GM keeps its conditions, so Fall Prone and the like remind you to ask them.',
@@ -186,12 +198,17 @@
                 'Free powers: free up to the top of the Level they were free at, not free whatever you change. The crafter\'s banner says how much is free and what a bigger build costs, and Save Changes charges the XP over it (or refunds it when you bring it back down). A free power from before counts from the Level it\'s at now; its card says how much XP is free.',
                 'Fixed: when a creature\'s power made you save against its damage and you failed, the damage was rolled but never taken off your HP. It now comes off as soon as you roll (all of it on a failure, half or none on a success). Your own save powers deal theirs the same way to the targets your GM picks.',
                 'Summoned weapons: the line under the weapon (Summoned by…, its properties, how long it lasts) is its own row now, so a long one wraps instead of adding a scroll bar to Weapons & Attacks.',
-                'Summoned weapons fade on their own when their power is over: End Power, its time running out in a fight, or a rest that outlasts it (a Short Rest ends Instant and 1 Minute weapons, a Full Rest anything under 8 hours). No more dismissing them by hand after a rest.'
+                'Summoned weapons fade on their own when their power is over: End Power, its time running out in a fight, or a rest that outlasts it (a Short Rest ends Instant and 1 Minute weapons, a Full Rest anything under 8 hours). No more dismissing them by hand after a rest.',
+                'Concentration: at the start of your turn you\'re asked, power by power, whether to keep it going, with what it costs (2 AP, or 1 in a Conduit Exo-Suit). Concentrate (X AP) on its line under Active Powers keeps it up by hand for at-the-table play.',
+                'A Concentration or lasting power and the buff it gives you are one line now (no blue copy under the orange one).',
+                'Resistances and Immunities a power gives you are listed under Armor & Defenses, named after the power.',
+                'Resting: a Short or Full Rest ends your lasting powers only when you finish it, and its panel lists what will end. Cancelling changes nothing.'
             ]],
             ['Consumables', [
                 'The Consumable Crafter shows its price against the cap: 150 Cu for one charge, +25 Cu per Artisan rank.',
                 'Step 2 has two new options. Thrown: your STR score / twice it, like a Thrown weapon. Ammunition (Light, Medium or Heavy): fired from your ranged weapon of that ammo type with its AP, range and attack roll; its effects land on a hit on top of the weapon\'s damage. Its inventory button reads Fire (X AP).',
-                'Consumables that heal or end a Condition are Medical (their Use button says so), and Medic Rank 1 takes 1 AP off using them.'
+                'Consumables that heal or end a Condition are Medical (their Use button says so), and Medic Rank 1 takes 1 AP off using them.',
+                'The Consumable Crafter caps damage and healing at 8 dice, like the Power Crafter (it still allowed 12). A consumable you already have keeps its dice.'
             ]],
             ['Weapons & Actions', [
                 'Medium weapons now top out at 3d8 (3d10 two-handed) and don\'t gain Heavy properties two-handed (Stunning needs a Heavy weapon or Electric). Weapons you already have keep their damage.',
@@ -215,7 +232,13 @@
                 'Ambusher: tick Ambusher in an attack\'s AP window when you attack from stealth (or an unaware creature): its damage, Advantage, Stagger, DR / ER bypass and crit multiplier are added for you. Rank 5 adds a Critical Hit for 2 AP there, or an Ambusher: crit (2 AP) button on the roll; the crit counts only if the attack hits.',
                 'Charge: the movement is part of its 3 AP (no Move AP for it), and the melee attack after it costs 1 AP.',
                 'Relentless: when your hit drops a creature, you\'re offered your AP back (uses per Short Rest tracked). Ranks 1 and 3 make one non-attack, non-move action free each turn.',
-                'Thrown weapons get Melee Prowess on their Thrown row: a thrown melee weapon is still a melee weapon.'
+                'Thrown weapons get Melee Prowess on their Thrown row: a thrown melee weapon is still a melee weapon.',
+                'Thrown Light Ammo: with Light Ammo in your pack, a ↳ Thrown Light Ammo row under your Unarmed Strike throws a round by hand: your Unarmed Attack damage, out to STR / twice STR squares, with STR or AGI (its dropdown) for the attack and damage. It costs 2 AP and uses up a round in a fight.',
+                'Disarming Attack is now 2 AP + the attack\'s AP, and Lunging Attack 1 AP + the attack\'s AP: both ride on your next melee attack, like Power Attack.',
+                'Martial Arts Rank 1: a combat maneuver is 1 AP cheaper only when you do it with only your body, and one that adds to your Attack AP (Whirlwind…) never goes below 2 AP. Holding a weapon or shield, your sheet asks which it is. Shield Bash never gets it.',
+                'Melee Prowess Rank 4 gives Advantage only on a maneuver that would have imposed Disadvantage (Whirlwind, Sweeping Strike, Charge, a Shove against a larger creature…), instead of on every melee maneuver.',
+                'Large: Advantage on the melee attack roll of a Shove (and on STR (Athletics) to grapple, pin or escape), shown on the size picker too.',
+                'Attacking a creature that\'s Incapacitated (Stunned, Paralyzed, Unconscious), Restrained or Fighting Offensively asks which one you\'re attacking, for Advantage.'
             ]],
             ['Perks & Rules', [
                 'Vitality Rank 4 is reworked: if you would be reduced to 0 HP, you\'re reduced to 1 HP instead, and you can spend up to your Rank in Rest Dice to heal that much at once (at Rank 3 they roll their maximum). It can\'t happen again until you finish a Full Rest. It works from your GM\'s tracker too.',
@@ -225,7 +248,11 @@
                 'Regenerative heals like any Rest Die you spend: the roll plus your CON modifier, with Vitality\'s Rank 1 and Rank 3 bonuses. It\'s offered at the start of your turn, once a turn.',
                 'Lucky: once per Short Rest (was Full Rest), when you\'re forced to make a saving throw you can use your LUC save instead. Every saving throw your sheet rolls (one your GM asks for, a Concentration save, one from your save list) offers it first while it\'s unused, and your GM\'s tracker counts it as the save it asked for. A Short or Full Rest gives it back.',
                 'Flurry Rank 5: a Critical Hit with a weapon attack now refunds the attack\'s AP for you (its 2, 3 or 4 AP, or what it cost after Flurry\'s own discount). The AP pop-up shows how much a crit gives back. AP spent to Aim, on Power Attack, or on Ambusher\'s 2 AP to make it a critical hit isn\'t refunded.',
-                'A critical hit from Ambusher Rank 5 (ticked before the roll, or its button after) or Fortunate Fighter is refunded straight away too. Since it only counts if it hits, the roll gets an It missed button that takes the AP back (and It hit to undo that). A reroll or Omen that turns a crit into a normal roll takes the refund back by itself.'
+                'A critical hit from Ambusher Rank 5 (ticked before the roll, or its button after) or Fortunate Fighter is refunded straight away too. Since it only counts if it hits, the roll gets an It missed button that takes the AP back (and It hit to undo that). A reroll or Omen that turns a crit into a normal roll takes the refund back by itself.',
+                'Conditions, updated: Incapacitated sets your AP to 0, stops your movement and makes you fail STR and AGI saves, and Stunned, Paralyzed and Unconscious bring it. A hit while you\'re Incapacitated bypasses your DR and ER, but your Resistances and Immunities still count. Unconscious tells you what you drop. Suffocating gives 1 Fatigue at the start of each of your turns (it was 2).',
+                'Armor too heavy for your STR: you also can\'t Concentrate on Powers. Its warning says so.',
+                'Treasure Hunter Rank 5: Found Earlier now costs a Luck Point every time. Relentless Rank 2 and Defensive Rank 2 are reworded; Defensive Rank 2 gives your Escape rolls Advantage.',
+                'Characters with a perk, size or item these changes touch get a notice about it the first time they open.'
             ]],
             ['Exo-Suits', [
                 'Rebuilt from the rulebook: a Base Suit costs 3,000 Currency, is worn with your armor, and holds up to 3 Integrated Systems. Suits you already own keep their systems.',
@@ -246,7 +273,9 @@
                 'Phantom: All-Terrain Movement (1,500) replaces the climbing system: +1 Speed, a Climb and Swim speed equal to your walking speed, and you can hang upside down from ceilings with your hands free. Suits that had the old system have this one now.',
                 'Phantom: the Decoy is an animated illusion with an AC of 10 (attacks against it hit on 10 or more), still destroyed by any damage.',
                 'Conduit: Concentration costs 1 AP less to keep up (1 AP a turn), and you have Advantage on Concentration saves. The Flight Module (2,000) is a Conduit system now; a Phantom suit that already has one keeps it.',
-                'Your Loyal Companion can have an Exo-Suit when your GM allows them (NPC Crafter, Step 4), paid from its TP: Juggernaut 12, Phantom 10, Conduit 10, plus each system.'
+                'Your Loyal Companion can have an Exo-Suit when your GM allows them (NPC Crafter, Step 4), paid from its TP: Juggernaut 12, Phantom 10, Conduit 10, plus each system.',
+                'While your suit is overloaded, a Critical Hit or a hit over your Wound Threshold damages it by that hit\'s damage (after DR), and it adds up: the suit shows how much. Repair Exo-Suit opens the Repair panel: Crafting Materials worth that damage, a Craft check, then a System Reboot.',
+                'Nullifier costs 2,500 Currency, and also makes you Immune to your Breach Energy types (shown in Armor & Defenses).'
             ]],
             ['Your Character', [
                 'Remove a perk rank: − Rank beside a perk (or Remove Rank in the Perk Forge) takes off its top rank, one at a time, and refunds the XP it cost (logged in your XP Log). Its choice goes with it, and so does what it set up: Power Slots and a free power you haven\'t made yet (Powers perks), Martial Arts\' unarmed strike, Mobile\'s AC, extra Omen Dice, and on Loyal Companion\'s last rank the TP you bought for it (the companion is kept for later). Uses per rest stay used, and a free power you already made stays: buying the rank again won\'t give a second one. Full Rest Powers asks which rank\'s purchase to remove.',
@@ -324,7 +353,10 @@
                 'Summon a Weapon for NPCs: build the weapon in the Power Crafter (properties priced in TP), and its stat block lists it under the power with the creature\'s Power Attack Bonus, Step 4 dice + its Power Attribute, and 3 AP. Click it to attack; using the power rolls no damage of its own. Crushing and Stunning on a summoned weapon use the Power Save DC.',
                 'Duration prices changed (1 Hour 20 XP, 8 Hours 40, 24 Hours 45), and NPC powers\' TP follows them when you build one or change its duration. NPCs you already made keep their powers\' Level and TP.',
                 'Exo-Suits for NPCs: with Allow Exo-Suits on in World Settings, Step 4 offers an Exo-Suit for your NPCs and summoned creatures (players\' Loyal Companions too). It costs TP for what it does: Juggernaut 12, Phantom 10 or Conduit 10, plus each Integrated System. Juggernaut: Assault Plating 3, Dreadnought Plating 6, Powerful 4, Force Multipliers 2, Bulwark 3, Heavy Weapon Mount 1, Hermetic Seal 3. Phantom: Mirage Weave 2, All-Terrain Movement 5, Concealed Weapon Mount 1, Decoy 3, Auto-Injector 1. Conduit: Capacitor 4, Breach 3 per type, Nullifier 4, Amplifier 4, Emitter 2, Flight Module 2.',
-                'A suited creature\'s stat block applies the suit: the attribute bonus and its cap, Plating (AC, DR, ER and Wound Threshold), base Speed, one size larger for a Juggernaut, Advantage on Athletics or Stealth, Power Attack and Save DC, ER, Breach resistance, Force Multipliers, and Climb, Swim or Fly. It can\'t wear a helmet (choosing a suit takes one off and refunds its TP).'
+                'A suited creature\'s stat block applies the suit: the attribute bonus and its cap, Plating (AC, DR, ER and Wound Threshold), base Speed, one size larger for a Juggernaut, Advantage on Athletics or Stealth, Power Attack and Save DC, ER, Breach resistance, Force Multipliers, and Climb, Swim or Fly. It can\'t wear a helmet (choosing a suit takes one off and refunds its TP).',
+                'Energy Vulnerability (Step 4): the creature takes +5 damage from one Energy damage type, for 3 TP back (it said double damage).',
+                'An NPC Conduit Exo-Suit with Nullifier is Immune to its Breach types. Disarming and Lunging Attack in NPC Actions cost the attack\'s AP + 2 and + 1.',
+                'Crafting Materials: for every 50 Cu of materials, at least 2 Uncommon and 1 Rare.'
             ]],
             ['Tracker', [
                 'Tearing raises a hit to at least 2 damage per damage die, after DR/ER (and an area attack\'s misses take it too).',
@@ -354,7 +386,11 @@
                 'Fixed: an NPC\'s save power used without picking targets on the map rolled its damage, but the targets who failed (a player included) took none. Roll targets\' saves now carries the damage: each target takes all of it on a failure and half (or none) on a success, when their roll comes in. A player\'s save power used the same way works the same, and a power with damage and no save or attack roll gets a Deal button for whoever it hit.',
                 'Exo-Suits in a fight: a Critical Hit on a powered suit (an NPC\'s, a companion\'s or a player\'s) overloads it and becomes a normal hit, its extra damage given back. A hit over an NPC\'s Wound Threshold overloads its suit too.',
                 'An overloaded NPC suit shows on its tracker card, its stat block switches to the unpowered numbers (AC, DR, ER, Speed, attacks), and Reboot (6 AP) powers it back up. A second Critical Hit while it\'s overloaded damages it: mark it Repaired, then reboot. Its stat block also has Overload, Active Camouflage (Invisible until the start of its next turn) and Bulwark buttons.',
-                'A Conduit NPC\'s Concentration costs 1 AP a turn with Advantage on its saves, and its overload ends its Concentration powers. A player\'s party card shows when their suit is overloaded or damaged.'
+                'A Conduit NPC\'s Concentration costs 1 AP a turn with Advantage on its saves, and its overload ends its Concentration powers. A player\'s party card shows when their suit is overloaded or damaged.',
+                'Incapacitated creatures (and Stunned, Paralyzed, Unconscious ones) fail STR and AGI saves on their own; their hits are Critical Hits that bypass DR and ER while Resistances and Immunities still count. An NPC\'s attack asks whether its target is one that attacks have Advantage against (Incapacitated, Restrained, Fighting Offensively), and players\' sheets ask the same.',
+                'Stunning: a creature that saves against it is immune to that wielder\'s Stunning until the start of the wielder\'s next turn (the log says so instead of asking for another save).',
+                'An overloaded NPC Exo-Suit takes the damage of another Critical Hit or another hit over its Wound Threshold, adding up (hover its tracker line for the total); Repaired clears it.',
+                'An NPC in armor too heavy for its STR rolls the saves and checks you roll from the log with Disadvantage, as its stat block\'s own buttons do.'
             ]],
             ['Players\' Gear', [
                 'Players can be Overburdened now (Speed 1, Disadvantage on attacks, checks and saves), and wear Backpacks, Bandoliers and Utility Belts to carry more.',

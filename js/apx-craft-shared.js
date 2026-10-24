@@ -50,25 +50,78 @@ function craftAddMaterials(refund) {
     if (rare) rare.ct += refund.rare;
 }
 
-// Material tiers for a given nominal Currency delta. Black Smith 5 halves
-// the Currency used for this calculation (not DC/time); Artisan 2 halves
-// the resulting material counts if the item falls under a specialization.
+// The Crafting Materials a craft takes. Their value must be at least half the item's Currency (Black Smith 5 halves
+// the Currency used for this, not the DC or time; Artisan 2 halves the materials of a specialization). Rarities
+// (Chapter 8): for every 50 Currency of that material cost, at least 2 Uncommon and 1 Rare; the rest in any rarity.
+// Common materials are worth 1 Currency, Uncommon 5, Rare 10. The player picks how many of each they spend
+// (craftSetAlloc), as long as the value and the minimums are met. opts.kind: 'weapon' | 'armor' | 'repair' (whose
+// choice it is); opts.noMins: no rarity minimums (a repair). Returns the amounts to spend (commonCt / minUncommonCt /
+// minRareCt, as the forges have always read them), the material cost, the minimums and whether the choice is valid.
+const CRAFT_MAT_VAL = { common: 1, uncommon: 5, rare: 10 };
+function craftMatValue(m) { return (parseInt(m.common) || 0) + (parseInt(m.uncommon) || 0) * 5 + (parseInt(m.rare) || 0) * 10; }
+function craftMatMinimums(matCost) { let n = Math.floor(Math.max(0, matCost) / 50); return { rare: n, uncommon: 2 * n }; }
+// A default for this cost: the minimums, then the rest from what you have (Common first)
+function craftDefaultAlloc(matCost, mins, have) {
+    let a = { common: 0, uncommon: mins.uncommon, rare: mins.rare };
+    let rem = Math.max(0, matCost - craftMatValue(a));
+    let c = Math.min(rem, Math.max(0, have.common)); a.common += c; rem -= c;
+    if (rem > 0) { let u = Math.min(Math.ceil(rem / 5), Math.max(0, have.uncommon - a.uncommon)); a.uncommon += u; rem = Math.max(0, rem - u * 5); }
+    if (rem > 0) { let r = Math.min(Math.ceil(rem / 10), Math.max(0, have.rare - a.rare)); a.rare += r; rem = Math.max(0, rem - r * 10); }
+    if (rem > 0) a.common += rem;   // (not enough on hand: what's still missing shows as Common)
+    return a;
+}
+window._craftAlloc = {};   // kind -> { key, common, uncommon, rare }: the player's choice for the craft in front of them
+function craftAllocFor(kind, matCost, mins) {
+    let key = matCost + ':' + mins.rare + ':' + mins.uncommon;
+    let cur = window._craftAlloc[kind];
+    if (cur && cur.key === key) return cur;
+    return (window._craftAlloc[kind] = Object.assign({ key }, craftDefaultAlloc(matCost, mins, craftMaterialCounts())));
+}
+function craftMatsFor(matCost, opts) {
+    opts = opts || {};
+    let mins = opts.noMins ? { rare: 0, uncommon: 0 } : craftMatMinimums(matCost);
+    let a = opts.kind ? craftAllocFor(opts.kind, matCost, mins) : craftDefaultAlloc(matCost, mins, craftMaterialCounts());
+    let value = craftMatValue(a);
+    return { minRareCt: a.rare, minUncommonCt: a.uncommon, commonCt: a.common, matCost, mins, value,
+        valid: value >= matCost && a.rare >= mins.rare && a.uncommon >= mins.uncommon };
+}
+window.craftMatsFor = craftMatsFor;
 function craftMaterialsForCost(nominalDelta, opts) {
     let bsRank = opts.bsRank, artisanRank = opts.artisanRank, specialized = opts.specialized;
     let costForMats = (bsRank >= 5) ? Math.floor(nominalDelta / 2) : nominalDelta;
-    let matBudget = Math.floor(costForMats / 2);
-    let tiers = Math.floor(costForMats / 200);
-    let minRareCt = tiers * 5;
-    let minUncommonCt = tiers * 10;
-    let commonCt = Math.max(0, matBudget - (minRareCt * 10) - (minUncommonCt * 5));
-
-    if (specialized && artisanRank >= 2) {
-        minRareCt = Math.floor(minRareCt / 2);
-        minUncommonCt = Math.floor(minUncommonCt / 2);
-        commonCt = Math.floor(commonCt / 2);
-    }
-    return { minRareCt, minUncommonCt, commonCt };
+    let matCost = Math.floor(costForMats / 2);
+    if (specialized && artisanRank >= 2) matCost = Math.floor(matCost / 2);
+    return craftMatsFor(matCost, { kind: opts.kind });
 }
+// The player sets how many of one rarity they spend (never under that rarity's minimum)
+window.craftSetAlloc = function(kind, which, val) {
+    let a = window._craftAlloc[kind]; if (!a || !['common', 'uncommon', 'rare'].includes(which)) return;
+    let mins = (window._craftMins || {})[kind] || { rare: 0, uncommon: 0 };
+    a[which] = Math.max(which === 'common' ? 0 : (mins[which] || 0), parseInt(val) || 0);
+    craftKindRender(kind);
+};
+// The materials picker: how many of each rarity, what you have, the value against the cost, and the minimums
+function craftMatPickerHtml(kind, m) {
+    (window._craftMins = window._craftMins || {})[kind] = m.mins || { rare: 0, uncommon: 0 };
+    let have = craftMaterialCounts(), mins = m.mins || { rare: 0, uncommon: 0 };
+    let a = { common: m.commonCt, uncommon: m.minUncommonCt, rare: m.minRareCt };
+    let val = craftMatValue(a), cost = m.matCost || 0;
+    let row = (k, label, each) => {
+        let short = (a[k] || 0) > (have[k] || 0), mn = k === 'common' ? 0 : (mins[k] || 0);
+        return `<div class="flex items-center gap-1.5">
+            <span class="text-[11px] text-slate-300 w-20">${label} <span class="text-slate-500">(${each})</span></span>
+            <input type="number" min="${mn}" value="${a[k] || 0}" onchange="window.craftSetAlloc('${kind}','${k}',this.value)" class="bg-slate-800 border-slate-600 text-xs text-center font-bold w-16 ${short ? 'text-red-400' : 'text-white'}">
+            <span class="text-[10px] ${short ? 'text-red-400 font-bold' : 'text-slate-500'}">have ${have[k] || 0}${mn ? ` · at least ${mn}` : ''}</span></div>`;
+    };
+    let ok = val >= cost && a.rare >= mins.rare && a.uncommon >= mins.uncommon;
+    return `<div class="bg-slate-800/60 border border-slate-700 rounded p-2 mb-3 space-y-1" data-craft-mats="${kind}">
+        <div class="text-[10px] text-slate-500 uppercase font-bold">Crafting Materials you spend</div>
+        ${row('common', 'Common', '1 Cu')}${row('uncommon', 'Uncommon', '5 Cu')}${row('rare', 'Rare', '10 Cu')}
+        <div class="text-[11px] font-bold ${ok ? 'text-emerald-400' : 'text-red-400'}">Value ${val} of ${cost} Cu needed${ok ? '' : val < cost ? `: ${cost - val} Cu short` : ': below the minimum rarity'}</div>
+        ${mins.rare || mins.uncommon ? `<div class="text-[9px] text-slate-500 leading-tight">For every 50 Cu of materials, at least 2 Uncommon and 1 Rare: ${mins.uncommon} Uncommon and ${mins.rare} Rare here. The rest can be any rarity.</div>` : `<div class="text-[9px] text-slate-500 leading-tight">${kind === 'repair' ? 'Repairs take any rarity.' : 'Any rarity.'}</div>`}
+    </div>`;
+}
+window.craftMatPickerHtml = craftMatPickerHtml;
 
 // Black Smith 2 (only when crafting with STR) or Artisan 3 (regardless of
 // which attribute governs the check) recover half materials on a plain Fail.
@@ -150,11 +203,15 @@ function craftReconcileBatchesDown(batches, key, newQty) {
 // ------------------------------------------------------------------
 const CRAFT_RENT_PER_HOUR = 100;
 window._craftRoll = null;   // { kind, outcome, nat, total, dc, applied }
+// Other crafts that use this same panel (a repair, js/apx-repair.js): kind -> { math, render, apply, title }
+window.apxCraftKinds = window.apxCraftKinds || {};
+let craftKindMath = kind => window.apxCraftKinds[kind] ? window.apxCraftKinds[kind].math() : kind === 'weapon' ? weaponForgeCraftMath() : armorForgeCraftMath();
+let craftKindRender = kind => window.apxCraftKinds[kind] ? window.apxCraftKinds[kind].render() : kind === 'weapon' ? window.renderWeaponCraftBody() : window.renderArmorCraftBody();
 
 function craftWorkspace() { return window.state.craftWorkspace || 'bench'; }
 window.setCraftWorkspace = function(kind, ws) {
     window.state.craftWorkspace = ws;
-    if (kind === 'weapon') window.renderWeaponCraftBody(); else window.renderArmorCraftBody();
+    craftKindRender(kind);
 };
 function craftRentCost(m) { return craftWorkspace() === 'rent' ? (m.hours || 0) * CRAFT_RENT_PER_HOUR : 0; }
 
@@ -184,7 +241,7 @@ function craftOutcomeOf(nat, total, dc, autoFail) {
 // Rolls the check in the tray. A Luck reroll or Omen on that roll updates the result here too.
 window.craftRollCheck = function(kind) {
     if (!window.APXDice) return;
-    let m = kind === 'weapon' ? weaponForgeCraftMath() : armorForgeCraftMath();
+    let m = craftKindMath(kind); if (!m) return;
     let rent = craftRentCost(m);
     if (rent > (parseInt(window.state.currency) || 0)) {
         window.showConfirm(`Renting a Workbench for ${m.hours} hour${m.hours === 1 ? '' : 's'} costs ${rent} Cu, and you have ${parseInt(window.state.currency) || 0}. Pick another workspace, or find more Currency first.`, null, true);
@@ -194,13 +251,13 @@ window.craftRollCheck = function(kind) {
     if (craftWorkspace() === 'toolkit') spec.disSources = (spec.disSources || []).concat(['Toolkit']);
     let roll = window._craftRoll = { kind, dc: m.dc, applied: false };
     window.APXDice.check(Object.assign(spec, {
-        label: `${m.craftAttr} (Craft): ${kind === 'weapon' ? 'Weapon' : 'Armor'} Forge, DC ${m.dc}`, purpose: 'craft',
+        label: `${m.craftAttr} (Craft): ${window.apxCraftKinds[kind] ? window.apxCraftKinds[kind].title : kind === 'weapon' ? 'Weapon Forge' : 'Armor Forge'}, DC ${m.dc}`, purpose: 'craft',
         onResult: r => {
             if (roll.applied) return roll.note;
             let res = craftOutcomeOf(r.nat, r.total, m.dc, r.autoFail);
             Object.assign(roll, { nat: r.nat, total: r.total, outcome: res.outcome, label: res.label });
             roll.note = `${res.label} (${r.total} vs DC ${m.dc})`;
-            setTimeout(() => { if (window._craftRoll === roll) (kind === 'weapon' ? window.renderWeaponCraftBody : window.renderArmorCraftBody)(); }, 0);
+            setTimeout(() => { if (window._craftRoll === roll) craftKindRender(kind); }, 0);
             return roll.note;
         }
     }));
@@ -208,13 +265,18 @@ window.craftRollCheck = function(kind) {
 
 // Applies the rolled (or typed-in) outcome: pays any Workbench rent, then the forge does the rest
 window.craftApply = function(kind, outcome) {
-    let m = kind === 'weapon' ? weaponForgeCraftMath() : armorForgeCraftMath();
-    let rent = m.nominalDelta > 0 ? craftRentCost(m) : 0;
+    let m = craftKindMath(kind); if (!m) return;
+    let costs = m.nominalDelta > 0 || m.always;   // (a repair always takes its time and materials)
+    let rent = costs ? craftRentCost(m) : 0;
     if (rent > (parseInt(window.state.currency) || 0)) {
         window.showConfirm(`Renting the Workbench costs ${rent} Cu, and you have ${parseInt(window.state.currency) || 0}.`, null, true);
         return;
     }
-    if (m.nominalDelta > 0) {
+    if (costs && m.matsValid === false && outcome === 'success') {
+        window.showConfirm(`The Crafting Materials you picked are worth ${m.matsValue} Cu: this takes ${m.matCost} Cu worth${m.mins && (m.mins.rare || m.mins.uncommon) ? `, with at least ${m.mins.uncommon} Uncommon and ${m.mins.rare} Rare` : ''}.`, null, true);
+        return;
+    }
+    if (costs) {
         let have = craftMaterialCounts();
         if (have.common < m.commonCt || have.uncommon < m.minUncommonCt || have.rare < m.minRareCt) {
             window.showConfirm("Not enough Crafting Materials on hand to attempt this craft.", null, true);
@@ -225,7 +287,8 @@ window.craftApply = function(kind, outcome) {
     if (roll && roll.kind === kind) roll.applied = true;
     window._craftRoll = null;
     let before = parseInt(window.state.currency) || 0;
-    (kind === 'weapon' ? window.weaponForgeApplyOutcome : window.armorForgeApplyOutcome)(outcome);
+    if (window.apxCraftKinds[kind]) window.apxCraftKinds[kind].apply(outcome);
+    else (kind === 'weapon' ? window.weaponForgeApplyOutcome : window.armorForgeApplyOutcome)(outcome);
     if (rent > 0) {
         window.state.currency = before - rent;
         window.APXDice?.notify(`Paid ${rent} Cu to rent a Workbench for ${m.hours} hour${m.hours === 1 ? '' : 's'}.`, { kind: 'loot' });
@@ -235,6 +298,7 @@ window.craftApply = function(kind, outcome) {
 
 // The panel both forges show: workspace, a plain cost summary, and the roll
 function craftCheckPanelHtml(kind, m, canAfford) {
+    canAfford = canAfford && m.matsValid !== false;
     let ws = craftWorkspace(), rent = m.hours * CRAFT_RENT_PER_HOUR, cu = parseInt(window.state.currency) || 0;
     let spec = craftCheckSpec(m.craftAttr), bonus = spec.bonus;
     let need = { common: m.commonCt, uncommon: m.minUncommonCt, rare: m.minRareCt };
@@ -255,15 +319,16 @@ function craftCheckPanelHtml(kind, m, canAfford) {
             </div>
             <div class="text-[10px] text-slate-500 uppercase font-bold mb-1">What this costs</div>
             <table class="w-full text-[11px] text-slate-300 mb-3">
-                <tr><td class="py-0.5 text-slate-500">Value crafted</td><td class="text-right font-bold text-white">${m.nominalDelta} Cu</td></tr>
-                <tr><td class="py-0.5 text-slate-500">Materials</td><td class="text-right font-bold ${canAfford ? 'text-white' : 'text-red-400'}">${matsTxt}</td></tr>
+                <tr><td class="py-0.5 text-slate-500">${m.valueLabel || 'Value crafted'}</td><td class="text-right font-bold text-white">${m.valueTxt || m.nominalDelta + ' Cu'}</td></tr>
+                <tr><td class="py-0.5 text-slate-500">Materials</td><td class="text-right font-bold ${canAfford ? 'text-white' : 'text-red-400'}">${matsTxt} <span class="text-slate-500 font-normal">(${m.matsValue ?? '?'} of ${m.matCost ?? '?'} Cu)</span></td></tr>
                 <tr><td class="py-0.5 text-slate-500">Time</td><td class="text-right font-bold text-white">${m.hours} hour${m.hours === 1 ? '' : 's'}${days > 1 ? ` (${days} days at 8 hours a day)` : ''}</td></tr>
                 ${ws === 'rent' ? `<tr><td class="py-0.5 text-slate-500">Workbench rent</td><td class="text-right font-bold ${rent > cu ? 'text-red-400' : 'text-yellow-400'}">${rent} Cu <span class="text-slate-500 font-normal">(you have ${cu})</span></td></tr>` : ''}
             </table>
+            ${craftMatPickerHtml(kind, m)}
             <div class="grid grid-cols-3 gap-1.5 mb-3 text-[10px] text-center">
-                <div class="rounded border border-emerald-800/60 bg-emerald-900/20 p-1.5"><div class="font-black text-emerald-400">Success</div><div class="text-slate-300">It's made. Materials used.</div></div>
-                <div class="rounded border border-amber-800/60 bg-amber-900/20 p-1.5"><div class="font-black text-amber-400">Failed</div><div class="text-slate-300">${m.hasFailRecovery ? `Not made. ${halfTxt} come back.` : 'Not made. Materials lost.'}</div></div>
-                <div class="rounded border border-red-800/60 bg-red-900/20 p-1.5"><div class="font-black text-red-400">By 5+ / Nat 1</div><div class="text-slate-300">Not made. Materials lost.</div></div>
+                <div class="rounded border border-emerald-800/60 bg-emerald-900/20 p-1.5"><div class="font-black text-emerald-400">Success</div><div class="text-slate-300">${m.okTxt || 'It\'s made. Materials used.'}</div></div>
+                <div class="rounded border border-amber-800/60 bg-amber-900/20 p-1.5"><div class="font-black text-amber-400">Failed</div><div class="text-slate-300">${m.hasFailRecovery ? `${m.noTxt || 'Not made.'} ${halfTxt} come back.` : `${m.noTxt || 'Not made.'} Materials lost.`}</div></div>
+                <div class="rounded border border-red-800/60 bg-red-900/20 p-1.5"><div class="font-black text-red-400">By 5+ / Nat 1</div><div class="text-slate-300">${m.noTxt || 'Not made.'} Materials lost.</div></div>
             </div>
             <div class="text-center text-xs text-slate-400 mb-2">${m.craftAttr} (Craft) <span class="font-bold text-white">${bonus >= 0 ? '+' : ''}${bonus}</span> vs DC <span class="font-bold text-white">${m.dc}</span>${ws === 'toolkit' ? ' <span class="text-red-400 font-bold">with Disadvantage</span>' : ''}</div>
             ${roll && roll.outcome ? `

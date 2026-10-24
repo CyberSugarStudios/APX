@@ -30,8 +30,8 @@
         { g: 'Combat Maneuvers', name: 'Sweeping Strike', cost: 1, extra: '+ attack', tip: 'Its next melee attack is rolled with Disadvantage and compared to the AC of two adjacent enemies in reach.', fx: { key: 'sweep', label: 'Sweeping Strike', next: { dis: true } } },
         { g: 'Combat Maneuvers', name: 'Whirlwind', cost: 3, extra: '+ attack', tip: 'Its next melee attack is rolled with Disadvantage and compared to the AC of every enemy in reach.', fx: { key: 'whirl', label: 'Whirlwind', next: { dis: true } } },
         { g: 'Combat Maneuvers', name: 'Charge', cost: 3, tip: 'Move up to its Speed in a straight line (2+ squares). Then 1 AP: a melee attack with Disadvantage that deals an extra damage die, or a tackle (both Prone, STR score damage).', fx: { key: 'charge', label: 'Charge: +1 damage die', next: { dis: true } } },
-        { g: 'Combat Maneuvers', name: 'Lunging Attack', cost: 3, tip: 'A melee attack with 1 square more reach, with Disadvantage; it provokes attacks of opportunity.', fx: { key: 'lunge', label: 'Lunge', next: { dis: true } } },
-        { g: 'Combat Maneuvers', name: 'Disarming Attack', cost: 3, tip: 'A melee attack with Disadvantage: on a hit, the target drops an item of its choice (2 AP to catch it).', fx: { key: 'disarm', label: 'Disarm', next: { dis: true } } },
+        { g: 'Combat Maneuvers', name: 'Lunging Attack', cost: 1, extra: '+ attack', tip: 'Declare before its next melee attack (it also costs its own AP): it has 1 square more reach and Disadvantage, and it provokes attacks of opportunity.', fx: { key: 'lunge', label: 'Lunge', next: { dis: true } } },
+        { g: 'Combat Maneuvers', name: 'Disarming Attack', cost: 2, extra: '+ attack', tip: 'Declare before its next melee attack (it also costs its own AP): it has Disadvantage, and on a hit the target drops an item of its choice (2 AP to catch it).', fx: { key: 'disarm', label: 'Disarm', next: { dis: true } } },
         { g: 'Combat Maneuvers', name: 'Shove', cost: 3, tip: 'A melee attack that deals no damage (Disadvantage against larger creatures): on a hit, push 2 squares or knock Prone.', roll: { attack: 'STR', label: 'Shove', larger: true, hitNote: () => 'No damage. Hit: push the target 2 squares away or knock it Prone' }, shove: true },
         { g: 'Combat Maneuvers', name: 'Feint', cost: 2, tip: 'CHA (Deceive) against the target\'s PER (Insight). If it wins, its next attack against that target this turn has Advantage.', roll: { skill: 'Deceive', attr: 'CHA', label: 'Feint: CHA (Deceive)' }, ask: 'Feint won?', vs: 'the target\'s PER (Insight)', fx: { key: 'feint', label: 'Feint: Adv on next attack', next: { adv: true } } },
         { g: 'Combat Maneuvers', name: 'Vault', cost: 2, tip: 'AGI (Acrobatics) against the creature\'s STR (Athletics): leap over it, and its first melee attack against it this turn has Advantage.', roll: { skill: 'Acrobatics', attr: 'AGI', label: 'Vault: AGI (Acrobatics)' }, ask: 'Vault won?', vs: 'the creature\'s STR (Athletics)', fx: { key: 'vault', label: 'Vault: Adv on next melee attack', next: { adv: true, melee: true } } },
@@ -112,7 +112,7 @@
         if (R.skill) {
             let sk = sb && (sb.trainedSkills || []).find(x => x.name === R.skill);
             let adv = ((sk && sk.adv) || []).slice(), dis = ((sk && sk.dis) || []).slice();
-            // Large: Advantage on STR (Athletics) to push or grapple
+            // Large: Advantage on STR (Athletics) to grapple, pin or escape a grapple
             if (R.skill === 'Athletics' && R.push && sb && sb.sizeKey === 'large') adv.push('Large size');
             APXDice.check(Object.assign(base, { attr: R.attr, skill: R.skill, label: R.label, bonus: sk ? sk.total : (mods[R.attr] || 0),
                 advSources: adv.length ? adv : undefined, disSources: dis.length ? dis : undefined }));
@@ -125,8 +125,10 @@
                 if (!big) return null;
                 if (big === 'yes') dis.push('Target is larger');
             }
+            // Large: Advantage on melee attack rolls made to Shove
+            let adv = R.label === 'Shove' && sb && sb.sizeKey === 'large' ? ['Large size'] : [];
             APXDice.check(Object.assign(base, { kind: 'attack', attr: R.attack, label: R.label, bonus: (mods[R.attack] || 0) + ((sb && sb.trainingBonus) || 0),
-                note: R.hitNote ? R.hitNote(sb) : undefined, disSources: dis.length ? dis : undefined }));
+                note: R.hitNote ? R.hitNote(sb) : undefined, disSources: dis.length ? dis : undefined, advSources: adv.length ? adv : undefined }));
             if (ctx.attacked) ctx.attacked();   // (an attack: Fight Defensively drops to +2, Block ends)
             return true;
         }

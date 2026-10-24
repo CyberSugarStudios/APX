@@ -4,7 +4,7 @@
         const PERKS_DB = [
             // STR PERKS
             { id: "str_martialarts", name: "Martial Arts", attr: "STR", max: 5, baseDesc: "Unarmed strike damage increases 1 step per rank (1d4 > 1d6 > 1d8 > 1d10 > 1d12 > 2d6).", ranks: [
-                "Rank 1. Unarmed attacks cost 1 AP. Combat maneuver AP cost reduced by 1 (min 1).",
+                "Rank 1. Unarmed attacks cost 1 AP. Combat maneuvers you perform with only your body cost 1 AP less (to a minimum of 1 AP, or 2 AP for maneuvers that add to your Attack AP).",
                 "Rank 2. Consecutive attacks total damage before resistances. Strikes gain Sturdy property. Can counter-attack on successful block.",
                 "Rank 3. Critical range increases to 19-20. Unarmed maneuvers no longer suffer Disadvantage.",
                 "Rank 4. Critical range increases to 18-20. Unarmed strikes gain Crushing property.",
@@ -14,7 +14,7 @@
                 "Rank 1. Bludgeoning gains Crushing, Slashing gains Flurry, Piercing gains Tearing.",
                 "Rank 2. Roll damage twice and keep the highest total.",
                 "Rank 3. Maneuvers that normally impose Disadvantage no longer do so.",
-                "Rank 4. Combat maneuvers with melee weapons gain Advantage.",
+                "Rank 4. Whenever you perform a combat maneuver with a melee weapon that would normally impose Disadvantage on your attack roll, you instead make the attack roll with Advantage.",
                 "Rank 5. On Critical hit, roll attack again. If hits, deal maximum possible critical damage."
             ], effect: (c, r) => { c.bonusMeleeAtk += r; c.bonusMeleeDmg += r; } },
             { id: "str_armormaster", name: "Armor Master", attr: "STR", max: 5, baseDesc: "Mastery over wearing armor. For each Rank of this perk, your worn armor (with shield and helmet) counts as 5 lbs lighter (for armor weight class and the STR requirement).", ranks: [
@@ -70,7 +70,7 @@
             ]},
             { id: "agi_relentless", name: "Relentless", attr: "AGI", max: 5, baseDesc: "Regain AP equal to rank when reducing target to 0 HP (limited uses/rest).", ranks: [
                 "Rank 1. Once/turn, 1 AP non-attack action costs 0 AP.",
-                "Rank 2. Ranged attacks suffer no penalty in Short Range.",
+                "Rank 2. Your ranged weapon attacks suffer no penalties when attacking within 1 square of your target.",
                 "Rank 3. Once/turn, 3 AP non-attack action costs 0 AP.",
                 "Rank 4. Gain one additional Reaction per round.",
                 "Rank 5. Gain 4 AP at start of combat."
@@ -100,7 +100,7 @@
             ], effect: (c, r) => {  } },
             { id: "con_defensive", name: "Defensive", attr: "CON", max: 5, baseDesc: "While unarmored, +1 AC, DR, ER per rank.", ranks: [
                 "Rank 1. Unarmored AC = 10 + AGI mod + CON mod.",
-                "Rank 2. Advantage on checks vs being held/forcefully moved.",
+                "Rank 2. You gain Advantage on any attribute checks or saving throws made to resist being grappled, pinned, held in place, or forcefully moved.",
                 "Rank 3. Enemy missing melee attack pays +1 AP for next attack against you.",
                 "Rank 4. Unarmored DR/ER vs traps/hazards/falling increases by CON score.",
                 "Rank 5. Unarmored (Reaction): Turn Critical Hit against you into normal hit."
@@ -262,7 +262,7 @@
                 "Rank 2. Find bonus Currency = Loot roll result. Crit finds double.",
                 "Rank 3. Crit Loot finds map/note to hidden stash.",
                 "Rank 4. Spend Luck Points to find extra Crafting Materials.",
-                "Rank 5. Once/Short Rest (or spend a Luck Point): produce an item you 'found earlier' worth up to 10 Cu x LUC mod (min 50): gear, ammo or a consumable. Can't be sold."
+                "Rank 5. You can spend a Luck Point to reach into your bag and produce one item you 'found earlier.' It must be non-unique, fit in the container you pull it from, and be worth no more than 10 Currency x your LUC modifier (minimum 50). It can be general equipment, ammunition, or a consumable. Items found this way can't be sold."
             ], effect: (c, r) => { c.skills.Loot = (c.skills.Loot||0)+r; } },
             { id: "luc_fortunatefighter", name: "Fortunate Fighter", attr: "LUC", max: 5, baseDesc: "Luck keeps you alive.", ranks: [
                 "Rank 1. When determining your AC, you may replace your AGI with your LUC. (The sheet uses whichever is higher.)",

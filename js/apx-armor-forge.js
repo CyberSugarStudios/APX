@@ -388,10 +388,11 @@ function armorForgeCraftMath() {
     if (craftAttr === 'STR' && bsRank >= 4) hours = nominalDelta === 0 ? 0 : Math.max(1, Math.floor(hours / 2));
     if (armorForgeSpecialized && artisanRank >= 4) hours = nominalDelta === 0 ? 0 : Math.max(1, Math.floor(hours / 2));
 
-    let mats = craftMaterialsForCost(nominalDelta, { bsRank, artisanRank, specialized: armorForgeSpecialized });
+    let mats = craftMaterialsForCost(nominalDelta, { bsRank, artisanRank, specialized: armorForgeSpecialized, kind: 'armor' });
     let hasFailRecovery = craftHasFailRecovery(craftAttr, bsRank, artisanRank);
 
-    return { totals, nominalDelta, bsRank, artisanRank, craftAttr, dc, hours, minRareCt: mats.minRareCt, minUncommonCt: mats.minUncommonCt, commonCt: mats.commonCt, hasFailRecovery };
+    return { totals, nominalDelta, bsRank, artisanRank, craftAttr, dc, hours, minRareCt: mats.minRareCt, minUncommonCt: mats.minUncommonCt, commonCt: mats.commonCt, hasFailRecovery,
+        matCost: mats.matCost, mins: mats.mins, matsValid: mats.valid, matsValue: mats.value };
 }
 
 window.renderArmorCraftBody = function() {

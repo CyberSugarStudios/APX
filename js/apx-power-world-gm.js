@@ -408,6 +408,9 @@
         if (conc.length && e.faction !== 'player' && window.APXDice && APXDice.ask) setTimeout(async () => {
             for (let c of conc) {
                 if (!(e._casts || []).includes(c)) continue;
+                // (armor too heavy for its STR: it can't Concentrate)
+                let hsb = null; try { hsb = window._gmExoSb ? window._gmExoSb(e) : null; } catch (er) { }
+                if (hsb && hsb.armorStrShort) { window._gmEndPi(c.pi, 'its armor is too heavy to Concentrate'); continue; }
                 let have = typeof gmApCurrent === 'function' ? gmApCurrent(e) : 2;
                 let cost = conduitOn(e) ? 1 : 2;   // (a powered Conduit Exo-Suit: 1 AP less)
                 let a = await APXDice.ask(`Concentration: ${c.name}`, `${gmn(e)} keeps ${c.name} up? It costs ${cost} AP at the start of each of its turns${cost < 2 ? ' (its Conduit Exo-Suit)' : ''} (it has ${have}).`, [['keep', `Spend ${cost} AP`, 'pri'], ['end', 'Let it end']]);

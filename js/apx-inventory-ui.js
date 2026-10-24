@@ -312,6 +312,19 @@
                 `;
             }
 
+            // Broken (js/apx-repair.js): it says so, with its Repair button. Anything but Crafting Materials can be broken;
+            // a weapon from the Weapon Forge can go back to it from here.
+            let broken = window.apxIsBroken && window.apxIsBroken(item), isMats = /Crafting Materials$/i.test(item.name || '');
+            let topBtns = [];
+            if (broken) statsHtml = `<div class="bg-red-950/40 border border-red-800/60 rounded p-2 mb-3 text-xs text-red-300 flex items-center justify-between gap-2">
+                    <span><b>Broken.</b> It can't be equipped or used until it's repaired.</span>
+                    <button onclick="window.apxOpenRepair({ kind: 'item', idx: ${idx} })" class="px-3 py-1.5 rounded bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold shrink-0" title="Repair it at a Workbench or with a Toolkit: Crafting Materials worth a quarter of its value">Repair</button></div>` + statsHtml;
+            else {
+                if (item.isWeapon && item.weaponData && item.weaponData.forged && window.apxForgeFromInventory) topBtns.push(`<button onclick="window.apxForgeFromInventory(${idx})" class="px-3 py-1.5 rounded bg-orange-700 hover:bg-orange-600 text-white text-xs font-bold" title="Return it to the Weapon Forge: it goes back to your inventory when the Forge closes">Forge</button>`);
+                if (!isMats && window.apxBreakItem) topBtns.push(`<button onclick="window.apxBreakItem(${idx})" class="px-3 py-1.5 rounded bg-red-900/60 hover:bg-red-800 text-red-200 text-xs font-bold border border-red-800/60" title="It's broken: it can't be equipped or used until it's repaired">Break</button>`);
+            }
+            if (topBtns.length) statsHtml = `<div class="flex justify-end gap-2 mb-3">${topBtns.join('')}</div>` + statsHtml;
+
             let body;
             if (item.isConsumable && item.draft) {
                 let lines = window.ccDetailLines(item.draft);
@@ -485,8 +498,8 @@
         };
 
         // ── Treasure Hunter Rank 5: an item you "found earlier" ──
-        // Once per Short Rest (then a Luck Point each time): general equipment, ammunition or a consumable worth up
-        // to 10 Cu x your LUC modifier (minimum 50). It's free, and it can't be sold (item.noSellCt).
+        // A Luck Point each time: general equipment, ammunition or a consumable worth up to 10 Cu x your LUC modifier
+        // (minimum 50). It can't be sold (item.noSellCt).
         window.apxFoundEarlierCap = function () { let m = (typeof calc !== 'undefined' && calc.mods) ? (calc.mods.LUC || 0) : 0; return Math.max(50, 10 * m); };
         let foundStash = item => {
             let n = Math.max(1, parseInt(item.ct) || 1), it = Object.assign({}, item); delete it.noSellCt;
@@ -499,12 +512,9 @@
             let st = window.state; if (!st) return;
             if (((st.perks || {}).luc_treasurehunter || 0) < 5) return;
             let cap = window.apxFoundEarlierCap();
-            let luck = !!st.thFoundUsed;
-            if (luck) {
-                if ((st.luckPts || 0) <= 0) { window.APXDice?.notify('You\'ve found your item this Short Rest, and you have no Luck Points to find another.', { kind: 'warn', open: true }); return; }
-                let ok = window.apxConfirm ? await window.apxConfirm(`You've already found something this Short Rest. Spend a Luck Point (you have ${st.luckPts}) to find another?`, { title: 'Found Earlier', okLabel: 'Spend a Luck Point' }) : true;
-                if (!ok) return;
-            }
+            // (each one costs a Luck Point)
+            let luck = true;
+            if ((st.luckPts || 0) <= 0) { window.APXDice?.notify('Finding an item you "found earlier" costs a Luck Point, and you have none.', { kind: 'warn', open: true }); return; }
             let done = (what, item) => {
                 let s = window.state;
                 if (luck) { s.luckPts = Math.max(0, (s.luckPts || 0) - 1); let li = document.getElementById('luckPtsInput'); if (li) li.value = s.luckPts; } else s.thFoundUsed = true;
@@ -525,7 +535,7 @@
             back.innerHTML = `<div style="width:min(520px,100%);max-height:90vh;overflow:auto;background:#0f172a;border:1px solid #b45309;border-radius:.7rem;padding:.9rem;color:#e2e8f0;box-shadow:0 20px 60px rgba(0,0,0,.6)">
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem"><div><div style="font-size:.62rem;font-weight:900;text-transform:uppercase;color:#fcd34d">Treasure Hunter · Rank 5</div>
                 <div style="font-size:1rem;font-weight:900">Found Earlier</div>
-                <div style="font-size:.7rem;color:#94a3b8;line-height:1.35">Reach into your bag for something non-unique that fits the container, worth up to <b style="color:#facc15">${cap} Cu</b> (10 × your LUC modifier, minimum 50). It's free, and it can't be sold. ${luck ? '<b style="color:#fca5a5">This one costs a Luck Point.</b>' : 'Once per Short Rest; after that, a Luck Point each time.'}</div></div>
+                <div style="font-size:.7rem;color:#94a3b8;line-height:1.35">Reach into your bag for something non-unique that fits the container, worth up to <b style="color:#facc15">${cap} Cu</b> (10 × your LUC modifier, minimum 50). It can't be sold. <b style="color:#fca5a5">It costs a Luck Point${luck ? ` (you have ${st.luckPts || 0})` : ''}.</b></div></div>
                 <button data-x style="background:none;border:0;color:#94a3b8;font-size:1.05rem;cursor:pointer">✕</button></div>
                 <div style="font-size:.7rem;font-weight:900;margin:.6rem 0 .25rem;color:#fcd34d">General equipment</div>
                 <div style="display:flex;flex-direction:column;gap:.2rem;max-height:30vh;overflow:auto">${gear.map((g, i) => `<div style="display:flex;align-items:center;gap:.4rem;border:1px solid #334155;border-radius:.35rem;padding:.2rem .4rem;background:#0b1220"><div style="flex:1;font-size:.72rem"><b>${esc(g.name)}</b> <span style="color:#94a3b8">(${g.cost} Cu, ${g.wt} lb)</span></div><button data-gear="${i}" style="${btn}">Find</button></div>`).join('') || '<div style="font-size:.66rem;color:#94a3b8">Nothing that cheap.</div>'}</div>
@@ -673,6 +683,7 @@
         window.equipArmorFromInventory = function(idx) {
             let item = window.state.items[idx];
             if (!item || !item.isArmor) return;
+            if (item.broken) { window.APXDice?.notify(`${item.name} is broken: repair it first (🔍, then Repair).`, { kind: 'warn', open: true }); return; }
             let doEquip = () => {
                 // One comes off the stack (identical armor shares one inventory row)
                 let wear = JSON.parse(JSON.stringify(item.armorData));
@@ -731,7 +742,7 @@
             let w = window.state.weapons[idx];
             if (!w || w.isUnarmed || w.isAncestry) return;
             window.showConfirm(`Unequip ${w.name}? It'll move to your inventory, where you can re-equip it later.`, () => {
-                let existing = window.state.items.find(i => i.isWeapon && weaponsAreStackable(i.weaponData, w));
+                let existing = window.state.items.find(i => i.isWeapon && !i.broken && weaponsAreStackable(i.weaponData, w));
                 if (existing) {
                     existing.ct += 1;
                 } else {
@@ -748,6 +759,7 @@
         window.equipWeaponFromInventory = function(idx) {
             let item = window.state.items[idx];
             if (!item || !item.isWeapon) return;
+            if (item.broken) { window.APXDice?.notify(`${item.name} is broken: repair it first (🔍, then Repair).`, { kind: 'warn', open: true }); return; }
             window.state.weapons.push(JSON.parse(JSON.stringify(item.weaponData)));
             let handsFree = window.calcTotalHands() - window.calcHandsUsed();
             if (handsFree < 0) {
@@ -825,7 +837,7 @@
                 st.extraShields = (st.extraShields || []).concat([{ name: 'Shield', ac: s.ac, dr: s.dr, er: s.er, wt: s.wt, cost: s.cost, hand, hands: [hand] }]);
                 window.recalculateMath();
             };
-            let owned = (st.items || []).find(i => i.isShield);
+            let owned = (st.items || []).find(i => i.isShield && !i.broken);
             if (owned) { window.apxTakeOne(owned); add(); return; }
             if ((st.currency || 0) < s.cost) { window.showConfirm(`Not enough Currency. Another Shield costs ${s.cost}, you have ${st.currency || 0}.`, null, true); return; }
             window.showConfirm(`Buy and equip another Shield (${(window.APX_HAND_LABEL || {})[hand] || hand}) for ${s.cost} Currency? It adds another +${s.ac} AC/DR/ER.`, () => {
@@ -858,7 +870,7 @@
                 });
                 return;
             }
-            let owned = window.state.items.find(i => i.isShield);
+            let owned = window.state.items.find(i => i.isShield && !i.broken);
             if (owned) {
                 if (!canFitShieldAfterHeavyRemoved()) {
                     window.showConfirm('Not enough free hands to equip a Shield. Unequip a weapon first, or switch a two-handed Medium weapon to one-handed.', null, true);
@@ -897,12 +909,12 @@
             }
             // (not in an Exo-Suit: js/apx-exo.js)
             if (window.apxExoNoHelmet && window.apxExoNoHelmet()) { window.APXDice?.notify('You can\'t wear a helmet in an Exo-Suit. Leave the suit first.', { kind: 'warn' }); return; }
-            let brokenOwned = window.state.items.find(i => i.isBrokenHelmet);
-            if (brokenOwned) {
+            let owned = window.state.items.find(i => i.isHelmet && !i.broken);
+            let brokenOwned = window.state.items.find(i => i.isBrokenHelmet || (i.isHelmet && i.broken));
+            if (brokenOwned && !owned) {
                 window.openHelmetRepairModal();
                 return;
             }
-            let owned = window.state.items.find(i => i.isHelmet);
             if (owned) {
                 window.apxTakeOne(owned);
                 h.equipped = true;
@@ -936,6 +948,7 @@
             });
         };
         window.openHelmetRepairModal = function() {
+            if (window.apxOpenRepair) { window.apxOpenRepair({ kind: 'helmet' }); return; }   // (js/apx-repair.js)
             let h = window.state.equippedHelmet;
             // Follows the same crafting-cost rules as the Armor/Weapon
             // Forges: DC = 10 + ceil(materials cost / 100). Repair
@@ -1213,6 +1226,7 @@
             let st = window.state, item = st.items[idx];
             if (!item || !item.isCustomEquippable) return;
             if (!item.equipped) {
+                if (item.broken) { window.APXDice?.notify(`${item.name} is broken: repair it first (🔍, then Repair).`, { kind: 'warn', open: true }); return; }
                 // Equipping one from a stack: it gets its own row, the rest stay in the pack
                 if ((parseInt(item.ct) || 1) > 1) {
                     let one = JSON.parse(JSON.stringify(item)); one.ct = 1; one.equipped = true;
