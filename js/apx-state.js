@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.10.23.1720';
+window.APX_VERSION = 'v2026.10.25.2115';
 
         window.state = getInitialState();
 
@@ -114,7 +114,7 @@ window.APX_VERSION = 'v2026.10.23.1720';
                 tooltipEl = document.createElement('div');
                 tooltipEl.className = 'apx-portal-tooltip';
                 tooltipEl.textContent = text;
-                tooltipEl.style.cssText = 'position:fixed; background:var(--c-surface2); color:var(--c-text); border:1px solid var(--c-border2); padding:5px 8px; border-radius:4px; font-size:10px; font-family:var(--c-body-ui-font, var(--c-font)); max-width:220px; width:max-content; white-space:pre-line; z-index:99999; pointer-events:none; box-shadow:0 4px 10px rgba(0,0,0,0.5); text-align:left; line-height:1.3;';
+                tooltipEl.style.cssText = 'position:fixed; background:var(--c-surface2); color:var(--c-text); border:1px solid var(--c-border2); padding:5px 8px; border-radius:4px; font-size:10px; font-family:var(--c-body-ui-font, var(--c-font)); max-width:300px; width:max-content; white-space:pre-line; z-index:99999; pointer-events:none; box-shadow:0 4px 10px rgba(0,0,0,0.5); text-align:left; line-height:1.3;';
                 document.body.appendChild(tooltipEl);
                 let rect = target.getBoundingClientRect();
                 let tipRect = tooltipEl.getBoundingClientRect();

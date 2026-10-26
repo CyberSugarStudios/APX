@@ -88,7 +88,7 @@
             <li>What you take off your sheet stays off: a power that ended (by a rest, its duration, or <b>End</b>), a buff that wore off or a Condition you cleared is gone from the saved character too, so reloading the page or opening it on another device never brings it back.</li>
             <li><b>Export JSON</b> saves a sealed copy of a character. <b>Import JSON</b> always makes it a <i>new</i> character (never over the one you have open, or a world's). A file you exported from this account and didn't change comes in as it was; one that was changed, came from another account, or predates sealing is marked <b>Imported file</b>, and the GM of any world it joins sees the mark and what changed until they clear it.</li>
             <li>A character belongs to <b>one world</b> at a time, and you have one character in each world.</li>
-            <li>Hover almost anything for a tooltip that explains it.</li></ul>`],
+            <li>Hover almost anything for a tooltip that explains it. Hover a <b>number</b> to see where it comes from, part by part.</li></ul>`],
         ['Making a character', 'Character creation: three steps, in order', `
             <div class="apxtut-steps"><div><b>1</b>Race Builder</div><div><b>2</b>Origin</div><div><b>3</b>Spend XP</div></div>
             <p>A character is finished by doing all three, in this order. Each one is a button at the top of the sheet.</p>
@@ -153,6 +153,14 @@
             <li><b>Permanent powers</b> have an <b>Active</b> bubble on their card, ticked for you when you use one. While it's ticked, finishing a Short or Full Rest doesn't give back the Power Slot (or Short Rest use) it took. Untick it when the power ends (you end it as a Free Action, or it's dispelled, cured, countered or destroyed); the next rest gives the slot back. A rest doesn't end a Permanent power with Overexertion: unticking it does, with its Fatigue.</li>
             <li><b>Duration prices</b> (Step 6): 1 Minute 5 XP, 10 Minutes 10, 1 Hour 20, 8 Hours 40, 24 Hours 45. Powers and consumables you already have keep the price they were built at; changing one's duration in the crafter uses the new price.</li>
             <li><b>Regenerative</b> heals like any Rest Die you spend: the roll plus your CON modifier, with Vitality's bonuses (+ your CON modifier at Rank 1, maximum dice at Rank 3). Your sheet offers it at the start of your turn, once a turn.</li></ul>`],
+        ['Why that number?', 'Hover a number to see where it comes from', `
+            <p>Every number on your sheet has a tooltip that adds it up for you, part by part, and the parts always add up to the number shown.</p>
+            <ul><li><b>AC, DR and ER</b>: the base, your armor, shield and helmet, your Agility (and the cap your armor's weight class puts on it), perks, items, powers, Fight Defensively and anything else changing it.</li>
+            <li><b>Max HP</b>: Constitution × 5, Vitality, HP you bought with XP, items, and anything lowering it. <b>Max AP</b> (and what's lowering it, like Fatigue), <b>Speed</b>, <b>Carry Capacity</b>, <b>Wound Threshold</b>, <b>Initiative</b>, <b>Rest Dice</b> and <b>Luck</b> show theirs too.</li>
+            <li><b>Skills, saves and attributes</b>: the attribute, your Training Bonus (and what trained it), perks and items. A skill marked <b>(Disadv)</b>, <b>(Adv)</b> or <b>(Auto-Fail)</b> says what's causing it.</li>
+            <li><b>Weapons</b>: the attack bonus (attribute, training, perks, aiming and anything else adding to it), the damage (its dice and every modifier), and the <b>AP</b> cost (its weight class plus properties like Repeating or Two-handed).</li>
+            <li><b>Powers</b>: your power attack bonus and save DC, and each power slot level's count.</li>
+            <li>Gear, weight and value: a row's weight tip shows the weight of one and of the whole stack; its value tip shows what one is worth and what selling it gets you.</li></ul>`],
         ['Powers in play', 'Your powers on the battle map', `
             <ul><li><b>Targets in range:</b> with your GM's battle map open (and your token on it), using a power lists the creatures within its range that you can see (walls block sight), nearest first. Pick one, or several for a split power. <b>Not on the map</b> leaves it to your GM. Your token on more than one open map: you're asked which one.</li>
             <li><b>Your GM's tracker resolves it:</b> its saves are rolled (NPCs) or asked for (players), then its damage, healing, the Conditions it inflicts and the ones it ends land on the targets you picked, with no dialog. <b>Grappled</b> is in the Minor Inflict or end a Condition list now, <b>Pinned</b> in the Moderate one.</li>

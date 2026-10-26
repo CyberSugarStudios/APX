@@ -220,6 +220,44 @@
                 }
             };
 
+            // Why each number is what it is (the sheet's breakdown tooltips, js/apx-why.js): every part of a number is
+            // recorded as it's added. calc.why[key] = [[label, amount, base?], ...]; calc.whyNotes[key] = [text]
+            calc.why = {}; calc.whyNotes = {};
+            const W = (k, label, n, base) => { n = Number(n) || 0; if (!n && !base) return; (calc.why[k] = calc.why[k] || []).push(base ? [label, n, 1] : [label, n]); };
+            const WN = (k, text) => { if (text) (calc.whyNotes[k] = calc.whyNotes[k] || []).push(text); };
+            calc._W = W; calc._WN = WN;
+            // A perk's effect changes calc directly: what it changed is recorded under its name
+            const WHY_F = ['ac', 'dr', 'er', 'speed', 'maxRestDice', 'carryCap', 'init', 'bonusMeleeAtk', 'bonusMeleeDmg', 'bonusRangedAtk', 'bonusRangedDmg', 'wtBoost', 'maxHpPenalty', 'sizeMultBoost'];
+            const whySnap = () => ({ f: WHY_F.map(k => calc[k] || 0), sk: Object.assign({}, calc.skills), step: calc.restDieStep });
+            const whyDiff = (label, sn) => {
+                WHY_F.forEach((k, i) => W(k, label, (calc[k] || 0) - sn.f[i]));
+                Object.keys(calc.skills).forEach(k => W('skill:' + k, label, (calc.skills[k] || 0) - (sn.sk[k] || 0)));
+                if (calc.restDieStep !== sn.step) WN('restDie', `${label}: ${sn.step || 'd6'} → ${calc.restDieStep}`);
+            };
+            const whyTraitName = id => ((typeof ANCESTRY_TRAITS !== 'undefined' ? ANCESTRY_TRAITS : []).concat(typeof ANCESTRY_FLAWS !== 'undefined' ? ANCESTRY_FLAWS : []).find(t => t.id === id) || {}).name || id;
+            const whyPerkName = (id, rank) => ((PERKS_DB.find(p => p.id === id) || {}).name || id) + (rank > 1 ? ` (Rank ${rank})` : '');
+            // Equipped items and powers on you: what each adds to one of their stat totals (fxStat)
+            const whyFx = k => {
+                let out = [], num = v => parseFloat(v) || 0;
+                (window.state.items || []).forEach(it => {
+                    if (!(it && it.isCustomEquippable && it.equipped && it.bonuses)) return;
+                    let b = it.bonuses, n = 0;
+                    if (k === 'ac') n += num(b.ac); else if (k === 'dr') n += num(b.dr); else if (k === 'er') n += num(b.er); else if (k === 'speed') n += num(b.speedBonus);
+                    (b.statBonuses || []).forEach(r => { if (r && r.target === k) n += num(r.amount); });
+                    if (n) out.push([`Item: ${it.name || 'Item'}`, n]);
+                });
+                (window.state.powerBuffs || []).forEach(b => {
+                    let m = { ac: b.ac, dr: b.dr, er: b.er, speed: b.speed, meleeAtk: b.atk, rangedAtk: b.atk, powerAtk: b.atk, saveAll: b.save, checkAll: b.skill }[k];
+                    if (num(m)) out.push([`Power on you: ${b.name || 'a power'}`, num(m)]);
+                });
+                let total = (calc.itemFx && calc.itemFx.stat && calc.itemFx.stat[k]) || 0, rest = total - out.reduce((t, x) => t + x[1], 0);
+                if (rest) out.push(['Items and powers', rest]);
+                return out;
+            };
+            calc._whyFx = whyFx;
+            const WFX = (key, k) => whyFx(k || key).forEach(x => W(key, x[0], x[1]));
+            W('ac', 'Base', 10, true);
+
             // Folds one condition/wound's effect definition into calc.disadv.
             function applyEffectSource(label, def) {
                 if (!def) return;
@@ -232,20 +270,23 @@
                 else if (Array.isArray(def.checkDisadvantage)) def.checkDisadvantage.forEach(a => calc.disadv.checkByAttr[a] && calc.disadv.checkByAttr[a].push(label));
                 if (Array.isArray(def.autoFailSaves)) def.autoFailSaves.forEach(a => calc.disadv.autoFailSaveByAttr[a] && calc.disadv.autoFailSaveByAttr[a].push(label));
                 if (Array.isArray(def.autoFailChecks)) def.autoFailChecks.forEach(a => calc.disadv.autoFailCheckByAttr[a] && calc.disadv.autoFailCheckByAttr[a].push(label));
-                if (def.speedZero) calc.speedForcedZero = true;
-                if (def.apZero) calc.apForcedZero = true;
+                if (def.speedZero) { calc.speedForcedZero = true; WN('speedZero', label); }
+                if (def.apZero) { calc.apForcedZero = true; WN('apZero', label); }
                 if (def.noActions) calc.cantAct = true;
             }
 
-            if(window.state.ancestry.traits.includes('t_sens')) calc.skills['Notice'] = (calc.skills['Notice']||0) + 5;
+            if(window.state.ancestry.traits.includes('t_sens')) { calc.skills['Notice'] = (calc.skills['Notice']||0) + 5; W('skill:Notice', whyTraitName('t_sens') + ' (Ancestry)', 5); }
             let tArmCount = window.state.ancestry.traits.filter(x => x === 't_arm').length;
-            if(tArmCount) calc.ac += tArmCount;
-            if(window.state.ancestry.traits.includes('t_load')) calc.sizeMultBoost += 1;
+            if(tArmCount) { calc.ac += tArmCount; W('ac', whyTraitName('t_arm') + ' (Ancestry)' + (tArmCount > 1 ? ` ×${tArmCount}` : ''), tArmCount); }
+            if(window.state.ancestry.traits.includes('t_load')) { calc.sizeMultBoost += 1; W('sizeMultBoost', whyTraitName('t_load') + ' (Ancestry)', 1); }
             let fragCount = window.state.ancestry.flaws.filter(x => x === 'f_frag').length;
-            if(fragCount) calc.maxHpPenalty += 5 * fragCount;
+            if(fragCount) { calc.maxHpPenalty += 5 * fragCount; W('maxHpPenalty', whyTraitName('f_frag') + ' (Ancestry flaw)' + (fragCount > 1 ? ` ×${fragCount}` : ''), 5 * fragCount); }
 
             ATTRIBUTES.forEach(a => {
                 calc.scores[a] = window.state.baseStats[a] + (window.state.ancestry.bonuses[a] || 0) + ((window.state.attrAdj || {})[a] || 0);
+                W('score:' + a, 'Character creation', window.state.baseStats[a], true);
+                W('score:' + a, 'Ancestry', window.state.ancestry.bonuses[a] || 0);
+                W('score:' + a, 'Bought with XP, or Permanent Injuries', (window.state.attrAdj || {})[a] || 0);
             });
 
             // Custom equippable items (rings, circlets, etc. from the Add
@@ -262,42 +303,60 @@
             let itemFx = calc.itemFx = window.apxItemEffects ? window.apxItemEffects(window.state) : { attr: {}, skill: {}, er: [], stat: {} };
             if (window.apxPowerBuffStats) window.apxPowerBuffStats(window.state, itemFx);   // (buffs from powers on you count like an item's bonuses)
             let fxStat = k => (itemFx.stat && itemFx.stat[k]) || 0;
-            ATTRIBUTES.forEach(a => { if (itemFx.attr[a]) calc.scores[a] += itemFx.attr[a]; });
+            ATTRIBUTES.forEach(a => { if (itemFx.attr[a]) {
+                calc.scores[a] += itemFx.attr[a];
+                let names = (window.state.items || []).filter(it => it && it.isCustomEquippable && it.equipped && it.bonuses && ((it.bonuses.attrBonuses || []).some(r => r && r.target === a && parseFloat(r.amount)) || (it.bonuses.attrTarget === a && parseFloat(it.bonuses.attrBonus)))).map(it => it.name || 'Item');
+                W('score:' + a, names.length ? 'Item: ' + names.join(', ') : 'Equipped items', itemFx.attr[a]);
+            } });
 
             Object.keys(window.state.perks).forEach(perkId => {
                 let pDef = PERKS_DB.find(p => p.id === perkId);
                 let rank = window.state.perks[perkId];
                 let choices = window.state.perkChoices[perkId] || null;
-                if(pDef && pDef.effect && rank > 0) pDef.effect(calc, rank, choices);
+                if(pDef && pDef.effect && rank > 0) { let sn = whySnap(); pDef.effect(calc, rank, choices); whyDiff(whyPerkName(perkId, rank), sn); }
             });
 
             (window.state.ancestryBonusPerks || []).forEach(bp => {
                 let bpDef = PERKS_DB.find(p => p.id === bp.perkId);
                 if(bpDef && bpDef.effect) {
                     let choices = bp.choice ? { 1: bp.choice } : null;
+                    let sn = whySnap();
                     bpDef.effect(calc, 1, choices);
+                    whyDiff(whyPerkName(bp.perkId, 1) + ' (Ancestry bonus perk)', sn);
                 }
             });
 
             // Items that set a score to a total ("STR 15 unless higher"), after every bonus and perk
-            if (window.apxApplyItemAttrSets) window.apxApplyItemAttrSets(calc.scores, itemFx);
+            if (window.apxApplyItemAttrSets) {
+                let before = Object.assign({}, calc.scores);
+                window.apxApplyItemAttrSets(calc.scores, itemFx);
+                ATTRIBUTES.forEach(a => W('score:' + a, 'An item sets it', calc.scores[a] - before[a]));
+            }
             // A worn, powered Exo-Suit (js/apx-exo.js): Juggernaut STR / Phantom AGI +4 to a maximum of 16
             // (Powerful: +6, to 18), never lowering a score that's already higher
             let exo = calc.exo = window.apxExoActive ? window.apxExoActive(window.state) : null;
-            if (exo && exo.attr) calc.scores[exo.attr] = window.apxExoScore(calc.scores[exo.attr], exo);
+            if (exo && exo.attr) { let was = calc.scores[exo.attr]; calc.scores[exo.attr] = window.apxExoScore(calc.scores[exo.attr], exo); W('score:' + exo.attr, `Exo-Suit (+${exo.attrPlus}, to a maximum of ${exo.attrMax})`, calc.scores[exo.attr] - was); }
             ATTRIBUTES.forEach(a => {
                 calc.mods[a] = calc.scores[a] - 5;
             });
             if (exo) {
                 if (exo.skill) (calc.skillAdv[exo.skill] = calc.skillAdv[exo.skill] || []).push('Exo-Suit');
-                if (exo.sys.has('forceMult')) calc.bonusMeleeDmg += Math.max(0, calc.mods.STR);   // STR modifier twice on melee damage
+                if (exo.sys.has('forceMult')) { calc.bonusMeleeDmg += Math.max(0, calc.mods.STR); W('bonusMeleeDmg', 'Exo-Suit: Force Multipliers (STR modifier again)', Math.max(0, calc.mods.STR)); }   // STR modifier twice on melee damage
             }
 
             calc.maxRestDice = calc.scores.CON + (calc.maxRestDice - 5) + fxStat('maxRestDice');
+            W('maxRestDice', 'CON score', calc.scores.CON, true); WFX('maxRestDice');
+            if (calc.maxRestDice < 0) W('maxRestDice', 'Never below 0', -calc.maxRestDice);
             calc.maxRestDice = Math.max(0, calc.maxRestDice);
 
             let vitalHpRank = window.state.perks['con_vitality'] || 0;
             let maxHp = (calc.scores.CON * 5) + (vitalHpRank * 5) + window.state.xpHpBought - calc.maxHpPenalty + fxStat('maxHp');
+            W('maxHp', `CON score ${calc.scores.CON} × 5`, calc.scores.CON * 5, true);
+            W('maxHp', whyPerkName('con_vitality', vitalHpRank) + ': +5 per rank', vitalHpRank * 5);
+            W('maxHp', 'Bought with XP', window.state.xpHpBought);
+            (calc.why.maxHpPenalty || []).forEach(x => W('maxHp', x[0], -x[1]));
+            WFX('maxHp');
+            if (maxHp < 5) W('maxHp', 'Never below 5', 5 - maxHp);
             maxHp = Math.max(5, maxHp);
             calc.maxHp = maxHp;
             // Whenever Max HP changes -- up from leveling CON, buying
@@ -313,6 +372,7 @@
             }
             window.state.lastKnownMaxHp = maxHp;
             document.getElementById('dispMaxHp').innerText = maxHp;
+            window.apxTip && window.apxTip('dispMaxHp', window.apxWhyText('Max HP', calc.why.maxHp, maxHp));
 
             // Your size's own effects, applied to your rolls: Small → Advantage on AGI (Stealth);
             // Large → Disadvantage on AGI (Stealth), Advantage on STR (Athletics) to push or grapple
@@ -329,11 +389,24 @@
             if (calc.sizeMultBoost > 0) sizeMult *= Math.pow(2, calc.sizeMultBoost);
             if (exo && exo.sizeUp) sizeMult *= 2;   // each step (Brute R1, Load-Bearing) is one size larger: stacks with the ancestry size
             calc.carryCap = calc.scores.STR * sizeMult + (calc.carryCap - 150) + fxStat('carryCap');
+            {
+                let szName = { 15: 'Small', 30: 'Medium', 60: 'Large' }[parseInt(window.state.ancestry.size) || 30] || 'your size';
+                let steps = (calc.why.sizeMultBoost || []).map(x => x[0]).concat(exo && exo.sizeUp ? ['Exo-Suit'] : []);
+                W('carryCap', `STR score ${calc.scores.STR} × ${sizeMult} lbs (${szName}${steps.length ? ', counted larger: ' + steps.join(', ') : ''})`, calc.scores.STR * sizeMult, true);
+                WFX('carryCap');
+            }
 
             let armorWt = window.state.equippedArmor.wt;
             let armorAc = window.state.equippedArmor.ac;
             let armorDr = window.state.equippedArmor.dr;
             let armorEr = window.state.equippedArmor.er;
+            {
+                let an = 'Armor: ' + (window.state.equippedArmor.name || 'worn armor');
+                W('ac', an, armorAc); W('dr', an, armorDr); W('er', an, armorEr);
+                if (window.state.equippedShield.equipped) { let s = window.state.equippedShield; W('ac', 'Shield', s.ac); W('dr', 'Shield', s.dr); W('er', 'Shield', s.er); }
+                (window.state.extraShields || []).forEach((x, i) => { W('ac', 'Another shield', x.ac); W('dr', 'Another shield', x.dr); W('er', 'Another shield', x.er); });
+                if (window.state.equippedHelmet.equipped && !window.state.equippedHelmet.broken) { let h = window.state.equippedHelmet; W('ac', 'Helmet', h.ac); W('dr', 'Helmet', h.dr); W('er', 'Helmet', h.er); }
+            }
 
             // Shield/Helmet: simple fixed-stat equipment, not run through
             // the Armor Forge's craftBatches system -- their AC/weight
@@ -391,19 +464,28 @@
             armorDr += fxStat('dr');
             armorEr += fxStat('er');
             calc.speed += fxStat('speed');
+            WFX('ac'); WFX('dr'); WFX('er'); WFX('speed');
+            W('speed', 'Base Speed (Ancestry)', window.state.ancestry.speed || 3, true);
             Object.keys(itemFx.skill).forEach(t => {
                 // Items name skills by their display name ("Animal Handling"); the sheet keys them by id
                 let sk = [...SKILLS, ...(window.state.customSkills || [])].find(x => x.name === t || x.id === t);
                 let key = sk ? sk.id : t;
                 calc.skills[key] = (calc.skills[key] || 0) + itemFx.skill[t];
+                let names = (window.state.items || []).filter(it => it && it.isCustomEquippable && it.equipped && it.bonuses && ((it.bonuses.skillBonuses || []).some(r => r && r.target === t) || it.bonuses.skillTarget === t)).map(it => it.name || 'Item');
+                W('skill:' + key, names.length ? 'Item: ' + names.join(', ') : 'Equipped items', itemFx.skill[t]);
             });
             calc.bonusMeleeAtk += fxStat('meleeAtk'); calc.bonusMeleeDmg += fxStat('meleeDmg');
             calc.bonusRangedAtk += fxStat('rangedAtk'); calc.bonusRangedDmg += fxStat('rangedDmg');
+            WFX('bonusMeleeAtk', 'meleeAtk'); WFX('bonusMeleeDmg', 'meleeDmg'); WFX('bonusRangedAtk', 'rangedAtk'); WFX('bonusRangedDmg', 'rangedDmg');
 
             // Armor Forge mods (Stealth/Athletics checks, worn Speed penalty)
             if (window.state.equippedArmor.stealthMod) calc.skills.Stealth = (calc.skills.Stealth || 0) + window.state.equippedArmor.stealthMod;
             if (window.state.equippedArmor.athleticsMod) calc.skills.Athletics = (calc.skills.Athletics || 0) + window.state.equippedArmor.athleticsMod;
             if (window.state.equippedArmor.speedMod) calc.speed += window.state.equippedArmor.speedMod;
+            {
+                let an = 'Armor: ' + (window.state.equippedArmor.name || 'worn armor');
+                W('skill:Stealth', an, window.state.equippedArmor.stealthMod); W('skill:Athletics', an, window.state.equippedArmor.athleticsMod); W('speed', an, window.state.equippedArmor.speedMod);
+            }
 
             // Armor Master: each rank makes worn armor (with shield and helmet) count as 5 lb lighter
             // for weight class and the STR requirement (carry weight still uses the real weight)
@@ -475,6 +557,7 @@
             // 31-70 lbs, Light 1-30 lbs, none if unarmored.
             let armorClass = armorWt === 0 ? null : (calc.armorClassWt > 70 ? 'Heavily' : (calc.armorClassWt > 30 ? 'Moderately' : 'Lightly'));
             let isHeavy = armorClass === 'Heavily';
+            if (armorClass) WN('ac', `Armor weight class: ${armorClass} armored (${armorWt} lb worn${calc.armorClassWt !== armorWt ? `, counted as ${calc.armorClassWt} lb by Armor Master` : ''})`);
 
             let agiCap = Infinity;
             if (isHeavy) agiCap = 0; 
@@ -490,7 +573,7 @@
 
             if (amRank >= 4 && amChoice === 'Moderately' && armorClass === 'Moderately') agiCap += 1;
 
-            if (!meetsStr) { agiCap = 0; calc.speed -= 2; }
+            if (!meetsStr) { agiCap = 0; calc.speed -= 2; W('speed', `Armor too heavy (STR ${calc.scores.STR}, needs ${reqStr})`, -2); }
 
             // Fortunate Fighter Rank 1: LUC may replace AGI for AC -- the higher one is used
             let acAttr = (calc.lucAc && (calc.mods.LUC || 0) > (calc.mods.AGI || 0)) ? 'LUC' : 'AGI';
@@ -507,12 +590,15 @@
             if (amRank >= 2 && amMatchesChoice) {
                 calc.ac += 1;
                 calc.dr += 1;
+                W('ac', 'Armor Master (Rank 2)', 1); W('dr', 'Armor Master (Rank 2)', 1);
             }
             if (amRank >= 3 && armorClass !== null) {
                 calc.speed += 1;
+                W('speed', 'Armor Master (Rank 3)', 1);
             }
             if (amRank >= 5 && amMatchesChoice && amChoice === 'Heavily') {
                 calc.dr += 3;
+                W('dr', 'Armor Master (Rank 5)', 3);
             }
 
             if (armorWt === 0 && window.state.perks["con_defensive"]) {
@@ -520,13 +606,25 @@
                 calc.ac += window.state.perks["con_defensive"];
                 calc.dr += window.state.perks["con_defensive"];
                 calc.er += window.state.perks["con_defensive"];
+                let dn = whyPerkName('con_defensive', window.state.perks["con_defensive"]) + ', unarmored';
+                W('ac', 'Defensive (Rank 1): CON modifier', calc.mods.CON); W('ac', dn, window.state.perks["con_defensive"]);
+                W('dr', dn, window.state.perks["con_defensive"]); W('er', dn, window.state.perks["con_defensive"]);
             }
             let turnAc = window.apxTurnFxAc ? window.apxTurnFxAc() : 0;   // Fight Defensively, Block… (until your next turn)
             armorAc += turnAc;
             calc.ac += allowedAgi + armorAc;
+            {
+                let parts = window.apxTurnFxAcParts ? window.apxTurnFxAcParts() : [];
+                parts.forEach(x => W('ac', x[0], x[1]));
+                let rest = turnAc - parts.reduce((t, x) => t + x[1], 0); if (rest) W('ac', 'This turn\'s maneuvers', rest);
+                let why = isHeavy ? ' (Heavily armored: none)' : !meetsStr ? ' (armor too heavy for your STR: none)' : acAttrMod > 0 && allowedAgi < acAttrMod ? ` (+${acAttrMod}, capped at +${allowedAgi}: ${armorClass} armored)` : '';
+                W('ac', `${acAttr} modifier${acAttr === 'LUC' ? ' (Fortunate Fighter: higher than AGI)' : ''}${why}`, allowedAgi);
+                if (why && !allowedAgi) WN('ac', `${acAttr} modifier${why}`);
+            }
             // Juggernaut Plating: added to your own defenses
-            if (exo && exo.plating) calc.ac += exo.plating.ac;
+            if (exo && exo.plating) { calc.ac += exo.plating.ac; W('ac', `Exo-Suit: ${exo.platingName}`, exo.plating.ac); }
             document.getElementById('dispAc').innerText = calc.ac;
+            window.apxTip && window.apxTip('dispAc', window.apxWhyText('Total AC', calc.why.ac, calc.ac, calc.whyNotes.ac));
             // Update AC label tooltip dynamically
             {
                 let acLabel = document.getElementById('acLabel') || document.querySelector('div[data-tip*="AGI modifier"]');
@@ -586,13 +684,19 @@
             calc.dr += Math.max(0, calc.mods.CON) + armorDr;
             let baseErMods = [calc.mods.AGI, calc.mods.PER, calc.mods.INT, calc.mods.CHA, calc.mods.LUC].map(v => Math.max(v, 0));
             calc.er += Math.max(...baseErMods) + armorEr;
-            if (exo && exo.plating) { calc.dr += exo.plating.dr; calc.er += exo.plating.er; }
-            if (exo && exo.er) calc.er += exo.er;   // a Conduit: +5 ER
+            W('dr', 'CON modifier (if positive)', Math.max(0, calc.mods.CON));
+            {
+                let best = Math.max(...baseErMods), at = ['AGI', 'PER', 'INT', 'CHA', 'LUC'].find(a => Math.max(calc.mods[a], 0) === best);
+                W('er', `${at} modifier (your highest of AGI, PER, INT, CHA and LUC)`, best);
+            }
+            if (exo && exo.plating) { calc.dr += exo.plating.dr; calc.er += exo.plating.er; W('dr', `Exo-Suit: ${exo.platingName}`, exo.plating.dr); W('er', `Exo-Suit: ${exo.platingName}`, exo.plating.er); }
+            if (exo && exo.er) { calc.er += exo.er; W('er', 'Exo-Suit: Conduit', exo.er); }   // a Conduit: +5 ER
             // Acid (an Elemental Critical): each one lowers your DR by 1 until your armor is repaired
             calc.acidDr = Math.max(0, parseInt(window.state.armorAcid) || 0);
-            if (calc.acidDr) calc.dr = Math.max(0, calc.dr - calc.acidDr);
+            if (calc.acidDr) { W('dr', 'Acid on your armor (until it\'s repaired)', -Math.min(calc.dr, calc.acidDr)); calc.dr = Math.max(0, calc.dr - calc.acidDr); }
 
             document.getElementById('dispDr').innerText = calc.dr;
+            window.apxTip && window.apxTip('dispDr', window.apxWhyText('Total DR (Physical damage)', calc.why.dr, calc.dr, calc.whyNotes.dr));
             {
                 let host = document.getElementById('dispDr').parentElement, el = document.getElementById('apxAcidDr');
                 if (calc.acidDr) {
@@ -602,6 +706,7 @@
                 } else if (el) el.remove();
             }
             document.getElementById('dispEr').innerText = calc.er;
+            window.apxTip && window.apxTip('dispEr', window.apxWhyText('Total ER (Energy damage)', calc.why.er, calc.er, (calc.whyNotes.er || []).concat(['Resistances to one Energy type are listed under Armor & Defenses.'])));
             {
                 let envEl = document.getElementById('dispEnvResistances');
                 if (envEl) {
@@ -624,10 +729,12 @@
                         if (!e.type) return;
                         let t = ensureType(e.type);
                         if (e.immune) t.immune = true; else t.net += 5;
+                        if (!t.sources.includes('Ancestry')) t.sources.push('Ancestry');
                     });
                     (window.state.ancestryEnvVulnerabilities || []).forEach(e => {
                         if (!e.type) return;
-                        ensureType(e.type).net -= 5;
+                        let t = ensureType(e.type); t.net -= 5;
+                        if (!t.sources.includes('Ancestry flaw')) t.sources.push('Ancestry flaw');
                     });
                     (calc.customItemErBonuses || []).forEach(b => {
                         let t = ensureType(b.type);
@@ -671,6 +778,7 @@
                         parts.push(`<span class="text-cyan-300" title="Defensive Rank 4: while unarmored, your DR and ER against traps, hazards and falling increase by your CON score (${con})">Traps, Hazards &amp; Falling: DR ${calc.dr + con} / ER ${calc.er + con}</span> <span class="text-slate-500">(Defensive)</span>`);
                     }
                     envEl.innerHTML = parts.join('<br>');
+                    window.apxTip && window.apxTip(envEl, parts.length ? 'Resistance to one damage type takes that much off its damage, on top of your DR or ER. Immune: it deals you nothing. Vulnerable: you take that much more. The sources are in brackets.' : '');
                 }
             }
 
@@ -687,24 +795,56 @@
                 calc.combatStartAp = Math.max(0, n); calc.combatStartApSrc = src;
             }
             calc.maxAp = calc.apForcedZero ? 0 : Math.max(0, Math.max(6, 6 + Math.floor(calc.mods.AGI / 2)) - effectiveFatigue + fxStat('maxAp'));   // 6 + half AGI mod (round down), min 6 — Sept 23, 2026 update
+            {
+                calc.why.maxAp = [];
+                let half = Math.floor(calc.mods.AGI / 2);
+                W('maxAp', 'Base', 6, true);
+                if (half > 0) W('maxAp', `Half your AGI modifier (+${calc.mods.AGI}, rounded down)`, half);
+                if (window.state.fatigue > 0) W('maxAp', `Fatigue ${window.state.fatigue}${tirelessRank ? `, ${Math.min(tirelessRank, window.state.fatigue)} ignored (Tireless)` : ''}`, -effectiveFatigue);
+                WFX('maxAp');
+                let raw = Math.max(6, 6 + half) - effectiveFatigue + fxStat('maxAp');
+                if (calc.apForcedZero) { WN('maxAp', 'No AP: ' + (calc.whyNotes.apZero || []).join(', ')); W('maxAp', 'Your Conditions (AP 0)', -raw); }
+                else if (raw < 0) W('maxAp', 'Never below 0', -raw);
+                if (calc.combatStartAp) WN('maxAp', `Start of combat: +${calc.combatStartAp} AP (${(calc.combatStartApSrc || []).join(', ')})`);
+            }
             
             window.syncInitStatCheckboxes(); // may revert state.initStat if its perk was removed, so this runs before calc.init uses it
             calc.init = 10 + (calc.mods[window.state.initStat] || 0) + (calc.init - 10) + fxStat('init');
+            W('init', 'Base', 10, true); W('init', `${window.state.initStat || 'AGI'} modifier`, calc.mods[window.state.initStat] || 0); WFX('init');
 
             document.getElementById('dispGlobalTb').innerText = window.state.trainingBonus;
+            if (window.apxTip) {
+                let tb = window.state.trainingBonus || 2;
+                let tbText = window.apxWhyText('Training Bonus', [['Starting Training Bonus', 2, 1], ['Bought with XP (Spend XP)', tb - 2]], tb, ['Added to trained skills, trained saves, trained weapons and powers.']);
+                window.apxTip('dispGlobalTb', tbText); window.apxTip(document.getElementById('dispGlobalTb').closest('div'), tbText);
+            }
             document.getElementById('dispAp').innerText = calc.maxAp;
+            if (window.apxTip) { let apText = window.apxWhyText('Max AP (each turn)', calc.why.maxAp, calc.maxAp, calc.whyNotes.maxAp); window.apxTip('dispAp', apText); window.apxTip('dispApLeft', `AP left this turn: ${window.apxApCurrent ? window.apxApCurrent() : ''}\n` + apText); }
             window.apxRenderApPips && window.apxRenderApPips();
             document.getElementById('dispInit').innerText = calc.init;
+            window.apxTip && window.apxTip('dispInit', window.apxWhyText('Initiative', calc.why.init, calc.init));
             // Exo-Suits: a Juggernaut's base Speed becomes 4 (Assault Plating 3, Dreadnought 2), and what was added to your
             // own base Speed (a Power, gear, a penalty) still counts on top; a Phantom adds 1 (All-Terrain Movement 1 more).
             // A shut-down Juggernaut weighs on anyone with STR 16 or less: Speed 1 (and Overburdened, above).
-            if (exo && exo.speedFixed) calc.speed = exo.speedFixed + (calc.speed - (window.state.ancestry.speed || 3));
-            if (exo && exo.speedPlus) calc.speed += exo.speedPlus;
-            if (window.apxExoOverburdened && window.apxExoOverburdened(window.state, calc.scores.STR)) calc.speed = Math.min(calc.speed, 1);
-            if (calc.overburdened) calc.speed = Math.min(calc.speed, 1);   // Overburdened: Speed 1
+            if (exo && exo.speedFixed) { W('speed', `Exo-Suit: base Speed ${exo.speedFixed}`, exo.speedFixed - (window.state.ancestry.speed || 3)); calc.speed = exo.speedFixed + (calc.speed - (window.state.ancestry.speed || 3)); }
+            if (exo && exo.speedPlus) { calc.speed += exo.speedPlus; W('speed', 'Exo-Suit', exo.speedPlus); }
+            if (window.apxExoOverburdened && window.apxExoOverburdened(window.state, calc.scores.STR) && calc.speed > 1) { W('speed', 'Shut-down Juggernaut suit: Speed 1', 1 - calc.speed); calc.speed = 1; }
+            if (calc.overburdened && calc.speed > 1) { W('speed', 'Overburdened: Speed 1', 1 - calc.speed); calc.speed = 1; }   // Overburdened: Speed 1
             document.getElementById('dispSpeed').innerText = calc.speedForcedZero ? 0 : Math.max(0, calc.speed);
+            if (window.apxTip) {
+                let shown = calc.speedForcedZero ? 0 : Math.max(0, calc.speed), list = (calc.why.speed || []).slice(), notes = [];
+                if (calc.speedForcedZero) { list.push(['Your Conditions (Speed 0)', -Math.max(0, calc.speed)]); notes.push('Speed 0: ' + (calc.whyNotes.speedZero || []).join(', ')); }
+                else if (calc.speed < 0) list.push(['Never below 0', -calc.speed]);
+                notes.push('Squares per Move: the first Move in a turn costs 1 AP, the second 2, the third 3… (difficult terrain costs 2 squares each).');
+                window.apxTip('dispSpeed', window.apxWhyText('Speed', list, shown, notes));
+            }
             document.getElementById('dispMaxRest').innerText = calc.maxRestDice;
             document.getElementById('dispRestDieStep').innerText = calc.restDieStep;
+            if (window.apxTip) {
+                window.apxTip('dispMaxRest', window.apxWhyText('Max Rest Dice', calc.why.maxRestDice, calc.maxRestDice, ['You get them all back on a Full Rest.']));
+                let st2 = calc.whyNotes.restDie || [];
+                window.apxTip('dispRestDieStep', `Rest Die: ${calc.restDieStep}\n${st2.length ? st2.join('\n') : 'd6 to start (Well Rested makes it larger)'}\nClick to use one: heal the roll + your CON modifier (${calc.mods.CON >= 0 ? '+' : ''}${calc.mods.CON}).`);
+            }
             // Same idea as Max HP: whenever Max Rest Dice changes (CON
             // shifting, etc.), Current Rest Dice shifts by the same
             // delta rather than staying put, in both directions.
@@ -717,6 +857,12 @@
             calc.woundThreshold = (calc.scores.CON * 2) + calc.wtBoost + fxStat('wt');
             if (exo && exo.plating) calc.woundThreshold += exo.plating.wt;
             document.getElementById('dispWt').innerText = calc.woundThreshold;
+            if (window.apxTip) {
+                let list = [[`CON score ${calc.scores.CON} × 2`, calc.scores.CON * 2, 1]].concat(calc.why.wtBoost || []).concat(whyFx('wt'));
+                if (exo && exo.plating) list.push([`Exo-Suit: ${exo.platingName}`, exo.plating.wt]);
+                let t = window.apxWhyText('Wound Threshold', list, calc.woundThreshold, ['Damage over this in one hit (past Temp HP) means a CON save, or a limb is Wounded.']);
+                window.apxTip('dispWt', t); window.apxTip(document.getElementById('dispWt').parentElement, t);
+            }
             // The numbers this sheet shows, saved with the character: the GM's party panel and damage
             // math use exactly these (DR/ER with shield, helmet, perks and items; resistances by type)
             {
@@ -738,6 +884,10 @@
             let newMaxLuck = Math.max(0, Math.max(1, calc.mods.LUC) + fxStat('maxLuck'));
             calc.maxLuck = newMaxLuck;
             document.getElementById('dispMaxLuck').innerText = newMaxLuck;
+            if (window.apxTip) {
+                let list = [[calc.mods.LUC > 1 ? `LUC modifier (+${calc.mods.LUC})` : 'Base (at least 1, or your LUC modifier)', Math.max(1, calc.mods.LUC), 1]].concat(whyFx('maxLuck'));
+                window.apxTip('dispMaxLuck', window.apxWhyText('Max Luck Points', list, newMaxLuck, ['Spend one to reroll a d20 you just rolled, or after a roll for another effect. They come back on a Full Rest.']));
+            }
             // Auto-adjust current luckPts when LUC changes (same pattern as restDice)
             if (window.state.lastKnownMaxLuck !== undefined && newMaxLuck !== window.state.lastKnownMaxLuck) {
                 window.state.luckPts = Math.max(0, Math.min(newMaxLuck, (window.state.luckPts || 0) + (newMaxLuck - window.state.lastKnownMaxLuck)));
@@ -746,6 +896,22 @@
             }
             window.state.lastKnownMaxLuck = newMaxLuck;
 
+            // Tooltips for the rest of the sheet's numbers (js/apx-why.js)
+            if (window.apxTip) {
+                let st = window.state, tp = (id, t) => window.apxTip(id, t);
+                ['dispMaxHp', 'dispAc', 'dispDr', 'dispEr'].forEach(id => { let el = document.getElementById(id), lab = el && el.previousElementSibling; if (lab && el.getAttribute('data-tip')) window.apxTip(lab, el.getAttribute('data-tip')); });
+                tp('dispAcCalc', document.getElementById('dispAc') && document.getElementById('dispAc').getAttribute('data-tip'));
+                tp('currentHpInput', `Current HP: ${st.currentHp} of ${calc.maxHp}.\nType a number to set it, -9 to take 9 damage (Temp HP first; what gets past it is reduced by your DR or ER, Resistances and Immunities) or +5 to heal.`);
+                tp('tempHpInput', `Temporary HP: ${Math.max(0, st.tempHp || 0)}.\nIt takes damage before your HP (not reduced by DR or ER) and doesn't stack: gaining more keeps the higher amount.`);
+                tp('currentRestDice', `Rest Dice left: ${st.restDice || 0} of ${calc.maxRestDice} (${calc.restDieStep}).\nSpend them on a Short Rest, or click Rest Dice to use one.`);
+                tp('luckPtsInput', `Luck Points left: ${st.luckPts || 0} of ${calc.maxLuck}.`);
+                tp('unspentXp', `Unspent XP: ${st.unspentXp || 0}. Spend it with Spend XP; the XP Log lists every gain and spend.`);
+                tp('spentXp', `XP spent so far: ${st.spentXp || 0} (attributes, skills, perks, HP and powers).`);
+                let gp = document.getElementById('dispGpUsed'); if (gp) tp(gp.parentElement, `Genetic Points: ${(st.ancestry || {}).gpUsed || 0} spent on your Ancestry's traits and size, of ${(document.getElementById('dispGpLimit') || {}).innerText || '?'} allowed (your GM's World Settings can change the limit). Flaws give GP back.`);
+                let sh = st.equippedShield || {}, hm = st.equippedHelmet || {};
+                tp('shieldStatus', sh.equipped ? `Shield: +${sh.ac} AC, +${sh.dr} DR and +${sh.er} ER (in their breakdowns), ${sh.wt} lbs. It takes a hand.` : 'No shield held. Equipping one takes a hand.');
+                tp('helmetStatus', hm.broken ? 'Your Helmet is broken: no AC until it\'s repaired (Crafting Materials worth a quarter of its value).' : hm.equipped ? `Helmet: +${hm.ac} AC, DR and ER, ${hm.wt} lbs. Destroying it turns a Critical Hit into a normal hit (your Reaction).` : 'No helmet worn.');
+            }
             renderAttributesAndSkills();
             renderWeapons();
             renderInventory(armorWt);
@@ -772,20 +938,28 @@
                 let checkItemBonus = window.apxItemCheckBonus ? window.apxItemCheckBonus(calc.itemFx, attr) : 0;
                 let saveDisadvSources = calc.disadv.saveByAttr[attr] || [];
                 let saveAutoFailSources = calc.disadv.autoFailSaveByAttr[attr] || [];
+                // Breakdown tooltips (js/apx-why.js): the score, the check and the save, and where Advantage or Disadvantage comes from
+                let T = window.apxTipAttr || (() => ''), WT = window.apxWhyText || (() => ''), WM = window.apxWhyModeText || (() => '');
+                let fxw = k => (calc._whyFx ? calc._whyFx(k) : []);
+                let scoreTip = WT(`${attr} score`, calc.why && calc.why['score:' + attr], sc, [`Modifier: ${sc} − 5 = ${mod >= 0 ? '+' : ''}${mod}`]);
+                let checkParts = [[`${attr} modifier`, mod, 1]].concat(fxw('checkAll'), fxw('check_' + attr));
+                let checkTip = WT(`${attr} check`, checkParts, mod + checkItemBonus, [WM([], calc.disadv.checkByAttr[attr], calc.disadv.autoFailCheckByAttr[attr]), 'Click to roll it.']);
+                let saveTip = WT(`${attr} save`, [[`${attr} modifier`, mod, 1], [`Trained save (Training Bonus)`, saveTrained ? window.state.trainingBonus : 0]].concat(fxw('saveAll'), fxw('save_' + attr)), saveBonus,
+                    [saveTrained ? '' : 'Not trained: no Training Bonus.', WM([], saveDisadvSources, saveAutoFailSources), 'Click to roll it.']);
                 let saveBadges = '';
-                if (saveAutoFailSources.length) saveBadges += `<span class="text-[8px] text-red-500 font-black ml-1" title="${saveAutoFailSources.join(', ')}">(Auto-Fail)</span>`;
-                else if (saveDisadvSources.length) saveBadges += `<span class="text-[8px] text-red-400 ml-1" title="${saveDisadvSources.join(', ')}">(Disadv)</span>`;
+                if (saveAutoFailSources.length) saveBadges += `<span class="text-[8px] text-red-500 font-black ml-1"${T(WM([], [], saveAutoFailSources))}>(Auto-Fail)</span>`;
+                else if (saveDisadvSources.length) saveBadges += `<span class="text-[8px] text-red-400 ml-1"${T(WM([], saveDisadvSources, []))}>(Disadv)</span>`;
 
                 html += `
                     <div class="bg-slate-900/50 rounded-lg border border-slate-700/50 overflow-hidden">
                         <div class="flex items-center p-2 bg-slate-800 border-b border-slate-700/50">
                             <div class="text-lg font-black text-slate-200 w-12">${attr}</div>
-                            <div class="w-10 text-center text-sm font-bold text-slate-400 mx-2 bg-slate-900 rounded p-1 border border-slate-700">${sc}</div>
+                            <div class="w-10 text-center text-sm font-bold text-slate-400 mx-2 bg-slate-900 rounded p-1 border border-slate-700"${T(scoreTip)}>${sc}</div>
                             <div class="flex-1 flex justify-end">
-                                <div class="w-10 h-8 flex items-center justify-center font-black text-lg rounded shadow-inner border ${bgClass} apx-rollable" title="Click to roll a ${attr} check"${apxRollAttr({ type: 'check', label: attr + ' check', bonus: mod + checkItemBonus, attr, disSources: calc.disadv.checkByAttr[attr] || [], autoFail: (calc.disadv.autoFailCheckByAttr[attr] || []).join(', ') || undefined })}>${(mod + checkItemBonus) >= 0 ? '+'+(mod + checkItemBonus) : (mod + checkItemBonus)}</div>
+                                <div class="w-10 h-8 flex items-center justify-center font-black text-lg rounded shadow-inner border ${bgClass} apx-rollable"${T(checkTip)}${apxRollAttr({ type: 'check', label: attr + ' check', bonus: mod + checkItemBonus, attr, disSources: calc.disadv.checkByAttr[attr] || [], autoFail: (calc.disadv.autoFailCheckByAttr[attr] || []).join(', ') || undefined })}>${(mod + checkItemBonus) >= 0 ? '+'+(mod + checkItemBonus) : (mod + checkItemBonus)}</div>
                             </div>
                         </div>
-                        <div class="flex items-center justify-between px-2 py-1 bg-slate-800/60 border-b border-slate-700/50 text-[10px] apx-rollable" title="Click to roll a ${attr} save"${apxRollAttr({ type: 'check', kind: 'save', attr, label: attr + ' Save', bonus: saveBonus, disSources: saveDisadvSources, autoFail: saveAutoFailSources.join(', ') || undefined })}>
+                        <div class="flex items-center justify-between px-2 py-1 bg-slate-800/60 border-b border-slate-700/50 text-[10px] apx-rollable"${T(saveTip)}${apxRollAttr({ type: 'check', kind: 'save', attr, label: attr + ' Save', bonus: saveBonus, disSources: saveDisadvSources, autoFail: saveAutoFailSources.join(', ') || undefined })}>
                             <div class="flex items-center gap-1.5">
                                 <div class="power-bubble static ${saveTrained ? 'filled' : ''}"></div>
                                 <span class="text-slate-500 font-bold uppercase tracking-wide">Save</span>
@@ -829,20 +1003,28 @@
                     let checkDisadvSources = (calc.disadv.checkByAttr[attr] || []).concat(calc.skillDis[skill.id] || []);
                     let checkAdvSources = calc.skillAdv[skill.id] || [];
                     let checkAutoFail = (calc.disadv.autoFailCheckByAttr[attr] || []).join(', ') || undefined;
-                    let disadvHtml = checkAutoFail ? `<span class="text-[8px] text-red-500 font-black ml-1" title="${checkAutoFail}">(Auto-Fail)</span>`
-                        : checkDisadvSources.length ? `<span class="text-[8px] text-red-400 ml-1" title="${checkDisadvSources.join(', ')}">(Disadv)</span>` : '';
-                    if (checkAdvSources.length && !checkAutoFail) disadvHtml += `<span class="text-[8px] text-emerald-400 ml-1" title="${checkAdvSources.join(', ')}">(Adv)</span>`;
+                    let disadvHtml = checkAutoFail ? `<span class="text-[8px] text-red-500 font-black ml-1"${T(WM([], [], calc.disadv.autoFailCheckByAttr[attr]))}>(Auto-Fail)</span>`
+                        : checkDisadvSources.length ? `<span class="text-[8px] text-red-400 ml-1"${T(WM([], checkDisadvSources, []))}>(Disadv)</span>` : '';
+                    if (checkAdvSources.length && !checkAutoFail) disadvHtml += `<span class="text-[8px] text-emerald-400 ml-1"${T(WM(checkAdvSources, [], []))}>(Adv)</span>`;
+                    // Its breakdown: attribute + Training Bonus + everything else (perks, items, armor, traits)
+                    let skParts = [[`${attr} modifier`, mod, 1], [`Training Bonus${window.state.skillSource && window.state.skillSource[skill.id] ? ' (trained via ' + window.state.skillSource[skill.id] + ')' : ' (trained)'}`, isTr ? window.state.trainingBonus : 0]]
+                        .concat((calc.why && calc.why['skill:' + skill.id]) || []);
+                    if (skill.name && skill.name.startsWith('Encyclopedia')) skParts.push(['Scholar (Encyclopedia checks)', window.state.perks['int_scholar'] || 0]);
+                    skParts = skParts.concat(fxw('checkAll'), fxw('check_' + attr));
+                    let skNotes = [isTr ? '' : (skill.reqTr ? 'Needs training to use.' : 'Not trained: no Training Bonus.'), WM(checkAdvSources, checkDisadvSources, calc.disadv.autoFailCheckByAttr[attr]), 'Click to roll it.'];
+                    let skTip = WT(`${skill.name.replace('Encyclopedia (', 'Encyclopedia: ').replace(/\)$/, '')} (${attr})`, skParts, total, skNotes);
+                    let pasTip = pasText === '--' ? (skill.pass ? 'Passive score: needs training first.' : 'This skill has no passive score.') : `Passive ${skill.name}: 10 + ${total >= 0 ? '+' : ''}${total} = ${pasText}\nUsed when you aren't rolling (the GM checks it against a DC).`;
                     let displayName = skill.name.startsWith('Encyclopedia (') ? skill.name.replace('Encyclopedia (', '').replace(')', '') : skill.name;
 
                     return `
                         <div class="flex items-center justify-between text-[11px] py-1 px-2 hover:bg-slate-800/50 transition relative group">
                             ${skill.isCustom && !skill.name.startsWith('Encyclopedia') ? `<button onclick="window.deleteCustomSkill('${skill.id}')" class="absolute -left-1 text-red-500 hover:text-red-400 opacity-0 group-hover:opacity-100">&times;</button>` : ''}
                             <div class="flex items-center gap-2 flex-1 ${indent ? 'pl-5' : (skill.isCustom ? 'pl-3' : '')}">
-                                <input type="checkbox" ${isTr ? 'checked' : ''} disabled title="Trained via Origin, Ancestry, or Spend XP -- not manually toggled here" class="w-3 h-3 cursor-not-allowed opacity-70">
-                                <span class="${isTr ? 'text-blue-300 font-bold' : 'text-slate-300'} apx-rollable" ${isTr && window.state.skillSource[skill.id] ? `data-tip="Trained via: ${window.state.skillSource[skill.id]}"` : ''}${apxRollAttr({ type: 'check', label: displayName + ' (' + attr + ')', bonus: total, attr, skill: skill.id, disSources: checkDisadvSources, advSources: checkAdvSources.length ? checkAdvSources : undefined, autoFail: checkAutoFail })}>${displayName}</span>
+                                <input type="checkbox" ${isTr ? 'checked' : ''} disabled${T(isTr ? `Trained${window.state.skillSource && window.state.skillSource[skill.id] ? ' via ' + window.state.skillSource[skill.id] : ''}: +${window.state.trainingBonus} (your Training Bonus)` : 'Not trained. Train it with your Origin, Ancestry or Spend XP (not ticked here).')} class="w-3 h-3 cursor-not-allowed opacity-70">
+                                <span class="${isTr ? 'text-blue-300 font-bold' : 'text-slate-300'} apx-rollable"${T(skTip)}${apxRollAttr({ type: 'check', label: displayName + ' (' + attr + ')', bonus: total, attr, skill: skill.id, disSources: checkDisadvSources, advSources: checkAdvSources.length ? checkAdvSources : undefined, autoFail: checkAutoFail })}>${displayName}</span>
                             </div>
-                            <div class="w-auto text-center font-bold ${total < 0 ? 'skill-mod-negative' : (isTr ? 'text-blue-400' : 'text-slate-500')} text-xs apx-rollable"${apxRollAttr({ type: 'check', label: displayName + ' (' + attr + ')', bonus: total, attr, skill: skill.id, disSources: checkDisadvSources, advSources: checkAdvSources.length ? checkAdvSources : undefined, autoFail: checkAutoFail })}>${total >= 0 ? '+'+total : total}${disadvHtml}</div>
-                            <div class="w-10 text-right ${pasText === '--' ? 'text-slate-600' : 'text-slate-500 font-bold'}">${pasText}</div>
+                            <div class="w-auto text-center font-bold ${total < 0 ? 'skill-mod-negative' : (isTr ? 'text-blue-400' : 'text-slate-500')} text-xs apx-rollable"${T(skTip)}${apxRollAttr({ type: 'check', label: displayName + ' (' + attr + ')', bonus: total, attr, skill: skill.id, disSources: checkDisadvSources, advSources: checkAdvSources.length ? checkAdvSources : undefined, autoFail: checkAutoFail })}>${total >= 0 ? '+'+total : total}${disadvHtml}</div>
+                            <div class="w-10 text-right ${pasText === '--' ? 'text-slate-600' : 'text-slate-500 font-bold'}"${T(pasTip)}>${pasText}</div>
                         </div>
                     `;
                 }
@@ -857,7 +1039,8 @@
                         // have one.
                         // Clicking the header rolls an untrained Encyclopedia check (any topic you have no entry for)
                         let encBonus = mod + checkItemBonus + (window.state.perks['int_scholar'] || 0);
-                        html += `<div class="pl-5 pr-2 py-0.5 text-[10px] text-slate-500 font-bold uppercase tracking-wide apx-rollable flex justify-between" style="cursor:pointer" title="Roll an INT check for a topic you have no Encyclopedia entry for"${apxRollAttr({ type: 'check', label: 'Encyclopedia - Generic (No Training)', bonus: encBonus, attr: 'INT', skill: 'Encyclopedia', disSources: calc.disadv.checkByAttr[attr] || [], autoFail: (calc.disadv.autoFailCheckByAttr[attr] || []).join(', ') || undefined })}><span>Encyclopedia</span><span class="normal-case font-bold">${encBonus >= 0 ? '+' + encBonus : encBonus}</span></div>`;
+                        let encTip = WT('Encyclopedia (no entry for the topic)', [['INT modifier', mod, 1], ['Scholar', window.state.perks['int_scholar'] || 0]].concat(fxw('checkAll'), fxw('check_INT')), encBonus, ['Roll an INT check for a topic you have no Encyclopedia entry for (untrained).']);
+                        html += `<div class="pl-5 pr-2 py-0.5 text-[10px] text-slate-500 font-bold uppercase tracking-wide apx-rollable flex justify-between" style="cursor:pointer"${T(encTip)}${apxRollAttr({ type: 'check', label: 'Encyclopedia - Generic (No Training)', bonus: encBonus, attr: 'INT', skill: 'Encyclopedia', disSources: calc.disadv.checkByAttr[attr] || [], autoFail: (calc.disadv.autoFailCheckByAttr[attr] || []).join(', ') || undefined })}><span>Encyclopedia</span><span class="normal-case font-bold">${encBonus >= 0 ? '+' + encBonus : encBonus}</span></div>`;
                         html += encyclopediaSkills.map(es => renderSkillRow(es, true)).join('');
                     }
                 });
@@ -885,7 +1068,7 @@
             // Treasure Hunter Rank 5: Found Earlier
             let thBtn = document.getElementById('thFoundBtn');
             if (thBtn) { let on = ((window.state.perks || {}).luc_treasurehunter || 0) >= 5; thBtn.classList.toggle('hidden', !on); if (on) thBtn.textContent = 'Found Earlier (Luck Point)'; }
-            let totWt = 0;
+            let totWt = 0, wtParts = [0, 0];   // (gear, Crafting Materials: the Total Wt tooltip)
             // Crafting materials are always-present, rarely-interacted-with
             // bulk resources -- pinning them to the bottom keeps armor,
             // weapons, and actual gear (including anything just unequipped)
@@ -905,6 +1088,7 @@
                 let rowWt = item.wt * item.ct;
                 let countsTowardTotal = !item.isLocked || window.state.craftingMatWeightEnabled;
                 if (countsTowardTotal) totWt += rowWt;
+                if (countsTowardTotal && rowWt) (wtParts[/Crafting Materials$/.test(item.name || '') ? 1 : 0] += rowWt);
 
                 let hasDetail = !!item.desc || item.isConsumable;
                 let chargesControl = (item.isConsumable && item.charges > 1) ? `
@@ -952,8 +1136,8 @@
                         ? `<div class="text-[9px] ${item.equipped ? 'text-cyan-400' : 'text-slate-500'} px-1 truncate" title="${window.apxItemBonusText(item.bonuses).replace(/"/g, '&quot;')}">${window.apxItemBonusText(item.bonuses)}</div>` : '')
                     + (item.isCustomEquippable && Array.isArray(item.powers) && item.powers.length
                         ? `<div class="text-[9px] ${item.equipped ? 'text-purple-300' : 'text-slate-500'} px-1 truncate" title="${item.equipped ? 'In your Powers while equipped' : 'Equip it to add these to your Powers'}">Powers: ${item.powers.map(p => String(p.name || 'Power').replace(/</g, '&lt;')).join(', ')}</div>` : '');
-                let wtHtml = `<div class="text-xs text-slate-500">${item.wt}</div>`;
-                let valHtml = `<div class="text-xs ${item.isLocked ? 'text-yellow-500/50' : 'text-yellow-400'}">${item.val}</div>`;
+                let wtHtml = `<div class="text-xs text-slate-500"${window.apxTipAttr ? window.apxTipAttr(`${item.wt} lb each (edit it in its 🔍 unless it's locked gear)`) : ''}>${item.wt}</div>`;
+                let valHtml = `<div class="text-xs ${item.isLocked ? 'text-yellow-500/50' : 'text-yellow-400'}"${window.apxTipAttr ? window.apxTipAttr(`Worth ${item.val} Currency each${(parseInt(item.ct) || 1) > 1 ? ` (${Math.round((parseFloat(item.val) || 0) * (parseInt(item.ct) || 1) * 100) / 100} for all ${item.ct})` : ''}. Selling one gives half (${Math.floor((parseFloat(item.val) || 0) / 2)}).${item.noSellCt ? ` ${item.noSellCt} found with Treasure Hunter can't be sold.` : ''}`) : ''}>${item.val}</div>`;
 
                 html += `
                     <tr>
@@ -969,7 +1153,7 @@
                                 <button onclick="window.updateItemCt(${idx}, (window.state.items[${idx}]?.ct||0)+1); window.recalculateMath();" class="w-5 h-5 rounded bg-amber-700 hover:bg-amber-600 text-white text-xs font-bold leading-none flex items-center justify-center">+</button>
                             </div>
                         </td>
-                        <td class="px-1 py-1 text-center font-bold text-slate-300 text-xs">${rowWt.toFixed(1).replace(/\.0$/, '')}</td>
+                        <td class="px-1 py-1 text-center font-bold text-slate-300 text-xs"${window.apxTipAttr ? window.apxTipAttr(`${item.wt} lb each × ${item.ct} = ${rowWt.toFixed(1).replace(/\.0$/, '')} lb${countsTowardTotal ? '' : ' (not counted: Crafting Materials weight is off in your Settings)'}`) : ''}>${rowWt.toFixed(1).replace(/\.0$/, '')}</td>
                         <td class="px-1 py-1 text-center">${valHtml}</td>
                         <td class="px-1 py-1 text-center">
                             ${equipBtn}
@@ -986,6 +1170,14 @@
             document.getElementById('dispTotalWeight').innerHTML = `${totWt.toFixed(1).replace(/\.0$/, '')} <span class="text-[10px] text-slate-500 font-normal">lbs</span>`;
             document.getElementById('dispCarryCap').innerHTML = `${calc.obCap ?? calc.carryCap} <span class="text-[10px] text-slate-500 font-normal">lbs</span>`
                 + (calc.storageBonus ? `<div class="text-[9px] text-emerald-400 font-bold" title="A worn Backpack counts your STR as 2 higher for carrying (a Bandolier or Utility Belt, 1); only the best one counts">${calc.storageName}: STR +${calc.storageBonus}</div>` : '');
+            if (window.apxTip) {
+                let r1 = n => Math.round(n * 10) / 10;
+                window.apxTip('dispTotalWeight', window.apxWhyText('Total weight (lbs)', [['Worn armor, shield and helmet', r1(armorWt)], ['Inventory', r1(wtParts[0])], ['Crafting Materials', r1(wtParts[1])]], r1(totWt),
+                    [window.state.craftingMatWeightEnabled ? '' : 'Crafting Materials don\'t count (your Settings).', `Over ${calc.obCap ?? calc.carryCap} lbs you're Overburdened.`]));
+                let cap = calc.obCap ?? calc.carryCap, list = (calc.why.carryCap || []).slice();
+                if (calc.storageBonus) list.push([`${calc.storageName} worn (STR +${calc.storageBonus} for carrying)`, cap - calc.carryCap]);
+                window.apxTip('dispCarryCap', window.apxWhyText('Carrying Capacity (lbs)', list, cap, ['Carrying more makes you Overburdened: Speed 1, no Jumping or Climbing, and Disadvantage on attack rolls, checks and saves.']));
+            }
 
             let obWarn = document.getElementById('overburdenedWarning');
             if (obWarn) obWarn.title = 'Overburdened: Speed 1, you can\'t Jump or Climb (and sink if you Swim), and you have Disadvantage on all attack rolls, attribute checks and saving throws. Drop some weight, or wear a Backpack.' + (calc.exoDeadWeight ? ' (Right now: your overloaded Juggernaut Exo-Suit, with STR 16 or less. Moving also costs double AP until a System Reboot.)' : '');
@@ -1239,6 +1431,30 @@
         // uses AGI, with no melee-style STR choice. Heavy ranged is the one
         // exception -- it ADDS STR on top of AGI, it doesn't replace it or
         // double it. Melee keeps its normal weight-class attribute rules.
+        // The same sums, part by part (the attack and damage tooltips, js/apx-why.js)
+        function weaponAimWhy(w) {
+            let cat = weaponCategory(w); if (!(cat === 'ranged' && w.aimed)) return [];
+            let n = calc.mods.PER || 0, bits = [];
+            if ((window.state.perks['per_sharpshooter'] || 0) >= 4) { n *= 2; bits.push('×2 Sharpshooter'); }
+            if (w.weightClass === 'medium' && w.twoHanded) { n *= 2; bits.push('×2 two-handed'); }
+            return [[`Aimed: PER modifier${bits.length ? ' (' + bits.join(', ') + ')' : ''}`, n]];
+        }
+        function weaponAtkWhy(w, attrOverride) {
+            let cat = weaponCategory(w);
+            let attr = cat === 'ranged' ? (w.attr === 'LUC' ? 'LUC' : 'AGI') : (attrOverride || w.attr);
+            let out = [[`${attr} modifier${attr === 'LUC' ? ' (Fortunate Fighter)' : ''}`, calc.mods[attr] || 0, 1]];
+            if (weaponIsTrained(w)) out.push(['Training Bonus (trained with it)', window.state.trainingBonus]);
+            return out.concat((calc.why && calc.why[cat === 'melee' ? 'bonusMeleeAtk' : 'bonusRangedAtk']) || [], weaponAimWhy(w));
+        }
+        function weaponDmgWhy(w, attrOverride) {
+            let cat = weaponCategory(w), heavy = w.weightClass === 'heavy';
+            if (cat === 'ranged') {
+                let a = w.attr === 'LUC' ? 'LUC' : 'AGI';
+                return [[`${a} modifier${heavy ? ' ×2 (Heavy)' : ''}`, (calc.mods[a] || 0) * (heavy ? 2 : 1), 1]].concat((calc.why && calc.why.bonusRangedDmg) || [], weaponAimWhy(w));
+            }
+            let a = attrOverride || (heavy ? 'STR' : w.attr);
+            return [[`${a} modifier${heavy ? ' ×2 (Heavy)' : ''}`, (calc.mods[a] || 0) * (heavy ? 2 : 1), 1]].concat((calc.why && calc.why.bonusMeleeDmg) || []);
+        }
         window.apxWeaponDmgModifier = (w, a) => weaponDmgModifier(w, a);   // (the Actions list's Choke uses your unarmed strike)
         function weaponDmgModifier(w, attrOverride) {
             let cat = weaponCategory(w);
@@ -1604,12 +1820,35 @@
                 atkRoll = ` data-no-roll data-apx-blocked="${why}" title="You're ${why} and can't attack until that ends"`;
             }
             let dmgRoll = apxRollAttr({ type: 'damage', label: rollName + ' damage', formula: opts.dice + (dmgMod ? (dmgMod > 0 ? '+' : '') + dmgMod : ''), dmgType: apxWeaponDmgType(w), wcat: cat });
+            // Breakdown tooltips (js/apx-why.js): the attack bonus, the damage and the AP
+            let T = window.apxTipAttr || (() => ''), WT = window.apxWhyText || (() => ''), WM = window.apxWhyModeText || (() => '');
+            let atkTip = WT(`${rollName}: attack bonus`, weaponAtkWhy(w, opts.attr), atk, [calc.cantAct ? `You're ${calc.cantActLabel}: you can't attack.` : WM(advSources, disadvSources, []), 'Click to roll the attack and its damage.']);
+            let extraDmg = window.apxPowerBuffWpnDmg ? window.apxPowerBuffWpnDmg(window.state).map(x => `+${x.formula}${x.type ? ' ' + x.type : ''} (${x.name})`) : [];
+            let dmgTip = [`${rollName}: damage ${dmgText}`, `Dice: ${opts.dice}${/2-Handed/.test(opts.label || '') ? ' (one die step up: two-handed)' : ''}`, `Modifier: ${dmgMod >= 0 ? '+' : ''}${dmgMod}`]
+                .concat((window.apxWhyLines ? window.apxWhyLines(weaponDmgWhy(w, opts.attr), dmgMod) : []).map(l => '   ' + l),
+                    [`${apxWeaponDmgType(w)} damage · Critical Hit ×${critMult}${critMult > (w.critMult || 2) ? ' (Fortunate Fighter Rank 4: +1)' : ''}`, extraDmg.length ? 'Powers on you add: ' + extraDmg.join(', ') : '', 'Click to roll the damage only.'])
+                .filter(Boolean).join('\n');
+            let apParts = [], apBase = parseInt(w.ap) || 0, apNotes = [];
+            if (opts.ammoThrow) { apParts.push(['Thrown Light Ammo', 2, 1]); apNotes.push('Not a strike with only your body, so Martial Arts doesn\'t lower it.'); }
+            else if (w.isUnarmed) { apParts.push([(window.state.perks['str_martialarts'] || 0) >= 1 ? 'Unarmed strike (Martial Arts Rank 1: 1 AP)' : 'Unarmed strike', apBase, 1]); }
+            else if (w.isAncestry) apParts.push(['Innate weapon (Light)', apBase, 1]);
+            else apParts.push([`${({ light: 'Light', medium: 'Medium', heavy: 'Heavy' })[w.weightClass] || 'This'} weapon`, apBase, 1]);
+            if (!opts.ammoThrow) {
+                let extra = (parseInt(opts.ap) || 0) - apBase;
+                if (w.properties && w.properties.repeating && extra >= 2 && cat === 'ranged') { apParts.push(['Repeating (fires 3 rounds a shot)', 2]); extra -= 2; }
+                if (extra && /2-Handed/.test(opts.label || '')) { apParts.push(['Two-handed (+1 AP)', extra]); extra = 0; }
+            }
+            if ((w.properties && w.properties.flurry) || (window.state.perks['agi_flurry'] || 0) >= 1) apNotes.push('Flurry: after a hit with it this turn, your next attacks with it cost less AP (applied when you attack).');
+            if (w.properties && w.properties.loading) apNotes.push('Loading: Reload (2 AP) after each attack in combat.');
+            if (w.properties && w.properties.quickdraw) apNotes.push('Quickdraw: Draw / Stow costs 0 AP.');
+            let apTip = WT(`${rollName}: AP to attack`, apParts, parseInt(opts.ap) || 0, apNotes);
+            atkRoll = atkRoll.replace(/ title="[^"]*"/, '') + T(atkTip); dmgRoll = dmgRoll.replace(/ title="[^"]*"/, '') + T(dmgTip);
             if (calc.cantAct) dmgRoll = ` data-no-roll data-apx-blocked="${calc.cantActLabel}" title="You're ${calc.cantActLabel} and can't attack until that ends"`;
             let disadvHtml = calc.cantAct
-                ? `<span class="text-[8px] text-red-500 font-black block -mt-1 leading-none" title="You can't take actions">(${calc.cantActLabel})</span>`
+                ? `<span class="text-[8px] text-red-500 font-black block -mt-1 leading-none"${T(`You're ${calc.cantActLabel}: you can't take actions.`)}>(${calc.cantActLabel})</span>`
                 : disadvSources.length
-                ? `<span class="text-[8px] text-red-400 block -mt-1 leading-none" title="${disadvSources.join(', ')}">(Disadv)</span>`
-                : (advSources.length ? `<span class="text-[8px] text-emerald-400 block -mt-1 leading-none" title="${advSources.join(', ')}">(Adv)</span>` : '');
+                ? `<span class="text-[8px] text-red-400 block -mt-1 leading-none"${T(WM(advSources, disadvSources, []))}>(Disadv)</span>`
+                : (advSources.length ? `<span class="text-[8px] text-emerald-400 block -mt-1 leading-none"${T(WM(advSources, [], []))}>(Adv)</span>` : '');
 
             if (!opts.editable) {
                 return `
@@ -1618,11 +1857,11 @@
                         <td class="px-1 py-1 text-[10px] text-slate-400 text-center font-bold">${opts.attrHtml || opts.attr || 'STR'}</td>
                         <td class="px-1 py-1"></td>
                         <td class="px-1 py-1 text-center">
-                            <div class="font-black text-emerald-400/80 text-xs bg-slate-900 rounded border border-slate-700 py-0.5 apx-rollable" title="Roll attack + damage"${atkRoll}>${atk >= 0 ? '+' + atk : atk}</div>
+                            <div class="font-black text-emerald-400/80 text-xs bg-slate-900 rounded border border-slate-700 py-0.5 apx-rollable"${atkRoll}>${atk >= 0 ? '+' + atk : atk}</div>
                             ${disadvHtml}
                         </td>
-                        <td class="px-1 py-1 text-center text-[11px] text-slate-300 font-bold apx-rollable" title="Roll damage only"${dmgRoll}>${dmgText}</td>
-                        <td class="px-1 py-1 text-center text-[11px] text-blue-400 font-bold">${opts.ap}</td>
+                        <td class="px-1 py-1 text-center text-[11px] text-slate-300 font-bold apx-rollable"${dmgRoll}>${dmgText}</td>
+                        <td class="px-1 py-1 text-center text-[11px] text-blue-400 font-bold"${T(apTip)}>${opts.ap}</td>
                         <td class="px-1 py-1"></td>
                     </tr>
                 `;
@@ -1672,11 +1911,11 @@
                     </td>
                     <td class="px-1 py-2 text-center"><input type="checkbox" ${weaponIsTrained(w) ? 'checked' : ''} ${w.isUnarmed || w.isAncestry || window.state.trainedWeaponTypes.includes(companionWeaponTypeLabel(w)) ? `disabled title="${(w.isUnarmed || w.isAncestry) ? 'All creatures are inherently trained in their innate weapons' : 'Trained via Weapon Type training'}"` : ''} onchange="window.updateWeaponTr(${idx}, this.checked)" class="w-4 h-4"></td>
                     <td class="px-1 py-2 text-center">
-                        <div class="font-black text-emerald-400 text-sm bg-slate-900 rounded border border-slate-700 py-0.5 apx-rollable" title="Roll attack + damage"${atkRoll}>${atk >= 0 ? '+' + atk : atk}</div>
+                        <div class="font-black text-emerald-400 text-sm bg-slate-900 rounded border border-slate-700 py-0.5 apx-rollable"${atkRoll}>${atk >= 0 ? '+' + atk : atk}</div>
                         ${disadvHtml}
                     </td>
-                    <td class="px-1 py-2 text-center text-[11px] text-slate-300 font-bold apx-rollable" title="Roll damage only"${dmgRoll}>${dmgText}</td>
-                    <td class="px-1 py-2"><div class="text-xs font-bold text-blue-400 text-center p-1 h-7 flex items-center justify-center" data-tip="AP cost is fixed by weapon category and weight class, not freely editable.">${opts.ap}</div></td>
+                    <td class="px-1 py-2 text-center text-[11px] text-slate-300 font-bold apx-rollable"${dmgRoll}>${dmgText}</td>
+                    <td class="px-1 py-2"><div class="text-xs font-bold text-blue-400 text-center p-1 h-7 flex items-center justify-center"${T(apTip + '\nSet by its weight class and properties (not editable).')}>${opts.ap}</div></td>
                     <td class="px-1 py-2 text-center">
                         ${!w.isUnarmed && !w.isAncestry ? `<button onclick="window.unequipWeapon(${idx})" class="text-[9px] text-cyan-400 hover:text-cyan-300 font-bold mr-1" title="Move to inventory">Unequip</button>` : ''}
                         ${!w.isUnarmed && !w.isAncestry && !w.forged ? `<button onclick="window.deleteWeapon(${idx})" class="text-red-500 font-bold hover:text-red-400 text-lg px-1 leading-none">&times;</button>` : ''}
@@ -1875,6 +2114,20 @@
             return n;
         }
         window.apxMaxSlotsFor = getMaxSlotsForLevel;
+        // Where a Level's Power Slots come from (the slot tooltips)
+        function apxSlotsWhy(lvl) {
+            let fx = (calc.itemFx && calc.itemFx.stat) || {}, list = [];
+            if (lvl === 'CHA') list.push([`Short Rest Powers (Rank ${window.state.perks["pwr_cha"] || 0}): 1 use per rank`, window.state.perks["pwr_cha"] || 0, 1]);
+            else {
+                let times = (window.state.pwrIntRanks && window.state.pwrIntRanks[lvl]) || 0, per = { 1: 3, 2: 2, 3: 2, 4: 1, 5: 1 }[lvl] || 0;
+                list.push([`Full Rest Powers: Level ${lvl} bought ${times} time${times === 1 ? '' : 's'} (${per} slot${per === 1 ? '' : 's'} each)`, per * times, 1]);
+            }
+            if (fx['slot_' + lvl]) list.push(['Equipped items', fx['slot_' + lvl]]);
+            let total = getMaxSlotsForLevel(lvl), rest = total - list.reduce((t, x) => t + x[1], 0);
+            if (rest) list.push(['Exo-Suit: Conduit (one more slot)', rest]);
+            let used = lvl === 'CHA' ? Math.min(total, window.state.usedPowerSlots['CHA'] || 0) : (window.state.usedPowerSlots[lvl] || 0);
+            return (window.apxWhyText ? window.apxWhyText(lvl === 'CHA' ? 'Short Rest Power uses' : `Level ${lvl} Power Slots`, list, total) : '') + `\n${Math.max(0, total - used)} left (${used} used). Click a bubble to mark it used or back.`;
+        }
         // A power's own Attack Bonus and Save DC: its Core Attribute + Training Bonus (attack) + the
         // highest Power Level you can use (+ item bonuses)
         function apxPowerNums(p) {
@@ -1887,6 +2140,22 @@
             return { attr, mod, atk: mod + window.state.trainingBonus + top + pfx('powerAtk') + ex, dc: 10 + mod + top + pfx('powerDc') + ex };
         }
         window.apxPowerNums = apxPowerNums;
+        // The same, part by part (the power Atk / DC tooltips, js/apx-why.js): { atk: text, dc: text }
+        function apxPowerNumsWhy(p) {
+            let n = apxPowerNums(p), WT = window.apxWhyText || (() => '');
+            let fx = k => (calc._whyFx ? calc._whyFx(k) : []), top = window.apxPowerMaxLevel ? window.apxPowerMaxLevel() : 0;
+            let ex = (calc.exo && calc.exo.power) || 0, own = p && (p.trait || p.consumable);
+            let atk = [[`${n.attr} modifier`, n.mod, 1], ['Training Bonus', window.state.trainingBonus]];
+            let dc = [['Base', 10, 1], [`${n.attr} modifier`, n.mod]];
+            if (!own) {
+                atk.push(['Your highest Power Level', top]); dc.push(['Your highest Power Level', top]);
+                atk = atk.concat(fx('powerAtk')); dc = dc.concat(fx('powerDc'));
+                if (ex) { atk.push([`Exo-Suit: Conduit${ex > 2 ? ' + Capacitor' : ''}`, ex]); dc.push([`Exo-Suit: Conduit${ex > 2 ? ' + Capacitor' : ''}`, ex]); }
+            }
+            let why = own ? (p.trait ? 'An Ancestry Trait\'s power: the attribute chosen for it, without Power Level.' : 'A consumable: the attribute it was made with, without Power Level.') : 'Each power uses the Core Attribute chosen for it in the Power Crafter.';
+            return { atk: WT('Power attack bonus', atk, n.atk, [why]), dc: WT('Power Save DC', dc, n.dc, ['The DC targets roll against when it calls for a save.']) };
+        }
+        window.apxPowerNumsWhy = apxPowerNumsWhy;
 
         // delta directly represents the change to charges REMAINING
         // (matching what the +/- buttons visually show), so a NEGATIVE
@@ -1954,13 +2223,19 @@
                 }
             }
             document.getElementById('dispPwrDc').innerText = dc;
+            if (window.apxTip) {
+                let hw = apxPowerNumsWhy({ attr });
+                let tail = calc.cantAct ? `\nYou're ${calc.cantActLabel}: no power attacks until that ends.` : `\nClick to roll a power attack with ${attr}.`;
+                window.apxTip('dispPwrAtk', hw.atk + tail); window.apxTip(atkWrap, hw.atk + tail);
+                window.apxTip('dispPwrDc', hw.dc); window.apxTip(document.getElementById('dispPwrDc').parentElement, hw.dc);
+            }
 
             let html = '';
             if (maxInt > 0 || [1, 2, 3, 4, 5].some(l => getMaxSlotsForLevel(l) > 0)) {
                 html += `<div class="col-span-5 text-[9px] text-slate-400 uppercase font-black tracking-wide text-left -mb-1">Full Rest Powers <span class="normal-case font-bold text-slate-500">(slots back after a Full Rest)</span></div>`;
                 for(let lvl = 1; lvl <= 5; lvl++) {
                     let slotMax = getMaxSlotsForLevel(lvl);
-                    html += `<div><div class="text-[9px] text-slate-500 uppercase font-bold mb-1">Lvl ${lvl}</div><div class="flex flex-wrap items-center justify-center gap-1">`;
+                    html += `<div${window.apxTipAttr ? window.apxTipAttr(apxSlotsWhy(lvl)) : ''}><div class="text-[9px] text-slate-500 uppercase font-bold mb-1">Lvl ${lvl}</div><div class="flex flex-wrap items-center justify-center gap-1">`;
                     if(slotMax === 0) html += `<span class="text-[10px] text-slate-600">-</span>`;
                     for(let i=0; i<slotMax; i++) {
                         let isUsed = i < (window.state.usedPowerSlots[lvl] || 0);
@@ -1973,7 +2248,7 @@
                 let slotMax = getMaxSlotsForLevel('CHA');
                 let used = Math.min(slotMax, window.state.usedPowerSlots['CHA'] || 0);
                 let available = slotMax - used;
-                html += `<div class="col-span-5 flex flex-col items-center justify-center pt-1 ${maxInt > 0 ? 'border-t border-slate-700/60 mt-1' : ''}"><div class="text-[10px] text-slate-500 uppercase font-bold mb-2">Short Rest Powers: up to Level ${Math.max(1, maxCha)} <span class="normal-case">(${slotMax} use${slotMax === 1 ? '' : 's'} per Short Rest${maxCha >= 5 ? '; Level 1 Powers are free' : ''})</span></div><div class="flex flex-wrap items-center justify-center gap-3">`;
+                html += `<div class="col-span-5 flex flex-col items-center justify-center pt-1 ${maxInt > 0 ? 'border-t border-slate-700/60 mt-1' : ''}"${window.apxTipAttr ? window.apxTipAttr(apxSlotsWhy('CHA')) : ''}><div class="text-[10px] text-slate-500 uppercase font-bold mb-2">Short Rest Powers: up to Level ${Math.max(1, maxCha)} <span class="normal-case">(${slotMax} use${slotMax === 1 ? '' : 's'} per Short Rest${maxCha >= 5 ? '; Level 1 Powers are free' : ''})</span></div><div class="flex flex-wrap items-center justify-center gap-3">`;
                 if (slotMax === 0) html += `<span class="text-[10px] text-slate-600">No uses.</span>`;
                 for(let i=0; i<slotMax; i++) html += `<div class="power-bubble ${i < available ? 'filled' : 'empty'} scale-125" onclick="window.togglePowerSlot('CHA', ${i})"></div>`;
                 html += `</div></div>`;
@@ -2434,7 +2709,8 @@
                         <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded border border-slate-600 text-slate-400 font-bold shadow cursor-pointer hover:border-indigo-400 hover:text-indigo-200" onclick="window.apxUsePower(${idx})" title="Use this power: ${window.apxPowerIsReaction(p) ? 'as your Reaction' : 'spend ' + p.ap + ' AP'} and a Power Slot, and roll it">Lvl ${p.lvl} | ${window.apxPowerApLabel(p)}</span>
                     </div>
                     ${(() => { let pn = apxPowerNums(p), pool = window.apxPowerPool ? window.apxPowerPool(p) : 'full';
-                        return `<div class="text-[9px] font-bold mb-1 ${pool === 'short' ? 'text-amber-300/90' : 'text-sky-300/90'}" title="Each power uses the Core Attribute chosen for it in the Power Crafter">${pool === 'short' ? 'Short Rest Power' : 'Full Rest Power'} · ${pn.attr} · Atk ${pn.atk >= 0 ? '+' : ''}${pn.atk} · DC ${pn.dc}</div>`; })()}
+                        let pw = apxPowerNumsWhy(p), T = window.apxTipAttr || (() => '');
+                        return `<div class="text-[9px] font-bold mb-1 ${pool === 'short' ? 'text-amber-300/90' : 'text-sky-300/90'}"${T(`${pool === 'short' ? 'Short Rest Power: it uses your Short Rest Power uses (back on a Short Rest)' : 'Full Rest Power: it uses a Power Slot of its Level (back on a Full Rest)'}\n\n${pw.atk}\n\n${pw.dc}`)}>${pool === 'short' ? 'Short Rest Power' : 'Full Rest Power'} · ${pn.attr} · <span${T(pw.atk)}>Atk ${pn.atk >= 0 ? '+' : ''}${pn.atk}</span> · <span${T(pw.dc)}>DC ${pn.dc}</span></div>`; })()}
                     ${(() => { if (!p.draft || !window.apxPowerSaveInfo) return ''; let si = window.apxPowerSaveInfo(p.draft), dc = apxPowerNums(p).dc;
                         let bits = [si.saveKind && si.saveAttr ? `Targets: ${si.saveAttr} save (DC ${dc})` : '', si.lasting && si.escapeAttr ? `Escape Save: ${si.escapeAttr}` : ''].filter(Boolean);
                         return bits.length ? `<div class="text-[9px] font-bold mb-1 text-purple-300/90" title="${si.lasting ? 'A target under its lasting effect makes this save at the end of each of its turns, ending it on a success' : 'The saving throw targets make against it'}">${bits.join(' · ')}</div>` : ''; })()}

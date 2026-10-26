@@ -10,7 +10,7 @@
                 <div class="bg-slate-900 p-2 rounded border border-slate-700 relative shadow-inner mb-2">
                     <div class="flex justify-between items-center mb-1">
                         <span class="font-bold text-sm text-purple-300">${p.name} <span class="text-xs text-purple-400 font-normal">${choiceText}</span></span>
-                        <span class="flex items-center"><span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded border border-slate-600 text-slate-400 font-bold shadow">${rankText}</span>${removeId && window.apxPerkRemoveBtn ? window.apxPerkRemoveBtn(removeId, currentRank) : ''}</span>
+                        <span class="flex items-center"><span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded border border-slate-600 text-slate-400 font-bold shadow"${window.apxTipAttr ? window.apxTipAttr(`${p.name}: Rank ${currentRank} of ${p.max}${currentRank >= p.max ? ' (maxed)' : ''}.${currentRank < p.max ? ' Buy the next rank with Spend XP.' : ''}`) : ''}>${rankText}</span>${removeId && window.apxPerkRemoveBtn ? window.apxPerkRemoveBtn(removeId, currentRank) : ''}</span>
                     </div>
                     <div class="text-[10px] text-slate-400 leading-tight italic">${currentDesc}</div>
                     

@@ -139,6 +139,10 @@
     window.apxTurnFxAc = function () {
         return fx().reduce((t, e) => t + (e.key === 'defensive' ? (e.attacked || st().apxAttackedTurn ? 2 : 4) : (e.ac || 0)), 0);
     };
+    // The same, one line per effect (the AC tooltip)
+    window.apxTurnFxAcParts = function () {
+        return fx().map(e => [e.key === 'defensive' ? `Fight Defensively${e.attacked || st().apxAttackedTurn ? ' (you attacked this turn)' : ''}` : (e.label || 'This turn'), e.key === 'defensive' ? (e.attacked || st().apxAttackedTurn ? 2 : 4) : (e.ac || 0)]).filter(x => x[1]);
+    };
     window.apxTurnFxApply = function (calc) {
         // Melee Prowess R3: a combat maneuver's Disadvantage doesn't apply to your melee weapon attacks;
         // R4: a combat maneuver you make with a melee weapon that would impose Disadvantage has Advantage instead

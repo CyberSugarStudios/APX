@@ -185,8 +185,9 @@
     function _mark(id, on, tip) {
         let el = document.getElementById(id); if (!el) return;
         let box = id === 'dispWt' ? el : el.parentElement;
-        if (on) { box.style.boxShadow = '0 0 0 2px rgba(217,70,239,.75)'; box.setAttribute('data-exo-tip', '1'); box.title = tip; }
-        else if (box.getAttribute('data-exo-tip')) { box.style.boxShadow = ''; box.removeAttribute('data-exo-tip'); box.title = ''; }
+        // (the glow only: what the suit adds is in each number's breakdown tooltip, js/apx-why.js)
+        if (on) { box.style.boxShadow = '0 0 0 2px rgba(217,70,239,.75)'; box.setAttribute('data-exo-tip', '1'); }
+        else if (box.getAttribute('data-exo-tip')) { box.style.boxShadow = ''; box.removeAttribute('data-exo-tip'); }
     }
     // The sheet's numbers (calc lives in js/apx-state.js)
     const C = () => { try { return (typeof calc !== 'undefined' && calc) || {}; } catch (e) { return {}; } };
