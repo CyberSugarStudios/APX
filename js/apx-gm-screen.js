@@ -1048,13 +1048,27 @@ function _gmNpcLootItems(npc, entry) {
     return items;
 }
 window._gmNpcLootItems = _gmNpcLootItems;
-// Enemies defeated since combat started (for the Currency loot roll: LUC × enemies ÷ 2)
+// Enemies defeated since combat started, and the highest Tier among them (for the Currency loot roll:
+// LUC (Loot) × enemies × highest Tier ÷ 2)
 function _gmLootDefeated() { return (typeof _wNotes !== 'undefined' && _wNotes) ? (_wNotes.lootDefeated || 0) : (window._gmLootDefeatedFb || 0); }
 function _gmSetLootDefeated(n) {
     n = Math.max(0, parseInt(n) || 0);
     if (typeof _wNotes !== 'undefined' && _wNotes) _wNotes.lootDefeated = n; else window._gmLootDefeatedFb = n;
 }
 window.gmSetLootDefeated = function(n) { _gmSetLootDefeated(n); window.renderGmLoot(); if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes(); };
+// (a fight with no stat blocks counts as Tier 1; Tier 0 creatures carry no Currency)
+function _gmLootTier() { let v = parseInt((typeof _wNotes !== 'undefined' && _wNotes) ? _wNotes.lootTier : window._gmLootTierFb); return isNaN(v) ? 1 : Math.max(0, v); }
+function _gmSetLootTier(n) {
+    n = parseInt(n); n = isNaN(n) ? 1 : Math.max(0, n);
+    if (typeof _wNotes !== 'undefined' && _wNotes) _wNotes.lootTier = n; else window._gmLootTierFb = n;
+}
+window.gmSetLootTier = function(n) { _gmSetLootTier(n); window.renderGmLoot(); if (typeof window.saveWorldNotes === 'function') window.saveWorldNotes(); };
+// The Tier of a defeated creature (its stat block's), or null with no stat block
+function _gmEntryTier(entry) {
+    let n = entry && entry.sourceNpcId ? (window.gmNpcs || []).find(x => x.id === entry.sourceNpcId) : null;
+    if (n && n.npc && typeof npcTierForTP === 'function') return npcTierForTP(n.npc.gmTpBudget || 0).tier;
+    return entry && entry.tier != null ? parseInt(entry.tier) || 0 : null;
+}
 // The world NPC an initiative creature is (its battle token's world NPC, or the one world NPC with its
 // name and stat block): its own loot drops with it
 function _gmEntryWorldNpc(entry) {
@@ -1069,7 +1083,11 @@ function _gmEntryWorldNpc(entry) {
 window._gmEntryWorldNpc = _gmEntryWorldNpc;
 function _gmCaptureLoot(entry) {
     if (!entry || entry.faction === 'player' || entry.companionOf) return;
-    if (entry.faction === 'enemy') { _gmSetLootDefeated(_gmLootDefeated() + 1); window.renderGmLoot(); }
+    if (entry.faction === 'enemy') {
+        _gmSetLootDefeated(_gmLootDefeated() + 1);
+        let t = _gmEntryTier(entry); if (t != null && (_gmLootDefeated() === 1 || t > _gmLootTier())) _gmSetLootTier(t);
+        window.renderGmLoot();
+    }
     let n = entry.sourceNpcId ? (window.gmNpcs || []).find(x => x.id === entry.sourceNpcId) : null;
     // Generic Drops (the stat block's, for every creature built from it) + this NPC's own loot
     let items = n && n.npc ? _gmNpcLootItems(n.npc, entry) : [];
@@ -1145,8 +1163,8 @@ window.renderGmLoot = function() {
     let opts = cur => party.map(p => `<option value="${esc(p.uid)}" ${p.uid === cur ? 'selected' : ''}>${esc(p.name)}</option>`).join('');
     let cnt = document.getElementById('gmLootCount'); if (cnt) cnt.textContent = list.length ? `(${list.length})` : '';
     let rolls = (window._gmLootRolls || []).slice(-8);
-    let defeated = _gmLootDefeated();
-    let cuFor = t => Math.max(0, Math.floor((t || 0) * defeated / 2));
+    let defeated = _gmLootDefeated(), lootTier = _gmLootTier();
+    let cuFor = t => Math.max(0, Math.floor((t || 0) * defeated * lootTier / 2));
     let kind = it => it.isWeapon ? 'Weapon' : it.isArmor ? 'Armor' : it.isShield ? 'Shield' : it.isHelmet ? 'Helmet' : 'Item';
     let stats = it => it.isWeapon ? `${it.weaponData?.dmg || ''}, ${it.weaponData?.ap || '?'} AP`
         : it.isArmor ? `+${it.armorData?.ac || 0} AC, +${it.armorData?.dr || 0} DR, +${it.armorData?.er || 0} ER`
@@ -1186,10 +1204,12 @@ window.renderGmLoot = function() {
         ${itemsHtml}
         <div class="border-t border-slate-700 pt-2 mt-1">
             ${head('Currency')}
-            <div class="text-[10px] text-slate-400 mb-1.5">The party finds <b class="text-slate-200">LUC (Loot) × enemies defeated ÷ 2</b>, rounded down.</div>
-            <div class="flex items-center gap-1.5 mb-1.5">
+            <div class="text-[10px] text-slate-400 mb-1.5">The party finds <b class="text-slate-200">LUC (Loot) × enemies defeated × their highest Tier ÷ 2</b>, rounded down.</div>
+            <div class="flex items-center gap-1.5 mb-1.5 flex-wrap">
                 <label class="text-[10px] text-slate-300 flex items-center gap-1">Enemies defeated
                     <input type="number" min="0" value="${defeated}" onchange="window.gmSetLootDefeated(this.value)" style="width:3.2rem" class="${selCls} text-center"></label>
+                <label class="text-[10px] text-slate-300 flex items-center gap-1" title="The highest Tier among the enemies defeated (from their stat blocks; Tier 1 without one)">Highest Tier
+                    <input type="number" min="0" value="${lootTier}" onchange="window.gmSetLootTier(this.value)" style="width:3.2rem" class="${selCls} text-center"></label>
             </div>
             <div class="flex items-center gap-1.5 mb-1.5">
                 <select id="gmLootAskWho" onchange="window._gmLootAskWho=this.value" class="${selCls} flex-1 min-w-0" ${party.length ? '' : 'disabled'} title="Who is asked to roll">
@@ -1295,9 +1315,9 @@ window.gmAskLootCheck = function() {
     window._gmLootRequestAt = Date.now();
     window._gmLootRequestTo = who || null;
     window._gmLootRolls = [];
-    let defeated = _gmLootDefeated();
-    window.apxAuth.publishLootRequest(code, { id: crypto.randomUUID(), at: Date.now(), defeated, to: who || null }).catch(e => console.warn('Loot request:', e.message));
-    let foes = `${defeated} ${defeated === 1 ? 'enemy' : 'enemies'} defeated`;
+    let defeated = _gmLootDefeated(), tier = _gmLootTier();
+    window.apxAuth.publishLootRequest(code, { id: crypto.randomUUID(), at: Date.now(), defeated, tier, to: who || null }).catch(e => console.warn('Loot request:', e.message));
+    let foes = `${defeated} ${defeated === 1 ? 'enemy' : 'enemies'} defeated, highest Tier ${tier}`;
     if (typeof gmLog === 'function') gmLog({ text: who ? `The GM asks ${_gmPartyName(who)} for a LUC (Loot) check to find Currency (${foes}).` : `The GM asks for a LUC (Loot) check to find Currency (${foes}).`, kind: 'loot', force: true });
     window.renderGmLoot();
 };
@@ -2584,6 +2604,8 @@ function _gmHandleRollEvent(uid, ev) {
     let entry = (window.gmInitiative || []).find(e => e.playerUid === uid);
     if (ev.kind === 'react') { if (entry && firstSeen) _gmDefensiveReact(entry, ev.hitId, ev.via); return; }
     if (ev.kind === 'damage') { if (firstSeen) _gmSheetDamageEvent(uid, ev); return; }
+    // Out of combat, a player can ignore a Wound Threshold save you asked for
+    if (ev.kind === 'wtIgnore') { if (entry && firstSeen) _gmIgnoreWt(entry, ev.logId); return; }
     let name = entry ? entry.name : (ev.who || 'A player');
     // A player's attack (weapon or power) becomes "the last attack", for hits and weapon properties
     // A player moved their summoned creature on its turn: its AP is spent here
@@ -2917,6 +2939,16 @@ function _gmCheckWoundThreshold(entry, dmg, hitId) {
         ask: entry.playerUid ? { uid: entry.playerUid, roll: 'save', dc } : null });
 }
 window._gmCheckWoundThreshold = _gmCheckWoundThreshold;
+// A player ignored the Wound Threshold save (only out of combat): it's no longer waiting
+function _gmIgnoreWt(entry, logId) {
+    if (window.gmCombatStarted) return;
+    let q = window._gmPendingSaves[entry.id] || [];
+    let i = q.findIndex(x => x.type === 'wt' && (!logId || x.logId === logId));
+    if (i < 0) return;
+    let item = q.splice(i, 1)[0];
+    gmLog({ id: item.logId || undefined, kind: 'wt', ask: null, force: true, text: `${entry.name || 'A player'} took ${item.dmg} damage, more than their Wound Threshold, and ignored it (out of combat).` });
+    window.renderInitiativeTracker && window.renderInitiativeTracker();
+}
 
 // ── NPC Wound Threshold and Wounds ─────────────────────────────────────────
 // NPCs have a Wound Threshold too (double their CON score, plus worn items). A single hit past it
@@ -3373,7 +3405,9 @@ function _gmDamage(entry, opts) {
     _gmLogHpChange(entry, before, after, wasAboveZero, dmg, hit, hit ? null : opts.src);
     if (dmg > 0 && hit && hit.attacker) _gmCharmBroken(entry, hit.attacker, 'damaged it');   // (Charmed ends)
     let defId = hit ? _gmOfferDefensive(entry, hit, dmg, extras) : null;   // a Reaction to a Critical Hit, before the saves
-    _gmCheckWoundThreshold(entry, woundDmg, defId);                       // Wound Threshold (damage past Temp HP), then the hit's own saves, then Bleed Out
+    // Wound Threshold (damage past Temp HP), then the hit's own saves, then Bleed Out (out of combat, a player's own
+    // sheet asks for the save of damage they typed in themselves)
+    if (!(opts.sheet && opts.sheet.wtLocal)) _gmCheckWoundThreshold(entry, woundDmg, defId);
     // NPCs have a Wound Threshold too (with a helmet question pending, it's checked once that's answered)
     if (entry.faction !== 'player' && !entry.companionOf) {
         let hr = defId && window._gmCritHits[defId];
@@ -3684,7 +3718,7 @@ function _gmSheetDamageEvent(uid, ev) {
     // (a power's Sacrifice: their own damage, not the last attack's)
     let hit = ev.sacrifice ? null : (ev.atkId && window._gmLastAttack && window._gmLastAttack.id === ev.atkId ? _gmTakeHit(e) : null) || _gmTakeHit(e) || _gmTurnHit(e);
     e._sheetDmgAt = Date.now();
-    _gmDamage(e, { raw: ev.raw || 0, types, hit, src: ev.sacrifice ? `${ev.sacrifice} (Sacrifice)` : undefined, sheet: { dmg: ev.dmg || 0, hpDmg: typeof ev.hpDmg === 'number' ? ev.hpDmg : undefined, tempBefore: typeof ev.tempBefore === 'number' ? ev.tempBefore : undefined }, nonlethal: !!ev.nonlethal });
+    _gmDamage(e, { raw: ev.raw || 0, types, hit, src: ev.sacrifice ? `${ev.sacrifice} (Sacrifice)` : undefined, sheet: { dmg: ev.dmg || 0, hpDmg: typeof ev.hpDmg === 'number' ? ev.hpDmg : undefined, tempBefore: typeof ev.tempBefore === 'number' ? ev.tempBefore : undefined, wtLocal: !!ev.wtLocal && !window.gmCombatStarted }, nonlethal: !!ev.nonlethal });
 }
 
 window.toggleSurprised = function(id, checked) {
@@ -4079,7 +4113,7 @@ window.startCombat = function(skipTac) {
     window._gmExtraTurn = null;
     window.gmInitiative.forEach(x => { x.apCur = 0; x._apTurns = 0; x._apFirstSurprised = false; x._tac5Used = false; });
     window.gmCombatLog = []; window._gmPendingSaves = {}; window._gmResolvedSaves = {};
-    _gmSetLootDefeated(0); window.renderGmLoot && window.renderGmLoot();   // counts the enemies of this fight
+    _gmSetLootDefeated(0); _gmSetLootTier(1); window.renderGmLoot && window.renderGmLoot();   // counts the enemies of this fight (and their highest Tier)
     _gmLogSession = 'c' + Date.now().toString(36);
     gmLog({ text: 'Combat started. Round 1.', kind: 'info' });
     _gmTacApply(swaps);

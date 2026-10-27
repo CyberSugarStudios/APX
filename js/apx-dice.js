@@ -495,9 +495,13 @@
         // Saves are settled in the order they were asked for (the Wound Threshold save first,
         // then a hit's own saves, then Bleed Out), so a later button waits for the earlier ones
         let waitWt = !done && cards.some(x => x.log && x.log.id !== e.id && x.log.ask && x.log.ask.roll !== 'react' && !x.log.ask.free && !Array.isArray(x.log.ask.choices) && askIsMine(x.log) && !tray.askDone[x.log.id] && (x.log.t || 0) < (e.t || 0));
+        // Out of combat, a Wound Threshold save can be ignored
+        let wtIgnore = !done && e.kind === 'wt' && e.ask.roll === 'save' && typeof window.apxOutOfCombat === 'function' && window.apxOutOfCombat()
+            ? ` <button data-logignore style="font-size:.66rem;font-weight:800;padding:.18rem .5rem;border-radius:.3rem;cursor:pointer;border:1px solid var(--c-border2,#475569);background:none;color:var(--c-text,#e2e8f0)" title="Out of combat: skip this save (nothing is Wounded)">Ignore Wound Threshold</button>` : '';
+        if (tray.askDone[e.id] === 'ignored') return `<div style="margin-top:.3rem;font-size:.66rem;font-weight:800;color:var(--c-text-muted,#94a3b8)">Ignored</div>`;
         let label = done ? 'Rolled' : waitWt ? 'Roll the earlier save first' : e.ask.label ? e.ask.label
             : e.ask.roll === 'save' ? `Roll ${e.ask.attr || 'CON'} save${e.ask.dc ? ' (DC ' + e.ask.dc + ')' : ''}` : 'Roll CON (Survive)';
-        return `<div style="margin-top:.3rem"><button data-logask ${done || waitWt ? 'disabled' : ''} style="font-size:.66rem;font-weight:800;padding:.18rem .5rem;border-radius:.3rem;cursor:${done || waitWt ? 'default' : 'pointer'};border:1px solid ${done ? 'var(--c-border2,#475569)' : '#f59e0b'};background:${done || waitWt ? 'none' : '#b45309'};color:${done ? 'var(--c-text-muted,#94a3b8)' : '#fff'};opacity:${waitWt ? '.6' : '1'}">${label}</button></div>`;
+        return `<div style="margin-top:.3rem"><button data-logask ${done || waitWt ? 'disabled' : ''} style="font-size:.66rem;font-weight:800;padding:.18rem .5rem;border-radius:.3rem;cursor:${done || waitWt ? 'default' : 'pointer'};border:1px solid ${done ? 'var(--c-border2,#475569)' : '#f59e0b'};background:${done || waitWt ? 'none' : '#b45309'};color:${done ? 'var(--c-text-muted,#94a3b8)' : '#fff'};opacity:${waitWt ? '.6' : '1'}">${label}</button>${wtIgnore}</div>`;
     }
     function refreshAskCards() { cards.forEach(x => { if (x.log && x.log.ask) renderCard(x); }); pinAsks(); }
 
@@ -514,6 +518,12 @@
                 try { window.apxRollFromAsk(c.log.ask, ch); } catch (e) { console.warn('Choice from message:', e); }
                 refreshAskCards();
             });
+            let ig = el.querySelector('[data-logignore]');
+            if (ig) ig.onclick = () => {
+                tray.askDone[c.log.id] = 'ignored';
+                try { window.apxIgnoreWtAsk && window.apxIgnoreWtAsk(c.log); } catch (e) { console.warn('Ignore Wound Threshold:', e); }
+                refreshAskCards();
+            };
             let ab = el.querySelector('[data-logask]');
             if (ab) ab.onclick = () => {
                 if (ab.disabled) return;

@@ -11,11 +11,11 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.27.1011',
-        released: '2026-10-27T10:11:00',
-        releasedText: 'October 27, 2026 · 10:11 AM',
+        version: 'v2026.10.27.1536',
+        released: '2026-10-27T15:36:00',
+        releasedText: 'October 27, 2026 · 3:36 PM',
         title: 'Playtest 4: Maneuvers, Gear & Burdens',
-        intro: 'Straight from our fourth playtest: NPCs and companions get the full list of maneuvers and actions, Loyal Companions can carry your gear, and carrying too much finally weighs you down. Squeezing costs what it should, and Vitality\'s top rank keeps you on your feet. Since then: NPC maneuvers roll themselves, five new weapon properties (two of them fire into an area), readable buttons in every theme, Exo-Suits rebuilt in three frameworks, including the new Conduit, Keen, Parrying and Suppressed weapons, summons that mix Tiers, creatures your GM shares for summoning, and now Summon a Weapon built in the Power Crafter, perks you can take back a rank at a time, character files that show when they\'ve been edited, and now powers that apply their numbers for you, summons you place and command from their own window, and Ambusher, Charge, Relentless and Regenerative working as written, and Sacrifice that hurts like it should and Permanent powers that hold their slot, powers that play out on the battle map (targets in range, zones, walls, Sensors, Concentration and durations that end everything a power did), Split Target dice you hand out one by one, Overexertion that can tire the target instead, AP Utilities that work every turn, lighter Juggernaut Plating, and now Invisibility that costs 2 AP to keep, Lucky on every save, Breach and Amplifier that show and ask, free powers that are free up to their Level, powers that stay ended when you reload, and now save powers whose damage lands on everyone who fails, tokens from any world that join the fight, Flurry\'s top rank refunding a critical hit\'s AP for you, a Phantom\'s Camouflage and Decoy that really hide you, faster syncing between your sheet and your GM, the latest Exo-Suit rules with suits for NPCs and Loyal Companions too, and now summoned weapons that fade with their power, a cleaner XP Log, a page that recovers when part of it fails to load, new characters that take their place in a world cleanly, and now breaking and repairing gear, a Concentration prompt each turn, thrown Light Ammo, updated Conditions and perks, a breakdown behind every number on your sheet, and now the Composite Form trait and a floor on Weapon Forge prices.',
+        intro: 'Straight from our fourth playtest: NPCs and companions get the full list of maneuvers and actions, Loyal Companions can carry your gear, and carrying too much finally weighs you down. Squeezing costs what it should, and Vitality\'s top rank keeps you on your feet. Since then: NPC maneuvers roll themselves, five new weapon properties (two of them fire into an area), readable buttons in every theme, Exo-Suits rebuilt in three frameworks, including the new Conduit, Keen, Parrying and Suppressed weapons, summons that mix Tiers, creatures your GM shares for summoning, and now Summon a Weapon built in the Power Crafter, perks you can take back a rank at a time, character files that show when they\'ve been edited, and now powers that apply their numbers for you, summons you place and command from their own window, and Ambusher, Charge, Relentless and Regenerative working as written, and Sacrifice that hurts like it should and Permanent powers that hold their slot, powers that play out on the battle map (targets in range, zones, walls, Sensors, Concentration and durations that end everything a power did), Split Target dice you hand out one by one, Overexertion that can tire the target instead, AP Utilities that work every turn, lighter Juggernaut Plating, and now Invisibility that costs 2 AP to keep, Lucky on every save, Breach and Amplifier that show and ask, free powers that are free up to their Level, powers that stay ended when you reload, and now save powers whose damage lands on everyone who fails, tokens from any world that join the fight, Flurry\'s top rank refunding a critical hit\'s AP for you, a Phantom\'s Camouflage and Decoy that really hide you, faster syncing between your sheet and your GM, the latest Exo-Suit rules with suits for NPCs and Loyal Companions too, and now summoned weapons that fade with their power, a cleaner XP Log, a page that recovers when part of it fails to load, new characters that take their place in a world cleanly, and now breaking and repairing gear, a Concentration prompt each turn, thrown Light Ammo, updated Conditions and perks, a breakdown behind every number on your sheet, the Composite Form trait and a floor on Weapon Forge prices, and now Currency loot that counts the enemy\'s Tier, ammo and Wound Threshold saves outside combat, and jumps that say how far you went.',
         index: [
             ['Combat', [
                 'NPCs, summoned creatures and Loyal Companions have an Actions button with every Combat Maneuver and Standard Action, spending their own AP. Fight Defensively, Fight Offensively and next-attack maneuvers change their rolls (and AC) until their next turn.',
@@ -34,7 +34,8 @@
                 'Fixed: a creature\'s save power (one that halves or negates its damage) rolled its damage, but a player who failed the save never lost the HP. The damage now comes off each target by their own save as it comes in, for NPCs\' powers and players\' alike.',
                 'Conditions, updated: Incapacitated is AP 0 (and no AP at the start of your turn), no actions, Free Actions, Reactions or movement, and automatic STR and AGI save failures. Attacks against an Incapacitated creature have Advantage, and its hits are Critical Hits that bypass DR and ER (Resistances and Immunities still count). Paralyzed, Stunned and Unconscious bring Incapacitated with them; Suffocating gives 1 Fatigue each turn and stops healing.',
                 'Concentration: at the start of your turn you\'re asked whether to keep each Concentration power going, with its AP cost (2 AP, 1 in a Conduit Exo-Suit), and a Concentrate button does it by hand at the table. Armor too heavy for your STR means you can\'t Concentrate.',
-                'Disarming Attack costs the attack\'s AP + 2, Lunging Attack the attack\'s AP + 1. A creature that saves against Stunning is immune to that wielder\'s Stunning until the start of their next turn.'
+                'Disarming Attack costs the attack\'s AP + 2, Lunging Attack the attack\'s AP + 1. A creature that saves against Stunning is immune to that wielder\'s Stunning until the start of their next turn.',
+                'Wound Threshold out of combat: one hit past it still calls for the CON save, and outside combat you can choose to ignore it.'
             ]],
             ['Gear', [
                 'Overburdened rules apply: carrying more than your capacity drops you to Speed 1 with Disadvantage on every attack, check and save.',
@@ -43,7 +44,9 @@
                 'Treasure Hunter Rank 5 is reworked into Found Earlier: once per Short Rest (then a Luck Point each), produce gear, ammo or a consumable worth up to 10 Cu × your LUC modifier (minimum 50). It can\'t be sold.',
                 'Break and Repair: any item but Crafting Materials can be broken, and repaired like crafting: Crafting Materials worth a quarter of its value (any rarity), the usual time, DC and workspace, and a Craft check. Broken Helmets and damaged Exo-Suits repair the same way.',
                 'Crafting rarities: for every 50 Currency of Crafting Materials, at least 2 Uncommon and 1 Rare. You now choose how many of each rarity you spend.',
-                'Light Ammo can be thrown by hand for your Unarmed Attack damage, and a forged weapon in your inventory can go straight back to the Weapon Forge.'
+                'Light Ammo can be thrown by hand for your Unarmed Attack damage, and a forged weapon in your inventory can go straight back to the Weapon Forge.',
+                'Currency loot: LUC (Loot) × the number of enemies defeated × the highest Tier among them, halved (rounded down). 12 mercenaries led by a Tier 3: a roll of 16 finds 288 Currency.',
+                'Ranged weapons use their ammo out of combat too.'
             ]],
             ['NPC Crafter', [
                 'Raising an NPC\'s Core Attribute above 10 costs 2 TP per point. Creatures you already built keep their price until you move them over.'
@@ -60,7 +63,8 @@
                 'The Attributes & Skills panel on the character sheet now fills the space beside the column next to it, with no gap underneath.',
                 'If part of APX fails to load (a site update still on its way, a dropped connection), it\'s fetched again by itself, and if it still can\'t load, a red banner says so with a Reload button. Before, the Dice and Notifications window couldn\'t be dragged, the sheet\'s dock button did nothing, and pop-ups like the XP Log lost their frame when that happened.',
                 'The XP Log is a proper framed pop-up with your totals at the top.',
-                'Hover any number on the character sheet to see where it comes from: AC, DR, ER, HP, AP, Speed, Wound Threshold, skills, saves, attacks, damage and more, broken down part by part. The parts always add up to the number shown.'
+                'Hover any number on the character sheet to see where it comes from: AC, DR, ER, HP, AP, Speed, Wound Threshold, skills, saves, attacks, damage and more, broken down part by part. The parts always add up to the number shown.',
+                'A Jump\'s Athletics roll says how many squares you jump, the Armor Forge\'s + and − take Shift+click for 10 at once, and Spend XP greys out Saving Throw training once every save is trained.'
             ]],
             ['Powers & Consumables', [
                 'Power ranges are bought by the square: Touch/Self is free, 1 XP per 5 squares, or Line of Sight for 15 XP. Older powers keep their range and cost.',
@@ -130,7 +134,8 @@
                 'Storage gear: a Backpack, Bandolier or Utility Belt in your inventory has a Wear button. Worn, a Backpack makes your STR count as 2 higher for your carry limit (a Bandolier or Utility Belt, 1 higher). They don\'t stack: only your best one counts, and your carry limit in Inventory shows it.',
                 'Break and Repair: an item\'s 🔍 has Break (anything but Crafting Materials). A broken item can\'t be equipped or used, and its Repair button opens a crafting panel like the forges\': Crafting Materials worth a quarter of its value (half that if you crafted it at a discount; Tinker halves it again), any rarity, the usual time, DC and workspace, and a Craft check. A failed check loses the materials. Your Broken Helmet repairs there too.',
                 'The forges\' craft panels let you choose how many Common, Uncommon and Rare Crafting Materials you spend: their value has to cover the cost, with at least 2 Uncommon and 1 Rare for every 50 Cu of materials.',
-                'A forged weapon in your inventory has Forge in its 🔍: it works like Return to Forge, and the weapon goes back to your inventory when the Forge closes.'
+                'A forged weapon in your inventory has Forge in its 🔍: it works like Return to Forge, and the weapon goes back to your inventory when the Forge closes.',
+                'Loot / Scavenge: Currency is now LUC (Loot) × enemies defeated × their highest Tier, halved. The panel has a Highest Tier box, filled in when your GM asks for the roll.'
             ]],
             ['Loyal Companion', [
                 'Actions: your companion\'s card (and its full stat block) has an Actions button with every Combat Maneuver and Standard Action. Each spends its AP. Fight Defensively, Fight Offensively and next-attack maneuvers (Sweeping Strike, Charge, Feint…) change its rolls, show as chips on its card, and end when its next turn starts (✕ ends one early). Your GM keeps its conditions, so Fall Prone and the like remind you to ask them.',
@@ -150,7 +155,9 @@
                 'Skills, saves and attributes: hover one for its attribute, Training Bonus (and what trained it), perks and items. A (Disadv), (Adv) or (Auto-Fail) tag says what\'s causing it, and so does a skill or save that rolls with one.',
                 'Weapons: hover the attack bonus for its attribute, training, perks and aiming, the damage for its dice and every modifier, and the AP for its weight class and properties (Repeating, Two-handed…). A weapon\'s Advantage or Disadvantage says where it comes from.',
                 'Powers: the power attack bonus, save DC and each slot level\'s count show what adds up to them, and so does each power\'s own attack and DC.',
-                'Inventory: a row\'s weight shows one item\'s weight and the whole stack\'s, and its value shows what one is worth and what selling it gets you. Tooltips are a little wider so a breakdown fits.'
+                'Inventory: a row\'s weight shows one item\'s weight and the whole stack\'s, and its value shows what one is worth and what selling it gets you. Tooltips are a little wider so a breakdown fits.',
+                'Armor Forge: Shift+click + or − to add or take off 10 at once (never below 0, and never past a mod\'s maximum or what the armor allows).',
+                'Spend XP: once every Saving Throw is trained, its button says All Trained and is greyed out.'
             ]],
             ['Powers', [
                 'Step 2 (Range) is bought by the square: Touch/Self is free, every 5 squares cost 1 XP (set it with − and + or type it), and Line of Sight is 15 XP. A power made with Short, Long or Extreme Range keeps that range and its cost; choose a new range only if you want to.',
@@ -248,7 +255,9 @@
                 'Large: Advantage on the melee attack roll of a Shove (and on STR (Athletics) to grapple, pin or escape), shown on the size picker too.',
                 'Attacking a creature that\'s Incapacitated (Stunned, Paralyzed, Unconscious), Restrained or Fighting Offensively asks which one you\'re attacking, for Advantage.',
                 'Weapon Forge: a property that lowers the cost (Loading, Unwieldy) can\'t take a weapon below its base cost, 25 Cu for melee or 50 Cu for ranged; the Properties step says so, and says when a weapon is at its base cost. A weapon you made before costs nothing extra to reopen because of it.',
-                'Fixed: the Weapon Forge priced a failed craft\'s weapon as though it had the properties that didn\'t get added.'
+                'Fixed: the Weapon Forge priced a failed craft\'s weapon as though it had the properties that didn\'t get added.',
+                'Ammo out of combat: a ranged attack spends its round (Repeating: 3) whether or not a fight is running, and with none left the weapon can\'t be used.',
+                'Jump: your base jump is your STR modifier (minimum 1), doubled by Powerful Leaper, +1 square per Strider rank. Further rolls STR (Athletics) (with Advantage from Powerful Leaper), and the roll says how far you jump: one more square for every 5 on the check.'
             ]],
             ['Perks & Rules', [
                 'Vitality Rank 4 is reworked: if you would be reduced to 0 HP, you\'re reduced to 1 HP instead, and you can spend up to your Rank in Rest Dice to heal that much at once (at Rank 3 they roll their maximum). It can\'t happen again until you finish a Full Rest. It works from your GM\'s tracker too.',
@@ -262,7 +271,9 @@
                 'Conditions, updated: Incapacitated sets your AP to 0, stops your movement and makes you fail STR and AGI saves, and Stunned, Paralyzed and Unconscious bring it. A hit while you\'re Incapacitated bypasses your DR and ER, but your Resistances and Immunities still count. Unconscious tells you what you drop. Suffocating gives 1 Fatigue at the start of each of your turns (it was 2).',
                 'Armor too heavy for your STR: you also can\'t Concentrate on Powers. Its warning says so.',
                 'Treasure Hunter Rank 5: Found Earlier now costs a Luck Point every time. Relentless Rank 2 and Defensive Rank 2 are reworded; Defensive Rank 2 gives your Escape rolls Advantage.',
-                'Characters with a perk, size or item these changes touch get a notice about it the first time they open.'
+                'Characters with a perk, size or item these changes touch get a notice about it the first time they open.',
+                'Wound Threshold out of combat: with no fight running in your world (or no world), damage you type in that goes past your Wound Threshold (after DR, ER and Temp HP) asks for the CON save right on your sheet: Roll CON save or Ignore Wound Threshold. A failed save asks which limb is Wounded (a Wounded limb hit again is a Permanent Injury; a Torso stacks), and a Luck reroll that saves it takes the Wound back off.',
+                'A Wound Threshold save your GM asks for outside combat has an Ignore Wound Threshold button in the tray. In combat it works as before.'
             ]],
             ['Exo-Suits', [
                 'Rebuilt from the rulebook: a Base Suit costs 3,000 Currency, is worn with your armor, and holds up to 3 Integrated Systems. Suits you already own keep their systems.',
@@ -404,7 +415,8 @@
                 'Stunning: a creature that saves against it is immune to that wielder\'s Stunning until the start of the wielder\'s next turn (the log says so instead of asking for another save).',
                 'An overloaded NPC Exo-Suit takes the damage of another Critical Hit or another hit over its Wound Threshold, adding up (hover its tracker line for the total); Repaired clears it.',
                 'An NPC in armor too heavy for its STR rolls the saves and checks you roll from the log with Disadvantage, as its stat block\'s own buttons do.',
-                'Composite Form: a player in their condensed form shows Condensed on their tracker entry and their token shrinks one Size. They can\'t be Grappled, Restrained, Prone or Pinned while condensed: setting one is refused, and a grapple against them fails with a note in the log. Their squeezing costs no penalty, in either form.'
+                'Composite Form: a player in their condensed form shows Condensed on their tracker entry and their token shrinks one Size. They can\'t be Grappled, Restrained, Prone or Pinned while condensed: setting one is refused, and a grapple against them fails with a note in the log. Their squeezing costs no penalty, in either form.',
+                'Wound Threshold out of combat: before Start Combat, a player can ignore a Wound Threshold save you asked for (the log says so). Damage a player types into their own sheet outside combat asks for its save on their sheet, so your tracker doesn\'t ask twice.'
             ]],
             ['Players\' Gear', [
                 'Players can be Overburdened now (Speed 1, Disadvantage on attacks, checks and saves), and wear Backpacks, Bandoliers and Utility Belts to carry more.',
@@ -419,7 +431,8 @@
                 'Start Combat, Next Turn and the previous-turn button publish at once, so players\' AP comes in as their turn starts. A steady stream of other changes is saved at least once a second instead of waiting for it to stop, and both of your world\'s copies are written together. Anything still waiting is saved when you close the tab.',
                 'Cleanup: the old Load Party window (its button was already gone) and other code nothing used any more were removed.',
                 'One place per player: each player\'s character is now recorded per world. When a different character takes a player\'s place (their old one was deleted, or they switched characters), the old character\'s tokens on every battle map, its initiative entries (with its companion and summons), a Relentless drop and roll requests still waiting for it are cleared, and the log says what went. When a player\'s place is gone (their last character there deleted, or they left or were kicked), the same happens. Worlds start recording with each player\'s next save, so nothing already in a world is touched by this update.',
-                'Relentless drops are tagged with the character that made them and cleared at the start and end of every fight.'
+                'Relentless drops are tagged with the character that made them and cleared at the start and end of every fight.',
+                'Currency loot: the Loot panel counts the enemies defeated this fight and the highest Tier among them (from their stat blocks; a fight without stat blocks counts as Tier 1, and you can edit either). The party finds LUC (Loot) × enemies × that Tier ÷ 2, and Ask to roll sends both numbers to your players.'
             ]]
         ]
     }, {

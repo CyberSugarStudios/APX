@@ -3,7 +3,7 @@
 // ============================================================
 // Looting (right after a fight, LUC (Loot) checks):
 //   Ammunition: LUC (Loot) − 3d6 = single rounds recovered (0 or lower: none).
-//   Currency:   LUC (Loot) × enemies defeated; the party finds half (rounded down).
+//   Currency:   LUC (Loot) × enemies defeated × their highest Tier; the party finds half (rounded down).
 //   Gear:       the GM decides what's salvageable (GM Tools Loot list).
 // Scavenging (about 1 hour per attempt): LUC (Loot), PER (Notice), CON (Survive)
 //   or INT (Encyclopedia). Searching for Crafting Materials uses the table:
@@ -116,16 +116,17 @@
             }
         });
     };
-    window.apxLootCurrency = function (enemies, addToMe) {
+    window.apxLootCurrency = function (enemies, addToMe, tier) {
         enemies = Math.max(0, parseInt(enemies) || 0);
+        tier = parseInt(tier); if (isNaN(tier)) tier = 1; tier = Math.max(0, tier);
         let applied = 0;
         rollCheck(lootSpec(), {
-            label: `LUC (Loot): Currency (${enemies} ${enemies === 1 ? 'enemy' : 'enemies'})`, purpose: 'cu',
+            label: `LUC (Loot): Currency (${enemies} ${enemies === 1 ? 'enemy' : 'enemies'}, Tier ${tier})`, purpose: 'cu',
             onResult: r => {
-                let cu = r.autoFail ? 0 : Math.max(0, Math.floor(r.total * enemies / 2));
+                let cu = r.autoFail ? 0 : Math.max(0, Math.floor(r.total * enemies * tier / 2));
                 if (addToMe) { st().currency = (parseInt(st().currency) || 0) + cu - applied; applied = cu; refresh(); }
-                let txt = `The party finds ${cu} Cu (${r.total} × ${enemies} ÷ 2, rounded down)` + (addToMe ? ', added to your Currency' : '');
-                return { text: txt, extra: { cu, enemies } };
+                let txt = `The party finds ${cu} Cu (${r.total} × ${enemies} × Tier ${tier} = ${r.total * enemies * tier}, halved, rounded down)` + (addToMe ? ', added to your Currency' : '');
+                return { text: txt, extra: { cu, enemies, tier } };
             }
         });
     };
@@ -174,6 +175,7 @@
         let inWorld = !!(window.apxActiveWorldCode && window.apxActiveWorldCode());
         let req = window._pwLootReq && Date.now() < (window._pwLootUntil || 0) ? window._pwLootReq : null;
         let enemies = opts.enemies ?? (req && req.defeated) ?? 1;
+        let tier = opts.tier ?? (req && req.tier) ?? 1;
         let ammo = likelyAmmo();
         let ency = encyclopediaSpecs();
         // Each roll shows your bonus to it (the same bonus the sheet's own button rolls with)
@@ -190,9 +192,10 @@
             <div class="apxdlg-msg" style="margin-bottom:.6rem">Looting happens right after a fight and relies on sheer luck. Scavenging is slower: about an hour of searching per attempt.</div>
             <div style="${box}${opts.focus === 'cu' ? ';border-color:#f59e0b' : ''}">
                 <b style="font-size:.85rem">Loot Currency</b> <span style="font-size:.7rem;font-weight:800;color:#fcd34d">LUC (Loot)</span>
-                <div style="${small}">Roll LUC (Loot) and multiply it by the number of enemies defeated. The party finds half that total in Currency (rounded down).${req ? ' <b style="color:#fcd34d">Your GM asked for this roll.</b>' : ''}</div>
+                <div style="${small}">Roll LUC (Loot) and multiply it by the number of enemies defeated, multiplied by the highest Tier among them. The party finds half that total in Currency (rounded down). <i>12 mercenaries, their leader Tier 3, a roll of 16: 16 × 12 × 3 = 576, halved: 288 Currency.</i>${req ? ' <b style="color:#fcd34d">Your GM asked for this roll.</b>' : ''}</div>
                 <div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;font-size:.72rem">
                     Enemies defeated <input data-enemies type="number" min="0" value="${esc(enemies)}" style="${selCss};width:4.5rem;text-align:center">
+                    Highest Tier <input data-tier type="number" min="0" value="${esc(tier)}" style="${selCss};width:3.5rem;text-align:center">
                     ${inWorld ? '<span style="color:var(--c-text-muted)">Your GM hands out the Cu.</span>' : '<label style="display:flex;align-items:center;gap:.25rem"><input type="checkbox" data-addme checked> Add it to my Currency</label>'}
                     <button class="apxdlg-btn apxdlg-ok" data-go="cu" style="margin-left:auto">Roll</button></div>
             </div>
@@ -227,7 +230,8 @@
             if (go === 'cu') {
                 let n = parseInt(back.querySelector('[data-enemies]').value) || 0;
                 let addMe = !inWorld && !!back.querySelector('[data-addme]')?.checked;
-                back.remove(); window.apxLootCurrency(n, addMe);
+                let t = parseInt(back.querySelector('[data-tier]').value); if (isNaN(t)) t = 1;
+                back.remove(); window.apxLootCurrency(n, addMe, t);
             } else if (go === 'ammo') {
                 let a = back.querySelector('[data-ammo]').value;
                 back.remove(); window.apxLootAmmo(a);

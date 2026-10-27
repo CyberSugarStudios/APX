@@ -110,22 +110,19 @@ window.setArmorModQty = function(key, delta) {
     if (effMax !== null && next > effMax) next = effMax;
 
     if (next > cur) {
-        // Refund-cost mods can't be bought past the point where total
-        // armor cost would go negative.
-        if (modDef.cost < 0) {
-            let projectedTotals = window.armorForgeCalcTotals({ mods: { ...armorForgeDraft.mods, [key]: next } });
-            if (projectedTotals.rawCost < 0) next = cur;
-        }
-        // Weight can't be reduced below 0 lb
-        if (modDef.wt < 0) {
-            let projectedTotals = window.armorForgeCalcTotals({ mods: { ...armorForgeDraft.mods, [key]: next } });
-            if (projectedTotals.rawWt < 0) next = cur;
-        }
-        // Speed can never be reduced to 0 or below by armor alone.
-        if (modDef.field === 'speed') {
-            let projectedTotals = window.armorForgeCalcTotals({ mods: { ...armorForgeDraft.mods, [key]: next } });
-            if (armorForgeSpeedBaseline() + projectedTotals.speed <= 0) next = cur;
-        }
+        // (Shift+click adds 10 at once: as many of them as are allowed)
+        let ok = n => {
+            let projectedTotals = window.armorForgeCalcTotals({ mods: { ...armorForgeDraft.mods, [key]: n } });
+            // Refund-cost mods can't be bought past the point where total
+            // armor cost would go negative.
+            if (modDef.cost < 0 && projectedTotals.rawCost < 0) return false;
+            // Weight can't be reduced below 0 lb
+            if (modDef.wt < 0 && projectedTotals.rawWt < 0) return false;
+            // Speed can never be reduced to 0 or below by armor alone.
+            if (modDef.field === 'speed' && armorForgeSpeedBaseline() + projectedTotals.speed <= 0) return false;
+            return true;
+        };
+        while (next > cur && !ok(next)) next--;
     }
 
     armorForgeDraft.mods[key] = next;
@@ -163,9 +160,9 @@ window.renderArmorForge = function() {
                     ${wouldZeroSpeed ? '<div class="text-[9px] text-red-400 font-bold">Would reduce Speed to 0</div>' : ''}
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
-                    <button onclick="window.setArmorModQty('${m.key}', -1)" ${qty <= 0 ? 'disabled' : ''} class="w-6 h-6 shrink-0 rounded ${qty <= 0 ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-slate-700 hover:bg-slate-600 text-white'} font-bold">-</button>
+                    <button onclick="window.setArmorModQty('${m.key}', event.shiftKey ? -10 : -1)" title="Shift+click: 10 at once" ${qty <= 0 ? 'disabled' : ''} class="w-6 h-6 shrink-0 rounded ${qty <= 0 ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-slate-700 hover:bg-slate-600 text-white'} font-bold">-</button>
                     <span class="w-7 text-center font-bold text-sm text-white">${qty}</span>
-                    <button onclick="window.setArmorModQty('${m.key}', 1)" ${atMax ? 'disabled' : ''} class="w-6 h-6 shrink-0 rounded ${atMax ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-amber-700 hover:bg-amber-600 text-white'} font-bold">+</button>
+                    <button onclick="window.setArmorModQty('${m.key}', event.shiftKey ? 10 : 1)" title="Shift+click: 10 at once" ${atMax ? 'disabled' : ''} class="w-6 h-6 shrink-0 rounded ${atMax ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-amber-700 hover:bg-amber-600 text-white'} font-bold">+</button>
                     ${noCu ? '' : `<span class="w-16 text-right text-[10px] ${subtotal !== 0 ? 'text-yellow-400' : 'text-slate-600'} font-bold">${subtotal} Cu</span>`}
                 </div>
             </div>

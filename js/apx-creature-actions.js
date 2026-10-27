@@ -43,7 +43,7 @@
         { g: 'Combat Maneuvers', name: 'Recover: Shrug It Off', cost: 3, recover: 'shrug', tip: 'Completely heal one of its Wounded limbs. Once per fight (a Short or Full Rest brings it back).' },
         { g: 'Combat Maneuvers', name: 'Let Go', cost: 0, tip: 'Release the creature it\'s grappling (a Free Action). Its Staggered from the grapple ends.', endFx: 'grappling' },
         { g: 'Standard Actions', name: 'Move', cost: null, tip: 'Move up to its Speed. Costs 1 AP the first time this turn, 2 the second, 3 the third… (dragging its token on a battle map in combat pays this for you).', move: true },
-        { g: 'Standard Actions', name: 'Jump', cost: null, tip: 'A Jump counts as moving for its AP (1 AP the first time this turn, 2 the second…). It jumps up to its STR modifier in squares (minimum 1); further takes a STR (Athletics) check, DC 5 per extra square.', move: true },
+        { g: 'Standard Actions', name: 'Jump', cost: null, tip: 'A Jump counts as moving for its AP (1 AP the first time this turn, 2 the second…). It jumps up to its STR modifier in squares (minimum 1); further takes a STR (Athletics) check, DC 5 per extra square.', move: true, jump: true },
         { g: 'Standard Actions', name: 'Draw / Stow', cost: 2, tip: 'Draw a weapon or stow an item it\'s holding (a Quickdraw weapon: 0 AP).', quick: true },
         { g: 'Standard Actions', name: 'Use / Manipulate', cost: 3, tip: 'Open a door, pull a lever, pass an item, drink a potion, activate a terminal.' },
         { g: 'Standard Actions', name: 'Drop', cost: 0, tip: 'Drop an item in its square (a Free Action).' },
@@ -97,6 +97,24 @@
     };
 
     // A roll for the creature from its stat block: a skill check, or a STR melee attack (Shove, Shield Bash).
+    // A Jump: how far the roll takes it. Each 5 on the STR (Athletics) check is one more square past the base jump.
+    window.apxJumpNote = function (base, r) {
+        let extra = r && !r.autoFail ? Math.max(0, Math.floor((r.total || 0) / 5)) : 0;
+        return `Jump: ${base + extra} square${base + extra === 1 ? '' : 's'} (${base} + ${extra} extra: ${r ? r.total : 0} on DC 5 per square)`;
+    };
+    // A creature's Jump: its STR modifier in squares (minimum 1), or further with a STR (Athletics) check
+    async function jumpFor(ctx) {
+        if (!window.APXDice || !APXDice.ask) return;
+        let sb = null; try { sb = ctx.sb ? ctx.sb() : null; } catch (e) { }
+        let mods = (sb && sb.mods) || {}, sq = Math.max(1, mods.STR || 0), who = ctx.name || (sb && sb.name) || 'It';
+        let far = await APXDice.ask('Jump', `${who} can jump ${sq} square${sq === 1 ? '' : 's'} (its STR modifier, minimum 1). Further takes a STR (Athletics) check: DC 5 for every extra square.`,
+            [['ok', `${sq} square${sq === 1 ? '' : 's'}`, 'pri'], ['far', 'Further (roll Athletics)']]);
+        if (far !== 'far') return;
+        let sk = sb && (sb.trainedSkills || []).find(x => x.name === 'Athletics');
+        APXDice.check(Object.assign({ who, perks: false, gambleAllowed: false }, ctx.rollFlags || {}, { attr: 'STR', skill: 'Athletics', label: 'Jump: STR (Athletics), DC 5 per extra square',
+            bonus: sk ? sk.total : (mods.STR || 0), advSources: sk && (sk.adv || []).length ? sk.adv : undefined, disSources: sk && (sk.dis || []).length ? sk.dis : undefined,
+            onResult: r => window.apxJumpNote(sq, r) }));
+    }
     // Returns true when it rolled, false when it couldn't (no dice tray), null when cancelled.
     async function rollFor(a, ctx) {
         if (!window.APXDice) return false;
@@ -222,6 +240,7 @@
         }
         if (a.recover) { let ok = await recover(a, ctx); if (!ok) return; }
         if (a.move && ctx.move) ctx.move();
+        if (a.jump) await jumpFor(ctx);
         let spend = have != null ? Math.min(cost, have) : cost;
         // (standing up: removing Prone already charges its 2 AP where the page does that)
         // (a maneuver against a creature is a hostile action: Invisible from a power, 2 AP to stay hidden)

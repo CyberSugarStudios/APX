@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.10.27.1011';
+window.APX_VERSION = 'v2026.10.27.1536';
 
         window.state = getInitialState();
 
@@ -347,6 +347,46 @@ window.APX_VERSION = 'v2026.10.27.1011';
             if (ex && ex.nullifier) (ex.breach || []).forEach(t => def.immune.push(N(t)));   // (and Nullifier: Immunity to them)
             return def;
         };
+        // Wound Threshold out of combat (no fight running in your world, or no world): one hit past it, after DR/ER and
+        // Temp HP, asks for the CON save here. DC 10 or half the damage, whichever is higher; on a failure, pick the
+        // limb that's Wounded (your GM's call, from what hit you). Out of combat it can be ignored.
+        window.apxLocalWoundCheck = async function(hpDmg) {
+            let wt = typeof calc !== 'undefined' ? calc.woundThreshold : null;
+            if (!(hpDmg > 0) || wt == null || hpDmg <= wt || !window.APXDice || !window.APXDice.ask) return;
+            let dc = Math.max(10, Math.floor(hpDmg / 2));
+            let ans = await window.APXDice.ask('Wound Threshold', `You took ${hpDmg} damage in one hit, more than your Wound Threshold (${wt}). Make a DC ${dc} CON save to resist being wounded. Out of combat, you can ignore it.`,
+                [['ignore', 'Ignore Wound Threshold'], ['roll', `Roll CON save (DC ${dc})`, 'pri']]);
+            if (ans !== 'roll') { window.APXDice.notify(`Wound Threshold ignored (${hpDmg} damage, out of combat).`, { kind: 'note' }); return; }
+            let el = document.querySelector(`[data-apx-roll*='"kind":"save"'][data-apx-roll*='"attr":"CON"']`), spec = {};
+            try { spec = el ? JSON.parse(el.getAttribute('data-apx-roll')) : {}; } catch (e) { spec = {}; }
+            delete spec.type;
+            let wounded = null, picking = false, picked = false;
+            let pickLimb = async () => {
+                if (picking || picked) return; picking = true;
+                let slots = window.calcWoundedSlots ? window.calcWoundedSlots() : ['Head', 'Torso', 'Left Arm', 'Right Arm', 'Left Leg', 'Right Leg'];
+                let pick = await window.APXDice.ask('Wounded', 'Your CON save failed: which limb is Wounded? (Your GM decides, from what hit you.)', slots.map(l => [l, l, '']), { grid: true });
+                picking = false;
+                if (!pick || picked) return;
+                picked = true;
+                let had = (window.state.woundedLimbs || []).includes(pick);
+                wounded = had ? null : pick;   // (only a new Wound can be taken back by a Luck reroll)
+                if (had && pick === 'Torso' && window.apxAddTorsoWound) window.apxAddTorsoWound();   // a Torso stacks: one more extra damage die
+                else if (had && window.apxPermanentInjury) { window.APXDice.notify(`Your ${pick} was Wounded again: a Permanent Injury. Choose the attribute it lowers.`, { kind: 'warn', open: true }); window.apxPermanentInjury(pick); }
+                else if (window.toggleWoundedLimb) window.toggleWoundedLimb(pick, true);
+                window.recalculateMath?.(); window.scheduleAutoSave?.(true);
+            };
+            window.APXDice.check(Object.assign({ bonus: 0 }, spec, { kind: 'save', attr: 'CON', label: `CON save: Wound Threshold (DC ${dc})`, who: window.state?.name || '',
+                onResult: r => {
+                    let ok = !r.autoFail && r.total >= dc;
+                    if (ok) {
+                        // (a Luck reroll that saves it: the Wound comes off again)
+                        if (wounded) { let w = wounded; wounded = null; picked = false; if (window.toggleWoundedLimb) window.toggleWoundedLimb(w, false, true); window.recalculateMath?.(); window.scheduleAutoSave?.(true); return `Saved (DC ${dc}): your ${w} isn't Wounded after all.`; }
+                        return `Saved (DC ${dc}): not wounded.`;
+                    }
+                    setTimeout(pickLimb, 0);
+                    return `Failed (DC ${dc}): a limb is Wounded.`;
+                } }));
+        };
         window.handleMathInput = function(stateKey, inputEl) {
             let val = inputEl.value;
             try {
@@ -386,7 +426,8 @@ window.APX_VERSION = 'v2026.10.27.1011';
                             // Tell the GM first (their tracker turns it into a hit: extra dice, reactions, saves),
                             // even when it comes to 0
                             window.apxOnRollEvent?.({ id: 'dmg' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), kind: 'damage', label: 'Damage',
-                                raw, types: t.slice(), ignoreRes: !!t.ignoreRes, nonlethal: nl || undefined, dmg: res.dmg, hpDmg: res.dmg - Math.min(Math.max(0, window.state.tempHp || 0), res.dmg), tempBefore: Math.max(0, window.state.tempHp || 0), text: res.text, atkId: useAtk ? atk.id : null, hpAfter: r2.currentHp, tempAfter: r2.tempHp });
+                                raw, types: t.slice(), ignoreRes: !!t.ignoreRes, nonlethal: nl || undefined, dmg: res.dmg, hpDmg: res.dmg - Math.min(Math.max(0, window.state.tempHp || 0), res.dmg), tempBefore: Math.max(0, window.state.tempHp || 0), text: res.text, atkId: useAtk ? atk.id : null, hpAfter: r2.currentHp, tempAfter: r2.tempHp,
+                                wtLocal: !window._pwCombatCode || undefined });   // (out of combat this sheet asks for the Wound Threshold save itself)
                             let exoHit = res.dmg - Math.min(Math.max(0, window.state.tempHp || 0), res.dmg);
                             window.state.tempHp = r2.tempHp;
                             window.updateState('currentHp', r2.currentHp);
@@ -395,6 +436,8 @@ window.APX_VERSION = 'v2026.10.27.1011';
                             window.apxExoOnDamage?.(exoHit, calc.woundThreshold, !!(useAtk && atk && atk.crit));
                             // (Concentration saves, a beneficial power's Damage Interrupt: js/apx-power-world.js)
                             if (res.dmg > 0) setTimeout(() => window.apxOnSelfDamage?.(res.dmg), 0);
+                            // Out of combat: a hit past your Wound Threshold still asks for its CON save (in combat, your GM's tracker asks)
+                            if (exoHit > 0 && !window._pwCombatCode) setTimeout(() => window.apxLocalWoundCheck?.(exoHit), 60);
                             window.scheduleAutoSave?.();
                             if (nl && r2.currentHp <= 0 && !(window.state.conditions || []).includes('unconscious') && typeof window.toggleCondition === 'function') { window.state.koNonlethal = true; window.toggleCondition('unconscious', true); }
                             window.APXDice?.notify(`Damage${useAtk ? ` from ${atk.by}'s ${atk.label}` : ''}: ${res.text}${nl ? ' (non-lethal)' : ''}.${nl && r2.currentHp <= 0 ? ' You\'re knocked out: Unconscious, not Bleeding Out.' : ''}`, { kind: res.dmg ? 'warn' : 'note' });

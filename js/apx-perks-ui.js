@@ -700,8 +700,11 @@
             document.getElementById('xpSaveCount').innerText = numSavesTrained;
             let saveCost = 25 * numSavesTrained;
             let btnSave = document.getElementById('btnBuySave');
-            btnSave.innerText = `Buy (${saveCost} XP)`;
-            btnSave.disabled = unspent < saveCost;
+            // Every Saving Throw trained already: nothing left to buy
+            let allSaves = ATTRIBUTES.every(a => window.state.savesTrained[a]);
+            btnSave.innerText = allSaves ? 'All Trained' : `Buy (${saveCost} XP)`;
+            btnSave.disabled = allSaves || unspent < saveCost;
+            btnSave.title = allSaves ? 'Every Saving Throw is already trained.' : '';
             btnSave.className = btnSave.disabled ? 'bg-slate-700 text-slate-500 font-bold px-4 py-1.5 rounded text-xs cursor-not-allowed w-28 text-right' : 'bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-1.5 rounded transition text-xs shadow w-28 text-right';
 
             // Max HP: disabled once unaffordable OR the CON x 10 cap is reached.
@@ -794,6 +797,7 @@
                 // a third trained save costs 50).
                 let numTrained = Object.values(window.state.savesTrained).filter(v => v).length;
                 let cost = 25 * numTrained;
+                if (ATTRIBUTES.every(a => window.state.savesTrained[a])) { window.showConfirm('Every Saving Throw is already trained.', null, true); return; }
                 if (unspent < cost) {
                     window.showConfirm(`Not enough XP. Training a new Saving Throw costs ${cost} XP at your current trained count.`, null, true);
                     return;

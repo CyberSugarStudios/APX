@@ -1695,8 +1695,8 @@
                 back.querySelector('[data-v="spend"]').focus();
             });
         };
-        // Ranged attacks in combat fire a round of their Ammo Type (Light, Medium or Heavy, by the weapon's weight):
-        // with none of it left the weapon can't be used. The round is spent once the attack goes ahead.
+        // Ranged attacks fire a round of their Ammo Type (Light, Medium or Heavy, by the weapon's weight), in combat
+        // or out of it: with none of it left the weapon can't be used. The round is spent once the attack goes ahead.
         (function () {
             let inner = window.apxBeforeAttack;
             let AMMO = { light: 'Light Ammo', medium: 'Medium Ammo', heavy: 'Heavy Ammo' };
@@ -1707,8 +1707,7 @@
             };
             window.apxBeforeAttack = function (o) {
                 let type = o && o.pcAttack && !o.companion && o.hit && (o.hit.ammo || o.hit.ammoUse);   // (ammoUse: thrown by hand)
-                let inCombat = !!window._pwCombatCode;
-                if (!type || !inCombat) return inner(o);
+                if (!type) return inner(o);
                 let stack = window.apxAmmoStack(type);
                 let per = (o.hit.props || []).includes('repeating') ? 3 : 1;   // Repeating: 3 rounds an attack
                 if (stack && per > 1 && (parseInt(stack.ct) || 0) < per) { window.APXDice?.notify(`${(o.hit && o.hit.weapon) || 'This weapon'} is Repeating: each attack fires ${per} rounds of ${AMMO[type]}, and you have ${parseInt(stack.ct) || 0}.`, { kind: 'warn', open: true }); return false; }

@@ -121,7 +121,7 @@
     }
     function refresh() { window.recalculateMath && window.recalculateMath(); window.scheduleAutoSave && window.scheduleAutoSave(); }
     function addFx(e) { let list = fx().filter(x => x.key !== e.key); list.push(Object.assign({ id: uid() }, e)); st().turnFx = list; refresh(); }
-    function rollSkill(skill, attr, label) {
+    function rollSkill(skill, attr, label, more) {
         // the sheet's own roll for that skill (bonuses, conditions), as if clicked
         let spec = null;
         document.querySelectorAll('[data-apx-roll]').forEach(el => { if (spec) return; try { let o = JSON.parse(el.getAttribute('data-apx-roll')); if (o.type === 'check' && o.skill === skill && o.kind !== 'save') spec = o; } catch (e) { } });
@@ -133,6 +133,8 @@
             o.advSources = (o.advSources || []).concat(['Large size']);
         // Defensive Rank 2: Advantage on checks to resist being grappled, pinned or held in place (an Escape)
         if (/^Escape/.test(label || '') && ((st().perks || {}).con_defensive || 0) >= 2) o.advSources = (o.advSources || []).concat(['Defensive (Rank 2)']);
+        // (more: extra Advantage, and what the result means: a Jump's distance)
+        if (more) { if ((more.advSources || []).length) o.advSources = (o.advSources || []).concat(more.advSources); if (more.onResult) o.onResult = more.onResult; }
         window.APXDice.check(o);
     }
 
@@ -397,9 +399,13 @@
             auto: async () => {
                 st().apxMoves = (st().apxMoves || 0) + 1;
                 window.apxMobileMoved && window.apxMobileMoved();
-                let sq = Math.max(1, mod('STR'));
-                let far = window.APXDice && APXDice.ask ? await APXDice.ask('Jump', `You can jump ${sq} square${sq === 1 ? '' : 's'} (your STR modifier, minimum 1). Further takes a STR (Athletics) check: DC 5 for every extra square.`, [['ok', `${sq} square${sq === 1 ? '' : 's'}`, 'pri'], ['far', 'Further (roll Athletics)']]) : 'ok';
-                if (far === 'far') rollSkill('Athletics', 'STR', 'Jump: STR (Athletics), DC 5 per extra square');
+                // Your jump: STR modifier (minimum 1), doubled by Powerful Leaper, +1 square per Strider rank
+                let s = st(), leap = ((s.ancestry && s.ancestry.traits) || []).includes('t_leap'), strider = (s.perks || {}).gen_strider || 0;
+                let sq = Math.max(1, mod('STR')) * (leap ? 2 : 1) + strider;
+                let how = ['your STR modifier, minimum 1'].concat(leap ? ['doubled by Powerful Leaper'] : [], strider ? [`+${strider} from Strider`] : []).join(', ');
+                let far = window.APXDice && APXDice.ask ? await APXDice.ask('Jump', `You can jump ${sq} square${sq === 1 ? '' : 's'} (${how}). Further takes a STR (Athletics) check: DC 5 for every extra square.${leap ? ' Powerful Leaper gives it Advantage.' : ''}`, [['ok', `${sq} square${sq === 1 ? '' : 's'}`, 'pri'], ['far', 'Further (roll Athletics)']]) : 'ok';
+                if (far === 'far') rollSkill('Athletics', 'STR', 'Jump: STR (Athletics), DC 5 per extra square',
+                    { advSources: leap ? ['Powerful Leaper'] : [], onResult: r => window.apxJumpNote ? window.apxJumpNote(sq, r) : '' });
             } },
         { g: 'Standard Actions', name: 'Draw / Stow', cost: 2, tip: 'Draw a weapon or stow an item you\'re holding. An item on a Bandolier or Utility Belt you wear takes half the AP (1); a Quickdraw weapon takes 0 AP.',
             costNow: () => quickdrawWeapons().length ? 0 : wornBelt() ? 1 : 2,
