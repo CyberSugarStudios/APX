@@ -270,12 +270,16 @@
             let o = { type: 'attack', label: name, bonus: pn.atk, dice: dmg.dice, dmgMod: dmg.dmgMod, critMult, dmgType: dmg.type, disSources: dis, advSources: adv, pcAttack: true, wcat: cat,
                 apCost: ap, ranged: cat === 'ranged', hit, split: dmg.split || undefined, maxDmg: exf && exf.max ? exf.max : undefined };
             (calc.weaponAttacks = calc.weaponAttacks || []).push({ key: name + '|sw', label: name, bonus: pn.atk, disSources: dis, advSources: adv, wcat: cat, dice: dmg.dice, dmgMod: dmg.dmgMod, dmgType: dmg.type, critMult, hit, ap });
-            let blocked = calc.cantAct ? ` data-no-roll data-apx-blocked="${calc.cantActLabel}" title="You're ${calc.cantActLabel} and can't attack until that ends"` : '';
+            // (Composite Form, condensed: no weapons, a summoned one included)
+            const FORM_MSG = 'In your condensed form (Composite Form) you can\'t wield weapons: only unarmed attacks. Return to your standard form (3 AP, in Actions) first.';
+            let blocked = calc.cantAct ? ` data-no-roll data-apx-blocked="${calc.cantActLabel}" title="You're ${calc.cantActLabel} and can't attack until that ends"`
+                : calc.condensed ? ` data-no-roll data-apx-blocked="condensed" data-apx-blocked-msg="${FORM_MSG}" title="${FORM_MSG}"` : '';
             let atkAttr = blocked || window.apxRollAttr(o);
             let dmgAttr = blocked || window.apxRollAttr({ type: 'damage', label: name + ' damage', formula: dmg.dice + (dmg.dmgMod ? (dmg.dmgMod > 0 ? '+' : '') + dmg.dmgMod : ''), dmgType: dmg.type, wcat: cat, split: dmg.split || undefined, maxDmg: exf && exf.max ? exf.max : undefined });
             let dmgText = dmg.dice + (dmg.dmgMod ? ` ${dmg.dmgMod > 0 ? '+' : '-'} ${Math.abs(dmg.dmgMod)}` : '');
             let lasts = e.left != null ? `${e.left} more turn${e.left === 1 ? '' : 's'}` : (DUR_TEXT[e.dur] || '');
             let disHtml = calc.cantAct ? `<span class="text-[8px] text-red-500 font-black block -mt-1 leading-none">(${calc.cantActLabel})</span>`
+                : calc.condensed ? `<span class="text-[8px] text-amber-400 font-black block -mt-1 leading-none" title="${FORM_MSG}">(Condensed)</span>`
                 : dis.length ? `<span class="text-[8px] text-red-400 block -mt-1 leading-none" title="${esc(dis.join(', '))}">(Disadv)</span>` : adv.length ? `<span class="text-[8px] text-emerald-400 block -mt-1 leading-none" title="${esc(adv.join(', '))}">(Adv)</span>` : '';
             return `
                 <tr class="bg-blue-950/40" data-sw-row="${esc(e.id)}">

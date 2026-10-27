@@ -343,6 +343,8 @@
     };
     window.apxExoWear = function () {
         let x = window.state?.exoSuit; if (!x) return;
+        // (Composite Form, condensed: no armor, and no suit either)
+        if (!x.worn && window.apxCondensed && window.apxCondensed(window.state)) { window.APXDice?.notify('You can\'t get into an Exo-Suit in your condensed form (Composite Form). Return to your standard form first.', { kind: 'warn', open: true }); return; }
         if (!x.worn && x.frame === 'juggernaut' && window._pwCombatCode && !spendAp(6, 'Entering a Juggernaut')) return;
         if (x.worn && x.frame === 'juggernaut' && window._pwCombatCode && !spendAp(6, 'Leaving a Juggernaut')) return;
         x.worn = !x.worn;

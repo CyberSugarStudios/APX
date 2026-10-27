@@ -1283,7 +1283,7 @@
         let blocked = e.target.closest && e.target.closest('[data-apx-blocked]');
         if (blocked) {
             e.preventDefault(); e.stopPropagation();
-            APXDice.notify(`You're ${blocked.getAttribute('data-apx-blocked')}, so you can't attack or take actions until that ends.`, { kind: 'warn', open: true });
+            APXDice.notify(blocked.getAttribute('data-apx-blocked-msg') || `You're ${blocked.getAttribute('data-apx-blocked')}, so you can't attack or take actions until that ends.`, { kind: 'warn', open: true });
             return;
         }
         let el = e.target.closest && e.target.closest('[data-apx-roll]');

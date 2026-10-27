@@ -84,12 +84,15 @@ function computeCharSummary(state) {
     let maxHp = Math.max(5, (calc.scores.CON * 5) + (vitalHpRank * 5) + (state.xpHpBought || 0) - calc.maxHpPenalty + fxStat('maxHp'));
 
     let armor = state.equippedArmor || { wt: 0, ac: 0, dr: 0, er: 0 };
+    // (Composite Form, condensed: no armor, shield or helmet, as on the sheet)
+    let condensed = !!(window.apxCondensed && window.apxCondensed(state));
+    if (condensed) armor = { wt: 0, ac: 0, dr: 0, er: 0 };
     let armorWt = armor.wt || 0, armorAc = (armor.ac||0)+customAc, armorDr = (armor.dr||0)+customDr, armorEr = (armor.er||0)+customEr;
     if (armor.speedMod) calc.speed += armor.speedMod;
     // Shield and Helmet (same as the sheet): +AC/DR/ER, and the shield's weight counts as armor
-    let sh = state.equippedShield, hm = state.equippedHelmet;
+    let sh = condensed ? null : state.equippedShield, hm = condensed ? null : state.equippedHelmet;
     if (sh && sh.equipped) { armorAc += sh.ac || 0; armorDr += sh.dr || 0; armorEr += sh.er || 0; armorWt += sh.wt || 0; }
-    (state.extraShields || []).forEach(x => { armorAc += x.ac || 0; armorDr += x.dr || 0; armorEr += x.er || 0; armorWt += x.wt || 0; });
+    (condensed ? [] : state.extraShields || []).forEach(x => { armorAc += x.ac || 0; armorDr += x.dr || 0; armorEr += x.er || 0; armorWt += x.wt || 0; });
     if (hm && hm.equipped && !hm.broken) { armorAc += hm.ac || 0; armorDr += hm.dr || 0; armorEr += hm.er || 0; armorWt += hm.wt || 0; }
 
     let classWt = Math.max(0, armorWt - 5 * ((state.perks || {}).str_armormaster || 0));   // Armor Master: 5 lb lighter per rank
@@ -156,11 +159,12 @@ function computeCharSummary(state) {
     // Skills: every skill whose roll isn't just the plain attribute check (trained, its own bonus,
     // or Advantage / Disadvantage from size), the same rule as NPC stat blocks
     let szv = parseInt(state.ancestry && state.ancestry.size) || 30, szKey = szv <= 15 ? 'small' : szv >= 60 ? 'large' : 'medium';
+    if (window.apxCondensed && window.apxCondensed(state)) szKey = { small: 'tiny', medium: 'small', large: 'medium' }[szKey];   // (Composite Form, condensed: one Size smaller)
     let trainedSkills = SKILLS.map(s => {
         let tr = !!(state.skillsTrained && state.skillsTrained[s.id]);
         let perkBonus = calc.skills[s.id] || 0;
         if (s.name === 'Notice' && calc.skills['Notice']) perkBonus = calc.skills['Notice'];
-        let adv = szKey === 'small' && s.id === 'Stealth' ? ['Small size'] : [];
+        let adv = (szKey === 'small' || szKey === 'tiny') && s.id === 'Stealth' ? [szKey === 'tiny' ? 'Tiny size' : 'Small size'] : [];
         let dis = szKey === 'large' && s.id === 'Stealth' ? ['Large size'] : [];
         if (!tr && !perkBonus && !adv.length && !dis.length) return null;
         return { name: s.name, trained: tr, adv, dis, total: calc.mods[s.attr] + (tr ? (state.trainingBonus || 2) : 0) + perkBonus + (window.apxItemCheckBonus ? window.apxItemCheckBonus(itemFx, s.attr) : 0) };
@@ -1720,6 +1724,9 @@ function _gmRemoveCondition(entry, condId) {
 let _gmGrappleBusy = false;
 function _gmStartGrapple(grappler, target, pin, opts) {
     if (!grappler || !target || grappler === target) return;
+    // A condensed Composite Form can't be held
+    { let imm = _gmPlayerCondImmune(target, pin ? 'pinned' : 'grappled');
+      if (imm) { gmLog({ text: `${_gmPublicName(target)} can't be ${pin ? 'Pinned' : 'Grappled'} (${imm}): the grapple fails.`, kind: 'info', force: true }); window.renderInitiativeTracker(); return; } }
     _gmGrappleBusy = true;
     try {
         if (target.grappledBy && target.grappledBy !== grappler.id) _gmEndGrapple(target, null, true);
@@ -1818,7 +1825,17 @@ async function _gmGrappleEvent(uid, ev) {
 }
 window._gmGrappleEvent = _gmGrappleEvent;
 window._gmStartGrapple = _gmStartGrapple; window._gmEndGrapple = _gmEndGrapple;
+// A player whose form makes them immune to this condition (Composite Form, condensed: Grappled, Restrained, Prone, Pinned)
+function _gmPlayerCondImmune(entry, condId) {
+    if (!entry || entry.faction !== 'player' || !entry.playerUid || entry.companionOf) return null;
+    let st = ((window.gmParty || []).find(p => p.fileName === entry.playerUid) || {}).state; if (!st) return null;
+    let list = (window.apxCondImmune ? window.apxCondImmune(st) : []).concat((st.derived && st.derived.immuneConds) || []);
+    return list.includes(condId === 'grabbed' ? 'grappled' : condId) ? 'Composite Form, condensed' : null;
+}
+window._gmPlayerCondImmune = _gmPlayerCondImmune;
 function _gmAddCondition(entry, condId) {
+    let imm = _gmPlayerCondImmune(entry, condId);
+    if (imm) { gmLog({ text: `${_gmPublicName(entry)} can't be ${window._gmCondName ? window._gmCondName(condId) : condId} (${imm}).`, kind: 'info', force: true }); return; }
     if (entry.faction === 'player') _gmSetPlayerCondition(entry, condId, true);
     else if (window._gmAddEntryCondition) window._gmAddEntryCondition(entry.id, condId);
     window.renderInitiativeTracker();
@@ -2374,6 +2391,7 @@ function _gmDefensiveOk(entry) {
 function _gmHelmetOk(entry) {
     let pm = (window.gmParty || []).find(p => p.fileName === entry.playerUid);
     let h = pm?.state?.equippedHelmet;
+    if (window.apxCondensed && window.apxCondensed(pm?.state)) return false;   // (Composite Form, condensed: no helmet on)
     return !!(h && h.equipped && !h.broken);
 }
 function _gmOfferDefensive(entry, hit, dmg, extras) {
@@ -4881,6 +4899,10 @@ window._gmTogglePlayerCond = async function(entryId, condId, on) {
         window.renderInitiativeTracker();
         return;
     }
+    if (on && _gmPlayerCondImmune(e, condId)) {
+        if (window.APXDice && APXDice.notify) APXDice.notify(`${e.name} is immune to ${name} right now (${_gmPlayerCondImmune(e, condId)}).`, { kind: 'warn', open: true });
+        return;
+    }
     (window._gmCondPending[e.playerUid] = window._gmCondPending[e.playerUid] || {})[condId] = { on: !!on, t: Date.now() };
     _gmSetPlayerCondition(e, condId, on);
     gmLog({ text: `${e.name} ${on ? 'is now' : 'is no longer'} ${name}.`, kind: 'info', force: true });
@@ -5086,8 +5108,10 @@ window.renderInitiativeTracker = function() {
                     let conds = _gmPlayerCondList(e).filter(c => c !== 'bleedingout' || e.bleedOutTurns != null || (window._gmCondPending[e.playerUid] || {}).bleedingout);
                     let nm = id => window._gmCondName ? window._gmCondName(id) : id;
                     let eff = window.apxEffectiveConditions ? window.apxEffectiveConditions(conds) : conds.map(id => ({ id }));
+                    let formChip = pm && pm.state && window.apxCondensed && window.apxCondensed(pm.state)
+                        ? `<span class="apx-cond-chip" style="border-color:#f59e0b;color:#fde68a" title="Composite Form, condensed: one Size smaller; immune to Grappled, Restrained and Prone; no armor, shield, helmet or weapons (unarmed attacks still work)">Condensed</span>` : '';
                     return `<div class="flex items-center gap-1 flex-wrap">
-                        ${eff.map(c => c.from
+                        ${formChip}${eff.map(c => c.from
                             ? `<span class="apx-cond-chip" style="border-style:dashed;opacity:.8" title="From ${nm(c.from)}">${nm(c.id)}</span>`
                             : `<span class="apx-cond-chip" title="Click × to remove (their sheet updates)">${nm(c.id)}<button onclick="window._gmTogglePlayerCond('${e.id}','${c.id}',false)">&times;</button></span>`).join('')}
                         <button onclick="window._gmPlayerCondPicker('${e.id}', event)" class="text-[9px] font-bold text-orange-300 hover:text-orange-200">+ Condition</button>

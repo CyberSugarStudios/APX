@@ -30,7 +30,13 @@
 
         window.openConditionPicker = function() {
             let eff = window.apxEffectiveConditions ? window.apxEffectiveConditions(window.state.conditions, window.state) : [];
+            let imm = window.apxCondImmune ? window.apxCondImmune(window.state) : [];
             let condRows = CONDITIONS.map(c => {
+                if (imm.includes(c.id)) return `
+                    <label class="flex items-start gap-2 bg-slate-900 border border-slate-800 rounded p-2 opacity-60" title="Composite Form: you can't be ${c.name} in your condensed form">
+                        <input type="checkbox" class="mt-1" disabled>
+                        <div><div class="text-xs font-bold text-slate-300">${c.name} <span class="text-[9px] text-amber-400 font-bold">(immune: condensed)</span></div><div class="text-[10px] text-slate-500 leading-tight">${c.desc}</div></div>
+                    </label>`;
                 let active = window.state.conditions.includes(c.id);
                 let implied = !active && eff.find(e => e.id === c.id && e.from);
                 let fromName = implied ? (CONDITIONS.find(x => x.id === implied.from) || {}).name : '';
@@ -70,6 +76,12 @@
         };
         const bothLegsWounded = () => window.apxAllLegsWounded(window.state);
         window.toggleCondition = async function(id, checked) {
+            // Composite Form, condensed: immune to Grappled, Restrained and Prone (and Pinned)
+            if (checked && window.apxCondImmune && window.apxCondImmune(window.state).includes(id === 'grabbed' ? 'grappled' : id)) {
+                let c = CONDITIONS.find(x => x.id === id);
+                window.APXDice?.notify(`You're immune to ${c ? c.name : id} in your condensed form (Composite Form).`, { kind: 'warn', open: true });
+                window.recalculateMath(); return;
+            }
             if (!checked && id === 'prone' && bothLegsWounded()) {
                 window.APXDice?.notify('You can\'t stand up while both legs are Wounded. Heal one of them first.', { kind: 'warn', open: true });
                 window.recalculateMath(); return;
@@ -230,7 +242,11 @@
             let fatigueTag = window.state.fatigue > 0
                 ? [`<span class="inline-flex items-center text-[9px] bg-amber-900/40 text-amber-300 border border-amber-800/50 px-1.5 py-0.5 rounded font-bold">Fatigue ${window.state.fatigue}<button type="button" class="apx-cond-x ml-1 -mr-0.5 text-amber-300/70 hover:text-white leading-none" title="Reduce Fatigue by 1" onclick="event.stopPropagation();window.updateState('fatigue', Math.max(0,(window.state.fatigue||0)-1))">&times;</button></span>`]
                 : [];
-            let allTags = condTags.concat(limbTags).concat(permTags).concat(fatigueTag);
+            // Composite Form, condensed: its own tag (× shifts back, 3 AP, through the Actions list)
+            let formTag = window.apxCondensed && window.apxCondensed(window.state)
+                ? [`<span class="inline-flex items-center text-[9px] bg-amber-900/40 text-amber-200 border border-amber-700/60 px-1.5 py-0.5 rounded font-bold" data-tip="Composite Form, condensed: one Size smaller; immune to Grappled, Restrained and Prone; no armor, shield, helmet or weapons (unarmed attacks still work) and no fine manual dexterity.\nShifting back costs 3 AP (Actions → Composite Form, or ×).">Condensed (Composite Form)<button type="button" class="apx-cond-x ml-1 -mr-0.5 text-amber-200/70 hover:text-white leading-none" title="Return to your standard form (3 AP)" onclick="event.stopPropagation();window.apxDoAction && window.apxDoAction('Composite Form')">&times;</button></span>`]
+                : [];
+            let allTags = formTag.concat(condTags).concat(limbTags).concat(permTags).concat(fatigueTag);
             el.innerHTML = allTags.length ? allTags.join(' ') : '<span class="text-[10px] text-slate-600">No active conditions.</span>';
         };
 

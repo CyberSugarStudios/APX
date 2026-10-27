@@ -51,7 +51,7 @@ window.weaponForgeCalcTotals = function(draftOverride) {
 
     let rangeCost = isRanged ? WEAPON_RANGE_TIERS[d.rangeTier].cost : 0;
     let propsCost = WEAPON_PROPERTIES.reduce((s, p) => {
-        let val = weaponForgeDraft.properties[p.key];
+        let val = (d.properties || {})[p.key];
         // Boolean properties: cost once if true. Numeric properties: cost × count.
         let count = (typeof val === 'number') ? val : (val ? 1 : 0);
         return s + count * p.cost;
@@ -59,10 +59,12 @@ window.weaponForgeCalcTotals = function(draftOverride) {
     let elementalCost = d.elemental ? WEAPON_ELEMENTAL_COST : 0;
 
     let totalWeight = baseWt + wc.wtChange + dmgCumWt + critCumWt;
-    let totalCost = Math.max(0, baseCost + dmgCumCost + critCumCost + rangeCost + propsCost + elementalCost);   // (Loading takes 100 off)
+    // A property that lowers the cost (Loading, Unwieldy) can't take the weapon below its base cost (25 Cu melee, 50 Cu ranged)
+    let rawCost = baseCost + dmgCumCost + critCumCost + rangeCost + propsCost + elementalCost;
+    let totalCost = Math.max(baseCost, rawCost);
 
     return {
-        weight: totalWeight, cost: totalCost,
+        weight: totalWeight, cost: totalCost, rawCost, floored: rawCost < baseCost,
         dice: WEAPON_DMG_TIERS[d.dmgTier].dice,
         critMult: WEAPON_CRIT_TIERS[d.critTier].mult,
         range: isRanged ? WEAPON_RANGE_TIERS[d.rangeTier].range : null,
@@ -130,6 +132,9 @@ window.openWeaponForge = function(idx, target, opts) {
         if (weaponForgeDraft.rangeTier < 0) weaponForgeDraft.rangeTier = 0;
         if (!w.craftBatches) w.craftBatches = {}; // migrate legacy/manually-added weapons
         weaponForgeBasePaid = w.paidCost || 0;
+        // A weapon paid for in full before properties stopped lowering a weapon below its base cost: that difference
+        // counts as paid, so opening it again never charges for the rule change
+        { let t0 = window.weaponForgeCalcTotals(); if (weaponForgeBasePaid >= t0.rawCost && t0.cost > weaponForgeBasePaid) weaponForgeBasePaid = t0.cost; }
         document.getElementById('weaponForgeName').value = w.name || '';
     } else {
         weaponForgeDraft = getBlankWeaponDraft();
@@ -402,7 +407,18 @@ function renderWeaponForgeStep3() {
             </div>
         `;
     }).join('');
-    document.getElementById('wpnPropertiesList').innerHTML = propsHtml;
+    let list = document.getElementById('wpnPropertiesList');
+    list.innerHTML = propsHtml;
+    wpnFloorNote();
+}
+// The rule for properties that lower the cost, above the list (NPC and companion weapons pay Threat Points instead)
+function wpnFloorNote() {
+    let list = document.getElementById('wpnPropertiesList'); if (!list) return;
+    let note = document.getElementById('wpnPropFloorNote');
+    if (!note) { note = document.createElement('div'); note.id = 'wpnPropFloorNote'; note.style.cssText = 'font-size:10px;color:#94a3b8;margin:-.2rem 0 .4rem;line-height:1.3'; list.parentElement.insertBefore(note, list); }
+    let t = window.weaponForgeCalcTotals();
+    note.style.display = (weaponForgeTarget === 'companion' || weaponForgeTarget === 'gm') ? 'none' : '';
+    note.innerHTML = `A Weapon Property can't reduce the weapon's cost below its base cost (25 Cu for melee, 50 Cu for ranged).${t.floored ? ` <b style="color:#fbbf24">This weapon is at its base cost: ${t.cost} Cu.</b>` : ''}`;
 }
 
 // A property's checkbox card (the range section's and Elemental Critical)
@@ -442,6 +458,7 @@ function renderWeaponForgeSummary() {
         if (gb && weaponForgeTarget === 'gm' && !weaponForgeLootDone) gb.textContent = `Add to NPC (${r.tp} TP)`;
         if (pb && weaponForgeTarget === 'companion') pb.textContent = `Equip (${r.tp} TP)`;
     } else if (tpEl) tpEl.style.display = 'none';
+    wpnFloorNote();
     setTimeout(wpnStripCu, 0);
 }
 // Companions and NPCs pay Threat Points for forged weapons, never Cu: no Cu shown anywhere

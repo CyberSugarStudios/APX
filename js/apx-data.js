@@ -374,6 +374,7 @@
             { id: "t_bp", cost: 3, name: "Bonus Perk", desc: "Gain one General Perk of your choice.", rep: true, max: 2 },
             { id: "t_comm", cost: 3, name: "Distance Communicator", desc: "Communicate telepathically within 12 squares." },
             { id: "t_reg", cost: 3, name: "Regenerative", desc: "At the beginning of your turn in combat you can expend a Rest Die, rolling it, and healing for an amount equal to the result." },
+            { id: "t_comp", cost: 3, name: "Composite Form", desc: "No fixed anatomy: fluid matter, a cohesive swarm or interlocking drones. Move without penalty through any opening big enough for a creature two sizes smaller (gear that can't fit through on its own stays behind). 3 AP: shift between your standard form and a condensed, limbless one: one size smaller and immune to Grappled, Restrained and Prone (ending them), but no armor, weapons or fine manual dexterity (unarmed attacks still work)." },
             { id: "t_fly", cost: 4, name: "Flight", desc: "Fly speed = walking speed. Not if Encumbered/Heavy Armor." },
             { id: "t_poly", cost: 4, name: "Polymelia", desc: "Four arms. Hold 4 items. Craft in half time.", extraArms: 2 }
         ];
@@ -926,15 +927,24 @@
             if (parent === 'bleedingout' && child === 'unconscious' && (perks.con_frenzy || 0) >= 5 && stored.includes('provoked')) return 'Frenzy (Rank 5)';
             return null;
         }
+        // Conditions a character is immune to from its own form: Composite Form, condensed, can't be Grappled,
+        // Restrained or Prone (nor Pinned, which is all three)
+        const apxHasComposite = st => !!(st && ((st.ancestry && st.ancestry.traits) || []).includes('t_comp'));
+        const apxCondensed = st => !!(st && st.compositeCondensed && apxHasComposite(st));
+        function apxCondImmune(st) {
+            return apxCondensed(st) ? ['grappled', 'restrained', 'prone', 'pinned'] : [];
+        }
+        window.apxHasComposite = apxHasComposite; window.apxCondensed = apxCondensed; window.apxCondImmune = apxCondImmune;
         // stored: the conditions actually set. Returns [{id, from}] for every
         // condition in effect (from = the condition that caused it, or null).
         function apxEffectiveConditions(stored, st) {
+            let imm = apxCondImmune(st);
             stored = (stored || []).map(id => id === 'grabbed' ? 'grappled' : id);   // (Grabbed was folded into Grappled)
-            stored = stored.filter((id, i) => stored.indexOf(id) === i);
+            stored = stored.filter((id, i) => stored.indexOf(id) === i && !imm.includes(id));
             let out = stored.map(id => ({ id, from: null })), seen = new Set(stored);
             for (let i = 0; i < out.length; i++) {
                 (CONDITION_IMPLIES[out[i].id] || []).forEach(child => {
-                    if (seen.has(child) || apxConditionBlocked(out[i].id, child, stored, st)) return;
+                    if (seen.has(child) || imm.includes(child) || apxConditionBlocked(out[i].id, child, stored, st)) return;
                     seen.add(child); out.push({ id: child, from: out[i].id });
                 });
             }

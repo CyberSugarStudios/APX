@@ -11,11 +11,11 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.25.2115',
-        released: '2026-10-25T21:15:00',
-        releasedText: 'October 25, 2026 · 9:15 PM',
+        version: 'v2026.10.27.1011',
+        released: '2026-10-27T10:11:00',
+        releasedText: 'October 27, 2026 · 10:11 AM',
         title: 'Playtest 4: Maneuvers, Gear & Burdens',
-        intro: 'Straight from our fourth playtest: NPCs and companions get the full list of maneuvers and actions, Loyal Companions can carry your gear, and carrying too much finally weighs you down. Squeezing costs what it should, and Vitality\'s top rank keeps you on your feet. Since then: NPC maneuvers roll themselves, five new weapon properties (two of them fire into an area), readable buttons in every theme, Exo-Suits rebuilt in three frameworks, including the new Conduit, Keen, Parrying and Suppressed weapons, summons that mix Tiers, creatures your GM shares for summoning, and now Summon a Weapon built in the Power Crafter, perks you can take back a rank at a time, character files that show when they\'ve been edited, and now powers that apply their numbers for you, summons you place and command from their own window, and Ambusher, Charge, Relentless and Regenerative working as written, and Sacrifice that hurts like it should and Permanent powers that hold their slot, powers that play out on the battle map (targets in range, zones, walls, Sensors, Concentration and durations that end everything a power did), Split Target dice you hand out one by one, Overexertion that can tire the target instead, AP Utilities that work every turn, lighter Juggernaut Plating, and now Invisibility that costs 2 AP to keep, Lucky on every save, Breach and Amplifier that show and ask, free powers that are free up to their Level, powers that stay ended when you reload, and now save powers whose damage lands on everyone who fails, tokens from any world that join the fight, Flurry\'s top rank refunding a critical hit\'s AP for you, a Phantom\'s Camouflage and Decoy that really hide you, faster syncing between your sheet and your GM, the latest Exo-Suit rules with suits for NPCs and Loyal Companions too, and now summoned weapons that fade with their power, a cleaner XP Log, a page that recovers when part of it fails to load, new characters that take their place in a world cleanly, and now breaking and repairing gear, a Concentration prompt each turn, thrown Light Ammo, updated Conditions and perks, and a breakdown behind every number on your sheet.',
+        intro: 'Straight from our fourth playtest: NPCs and companions get the full list of maneuvers and actions, Loyal Companions can carry your gear, and carrying too much finally weighs you down. Squeezing costs what it should, and Vitality\'s top rank keeps you on your feet. Since then: NPC maneuvers roll themselves, five new weapon properties (two of them fire into an area), readable buttons in every theme, Exo-Suits rebuilt in three frameworks, including the new Conduit, Keen, Parrying and Suppressed weapons, summons that mix Tiers, creatures your GM shares for summoning, and now Summon a Weapon built in the Power Crafter, perks you can take back a rank at a time, character files that show when they\'ve been edited, and now powers that apply their numbers for you, summons you place and command from their own window, and Ambusher, Charge, Relentless and Regenerative working as written, and Sacrifice that hurts like it should and Permanent powers that hold their slot, powers that play out on the battle map (targets in range, zones, walls, Sensors, Concentration and durations that end everything a power did), Split Target dice you hand out one by one, Overexertion that can tire the target instead, AP Utilities that work every turn, lighter Juggernaut Plating, and now Invisibility that costs 2 AP to keep, Lucky on every save, Breach and Amplifier that show and ask, free powers that are free up to their Level, powers that stay ended when you reload, and now save powers whose damage lands on everyone who fails, tokens from any world that join the fight, Flurry\'s top rank refunding a critical hit\'s AP for you, a Phantom\'s Camouflage and Decoy that really hide you, faster syncing between your sheet and your GM, the latest Exo-Suit rules with suits for NPCs and Loyal Companions too, and now summoned weapons that fade with their power, a cleaner XP Log, a page that recovers when part of it fails to load, new characters that take their place in a world cleanly, and now breaking and repairing gear, a Concentration prompt each turn, thrown Light Ammo, updated Conditions and perks, a breakdown behind every number on your sheet, and now the Composite Form trait and a floor on Weapon Forge prices.',
         index: [
             ['Combat', [
                 'NPCs, summoned creatures and Loyal Companions have an Actions button with every Combat Maneuver and Standard Action, spending their own AP. Fight Defensively, Fight Offensively and next-attack maneuvers change their rolls (and AC) until their next turn.',
@@ -100,7 +100,8 @@
                 'Jump is an action costed like a Move, and a worn Bandolier or Utility Belt halves Draw / Stow.',
                 'New properties: Finesse, Quickdraw and Unwieldy, plus a Ranged section with Loading, Scatter (a 3-square Cone) and Repeating (a 2x2 square), both resolved on the battle map. Elemental Critical sits under Elemental, and every Elemental Critical lasts until the end of the target\'s next turn.',
                 'Tearing shows its minimum on the roll and applies against NPC and player targets alike, even on a miss.',
-                'New properties: Keen (crit on a 19 or 20), Parrying (Block like a Sturdy weapon, for your Reaction) and Suppressed (attacking doesn\'t reveal you). NPCs\' Block now raises their AC.'
+                'New properties: Keen (crit on a 19 or 20), Parrying (Block like a Sturdy weapon, for your Reaction) and Suppressed (attacking doesn\'t reveal you). NPCs\' Block now raises their AC.',
+                'A Weapon Property can\'t reduce a weapon\'s cost below its base cost (25 Cu for melee, 50 Cu for ranged).'
             ]],
             ['Characters', [
                 'Perks can be taken back one rank at a time for the XP they cost, along with everything that rank set up. GMs can turn this off in World Settings.',
@@ -109,7 +110,8 @@
                 'Fixed: a power that ended (by a rest, its duration or by hand) came back active after reloading the page. Saving now replaces your saved character instead of only adding to it, so anything your sheet removed (an ended power, a buff that wore off, a cleared Condition) stays removed. A power that was already stuck may show once more after this update; end it again and it stays gone.',
                 'Flurry Rank 5 refunds for you: a Critical Hit with a weapon attack gives back the AP that attack cost, including a critical hit from Ambusher. AP for Aim, Power Attack or Ambusher\'s 2 AP stays spent.',
                 'A new character in a world takes its player\'s place cleanly: the previous character\'s token, initiative entries and waiting requests are cleared, and nothing from a fight before it joined (like a Relentless notice) reaches it.',
-                'Reworded: Treasure Hunter Rank 5 (a Luck Point each time), Relentless Rank 2, Melee Prowess Rank 4, Defensive Rank 2, Martial Arts Rank 1 (only with your body) and Large. Characters these touch get a notice the first time they open.'
+                'Reworded: Treasure Hunter Rank 5 (a Luck Point each time), Relentless Rank 2, Melee Prowess Rank 4, Defensive Rank 2, Martial Arts Rank 1 (only with your body) and Large. Characters these touch get a notice the first time they open.',
+                'New 3 GP Genetic Trait: Composite Form. Your body is fluid matter, a cohesive swarm or interlocking drones: you move without penalty through openings for a creature two sizes smaller, and for 3 AP you shift into a condensed, limbless form (one size smaller, immune to Grappled, Restrained and Prone) that can\'t wear armor, wield weapons or do fine manual work. Unarmed attacks still work.'
             ]],
             ['Exo-Suits', [
                 'Exo-Suits are rebuilt: 3,000 Currency, worn with your armor, in three frameworks. A Juggernaut adds its Plating to your defenses, a Phantom hides in plain sight, and the new Conduit amplifies your Powers (Capacitor, Breach, Nullifier, Amplifier, Emitter). Everything a suit does is applied for you.',
@@ -244,7 +246,9 @@
                 'Martial Arts Rank 1: a combat maneuver is 1 AP cheaper only when you do it with only your body, and one that adds to your Attack AP (Whirlwind…) never goes below 2 AP. Holding a weapon or shield, your sheet asks which it is. Shield Bash never gets it.',
                 'Melee Prowess Rank 4 gives Advantage only on a maneuver that would have imposed Disadvantage (Whirlwind, Sweeping Strike, Charge, a Shove against a larger creature…), instead of on every melee maneuver.',
                 'Large: Advantage on the melee attack roll of a Shove (and on STR (Athletics) to grapple, pin or escape), shown on the size picker too.',
-                'Attacking a creature that\'s Incapacitated (Stunned, Paralyzed, Unconscious), Restrained or Fighting Offensively asks which one you\'re attacking, for Advantage.'
+                'Attacking a creature that\'s Incapacitated (Stunned, Paralyzed, Unconscious), Restrained or Fighting Offensively asks which one you\'re attacking, for Advantage.',
+                'Weapon Forge: a property that lowers the cost (Loading, Unwieldy) can\'t take a weapon below its base cost, 25 Cu for melee or 50 Cu for ranged; the Properties step says so, and says when a weapon is at its base cost. A weapon you made before costs nothing extra to reopen because of it.',
+                'Fixed: the Weapon Forge priced a failed craft\'s weapon as though it had the properties that didn\'t get added.'
             ]],
             ['Perks & Rules', [
                 'Vitality Rank 4 is reworked: if you would be reduced to 0 HP, you\'re reduced to 1 HP instead, and you can spend up to your Rank in Rest Dice to heal that much at once (at Rank 3 they roll their maximum). It can\'t happen again until you finish a Full Rest. It works from your GM\'s tracker too.',
@@ -293,7 +297,9 @@
                 'Fixed: after switching characters from the sidebar, Undo could bring back the character you had open before. Each character\'s Undo history now starts fresh.',
                 'Fixed: a gift another player gave you kept writing to the server over and over until they next opened their sheet. Loading a character from the sidebar reads just that character, and leaving a world stops following its battle maps.',
                 'A Relentless notice only comes from a fight your character was in: a new character no longer gets one from a fight that happened in the world before it joined (or one meant for another of your characters).',
-                'A turn on your GM\'s tracker that belongs to another of your characters in the same world no longer gives this one its AP.'
+                'A turn on your GM\'s tracker that belongs to another of your characters in the same world no longer gives this one its AP.',
+                'Composite Form (3 GP Genetic Trait): Composite Form (3 AP) in Actions (pin it if you like) shifts you between your standard form and a condensed, limbless one. Condensed, you\'re one Size smaller (a Small creature becomes Tiny, with +2 AC and STR × 8 lbs carrying), immune to Grappled, Restrained and Prone (any of them ends, and the Conditions picker greys them out), and your armor, shield and helmet give nothing until you shift back. Only your unarmed strike rolls; other weapons, summoned ones included, are locked, and Pickpocket, Security and Craft are marked: no fine manual dexterity. A Condensed tag sits with your Conditions (× shifts you back). Get out of your Exo-Suit first.',
+                'Composite Form in either form: squeezing through a tight gap on a battle map costs you no penalty (no Disadvantage on attacks or AGI saves).'
             ]]
         ],
         gm: [
@@ -362,7 +368,8 @@
                 'A suited creature\'s stat block applies the suit: the attribute bonus and its cap, Plating (AC, DR, ER and Wound Threshold), base Speed, one size larger for a Juggernaut, Advantage on Athletics or Stealth, Power Attack and Save DC, ER, Breach resistance, Force Multipliers, and Climb, Swim or Fly. It can\'t wear a helmet (choosing a suit takes one off and refunds its TP).',
                 'Energy Vulnerability (Step 4): the creature takes +5 damage from one Energy damage type, for 3 TP back (it said double damage).',
                 'An NPC Conduit Exo-Suit with Nullifier is Immune to its Breach types. Disarming and Lunging Attack in NPC Actions cost the attack\'s AP + 2 and + 1.',
-                'Crafting Materials: for every 50 Cu of materials, at least 2 Uncommon and 1 Rare.'
+                'Crafting Materials: for every 50 Cu of materials, at least 2 Uncommon and 1 Rare.',
+                'A Weapon Property can\'t reduce a weapon\'s cost below its base cost (25 Cu melee, 50 Cu ranged), for Library and loot weapons too.'
             ]],
             ['Tracker', [
                 'Tearing raises a hit to at least 2 damage per damage die, after DR/ER (and an area attack\'s misses take it too).',
@@ -396,7 +403,8 @@
                 'Incapacitated creatures (and Stunned, Paralyzed, Unconscious ones) fail STR and AGI saves on their own; their hits are Critical Hits that bypass DR and ER while Resistances and Immunities still count. An NPC\'s attack asks whether its target is one that attacks have Advantage against (Incapacitated, Restrained, Fighting Offensively), and players\' sheets ask the same.',
                 'Stunning: a creature that saves against it is immune to that wielder\'s Stunning until the start of the wielder\'s next turn (the log says so instead of asking for another save).',
                 'An overloaded NPC Exo-Suit takes the damage of another Critical Hit or another hit over its Wound Threshold, adding up (hover its tracker line for the total); Repaired clears it.',
-                'An NPC in armor too heavy for its STR rolls the saves and checks you roll from the log with Disadvantage, as its stat block\'s own buttons do.'
+                'An NPC in armor too heavy for its STR rolls the saves and checks you roll from the log with Disadvantage, as its stat block\'s own buttons do.',
+                'Composite Form: a player in their condensed form shows Condensed on their tracker entry and their token shrinks one Size. They can\'t be Grappled, Restrained, Prone or Pinned while condensed: setting one is refused, and a grapple against them fails with a note in the log. Their squeezing costs no penalty, in either form.'
             ]],
             ['Players\' Gear', [
                 'Players can be Overburdened now (Speed 1, Disadvantage on attacks, checks and saves), and wear Backpacks, Bandoliers and Utility Belts to carry more.',

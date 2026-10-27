@@ -94,12 +94,15 @@
             }
             if ((window.state.currentHp || 0) > 0 && window.state.conditions.includes('bleedingout'))
                 window.state.conditions = window.state.conditions.filter(c => c !== 'bleedingout');
+            // Composite Form, condensed: immune to Grappled, Restrained and Prone (and so Pinned): any of them ends
+            { let imm = window.apxCondImmune ? window.apxCondImmune(window.state) : [];
+              if (imm.length && window.state.conditions.some(c => imm.includes(c === 'grabbed' ? 'grappled' : c))) window.state.conditions = window.state.conditions.filter(c => !imm.includes(c === 'grabbed' ? 'grappled' : c)); }
             if (!window.state.woundedLimbs) window.state.woundedLimbs = [];
             // Extra arms are named by side now: "Extra Arm 1/2" → "Left Arm 2" / "Right Arm 2"
             if (window.state.woundedLimbs.some(l => /^Extra Arm \d+$/.test(l)))
                 window.state.woundedLimbs = window.state.woundedLimbs.map(l => { let m = l.match(/^Extra Arm (\d+)$/); if (!m) return l; let i = +m[1] - 1; return `${i % 2 ? 'Right' : 'Left'} Arm ${2 + Math.floor(i / 2)}`; });
             // All legs Wounded (two, or more with extra legs): you fall Prone (and can't stand until a leg heals)
-            if (window.apxAllLegsWounded && window.apxAllLegsWounded(window.state) && !window.state.conditions.includes('prone')) {
+            if (window.apxAllLegsWounded && window.apxAllLegsWounded(window.state) && !window.state.conditions.includes('prone') && !(window.apxCondImmune && window.apxCondImmune(window.state).includes('prone'))) {
                 window.state.conditions.push('prone');
                 if (window.APXDice && window.APXDice.notify && window._apxLegProneNote !== window.state.woundedLimbs.join('|')) {
                     window._apxLegProneNote = window.state.woundedLimbs.join('|');
@@ -382,15 +385,24 @@
                 calc.sizeName = calc.sizeKey;
                 // A Juggernaut Exo-Suit makes you one Size larger
                 if (exo && exo.sizeUp) { calc.sizeName = { small: 'medium', medium: 'large', large: 'huge' }[calc.sizeKey]; if (calc.sizeKey !== 'large') calc.sizeKey = calc.sizeName; }
-                if (calc.sizeKey === 'small') (calc.skillAdv.Stealth = calc.skillAdv.Stealth || []).push('Small size');
+                // Composite Form, condensed: one Size smaller (a Tiny creature also gets +2 AC)
+                calc.condensed = !!(window.apxCondensed && window.apxCondensed(window.state));
+                if (calc.condensed) {
+                    calc.sizeKey = calc.sizeName = { small: 'tiny', medium: 'small', large: 'medium' }[calc.sizeKey] || calc.sizeKey;
+                    if (calc.sizeKey === 'tiny') { calc.ac += 2; W('ac', 'Tiny size (Composite Form, condensed)', 2); }
+                }
+                let cnd = calc.condensed ? ' (condensed)' : '';
+                if (calc.sizeKey === 'small' || calc.sizeKey === 'tiny') (calc.skillAdv.Stealth = calc.skillAdv.Stealth || []).push(`${calc.sizeKey === 'tiny' ? 'Tiny' : 'Small'} size${cnd}`);
                 if (calc.sizeKey === 'large') (calc.skillDis.Stealth = calc.skillDis.Stealth || []).push('Large size');
             }
             let sizeMult = (parseInt(window.state.ancestry.size) || 30);
+            if (calc.condensed) sizeMult = { 15: 8, 30: 15, 60: 30 }[sizeMult] || Math.max(8, Math.round(sizeMult / 2));   // (Tiny: STR × 8 lbs)
             if (calc.sizeMultBoost > 0) sizeMult *= Math.pow(2, calc.sizeMultBoost);
             if (exo && exo.sizeUp) sizeMult *= 2;   // each step (Brute R1, Load-Bearing) is one size larger: stacks with the ancestry size
             calc.carryCap = calc.scores.STR * sizeMult + (calc.carryCap - 150) + fxStat('carryCap');
             {
-                let szName = { 15: 'Small', 30: 'Medium', 60: 'Large' }[parseInt(window.state.ancestry.size) || 30] || 'your size';
+                let szName = calc.condensed ? `${{ tiny: 'Tiny', small: 'Small', medium: 'Medium' }[calc.sizeKey] || 'smaller'}, condensed`
+                    : { 15: 'Small', 30: 'Medium', 60: 'Large' }[parseInt(window.state.ancestry.size) || 30] || 'your size';
                 let steps = (calc.why.sizeMultBoost || []).map(x => x[0]).concat(exo && exo.sizeUp ? ['Exo-Suit'] : []);
                 W('carryCap', `STR score ${calc.scores.STR} × ${sizeMult} lbs (${szName}${steps.length ? ', counted larger: ' + steps.join(', ') : ''})`, calc.scores.STR * sizeMult, true);
                 WFX('carryCap');
@@ -400,7 +412,16 @@
             let armorAc = window.state.equippedArmor.ac;
             let armorDr = window.state.equippedArmor.dr;
             let armorEr = window.state.equippedArmor.er;
-            {
+            // Composite Form, condensed: no armor, shield or helmet. They give nothing until you're back in your
+            // standard form (what they weigh, you still carry)
+            let offWt = 0;
+            if (calc.condensed) {
+                offWt = (armorWt || 0) + (window.state.equippedShield.equipped ? window.state.equippedShield.wt || 0 : 0)
+                    + (window.state.extraShields || []).reduce((t, x) => t + (x.wt || 0), 0) + (window.state.equippedHelmet.equipped && !window.state.equippedHelmet.broken ? window.state.equippedHelmet.wt || 0 : 0);
+                armorWt = armorAc = armorDr = armorEr = 0;
+                if (offWt || (window.state.equippedArmor.wt || 0) > 0) WN('ac', 'Composite Form (condensed): your armor, shield and helmet give nothing until you return to your standard form.');
+            }
+            if (!calc.condensed) {
                 let an = 'Armor: ' + (window.state.equippedArmor.name || 'worn armor');
                 W('ac', an, armorAc); W('dr', an, armorDr); W('er', an, armorEr);
                 if (window.state.equippedShield.equipped) { let s = window.state.equippedShield; W('ac', 'Shield', s.ac); W('dr', 'Shield', s.dr); W('er', 'Shield', s.er); }
@@ -411,7 +432,7 @@
             // Shield/Helmet: simple fixed-stat equipment, not run through
             // the Armor Forge's craftBatches system -- their AC/weight
             // just add directly alongside worn armor's.
-            if (window.state.equippedShield.equipped) {
+            if (window.state.equippedShield.equipped && !calc.condensed) {
                 armorAc += window.state.equippedShield.ac;
                 armorDr += window.state.equippedShield.dr;
                 armorEr += window.state.equippedShield.er;
@@ -419,8 +440,8 @@
             }
             // More shields (four arms: one per Off Hand): each one adds its AC/DR/ER, like the first
             if (!Array.isArray(window.state.extraShields)) window.state.extraShields = [];
-            window.state.extraShields.forEach(x => { armorAc += x.ac || 0; armorDr += x.dr || 0; armorEr += x.er || 0; armorWt += x.wt || 0; });
-            if (window.state.equippedHelmet.equipped && !window.state.equippedHelmet.broken) {
+            if (!calc.condensed) window.state.extraShields.forEach(x => { armorAc += x.ac || 0; armorDr += x.dr || 0; armorEr += x.er || 0; armorWt += x.wt || 0; });
+            if (window.state.equippedHelmet.equipped && !window.state.equippedHelmet.broken && !calc.condensed) {
                 armorAc += window.state.equippedHelmet.ac;
                 armorDr += window.state.equippedHelmet.dr;
                 armorEr += window.state.equippedHelmet.er;
@@ -432,7 +453,7 @@
             // as 2 higher for this (a Bandolier or Utility Belt, 1); only the best one worn counts.
             {
                 let items = window.state.items || [];
-                calc.carried = armorWt + items.reduce((t, it) => t + (it && (!it.isLocked || window.state.craftingMatWeightEnabled) ? (parseFloat(it.wt) || 0) * (parseInt(it.ct) || 0) : 0), 0);
+                calc.carried = armorWt + offWt + items.reduce((t, it) => t + (it && (!it.isLocked || window.state.craftingMatWeightEnabled) ? (parseFloat(it.wt) || 0) * (parseInt(it.ct) || 0) : 0), 0);
                 let worn = items.filter(it => it && it.storageWorn && (parseInt(it.ct) || 0) > 0 && window.apxStorageBonus(it) > 0)
                     .sort((a, b) => window.apxStorageBonus(b) - window.apxStorageBonus(a))[0] || null;
                 calc.storageBonus = worn ? window.apxStorageBonus(worn) : 0;
@@ -479,10 +500,10 @@
             WFX('bonusMeleeAtk', 'meleeAtk'); WFX('bonusMeleeDmg', 'meleeDmg'); WFX('bonusRangedAtk', 'rangedAtk'); WFX('bonusRangedDmg', 'rangedDmg');
 
             // Armor Forge mods (Stealth/Athletics checks, worn Speed penalty)
-            if (window.state.equippedArmor.stealthMod) calc.skills.Stealth = (calc.skills.Stealth || 0) + window.state.equippedArmor.stealthMod;
-            if (window.state.equippedArmor.athleticsMod) calc.skills.Athletics = (calc.skills.Athletics || 0) + window.state.equippedArmor.athleticsMod;
-            if (window.state.equippedArmor.speedMod) calc.speed += window.state.equippedArmor.speedMod;
-            {
+            if (window.state.equippedArmor.stealthMod && !calc.condensed) calc.skills.Stealth = (calc.skills.Stealth || 0) + window.state.equippedArmor.stealthMod;
+            if (window.state.equippedArmor.athleticsMod && !calc.condensed) calc.skills.Athletics = (calc.skills.Athletics || 0) + window.state.equippedArmor.athleticsMod;
+            if (window.state.equippedArmor.speedMod && !calc.condensed) calc.speed += window.state.equippedArmor.speedMod;
+            if (!calc.condensed) {
                 let an = 'Armor: ' + (window.state.equippedArmor.name || 'worn armor');
                 W('skill:Stealth', an, window.state.equippedArmor.stealthMod); W('skill:Athletics', an, window.state.equippedArmor.athleticsMod); W('speed', an, window.state.equippedArmor.speedMod);
             }
@@ -509,7 +530,9 @@
             let effConds = window.apxEffectiveConditions ? window.apxEffectiveConditions(window.state.conditions, window.state) : (window.state.conditions || []).map(id => ({ id }));
             // "falls Prone": added once when it begins, and stays until they stand up
             let startsNow = effConds.map(c => c.id).filter(id => !(window.state._condsInEffect || []).includes(id));
+            let condImm = window.apxCondImmune ? window.apxCondImmune(window.state) : [];
             startsNow.forEach(id => (typeof CONDITION_ON_START !== 'undefined' ? CONDITION_ON_START[id] || [] : []).forEach(extra => {
+                if (condImm.includes(extra)) return;
                 if (!window.state.conditions.includes(extra)) { window.state.conditions.push(extra); effConds.push({ id: extra, from: null }); }
             }));
             // Unconscious: you drop whatever you're holding (it's on the ground where you fell: your GM's call who gets to it)
@@ -539,13 +562,15 @@
             });
             // A Wounded leg gives the Staggered condition's effects
             if (legWoundCount) { let stg = CONDITIONS.find(c => c.id === 'staggered'); if (stg) applyEffectSource('Staggered (Leg Wound)', stg); }
-            if (window.apxAllLegsWounded && window.apxAllLegsWounded(window.state)) {
+            if (window.apxAllLegsWounded && window.apxAllLegsWounded(window.state) && !condImm.includes('prone')) {
                 applyEffectSource('All Legs Wounded (Prone)', { atkDisadvantage: 'melee', rangedAtkAdvantage: true });
             }
 
             // Squeezing into a smaller space on a battle map (a Large or bigger creature): Disadvantage on attacks and AGI saves
             { let sq = typeof window._pwSqueezed === 'function' ? window._pwSqueezed('player') : null;
-              calc.squeezing = sq; if (sq) applyEffectSource(`Squeezing (into a ${sq} space)`, { atkDisadvantage: 'general', saveDisadvantage: ['AGI'] }); }
+              // (Composite Form moves through any opening big enough for a creature two Sizes smaller without penalty)
+              calc.squeezing = sq; calc.squeezeFree = !!(sq && window.apxHasComposite && window.apxHasComposite(window.state));
+              if (sq && !calc.squeezeFree) applyEffectSource(`Squeezing (into a ${sq} space)`, { atkDisadvantage: 'general', saveDisadvantage: ['AGI'] }); }
             // This turn's maneuvers (Fight Defensively, Fight Offensively…): see js/apx-actions.js
             if (window.apxTurnFxApply) { try { window.apxTurnFxApply(calc); } catch (e) { console.warn('Turn effects:', e); } }
 
@@ -872,7 +897,9 @@
                 window.state.derived = { ac: calc.ac, dr: calc.dr, er: calc.er, maxHp: calc.maxHp, wt: calc.woundThreshold, ap: calc.maxAp, init: calc.init,
                     speed: calc.speedForcedZero ? 0 : Math.max(0, calc.speed), res: def.res || {}, immune: def.immune || [], halfBypass: !!def.halfBypass,
                     sizeName: calc.sizeName || calc.sizeKey, exo: exo ? (exo.frame + (exo.plating ? ':' + exo.platingName : '')) : null,
-                    unarmored: armorWt === 0, defensive: (window.state.perks || {}).con_defensive || 0, helmet: !!(h.equipped && !h.broken) };
+                    unarmored: armorWt === 0, defensive: (window.state.perks || {}).con_defensive || 0, helmet: !!(h.equipped && !h.broken) && !calc.condensed,
+                    // Composite Form, condensed (only when it is: nothing changes for anyone else)
+                    ...(calc.condensed ? { condensed: true, immuneConds: window.apxCondImmune(window.state) } : {}) };
                 // changed (first time on this version, or new gear): save it so the GM has it (after things settle)
                 if (prevDerived !== JSON.stringify(window.state.derived)) {
                     // an AC change (Fight Defensively, Block, Mobile…) goes out quickly so the GM's tracker shows it (the rest
@@ -1006,12 +1033,15 @@
                     let disadvHtml = checkAutoFail ? `<span class="text-[8px] text-red-500 font-black ml-1"${T(WM([], [], calc.disadv.autoFailCheckByAttr[attr]))}>(Auto-Fail)</span>`
                         : checkDisadvSources.length ? `<span class="text-[8px] text-red-400 ml-1"${T(WM([], checkDisadvSources, []))}>(Disadv)</span>` : '';
                     if (checkAdvSources.length && !checkAutoFail) disadvHtml += `<span class="text-[8px] text-emerald-400 ml-1"${T(WM(checkAdvSources, [], []))}>(Adv)</span>`;
+                    // Composite Form, condensed: no fine manual dexterity (picking a pocket or a lock, crafting)
+                    let fineNote = calc.condensed && ['Pickpocket', 'Security', 'Craft'].includes(skill.id) ? 'Condensed (Composite Form): no tasks that need fine manual dexterity until you return to your standard form.' : '';
+                    if (fineNote) disadvHtml += `<span class="text-[8px] text-amber-400 font-black ml-1"${T(fineNote)}>(Condensed)</span>`;
                     // Its breakdown: attribute + Training Bonus + everything else (perks, items, armor, traits)
                     let skParts = [[`${attr} modifier`, mod, 1], [`Training Bonus${window.state.skillSource && window.state.skillSource[skill.id] ? ' (trained via ' + window.state.skillSource[skill.id] + ')' : ' (trained)'}`, isTr ? window.state.trainingBonus : 0]]
                         .concat((calc.why && calc.why['skill:' + skill.id]) || []);
                     if (skill.name && skill.name.startsWith('Encyclopedia')) skParts.push(['Scholar (Encyclopedia checks)', window.state.perks['int_scholar'] || 0]);
                     skParts = skParts.concat(fxw('checkAll'), fxw('check_' + attr));
-                    let skNotes = [isTr ? '' : (skill.reqTr ? 'Needs training to use.' : 'Not trained: no Training Bonus.'), WM(checkAdvSources, checkDisadvSources, calc.disadv.autoFailCheckByAttr[attr]), 'Click to roll it.'];
+                    let skNotes = [isTr ? '' : (skill.reqTr ? 'Needs training to use.' : 'Not trained: no Training Bonus.'), WM(checkAdvSources, checkDisadvSources, calc.disadv.autoFailCheckByAttr[attr]), fineNote, 'Click to roll it.'];
                     let skTip = WT(`${skill.name.replace('Encyclopedia (', 'Encyclopedia: ').replace(/\)$/, '')} (${attr})`, skParts, total, skNotes);
                     let pasTip = pasText === '--' ? (skill.pass ? 'Passive score: needs training first.' : 'This skill has no passive score.') : `Passive ${skill.name}: 10 + ${total >= 0 ? '+' : ''}${total} = ${pasText}\nUsed when you aren't rolling (the GM checks it against a DC).`;
                     let displayName = skill.name.startsWith('Encyclopedia (') ? skill.name.replace('Encyclopedia (', '').replace(')', '') : skill.name;
@@ -1819,10 +1849,14 @@
                 let why = calc.cantActLabel;
                 atkRoll = ` data-no-roll data-apx-blocked="${why}" title="You're ${why} and can't attack until that ends"`;
             }
+            // Composite Form, condensed: no weapons (only unarmed attacks)
+            let formBlock = !calc.cantAct && calc.condensed && !(w.isUnarmed && !opts.ammoThrow);
+            const FORM_MSG = 'In your condensed form (Composite Form) you can\'t wield weapons or throw things: only unarmed attacks. Return to your standard form (3 AP, in Actions) first.';
+            if (formBlock) atkRoll = ` data-no-roll data-apx-blocked="condensed" data-apx-blocked-msg="${FORM_MSG}"`;
             let dmgRoll = apxRollAttr({ type: 'damage', label: rollName + ' damage', formula: opts.dice + (dmgMod ? (dmgMod > 0 ? '+' : '') + dmgMod : ''), dmgType: apxWeaponDmgType(w), wcat: cat });
             // Breakdown tooltips (js/apx-why.js): the attack bonus, the damage and the AP
             let T = window.apxTipAttr || (() => ''), WT = window.apxWhyText || (() => ''), WM = window.apxWhyModeText || (() => '');
-            let atkTip = WT(`${rollName}: attack bonus`, weaponAtkWhy(w, opts.attr), atk, [calc.cantAct ? `You're ${calc.cantActLabel}: you can't attack.` : WM(advSources, disadvSources, []), 'Click to roll the attack and its damage.']);
+            let atkTip = WT(`${rollName}: attack bonus`, weaponAtkWhy(w, opts.attr), atk, [calc.cantAct ? `You're ${calc.cantActLabel}: you can't attack.` : formBlock ? FORM_MSG : WM(advSources, disadvSources, []), formBlock ? '' : 'Click to roll the attack and its damage.']);
             let extraDmg = window.apxPowerBuffWpnDmg ? window.apxPowerBuffWpnDmg(window.state).map(x => `+${x.formula}${x.type ? ' ' + x.type : ''} (${x.name})`) : [];
             let dmgTip = [`${rollName}: damage ${dmgText}`, `Dice: ${opts.dice}${/2-Handed/.test(opts.label || '') ? ' (one die step up: two-handed)' : ''}`, `Modifier: ${dmgMod >= 0 ? '+' : ''}${dmgMod}`]
                 .concat((window.apxWhyLines ? window.apxWhyLines(weaponDmgWhy(w, opts.attr), dmgMod) : []).map(l => '   ' + l),
@@ -1844,8 +1878,10 @@
             let apTip = WT(`${rollName}: AP to attack`, apParts, parseInt(opts.ap) || 0, apNotes);
             atkRoll = atkRoll.replace(/ title="[^"]*"/, '') + T(atkTip); dmgRoll = dmgRoll.replace(/ title="[^"]*"/, '') + T(dmgTip);
             if (calc.cantAct) dmgRoll = ` data-no-roll data-apx-blocked="${calc.cantActLabel}" title="You're ${calc.cantActLabel} and can't attack until that ends"`;
+            else if (formBlock) dmgRoll = ` data-no-roll data-apx-blocked="condensed" data-apx-blocked-msg="${FORM_MSG}"` + T(FORM_MSG);
             let disadvHtml = calc.cantAct
                 ? `<span class="text-[8px] text-red-500 font-black block -mt-1 leading-none"${T(`You're ${calc.cantActLabel}: you can't take actions.`)}>(${calc.cantActLabel})</span>`
+                : formBlock ? `<span class="text-[8px] text-amber-400 font-black block -mt-1 leading-none"${T(FORM_MSG)}>(Condensed)</span>`
                 : disadvSources.length
                 ? `<span class="text-[8px] text-red-400 block -mt-1 leading-none"${T(WM(advSources, disadvSources, []))}>(Disadv)</span>`
                 : (advSources.length ? `<span class="text-[8px] text-emerald-400 block -mt-1 leading-none"${T(WM(advSources, [], []))}>(Adv)</span>` : '');

@@ -2,7 +2,7 @@
 // APX Character Sheet — Core State & Generic UI Plumbing
 // ============================================================
 // Build version: year.month.day.HHMM (24-hr, update each release)
-window.APX_VERSION = 'v2026.10.25.2115';
+window.APX_VERSION = 'v2026.10.27.1011';
 
         window.state = getInitialState();
 

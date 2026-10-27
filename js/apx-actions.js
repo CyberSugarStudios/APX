@@ -17,6 +17,7 @@
     const fx = () => { let s = st(); if (!s) return []; if (!Array.isArray(s.turnFx)) s.turnFx = []; return s.turnFx; };
     const uid = () => 'fx' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
     const note = (t, kind) => window.APXDice?.notify(t, { kind: kind || 'note' });
+    const condensed = () => !!(window.apxCondensed && window.apxCondensed(st()));   // (Composite Form)
     function shieldAc() {
         let s = st(), ac = 0;
         if (s.equippedShield && s.equippedShield.equipped) ac += parseInt(s.equippedShield.ac) || 0;
@@ -423,8 +424,45 @@
             auto: () => { let x = Math.max(1, mod('INT')); if (window.APXDice && APXDice.damage) APXDice.damage({ label: 'Mechanical repairs', who: st().name || '', formula: x + 'd6', heal: true, note: 'An adjacent Unalive Structure regains this much HP.' }); else note(`Repair: the Unalive creature regains ${x}d6 HP.`); } },
         { g: 'Standard Actions', name: 'Skill Check', cost: 3, tip: 'Any skill check mid-combat (pick a lock, hide, search a body). Click the skill on your sheet to roll it.', auto: () => { } },
         { g: 'Standard Actions', name: 'Ready', cost: null, tip: 'Spend the AP of an action and set a trigger. If it happens before your next turn, do it as your Reaction; if not, you get the AP back.',
-            auto: async () => { let v = window.apxPrompt ? await window.apxPrompt('Ready an action: how many AP does it cost?', '3', { title: 'Ready' }) : null; let n = parseInt(v); if (!(n >= 0)) return false; return { spend: n }; } }
+            auto: async () => { let v = window.apxPrompt ? await window.apxPrompt('Ready an action: how many AP does it cost?', '3', { title: 'Ready' }) : null; let n = parseInt(v); if (!(n >= 0)) return false; return { spend: n }; } },
+        // Composite Form (Ancestry trait): shift between your standard form and a condensed, limbless one
+        { g: 'Standard Actions', name: 'Composite Form', cost: 3,
+            hidden: () => !(window.apxHasComposite && window.apxHasComposite(st())),
+            get tip() { return condensed() ? 'Shift back to your standard form: your Size, armor, shield, helmet and weapons are back to normal.'
+                : 'Shift into your condensed, limbless form: one Size smaller and immune to Grappled, Restrained and Prone (ending them), but no armor, weapons or fine manual dexterity (unarmed attacks still work).'; },
+            requires: () => !condensed() && st().exoSuit && st().exoSuit.worn ? 'Take off your Exo-Suit first: you can\'t wear one while condensed.' : '',
+            auto: async () => {
+                let s = st();
+                if (condensed()) {
+                    s.compositeCondensed = false;
+                    note('You return to your standard form: your Size, armor, shield, helmet and weapons are back to normal.');
+                } else {
+                    let had = (window.apxEffectiveConditions ? window.apxEffectiveConditions(s.conditions || [], s).map(c => c.id) : (s.conditions || []))
+                        .filter(c => ['grappled', 'restrained', 'prone', 'pinned'].includes(c));
+                    let held = (s.conditions || []).some(c => ['grappled', 'pinned', 'grabbed'].includes(c));
+                    s.compositeCondensed = true;
+                    s.conditions = (s.conditions || []).filter(c => !['grappled', 'restrained', 'prone', 'pinned', 'grabbed'].includes(c));
+                    // held by someone: their grapple ends (your GM's tracker lets go); holding someone: no limbs to hold them with
+                    if (held) grappleEv('escape', { text: `${s.name || 'A player'} condenses out of the grapple (Composite Form).` });
+                    if (s.grappling) await releaseGrapple();
+                    let nm = id => ((typeof CONDITIONS !== 'undefined' ? CONDITIONS : []).find(c => c.id === id) || {}).name || id;
+                    note(`You condense into your limbless form: one Size smaller, immune to Grappled, Restrained and Prone${had.length ? ` (no longer ${had.map(nm).join(', ')})` : ''}. No armor, weapons or fine manual dexterity until you shift back; unarmed attacks still work.`);
+                }
+                window.recalculateMath && window.recalculateMath();
+                window.scheduleAutoSave && window.scheduleAutoSave(true);   // (your GM's tracker and map show your new Size and Conditions)
+            } }
     ];
+    // Composite Form, condensed: no limbs, weapons or shield (and you can't be Prone)
+    {
+        const FORM_NO = { 'Grapple': 'you have no limbs to grapple with', 'Shield Bash': 'you can\'t use a shield', 'Block': 'you can\'t use a shield or weapon',
+            'Aim': 'you can\'t wield a ranged weapon', 'Draw / Stow': 'you can\'t wield weapons', 'Fall Prone': 'you\'re immune to Prone' };
+        A.forEach(a => {
+            if (!FORM_NO[a.name]) return;
+            let r0 = a.requires;
+            a.requires = () => condensed() ? `Condensed (Composite Form): ${FORM_NO[a.name]}.` : (r0 ? r0() : '');
+            if (a.info) { let t = a.tip; a.info = false; a.auto = () => note(`${a.name}: ${t}`); a.own = true; }
+        });
+    }
     function costOf(a) { return maneuverCost(a, a.costNow ? a.costNow() : a.cost); }
 
     window.apxOpenActions = function (ev) {
@@ -462,6 +500,8 @@
             b.style.background = on ? 'rgba(249,115,22,.25)' : 'var(--c-surface2,#0f172a)'; b.style.borderColor = on ? '#f97316' : 'var(--c-border,#334155)'; b.style.color = on ? '#fdba74' : 'var(--c-text-muted,#94a3b8)'; b.title = on ? 'Unpin from Weapons & Attacks' : 'Pin to Weapons & Attacks'; });
     };
 
+    // Run one of the actions by name (the condensed tag's × uses it for Composite Form)
+    window.apxDoAction = name => { let a = A.find(x => x.name === name); if (a) doAction(a); };
     async function doAction(a) {
         if (a.info) { note(a.name + ': ' + a.tip); return; }
         let why = a.requires ? a.requires() : '';
