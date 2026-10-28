@@ -11,11 +11,11 @@
     'use strict';
 
     const NOTES = [{
-        version: 'v2026.10.27.1536',
-        released: '2026-10-27T15:36:00',
-        releasedText: 'October 27, 2026 · 3:36 PM',
+        version: 'v2026.10.27.1659',
+        released: '2026-10-27T16:59:00',
+        releasedText: 'October 27, 2026 · 4:59 PM',
         title: 'Playtest 4: Maneuvers, Gear & Burdens',
-        intro: 'Straight from our fourth playtest: NPCs and companions get the full list of maneuvers and actions, Loyal Companions can carry your gear, and carrying too much finally weighs you down. Squeezing costs what it should, and Vitality\'s top rank keeps you on your feet. Since then: NPC maneuvers roll themselves, five new weapon properties (two of them fire into an area), readable buttons in every theme, Exo-Suits rebuilt in three frameworks, including the new Conduit, Keen, Parrying and Suppressed weapons, summons that mix Tiers, creatures your GM shares for summoning, and now Summon a Weapon built in the Power Crafter, perks you can take back a rank at a time, character files that show when they\'ve been edited, and now powers that apply their numbers for you, summons you place and command from their own window, and Ambusher, Charge, Relentless and Regenerative working as written, and Sacrifice that hurts like it should and Permanent powers that hold their slot, powers that play out on the battle map (targets in range, zones, walls, Sensors, Concentration and durations that end everything a power did), Split Target dice you hand out one by one, Overexertion that can tire the target instead, AP Utilities that work every turn, lighter Juggernaut Plating, and now Invisibility that costs 2 AP to keep, Lucky on every save, Breach and Amplifier that show and ask, free powers that are free up to their Level, powers that stay ended when you reload, and now save powers whose damage lands on everyone who fails, tokens from any world that join the fight, Flurry\'s top rank refunding a critical hit\'s AP for you, a Phantom\'s Camouflage and Decoy that really hide you, faster syncing between your sheet and your GM, the latest Exo-Suit rules with suits for NPCs and Loyal Companions too, and now summoned weapons that fade with their power, a cleaner XP Log, a page that recovers when part of it fails to load, new characters that take their place in a world cleanly, and now breaking and repairing gear, a Concentration prompt each turn, thrown Light Ammo, updated Conditions and perks, a breakdown behind every number on your sheet, the Composite Form trait and a floor on Weapon Forge prices, and now Currency loot that counts the enemy\'s Tier, ammo and Wound Threshold saves outside combat, and jumps that say how far you went.',
+        intro: 'Straight from our fourth playtest: NPCs and companions get the full list of maneuvers and actions, Loyal Companions can carry your gear, and carrying too much finally weighs you down. Squeezing costs what it should, and Vitality\'s top rank keeps you on your feet. Since then: NPC maneuvers roll themselves, five new weapon properties (two of them fire into an area), readable buttons in every theme, Exo-Suits rebuilt in three frameworks, including the new Conduit, Keen, Parrying and Suppressed weapons, summons that mix Tiers, creatures your GM shares for summoning, and now Summon a Weapon built in the Power Crafter, perks you can take back a rank at a time, character files that show when they\'ve been edited, and now powers that apply their numbers for you, summons you place and command from their own window, and Ambusher, Charge, Relentless and Regenerative working as written, and Sacrifice that hurts like it should and Permanent powers that hold their slot, powers that play out on the battle map (targets in range, zones, walls, Sensors, Concentration and durations that end everything a power did), Split Target dice you hand out one by one, Overexertion that can tire the target instead, AP Utilities that work every turn, lighter Juggernaut Plating, and now Invisibility that costs 2 AP to keep, Lucky on every save, Breach and Amplifier that show and ask, free powers that are free up to their Level, powers that stay ended when you reload, and now save powers whose damage lands on everyone who fails, tokens from any world that join the fight, Flurry\'s top rank refunding a critical hit\'s AP for you, a Phantom\'s Camouflage and Decoy that really hide you, faster syncing between your sheet and your GM, the latest Exo-Suit rules with suits for NPCs and Loyal Companions too, and now summoned weapons that fade with their power, a cleaner XP Log, a page that recovers when part of it fails to load, new characters that take their place in a world cleanly, and now breaking and repairing gear, a Concentration prompt each turn, thrown Light Ammo, updated Conditions and perks, a breakdown behind every number on your sheet, the Composite Form trait and a floor on Weapon Forge prices, and now Currency loot that counts the enemy\'s Tier, ammo and Wound Threshold saves outside combat, jumps that say how far you went, and now battle map images you can turn and flip, and Tearing on Energy weapons.',
         index: [
             ['Combat', [
                 'NPCs, summoned creatures and Loyal Companions have an Actions button with every Combat Maneuver and Standard Action, spending their own AP. Fight Defensively, Fight Offensively and next-attack maneuvers change their rolls (and AC) until their next turn.',
@@ -64,7 +64,8 @@
                 'If part of APX fails to load (a site update still on its way, a dropped connection), it\'s fetched again by itself, and if it still can\'t load, a red banner says so with a Reload button. Before, the Dice and Notifications window couldn\'t be dragged, the sheet\'s dock button did nothing, and pop-ups like the XP Log lost their frame when that happened.',
                 'The XP Log is a proper framed pop-up with your totals at the top.',
                 'Hover any number on the character sheet to see where it comes from: AC, DR, ER, HP, AP, Speed, Wound Threshold, skills, saves, attacks, damage and more, broken down part by part. The parts always add up to the number shown.',
-                'A Jump\'s Athletics roll says how many squares you jump, the Armor Forge\'s + and − take Shift+click for 10 at once, and Spend XP greys out Saving Throw training once every save is trained.'
+                'A Jump\'s Athletics roll says how many squares you jump, the Armor Forge\'s + and − take Shift+click for 10 at once, and Spend XP greys out Saving Throw training once every save is trained.',
+                'Images on a battle map can be turned 90° left or right and flipped either way.'
             ]],
             ['Powers & Consumables', [
                 'Power ranges are bought by the square: Touch/Self is free, 1 XP per 5 squares, or Line of Sight for 15 XP. Older powers keep their range and cost.',
@@ -105,7 +106,8 @@
                 'New properties: Finesse, Quickdraw and Unwieldy, plus a Ranged section with Loading, Scatter (a 3-square Cone) and Repeating (a 2x2 square), both resolved on the battle map. Elemental Critical sits under Elemental, and every Elemental Critical lasts until the end of the target\'s next turn.',
                 'Tearing shows its minimum on the roll and applies against NPC and player targets alike, even on a miss.',
                 'New properties: Keen (crit on a 19 or 20), Parrying (Block like a Sturdy weapon, for your Reaction) and Suppressed (attacking doesn\'t reveal you). NPCs\' Block now raises their AC.',
-                'A Weapon Property can\'t reduce a weapon\'s cost below its base cost (25 Cu for melee, 50 Cu for ranged).'
+                'A Weapon Property can\'t reduce a weapon\'s cost below its base cost (25 Cu for melee, 50 Cu for ranged).',
+                'Tearing can go on any weapon that doesn\'t deal Bludgeoning damage, Energy (Elemental) weapons included.'
             ]],
             ['Characters', [
                 'Perks can be taken back one rank at a time for the XP they cost, along with everything that rank set up. GMs can turn this off in World Settings.',
@@ -257,7 +259,8 @@
                 'Weapon Forge: a property that lowers the cost (Loading, Unwieldy) can\'t take a weapon below its base cost, 25 Cu for melee or 50 Cu for ranged; the Properties step says so, and says when a weapon is at its base cost. A weapon you made before costs nothing extra to reopen because of it.',
                 'Fixed: the Weapon Forge priced a failed craft\'s weapon as though it had the properties that didn\'t get added.',
                 'Ammo out of combat: a ranged attack spends its round (Repeating: 3) whether or not a fight is running, and with none left the weapon can\'t be used.',
-                'Jump: your base jump is your STR modifier (minimum 1), doubled by Powerful Leaper, +1 square per Strider rank. Further rolls STR (Athletics) (with Advantage from Powerful Leaper), and the roll says how far you jump: one more square for every 5 on the check.'
+                'Jump: your base jump is your STR modifier (minimum 1), doubled by Powerful Leaper, +1 square per Strider rank. Further rolls STR (Athletics) (with Advantage from Powerful Leaper), and the roll says how far you jump: one more square for every 5 on the check.',
+                'Weapon Forge: Tearing is open to Energy (Elemental) weapons too. Its only prerequisite is damage that isn\'t Bludgeoning; it used to accept only Piercing or Slashing.'
             ]],
             ['Perks & Rules', [
                 'Vitality Rank 4 is reworked: if you would be reduced to 0 HP, you\'re reduced to 1 HP instead, and you can spend up to your Rank in Rest Dice to heal that much at once (at Rank 3 they roll their maximum). It can\'t happen again until you finish a Full Rest. It works from your GM\'s tracker too.',
@@ -352,7 +355,8 @@
                 'Fixed: tokens from another world\'s stat blocks (Add Token → All worlds) were skipped by All to Init and by the question a new token asks while combat is on. They now join like any other, and double-clicking one opens its stat block. Its Damage Aura works too.',
                 'Adding a creature to the tracker takes over its token already on the open map, and the tracker\'s + Token links that token instead of making a second one. A token the tracker makes no longer asks whether it joins the initiative (it already has).',
                 'A Phantom\'s Decoy: a player\'s Active Camouflage hides their token from the other players (you see it faded) until their next turn, and with Decoy a see-through light blue copy of them stays in their square. It isn\'t a creature: it never blocks movement, All to Init skips it, and it\'s destroyed by any damage (an area or targeted power that deals damage, or an attack that would hit its owner). They can swap places with it (3 AP, within 15 squares); Remove Token destroys it by hand.',
-                'A player\'s string of token moves is saved to your world once, a few seconds after the last (everyone already sees them move live), instead of after every step.'
+                'A player\'s string of token moves is saved to your world once, a few seconds after the last (everyone already sees them move live), instead of after every step.',
+                'Images on a battle map (+ Image): right-click one for Turn: ⟲ 90° and ⟳ 90° rotate it around its centre (its box turns with it, so it keeps its proportions), and Flip ↔ / Flip ↕ mirror it. Your players see it the same way, and moving and resizing work as before.'
             ]],
             ['NPC Crafter', [
                 'Core Attributes cost 1 TP per point up to a score of 10 and 2 TP per point above it. NPCs and companions built before this keep their old price, so nothing you\'ve made changes on its own; Step 1 shows a button to move one over (a companion only if it still fits its budget). A creature with nothing above 10 moves over by itself.',
@@ -380,7 +384,8 @@
                 'Energy Vulnerability (Step 4): the creature takes +5 damage from one Energy damage type, for 3 TP back (it said double damage).',
                 'An NPC Conduit Exo-Suit with Nullifier is Immune to its Breach types. Disarming and Lunging Attack in NPC Actions cost the attack\'s AP + 2 and + 1.',
                 'Crafting Materials: for every 50 Cu of materials, at least 2 Uncommon and 1 Rare.',
-                'A Weapon Property can\'t reduce a weapon\'s cost below its base cost (25 Cu melee, 50 Cu ranged), for Library and loot weapons too.'
+                'A Weapon Property can\'t reduce a weapon\'s cost below its base cost (25 Cu melee, 50 Cu ranged), for Library and loot weapons too.',
+                'Tearing can go on Energy (Elemental) weapons in the Weapon Forge, for NPCs and Library weapons too.'
             ]],
             ['Tracker', [
                 'Tearing raises a hit to at least 2 damage per damage die, after DR/ER (and an area attack\'s misses take it too).',

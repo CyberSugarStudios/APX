@@ -420,6 +420,21 @@
             if (vm.src) el._img.src = vm.src;
         }
         el._ph.style.display = vm.src ? 'none' : 'flex';
+        // Turned (90° steps) and flipped: the picture turns inside its box (a quarter turn swaps the box's width and
+        // height, so the picture keeps its own proportions); the box itself is what moves, resizes and is selected
+        {
+            let rot = (((parseInt(vm.rot) || 0) % 360) + 360) % 360, sx = vm.flipH ? -1 : 1, sy = vm.flipV ? -1 : 1, im = el._img;
+            let key = rot + '|' + sx + '|' + sy + '|' + vm.w + '|' + vm.h;
+            if (el._xf !== key) {
+                el._xf = key;
+                if (rot || sx < 0 || sy < 0) {
+                    let quarter = rot % 180 !== 0 && vm.w > 0 && vm.h > 0;
+                    Object.assign(im.style, { position: 'absolute', left: '50%', top: '50%', maxWidth: 'none', maxHeight: 'none',   // (the page's img max-width would squash it)
+                        width: quarter ? (vm.h / vm.w * 100) + '%' : '100%', height: quarter ? (vm.w / vm.h * 100) + '%' : '100%',
+                        transform: `translate(-50%,-50%) scale(${sx},${sy}) rotate(${rot}deg)` });
+                } else Object.assign(im.style, { position: '', left: '', top: '', maxWidth: '', maxHeight: '', width: '100%', height: '100%', transform: '' });
+            }
+        }
         let sel = !!(opts.selection && opts.selection.has(vm.id));
         el._sel = sel;
         el.style.outline = sel ? '2px dashed #22d3ee' : (vm.hiddenMark ? '1px dashed rgba(255,255,255,.35)' : 'none');
@@ -428,7 +443,7 @@
 
     function _createProp(layer) {
         let el = document.createElement('div');
-        el.style.cssText = 'position:absolute;box-sizing:border-box;user-select:none;-webkit-user-select:none;touch-action:none;';
+        el.style.cssText = 'position:absolute;box-sizing:border-box;user-select:none;-webkit-user-select:none;touch-action:none;overflow:visible;';
         let img = document.createElement('img');
         img.alt = ''; img.draggable = false; img.decoding = 'async';
         img.style.cssText = 'width:100%;height:100%;display:none;pointer-events:none;user-select:none;object-fit:fill;';
