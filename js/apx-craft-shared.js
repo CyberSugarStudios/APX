@@ -208,7 +208,19 @@ window.apxCraftKinds = window.apxCraftKinds || {};
 let craftKindMath = kind => window.apxCraftKinds[kind] ? window.apxCraftKinds[kind].math() : kind === 'weapon' ? weaponForgeCraftMath() : armorForgeCraftMath();
 let craftKindRender = kind => window.apxCraftKinds[kind] ? window.apxCraftKinds[kind].render() : kind === 'weapon' ? window.renderWeaponCraftBody() : window.renderArmorCraftBody();
 
-function craftWorkspace() { return window.state.craftWorkspace || 'bench'; }
+function craftWorkspace() {
+    let ws = window.state.craftWorkspace || 'bench';
+    return ws === 'bastion' && !craftBastionBench() ? 'bench' : ws;
+}
+// A Specialized Workbench in the party's Bastion (js/apx-bastion.js): no rent, and Advantage on the
+// check for an item related to its specialization
+function craftBastionBenches() { return (window.APXBastion && window.APXBastion.isOn() && window.APXBastion.benches()) || []; }
+function craftBastionBench() {
+    let list = craftBastionBenches(); if (!list.length) return null;
+    return list.find(w => w.id === window.state.craftBastionBench) || list[0];
+}
+window.setCraftBastionBench = function(kind, id) { window.state.craftBastionBench = id; craftKindRender(kind); };
+window.setCraftBastionFit = function(kind, on) { window.state.craftBastionFit = !!on; craftKindRender(kind); };
 window.setCraftWorkspace = function(kind, ws) {
     window.state.craftWorkspace = ws;
     craftKindRender(kind);
@@ -249,6 +261,8 @@ window.craftRollCheck = function(kind) {
     }
     let spec = craftCheckSpec(m.craftAttr);
     if (craftWorkspace() === 'toolkit') spec.disSources = (spec.disSources || []).concat(['Toolkit']);
+    let bb = craftWorkspace() === 'bastion' ? craftBastionBench() : null;
+    if (bb && bb.active && window.state.craftBastionFit) spec.advSources = (spec.advSources || []).concat([`Bastion Workbench (${bb.spec})`]);
     let roll = window._craftRoll = { kind, dc: m.dc, applied: false };
     window.APXDice.check(Object.assign(spec, {
         label: `${m.craftAttr} (Craft): ${window.apxCraftKinds[kind] ? window.apxCraftKinds[kind].title : kind === 'weapon' ? 'Weapon Forge' : 'Armor Forge'}, DC ${m.dc}`, purpose: 'craft',
@@ -316,7 +330,12 @@ function craftCheckPanelHtml(kind, m, canAfford) {
                 ${radio('bench', 'Your Workbench', 'At your base or a friend\'s')}
                 ${radio('rent', `Rent a Workbench`, `${CRAFT_RENT_PER_HOUR} Cu per hour: ${rent} Cu here`)}
                 ${radio('toolkit', 'Toolkit', 'Anywhere, with Disadvantage')}
+                ${craftBastionBenches().length ? radio('bastion', 'Bastion Workbench', 'In your Bastion: Advantage on a related item') : ''}
             </div>
+            ${ws === 'bastion' && craftBastionBench() ? (() => { let bb = craftBastionBench(), list = craftBastionBenches(); return `<div class="flex flex-wrap items-center gap-2 mb-3 text-xs text-white">
+                ${list.length > 1 ? `<select class="bg-slate-800 text-xs" onchange="window.setCraftBastionBench('${kind}', this.value)">${list.map(w => `<option value="${w.id}" ${w.id === bb.id ? 'selected' : ''}>${String(w.spec).replace(/</g, '&lt;')}</option>`).join('')}</select>` : `<b>${String(bb.spec).replace(/</g, '&lt;')}</b>`}
+                <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" ${window.state.craftBastionFit ? 'checked' : ''} onchange="window.setCraftBastionFit('${kind}', this.checked)"> This item is related to its specialization (Advantage)</label>
+                ${bb.active ? '' : '<span class="text-[10px] text-red-400">Its Crafting Plot is short of workers: no Advantage until it\'s staffed.</span>'}</div>`; })() : ''}
             <div class="text-[10px] text-slate-500 uppercase font-bold mb-1">What this costs</div>
             <table class="w-full text-[11px] text-slate-300 mb-3">
                 <tr><td class="py-0.5 text-slate-500">${m.valueLabel || 'Value crafted'}</td><td class="text-right font-bold text-white">${m.valueTxt || m.nominalDelta + ' Cu'}</td></tr>

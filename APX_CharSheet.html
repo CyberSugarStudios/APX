@@ -509,8 +509,8 @@
         }
 
     </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=202610271659">
-    <link rel="stylesheet" href="css/tailwind.css?v=202610271659">
+    <link rel="stylesheet" href="css/apx-themes.css?v=202610281001">
+    <link rel="stylesheet" href="css/tailwind.css?v=202610281001">
 </head>
 <body class="p-2 md:p-6 flex justify-center text-sm ml-0 lg:ml-8 transition-all" style="padding-top:4.25rem"><!-- (room for the floating Roster / Settings buttons) -->
     <!-- Auth bar removed — account controls are in the sidebar -->
@@ -521,6 +521,7 @@
     <div class="hamburger-cluster">
         <button class="hamburger-btn" onclick="window.toggleSidebar()">= Roster</button>
         <button id="playerWorldBtn" class="hamburger-btn hidden" onclick="window.openModal('playerWorldModal')" style="font-size:0.875rem;">World</button>
+        <button id="playerBastionBtn" class="hamburger-btn hidden" onclick="window.APXBastion && window.APXBastion.open()" title="Your party's Bastion" style="font-size:0.875rem;">Bastion</button>
         <button id="settingsBtn" class="hamburger-btn" onclick="window.openModal('settingsModal')" title="Settings" style="font-size:0.875rem;">Settings</button>
         <button class="hamburger-btn" onclick="window.apxDockCycle && window.apxDockCycle('sheet')" data-apx-dock-btn="sheet" title="Centre the sheet, or pin it to the left or right of the screen" style="font-size:0.875rem;">⇆</button>
     </div>
@@ -2355,47 +2356,47 @@
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=202610271659"></script>
-    <script src="js/apx-patch-notes.js?v=202610271659"></script>
-    <script src="js/apx-dice.js?v=202610271659"></script>
-    <script src="js/apx-luck.js?v=202610271659"></script>
-    <script src="js/apx-data.js?v=202610271659"></script>
-    <script src="js/apx-item-effects.js?v=202610271659"></script>
-    <script src="js/apx-exo.js?v=202610271659"></script>
-    <script src="js/apx-traits.js?v=202610271659"></script>
-    <script src="js/apx-perks-db.js?v=202610271659"></script>
-    <script src="js/apx-migrations.js?v=202610271659"></script>
-    <script src="js/apx-roster.js?v=202610271659"></script>
-    <script src="js/apx-state.js?v=202610271659"></script>
-    <script src="js/apx-origin-wizard.js?v=202610271659"></script>
-    <script src="js/apx-ancestry-wizard.js?v=202610271659"></script>
-    <script src="js/apx-inventory-ui.js?v=202610271659"></script>
-    <script src="js/apx-craft-shared.js?v=202610271659"></script>
-    <script src="js/apx-armor-forge.js?v=202610271659"></script>
-    <script src="js/apx-weapon-forge.js?v=202610271659"></script>
-    <script src="js/apx-repair.js?v=202610271659"></script>
-    <script src="js/apx-power-crafter.js?v=202610271659"></script>
-    <script src="js/apx-summon-weapon.js?v=202610271659"></script>
-    <script src="js/apx-power-fx.js?v=202610271659"></script>
-    <script src="js/apx-power-world.js?v=202610271659"></script>
-    <script src="js/apx-consumable-crafter.js?v=202610271659"></script>
-    <script src="js/apx-npc-crafter.js?v=202610271659"></script>
-    <script src="js/apx-why.js?v=202610271659"></script>
-    <script src="js/apx-engine.js?v=202610271659"></script>
-    <script src="js/apx-perks-ui.js?v=202610271659"></script>
-    <script src="js/apx-rest.js?v=202610271659"></script>
-    <script src="js/apx-looting.js?v=202610271659"></script>
-    <script src="js/apx-main.js?v=202610271659"></script>
+    <script src="js/apx-dialogs.js?v=202610281001"></script>
+    <script src="js/apx-patch-notes.js?v=202610281001"></script>
+    <script src="js/apx-dice.js?v=202610281001"></script>
+    <script src="js/apx-luck.js?v=202610281001"></script>
+    <script src="js/apx-data.js?v=202610281001"></script>
+    <script src="js/apx-item-effects.js?v=202610281001"></script>
+    <script src="js/apx-exo.js?v=202610281001"></script>
+    <script src="js/apx-traits.js?v=202610281001"></script>
+    <script src="js/apx-perks-db.js?v=202610281001"></script>
+    <script src="js/apx-migrations.js?v=202610281001"></script>
+    <script src="js/apx-roster.js?v=202610281001"></script>
+    <script src="js/apx-state.js?v=202610281001"></script>
+    <script src="js/apx-origin-wizard.js?v=202610281001"></script>
+    <script src="js/apx-ancestry-wizard.js?v=202610281001"></script>
+    <script src="js/apx-inventory-ui.js?v=202610281001"></script>
+    <script src="js/apx-craft-shared.js?v=202610281001"></script>
+    <script src="js/apx-armor-forge.js?v=202610281001"></script>
+    <script src="js/apx-weapon-forge.js?v=202610281001"></script>
+    <script src="js/apx-repair.js?v=202610281001"></script>
+    <script src="js/apx-power-crafter.js?v=202610281001"></script>
+    <script src="js/apx-summon-weapon.js?v=202610281001"></script>
+    <script src="js/apx-power-fx.js?v=202610281001"></script>
+    <script src="js/apx-power-world.js?v=202610281001"></script>
+    <script src="js/apx-consumable-crafter.js?v=202610281001"></script>
+    <script src="js/apx-npc-crafter.js?v=202610281001"></script>
+    <script src="js/apx-why.js?v=202610281001"></script>
+    <script src="js/apx-engine.js?v=202610281001"></script>
+    <script src="js/apx-perks-ui.js?v=202610281001"></script>
+    <script src="js/apx-rest.js?v=202610281001"></script>
+    <script src="js/apx-looting.js?v=202610281001"></script>
+    <script src="js/apx-main.js?v=202610281001"></script>
 
     <!-- Firebase (cloud sync — requires firebase-config.js to be configured) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=202610271659"></script>
-    <script src="js/apx-firebase.js?v=202610271659"></script>
-    <script src="js/apx-battlemap.js?v=202610271659"></script>
-    <script src="js/apx-fog.js?v=202610271659"></script>
-    <script src="js/apx-map-tiles.js?v=202610271659"></script>
+    <script src="js/firebase-config.js?v=202610281001"></script>
+    <script src="js/apx-firebase.js?v=202610281001"></script>
+    <script src="js/apx-battlemap.js?v=202610281001"></script>
+    <script src="js/apx-fog.js?v=202610281001"></script>
+    <script src="js/apx-map-tiles.js?v=202610281001"></script>
     <script>
     // ── Sidebar: folders, worlds, meatball menus ─────────────
     window._sidebarChars = [];
@@ -4193,6 +4194,16 @@
                 st.currency = (parseInt(st.currency) || 0) + (parseInt(g.cu) || 0);
                 applied.push(`${g.cu} Cu`);
             }
+            // Crafting Materials (from the Bastion's vault): onto your own material rows
+            if (g.mats) {
+                st.items = st.items || [];
+                [['common', 'Common', 1, 1], ['uncommon', 'Uncommon', 2, 5], ['rare', 'Rare', 5, 10]].forEach(([k, label, wt, val]) => {
+                    let n = parseInt(g.mats[k]) || 0; if (n <= 0) return;
+                    let name = label + ' Crafting Materials', it = st.items.find(i => i.name === name);
+                    if (it) it.ct = (parseInt(it.ct) || 0) + n; else st.items.push({ name, wt, ct: n, val, isLocked: true });
+                    applied.push(`${n} ${label} Crafting Materials`);
+                });
+            }
             // From the GM's World Settings: extra GP (this world's Ancestry budget) and extra Starting XP
             if (g.gp) {
                 st.worldGpBonus = Object.assign({}, st.worldGpBonus || {});
@@ -4210,7 +4221,7 @@
         });
         st.receivedGifts = st.receivedGifts.slice(-200);
         if (applied.length) {
-            window.APXDice?.notify(`${gifts.some(g => g.from === 'World Settings') ? 'From your GM' : 'Loot from the GM'}: ${applied.join(', ')}.`, { kind: 'loot', open: true });
+            window.APXDice?.notify(`${gifts.some(g => g.from === 'Bastion') ? 'From the Bastion\'s vault' : gifts.some(g => g.from === 'World Settings') ? 'From your GM' : 'Loot from the GM'}: ${applied.join(', ')}.`, { kind: 'loot', open: true });
             window.recalculateMath?.();
             window.scheduleAutoSave?.();
         }
@@ -6076,12 +6087,13 @@
         });
     }
     </script>
-    <script src="js/apx-chat.js?v=202610271659"></script>
-    <script src="js/apx-actions.js?v=202610271659"></script>
-    <script src="js/apx-creature-actions.js?v=202610271659"></script>
-    <script src="js/apx-seal.js?v=202610271659"></script>
-    <script src="js/apx-summons.js?v=202610271659"></script>
-    <script src="js/apx-extras.js?v=202610271659"></script>
-    <script src="js/apx-theme-light.js?v=202610271659"></script>
+    <script src="js/apx-chat.js?v=202610281001"></script>
+    <script src="js/apx-bastion.js?v=202610281001"></script>
+    <script src="js/apx-actions.js?v=202610281001"></script>
+    <script src="js/apx-creature-actions.js?v=202610281001"></script>
+    <script src="js/apx-seal.js?v=202610281001"></script>
+    <script src="js/apx-summons.js?v=202610281001"></script>
+    <script src="js/apx-extras.js?v=202610281001"></script>
+    <script src="js/apx-theme-light.js?v=202610281001"></script>
 </body>
 </html>

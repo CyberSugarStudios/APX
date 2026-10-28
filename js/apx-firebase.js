@@ -48,7 +48,9 @@
             loadFogData: () => Promise.resolve(null),
             loadFogDataForPlayer: () => Promise.resolve(null),
             writeBattlePosition: () => Promise.resolve(), writeBattleMeasure: () => Promise.resolve(), writePlayerBattle: () => Promise.resolve(), writeGmPing: () => Promise.resolve(),
-            listenBattlePositions: () => (() => {}), askLuck: () => Promise.resolve(), claimLuck: () => Promise.resolve(false) };
+            listenBattlePositions: () => (() => {}), askLuck: () => Promise.resolve(), claimLuck: () => Promise.resolve(false),
+            listenBastion: () => (() => {}), saveBastion: () => Promise.resolve(), listenBastionCol: () => (() => {}),
+            putBastionDoc: () => Promise.resolve(), delBastionDoc: () => Promise.resolve(), getBastionDoc: () => Promise.resolve(null), voteBastionSug: () => Promise.resolve() };
         return;
     }
 
@@ -627,6 +629,30 @@
         await db.collection('worldCodes').doc(inviteCode.toUpperCase().trim()).collection('players').doc(user.uid)
             .set({ _giftAcks: { [id]: Date.now() } }, { merge: true });
     }
+    // ── Bastion (Rulebook Chapter 13): worldCodes/{code}/bastion/main ─────────
+    // Only the GM's app writes the Bastion itself. Everyone in the world writes to its sub-collections
+    // (sugs: suggestions, reqs: requests the GM's app applies, imgs: pictures, live: the shared Structural
+    // Damage choices). See js/apx-bastion.js and FIREBASE_RULES.txt.
+    function _bastion(inviteCode) { return db.collection('worldCodes').doc(String(inviteCode).toUpperCase().trim()).collection('bastion').doc('main'); }
+    function listenBastion(inviteCode, cb, onErr) {
+        if (!inviteCode) return () => {};
+        return _bastion(inviteCode).onSnapshot(snap => cb(snap.exists ? snap.data() : null, { fromCache: !!(snap.metadata && snap.metadata.fromCache) }),
+            err => { console.warn('Bastion listener:', err.message); onErr && onErr(err); });
+    }
+    async function saveBastion(inviteCode, data) { await _bastion(inviteCode).set(apxClean(data)); }
+    function listenBastionCol(inviteCode, sub, cb, onErr) {
+        if (!inviteCode || !sub) return () => {};
+        return _bastion(inviteCode).collection(sub).onSnapshot(snap => cb(snap.docs.map(d => Object.assign({ id: d.id }, d.data()))),
+            err => { console.warn('Bastion ' + sub + ' listener:', err.message); onErr && onErr(err); });
+    }
+    async function putBastionDoc(inviteCode, sub, id, data, merge) { await _bastion(inviteCode).collection(sub).doc(id).set(apxClean(data), merge ? { merge: true } : {}); }
+    async function delBastionDoc(inviteCode, sub, id) { await _bastion(inviteCode).collection(sub).doc(id).delete(); }
+    async function getBastionDoc(inviteCode, sub, id) { let snap = await _bastion(inviteCode).collection(sub).doc(id).get(); return snap.exists ? snap.data() : null; }
+    // A vote changes only your own entry in the suggestion's votes (the rules allow nothing else)
+    async function voteBastionSug(inviteCode, sugId, uid, v) {
+        await _bastion(inviteCode).collection('sugs').doc(sugId).update({ ['votes.' + uid]: v ? v : firebase.firestore.FieldValue.delete() });
+    }
+
     // GM asks the party for a LUC (Loot) check
     async function publishLootRequest(inviteCode, req) {
         if (!inviteCode) return;
@@ -950,6 +976,10 @@
                 // each player's own Fog of War reveals (players/{uid}/fog) go first
                 let ps = await cref.collection('players').get().catch(() => ({ docs: [] }));
                 for (let d of ps.docs) await _purgeCollection(d.ref.collection('fog'));
+                // the Bastion's suggestions, requests, pictures and shared choices, then the Bastion
+                let bs = await cref.collection('bastion').get().catch(() => ({ docs: [] }));
+                for (let d of bs.docs) for (let sub of ['sugs', 'reqs', 'imgs', 'live']) await _purgeCollection(d.ref.collection(sub));
+                await _purgeCollection(cref.collection('bastion'));
                 for (let sub of WORLD_PUBLIC_SUBCOLLECTIONS) await _purgeCollection(cref.collection(sub));
                 await cref.delete().catch(() => {});
             }
@@ -1148,6 +1178,7 @@
         saveBattleImage, loadBattleImage, loadBattleImageForPlayer, deleteBattleImage,
         addXpGrant, ackXpGrants, setGmCondition, setGmWound, publishCombatLog, writeRollLog, setGmCompanionHp,
         gmGiveToPlayer, ackGmGifts, writeOutbox, clearOutbox, ackGift, publishLootRequest, askLuck, claimLuck,
+        listenBastion, saveBastion, listenBastionCol, putBastionDoc, delBastionDoc, getBastionDoc, voteBastionSug,
         saveFogData, loadFogData, loadFogDataForPlayer, listenFogDataForPlayer, saveFogMask, listenFogMask,
         listenWorldPlayers, listenPublicWorldNotes, kickWorldPlayer, leaveWorldAsPlayer,
         setActiveCharId, clearGmFields,

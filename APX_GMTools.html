@@ -448,8 +448,8 @@
 .text-yellow-500\/50 { color: color-mix(in srgb, var(--c-yellow-dk) 50%, transparent) !important; }
                 .apx-tb-btn:hover { filter: brightness(1.18); }
             </style>
-    <link rel="stylesheet" href="css/apx-themes.css?v=202610271659">
-    <link rel="stylesheet" href="css/tailwind.css?v=202610271659">
+    <link rel="stylesheet" href="css/apx-themes.css?v=202610281001">
+    <link rel="stylesheet" href="css/tailwind.css?v=202610281001">
 </head>
 <body class="text-slate-200 min-h-screen">
     <div id="apxAuthBar" class="fixed top-2 right-3 z-[100] text-[10px]"></div>
@@ -471,6 +471,7 @@
                 <button onclick="window.openGmPowerLibModal()" class="px-3 py-2 rounded apx-tb-btn text-white text-xs font-bold shadow" style="background:#6d28d9" title="Powers you make: for NPCs, items, and for players to learn (Add Power)">Powers</button>
                 <button onclick="window.openGmItemLibModal()" class="px-3 py-2 rounded bg-yellow-700 hover:bg-yellow-600 text-white text-xs font-bold shadow" title="Custom items, forged weapons and armor, and consumables you make">Loot &amp; Items</button>
                 <button onclick="window.openModal('gmWorldModal')" class="px-3 py-2 rounded bg-amber-700 hover:bg-amber-600 text-white text-xs font-bold shadow">World</button>
+                <button id="gmBastionBtn" onclick="window.APXBastion && window.APXBastion.open()" class="hidden px-3 py-2 rounded text-white text-xs font-bold shadow apx-tb-btn" style="background:#92400e" title="The party's Bastion (Rulebook Chapter 13)">Bastion</button>
                 <span id="gmToolbarWorldName" class="hidden text-xs font-bold text-amber-400 bg-amber-900/30 border border-amber-700/40 rounded px-2 py-1 cursor-pointer" onclick="window.openModal('gmWorldModal')"></span>
             </div>
         </div>
@@ -1543,45 +1544,45 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
 
-    <script src="js/apx-dialogs.js?v=202610271659"></script>
-    <script src="js/apx-patch-notes.js?v=202610271659"></script>
-    <script src="js/apx-dice.js?v=202610271659"></script>
-    <script src="js/apx-data.js?v=202610271659"></script>
-    <script src="js/apx-item-effects.js?v=202610271659"></script>
-    <script src="js/apx-exo.js?v=202610271659"></script>
-    <script src="js/apx-perks-db.js?v=202610271659"></script>
-    <script src="js/apx-migrations.js?v=202610271659"></script>
-    <script src="js/apx-state.js?v=202610271659"></script>
-    <script src="js/apx-craft-shared.js?v=202610271659"></script>
-    <script src="js/apx-armor-forge.js?v=202610271659"></script>
-    <script src="js/apx-weapon-forge.js?v=202610271659"></script>
-    <script src="js/apx-consumable-crafter.js?v=202610271659"></script>
-    <script src="js/apx-perks-ui.js?v=202610271659"></script>
-    <script src="js/apx-power-crafter.js?v=202610271659"></script>
-    <script src="js/apx-summon-weapon.js?v=202610271659"></script>
-    <script src="js/apx-power-fx.js?v=202610271659"></script>
-    <script src="js/apx-power-world.js?v=202610271659"></script>
-    <script src="js/apx-power-world-gm.js?v=202610271659"></script>
-    <script src="js/apx-npc-crafter.js?v=202610271659"></script>
-    <script src="js/apx-creature-actions.js?v=202610271659"></script>
-    <script src="js/apx-inventory-ui.js?v=202610271659"></script>
-    <script src="js/apx-ancestry-wizard.js?v=202610271659"></script>
-    <script src="js/apx-gm-screen.js?v=202610271659"></script>
-    <script src="js/apx-seal.js?v=202610271659"></script>
-    <script src="js/apx-loot-maker.js?v=202610271659"></script>
-    <script src="js/apx-library.js?v=202610271659"></script>
-    <script src="js/apx-gm-content.js?v=202610271659"></script>
-    <script src="js/apx-gmtools-main.js?v=202610271659"></script>
+    <script src="js/apx-dialogs.js?v=202610281001"></script>
+    <script src="js/apx-patch-notes.js?v=202610281001"></script>
+    <script src="js/apx-dice.js?v=202610281001"></script>
+    <script src="js/apx-data.js?v=202610281001"></script>
+    <script src="js/apx-item-effects.js?v=202610281001"></script>
+    <script src="js/apx-exo.js?v=202610281001"></script>
+    <script src="js/apx-perks-db.js?v=202610281001"></script>
+    <script src="js/apx-migrations.js?v=202610281001"></script>
+    <script src="js/apx-state.js?v=202610281001"></script>
+    <script src="js/apx-craft-shared.js?v=202610281001"></script>
+    <script src="js/apx-armor-forge.js?v=202610281001"></script>
+    <script src="js/apx-weapon-forge.js?v=202610281001"></script>
+    <script src="js/apx-consumable-crafter.js?v=202610281001"></script>
+    <script src="js/apx-perks-ui.js?v=202610281001"></script>
+    <script src="js/apx-power-crafter.js?v=202610281001"></script>
+    <script src="js/apx-summon-weapon.js?v=202610281001"></script>
+    <script src="js/apx-power-fx.js?v=202610281001"></script>
+    <script src="js/apx-power-world.js?v=202610281001"></script>
+    <script src="js/apx-power-world-gm.js?v=202610281001"></script>
+    <script src="js/apx-npc-crafter.js?v=202610281001"></script>
+    <script src="js/apx-creature-actions.js?v=202610281001"></script>
+    <script src="js/apx-inventory-ui.js?v=202610281001"></script>
+    <script src="js/apx-ancestry-wizard.js?v=202610281001"></script>
+    <script src="js/apx-gm-screen.js?v=202610281001"></script>
+    <script src="js/apx-seal.js?v=202610281001"></script>
+    <script src="js/apx-loot-maker.js?v=202610281001"></script>
+    <script src="js/apx-library.js?v=202610281001"></script>
+    <script src="js/apx-gm-content.js?v=202610281001"></script>
+    <script src="js/apx-gmtools-main.js?v=202610281001"></script>
 
     <!-- Firebase (cloud sync) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=202610271659"></script>
-    <script src="js/apx-firebase.js?v=202610271659"></script>
-    <script src="js/apx-battlemap.js?v=202610271659"></script>
-    <script src="js/apx-fog.js?v=202610271659"></script>
-    <script src="js/apx-map-tiles.js?v=202610271659"></script>
+    <script src="js/firebase-config.js?v=202610281001"></script>
+    <script src="js/apx-firebase.js?v=202610281001"></script>
+    <script src="js/apx-battlemap.js?v=202610281001"></script>
+    <script src="js/apx-fog.js?v=202610281001"></script>
+    <script src="js/apx-map-tiles.js?v=202610281001"></script>
     <script>
     // Auto-save GM races to Firestore whenever they change
     window.onApxAuthReady = async function(user) {
@@ -1728,6 +1729,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 lootDefeated:    priv.lootDefeated || 0,
                 lootTier:        priv.lootTier ?? 1,         // the highest Tier among them (Currency loot)
                 combatJson:      priv.combatJson || null,   // a fight left mid-combat
+                bastionGm:       priv.bastionGm || {},      // your private Bastion notes (js/apx-bastion.js)
                 partyChars:      priv.partyChars || {},     // each player's character in this world (a new one in their place: apx-gm-screen.js _gmCharSwapCheck)
                 settings:        Object.assign(window.apxDefaultWorldSettings(), priv.settings || w.worldSettings || {}),
                 // ALWAYS load from private data first — priv contains the full unfiltered
@@ -1893,6 +1895,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         lootDefeated: w.notesV2.lootDefeated || 0,
                         lootTier: w.notesV2.lootTier ?? 1,
                         combatJson: w.notesV2.combatJson || null,
+                        bastionGm: w.notesV2.bastionGm || {},
                         settings: w.notesV2.settings || window.apxDefaultWorldSettings(),
                     }
                 };
@@ -2058,7 +2061,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── World Settings ───────────────────────────────────────────
     // Rules for characters in this world: Starting XP, Max GP, starting Currency, and how
     // Core Attributes are set. Characters that aren't in a world aren't affected.
-    window.apxDefaultWorldSettings = () => ({ startingXp: 25, maxGp: 15, startingCu: 0, attrMethod: 'pointBuy', allowExoSuits: false, allowPerkRemoval: true });
+    window.apxDefaultWorldSettings = () => ({ startingXp: 25, maxGp: 15, startingCu: 0, attrMethod: 'pointBuy', allowExoSuits: false, allowPerkRemoval: true, bastion: false });
+    // The Bastion (js/apx-bastion.js) reads the open world through this: its invite code, settings, and
+    // your private notes (secret infiltrators among its Recruits live there, never in the shared Bastion)
+    window.apxGmBastionWorld = function() {
+        let w = getActiveWorld(); if (!w) return null;
+        return { worldId: w.worldId || w.id, code: w.inviteCode || null, name: w.name || '', settings: _wNotes.settings || {}, priv: _wNotes, save: () => saveWorldNotes() };
+    };
     // The NPC Crafter offers Exo-Suits to this world's NPCs and summons only while its settings allow them
     window._gmExoAllowed = () => !!(_wNotes && _wNotes.settings && _wNotes.settings.allowExoSuits);
     window.renderWorldSettings = function() {
@@ -2078,6 +2087,10 @@ document.addEventListener('DOMContentLoaded', () => {
             <label class="flex items-start gap-2 bg-slate-900 border border-slate-700 rounded p-3 mb-3 cursor-pointer">
                 <input type="checkbox" ${st.allowExoSuits ? 'checked' : ''} onchange="window.setWorldSetting('allowExoSuits', this.checked)" class="mt-0.5">
                 <div><div class="text-xs font-bold text-white">Allow Exo-Suits</div><div class="text-[10px] text-slate-500 leading-tight">Players can buy and build Exo-Suits (Rulebook Chapter 11): a Juggernaut, Phantom or Conduit Base Suit for 3,000 Currency with up to 3 Integrated Systems, from the Exo-Suit Forge on their sheet. Your NPCs, summoned creatures and players' Loyal Companions can have one too (NPC Crafter, Step 4, paid in TP). Off: the forge is hidden, and suits players already own stop working in this world (they can only scrap them).</div></div></label>
+            <div class="flex items-start gap-2 bg-slate-900 border border-slate-700 rounded p-3 mb-3">
+                <input type="checkbox" id="wsBastion" ${st.bastion ? 'checked' : ''} onchange="window.setWorldSetting('bastion', this.checked); window.APXBastion && window.APXBastion.settingChanged(this.checked)" class="mt-0.5 cursor-pointer">
+                <div class="flex-1"><label for="wsBastion" class="text-xs font-bold text-white cursor-pointer">Bastion</label><div class="text-[10px] text-slate-500 leading-tight">Turn this on when the party earns (or is granted) a Bastion (Rulebook Chapter 13). Everyone in the world gets a shared Bastion window: its Population, Supplies, Power and Defense, the vault, Recruits, a builder map with levels above and below the surface, suggestions the party votes on, Raids and Militia. You found it, approve spending and start construction (building happens while your world is open). Off: the window is hidden for everyone, and nothing is lost.</div>
+                ${st.bastion ? '<button onclick="window.APXBastion && window.APXBastion.open()" class="mt-1.5 px-2 py-1 rounded text-[11px] font-bold" style="background:#b45309;color:#fff;border:1px solid #f59e0b">Open the Bastion</button>' : ''}</div></div>
             <label class="flex items-start gap-2 bg-slate-900 border border-slate-700 rounded p-3 mb-3 cursor-pointer">
                 <input type="checkbox" data-ws-perkremove ${st.allowPerkRemoval !== false ? 'checked' : ''} onchange="window.setWorldSetting('allowPerkRemoval', this.checked)" class="mt-0.5">
                 <div><div class="text-xs font-bold text-white">Players can remove perk ranks</div><div class="text-[10px] text-slate-500 leading-tight">A − Rank button on each perk takes off its top rank and refunds its XP (one rank at a time, logged in their XP log and shown in your dice tray). Off: perks can only be bought in this world.</div></div></label>
@@ -7222,8 +7235,9 @@ document.addEventListener('DOMContentLoaded', () => {
         </script>
     <div id="floatingWindowContainer"></div>
 
-    <script src="js/apx-chat.js?v=202610271659"></script>
-    <script src="js/apx-extras.js?v=202610271659"></script>
-    <script src="js/apx-theme-light.js?v=202610271659"></script>
+    <script src="js/apx-chat.js?v=202610281001"></script>
+    <script src="js/apx-bastion.js?v=202610281001"></script>
+    <script src="js/apx-extras.js?v=202610281001"></script>
+    <script src="js/apx-theme-light.js?v=202610281001"></script>
 </body>
 </html>

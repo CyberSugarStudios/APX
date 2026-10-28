@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// APX FIRESTORE RULES  (v2026.10.10)
+// APX FIRESTORE RULES  (v2026.10.28)
 // Paste into: Firebase Console > Firestore Database > Rules tab
 // ─────────────────────────────────────────────────────────────────────────────
 // No Firebase Storage or Blaze plan required.
@@ -7,6 +7,17 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // ── Helpers (the Bastion rules below use them) ───────────────────────────
+    function worldOf(code) { return get(/databases/$(database)/documents/worldCodes/$(code)).data; }
+    function isWorldGm(code) { return request.auth != null && worldOf(code).gmUid == request.auth.uid; }
+    // Someone who joined the world (they have a player record) and hasn't been kicked or banned
+    function isWorldMember(code) {
+      return request.auth != null
+          && exists(/databases/$(database)/documents/worldCodes/$(code)/players/$(request.auth.uid))
+          && !(request.auth.uid in worldOf(code).get('banned', []))
+          && !(request.auth.uid in worldOf(code).get('kicked', []));
+    }
 
     // ── Users own everything under their UID ────────────────────────────────
     match /users/{userId}/{document=**} {
@@ -99,6 +110,45 @@ service cloud.firestore {
           && !(request.auth.uid in get(/databases/$(database)/documents/worldCodes/$(inviteCode)).data.get('kicked', []));
       // A player may always remove their own record (leaving a world, deleting their account)
       allow delete: if request.auth != null && request.auth.uid == playerId;
+    }
+
+    // ── Bastion (Rulebook Chapter 13) ────────────────────────────────────────
+    // worldCodes/{code}/bastion/main: the party's shared Bastion. Everyone signed in can read it (like
+    // the world itself); only the world's GM writes it: the GM's app applies what the players ask for.
+    match /worldCodes/{inviteCode}/bastion/{bastionId} {
+      allow read: if request.auth != null;
+      allow write: if isWorldGm(inviteCode);
+    }
+    // Suggestions: buildings a player draws on the Bastion map. The author writes their own (while the
+    // GM can change or remove any); everyone in the world can vote, changing only their own vote.
+    match /worldCodes/{inviteCode}/bastion/{bastionId}/sugs/{sugId} {
+      allow read: if request.auth != null;
+      allow create: if (isWorldMember(inviteCode) || isWorldGm(inviteCode)) && request.resource.data.by == request.auth.uid;
+      allow update: if isWorldGm(inviteCode)
+          || (isWorldMember(inviteCode) && resource.data.by == request.auth.uid && request.resource.data.by == request.auth.uid)
+          || (isWorldMember(inviteCode)
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['votes'])
+              && request.resource.data.get('votes', {}).diff(resource.data.get('votes', {})).affectedKeys().hasOnly([request.auth.uid]));
+      allow delete: if isWorldGm(inviteCode) || (request.auth != null && resource.data.by == request.auth.uid);
+    }
+    // Requests to the GM's app (a deposit, assigning a Recruit, a Bastion check's result): sent as
+    // yourself; the GM's app answers them and tidies them away.
+    match /worldCodes/{inviteCode}/bastion/{bastionId}/reqs/{reqId} {
+      allow read: if request.auth != null;
+      allow create: if (isWorldMember(inviteCode) || isWorldGm(inviteCode)) && request.resource.data.by == request.auth.uid;
+      allow update, delete: if isWorldGm(inviteCode) || (request.auth != null && resource.data.by == request.auth.uid);
+    }
+    // Pictures for the Bastion map (a level's background, a Plot Type's tile), under 1 MB each
+    match /worldCodes/{inviteCode}/bastion/{bastionId}/imgs/{imgId} {
+      allow read: if request.auth != null;
+      allow create: if (isWorldMember(inviteCode) || isWorldGm(inviteCode)) && request.resource.data.by == request.auth.uid
+          && request.resource.data.src is string && request.resource.data.src.size() < 1040000;
+      allow delete: if isWorldGm(inviteCode) || (request.auth != null && resource.data.by == request.auth.uid);
+    }
+    // Choices the managers and GM make together (how Structural Damage is absorbed)
+    match /worldCodes/{inviteCode}/bastion/{bastionId}/live/{docId} {
+      allow read: if request.auth != null;
+      allow write: if isWorldMember(inviteCode) || isWorldGm(inviteCode);
     }
 
     // ── Per-player Fog of War ────────────────────────────────────────────────
